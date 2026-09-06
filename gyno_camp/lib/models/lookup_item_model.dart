@@ -42,4 +42,24 @@ class LookupItemModel {
       sortOrder: map['sort_order'] as int? ?? 0,
     );
   }
+
+  LookupItemModel copyWith({
+    String? id,
+    String? category,
+    String? code,
+    String? labelEn,
+    String? labelNe,
+    bool? isActive,
+    int? sortOrder,
+  }) {
+    return LookupItemModel(
+      id: id ?? this.id,
+      category: category ?? this.category,
+      code: code ?? this.code,
+      labelEn: labelEn ?? this.labelEn,
+      labelNe: labelNe ?? this.labelNe,
+      isActive: isActive ?? this.isActive,
+      sortOrder: sortOrder ?? this.sortOrder,
+    );
+  }
 }

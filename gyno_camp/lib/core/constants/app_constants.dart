@@ -45,4 +45,11 @@ class AppConstants {
   static const String auditActionReportExcelExport = 'REPORT_EXCEL_EXPORTED';
   static const String auditActionFormScannedOcr = 'FORM_SCANNED_OCR';
   static const String auditActionPatientRegisteredViaOcr = 'PATIENT_REGISTERED_VIA_OCR';
+  static const String auditActionLookupAdd = 'LOOKUP_ITEM_ADDED';
+  static const String auditActionLookupUpdate = 'LOOKUP_ITEM_UPDATED';
+  static const String auditActionLookupToggle = 'LOOKUP_ITEM_TOGGLED';
+  static const String auditActionLookupDelete = 'LOOKUP_ITEM_DELETED';
+  static const String auditActionCampArchive = 'CAMP_ARCHIVED';
+  static const String auditActionCampUpdate = 'CAMP_UPDATED';
+  static const String auditActionStaffAssign = 'CAMP_STAFF_ASSIGNED';
 }

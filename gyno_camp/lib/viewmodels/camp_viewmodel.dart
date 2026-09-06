@@ -124,6 +124,83 @@ class CampViewModel extends StateNotifier<CampState> {
       return false;
     }
   }
+
+  Future<bool> archiveCamp(String campId, {required String adminUserId, required String deviceId}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final success = await _campRepository.archiveCamp(
+        campId,
+        adminUserId: adminUserId,
+        deviceId: deviceId,
+      );
+      if (success) {
+        await loadCamps();
+        return true;
+      }
+      state = state.copyWith(isLoading: false, errorMessage: 'Unable to archive camp.');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Archive camp error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateCamp(CampModel camp, {required String adminUserId, required String deviceId}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await _campRepository.updateCamp(
+        camp,
+        adminUserId: adminUserId,
+        deviceId: deviceId,
+      );
+      await loadCamps();
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Update camp error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteCamp(String campId, {required String adminUserId, required String deviceId}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final success = await _campRepository.deleteCamp(
+        campId,
+        adminUserId: adminUserId,
+        deviceId: deviceId,
+      );
+      if (success) {
+        await loadCamps();
+        return true;
+      }
+      state = state.copyWith(isLoading: false, errorMessage: 'Unable to delete camp.');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Delete camp error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> assignStaff(String campId, List<String> staffIds, {required String adminUserId, required String deviceId}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final success = await _campRepository.assignStaff(
+        campId,
+        staffIds,
+        adminUserId: adminUserId,
+        deviceId: deviceId,
+      );
+      if (success) {
+        await loadCamps();
+        return true;
+      }
+      state = state.copyWith(isLoading: false, errorMessage: 'Unable to assign staff.');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Assign staff error: $e');
+      return false;
+    }
+  }
 }
 
 final campRepositoryProvider = Provider<ICampRepository>((ref) {

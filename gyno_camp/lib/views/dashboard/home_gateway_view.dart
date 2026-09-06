@@ -6,6 +6,10 @@ import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/sync_viewmodel.dart';
+import '../admin/audit_trail_view.dart';
+import '../admin/camp_management_view.dart';
+import '../admin/device_management_view.dart';
+import '../admin/master_config_view.dart';
 import '../patient/patient_list_view.dart';
 import '../patient/patient_registration_view.dart';
 import '../reports/camp_report_view.dart';
@@ -66,7 +70,6 @@ class HomeGatewayView extends ConsumerWidget {
   Widget _buildSuperAdminDashboard(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authStateProvider).currentUser;
     final campState = ref.watch(campStateProvider);
-    final campVm = ref.read(campStateProvider.notifier);
     final deviceState = ref.watch(deviceSecurityProvider);
     final auditLogs = ref.watch(auditLogProvider);
 
@@ -214,30 +217,13 @@ class HomeGatewayView extends ConsumerWidget {
                         ? 'Active: ${campState.activeCamp!.name} (${campState.activeCamp!.campCode})'
                         : '${campState.camps.length} camps configured (No open camp)',
                   ),
-                  trailing: campState.hasActiveCamp
-                      ? OutlinedButton(
-                          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.dangerRose),
-                          onPressed: () {
-                            campVm.closeCamp(
-                              campState.activeCamp!.id,
-                              adminUserId: user!.id,
-                              deviceId: deviceState.device?.deviceId ?? 'dev-admin',
-                            );
-                          },
-                          child: const Text('Close Camp'),
-                        )
-                      : ElevatedButton(
-                          onPressed: () {
-                            if (campState.camps.isNotEmpty) {
-                              campVm.openCamp(
-                                campState.camps.first.id,
-                                adminUserId: user!.id,
-                                deviceId: deviceState.device?.deviceId ?? 'dev-admin',
-                              );
-                            }
-                          },
-                          child: const Text('Open Camp'),
-                        ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CampManagementView()),
+                    );
+                  },
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -251,13 +237,11 @@ class HomeGatewayView extends ConsumerWidget {
                   ),
                   title: const Text('Device Whitelist & Hardware Security', style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text('Current Device: ${deviceState.device?.deviceName ?? "Tablet"} (Approved)'),
-                  trailing: const Chip(
-                    label: Text('Manage', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    backgroundColor: AppTheme.primaryLight,
-                  ),
+                  trailing: const Icon(Icons.chevron_right),
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Device Whitelist: All connected camp hardware is cryptographically verified.')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DeviceManagementView()),
                     );
                   },
                 ),
@@ -275,8 +259,9 @@ class HomeGatewayView extends ConsumerWidget {
                   subtitle: const Text('Dynamic diagnoses, Yellow Form dropdowns, and medicine formulary'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Dynamic Lookup Master Config: Pre-loaded and active.')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MasterConfigView()),
                     );
                   },
                 ),
@@ -400,13 +385,18 @@ class HomeGatewayView extends ConsumerWidget {
                 'Tamper-Evident System Audit Trail',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              Chip(
-                visualDensity: VisualDensity.compact,
+              TextButton.icon(
+                icon: const Icon(Icons.open_in_new, size: 14),
                 label: Text(
-                  '${auditLogs.logs.length} Events',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  '${auditLogs.logs.length} Events (View All)',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 ),
-                backgroundColor: AppTheme.primaryLight,
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AuditTrailView()),
+                  );
+                },
               ),
             ],
           ),

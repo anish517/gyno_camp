@@ -8,6 +8,7 @@ import '../../models/patient_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/clinical_assessment_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
+import '../../viewmodels/master_lookup_viewmodel.dart';
 
 class ClinicalAssessmentView extends ConsumerStatefulWidget {
   final PatientModel patient;
@@ -638,6 +639,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
 
   // --- 4. Diagnoses (21 Standard Yellow Form Options) ---
   Widget _buildStation4Diagnoses(ClinicalAssessmentState state, ClinicalAssessmentViewModel vm) {
+    final lookupState = ref.watch(masterLookupProvider);
+    final diagnosesList = lookupState.activeDiagnoses.isNotEmpty
+        ? lookupState.activeDiagnoses.map((d) => d.labelEn).toList()
+        : ClinicalConstants.defaultDiagnoses;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -652,7 +658,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         Wrap(
           spacing: 8,
           runSpacing: 6,
-          children: ClinicalConstants.defaultDiagnoses.map((diag) {
+          children: diagnosesList.map((diag) {
             final isSelected = state.selectedDiagnoses.contains(diag);
             return FilterChip(
               label: Text(
@@ -675,6 +681,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
 
   // --- 5. Treatment & Prescriptions ---
   Widget _buildStation5Treatment(ClinicalAssessmentState state, ClinicalAssessmentViewModel vm) {
+    final lookupState = ref.watch(masterLookupProvider);
+    final medicinesList = lookupState.activeMedicines.isNotEmpty
+        ? lookupState.activeMedicines.map((m) => m.labelEn).toList()
+        : ClinicalConstants.defaultMedications;
+    final hospitalsList = lookupState.activeReferralHospitals.isNotEmpty
+        ? lookupState.activeReferralHospitals.map((h) => h.labelEn).toList()
+        : ClinicalConstants.referralHospitals;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -725,9 +739,9 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         const Text('Referral for Surgery (शल्यक्रिया सिफारिस)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: state.surgicalReferral,
+          initialValue: hospitalsList.contains(state.surgicalReferral) ? state.surgicalReferral : null,
           decoration: const InputDecoration(labelText: 'Referral Hospital'),
-          items: ClinicalConstants.referralHospitals.map((h) {
+          items: hospitalsList.map((h) {
             return DropdownMenuItem(value: h, child: Text(h));
           }).toList(),
           onChanged: (val) => vm.setSurgicalReferral(val),
@@ -738,7 +752,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         const SizedBox(height: 8),
         Wrap(
           spacing: 6,
-          children: ClinicalConstants.defaultMedications.map((m) {
+          children: medicinesList.map((m) {
             final isSelected = state.selectedMedications.contains(m);
             return FilterChip(
               visualDensity: VisualDensity.compact,
