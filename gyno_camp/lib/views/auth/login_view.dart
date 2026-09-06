@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/user_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
+import '../security/device_activation_view.dart';
 
 class LoginView extends ConsumerStatefulWidget {
   const LoginView({super.key});
@@ -54,256 +55,315 @@ class _LoginViewState extends ConsumerState<LoginView> {
     await authVm.login(email: email, deviceId: deviceId);
   }
 
+  Future<void> _handleInstantRoleLogin(UserRole role, String deviceId) async {
+    _selectRole(role);
+    final authVm = ref.read(authStateProvider.notifier);
+    await authVm.loginAsRole(role: role, deviceId: deviceId);
+  }
+
+  Color _getRoleColor(UserRole role) {
+    switch (role) {
+      case UserRole.dataTaker:
+        return AppTheme.primaryTeal;
+      case UserRole.superAdmin:
+        return const Color(0xFF4338CA);
+      case UserRole.dataAnalyst:
+        return const Color(0xFF0F766E);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
-    final authVm = ref.read(authStateProvider.notifier);
     final deviceState = ref.watch(deviceSecurityProvider);
     final deviceId = deviceState.device?.deviceId ?? 'dev-local';
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 12),
-              // App Logo / Icon Header
-              Center(
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppTheme.primaryTeal, width: 2),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // App Brand Header
+                  Center(
+                    child: Container(
+                      width: 68,
+                      height: 68,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppTheme.primaryTeal, Color(0xFF0F766E)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryTeal.withValues(alpha: 0.25),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.medical_services_rounded, size: 34, color: Colors.white),
+                    ),
                   ),
-                  child: const Icon(Icons.medical_services_outlined, size: 36, color: AppTheme.primaryTeal),
-                ),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                AppConstants.appTitleEn,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimaryLight,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                AppConstants.appTitleNe,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondaryLight,
-                ),
-              ),
-              const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  Text(
+                    AppConstants.appTitleEn,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    AppConstants.appTitleNe,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-              // Device Security Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppTheme.successGreen.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.successGreen.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.verified_user_outlined, color: AppTheme.successGreen, size: 18),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        'Verified Device: ${deviceState.device?.deviceName ?? "Camp Field Tablet #1"} (RBAC Active)',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.successGreen),
-                        overflow: TextOverflow.ellipsis,
+                  // Hardware Security Badge
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFA7F3D0)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.verified_user_rounded, color: Color(0xFF059669), size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            deviceState.device?.deviceName != null
+                                ? 'Authorized Terminal: ${deviceState.device!.deviceName} (RBAC Active)'
+                                : 'Clinical Workstation (RBAC Active)',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF065F46)),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Error Message Banner
-              if (authState.errorMessage != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.dangerRose.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.dangerRose),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline, color: AppTheme.dangerRose, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          authState.errorMessage!,
-                          style: const TextStyle(color: AppTheme.dangerRose, fontSize: 13),
-                        ),
+                  const SizedBox(height: 28),
+
+                  // Error Message Banner
+                  if (authState.errorMessage != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.dangerRose.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.dangerRose),
                       ),
-                    ],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: AppTheme.dangerRose, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              authState.errorMessage!,
+                              style: const TextStyle(color: AppTheme.dangerRose, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Role Selection Header
+                  const Text(
+                    'Select User Role to Continue:',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                   ),
-                ),
-
-              // Credential Form Card
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Staff Login (कर्मचारी लगइन)',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Sign in with your registered account credentials to access role-specific clinical tools.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Email Field
-                      TextField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'Staff Email / Username',
-                          prefixIcon: Icon(Icons.email_outlined),
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Password Field
-                      TextField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        decoration: InputDecoration(
-                          labelText: 'Password / Security PIN',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                          ),
-                          border: const OutlineInputBorder(),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-
-                      // Submit Button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryTeal,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: authState.isLoading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                )
-                              : const Icon(Icons.login),
-                          label: Text(
-                            authState.isLoading ? 'Authenticating...' : 'Sign In as ${_selectedRole.displayNameEn}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                          onPressed: authState.isLoading ? null : () => _handleLogin(deviceId),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Choose your designated role to launch the station console or enter credentials below:',
+                    style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
                   ),
-                ),
-              ),
+                  const SizedBox(height: 14),
 
-              const SizedBox(height: 24),
+                  // 3 Role Cards
+                  _buildRoleCard(
+                    title: 'Data Taker (Field Staff)',
+                    nepaliTitle: 'डाटा टेकर (क्षेत्रीय कर्मचारी)',
+                    emailSubtitle: 'sita@gynocamp.org • Sita Sharma (Field Nurse)',
+                    description: 'Station 1–6 patient intake, Yellow Form OCR scan, vitals & offline sync',
+                    icon: Icons.assignment_ind_rounded,
+                    color: AppTheme.primaryTeal,
+                    isSelected: _selectedRole == UserRole.dataTaker,
+                    onTap: () => _selectRole(UserRole.dataTaker),
+                    onFastLogin: () => _handleInstantRoleLogin(UserRole.dataTaker, deviceId),
+                  ),
+                  const SizedBox(height: 10),
 
-              // Role Selection Section
-              const Text(
-                'Select User Role to Continue:',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Tap a staff role below to auto-fill verified credentials or fast-switch profile:',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 12),
+                  _buildRoleCard(
+                    title: 'Super Admin',
+                    nepaliTitle: 'सुपर एडमिन (प्रणाली नियन्त्रक)',
+                    emailSubtitle: 'admin@gynocamp.org • Dr. Aarav Sharma (Lead Gynecologist)',
+                    description: 'Camp scheduling, staff deployment roster, device approvals & master config',
+                    icon: Icons.admin_panel_settings_rounded,
+                    color: const Color(0xFF4338CA),
+                    isSelected: _selectedRole == UserRole.superAdmin,
+                    onTap: () => _selectRole(UserRole.superAdmin),
+                    onFastLogin: () => _handleInstantRoleLogin(UserRole.superAdmin, deviceId),
+                  ),
+                  const SizedBox(height: 10),
 
-              // Role Card 1: Data Taker
-              _buildRoleCard(
-                title: 'Data Taker (Field Staff)',
-                nepaliTitle: 'डाटा टेकर (क्षेत्रीय कर्मचारी)',
-                emailSubtitle: 'sita@gynocamp.org (Sita Sharma)',
-                description: 'Registers patients, scans Yellow Form, and enters clinical data during camp.',
-                icon: Icons.assignment_ind_outlined,
-                color: AppTheme.primaryTeal,
-                isSelected: _selectedRole == UserRole.dataTaker,
-                onTap: () {
-                  _selectRole(UserRole.dataTaker);
-                  authVm.loginAsRole(role: UserRole.dataTaker, deviceId: deviceId);
-                },
-              ),
-              const SizedBox(height: 10),
+                  _buildRoleCard(
+                    title: 'Data Analyst',
+                    nepaliTitle: 'डाटा विश्लेषक (तथ्याङ्कविद्)',
+                    emailSubtitle: 'analyst@gynocamp.org • Bikash Adhikari (Epidemiologist)',
+                    description: 'Real-time POP indicators, cohort statistics & instant PDF / Excel export',
+                    icon: Icons.analytics_rounded,
+                    color: const Color(0xFF0F766E),
+                    isSelected: _selectedRole == UserRole.dataAnalyst,
+                    onTap: () => _selectRole(UserRole.dataAnalyst),
+                    onFastLogin: () => _handleInstantRoleLogin(UserRole.dataAnalyst, deviceId),
+                  ),
+                  const SizedBox(height: 24),
 
-              // Role Card 2: Super Admin
-              _buildRoleCard(
-                title: 'Super Admin',
-                nepaliTitle: 'सुपर एडमिन (प्रणाली नियन्त्रक)',
-                emailSubtitle: 'admin@gynocamp.org (Dr. Aarav Sharma)',
-                description: 'Manages camps, schedules staff, approves devices, and customizes form lists.',
-                icon: Icons.admin_panel_settings_outlined,
-                color: Colors.indigo,
-                isSelected: _selectedRole == UserRole.superAdmin,
-                onTap: () {
-                  _selectRole(UserRole.superAdmin);
-                  authVm.loginAsRole(role: UserRole.superAdmin, deviceId: deviceId);
-                },
-              ),
-              const SizedBox(height: 10),
+                  // Credential Authentication Card
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    color: Colors.white,
+                    child: Padding(
+                      padding: const EdgeInsets.all(22.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _getRoleColor(_selectedRole).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'Active Station: ${_selectedRole.displayNameEn}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getRoleColor(_selectedRole),
+                                  ),
+                                ),
+                              ),
+                              const Text(
+                                'Staff Login (कर्मचारी लगइन)',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
 
-              // Role Card 3: Data Analyst
-              _buildRoleCard(
-                title: 'Data Analyst',
-                nepaliTitle: 'डाटा विश्लेषक',
-                emailSubtitle: 'analyst@gynocamp.org (Bikash Adhikari)',
-                description: 'Reviews synced camp statistics and exports instant PDF and Excel reports.',
-                icon: Icons.analytics_outlined,
-                color: Colors.teal.shade800,
-                isSelected: _selectedRole == UserRole.dataAnalyst,
-                onTap: () {
-                  _selectRole(UserRole.dataAnalyst);
-                  authVm.loginAsRole(role: UserRole.dataAnalyst, deviceId: deviceId);
-                },
-              ),
-              const SizedBox(height: 20),
+                          // Email Field
+                          TextField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              labelText: 'Staff Email / Username',
+                              prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
 
-              // Lock Device Action
-              Center(
-                child: TextButton.icon(
-                  icon: const Icon(Icons.lock_clock, size: 18),
-                  label: const Text('Lock App Session (Require PIN)'),
-                  onPressed: () {
-                    ref.read(deviceSecurityProvider.notifier).lockApp();
-                  },
-                ),
+                          // Password Field
+                          TextField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Password / Security PIN',
+                              prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                              suffixIcon: IconButton(
+                                icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Submit Action Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _getRoleColor(_selectedRole),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                elevation: 1,
+                              ),
+                              icon: authState.isLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.login_rounded, size: 20),
+                              label: Text(
+                                authState.isLoading ? 'Authenticating Session...' : 'Sign In as ${_selectedRole.displayNameEn}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.2),
+                              ),
+                              onPressed: authState.isLoading ? null : () => _handleLogin(deviceId),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Bottom Security Link
+                  Center(
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF64748B)),
+                      label: const Text(
+                        'Device Authorization & Security Management',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const DeviceActivationView()),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Center(
+                    child: Text(
+                      'Protected under Nepal Ministry of Health Data Privacy Protocol • AES-256 Vault',
+                      style: TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -319,29 +379,31 @@ class _LoginViewState extends ConsumerState<LoginView> {
     required Color color,
     required bool isSelected,
     required VoidCallback onTap,
+    required VoidCallback onFastLogin,
   }) {
     return Card(
-      elevation: isSelected ? 3 : 1,
+      elevation: isSelected ? 2 : 0,
+      color: isSelected ? color.withValues(alpha: 0.04) : Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: isSelected ? color : Colors.transparent,
-          width: isSelected ? 2 : 0,
+          color: isSelected ? color : const Color(0xFFE2E8F0),
+          width: isSelected ? 2 : 1,
         ),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.all(14.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 24),
               ),
@@ -352,29 +414,55 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          title,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        Flexible(
+                          child: Text(
+                            title,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? color : const Color(0xFF1E293B),
+                            ),
+                          ),
                         ),
                         if (isSelected) ...[
                           const SizedBox(width: 6),
-                          Icon(Icons.check_circle, size: 16, color: color),
+                          Icon(Icons.check_circle_rounded, size: 16, color: color),
                         ],
                       ],
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       emailSubtitle,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? color : const Color(0xFF64748B),
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       description,
-                      style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+              const SizedBox(width: 8),
+              if (isSelected)
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: onFastLogin,
+                  child: const Text('1-Tap In', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                )
+              else
+                const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFCBD5E1), size: 14),
             ],
           ),
         ),

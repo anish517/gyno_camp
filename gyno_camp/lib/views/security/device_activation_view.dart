@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
+import '../auth/login_view.dart';
 
 class DeviceActivationView extends ConsumerStatefulWidget {
   const DeviceActivationView({super.key});
@@ -32,6 +33,15 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
       appBar: AppBar(
         title: const Text('Device Authorization & Activation'),
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Return to Login',
+          onPressed: () {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const LoginView()),
+            );
+          },
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -189,34 +199,27 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              if (state.latestOtp != null)
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, color: Colors.amber, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Test OTP generated: ${state.latestOtp}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          _otpController.text = state.latestOtp!;
-                        },
-                        child: const Text('Auto-Fill'),
-                      ),
-                    ],
-                  ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryLight.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
                 ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.mark_email_read_outlined, color: AppTheme.primaryTeal, size: 20),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'A 6-digit one-time authorization code has been issued for this device. Please enter the verification code to activate this hardware.',
+                        style: TextStyle(fontSize: 12.5, color: AppTheme.primaryDark),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               TextField(
                 controller: _otpController,
                 keyboardType: TextInputType.number,
@@ -267,13 +270,13 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                       label: const Text('Check Approval Status'),
                       onPressed: () => vm.checkCurrentDevice(),
                     ),
-                    const SizedBox(height: 8),
-                    // Quick Action for Demo & Testing
                     TextButton.icon(
-                      icon: const Icon(Icons.admin_panel_settings),
-                      label: const Text('Demo: Approve via Super Admin'),
-                      onPressed: () async {
-                        await vm.approveDeviceByAdmin(adminUserId: 'usr-superadmin-01');
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Return to Staff Login'),
+                      onPressed: () {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const LoginView()),
+                        );
                       },
                     ),
                   ],

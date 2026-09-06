@@ -50,9 +50,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ],
         ),
         actions: [
-          // Sample Loader for Demo & Immediate Testing
+          // Clinical Reference Form Templates
           PopupMenuButton<String>(
-            tooltip: 'Load Sample Document',
+            tooltip: 'Load Reference Form Template',
             icon: const Icon(Icons.document_scanner),
             onSelected: (sample) => ocrVm.loadSample(sample),
             itemBuilder: (context) => [
@@ -179,7 +179,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             const Divider(indent: 40, endIndent: 40),
             const SizedBox(height: 16),
             const Text(
-              'Instant Demo Testing:',
+              'Clinical Reference Form Templates:',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryLight),
             ),
             const SizedBox(height: 12),
