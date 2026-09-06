@@ -33,37 +33,55 @@ class CampRepository implements ICampRepository {
   @override
   Future<List<CampModel>> getAllCamps() async {
     final db = await _databaseService.database;
-    final maps = await db.query(
-      DatabaseTables.tableCamps,
-      orderBy: 'start_date DESC',
-    );
-    return maps.map((m) => CampModel.fromMap(m)).toList();
+    final maps = await db.rawQuery('''
+      SELECT c.*,
+             COALESCE((SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} p WHERE p.camp_id = c.id), 0) AS live_patient_count
+      FROM ${DatabaseTables.tableCamps} c
+      ORDER BY c.start_date DESC
+    ''');
+    return maps.map((m) {
+      final map = Map<String, dynamic>.from(m);
+      if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
+        map['total_patients_registered'] = map['live_patient_count'];
+      }
+      return CampModel.fromMap(map);
+    }).toList();
   }
 
   @override
   Future<CampModel?> getCampById(String id) async {
     final db = await _databaseService.database;
-    final maps = await db.query(
-      DatabaseTables.tableCamps,
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
+    final maps = await db.rawQuery('''
+      SELECT c.*,
+             COALESCE((SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} p WHERE p.camp_id = c.id), 0) AS live_patient_count
+      FROM ${DatabaseTables.tableCamps} c
+      WHERE c.id = ?
+      LIMIT 1
+    ''', [id]);
     if (maps.isEmpty) return null;
-    return CampModel.fromMap(maps.first);
+    final map = Map<String, dynamic>.from(maps.first);
+    if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
+      map['total_patients_registered'] = map['live_patient_count'];
+    }
+    return CampModel.fromMap(map);
   }
 
   @override
   Future<CampModel?> getActiveCamp() async {
     final db = await _databaseService.database;
-    final maps = await db.query(
-      DatabaseTables.tableCamps,
-      where: 'status = ?',
-      whereArgs: [AppConstants.campStatusOpen],
-      limit: 1,
-    );
+    final maps = await db.rawQuery('''
+      SELECT c.*,
+             COALESCE((SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} p WHERE p.camp_id = c.id), 0) AS live_patient_count
+      FROM ${DatabaseTables.tableCamps} c
+      WHERE c.status = ?
+      LIMIT 1
+    ''', [AppConstants.campStatusOpen]);
     if (maps.isEmpty) return null;
-    return CampModel.fromMap(maps.first);
+    final map = Map<String, dynamic>.from(maps.first);
+    if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
+      map['total_patients_registered'] = map['live_patient_count'];
+    }
+    return CampModel.fromMap(map);
   }
 
   @override

@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
+import '../../viewmodels/patient_list_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
 import 'clinical_assessment_view.dart';
 
@@ -887,6 +888,9 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                                 if (!mounted) return;
 
                                 if (registered != null) {
+                                  ref.read(campStateProvider.notifier).loadCamps();
+                                  ref.read(patientListProvider.notifier).loadPatients(camp.id);
+
                                   scaffoldMessenger.showSnackBar(
                                     SnackBar(
                                       content: Text('Registered: ${registered.fullName} (ID: ${registered.patientId})'),

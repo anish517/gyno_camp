@@ -75,6 +75,13 @@ class HomeGatewayView extends ConsumerWidget {
     final campState = ref.watch(campStateProvider);
     final deviceMgmt = ref.watch(deviceManagementProvider);
     final auditLogs = ref.watch(auditLogProvider);
+    final patientState = ref.watch(patientListProvider);
+
+    if (campState.hasActiveCamp && patientState.patients.isEmpty && !patientState.isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(patientListProvider.notifier).loadPatients(campState.activeCamp!.id);
+      });
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
@@ -230,10 +237,18 @@ class HomeGatewayView extends ConsumerWidget {
               Expanded(
                 child: _buildMetricCard(
                   label: 'Patients Registered',
-                  value: '${campState.activeCamp?.totalPatientsRegistered ?? 0}',
-                  badgeColor: Colors.blueGrey,
+                  value: '${patientState.patients.isNotEmpty ? patientState.patients.length : (campState.activeCamp?.totalPatientsRegistered ?? 0)}',
+                  badgeColor: (patientState.patients.isNotEmpty || (campState.activeCamp?.totalPatientsRegistered ?? 0) > 0)
+                      ? AppTheme.primaryTeal
+                      : Colors.blueGrey,
                   icon: Icons.people,
                   iconColor: Colors.teal,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PatientListView()),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 12),
@@ -1215,12 +1230,16 @@ class HomeGatewayView extends ConsumerWidget {
     required Color badgeColor,
     required IconData icon,
     required Color iconColor,
+    VoidCallback? onTap,
   }) {
     return Card(
       elevation: 1.5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14.0),
         child: Row(
           children: [
             Container(
@@ -1255,8 +1274,9 @@ class HomeGatewayView extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildActionTile({
     required IconData icon,
