@@ -103,6 +103,43 @@ void main() {
       expect(result.matchedPatient?.patientId, 'GC-KTM-2026-00002');
     });
 
+    test('Unmarried adult patient (age >= 20) matches Father/Guardian name', () {
+      final adultUnmarriedPatients = [
+        PatientModel(
+          id: 'pat-unm',
+          patientId: 'GC-KTM-2026-00009',
+          campId: 'camp-1',
+          campCode: 'KTM',
+          intakeDate: DateTime(2026, 3, 10),
+          firstName: 'Anjali',
+          surname: 'Shrestha',
+          age: 26,
+          spouseOrFatherName: 'Gopal Shrestha',
+          relationshipType: 'Father',
+          mobile: '',
+          ward: '02',
+          createdAt: DateTime.now(),
+          createdByUserId: 'usr-1',
+          createdByDeviceId: 'dev-1',
+        ),
+      ];
+
+      final result = DuplicateDetectionService.check(
+        existingPatients: adultUnmarriedPatients,
+        firstName: 'Anjali',
+        surname: 'Shrestha',
+        age: 26,
+        mobile: '',
+        ward: '02',
+        spouseOrFatherName: 'Gopal Shrestha',
+        maritalStatus: 'unmarried',
+      );
+
+      expect(result.isDuplicate, isTrue);
+      expect(result.matchedPatient?.patientId, 'GC-KTM-2026-00009');
+      expect(result.reason, contains("Father's/Guardian's name"));
+    });
+
     test('Does not flag duplicate if ward is different', () {
       final result = DuplicateDetectionService.check(
         existingPatients: existingPatients,

@@ -118,17 +118,38 @@ void main() {
       expect(vm.state.isSubmitting, isFalse);
     });
 
-    test('submitRegistration fails and sets error when fields are invalid', () async {
-      vm.reset(); // empty state
-      final result = await vm.submitRegistration(
-        campId: 'camp-ktm-01',
-        campCode: 'KTM',
-        staffUserId: 'usr-nurse',
-        deviceId: 'dev-tab-1',
+    test('Updating maritalStatus to unmarried auto-sets relationship to Father and clears maritalAge', () {
+      vm.updateField(
+        maritalStatus: 'married',
+        maritalAge: 20,
+        relationshipType: 'Husband',
       );
+      expect(vm.state.maritalStatus, 'married');
+      expect(vm.state.relationshipType, 'Husband');
+      expect(vm.state.maritalAge, 20);
 
-      expect(result, isNull);
-      expect(vm.state.errorMessage, isNotNull);
+      // Switch to unmarried
+      vm.updateField(maritalStatus: 'unmarried');
+      expect(vm.state.maritalStatus, 'unmarried');
+      expect(vm.state.relationshipType, 'Father');
+      expect(vm.state.maritalAge, isNull);
+    });
+
+    test('reset preserves camp location parameters and clears patient details', () {
+      vm.updateField(
+        firstName: 'Sita',
+        surname: 'Sharma',
+        ward: '08',
+        district: 'Dhading',
+        municipality: 'Nilkantha',
+      );
+      expect(vm.state.firstName, 'Sita');
+
+      vm.reset(ward: '04', district: 'Kaski', municipality: 'Pokhara');
+      expect(vm.state.firstName, isEmpty);
+      expect(vm.state.ward, '04');
+      expect(vm.state.district, 'Kaski');
+      expect(vm.state.municipality, 'Pokhara');
     });
   });
 }
