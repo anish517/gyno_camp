@@ -99,7 +99,12 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(18.0),
-              child: _buildStationContent(state, vm),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 960),
+                  child: _buildStationContent(state, vm),
+                ),
+              ),
             ),
           ),
 
@@ -222,142 +227,309 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
 
   // --- 1. Anamnesis / Obstetric History ---
   Widget _buildStation1Anamnesis(ClinicalAssessmentState state, ClinicalAssessmentViewModel vm) {
+    final patientReasons = widget.patient.reasonsForVisit.map((r) => r.toLowerCase()).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Obstetric History (सुत्केरी तथा गर्भ विवरण)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        Row(
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.child_care_rounded, color: AppTheme.primaryTeal, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Obstetric History (सुत्केरी तथा गर्भ विवरण)',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _deliveriesController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Deliveries (सुत्केरी संख्या)',
+                          hintText: '0–20',
+                          prefixIcon: Icon(Icons.pregnant_woman_rounded),
+                        ),
+                        onChanged: (val) => vm.setObstetricHistory(deliveries: int.tryParse(val)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _livingChildrenController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Living Children (जीवित बच्चा)',
+                          hintText: 'Count',
+                          prefixIcon: Icon(Icons.family_restroom_rounded),
+                        ),
+                        onChanged: (val) => vm.setObstetricHistory(livingChildren: int.tryParse(val)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _abortionsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Abortions (गर्भपतन)',
+                          hintText: 'Count',
+                          prefixIcon: Icon(Icons.remove_circle_outline_rounded),
+                        ),
+                        onChanged: (val) => vm.setObstetricHistory(abortions: int.tryParse(val)),
+                      ),
+                    ),
+                  ],
+                ),
+                if (state.obstetricValidation.isError)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      state.obstetricValidation.messageEn!,
+                      style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+
+        const Row(
           children: [
+            Icon(Icons.medical_services_outlined, color: AppTheme.primaryTeal, size: 20),
+            SizedBox(width: 8),
             Expanded(
-              child: TextField(
-                controller: _deliveriesController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Deliveries (सुत्केरी संख्या)'),
-                onChanged: (val) => vm.setObstetricHistory(deliveries: int.tryParse(val)),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _livingChildrenController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Living Children (जीवित बच्चा)'),
-                onChanged: (val) => vm.setObstetricHistory(livingChildren: int.tryParse(val)),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _abortionsController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Abortions (गर्भपतन)'),
-                onChanged: (val) => vm.setObstetricHistory(abortions: int.tryParse(val)),
+              child: Text(
+                'Chief Complaints Details (Yellow Form Standard Symptoms)',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
               ),
             ),
           ],
         ),
-        if (state.obstetricValidation.isError)
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: Text(
-              state.obstetricValidation.messageEn!,
-              style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-          ),
-        const SizedBox(height: 20),
-
-        const Text('Chief Complaints Details (Yellow Form 9 Symptoms)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
+        const Text(
+          'Tap any duration or symptom option to record clinical findings. Active selections highlight in teal:',
+          style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+        ),
+        const SizedBox(height: 12),
 
         _buildComplaintCard(
+          state: state,
+          vm: vm,
+          complaintKey: 'prolapse',
           title: 'Something hanging out (पाठेघर खस्ने समस्या)',
           hasDuration: true,
           options: ['previous pessary', 'previous surgery'],
-          onUpdate: (data) => vm.updateComplaint('prolapse', data),
+          isIntakeReason: patientReasons.any((r) => r.contains('hanging') || r.contains('prolapse')),
         ),
         const SizedBox(height: 10),
 
         _buildComplaintCard(
+          state: state,
+          vm: vm,
+          complaintKey: 'discharge',
           title: 'Discharge / Itching (पानी बग्ने / चिलाउने)',
           hasDuration: true,
           options: ['white', 'yellow', 'green', 'grey', 'smelly'],
-          onUpdate: (data) => vm.updateComplaint('discharge', data),
+          isIntakeReason: patientReasons.any((r) => r.contains('discharge') || r.contains('itching')),
         ),
         const SizedBox(height: 10),
 
         _buildComplaintCard(
+          state: state,
+          vm: vm,
+          complaintKey: 'urine',
           title: 'Problems passing urine (पिसाब सम्बन्धी समस्या)',
           hasDuration: true,
           options: ['stress incontinence', 'urge incontinence', 'continuous flow'],
-          onUpdate: (data) => vm.updateComplaint('urine', data),
+          isIntakeReason: patientReasons.any((r) => r.contains('urine')),
         ),
         const SizedBox(height: 10),
 
         _buildComplaintCard(
+          state: state,
+          vm: vm,
+          complaintKey: 'stool',
+          title: 'Problems passing stool (दिसा सम्बन्धी समस्या)',
+          hasDuration: true,
+          options: ['problems passing stool', 'anal incontinence'],
+          isIntakeReason: patientReasons.any((r) => r.contains('stool')),
+        ),
+        const SizedBox(height: 10),
+
+        _buildComplaintCard(
+          state: state,
+          vm: vm,
+          complaintKey: 'menstrual',
           title: 'Menstrual problem (महिनावारी समस्या)',
           hasDuration: false,
           options: ['dysmenorrhoea', 'metrorrhagia', 'menorrhagia', 'postmenopausal bleeding'],
-          onUpdate: (data) => vm.updateComplaint('menstrual', data),
+          isIntakeReason: patientReasons.any((r) => r.contains('menstrual')),
+        ),
+        const SizedBox(height: 10),
+
+        _buildComplaintCard(
+          state: state,
+          vm: vm,
+          complaintKey: 'infertility',
+          title: 'Infertility / Conception Difficulty (बाँझोपन)',
+          hasDuration: true,
+          options: ['infertility'],
+          isIntakeReason: patientReasons.any((r) => r.contains('infertility')),
+        ),
+        const SizedBox(height: 10),
+
+        _buildComplaintCard(
+          state: state,
+          vm: vm,
+          complaintKey: 'pain',
+          title: 'Pelvic / Back Pain (तल्लो पेट वा ढाड दुख्ने)',
+          hasDuration: true,
+          options: ['pain'],
+          isIntakeReason: patientReasons.any((r) => r.contains('pain')),
         ),
       ],
     );
   }
 
   Widget _buildComplaintCard({
+    required ClinicalAssessmentState state,
+    required ClinicalAssessmentViewModel vm,
+    required String complaintKey,
     required String title,
     required bool hasDuration,
     required List<String> options,
-    required Function(Map<String, dynamic>) onUpdate,
+    bool isIntakeReason = false,
   }) {
-    String selectedDuration = '<1month';
-    final List<String> selectedOptions = [];
+    final complaintData = (state.complaints[complaintKey] as Map?) ?? {};
+    final selectedDuration = complaintData['duration'] as String?;
+    final rawOptions = complaintData['options'];
+    final List<String> selectedOptions = rawOptions is List ? List<String>.from(rawOptions) : [];
+
+    final hasActiveSelections = (selectedDuration != null && selectedDuration.isNotEmpty) || selectedOptions.isNotEmpty;
 
     return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: hasActiveSelections ? AppTheme.primaryTeal : const Color(0xFFE2E8F0),
+          width: hasActiveSelections ? 1.5 : 1.0,
+        ),
+      ),
+      color: hasActiveSelections ? AppTheme.primaryLight.withValues(alpha: 0.15) : Colors.white,
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(14.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      color: hasActiveSelections ? AppTheme.primaryTeal : const Color(0xFF1E293B),
+                    ),
+                  ),
+                ),
+                if (isIntakeReason)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                    ),
+                    child: const Text(
+                      'Reported in Intake',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                    ),
+                  ),
+              ],
+            ),
             if (hasDuration) ...[
-              const SizedBox(height: 6),
-              const Text('Since when (कहिलेदेखि):', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              const SizedBox(height: 8),
+              const Text(
+                'Since when (कहिलेदेखि):',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 4),
               Wrap(
                 spacing: 6,
+                runSpacing: 6,
                 children: ['< 1month', '< 1 year', '> 1 year', '> 5 years', '> 10 years'].map((d) {
+                  final isSelected = selectedDuration == d;
                   return ChoiceChip(
                     visualDensity: VisualDensity.compact,
-                    label: Text(d, style: const TextStyle(fontSize: 11)),
-                    selected: selectedDuration == d,
+                    label: Text(
+                      d,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    selected: isSelected,
+                    selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                    labelStyle: TextStyle(
+                      color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                    ),
                     onSelected: (val) {
-                      selectedDuration = d;
-                      onUpdate({'duration': selectedDuration, 'options': selectedOptions});
+                      vm.setComplaintDuration(complaintKey, isSelected ? '' : d);
                     },
                   );
                 }).toList(),
               ),
             ],
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              children: options.map((opt) {
-                final isChecked = selectedOptions.contains(opt);
-                return FilterChip(
-                  visualDensity: VisualDensity.compact,
-                  label: Text('${NepaliLocalizationService.translate(opt)} ($opt)', style: const TextStyle(fontSize: 11)),
-                  selected: isChecked,
-                  onSelected: (val) {
-                    if (val) {
-                      selectedOptions.add(opt);
-                    } else {
-                      selectedOptions.remove(opt);
-                    }
-                    onUpdate({'duration': selectedDuration, 'options': selectedOptions});
-                  },
-                );
-              }).toList(),
-            ),
+            if (options.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: options.map((opt) {
+                  final isChecked = selectedOptions.contains(opt);
+                  return FilterChip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(
+                      '${NepaliLocalizationService.translate(opt)} ($opt)',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    selected: isChecked,
+                    selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                    checkmarkColor: AppTheme.primaryTeal,
+                    labelStyle: TextStyle(
+                      color: isChecked ? AppTheme.primaryTeal : const Color(0xFF334155),
+                    ),
+                    onSelected: (val) {
+                      vm.toggleComplaintOption(complaintKey, opt);
+                    },
+                  );
+                }).toList(),
+              ),
+            ],
           ],
         ),
       ),

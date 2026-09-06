@@ -13,6 +13,8 @@ class PatientRegistrationState {
   final String ward;
   final String spouseOrFatherName;
   final String relationshipType;
+  final String? contactPerson;
+  final String? contactMobile;
   final String maritalStatus;
   final int? maritalAge;
   final List<String> selectedReasons;
@@ -29,11 +31,13 @@ class PatientRegistrationState {
     this.surname = '',
     this.age,
     this.mobile = '',
-    this.district = 'Kathmandu',
-    this.municipality = 'Budhanilkantha Municipality',
-    this.ward = '03',
+    this.district = '',
+    this.municipality = '',
+    this.ward = '',
     this.spouseOrFatherName = '',
     this.relationshipType = 'Husband',
+    this.contactPerson,
+    this.contactMobile,
     this.maritalStatus = 'married',
     this.maritalAge,
     this.selectedReasons = const [],
@@ -62,8 +66,11 @@ class PatientRegistrationState {
     String? ward,
     String? spouseOrFatherName,
     String? relationshipType,
+    String? contactPerson,
+    String? contactMobile,
     String? maritalStatus,
     int? maritalAge,
+    bool clearMaritalAge = false,
     List<String>? selectedReasons,
     bool? consentTreatment,
     bool? consentStoreMedicalInfo,
@@ -83,8 +90,10 @@ class PatientRegistrationState {
       ward: ward ?? this.ward,
       spouseOrFatherName: spouseOrFatherName ?? this.spouseOrFatherName,
       relationshipType: relationshipType ?? this.relationshipType,
+      contactPerson: contactPerson ?? this.contactPerson,
+      contactMobile: contactMobile ?? this.contactMobile,
       maritalStatus: maritalStatus ?? this.maritalStatus,
-      maritalAge: maritalAge ?? this.maritalAge,
+      maritalAge: clearMaritalAge ? null : (maritalAge ?? this.maritalAge),
       selectedReasons: selectedReasons ?? this.selectedReasons,
       consentTreatment: consentTreatment ?? this.consentTreatment,
       consentStoreMedicalInfo: consentStoreMedicalInfo ?? this.consentStoreMedicalInfo,
@@ -112,11 +121,25 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     String? ward,
     String? spouseOrFatherName,
     String? relationshipType,
+    String? contactPerson,
+    String? contactMobile,
     String? maritalStatus,
     int? maritalAge,
+    bool clearMaritalAge = false,
     bool? consentTreatment,
     bool? consentStoreMedicalInfo,
   }) {
+    String? resolvedRelation = relationshipType ?? state.relationshipType;
+    if (maritalStatus != null && maritalStatus != state.maritalStatus) {
+      if (maritalStatus == 'unmarried') {
+        resolvedRelation = 'Father';
+      } else if (maritalStatus == 'married' && state.relationshipType != 'Husband') {
+        resolvedRelation = 'Husband';
+      }
+    }
+
+    final shouldClearAge = clearMaritalAge || (maritalStatus == 'unmarried');
+
     state = state.copyWith(
       firstName: firstName,
       surname: surname,
@@ -126,9 +149,12 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
       municipality: municipality,
       ward: ward,
       spouseOrFatherName: spouseOrFatherName,
-      relationshipType: relationshipType,
+      relationshipType: resolvedRelation,
+      contactPerson: contactPerson,
+      contactMobile: contactMobile,
       maritalStatus: maritalStatus,
-      maritalAge: maritalAge,
+      maritalAge: shouldClearAge ? null : (maritalAge ?? state.maritalAge),
+      clearMaritalAge: shouldClearAge,
       consentTreatment: consentTreatment,
       consentStoreMedicalInfo: consentStoreMedicalInfo,
     );
@@ -159,6 +185,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         mobile: state.mobile,
         ward: state.ward,
         spouseOrFatherName: state.spouseOrFatherName,
+        maritalStatus: state.maritalStatus,
       );
 
       state = state.copyWith(duplicateResult: result);
@@ -191,9 +218,11 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         spouseOrFatherName: state.spouseOrFatherName.trim(),
         relationshipType: state.relationshipType,
         mobile: state.mobile.trim(),
-        district: state.district,
-        municipality: state.municipality,
+        district: state.district.trim(),
+        municipality: state.municipality.trim(),
         ward: state.ward.trim(),
+        contactPerson: state.contactPerson?.trim(),
+        contactMobile: state.contactMobile?.trim(),
         maritalStatus: state.maritalStatus,
         maritalAge: state.maritalAge,
         reasonsForVisit: state.selectedReasons,
@@ -225,8 +254,12 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     }
   }
 
-  void reset() {
-    state = const PatientRegistrationState();
+  void reset({String district = '', String municipality = '', String ward = ''}) {
+    state = PatientRegistrationState(
+      district: district,
+      municipality: municipality,
+      ward: ward,
+    );
   }
 }
 

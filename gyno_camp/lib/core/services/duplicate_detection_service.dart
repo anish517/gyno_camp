@@ -43,6 +43,7 @@ class DuplicateDetectionService {
     required String mobile,
     required String ward,
     String? spouseOrFatherName,
+    String? maritalStatus,
   }) {
     final cleanPhone = mobile.trim();
     final cleanFirst = firstName.trim().toLowerCase();
@@ -69,10 +70,15 @@ class DuplicateDetectionService {
       final ageClose = (existing.age - age).abs() <= 1;
 
       if (nameMatches && wardMatches && ageClose) {
-        // Evaluate Spouse vs Father depending on age threshold
+        // Evaluate Spouse vs Father depending on marital status and age
+        final isUnmarried = (maritalStatus ?? '').trim().toLowerCase() == 'unmarried';
         final isAdult = age >= ClinicalConstants.adultAgeThreshold;
-        final relationField = isAdult ? "Husband's name" : "Father's name";
-        final relationFieldNe = isAdult ? "श्रीमानको नाम" : "बुबाको नाम";
+        final relationField = isUnmarried
+            ? "Father's/Guardian's name"
+            : (isAdult ? "Husband's name" : "Father's name");
+        final relationFieldNe = isUnmarried
+            ? "बुबा वा संरक्षकको नाम"
+            : (isAdult ? "श्रीमानको नाम" : "बुबाको नाम");
 
         final existingSpouseFather = (existing.spouseOrFatherName ?? '').trim().toLowerCase();
 

@@ -258,6 +258,29 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     state = state.copyWith(complaints: map);
   }
 
+  void setComplaintDuration(String complaintKey, String duration) {
+    final map = Map<String, dynamic>.from(state.complaints);
+    final current = Map<String, dynamic>.from((map[complaintKey] as Map?) ?? {});
+    current['duration'] = duration;
+    map[complaintKey] = current;
+    state = state.copyWith(complaints: map);
+  }
+
+  void toggleComplaintOption(String complaintKey, String option) {
+    final map = Map<String, dynamic>.from(state.complaints);
+    final current = Map<String, dynamic>.from((map[complaintKey] as Map?) ?? {});
+    final rawOptions = current['options'];
+    final List<String> optionsList = rawOptions is List ? List<String>.from(rawOptions) : [];
+    if (optionsList.contains(option)) {
+      optionsList.remove(option);
+    } else {
+      optionsList.add(option);
+    }
+    current['options'] = optionsList;
+    map[complaintKey] = current;
+    state = state.copyWith(complaints: map);
+  }
+
   // --- Station 2: Exam & POP Staging ---
   void updateExam({
     bool? uterusInside,
