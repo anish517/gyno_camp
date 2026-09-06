@@ -1,0 +1,136 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/camp_model.dart';
+import '../repositories/camp_repository.dart';
+
+class CampState {
+  final List<CampModel> camps;
+  final CampModel? activeCamp; // Current open camp for data entry
+  final CampModel? selectedCamp;
+  final bool isLoading;
+  final String? errorMessage;
+
+  const CampState({
+    this.camps = const [],
+    this.activeCamp,
+    this.selectedCamp,
+    this.isLoading = false,
+    this.errorMessage,
+  });
+
+  bool get hasActiveCamp => activeCamp != null;
+
+  CampState copyWith({
+    List<CampModel>? camps,
+    CampModel? activeCamp,
+    CampModel? selectedCamp,
+    bool? isLoading,
+    String? errorMessage,
+    bool clearActiveCamp = false,
+    bool clearError = false,
+  }) {
+    return CampState(
+      camps: camps ?? this.camps,
+      activeCamp: clearActiveCamp ? null : (activeCamp ?? this.activeCamp),
+      selectedCamp: selectedCamp ?? this.selectedCamp,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+    );
+  }
+}
+
+class CampViewModel extends StateNotifier<CampState> {
+  final ICampRepository _campRepository;
+
+  CampViewModel(this._campRepository) : super(const CampState()) {
+    loadCamps();
+  }
+
+  Future<void> loadCamps() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final camps = await _campRepository.getAllCamps();
+      final active = await _campRepository.getActiveCamp();
+      state = state.copyWith(
+        camps: camps,
+        activeCamp: active,
+        selectedCamp: active ?? (camps.isNotEmpty ? camps.first : null),
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Failed to load camps: $e',
+      );
+    }
+  }
+
+  void selectCamp(CampModel camp) {
+    state = state.copyWith(selectedCamp: camp);
+  }
+
+  Future<bool> createCamp(CampModel camp, {required String adminUserId, required String deviceId}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final created = await _campRepository.createCamp(
+        camp,
+        createdByUserId: adminUserId,
+        deviceId: deviceId,
+      );
+      final updatedList = [created, ...state.camps];
+      state = state.copyWith(camps: updatedList, isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Create camp failed: $e');
+      return false;
+    }
+  }
+
+  Future<bool> openCamp(String campId, {required String adminUserId, required String deviceId}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final success = await _campRepository.openCamp(
+        campId,
+        adminUserId: adminUserId,
+        deviceId: deviceId,
+      );
+      if (success) {
+        await loadCamps();
+        return true;
+      }
+      state = state.copyWith(isLoading: false, errorMessage: 'Unable to open camp.');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Open camp error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> closeCamp(String campId, {required String adminUserId, required String deviceId}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final success = await _campRepository.closeCamp(
+        campId,
+        adminUserId: adminUserId,
+        deviceId: deviceId,
+      );
+      if (success) {
+        await loadCamps();
+        return true;
+      }
+      state = state.copyWith(isLoading: false, errorMessage: 'Unable to close camp.');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Close camp error: $e');
+      return false;
+    }
+  }
+}
+
+final campRepositoryProvider = Provider<ICampRepository>((ref) {
+  return CampRepository();
+});
+
+final campStateProvider = StateNotifierProvider<CampViewModel, CampState>((ref) {
+  final repository = ref.watch(campRepositoryProvider);
+  return CampViewModel(repository);
+});
