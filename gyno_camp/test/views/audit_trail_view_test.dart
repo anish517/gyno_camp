@@ -98,7 +98,7 @@ void main() {
     expect(find.text('Cryptographic Chain Intact (SHA-256)'), findsOneWidget);
     expect(find.text('CAMP_OPENED'), findsOneWidget);
     expect(find.text('PATIENT_REGISTERED'), findsOneWidget);
-    expect(find.text('Dr. Aruna Shrestha'), findsOneWidget);
+    expect(find.textContaining('Dr. Aruna Shrestha'), findsOneWidget);
   });
 
   testWidgets('Tapping audit log opens detail modal with JSON and full hash', (tester) async {

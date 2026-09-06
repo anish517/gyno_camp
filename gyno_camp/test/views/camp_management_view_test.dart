@@ -165,7 +165,7 @@ void main() {
     await tester.tap(find.text('Interactive Calendar'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('September 2026'), findsOneWidget);
+    expect(find.text('September 2026'), findsOneWidget);
     expect(find.text('Mon'), findsOneWidget);
     expect(find.text('Sun'), findsOneWidget);
   });

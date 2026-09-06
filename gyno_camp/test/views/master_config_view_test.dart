@@ -79,9 +79,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Clinical Master Data & Formulary'), findsOneWidget);
-    expect(find.textContaining('Diagnoses'), findsOneWidget);
-    expect(find.textContaining('Medicines'), findsOneWidget);
-    expect(find.textContaining('Hospitals'), findsOneWidget);
+    expect(find.text('Diagnoses (2)'), findsOneWidget);
+    expect(find.text('Medicines (1)'), findsOneWidget);
+    expect(find.text('Hospitals (1)'), findsOneWidget);
 
     expect(find.text('Candid Infection'), findsOneWidget);
     expect(find.text('Pelvic Inflammatory Disease'), findsOneWidget);
@@ -97,7 +97,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Tap Medicines tab
-    await tester.tap(find.textContaining('Medicines'));
+    await tester.tap(find.text('Medicines (1)'));
     await tester.pumpAndSettle();
 
     expect(find.text('Metronidazole 400mg'), findsOneWidget);

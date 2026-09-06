@@ -53,6 +53,7 @@ class CampViewModel extends StateNotifier<CampState> {
       state = state.copyWith(
         camps: camps,
         activeCamp: active,
+        clearActiveCamp: active == null,
         selectedCamp: active ?? (camps.isNotEmpty ? camps.first : null),
         isLoading: false,
       );
