@@ -43,4 +43,6 @@ class AppConstants {
   static const String auditActionSyncDownload = 'SYNC_DOWNLOAD_PULL';
   static const String auditActionReportPdfExport = 'REPORT_PDF_EXPORTED';
   static const String auditActionReportExcelExport = 'REPORT_EXCEL_EXPORTED';
+  static const String auditActionFormScannedOcr = 'FORM_SCANNED_OCR';
+  static const String auditActionPatientRegisteredViaOcr = 'PATIENT_REGISTERED_VIA_OCR';
 }

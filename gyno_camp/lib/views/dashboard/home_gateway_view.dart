@@ -9,6 +9,7 @@ import '../../viewmodels/sync_viewmodel.dart';
 import '../patient/patient_list_view.dart';
 import '../patient/patient_registration_view.dart';
 import '../reports/camp_report_view.dart';
+import '../scanner/form_scan_view.dart';
 import '../sync/sync_status_view.dart';
 
 class HomeGatewayView extends ConsumerWidget {
@@ -347,7 +348,25 @@ class HomeGatewayView extends ConsumerWidget {
                         },
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.document_scanner_outlined),
+                        label: const Text('Scan Form'),
+                        onPressed: () {
+                          if (!campState.hasActiveCamp) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please open a camp first')),
+                            );
+                            return;
+                          }
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const FormScanView()),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: OutlinedButton.icon(
                         icon: const Icon(Icons.people_alt_outlined),
@@ -548,8 +567,15 @@ class HomeGatewayView extends ConsumerWidget {
                   subtitle: 'OCR & Auto-Fill',
                   color: AppTheme.accentCyan,
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Scan & Auto-Fill scheduled for Phase 5')),
+                    if (!campState.hasActiveCamp) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please open or select an active camp first!')),
+                      );
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FormScanView()),
                     );
                   },
                 ),

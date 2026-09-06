@@ -45,6 +45,7 @@ dependencies:
   excel: ^4.0.6
   path_provider: ^2.1.6
   sqflite_common_ffi_web: ^1.1.2
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:
