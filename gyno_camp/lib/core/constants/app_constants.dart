@@ -41,4 +41,6 @@ class AppConstants {
   static const String auditActionSyncCompleted = 'SYNC_COMPLETED';
   static const String auditActionSyncUpload = 'SYNC_UPLOAD_PUSH';
   static const String auditActionSyncDownload = 'SYNC_DOWNLOAD_PULL';
+  static const String auditActionReportPdfExport = 'REPORT_PDF_EXPORTED';
+  static const String auditActionReportExcelExport = 'REPORT_EXCEL_EXPORTED';
 }

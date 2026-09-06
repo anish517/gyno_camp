@@ -8,6 +8,7 @@ import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/sync_viewmodel.dart';
 import '../patient/patient_list_view.dart';
 import '../patient/patient_registration_view.dart';
+import '../reports/camp_report_view.dart';
 import '../sync/sync_status_view.dart';
 
 class HomeGatewayView extends ConsumerWidget {
@@ -312,8 +313,13 @@ class HomeGatewayView extends ConsumerWidget {
                       icon: const Icon(Icons.picture_as_pdf),
                       label: const Text('One-Tap PDF Report'),
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('One-Tap PDF Export engine scheduled for Phase 6')),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CampReportView(
+                              initialCampId: campState.activeCamp?.id,
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -324,8 +330,13 @@ class HomeGatewayView extends ConsumerWidget {
                       icon: const Icon(Icons.table_view),
                       label: const Text('Export Excel'),
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Excel summary generator scheduled for Phase 6')),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CampReportView(
+                              initialCampId: campState.activeCamp?.id,
+                            ),
+                          ),
                         );
                       },
                     ),
