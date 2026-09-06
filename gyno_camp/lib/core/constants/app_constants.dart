@@ -1,7 +1,7 @@
 class AppConstants {
   static const String appName = 'Gynocamp';
-  static const String appTitleEn = 'Gynocamp Patient Registration';
-  static const String appTitleNe = 'गाइनोकैम्प बिरामी दर्ता प्रणाली';
+  static const String appTitleEn = 'GynoCamp Clinical Health System';
+  static const String appTitleNe = 'गाइनोकैम्प ग्रामीण महिला स्वास्थ्य शिविर प्रणाली';
   static const String appVersion = '1.0.0';
   static const String databaseName = 'gynocamp_offline.db';
   static const int databaseVersion = 1;

@@ -8,7 +8,8 @@ import 'clinical_assessment_view.dart';
 import 'patient_registration_view.dart';
 
 class PatientListView extends ConsumerStatefulWidget {
-  const PatientListView({super.key});
+  final String? initialQuery;
+  const PatientListView({super.key, this.initialQuery});
 
   @override
   ConsumerState<PatientListView> createState() => _PatientListViewState();
@@ -23,7 +24,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final activeCamp = ref.read(campStateProvider).activeCamp;
       if (activeCamp != null) {
-        ref.read(patientListProvider.notifier).loadPatients(activeCamp.id);
+        if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
+          _searchController.text = widget.initialQuery!.trim();
+          ref.read(patientListProvider.notifier).search(activeCamp.id, widget.initialQuery!.trim());
+        } else {
+          ref.read(patientListProvider.notifier).loadPatients(activeCamp.id);
+        }
       }
     });
   }
