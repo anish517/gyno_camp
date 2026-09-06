@@ -11,9 +11,9 @@ class DeviceActivationView extends ConsumerStatefulWidget {
 }
 
 class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
-  final _deviceNameController = TextEditingController(text: 'Camp Field Tablet #1');
+  final _deviceNameController = TextEditingController();
   final _otpController = TextEditingController();
-  final _staffNameController = TextEditingController(text: 'Sita Sharma (Field Nurse)');
+  final _staffNameController = TextEditingController();
 
   @override
   void dispose() {
@@ -142,6 +142,7 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                 controller: _deviceNameController,
                 decoration: const InputDecoration(
                   labelText: 'Device Nickname / Label',
+                  hintText: 'e.g. Registration Desk Tablet #1',
                   prefixIcon: Icon(Icons.tablet_android),
                 ),
               ),
@@ -150,6 +151,7 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                 controller: _staffNameController,
                 decoration: const InputDecoration(
                   labelText: 'Requesting Field Staff Name',
+                  hintText: 'e.g. Sita Sharma (Field Nurse)',
                   prefixIcon: Icon(Icons.person),
                 ),
               ),
@@ -160,10 +162,21 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                 onPressed: state.isChecking
                     ? null
                     : () async {
+                        final deviceName = _deviceNameController.text.trim();
+                        final staffName = _staffNameController.text.trim();
+                        if (deviceName.isEmpty || staffName.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter both a Device Label and your Staff Name'),
+                              backgroundColor: AppTheme.dangerRose,
+                            ),
+                          );
+                          return;
+                        }
                         await vm.requestRegistration(
-                          deviceName: _deviceNameController.text.trim(),
+                          deviceName: deviceName,
                           staffUserId: 'usr-datataker-01',
-                          staffName: _staffNameController.text.trim(),
+                          staffName: staffName,
                         );
                       },
               ),
