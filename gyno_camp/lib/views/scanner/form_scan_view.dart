@@ -8,6 +8,7 @@ import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/ocr_scan_viewmodel.dart';
+import '../../viewmodels/patient_list_viewmodel.dart';
 import '../patient/patient_list_view.dart';
 
 class FormScanView extends ConsumerStatefulWidget {
@@ -413,6 +414,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           );
 
                           if (savedPatient != null && context.mounted) {
+                            ref.read(campStateProvider.notifier).loadCamps();
+                            ref.read(patientListProvider.notifier).loadPatients(activeCamp.id);
                             _showSuccessDialog(context, savedPatient);
                           }
                         },
