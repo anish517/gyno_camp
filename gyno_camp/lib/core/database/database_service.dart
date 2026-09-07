@@ -34,7 +34,27 @@ class DatabaseService {
         await _createDb(db);
         await _seedInitialData(db);
       },
+      onOpen: (db) async {
+        await _ensureAllColumnsExist(db);
+      },
     );
+  }
+
+  Future<void> _ensureAllColumnsExist(Database db) async {
+    final migrations = [
+      "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_bir_hospital'",
+      "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN organization_name TEXT DEFAULT 'Bir Hospital Gyno Outreach'",
+      "ALTER TABLE ${DatabaseTables.tablePatients} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_bir_hospital'",
+      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_bir_hospital'",
+      "ALTER TABLE ${DatabaseTables.tableAuditLogs} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_bir_hospital'",
+    ];
+    for (final sql in migrations) {
+      try {
+        await db.execute(sql);
+      } catch (_) {
+        // Safe to ignore if column already exists
+      }
+    }
   }
 
   Future<void> _createDb(Database db) async {
@@ -56,6 +76,7 @@ class DatabaseService {
     _db = db;
     await _createDb(db);
     await _seedInitialData(db);
+    await _ensureAllColumnsExist(db);
   }
 
   Future<void> _seedInitialData(Database db) async {
