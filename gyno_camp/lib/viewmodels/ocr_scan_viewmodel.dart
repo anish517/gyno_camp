@@ -4,6 +4,9 @@ import '../models/ocr_scan_result_model.dart';
 import '../models/patient_model.dart';
 import '../repositories/ocr_repository.dart';
 
+import '../core/services/duplicate_detection_service.dart';
+import '../repositories/patient_repository.dart';
+
 class OcrScanState {
   final bool isProcessing;
   final bool isSaving;
@@ -14,6 +17,7 @@ class OcrScanState {
   final String? errorMessage;
   final String? successMessage;
   final PatientModel? committedPatient;
+  final DuplicateCheckResult duplicateResult;
 
   const OcrScanState({
     this.isProcessing = false,
@@ -25,12 +29,14 @@ class OcrScanState {
     this.errorMessage,
     this.successMessage,
     this.committedPatient,
+    this.duplicateResult = const DuplicateCheckResult.none(),
   });
 
   bool get hasPage1 => page1Scan != null;
   bool get hasPage2 => page2Scan != null;
   bool get isDualReady => hasPage1 && hasPage2;
   bool get hasScanResult => scanResult != null;
+  bool get hasDuplicate => duplicateResult.hasDuplicate;
 
   OcrScanState copyWith({
     bool? isProcessing,
@@ -42,6 +48,7 @@ class OcrScanState {
     String? errorMessage,
     String? successMessage,
     PatientModel? committedPatient,
+    DuplicateCheckResult? duplicateResult,
     bool clearPage1 = false,
     bool clearPage2 = false,
     bool clearScanResult = false,
@@ -56,18 +63,22 @@ class OcrScanState {
       errorMessage: errorMessage,
       successMessage: successMessage,
       committedPatient: committedPatient ?? this.committedPatient,
+      duplicateResult: duplicateResult ?? this.duplicateResult,
     );
   }
 }
 
 class OcrScanViewModel extends StateNotifier<OcrScanState> {
   final IOcrRepository _repository;
+  final IPatientRepository _patientRepository;
   final DocumentCaptureService _captureService;
 
   OcrScanViewModel({
     IOcrRepository? repository,
+    IPatientRepository? patientRepository,
     DocumentCaptureService? captureService,
   })  : _repository = repository ?? OcrRepository(),
+        _patientRepository = patientRepository ?? PatientRepository(),
         _captureService = captureService ?? DocumentCaptureService(),
         super(const OcrScanState());
 
@@ -259,13 +270,50 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
   }
 
   /// Updates a demographic field during human verification
-  void updateDemographic(String key, dynamic value) {
+  void updateDemographic(String key, dynamic value, {String? campId}) {
     if (state.scanResult == null) return;
     final updatedDemo = Map<String, dynamic>.from(state.scanResult!.demographics);
     updatedDemo[key] = value;
     state = state.copyWith(
       scanResult: state.scanResult!.copyWith(demographics: updatedDemo),
     );
+    if (campId != null && campId.isNotEmpty) {
+      runLiveDuplicateCheck(campId);
+    }
+  }
+
+  /// Runs duplicate detection against SQLite camp registry
+  Future<void> runLiveDuplicateCheck(String campId) async {
+    if (state.scanResult == null) {
+      state = state.copyWith(duplicateResult: const DuplicateCheckResult.none());
+      return;
+    }
+    final demo = state.scanResult!.demographics;
+    final firstName = demo['firstName'] as String? ?? '';
+    final surname = demo['surname'] as String? ?? '';
+    final age = demo['age'] as int? ?? 0;
+    final mobile = demo['mobile'] as String? ?? '';
+    final ward = demo['ward'] as String? ?? '';
+    final spouseOrFather = demo['relativeName'] as String?;
+    final maritalStatus = demo['maritalStatus'] as String?;
+
+    if (firstName.trim().isEmpty && mobile.trim().isEmpty) {
+      state = state.copyWith(duplicateResult: const DuplicateCheckResult.none());
+      return;
+    }
+
+    final result = await _patientRepository.checkDuplicate(
+      campId: campId,
+      firstName: firstName,
+      surname: surname,
+      age: age,
+      mobile: mobile,
+      ward: ward,
+      spouseOrFatherName: spouseOrFather,
+      maritalStatus: maritalStatus,
+    );
+
+    state = state.copyWith(duplicateResult: result);
   }
 
   /// Updates a vital sign field during human verification

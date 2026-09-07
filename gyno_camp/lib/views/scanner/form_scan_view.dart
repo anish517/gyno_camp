@@ -130,28 +130,29 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
+          constraints: const BoxConstraints(maxWidth: 880),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Header Badge
+              // Header Badge: MoHP Nepal Standard
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.auto_stories, color: AppTheme.primaryTeal, size: 16),
-                    SizedBox(width: 6),
+                    Icon(Icons.verified_user_outlined, color: AppTheme.primaryTeal, size: 16),
+                    SizedBox(width: 8),
                     Text(
-                      '2-PAGE MEDICAL YELLOW FORM DIGITIZATION',
+                      'OFFLINE CLINICAL OPTICAL CHARACTER RECOGNITION (OCR)',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.1,
                         color: AppTheme.primaryTeal,
@@ -160,23 +161,23 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               const Text(
                 'Scan & Auto-Fill Yellow Form',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.5),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               const Text(
-                'Capture both Page 1 (Front: Demographics) and Page 2 (Back: POP & Treatment).\nThe OCR engine will automatically merge both sides into one complete clinical intake.',
+                'Capture both Page 1 (Front: Demographics & Anamnesis) and Page 2 (Back: POP Staging & Treatment).\nThe clinical intake engine will parse and merge both sides into a unified electronic record.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondaryLight),
+                style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondaryLight, height: 1.45),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
               // Dual-Slot Cards (Side-by-Side or Column)
               LayoutBuilder(
                 builder: (context, box) {
-                  final isWide = box.maxWidth >= 600;
+                  final isWide = box.maxWidth >= 640;
                   final slot1 = _buildPageSlotCard(
                     pageNumber: 1,
                     title: 'Page 1 (Front Page)',
@@ -187,7 +188,6 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         : null,
                     onCamera: () => ocrVm.capturePage(1),
                     onGallery: () => ocrVm.pickPage(1),
-                    onSample: () => ocrVm.loadSample('page1'),
                     onClear: () => ocrVm.clearSlot(1),
                   );
 
@@ -201,7 +201,6 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         : null,
                     onCamera: () => ocrVm.capturePage(2),
                     onGallery: () => ocrVm.pickPage(2),
-                    onSample: () => ocrVm.loadSample('page2'),
                     onClear: () => ocrVm.clearSlot(2),
                   );
 
@@ -210,7 +209,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(child: slot1),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 18),
                         Expanded(child: slot2),
                       ],
                     );
@@ -218,64 +217,153 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     return Column(
                       children: [
                         slot1,
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
                         slot2,
                       ],
                     );
                   }
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
 
-              // Multi-File Quick Action & Primary Proceed Action
+              // Primary Action: Review Captured Data
               if (ocrState.hasPage1 || ocrState.hasPage2) ...[
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryTeal,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 2,
                     ),
                     icon: const Icon(Icons.fact_check_outlined, size: 22),
                     label: Text(
                       ocrState.isDualReady
-                          ? 'Review & Verify Dual-Page Form (दुवै पाना रुजु गर्नुहोस्)'
-                          : 'Proceed with Captured Page(s) (रुजु गर्नुहोस्)',
+                          ? 'Review & Verify Complete Dual-Page Intake (दुवै पाना रुजु गर्नुहोस्)'
+                          : 'Proceed to Clinical Verification (रुजु गर्नुहोस्)',
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                     onPressed: () => ocrVm.mergeAndProceed(),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
               ],
 
-              // Quick Actions Bar
+              // Multi-Document Batch Import and Clinical Reference
               Wrap(
                 spacing: 12,
-                runSpacing: 8,
+                runSpacing: 10,
                 alignment: WrapAlignment.center,
                 children: [
                   OutlinedButton.icon(
-                    icon: const Icon(Icons.photo_library_outlined, size: 18),
-                    label: const Text('Select Both Images at Once (Multi-Select)'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.photo_library_outlined, size: 18, color: AppTheme.primaryTeal),
+                    label: const Text('Select Both Images at Once (Multi-Select)', style: TextStyle(fontWeight: FontWeight.w600)),
                     onPressed: () => ocrVm.pickBothPages(),
                   ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo.shade700,
-                      foregroundColor: Colors.white,
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      foregroundColor: Colors.indigo.shade800,
                     ),
-                    icon: const Icon(Icons.description, size: 18),
-                    label: const Text('Load Complete 2-Page Template'),
+                    icon: const Icon(Icons.assignment_outlined, size: 18),
+                    label: const Text('Load Complete 2-Page Template', style: TextStyle(fontWeight: FontWeight.w600)),
                     onPressed: () => ocrVm.loadSample('full'),
                   ),
                 ],
+              ),
+              const SizedBox(height: 32),
+
+              // Enterprise Clinical Guidance Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 18, color: AppTheme.primaryTeal),
+                        SizedBox(width: 8),
+                        Text('Clinical Quality Standards & Digitization Protocols', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryDark)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildGuidelineBullet(
+                            icon: Icons.crop_free,
+                            title: 'Boundary Alignment',
+                            desc: 'Ensure all 4 corner registration marks are clearly inside the camera frame.',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildGuidelineBullet(
+                            icon: Icons.wb_sunny_outlined,
+                            title: 'Optimal Lighting',
+                            desc: 'Avoid harsh shadows and direct flash glare over handwritten vitals.',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildGuidelineBullet(
+                            icon: Icons.security,
+                            title: 'Zero Cloud Leakage',
+                            desc: 'All optical extraction runs locally offline on this secured field device.',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildGuidelineBullet(
+                            icon: Icons.check_circle_outline,
+                            title: 'Clinician Verification',
+                            desc: 'All extracted values must be reviewed by the Data Taker prior to commit.',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildGuidelineBullet({required IconData icon, required String title, required String desc}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 15, color: Colors.blueGrey),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
+              Text(desc, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -287,7 +375,6 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     String? summaryText,
     required VoidCallback onCamera,
     required VoidCallback onGallery,
-    required VoidCallback onSample,
     required VoidCallback onClear,
   }) {
     return Card(
@@ -300,7 +387,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(18.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -312,13 +399,24 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   child: Row(
                     children: [
                       CircleAvatar(
-                        radius: 13,
-                        backgroundColor: isCaptured ? AppTheme.primaryTeal : Colors.grey.shade400,
-                        child: Text('$pageNumber', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                        radius: 14,
+                        backgroundColor: isCaptured ? AppTheme.primaryTeal : Colors.blueGrey.shade100,
+                        child: Text(
+                          '$pageNumber',
+                          style: TextStyle(
+                            color: isCaptured ? Colors.white : Colors.blueGrey.shade800,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -326,89 +424,95 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 const SizedBox(width: 6),
                 if (isCaptured)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppTheme.successGreen.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.check_circle, size: 14, color: AppTheme.successGreen),
                         SizedBox(width: 4),
-                        Text('Captured', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.successGreen)),
+                        Text('Ready', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.successGreen)),
                       ],
                     ),
                   )
                 else
-                  Text('Slot $pageNumber Empty', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text('Slot Empty', style: TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                  ),
               ],
             ),
             const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight)),
-            const SizedBox(height: 12),
+            Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight)),
+            const SizedBox(height: 14),
 
             // If captured, show summary & clear button
             if (isCaptured && summaryText != null) ...[
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryLight.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppTheme.primaryLight.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check, size: 16, color: AppTheme.primaryTeal),
-                    const SizedBox(width: 6),
+                    const Icon(Icons.assignment_turned_in_outlined, size: 18, color: AppTheme.primaryTeal),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         summaryText,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     InkWell(
                       onTap: onClear,
-                      child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                      borderRadius: BorderRadius.circular(12),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4.0),
+                        child: Icon(Icons.close, size: 16, color: Colors.grey),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
             ],
 
             // Action Buttons
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      minimumSize: Size.zero,
+                  child: FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    icon: const Icon(Icons.camera_alt, size: 15),
-                    label: const Text('Camera', style: TextStyle(fontSize: 11.5)),
+                    icon: const Icon(Icons.camera_alt, size: 16),
+                    label: const Text('Scan Camera', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                     onPressed: onCamera,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      minimumSize: Size.zero,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    icon: const Icon(Icons.photo, size: 15),
-                    label: const Text('File', style: TextStyle(fontSize: 11.5)),
+                    icon: const Icon(Icons.file_upload_outlined, size: 16),
+                    label: const Text('Upload File', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                     onPressed: onGallery,
                   ),
-                ),
-                const SizedBox(width: 6),
-                IconButton(
-                  tooltip: 'Load Sample $pageNumber',
-                  icon: const Icon(Icons.auto_fix_high, size: 18, color: AppTheme.primaryTeal),
-                  onPressed: onSample,
                 ),
               ],
             ),
@@ -595,7 +699,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           child: TabBarView(
             controller: _tabController,
             children: [
-              _buildDemographicsTab(result, ocrVm),
+              _buildDemographicsTab(result, ocrVm, ocrState, campState.activeCamp?.id),
               _buildObstetricsTab(result, ocrVm),
               _buildPopStagingTab(result, ocrVm),
               _buildVitalsAndDiagnosesTab(result, ocrVm),
@@ -646,6 +750,41 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             return;
                           }
 
+                          if (ocrState.duplicateResult.hasDuplicate) {
+                            final proceed = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                title: const Row(
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
+                                    SizedBox(width: 10),
+                                    Text('Duplicate Warning', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  ],
+                                ),
+                                content: Text(
+                                  'A patient with matching credentials already exists in this camp (ID: ${ocrState.duplicateResult.matchedPatient?.patientId} - ${ocrState.duplicateResult.matchedPatient?.fullName}).\n\nAre you sure you want to register a new entry for this paper form?',
+                                  style: const TextStyle(fontSize: 13.5),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancel & Review'),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.amber.shade800,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Proceed & Register'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (proceed != true) return;
+                          }
+
                           final savedPatient = await ocrVm.confirmAndCommit(
                             campId: activeCamp.id,
                             campCode: activeCamp.campCode,
@@ -677,7 +816,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
   }
 
   // Tab 1: Demographics
-  Widget _buildDemographicsTab(OcrScanResultModel result, OcrScanViewModel vm) {
+  Widget _buildDemographicsTab(OcrScanResultModel result, OcrScanViewModel vm, OcrScanState ocrState, String? campId) {
     final demo = result.demographics;
 
     return SingleChildScrollView(
@@ -685,12 +824,68 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Live Duplicate Detection Warning Card
+          if (ocrState.duplicateResult.hasDuplicate) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 26),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'DUPLICATE REGISTRY DETECTED (दोहोरिएको बिरामी रेकर्ड)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF991B1B)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          ocrState.duplicateResult.matchReasonEn ?? 'A patient with matching credentials already exists in this camp.',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D)),
+                        ),
+                        if (ocrState.duplicateResult.matchReasonNe != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            ocrState.duplicateResult.matchReasonNe!,
+                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF991B1B)),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFFCA5A5)),
+                          ),
+                          child: Text(
+                            'Existing Record: ${ocrState.duplicateResult.matchedPatient?.fullName} • ID: ${ocrState.duplicateResult.matchedPatient?.patientId} (Ward ${ocrState.duplicateResult.matchedPatient?.ward})',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF991B1B)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           _buildFieldWithConfidence(
             label: 'First Name (नाम)',
             value: demo['firstName']?.toString() ?? '',
             fieldKey: 'name',
             result: result,
-            onChanged: (val) => vm.updateDemographic('firstName', val),
+            onChanged: (val) => vm.updateDemographic('firstName', val, campId: campId),
           ),
           const SizedBox(height: 12),
           _buildFieldWithConfidence(
@@ -698,7 +893,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             value: demo['surname']?.toString() ?? '',
             fieldKey: 'name',
             result: result,
-            onChanged: (val) => vm.updateDemographic('surname', val),
+            onChanged: (val) => vm.updateDemographic('surname', val, campId: campId),
           ),
           const SizedBox(height: 12),
           Row(
@@ -710,7 +905,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   fieldKey: 'age',
                   result: result,
                   keyboardType: TextInputType.number,
-                  onChanged: (val) => vm.updateDemographic('age', int.tryParse(val) ?? 35),
+                  onChanged: (val) => vm.updateDemographic('age', int.tryParse(val) ?? 35, campId: campId),
                 ),
               ),
               const SizedBox(width: 12),
@@ -720,7 +915,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   value: demo['ward']?.toString() ?? '03',
                   fieldKey: 'ward',
                   result: result,
-                  onChanged: (val) => vm.updateDemographic('ward', val),
+                  onChanged: (val) => vm.updateDemographic('ward', val, campId: campId),
                 ),
               ),
             ],
@@ -732,7 +927,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             fieldKey: 'mobile',
             result: result,
             keyboardType: TextInputType.phone,
-            onChanged: (val) => vm.updateDemographic('mobile', val),
+            onChanged: (val) => vm.updateDemographic('mobile', val, campId: campId),
           ),
           const SizedBox(height: 12),
           _buildFieldWithConfidence(
@@ -740,7 +935,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             value: demo['relativeName']?.toString() ?? '',
             fieldKey: 'relative',
             result: result,
-            onChanged: (val) => vm.updateDemographic('relativeName', val),
+            onChanged: (val) => vm.updateDemographic('relativeName', val, campId: campId),
           ),
           const SizedBox(height: 16),
           const Text('Primary Reasons for Visit (शिविरमा आउनुको कारण):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
