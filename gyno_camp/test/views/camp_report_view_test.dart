@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gyno_camp/core/theme/app_theme.dart';
+import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/camp_report_summary_model.dart';
+import 'package:gyno_camp/models/clinical_visit_model.dart';
+import 'package:gyno_camp/models/patient_model.dart';
 import 'package:gyno_camp/repositories/reporting_repository.dart';
 import 'package:gyno_camp/viewmodels/reporting_viewmodel.dart';
 import 'package:gyno_camp/views/reports/camp_report_view.dart';
@@ -53,6 +56,16 @@ class FakeReportingRepository implements IReportingRepository {
 
   @override
   Future<Uint8List> generatePdfReport(CampReportSummaryModel summary) async {
+    return Uint8List.fromList([37, 80, 68, 70, 45]);
+  }
+
+  @override
+  Future<Uint8List> generateIndividualPatientPdf({
+    required PatientModel patient,
+    ClinicalVisitModel? visit,
+    CampModel? camp,
+    String organizationName = 'Nepal Gyno Health Outreach Network',
+  }) async {
     return Uint8List.fromList([37, 80, 68, 70, 45]);
   }
 

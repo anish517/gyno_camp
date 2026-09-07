@@ -1,6 +1,9 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/camp_report_summary_model.dart';
+import 'package:gyno_camp/models/clinical_visit_model.dart';
+import 'package:gyno_camp/models/patient_model.dart';
 import 'package:gyno_camp/repositories/reporting_repository.dart';
 import 'package:gyno_camp/viewmodels/reporting_viewmodel.dart';
 
@@ -18,6 +21,17 @@ class MockReportingRepository implements IReportingRepository {
 
   @override
   Future<Uint8List> generatePdfReport(CampReportSummaryModel summary) async {
+    if (shouldThrowOnPdf) throw Exception('PDF generator crashed');
+    return Uint8List.fromList([37, 80, 68, 70, 45]);
+  }
+
+  @override
+  Future<Uint8List> generateIndividualPatientPdf({
+    required PatientModel patient,
+    ClinicalVisitModel? visit,
+    CampModel? camp,
+    String organizationName = 'Nepal Gyno Health Outreach Network',
+  }) async {
     if (shouldThrowOnPdf) throw Exception('PDF generator crashed');
     return Uint8List.fromList([37, 80, 68, 70, 45]);
   }

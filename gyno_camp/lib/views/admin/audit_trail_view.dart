@@ -18,9 +18,39 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
   String _selectedActionPrefix = 'ALL';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(auditLogProvider.notifier).loadRecentLogs();
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  bool _matchesCategory(AuditLogModel log, String category) {
+    if (category == 'ALL') return true;
+    final action = log.action.toUpperCase();
+    final entity = log.entityType.toUpperCase();
+    switch (category) {
+      case 'CAMP':
+        return action.startsWith('CAMP') || entity.contains('CAMP');
+      case 'DEVICE':
+        return action.startsWith('DEVICE') || action.startsWith('APP_UNLOCKED') || entity.contains('DEVICE');
+      case 'PATIENT':
+        return action.startsWith('PATIENT') || action.startsWith('CLINICAL') || action.startsWith('FORM') || entity.contains('PATIENT');
+      case 'USER':
+        return action.startsWith('USER') || action.startsWith('AUTH') || entity.contains('USER') || entity.contains('AUTH');
+      case 'LOOKUP':
+        return action.startsWith('LOOKUP') || entity.contains('LOOKUP') || entity.contains('MASTER');
+      case 'REPORT':
+        return action.startsWith('REPORT') || entity.contains('REPORT');
+      default:
+        return action.startsWith(category);
+    }
   }
 
   @override
@@ -33,7 +63,7 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
       if (currentUser?.isDataTaker == true && log.userId != currentUser!.id) {
         return false;
       }
-      if (_selectedActionPrefix != 'ALL' && !log.action.startsWith(_selectedActionPrefix)) {
+      if (!_matchesCategory(log, _selectedActionPrefix)) {
         return false;
       }
       if (_searchController.text.trim().isNotEmpty) {

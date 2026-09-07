@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import '../../core/services/file_download_helper.dart';
 import '../../core/services/nepali_localization_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
@@ -518,10 +519,17 @@ class PatientFollowUpSlipModal extends StatelessWidget {
       );
 
       final pdfBytes = await doc.save();
+      final filename = 'Patient_Slip_${patient.patientId}.pdf';
+      await FileDownloadHelper.saveAndDownloadFile(
+        bytes: pdfBytes,
+        filename: filename,
+        mimeType: 'application/pdf',
+      );
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Follow-up slip generated (${pdfBytes.length} bytes ready for thermal/PDF printing).'),
+            content: Text('Follow-up slip downloaded: $filename'),
             backgroundColor: AppTheme.successGreen,
           ),
         );

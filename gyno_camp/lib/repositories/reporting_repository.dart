@@ -1,11 +1,9 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import '../core/constants/app_constants.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
 import '../core/services/excel_report_service.dart';
+import '../core/services/file_download_helper.dart';
 import '../core/services/pdf_report_service.dart';
 import '../core/services/report_aggregation_service.dart';
 import '../models/camp_model.dart';
@@ -17,6 +15,12 @@ import 'audit_repository.dart';
 abstract class IReportingRepository {
   Future<CampReportSummaryModel> getCampSummary({String? campId, String generatedBy = 'Data Analyst'});
   Future<Uint8List> generatePdfReport(CampReportSummaryModel summary);
+  Future<Uint8List> generateIndividualPatientPdf({
+    required PatientModel patient,
+    ClinicalVisitModel? visit,
+    CampModel? camp,
+    String organizationName = 'Nepal Gyno Health Outreach Network',
+  });
   Future<List<int>> generateExcelReport(CampReportSummaryModel summary);
   Future<String> saveReportToFile({
     required List<int> bytes,
@@ -121,6 +125,21 @@ class ReportingRepository implements IReportingRepository {
   }
 
   @override
+  Future<Uint8List> generateIndividualPatientPdf({
+    required PatientModel patient,
+    ClinicalVisitModel? visit,
+    CampModel? camp,
+    String organizationName = 'Nepal Gyno Health Outreach Network',
+  }) async {
+    return _pdfReportService.generateIndividualPatientPdf(
+      patient: patient,
+      visit: visit,
+      camp: camp,
+      organizationName: organizationName,
+    );
+  }
+
+  @override
   Future<List<int>> generateExcelReport(CampReportSummaryModel summary) async {
     return _excelReportService.generateCampSummaryExcel(summary);
   }
@@ -131,30 +150,11 @@ class ReportingRepository implements IReportingRepository {
     required String filename,
     String? targetDirectoryPath,
   }) async {
-    if (kIsWeb) {
-      // In Web browsers, bypass dart:io Directory and File system access
-      return 'downloads/$filename';
-    }
-
-    String dirPath = targetDirectoryPath ?? '';
-    if (dirPath.isEmpty) {
-      try {
-        final appDir = await getApplicationDocumentsDirectory();
-        dirPath = appDir.path;
-      } catch (_) {
-        // Fallback for non-GUI / headless test environments
-        dirPath = Directory.systemTemp.path;
-      }
-    }
-
-    final reportsDir = Directory(p.join(dirPath, 'gynocamp_reports'));
-    if (!reportsDir.existsSync()) {
-      reportsDir.createSync(recursive: true);
-    }
-
-    final file = File(p.join(reportsDir.path, filename));
-    await file.writeAsBytes(bytes);
-    return file.path;
+    return FileDownloadHelper.saveAndDownloadFile(
+      bytes: bytes,
+      filename: filename,
+      targetDirectoryPath: targetDirectoryPath,
+    );
   }
 
   @override

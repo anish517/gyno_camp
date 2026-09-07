@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../core/constants/app_constants.dart';
+import '../models/camp_model.dart';
 import '../models/camp_report_summary_model.dart';
+import '../models/clinical_visit_model.dart';
+import '../models/patient_model.dart';
 import '../repositories/reporting_repository.dart';
 
 class ReportingState {
@@ -191,6 +194,62 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
       state = state.copyWith(
         isExportingExcel: false,
         errorMessage: 'Excel export failed: $e',
+      );
+      return null;
+    }
+  }
+
+  Future<String?> exportIndividualPatientPdf({
+    required PatientModel patient,
+    ClinicalVisitModel? visit,
+    CampModel? camp,
+    String userId = 'usr-analyst',
+    String userName = 'Data Analyst',
+    String userRole = AppConstants.roleDataAnalyst,
+    String deviceId = 'dev-field',
+    String? targetDirectoryPath,
+  }) async {
+    state = state.copyWith(isExportingPdf: true, clearFeedback: true);
+    try {
+      final bytes = await reportingRepository.generateIndividualPatientPdf(
+        patient: patient,
+        visit: visit,
+        camp: camp,
+      );
+
+      final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+      final filename = 'Patient_${patient.patientId}_Summary_$dateStr.pdf';
+
+      final savedPath = await reportingRepository.saveReportToFile(
+        bytes: bytes,
+        filename: filename,
+        targetDirectoryPath: targetDirectoryPath,
+      );
+
+      await reportingRepository.auditReportExport(
+        userId: userId,
+        userName: userName,
+        userRole: userRole,
+        deviceId: deviceId,
+        format: 'PDF',
+        campCode: camp?.campCode ?? patient.campCode,
+        totalPatients: 1,
+        filePath: savedPath,
+      );
+
+      if (!mounted) return savedPath;
+      state = state.copyWith(
+        isExportingPdf: false,
+        lastExportPath: savedPath,
+        lastExportFormat: 'PDF',
+        successMessage: 'Patient summary generated: $filename',
+      );
+      return savedPath;
+    } catch (e) {
+      if (!mounted) return null;
+      state = state.copyWith(
+        isExportingPdf: false,
+        errorMessage: 'Individual export failed: $e',
       );
       return null;
     }

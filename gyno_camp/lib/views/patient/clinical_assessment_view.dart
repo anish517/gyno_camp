@@ -7,9 +7,11 @@ import '../../core/theme/app_theme.dart';
 import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/clinical_assessment_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
+import '../../viewmodels/reporting_viewmodel.dart';
 
 class ClinicalAssessmentView extends ConsumerStatefulWidget {
   final PatientModel patient;
@@ -103,6 +105,74 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded),
+            tooltip: 'Download Patient Clinical Summary (PDF)',
+            onPressed: () async {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Generating clinical summary PDF for ${widget.patient.fullName}...'),
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+
+              final activeCamp = ref.read(campStateProvider).activeCamp;
+              final currentVisit = state.savedVisit ?? ClinicalVisitModel(
+                id: state.existingVisitId ?? 'visit-draft',
+                patientId: widget.patient.patientId,
+                campId: widget.patient.campId,
+                visitDate: DateTime.now(),
+                deliveries: state.deliveries,
+                livingChildren: state.livingChildren,
+                abortions: state.abortions,
+                anamnesisComplaints: state.complaints,
+                uterusInside: state.uterusInside,
+                pelvicFloorTone: state.pelvicFloorTone,
+                popAnteriorStage: state.popAnteriorStage,
+                popMiddleStage: state.popMiddleStage,
+                popPosteriorStage: state.popPosteriorStage,
+                highestPopStage: state.highestPopStage,
+                systolicBp: state.systolicBp,
+                diastolicBp: state.diastolicBp,
+                pulse: state.pulse,
+                spo2: state.spo2,
+                glucose: state.glucose,
+                diagnoses: state.selectedDiagnoses,
+                medications: state.selectedMedications,
+                pessaryType: state.pessaryType,
+                pessarySize: state.pessarySize,
+                counseling: state.selectedCounseling,
+                followUpNeeded: state.followUpNeeded,
+                followUpDestination: state.followUpDestination,
+                outtakeNotes: state.outtakeNotes,
+                createdByUserId: user?.id ?? 'usr-doc',
+                tenantId: 'tenant_bir_hospital',
+                isSynced: false,
+                createdAt: DateTime.now(),
+              );
+
+              final saved = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(
+                patient: widget.patient,
+                visit: currentVisit,
+                camp: activeCamp,
+                userId: user?.id ?? 'usr-doc',
+                userName: user?.name ?? 'Medical Officer',
+                userRole: user?.role.toDbString() ?? 'SUPER_ADMIN',
+                deviceId: device?.deviceId ?? 'dev-field',
+              );
+
+              if (context.mounted && saved != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Patient report downloaded: $saved'),
+                    backgroundColor: AppTheme.successGreen,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [

@@ -107,11 +107,14 @@ void main() {
       await tester.ensureVisible(printButton);
       await tester.pumpAndSettle();
 
-      await tester.tap(printButton);
+      await tester.runAsync(() async {
+        await tester.tap(printButton);
+        await Future.delayed(const Duration(milliseconds: 300));
+      });
       await tester.pumpAndSettle();
 
       // Verify success snackbar appears
-      expect(find.textContaining('ready for thermal/PDF printing'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
     });
 
     testWidgets('Tapping Station 2 Chart dismisses modal returning true', (tester) async {

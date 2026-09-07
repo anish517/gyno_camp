@@ -4,8 +4,11 @@ import '../../core/services/document_capture_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/patient_model.dart';
+import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
+import '../../viewmodels/clinical_assessment_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
+import '../../viewmodels/reporting_viewmodel.dart';
 import '../scanner/form_scan_view.dart';
 import 'clinical_assessment_view.dart';
 import 'patient_follow_up_slip_modal.dart';
@@ -342,10 +345,44 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             const Divider(height: 1),
             const SizedBox(height: 8),
 
-            // Action Buttons: Follow-up Slip (QR) & Open Clinical Intake Form
+            // Action Buttons: Download PDF, Follow-up Slip (QR) & Open Clinical Intake Form
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                IconButton(
+                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 20, color: AppTheme.dangerRose),
+                  tooltip: 'Download Patient Health Summary (PDF)',
+                  onPressed: () async {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Generating ${patient.fullName} (${patient.patientId}) clinical summary PDF...'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                    final visit = await ref.read(clinicalAssessmentProvider.notifier).loadPatientAssessment(
+                      patient.patientId,
+                      patientUuid: patient.id,
+                    );
+                    final auth = ref.read(authStateProvider).currentUser;
+                    final saved = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(
+                      patient: patient,
+                      visit: visit,
+                      camp: activeCamp,
+                      userId: auth?.id ?? 'usr-data-taker',
+                      userName: auth?.name ?? 'Health Worker',
+                      userRole: auth?.role.toDbString() ?? 'DATA_TAKER',
+                    );
+                    if (context.mounted && saved != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Patient report downloaded: $saved'),
+                          backgroundColor: AppTheme.successGreen,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(width: 4),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF334155),
