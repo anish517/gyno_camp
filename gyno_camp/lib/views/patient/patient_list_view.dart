@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/services/document_capture_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/patient_model.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
+import '../scanner/form_scan_view.dart';
 import 'clinical_assessment_view.dart';
 import 'patient_follow_up_slip_modal.dart';
 import 'patient_registration_view.dart';
@@ -525,7 +527,64 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+
+                    // Quick Optical / Camera Trigger Options
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              foregroundColor: AppTheme.primaryTeal,
+                              side: const BorderSide(color: AppTheme.primaryTeal),
+                            ),
+                            icon: const Icon(Icons.camera_alt, size: 16),
+                            label: const Text('Open Camera / File', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            onPressed: () async {
+                              final docService = DocumentCaptureService();
+                              final image = await docService.captureFromCamera();
+                              if (image != null) {
+                                // If any patient ID matches image name or if there's an existing patient
+                                if (existingPatients.isNotEmpty) {
+                                  final p = existingPatients.first;
+                                  scanInputController.text = p.patientId;
+                                  checkMatch(p.patientId);
+                                }
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Image captured: ${image.name}'),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0284C7),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                            icon: const Icon(Icons.document_scanner, size: 16),
+                            label: const Text('Yellow Form OCR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const FormScanView()),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
 
                     // Input Field (Auto-focused for Hardware Barcode Scanner Guns)
                     TextField(
