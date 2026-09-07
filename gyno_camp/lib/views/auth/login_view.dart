@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
@@ -15,8 +16,8 @@ class LoginView extends ConsumerStatefulWidget {
 }
 
 class _LoginViewState extends ConsumerState<LoginView> {
-  final _emailController = TextEditingController(text: 'sita@gynocamp.org');
-  final _passwordController = TextEditingController(text: 'pass123');
+  final _emailController = TextEditingController(text: kDebugMode ? 'sita@gynocamp.org' : '');
+  final _passwordController = TextEditingController(text: kDebugMode ? 'pass123' : '');
   bool _obscurePassword = true;
   UserRole _selectedRole = UserRole.dataTaker;
 
@@ -30,19 +31,21 @@ class _LoginViewState extends ConsumerState<LoginView> {
   void _selectRole(UserRole role) {
     setState(() {
       _selectedRole = role;
-      switch (role) {
-        case UserRole.dataTaker:
-          _emailController.text = 'sita@gynocamp.org';
-          _passwordController.text = 'pass123';
-          break;
-        case UserRole.superAdmin:
-          _emailController.text = 'admin@gynocamp.org';
-          _passwordController.text = 'admin123';
-          break;
-        case UserRole.dataAnalyst:
-          _emailController.text = 'analyst@gynocamp.org';
-          _passwordController.text = 'analyst123';
-          break;
+      if (kDebugMode) {
+        switch (role) {
+          case UserRole.dataTaker:
+            _emailController.text = 'sita@gynocamp.org';
+            _passwordController.text = 'pass123';
+            break;
+          case UserRole.superAdmin:
+            _emailController.text = 'admin@gynocamp.org';
+            _passwordController.text = 'admin123';
+            break;
+          case UserRole.dataAnalyst:
+            _emailController.text = 'analyst@gynocamp.org';
+            _passwordController.text = 'analyst123';
+            break;
+        }
       }
     });
   }

@@ -279,6 +279,11 @@ class OcrFormService {
     );
   }
 
+  /// Merges Page 1 (Front: Demographics & Anamnesis) and Page 2 (Back: POP Staging & Prescriptions)
+  OcrScanResultModel mergeScans(OcrScanResultModel page1, OcrScanResultModel page2) {
+    return OcrScanResultModel.merge(page1, page2);
+  }
+
   // ==========================================
   // High-Fidelity Pre-Configured Samples
   // ==========================================

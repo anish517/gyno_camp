@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:gyno_camp/core/database/database_service.dart';
 import 'package:gyno_camp/core/services/ocr_form_service.dart';
@@ -44,6 +45,19 @@ void main() {
       expect(result.vitals['systolicBp'], 130);
       expect(result.popStaging['highestPopStage'], 3);
       expect(result.overallConfidence, greaterThanOrEqualTo(0.80));
+    });
+
+    test('processDualPageScan processes Page 1 and Page 2 and merges results', () async {
+      final page1File = XFile('test_samples/yellow_form_sample_page1.jpg');
+      final page2File = XFile('test_samples/yellow_form_sample_page2.jpg');
+
+      final result = await ocrRepo.processDualPageScan(page1File: page1File, page2File: page2File);
+
+      expect(result.isDualPage, true);
+      expect(result.demographics['firstName'], 'Maya');
+      expect(result.vitals['systolicBp'], 130);
+      expect(result.popStaging['highestPopStage'], 3);
+      expect(result.medications, contains('Metronidazole'));
     });
 
     test('commitVerifiedScan saves patient, clinical visit and cryptographic audit log', () async {

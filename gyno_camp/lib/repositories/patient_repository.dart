@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
@@ -32,8 +33,8 @@ abstract class IPatientRepository {
     required String createdByUserId,
     required String deviceId,
   });
-  Future<List<ClinicalVisitModel>> getClinicalVisits(String patientId);
-  Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId);
+  Future<List<ClinicalVisitModel>> getClinicalVisits(String patientId, {String? patientUuid});
+  Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId, {String? patientUuid});
 }
 
 class PatientRepository implements IPatientRepository {
@@ -231,6 +232,21 @@ class PatientRepository implements IPatientRepository {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
 
+    final detailMap = {
+      'patientId': newVisit.patientId,
+      'highestPop': newVisit.highestPopStage,
+      'popStages': 'A${newVisit.popAnteriorStage} M${newVisit.popMiddleStage} P${newVisit.popPosteriorStage}',
+      'bp': '${newVisit.systolicBp ?? "-"}/${newVisit.diastolicBp ?? "-"}',
+      'pulse': newVisit.pulse,
+      'spo2': newVisit.spo2,
+      'glucose': newVisit.glucose,
+      'diagnoses': newVisit.diagnoses,
+      'medications': newVisit.medications,
+      'followUpNeeded': newVisit.followUpNeeded,
+      'followUpDestination': newVisit.followUpDestination,
+      'outtakeNotes': newVisit.outtakeNotes,
+    };
+
     await _auditRepository.logActivity(
       userId: createdByUserId,
       userName: 'Field Doctor / Nurse',
@@ -238,7 +254,7 @@ class PatientRepository implements IPatientRepository {
       action: AppConstants.auditActionClinicalEntry,
       entityType: 'ClinicalVisit',
       entityId: newVisit.id,
-      detailsJson: '{"patientId":"${newVisit.patientId}","highestPop":${newVisit.highestPopStage},"diagnosesCount":${newVisit.diagnoses.length}}',
+      detailsJson: jsonEncode(detailMap),
       deviceId: deviceId,
     );
 
@@ -246,20 +262,48 @@ class PatientRepository implements IPatientRepository {
   }
 
   @override
-  Future<List<ClinicalVisitModel>> getClinicalVisits(String patientId) async {
+  Future<List<ClinicalVisitModel>> getClinicalVisits(String patientId, {String? patientUuid}) async {
     final db = await _databaseService.database;
-    final maps = await db.query(
+    final whereClause = patientUuid != null && patientUuid.isNotEmpty
+        ? 'patient_id = ? OR patient_id = ?'
+        : 'patient_id = ?';
+    final whereArguments = patientUuid != null && patientUuid.isNotEmpty
+        ? [patientId, patientUuid]
+        : [patientId];
+
+    var maps = await db.query(
       DatabaseTables.tableClinicalVisits,
-      where: 'patient_id = ?',
-      whereArgs: [patientId],
+      where: whereClause,
+      whereArgs: whereArguments,
       orderBy: 'visit_date DESC',
     );
+
+    // Fallback cross-check: if no direct match, check if patientId was UUID or patient_id in patients table
+    if (maps.isEmpty) {
+      final pat = await db.query(
+        DatabaseTables.tablePatients,
+        where: 'id = ? OR patient_id = ?',
+        whereArgs: [patientId, patientId],
+        limit: 1,
+      );
+      if (pat.isNotEmpty) {
+        final altId = pat.first['patient_id'] as String?;
+        final uuid = pat.first['id'] as String?;
+        maps = await db.query(
+          DatabaseTables.tableClinicalVisits,
+          where: 'patient_id = ? OR patient_id = ?',
+          whereArgs: [altId ?? '', uuid ?? ''],
+          orderBy: 'visit_date DESC',
+        );
+      }
+    }
+
     return maps.map((m) => ClinicalVisitModel.fromMap(m)).toList();
   }
 
   @override
-  Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId) async {
-    final list = await getClinicalVisits(patientId);
+  Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId, {String? patientUuid}) async {
+    final list = await getClinicalVisits(patientId, patientUuid: patientUuid);
     if (list.isEmpty) return null;
     return list.first;
   }

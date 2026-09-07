@@ -4,6 +4,7 @@ import '../../core/constants/clinical_constants.dart';
 import '../../core/services/clinical_validation_service.dart';
 import '../../core/services/nepali_localization_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/clinical_assessment_viewmodel.dart';
@@ -39,9 +40,31 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(clinicalAssessmentProvider.notifier).reset();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final existing = await ref.read(clinicalAssessmentProvider.notifier).loadPatientAssessment(
+        widget.patient.patientId,
+        patientUuid: widget.patient.id,
+      );
+      if (existing != null && mounted) {
+        _populateControllers(existing);
+      }
     });
+  }
+
+  void _populateControllers(ClinicalVisitModel visit) {
+    if (visit.deliveries != null) _deliveriesController.text = visit.deliveries.toString();
+    if (visit.livingChildren != null) _livingChildrenController.text = visit.livingChildren.toString();
+    if (visit.abortions != null) _abortionsController.text = visit.abortions.toString();
+    if (visit.systolicBp != null) _systolicController.text = visit.systolicBp.toString();
+    if (visit.diastolicBp != null) _diastolicController.text = visit.diastolicBp.toString();
+    if (visit.pulse != null) _pulseController.text = visit.pulse.toString();
+    if (visit.spo2 != null) _spo2Controller.text = visit.spo2.toString();
+    if (visit.glucose != null) _glucoseController.text = visit.glucose.toString();
+    if (visit.ecgNotes != null && visit.ecgNotes!.isNotEmpty) _ecgController.text = visit.ecgNotes!;
+    if (visit.pessarySize != null && visit.pessarySize!.isNotEmpty) _pessarySizeController.text = visit.pessarySize!;
+    if (visit.customMedication != null && visit.customMedication!.isNotEmpty) _customMedController.text = visit.customMedication!;
+    if (visit.outtakeNotes != null && visit.outtakeNotes!.isNotEmpty) _outtakeNotesController.text = visit.outtakeNotes!;
+    setState(() {});
   }
 
   @override

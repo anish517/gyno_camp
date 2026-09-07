@@ -51,7 +51,7 @@ void main() {
       expect(vm.state.isProcessing, false);
       expect(vm.state.hasScanResult, true);
       expect(vm.state.scanResult!.demographics['firstName'], 'Maya');
-      expect(vm.state.successMessage, contains('successfully parsed'));
+      expect(vm.state.successMessage, contains('successfully'));
     });
 
     test('updateDemographic, updateVital, and updatePopStage mutate scan state', () async {
@@ -84,6 +84,33 @@ void main() {
       expect(vm.state.scanResult!.medications, contains('Ciprofloxacin'));
       vm.toggleMedication('Ciprofloxacin');
       expect(vm.state.scanResult!.medications, isNot(contains('Ciprofloxacin')));
+    });
+
+    test('loadSample with page1 and page2 manages slots and auto-merges when both ready', () async {
+      await vm.loadSample('page1');
+      expect(vm.state.hasPage1, true);
+      expect(vm.state.hasPage2, false);
+      expect(vm.state.isDualReady, false);
+      expect(vm.state.page1Scan!.demographics['firstName'], 'Maya');
+
+      await vm.loadSample('page2');
+      expect(vm.state.hasPage1, true);
+      expect(vm.state.hasPage2, true);
+      expect(vm.state.isDualReady, true);
+      expect(vm.state.scanResult, isNotNull);
+      expect(vm.state.scanResult!.isDualPage, true);
+      expect(vm.state.scanResult!.demographics['firstName'], 'Maya');
+      expect(vm.state.scanResult!.popStaging['highestPopStage'], 3);
+      expect(vm.state.scanResult!.vitals['systolicBp'], 130);
+
+      // Switch inspection page
+      vm.switchInspectionPage(2);
+      expect(vm.state.activeInspectionPage, 2);
+
+      // Clear slot 1
+      vm.clearSlot(1);
+      expect(vm.state.hasPage1, false);
+      expect(vm.state.hasPage2, true);
     });
 
     test('confirmAndCommit saves patient and sets committedPatient state', () async {

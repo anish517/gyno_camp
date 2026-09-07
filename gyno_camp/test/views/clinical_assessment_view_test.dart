@@ -88,10 +88,10 @@ class FakePatientRepository implements IPatientRepository {
   }) async => const DuplicateCheckResult.none();
 
   @override
-  Future<List<ClinicalVisitModel>> getClinicalVisits(String patientId) async => lastSavedVisit != null ? [lastSavedVisit!] : [];
+  Future<List<ClinicalVisitModel>> getClinicalVisits(String patientId, {String? patientUuid}) async => lastSavedVisit != null ? [lastSavedVisit!] : [];
 
   @override
-  Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId) async => lastSavedVisit;
+  Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId, {String? patientUuid}) async => lastSavedVisit;
 }
 
 void main() {
@@ -224,6 +224,77 @@ void main() {
 
       // Verify error SnackBar is displayed with the exception details
       expect(find.textContaining('Database constraint violation'), findsOneWidget);
+
+      await tester.binding.setSurfaceSize(null);
+    });
+
+    testWidgets('Re-visiting patient pre-populates existing clinical visit and successfully updates changed fields', (tester) async {
+      // 1. Setup existing visit in fake repository
+      fakePatientRepo.lastSavedVisit = ClinicalVisitModel(
+        id: 'vis-existing-01',
+        patientId: 'GC-KTM01-2026-00001',
+        campId: 'camp-ktm-01',
+        visitDate: DateTime.now(),
+        deliveries: 4,
+        livingChildren: 3,
+        abortions: 1,
+        systolicBp: 130,
+        diastolicBp: 85,
+        pulse: 78,
+        spo2: 97,
+        glucose: 110,
+        diagnoses: const ['POP'],
+        medications: const ['Metronidazole'],
+        followUpNeeded: true,
+        followUpDestination: 'GynaeSupport Nurse',
+        outtakeNotes: 'Original notes from earlier checkup',
+        createdAt: DateTime.now(),
+        createdByUserId: 'usr-doc',
+      );
+
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+            lookupRepositoryProvider.overrideWithValue(FakeLookupRepository()),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: ClinicalAssessmentView(patient: testPatient),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify Station 1 text field is pre-populated with 4 deliveries
+      expect(find.text('4'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+
+      // Jump to Station 6 (Outtake)
+      await tester.tap(find.text('6. Outtake'));
+      await tester.pumpAndSettle();
+
+      // Verify outtake notes are pre-populated
+      expect(find.text('Original notes from earlier checkup'), findsOneWidget);
+
+      // Modify notes to new changed value
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Original notes from earlier checkup'),
+        'Updated clinical notes: Patient responded well to medication.',
+      );
+      await tester.pumpAndSettle();
+
+      // Tap Complete & Save Record
+      await tester.tap(find.text('Complete & Save Record'));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Verify the existing visit ID was preserved and updated
+      expect(fakePatientRepo.lastSavedVisit, isNotNull);
+      expect(fakePatientRepo.lastSavedVisit!.id, 'vis-existing-01');
+      expect(fakePatientRepo.lastSavedVisit!.outtakeNotes, 'Updated clinical notes: Patient responded well to medication.');
 
       await tester.binding.setSurfaceSize(null);
     });
