@@ -156,7 +156,14 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
                           children: [
                             Icon(Icons.history_toggle_off, size: 48, color: Colors.grey.shade400),
                             const SizedBox(height: 8),
-                            const Text('No audit events matched your search.', style: TextStyle(color: Colors.grey)),
+                            Text(
+                              _searchController.text.isNotEmpty
+                                  ? 'No audit events matched "${_searchController.text}".'
+                                  : _selectedActionPrefix != 'ALL'
+                                      ? 'No ${_getCategoryDisplayName(_selectedActionPrefix)} events recorded yet.'
+                                      : 'No audit events recorded yet.',
+                              style: const TextStyle(color: Colors.grey, fontSize: 14),
+                            ),
                           ],
                         ),
                       )
@@ -173,6 +180,25 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
         ],
       ),
     );
+  }
+
+  String _getCategoryDisplayName(String prefix) {
+    switch (prefix) {
+      case 'CAMP':
+        return 'camp';
+      case 'DEVICE':
+        return 'device';
+      case 'PATIENT':
+        return 'patient registration / clinical';
+      case 'USER':
+        return 'authentication';
+      case 'LOOKUP':
+        return 'formulary / lookup';
+      case 'REPORT':
+        return 'report export';
+      default:
+        return 'matching';
+    }
   }
 
   Widget _buildActionChip(String key, String label) {
