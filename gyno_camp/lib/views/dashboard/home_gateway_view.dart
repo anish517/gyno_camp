@@ -1345,7 +1345,7 @@ class HomeGatewayView extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  user?.name ?? 'Dr. Rajesh Kumar',
+                  user?.name ?? 'Data Analyst',
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 const SizedBox(height: 4),
