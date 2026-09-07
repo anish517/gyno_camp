@@ -18,7 +18,9 @@ class DatabaseTables {
       role TEXT NOT NULL,
       is_active INTEGER NOT NULL DEFAULT 1,
       last_login_at TEXT,
-      assigned_camp_ids TEXT
+      assigned_camp_ids TEXT,
+      tenant_id TEXT DEFAULT 'tenant_bir_hospital',
+      tenant_name TEXT DEFAULT 'Bir Hospital Gyno Outreach'
     );
   ''';
 
@@ -56,6 +58,8 @@ class DatabaseTables {
       status TEXT NOT NULL,
       assigned_staff_ids TEXT,
       total_patients_registered INTEGER NOT NULL DEFAULT 0,
+      tenant_id TEXT DEFAULT 'tenant_bir_hospital',
+      organization_name TEXT DEFAULT 'Bir Hospital Gyno Outreach',
       created_at TEXT NOT NULL,
       updated_at TEXT
     );
@@ -89,6 +93,7 @@ class DatabaseTables {
       updated_at TEXT,
       created_by_user_id TEXT NOT NULL,
       created_by_device_id TEXT NOT NULL,
+      tenant_id TEXT DEFAULT 'tenant_bir_hospital',
       is_synced INTEGER NOT NULL DEFAULT 0,
       synced_at TEXT
     );
@@ -136,6 +141,7 @@ class DatabaseTables {
       created_at TEXT NOT NULL,
       updated_at TEXT,
       created_by_user_id TEXT NOT NULL,
+      tenant_id TEXT DEFAULT 'tenant_bir_hospital',
       is_synced INTEGER NOT NULL DEFAULT 0,
       FOREIGN KEY(patient_id) REFERENCES $tablePatients(patient_id)
     );

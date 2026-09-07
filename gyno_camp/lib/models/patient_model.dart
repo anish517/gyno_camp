@@ -34,6 +34,7 @@ class PatientModel {
   final DateTime? updatedAt;
   final String createdByUserId;
   final String createdByDeviceId;
+  final String tenantId;
   final bool isSynced;
   final DateTime? syncedAt;
 
@@ -63,6 +64,7 @@ class PatientModel {
     this.updatedAt,
     required this.createdByUserId,
     required this.createdByDeviceId,
+    this.tenantId = 'tenant_bir_hospital',
     this.isSynced = false,
     this.syncedAt,
   });
@@ -130,6 +132,7 @@ class PatientModel {
     DateTime? updatedAt,
     String? createdByUserId,
     String? createdByDeviceId,
+    String? tenantId,
     bool? isSynced,
     DateTime? syncedAt,
   }) {
@@ -159,6 +162,7 @@ class PatientModel {
       updatedAt: updatedAt ?? this.updatedAt,
       createdByUserId: createdByUserId ?? this.createdByUserId,
       createdByDeviceId: createdByDeviceId ?? this.createdByDeviceId,
+      tenantId: tenantId ?? this.tenantId,
       isSynced: isSynced ?? this.isSynced,
       syncedAt: syncedAt ?? this.syncedAt,
     );
@@ -202,6 +206,7 @@ class PatientModel {
       'updated_at': updatedAt?.toIso8601String(),
       'created_by_user_id': createdByUserId,
       'created_by_device_id': createdByDeviceId,
+      'tenant_id': tenantId,
       'is_synced': isSynced ? 1 : 0,
       'synced_at': syncedAt?.toIso8601String(),
     };
@@ -240,6 +245,7 @@ class PatientModel {
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
       createdByUserId: map['created_by_user_id'] as String? ?? '',
       createdByDeviceId: map['created_by_device_id'] as String? ?? '',
+      tenantId: map['tenant_id'] as String? ?? 'tenant_bir_hospital',
       isSynced: (map['is_synced'] is int)
           ? (map['is_synced'] as int) == 1
           : (map['is_synced'] as bool? ?? false),

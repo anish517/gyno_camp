@@ -543,6 +543,9 @@ class HomeGatewayView extends ConsumerWidget {
     final patientState = ref.watch(patientListProvider);
     final user = ref.watch(authStateProvider).currentUser;
 
+    final isCampAssigned = campState.hasActiveCamp &&
+        (user == null || user.assignedCampIds.isEmpty || user.assignedCampIds.contains(campState.activeCamp!.id));
+
     if (campState.hasActiveCamp && patientState.patients.isEmpty && !patientState.isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(patientListProvider.notifier).loadPatients(campState.activeCamp!.id);
@@ -580,6 +583,24 @@ class HomeGatewayView extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // SaaS Organization Tenant Badge
+                    Row(
+                      children: [
+                        const Icon(Icons.corporate_fare_rounded, color: Colors.tealAccent, size: 14),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${user?.tenantName ?? "Bir Hospital Gyno Outreach"} • Tenant: ${user?.tenantId ?? "tenant_bir_hospital"}',
+                          style: const TextStyle(
+                            color: Colors.tealAccent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
                     Row(
                       children: [
                         Container(
@@ -641,6 +662,29 @@ class HomeGatewayView extends ConsumerWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    if (campState.hasActiveCamp && !isCampAssigned) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade900.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Colors.amberAccent, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'RBAC Alert: This camp is not assigned to you (Assigned: ${user?.assignedCampIds.join(", ")}). Read-only mode active.',
+                                style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (campState.hasActiveCamp) ...[
                       const SizedBox(height: 4),
                       Text(
@@ -763,6 +807,15 @@ class HomeGatewayView extends ConsumerWidget {
                           );
                           return;
                         }
+                        if (!isCampAssigned) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Access Denied: Camp ${campState.activeCamp!.campCode} is not in your assigned camp list.'),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                          return;
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const PatientRegistrationView()),
@@ -783,6 +836,15 @@ class HomeGatewayView extends ConsumerWidget {
                         if (!campState.hasActiveCamp) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Please open or select an active camp first!')),
+                          );
+                          return;
+                        }
+                        if (!isCampAssigned) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Access Denied: Camp ${campState.activeCamp!.campCode} is not in your assigned camp list.'),
+                              backgroundColor: Colors.redAccent,
+                            ),
                           );
                           return;
                         }
@@ -1019,7 +1081,26 @@ class HomeGatewayView extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.teal.shade800,
+                          side: BorderSide(color: Colors.teal.shade200),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.history_edu_rounded, size: 18),
+                        label: const Text('My Activity', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AuditTrailView(),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 8),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.teal.shade700,

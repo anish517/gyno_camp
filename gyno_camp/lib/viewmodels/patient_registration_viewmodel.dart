@@ -49,12 +49,30 @@ class PatientRegistrationState {
     this.registeredPatient,
   });
 
-  bool get isValid =>
-      firstName.trim().isNotEmpty &&
-      surname.trim().isNotEmpty &&
-      age != null &&
-      age! > 0 &&
-      ward.trim().isNotEmpty;
+  String? get validationError {
+    if (firstName.trim().isEmpty) return 'First name is required (पहिलो नाम अनिवार्य छ).';
+    if (firstName.trim().length < 2) return 'First name must be at least 2 characters.';
+    if (surname.trim().isEmpty) return 'Surname is required (थर अनिवार्य छ).';
+    if (surname.trim().length < 2) return 'Surname must be at least 2 characters.';
+    if (age == null) return 'Age is required (उमेर अनिवार्य छ).';
+    if (age! <= 0 || age! > 120) return 'Please enter a valid age between 1 and 120.';
+    if (ward.trim().isEmpty) return 'Ward is required (वडा नं अनिवार्य छ).';
+    if (mobile.trim().isNotEmpty && !RegExp(r'^\d{10}$').hasMatch(mobile.trim())) {
+      return 'Mobile number must be exactly 10 digits (e.g. 9841234567).';
+    }
+    if (contactMobile != null && contactMobile!.trim().isNotEmpty && !RegExp(r'^\d{10}$').hasMatch(contactMobile!.trim())) {
+      return 'Emergency contact mobile must be exactly 10 digits.';
+    }
+    if (spouseOrFatherName.trim().isNotEmpty && spouseOrFatherName.trim().length < 2) {
+      return 'Guardian/Spouse name must be at least 2 characters.';
+    }
+    if (!consentTreatment || !consentStoreMedicalInfo) {
+      return 'Patient consent is required to proceed with registration (उपचारको सहमति अनिवार्य छ).';
+    }
+    return null;
+  }
+
+  bool get isValid => validationError == null;
 
   PatientRegistrationState copyWith({
     String? firstName,
@@ -197,9 +215,10 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     required String campCode,
     required String staffUserId,
     required String deviceId,
+    String tenantId = 'default_tenant',
   }) async {
     if (!state.isValid) {
-      state = state.copyWith(errorMessage: 'Please fill in required fields (Name, Age, Ward).');
+      state = state.copyWith(errorMessage: state.validationError ?? 'Please fill in required fields properly.');
       return null;
     }
 
@@ -211,6 +230,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         patientId: '', // Auto formatted ID by repo
         campId: campId,
         campCode: campCode,
+        tenantId: tenantId,
         intakeDate: DateTime.now(),
         firstName: state.firstName.trim(),
         surname: state.surname.trim(),

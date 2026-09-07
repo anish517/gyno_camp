@@ -69,6 +69,8 @@ class CampModel {
   final CampStatus status;
   final List<String> assignedStaffIds;
   final int totalPatientsRegistered;
+  final String tenantId;
+  final String organizationName;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -85,6 +87,8 @@ class CampModel {
     this.status = CampStatus.draft,
     this.assignedStaffIds = const [],
     this.totalPatientsRegistered = 0,
+    this.tenantId = 'tenant_bir_hospital',
+    this.organizationName = 'Bir Hospital Gyno Outreach',
     required this.createdAt,
     this.updatedAt,
   });
@@ -106,6 +110,8 @@ class CampModel {
       'status': status.toDbString(),
       'assigned_staff_ids': assignedStaffIds.join(','),
       'total_patients_registered': totalPatientsRegistered,
+      'tenant_id': tenantId,
+      'organization_name': organizationName,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -127,6 +133,8 @@ class CampModel {
           ? (map['assigned_staff_ids'] as String).split(',')
           : [],
       totalPatientsRegistered: map['total_patients_registered'] as int? ?? 0,
+      tenantId: map['tenant_id'] as String? ?? 'tenant_bir_hospital',
+      organizationName: map['organization_name'] as String? ?? 'Bir Hospital Gyno Outreach',
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
     );
@@ -145,6 +153,8 @@ class CampModel {
     CampStatus? status,
     List<String>? assignedStaffIds,
     int? totalPatientsRegistered,
+    String? tenantId,
+    String? organizationName,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -161,6 +171,8 @@ class CampModel {
       status: status ?? this.status,
       assignedStaffIds: assignedStaffIds ?? this.assignedStaffIds,
       totalPatientsRegistered: totalPatientsRegistered ?? this.totalPatientsRegistered,
+      tenantId: tenantId ?? this.tenantId,
+      organizationName: organizationName ?? this.organizationName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

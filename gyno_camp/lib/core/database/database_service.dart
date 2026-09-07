@@ -122,6 +122,8 @@ class DatabaseService {
         'status': AppConstants.campStatusOpen,
         'assigned_staff_ids': 'usr-datataker-01,usr-superadmin-01',
         'total_patients_registered': 0,
+        'tenant_id': 'tenant_bir_hospital',
+        'organization_name': 'Bir Hospital Gyno Outreach',
         'created_at': now,
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,

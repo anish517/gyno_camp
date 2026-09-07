@@ -60,6 +60,8 @@ class UserModel {
   final bool isActive;
   final DateTime? lastLoginAt;
   final List<String> assignedCampIds;
+  final String tenantId;
+  final String tenantName;
 
   const UserModel({
     required this.id,
@@ -70,6 +72,8 @@ class UserModel {
     this.isActive = true,
     this.lastLoginAt,
     this.assignedCampIds = const [],
+    this.tenantId = 'tenant_bir_hospital',
+    this.tenantName = 'Bir Hospital Gyno Outreach',
   });
 
   bool get isSuperAdmin => role == UserRole.superAdmin;
@@ -92,6 +96,8 @@ class UserModel {
       'is_active': isActive ? 1 : 0,
       'last_login_at': lastLoginAt?.toIso8601String(),
       'assigned_camp_ids': assignedCampIds.join(','),
+      'tenant_id': tenantId,
+      'tenant_name': tenantName,
     };
   }
 
@@ -111,6 +117,8 @@ class UserModel {
       assignedCampIds: map['assigned_camp_ids'] != null && (map['assigned_camp_ids'] as String).isNotEmpty
           ? (map['assigned_camp_ids'] as String).split(',')
           : [],
+      tenantId: map['tenant_id'] as String? ?? 'tenant_bir_hospital',
+      tenantName: map['tenant_name'] as String? ?? 'Bir Hospital Gyno Outreach',
     );
   }
 
@@ -123,6 +131,8 @@ class UserModel {
     bool? isActive,
     DateTime? lastLoginAt,
     List<String>? assignedCampIds,
+    String? tenantId,
+    String? tenantName,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -133,6 +143,8 @@ class UserModel {
       isActive: isActive ?? this.isActive,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       assignedCampIds: assignedCampIds ?? this.assignedCampIds,
+      tenantId: tenantId ?? this.tenantId,
+      tenantName: tenantName ?? this.tenantName,
     );
   }
 }

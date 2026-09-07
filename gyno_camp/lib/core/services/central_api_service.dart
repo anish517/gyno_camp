@@ -44,6 +44,8 @@ class CentralApiService implements ICentralApiService {
         assignedStaffIds: const ['usr-datataker-01', 'usr-superadmin-01'],
         totalPatientsRegistered: 0,
         createdAt: DateTime.now().subtract(const Duration(days: 2)),
+        tenantId: 'tenant_bir_hospital',
+        organizationName: 'Bir Hospital Gyno Outreach',
       ),
     );
 
@@ -54,6 +56,8 @@ class CentralApiService implements ICentralApiService {
         email: 'admin@gynocamp.org',
         phone: '9851000001',
         role: UserRole.superAdmin,
+        tenantId: 'tenant_bir_hospital',
+        tenantName: 'Bir Hospital Gyno Outreach',
       ),
       const UserModel(
         id: 'usr-datataker-01',
@@ -61,6 +65,8 @@ class CentralApiService implements ICentralApiService {
         email: 'nurse@gynocamp.org',
         phone: '9841000002',
         role: UserRole.dataTaker,
+        tenantId: 'tenant_bir_hospital',
+        tenantName: 'Bir Hospital Gyno Outreach',
       ),
       const UserModel(
         id: 'usr-dataanalyst-01',
@@ -68,6 +74,8 @@ class CentralApiService implements ICentralApiService {
         email: 'analyst@gynocamp.org',
         phone: '9860123456',
         role: UserRole.dataAnalyst,
+        tenantId: 'tenant_bir_hospital',
+        tenantName: 'Bir Hospital Gyno Outreach',
       ),
     ]);
   }
