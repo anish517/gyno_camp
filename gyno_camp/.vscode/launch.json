@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Gynocamp (Chrome - Persistent Port 5000)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome",
+      "args": ["--web-port=5000"]
+    },
+    {
+      "name": "Gynocamp (Windows Desktop - Persistent SQLite Disk)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "windows"
+    }
+  ]
+}
