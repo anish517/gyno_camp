@@ -37,6 +37,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
   final _outtakeNotesController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(clinicalAssessmentProvider.notifier).reset();
+    });
+  }
+
+  @override
   void dispose() {
     _deliveriesController.dispose();
     _livingChildrenController.dispose();
@@ -163,7 +171,27 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                                   backgroundColor: AppTheme.successGreen,
                                 ),
                               );
-                              navigator.pop();
+                              navigator.pop(true);
+                            } else {
+                              scaffoldMessenger.showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                          child: Text(
+                                            ref.read(clinicalAssessmentProvider).errorMessage ?? 'Failed to save clinical assessment. Please check required fields.',
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                          ),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: Colors.red[700],
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 5),
+                                ),
+                              );
                             }
                           },
                   ),
@@ -582,10 +610,13 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'POP STAGING (Pelvic Organ Prolapse)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryDark),
+                    const Expanded(
+                      child: Text(
+                        'POP STAGING (Pelvic Organ Prolapse)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryDark),
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(

@@ -103,15 +103,25 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     decoration: InputDecoration(
                       hintText: 'Search by Patient ID, Name, Phone, or Ward...',
                       prefixIcon: const Icon(Icons.search, color: AppTheme.primaryTeal),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_searchController.text.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              tooltip: 'Clear Search',
                               onPressed: () {
                                 _searchController.clear();
                                 vm.loadPatients(activeCamp.id);
                               },
-                            )
-                          : null,
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.qr_code_scanner_rounded, color: AppTheme.primaryTeal),
+                            tooltip: 'Scan Patient Token QR / Barcode',
+                            onPressed: () => _showScanTokenDialog(context, activeCamp.id, vm, patientState.patients),
+                          ),
+                        ],
+                      ),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
                     ),
                     onChanged: (val) => vm.search(activeCamp.id, val),
@@ -366,6 +376,144 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showScanTokenDialog(
+    BuildContext context,
+    String campId,
+    PatientListViewModel vm,
+    List<PatientModel> existingPatients,
+  ) {
+    final scanInputController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.qr_code_scanner_rounded, color: AppTheme.primaryTeal, size: 28),
+            SizedBox(width: 10),
+            Text('Scan Patient QR / Barcode', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Scan or enter the patient token ID from their follow-up slip to locate their medical chart across stations.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.document_scanner_rounded, color: AppTheme.primaryTeal),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Ready for QR / Barcode Scanner\nToken format: GC-[Camp]-[Year]-[Seq]',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[700], fontFamily: 'monospace'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: scanInputController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Scanned Token / Patient ID',
+                  hintText: 'e.g. GC-KTM01-2026-00009',
+                  prefixIcon: Icon(Icons.qr_code, color: AppTheme.primaryTeal),
+                ),
+                onSubmitted: (scanned) {
+                  if (scanned.trim().isNotEmpty) {
+                    Navigator.of(ctx).pop();
+                    _searchController.text = scanned.trim();
+                    vm.search(campId, scanned.trim());
+                  }
+                },
+              ),
+              if (existingPatients.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                const Text(
+                  'Quick Test — Registered in Camp:',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: existingPatients.take(4).map((p) => ActionChip(
+                    avatar: const Icon(Icons.qr_code_2, size: 14, color: AppTheme.primaryTeal),
+                    label: Text('${p.fullName} (${p.patientId})', style: const TextStyle(fontSize: 11)),
+                    backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.08),
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _searchController.text = p.patientId;
+                      vm.search(campId, p.patientId);
+                    },
+                  )).toList(),
+                ),
+              ] else ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: Colors.amber),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'No patients registered yet. Tap "+ New Patient" to register and generate a QR token first.',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryTeal,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.search, size: 16),
+            label: const Text('Locate Patient'),
+            onPressed: () {
+              final scanned = scanInputController.text.trim();
+              if (scanned.isNotEmpty) {
+                Navigator.of(ctx).pop();
+                _searchController.text = scanned;
+                vm.search(campId, scanned);
+              }
+            },
+          ),
+        ],
       ),
     );
   }
