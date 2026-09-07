@@ -1120,7 +1120,15 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         );
                     if (mounted && success) {
                       messenger.showSnackBar(
-                        SnackBar(content: Text('Camp "${newCamp.name}" scheduled successfully.')),
+                        SnackBar(
+                          content: Text('Camp "${newCamp.name}" scheduled. Assign staff to allow field intake.'),
+                          action: SnackBarAction(
+                            label: 'Assign Staff',
+                            textColor: Colors.tealAccent,
+                            onPressed: () => _showAssignStaffDialog(context, newCamp),
+                          ),
+                          duration: const Duration(seconds: 8),
+                        ),
                       );
                     }
                   },

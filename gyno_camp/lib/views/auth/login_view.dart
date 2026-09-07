@@ -18,7 +18,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  UserRole _selectedRole = UserRole.dataTaker;
+  UserRole? _selectedRole;
 
   @override
   void dispose() {
@@ -27,9 +27,13 @@ class _LoginViewState extends ConsumerState<LoginView> {
     super.dispose();
   }
 
-  void _selectRole(UserRole role) {
+  void _selectRole(UserRole? role) {
     setState(() {
-      _selectedRole = role;
+      if (_selectedRole == role) {
+        _selectedRole = null;
+      } else {
+        _selectedRole = role;
+      }
     });
   }
 
@@ -50,10 +54,16 @@ class _LoginViewState extends ConsumerState<LoginView> {
     }
 
     final authVm = ref.read(authStateProvider.notifier);
-    await authVm.login(email: email, password: password, deviceId: deviceId);
+    await authVm.login(
+      email: email,
+      password: password,
+      deviceId: deviceId,
+      requiredRole: _selectedRole,
+    );
   }
 
-  Color _getRoleColor(UserRole role) {
+  Color _getRoleColor(UserRole? role) {
+    if (role == null) return AppTheme.primaryTeal;
     switch (role) {
       case UserRole.dataTaker:
         return AppTheme.primaryTeal;
@@ -184,10 +194,23 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Choose your designated role to launch the station console or enter credentials below:',
+                    'Choose a designated station console (enforces strict RBAC), or use Unified Portal for automatic role detection:',
                     style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
                   ),
                   const SizedBox(height: 14),
+
+                  // 0. Unified Portal Option (Auto-Detect Role)
+                  _buildRoleCard(
+                    title: 'Unified Staff Portal (Auto-Detect Role)',
+                    nepaliTitle: 'एकीकृत कर्मचारी पोर्टल (स्वचालित भूमिका)',
+                    subtitle: 'Universal Sign-In for all registered clinical & admin personnel',
+                    description: 'Directs you automatically to your authorized console based on your account credentials',
+                    icon: Icons.badge_rounded,
+                    color: AppTheme.primaryTeal,
+                    isSelected: _selectedRole == null,
+                    onTap: () => setState(() => _selectedRole = null),
+                  ),
+                  const SizedBox(height: 10),
 
                   // 3 Role Station Cards
                   _buildRoleCard(
@@ -252,7 +275,9 @@ class _LoginViewState extends ConsumerState<LoginView> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'Active Station: ${_selectedRole.displayNameEn}',
+                                  _selectedRole == null
+                                      ? 'Active Station: Unified Portal (Auto-Detect Role)'
+                                      : 'Active Station: ${_selectedRole!.displayNameEn} (RBAC Enforced)',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -316,7 +341,11 @@ class _LoginViewState extends ConsumerState<LoginView> {
                                     )
                                   : const Icon(Icons.login_rounded, size: 20),
                               label: Text(
-                                authState.isLoading ? 'Authenticating Session...' : 'Sign In as ${_selectedRole.displayNameEn}',
+                                authState.isLoading
+                                    ? 'Authenticating Session...'
+                                    : _selectedRole == null
+                                        ? 'Sign In to GynoCamp'
+                                        : 'Sign In as ${_selectedRole!.displayNameEn}',
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.2),
                               ),
                               onPressed: authState.isLoading ? null : () => _handleLogin(deviceId),

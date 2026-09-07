@@ -47,6 +47,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
     required String email,
     String? password,
     required String deviceId,
+    UserRole? requiredRole,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
@@ -56,6 +57,17 @@ class AuthViewModel extends StateNotifier<AuthState> {
         deviceId: deviceId,
       );
       if (user != null) {
+        if (requiredRole != null && user.role != requiredRole) {
+          // STRICT RBAC CHECK: Deny access if account role does not match selected station terminal
+          await _authRepository.logout(deviceId: deviceId);
+          state = state.copyWith(
+            currentUser: null,
+            isLoading: false,
+            errorMessage:
+                'Access Denied: Staff account "${user.name}" is designated as ${user.role.displayNameEn}. You cannot authenticate into the ${requiredRole.displayNameEn} terminal.',
+          );
+          return false;
+        }
         state = state.copyWith(currentUser: user, isLoading: false);
         return true;
       } else {

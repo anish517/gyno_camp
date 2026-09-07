@@ -60,6 +60,42 @@ void main() {
       expect(authVm.state.errorMessage, isNotNull);
     });
 
+    test('login with mismatched requiredRole rejects authentication and sets RBAC error', () async {
+      // sita@gynocamp.org is seeded with role dataTaker
+      final success = await authVm.login(
+        email: 'sita@gynocamp.org',
+        deviceId: 'dev-test',
+        requiredRole: UserRole.superAdmin,
+      );
+
+      expect(success, isFalse);
+      expect(authVm.state.isAuthenticated, isFalse);
+      expect(authVm.state.currentUser, isNull);
+      expect(authVm.state.errorMessage, contains('Access Denied'));
+      expect(authVm.state.errorMessage, contains('Super Admin'));
+    });
+
+    test('login with matching requiredRole or null requiredRole authenticates successfully', () async {
+      final successMatching = await authVm.login(
+        email: 'sita@gynocamp.org',
+        deviceId: 'dev-test',
+        requiredRole: UserRole.dataTaker,
+      );
+      expect(successMatching, isTrue);
+      expect(authVm.state.isAuthenticated, isTrue);
+      expect(authVm.state.currentUser?.role, UserRole.dataTaker);
+
+      await authVm.logout(deviceId: 'dev-test');
+
+      final successUnified = await authVm.login(
+        email: 'sita@gynocamp.org',
+        deviceId: 'dev-test',
+        requiredRole: null,
+      );
+      expect(successUnified, isTrue);
+      expect(authVm.state.isAuthenticated, isTrue);
+    });
+
     test('logout clears user from state', () async {
       await authVm.loginAsRole(role: UserRole.superAdmin, deviceId: 'dev-test');
       expect(authVm.state.isAuthenticated, isTrue);
