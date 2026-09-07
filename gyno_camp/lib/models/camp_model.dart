@@ -87,8 +87,8 @@ class CampModel {
     this.status = CampStatus.draft,
     this.assignedStaffIds = const [],
     this.totalPatientsRegistered = 0,
-    this.tenantId = 'tenant_bir_hospital',
-    this.organizationName = 'Bir Hospital Gyno Outreach',
+    this.tenantId = 'tenant_default',
+    this.organizationName = 'Community Health Outreach Mission',
     required this.createdAt,
     this.updatedAt,
   });
@@ -133,8 +133,8 @@ class CampModel {
           ? (map['assigned_staff_ids'] as String).split(',')
           : [],
       totalPatientsRegistered: map['total_patients_registered'] as int? ?? 0,
-      tenantId: map['tenant_id'] as String? ?? 'tenant_bir_hospital',
-      organizationName: map['organization_name'] as String? ?? 'Bir Hospital Gyno Outreach',
+      tenantId: map['tenant_id'] as String? ?? 'tenant_default',
+      organizationName: map['organization_name'] as String? ?? 'Community Health Outreach Mission',
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
     );

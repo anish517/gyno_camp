@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
+import '../security/security_service.dart';
 import 'database_tables.dart';
 
 class DatabaseService {
@@ -48,11 +49,13 @@ class DatabaseService {
 
   Future<void> _ensureAllColumnsExist(Database db) async {
     final migrations = [
-      "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_bir_hospital'",
-      "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN organization_name TEXT DEFAULT 'Bir Hospital Gyno Outreach'",
-      "ALTER TABLE ${DatabaseTables.tablePatients} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_bir_hospital'",
-      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_bir_hospital'",
-      "ALTER TABLE ${DatabaseTables.tableAuditLogs} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_bir_hospital'",
+      "ALTER TABLE ${DatabaseTables.tableUsers} ADD COLUMN password_hash TEXT",
+      "ALTER TABLE ${DatabaseTables.tableUsers} ADD COLUMN pin_hash TEXT",
+      "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
+      "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN organization_name TEXT DEFAULT 'Outreach Health Center'",
+      "ALTER TABLE ${DatabaseTables.tablePatients} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
+      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
+      "ALTER TABLE ${DatabaseTables.tableAuditLogs} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
     ];
     for (final sql in migrations) {
       try {
@@ -99,6 +102,10 @@ class DatabaseService {
         'is_active': 1,
         'last_login_at': now,
         'assigned_camp_ids': 'camp-ktm-01,camp-dhn-02',
+        'tenant_id': 'tenant_default',
+        'tenant_name': 'Community Health Outreach',
+        'password_hash': SecurityService.hashSha256('admin123'),
+        'pin_hash': SecurityService.hashPin('1234'),
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
@@ -114,6 +121,10 @@ class DatabaseService {
         'is_active': 1,
         'last_login_at': now,
         'assigned_camp_ids': 'camp-ktm-01',
+        'tenant_id': 'tenant_default',
+        'tenant_name': 'Community Health Outreach',
+        'password_hash': SecurityService.hashSha256('nurse123'),
+        'pin_hash': SecurityService.hashPin('1234'),
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
@@ -129,6 +140,10 @@ class DatabaseService {
         'is_active': 1,
         'last_login_at': now,
         'assigned_camp_ids': '',
+        'tenant_id': 'tenant_default',
+        'tenant_name': 'Community Health Outreach',
+        'password_hash': SecurityService.hashSha256('analyst123'),
+        'pin_hash': SecurityService.hashPin('1234'),
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
@@ -139,7 +154,7 @@ class DatabaseService {
       {
         'id': 'camp-ktm-01',
         'camp_code': 'KTM01',
-        'name': 'Kathmandu Community Gyno Health Camp',
+        'name': 'Outreach Gyno Health Camp',
         'district': 'Kathmandu',
         'municipality': 'Budhanilkantha Municipality',
         'ward': '03',
@@ -149,8 +164,8 @@ class DatabaseService {
         'status': AppConstants.campStatusOpen,
         'assigned_staff_ids': 'usr-datataker-01,usr-superadmin-01',
         'total_patients_registered': 0,
-        'tenant_id': 'tenant_bir_hospital',
-        'organization_name': 'Bir Hospital Gyno Outreach',
+        'tenant_id': 'tenant_default',
+        'organization_name': 'Community Health Outreach Mission',
         'created_at': now,
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,

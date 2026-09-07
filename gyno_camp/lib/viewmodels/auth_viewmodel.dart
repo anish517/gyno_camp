@@ -43,17 +43,25 @@ class AuthViewModel extends StateNotifier<AuthState> {
     }
   }
 
-  Future<bool> login({required String email, required String deviceId}) async {
+  Future<bool> login({
+    required String email,
+    String? password,
+    required String deviceId,
+  }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final user = await _authRepository.login(email: email, deviceId: deviceId);
+      final user = await _authRepository.login(
+        email: email,
+        password: password,
+        deviceId: deviceId,
+      );
       if (user != null) {
         state = state.copyWith(currentUser: user, isLoading: false);
         return true;
       } else {
         state = state.copyWith(
           isLoading: false,
-          errorMessage: 'User account not found or deactivated.',
+          errorMessage: 'Invalid staff credentials or account deactivated. Please verify your email and password.',
         );
         return false;
       }

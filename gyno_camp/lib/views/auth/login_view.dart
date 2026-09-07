@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
@@ -16,8 +15,8 @@ class LoginView extends ConsumerStatefulWidget {
 }
 
 class _LoginViewState extends ConsumerState<LoginView> {
-  final _emailController = TextEditingController(text: kDebugMode ? 'sita@gynocamp.org' : '');
-  final _passwordController = TextEditingController(text: kDebugMode ? 'pass123' : '');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   UserRole _selectedRole = UserRole.dataTaker;
 
@@ -31,37 +30,27 @@ class _LoginViewState extends ConsumerState<LoginView> {
   void _selectRole(UserRole role) {
     setState(() {
       _selectedRole = role;
-      if (kDebugMode) {
-        switch (role) {
-          case UserRole.dataTaker:
-            _emailController.text = 'sita@gynocamp.org';
-            _passwordController.text = 'pass123';
-            break;
-          case UserRole.superAdmin:
-            _emailController.text = 'admin@gynocamp.org';
-            _passwordController.text = 'admin123';
-            break;
-          case UserRole.dataAnalyst:
-            _emailController.text = 'analyst@gynocamp.org';
-            _passwordController.text = 'analyst123';
-            break;
-        }
-      }
     });
   }
 
   Future<void> _handleLogin(String deviceId) async {
     final email = _emailController.text.trim();
-    if (email.isEmpty) return;
+    final password = _passwordController.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your staff email or username.')),
+      );
+      return;
+    }
+    if (password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your password or station PIN.')),
+      );
+      return;
+    }
 
     final authVm = ref.read(authStateProvider.notifier);
-    await authVm.login(email: email, deviceId: deviceId);
-  }
-
-  Future<void> _handleInstantRoleLogin(UserRole role, String deviceId) async {
-    _selectRole(role);
-    final authVm = ref.read(authStateProvider.notifier);
-    await authVm.loginAsRole(role: role, deviceId: deviceId);
+    await authVm.login(email: email, password: password, deviceId: deviceId);
   }
 
   Color _getRoleColor(UserRole role) {
@@ -200,43 +189,40 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   ),
                   const SizedBox(height: 14),
 
-                  // 3 Role Cards
+                  // 3 Role Station Cards
                   _buildRoleCard(
                     title: 'Data Taker (Field Staff)',
                     nepaliTitle: 'डाटा टेकर (क्षेत्रीय कर्मचारी)',
-                    emailSubtitle: 'sita@gynocamp.org • Sita Sharma (Field Nurse)',
-                    description: 'Station 1–6 patient intake, Yellow Form OCR scan, vitals & offline sync',
+                    subtitle: 'Station Intakes, Demographic Registration & Yellow Form Scanner',
+                    description: 'Patient intake, vital signs triage, POP-Q clinical exams & offline local sync',
                     icon: Icons.assignment_ind_rounded,
                     color: AppTheme.primaryTeal,
                     isSelected: _selectedRole == UserRole.dataTaker,
                     onTap: () => _selectRole(UserRole.dataTaker),
-                    onFastLogin: () => _handleInstantRoleLogin(UserRole.dataTaker, deviceId),
                   ),
                   const SizedBox(height: 10),
 
                   _buildRoleCard(
                     title: 'Super Admin',
                     nepaliTitle: 'सुपर एडमिन (प्रणाली नियन्त्रक)',
-                    emailSubtitle: 'admin@gynocamp.org • Dr. Aarav Sharma (Lead Gynecologist)',
-                    description: 'Camp scheduling, staff deployment roster, device approvals & master config',
+                    subtitle: 'Lead Clinician, Camp Operations & Hardware Security',
+                    description: 'Camp scheduling, staff deployment roster, device approvals & master formulary',
                     icon: Icons.admin_panel_settings_rounded,
                     color: const Color(0xFF4338CA),
                     isSelected: _selectedRole == UserRole.superAdmin,
                     onTap: () => _selectRole(UserRole.superAdmin),
-                    onFastLogin: () => _handleInstantRoleLogin(UserRole.superAdmin, deviceId),
                   ),
                   const SizedBox(height: 10),
 
                   _buildRoleCard(
                     title: 'Data Analyst',
                     nepaliTitle: 'डाटा विश्लेषक (तथ्याङ्कविद्)',
-                    emailSubtitle: 'analyst@gynocamp.org • Bikash Adhikari (Epidemiologist)',
-                    description: 'Real-time POP indicators, cohort statistics & instant PDF / Excel export',
+                    subtitle: 'Clinical Epidemiology, POP-Q Metrics & Aggregations',
+                    description: 'Cohort analytics, prevalence indicators & instant PDF / Excel reporting',
                     icon: Icons.analytics_rounded,
                     color: const Color(0xFF0F766E),
                     isSelected: _selectedRole == UserRole.dataAnalyst,
                     onTap: () => _selectRole(UserRole.dataAnalyst),
-                    onFastLogin: () => _handleInstantRoleLogin(UserRole.dataAnalyst, deviceId),
                   ),
                   const SizedBox(height: 24),
 
@@ -376,13 +362,12 @@ class _LoginViewState extends ConsumerState<LoginView> {
   Widget _buildRoleCard({
     required String title,
     required String nepaliTitle,
-    required String emailSubtitle,
+    required String subtitle,
     required String description,
     required IconData icon,
     required Color color,
     required bool isSelected,
     required VoidCallback onTap,
-    required VoidCallback onFastLogin,
   }) {
     return Card(
       elevation: isSelected ? 2 : 0,
@@ -436,7 +421,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      emailSubtitle,
+                      subtitle,
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
@@ -453,19 +438,27 @@ class _LoginViewState extends ConsumerState<LoginView> {
               ),
               const SizedBox(width: 8),
               if (isSelected)
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: color,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: color.withValues(alpha: 0.3)),
                   ),
-                  onPressed: onFastLogin,
-                  child: const Text('1-Tap In', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.radio_button_checked, size: 13, color: color),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Active',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+                      ),
+                    ],
+                  ),
                 )
               else
-                const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFCBD5E1), size: 14),
+                const Icon(Icons.radio_button_unchecked, color: Color(0xFFCBD5E1), size: 16),
             ],
           ),
         ),

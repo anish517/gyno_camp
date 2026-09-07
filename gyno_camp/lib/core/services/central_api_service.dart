@@ -33,7 +33,7 @@ class CentralApiService implements ICentralApiService {
       CampModel(
         id: 'camp-ktm-01',
         campCode: 'KTM01',
-        name: 'Kathmandu Community Gyno Health Camp',
+        name: 'Community Gyno Health Camp',
         district: 'Kathmandu',
         municipality: 'Budhanilkantha Municipality',
         ward: '03',
@@ -44,38 +44,38 @@ class CentralApiService implements ICentralApiService {
         assignedStaffIds: const ['usr-datataker-01', 'usr-superadmin-01'],
         totalPatientsRegistered: 0,
         createdAt: DateTime.now().subtract(const Duration(days: 2)),
-        tenantId: 'tenant_bir_hospital',
-        organizationName: 'Bir Hospital Gyno Outreach',
+        tenantId: 'tenant_default',
+        organizationName: 'Community Health Outreach Mission',
       ),
     );
 
     _serverUsers.addAll([
       const UserModel(
         id: 'usr-superadmin-01',
-        name: 'Dr. Aarav Sharma',
+        name: 'Super Administrator',
         email: 'admin@gynocamp.org',
         phone: '9851000001',
         role: UserRole.superAdmin,
-        tenantId: 'tenant_bir_hospital',
-        tenantName: 'Bir Hospital Gyno Outreach',
+        tenantId: 'tenant_default',
+        tenantName: 'Community Health Outreach Mission',
       ),
       const UserModel(
         id: 'usr-datataker-01',
-        name: 'Sunita Thapa',
+        name: 'Field Nurse',
         email: 'nurse@gynocamp.org',
         phone: '9841000002',
         role: UserRole.dataTaker,
-        tenantId: 'tenant_bir_hospital',
-        tenantName: 'Bir Hospital Gyno Outreach',
+        tenantId: 'tenant_default',
+        tenantName: 'Community Health Outreach Mission',
       ),
       const UserModel(
         id: 'usr-dataanalyst-01',
-        name: 'Bikash Adhikari',
+        name: 'Data Analyst',
         email: 'analyst@gynocamp.org',
         phone: '9860123456',
         role: UserRole.dataAnalyst,
-        tenantId: 'tenant_bir_hospital',
-        tenantName: 'Bir Hospital Gyno Outreach',
+        tenantId: 'tenant_default',
+        tenantName: 'Community Health Outreach Mission',
       ),
     ]);
   }

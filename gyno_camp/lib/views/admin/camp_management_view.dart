@@ -892,8 +892,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     phone: phoneCtrl.text.trim(),
                     role: selectedRole,
                     isActive: true,
-                    tenantId: user?.tenantId ?? 'tenant_bir_hospital',
-                    tenantName: user?.tenantName ?? 'Bir Hospital Gyno Outreach',
+                    tenantId: user?.tenantId ?? 'tenant_default',
+                    tenantName: user?.tenantName ?? 'Community Health Outreach Mission',
                   );
 
                   Navigator.pop(ctx);
@@ -1073,8 +1073,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       startDate: startDate,
                       endDate: endDate,
                       status: CampStatus.scheduled,
-                      tenantId: user?.tenantId ?? 'tenant_bir_hospital',
-                      organizationName: user?.tenantName ?? 'Bir Hospital Gyno Outreach',
+                      tenantId: user?.tenantId ?? 'tenant_default',
+                      organizationName: user?.tenantName ?? 'Community Health Outreach Mission',
                       createdAt: DateTime.now(),
                     );
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/user_model.dart';
 import '../../viewmodels/audit_log_viewmodel.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
@@ -12,6 +13,7 @@ import '../admin/camp_management_view.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
 import '../admin/device_management_view.dart';
 import '../admin/master_config_view.dart';
+import '../admin/user_management_view.dart';
 import '../patient/clinical_assessment_view.dart';
 import '../patient/patient_list_view.dart';
 import '../patient/patient_registration_view.dart';
@@ -135,7 +137,7 @@ class HomeGatewayView extends ConsumerWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        user?.name ?? 'Dr. Aarav Sharma',
+                        user?.name ?? 'Super Administrator',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -378,6 +380,26 @@ class HomeGatewayView extends ConsumerWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const MasterConfigView()),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.badge_outlined, color: Color(0xFF0F766E)),
+                  ),
+                  title: const Text('Staff & Personnel Management', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('User directory, station role permissions & camp roster assignments'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const UserManagementView()),
                     );
                   },
                 ),
@@ -635,8 +657,12 @@ class HomeGatewayView extends ConsumerWidget {
     final patientState = ref.watch(patientListProvider);
     final user = ref.watch(authStateProvider).currentUser;
 
+    final isSuperAdmin = user?.role == UserRole.superAdmin;
     final isCampAssigned = campState.hasActiveCamp &&
-        (user == null || user.assignedCampIds.isEmpty || user.assignedCampIds.contains(campState.activeCamp!.id));
+        (isSuperAdmin ||
+            (user != null &&
+                (campState.activeCamp!.isStaffAssigned(user.id) ||
+                    user.assignedCampIds.contains(campState.activeCamp!.id))));
 
     if (campState.hasActiveCamp &&
         (!patientState.hasLoaded || patientState.loadedCampId != campState.activeCamp!.id) &&
@@ -677,18 +703,21 @@ class HomeGatewayView extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // SaaS Organization Tenant Badge
+                    // Dynamic Organization / Tenant Badge
                     Row(
                       children: [
                         const Icon(Icons.corporate_fare_rounded, color: Colors.tealAccent, size: 14),
                         const SizedBox(width: 6),
-                        Text(
-                          '${user?.tenantName ?? "Bir Hospital Gyno Outreach"} • Tenant: ${user?.tenantId ?? "tenant_bir_hospital"}',
-                          style: const TextStyle(
-                            color: Colors.tealAccent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                        Expanded(
+                          child: Text(
+                            '${campState.activeCamp?.organizationName ?? user?.tenantName ?? "Community Health Outreach"} • Tenant: ${user?.tenantId ?? "tenant_default"}',
+                            style: const TextStyle(
+                              color: Colors.tealAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -709,8 +738,8 @@ class HomeGatewayView extends ConsumerWidget {
                               Container(
                                 width: 8,
                                 height: 8,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF34D399),
+                                decoration: BoxDecoration(
+                                  color: campState.hasActiveCamp ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -749,30 +778,37 @@ class HomeGatewayView extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      campState.activeCamp?.name ?? 'No active camp selected. Contact Super Admin to initiate intake.',
+                      campState.activeCamp?.name ?? 'No Active Field Camp In Session',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    if (!campState.hasActiveCamp) ...[
+                      const SizedBox(height: 6),
+                      const Text(
+                        'There is currently no open clinical camp scheduled for patient intake. Please contact your Camp Supervisor or Super Admin to activate a camp session.',
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ],
                     if (campState.hasActiveCamp && !isCampAssigned) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.amber.shade900.withValues(alpha: 0.35),
+                          color: Colors.amber.shade900.withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: Colors.amber.shade300),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.warning_amber_rounded, color: Colors.amberAccent, size: 18),
-                            const SizedBox(width: 8),
+                            const Icon(Icons.gpp_maybe_rounded, color: Colors.amberAccent, size: 20),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'RBAC Alert: This camp is not assigned to you (Assigned: ${user?.assignedCampIds.join(", ")}). Read-only mode active.',
-                                style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                                'Access Restricted: Your staff account is not assigned to this field camp roster (${campState.activeCamp!.campCode}). Contact your Camp Lead to update roster assignment before recording data.',
+                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
@@ -805,7 +841,7 @@ class HomeGatewayView extends ConsumerWidget {
                           ),
                           const Spacer(),
                           Text(
-                            'Staff: ${user?.name ?? "Field Nurse"}',
+                            'Staff: ${user?.name ?? "Field Staff"}',
                             style: const TextStyle(color: Colors.white70, fontSize: 12),
                           ),
                         ],

@@ -62,6 +62,8 @@ class UserModel {
   final List<String> assignedCampIds;
   final String tenantId;
   final String tenantName;
+  final String? passwordHash;
+  final String? pinHash;
 
   const UserModel({
     required this.id,
@@ -72,8 +74,10 @@ class UserModel {
     this.isActive = true,
     this.lastLoginAt,
     this.assignedCampIds = const [],
-    this.tenantId = 'tenant_bir_hospital',
-    this.tenantName = 'Bir Hospital Gyno Outreach',
+    this.tenantId = 'tenant_default',
+    this.tenantName = 'Outreach Health Center',
+    this.passwordHash,
+    this.pinHash,
   });
 
   bool get isSuperAdmin => role == UserRole.superAdmin;
@@ -98,6 +102,8 @@ class UserModel {
       'assigned_camp_ids': assignedCampIds.join(','),
       'tenant_id': tenantId,
       'tenant_name': tenantName,
+      'password_hash': passwordHash,
+      'pin_hash': pinHash,
     };
   }
 
@@ -117,8 +123,10 @@ class UserModel {
       assignedCampIds: map['assigned_camp_ids'] != null && (map['assigned_camp_ids'] as String).isNotEmpty
           ? (map['assigned_camp_ids'] as String).split(',')
           : [],
-      tenantId: map['tenant_id'] as String? ?? 'tenant_bir_hospital',
-      tenantName: map['tenant_name'] as String? ?? 'Bir Hospital Gyno Outreach',
+      tenantId: map['tenant_id'] as String? ?? 'tenant_default',
+      tenantName: map['tenant_name'] as String? ?? 'Outreach Health Center',
+      passwordHash: map['password_hash'] as String?,
+      pinHash: map['pin_hash'] as String?,
     );
   }
 
@@ -133,6 +141,8 @@ class UserModel {
     List<String>? assignedCampIds,
     String? tenantId,
     String? tenantName,
+    String? passwordHash,
+    String? pinHash,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -145,6 +155,8 @@ class UserModel {
       assignedCampIds: assignedCampIds ?? this.assignedCampIds,
       tenantId: tenantId ?? this.tenantId,
       tenantName: tenantName ?? this.tenantName,
+      passwordHash: passwordHash ?? this.passwordHash,
+      pinHash: pinHash ?? this.pinHash,
     );
   }
 }

@@ -19,8 +19,10 @@ class DatabaseTables {
       is_active INTEGER NOT NULL DEFAULT 1,
       last_login_at TEXT,
       assigned_camp_ids TEXT,
-      tenant_id TEXT DEFAULT 'tenant_bir_hospital',
-      tenant_name TEXT DEFAULT 'Bir Hospital Gyno Outreach'
+      tenant_id TEXT DEFAULT 'tenant_default',
+      tenant_name TEXT DEFAULT 'Outreach Health Center',
+      password_hash TEXT,
+      pin_hash TEXT
     );
   ''';
 
@@ -58,8 +60,8 @@ class DatabaseTables {
       status TEXT NOT NULL,
       assigned_staff_ids TEXT,
       total_patients_registered INTEGER NOT NULL DEFAULT 0,
-      tenant_id TEXT DEFAULT 'tenant_bir_hospital',
-      organization_name TEXT DEFAULT 'Bir Hospital Gyno Outreach',
+      tenant_id TEXT DEFAULT 'tenant_default',
+      organization_name TEXT DEFAULT 'Community Health Outreach Mission',
       created_at TEXT NOT NULL,
       updated_at TEXT
     );
