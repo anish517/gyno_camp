@@ -273,7 +273,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              labelText: 'Staff Email / Username',
+                              labelText: 'Staff Email / Username / Mobile',
                               prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),

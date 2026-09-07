@@ -72,10 +72,13 @@ class AuthRepository implements IAuthRepository {
   @override
   Future<UserModel?> getUserByEmail(String email) async {
     final db = await _databaseService.database;
+    final trimmed = email.trim();
+    final lower = trimmed.toLowerCase();
+    final defaultEmail = lower.contains('@') ? lower : '$lower@gynocamp.org';
     final maps = await db.query(
       DatabaseTables.tableUsers,
-      where: 'LOWER(email) = ?',
-      whereArgs: [email.toLowerCase().trim()],
+      where: 'LOWER(email) = ? OR LOWER(email) = ? OR phone = ?',
+      whereArgs: [lower, defaultEmail, trimmed],
       limit: 1,
     );
     if (maps.isEmpty) return null;

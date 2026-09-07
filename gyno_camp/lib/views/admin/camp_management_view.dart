@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/security/security_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/user_model.dart';
@@ -799,6 +800,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController(text: 'nurse123');
+    final pinCtrl = TextEditingController(text: '1234');
     UserRole selectedRole = UserRole.dataTaker;
 
     showDialog(
@@ -815,7 +818,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     controller: nameCtrl,
                     decoration: const InputDecoration(
                       labelText: 'Full Name',
-                      hintText: 'e.g. Dr. Anita Joshi or Nurse Preeti',
                       prefixIcon: Icon(Icons.person),
                     ),
                   ),
@@ -825,7 +827,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
                       labelText: 'Official Email',
-                      hintText: 'e.g. anita@gynocamp.org',
                       prefixIcon: Icon(Icons.email),
                     ),
                   ),
@@ -835,7 +836,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
                       labelText: 'Phone Number',
-                      hintText: 'e.g. 9841234567',
                       prefixIcon: Icon(Icons.phone),
                     ),
                   ),
@@ -866,6 +866,34 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       }
                     },
                   ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: passwordCtrl,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Initial Password',
+                            prefixIcon: Icon(Icons.lock_outline),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: pinCtrl,
+                          keyboardType: TextInputType.number,
+                          maxLength: 6,
+                          decoration: const InputDecoration(
+                            labelText: 'Station PIN (4-6 Digits)',
+                            counterText: '',
+                            prefixIcon: Icon(Icons.pin),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -875,6 +903,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 onPressed: () async {
                   final name = nameCtrl.text.trim();
                   final email = emailCtrl.text.trim().toLowerCase();
+                  final password = passwordCtrl.text.trim().isNotEmpty ? passwordCtrl.text.trim() : 'nurse123';
+                  final pin = pinCtrl.text.trim().isNotEmpty ? pinCtrl.text.trim() : '1234';
+
                   if (name.isEmpty || email.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Please enter staff name and email.')),
@@ -894,6 +925,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     isActive: true,
                     tenantId: user?.tenantId ?? 'tenant_default',
                     tenantName: user?.tenantName ?? 'Community Health Outreach Mission',
+                    passwordHash: SecurityService.hashSha256(password),
+                    pinHash: SecurityService.hashPin(pin),
                   );
 
                   Navigator.pop(ctx);
@@ -910,7 +943,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
                   if (mounted) {
                     messenger.showSnackBar(
-                      SnackBar(content: Text('Registered "$name" and assigned to camp.')),
+                      SnackBar(content: Text('Registered "$name" (PIN: $pin) and assigned to camp.')),
                     );
                   }
                 },
