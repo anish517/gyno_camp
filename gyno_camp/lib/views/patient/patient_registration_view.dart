@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../core/services/nepali_localization_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../viewmodels/auth_viewmodel.dart';
@@ -17,10 +18,12 @@ class PatientRegistrationView extends ConsumerStatefulWidget {
   const PatientRegistrationView({super.key});
 
   @override
-  ConsumerState<PatientRegistrationView> createState() => _PatientRegistrationViewState();
+  ConsumerState<PatientRegistrationView> createState() =>
+      _PatientRegistrationViewState();
 }
 
-class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationView> {
+class _PatientRegistrationViewState
+    extends ConsumerState<PatientRegistrationView> {
   final _firstNameController = TextEditingController();
   final _surnameController = TextEditingController();
   final _ageController = TextEditingController();
@@ -55,15 +58,18 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
   void _applyActiveCampLocation() {
     final camp = ref.read(campStateProvider).activeCamp;
     if (camp != null) {
-      ref.read(patientRegistrationProvider.notifier).updateField(
-        district: camp.district,
-        municipality: camp.municipality,
-        ward: camp.ward,
-      );
+      ref
+          .read(patientRegistrationProvider.notifier)
+          .updateField(
+            district: camp.district,
+            municipality: camp.municipality,
+            ward: camp.ward,
+          );
       if (_districtController.text.isEmpty && camp.district.isNotEmpty) {
         _districtController.text = camp.district;
       }
-      if (_municipalityController.text.isEmpty && camp.municipality.isNotEmpty) {
+      if (_municipalityController.text.isEmpty &&
+          camp.municipality.isNotEmpty) {
         _municipalityController.text = camp.municipality;
       }
       if (_wardController.text.isEmpty && camp.ward.isNotEmpty) {
@@ -91,11 +97,16 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
   void _triggerLiveDuplicateCheck() {
     final camp = ref.read(campStateProvider).activeCamp;
     if (camp != null) {
-      ref.read(patientRegistrationProvider.notifier).runLiveDuplicateCheck(camp.id);
+      ref
+          .read(patientRegistrationProvider.notifier)
+          .runLiveDuplicateCheck(camp.id);
     }
   }
 
-  Future<void> _handlePostRegistrationSlip(PatientModel registered, CampModel camp) async {
+  Future<void> _handlePostRegistrationSlip(
+    PatientModel registered,
+    CampModel camp,
+  ) async {
     if (!mounted) return;
     final orgName = camp.organizationName.isNotEmpty
         ? camp.organizationName
@@ -125,8 +136,12 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
   void _fillSamplePatient() {
     final camp = ref.read(campStateProvider).activeCamp;
     final ward = (camp?.ward.isNotEmpty == true) ? camp!.ward : '03';
-    final district = (camp?.district.isNotEmpty == true) ? camp!.district : 'Kathmandu';
-    final municipality = (camp?.municipality.isNotEmpty == true) ? camp!.municipality : 'Budhanilkantha Municipality';
+    final district = (camp?.district.isNotEmpty == true)
+        ? camp!.district
+        : 'Kathmandu';
+    final municipality = (camp?.municipality.isNotEmpty == true)
+        ? camp!.municipality
+        : 'Budhanilkantha Municipality';
 
     _firstNameController.text = 'Suntali';
     _surnameController.text = 'Tamang';
@@ -158,7 +173,10 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
       consentTreatment: true,
       consentStoreMedicalInfo: true,
     );
-    if (!ref.read(patientRegistrationProvider).selectedReasons.contains('something hanging out')) {
+    if (!ref
+        .read(patientRegistrationProvider)
+        .selectedReasons
+        .contains('something hanging out')) {
       vm.toggleReason('something hanging out');
     }
     setState(() {});
@@ -180,11 +198,13 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
     _districtController.text = camp?.district ?? '';
     _municipalityController.text = camp?.municipality ?? '';
 
-    ref.read(patientRegistrationProvider.notifier).reset(
-      ward: camp?.ward ?? '',
-      district: camp?.district ?? '',
-      municipality: camp?.municipality ?? '',
-    );
+    ref
+        .read(patientRegistrationProvider.notifier)
+        .reset(
+          ward: camp?.ward ?? '',
+          district: camp?.district ?? '',
+          municipality: camp?.municipality ?? '',
+        );
     setState(() {});
   }
 
@@ -207,7 +227,11 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
             Text('Patient Registration (दर्ता)'),
             Text(
               'Station 1: Demographics & Triage • Yellow Form',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.normal, color: Colors.white70),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.normal,
+                color: Colors.white70,
+              ),
             ),
           ],
         ),
@@ -216,7 +240,10 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
             TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: Colors.white),
               icon: const Icon(Icons.auto_fix_high_rounded, size: 16),
-              label: const Text('Demo Sample', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              label: const Text(
+                'Demo Sample',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
               onPressed: _fillSamplePatient,
             ),
           IconButton(
@@ -237,11 +264,16 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
               children: [
                 // 1. Dual Calendar & Live Camp Banner
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.primaryLight.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: AppTheme.primaryTeal.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -251,7 +283,11 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                           color: AppTheme.primaryTeal.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.calendar_today_rounded, size: 20, color: AppTheme.primaryTeal),
+                        child: const Icon(
+                          Icons.calendar_today_rounded,
+                          size: 20,
+                          color: AppTheme.primaryTeal,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -260,11 +296,21 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                           children: [
                             const Text(
                               'Intake Date (दर्ता मिति):',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryDark,
+                              ),
                             ),
                             Text(
-                              NepaliLocalizationService.formatDualCalendarDate(DateTime.now()),
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryLight),
+                              NepaliLocalizationService.formatDualCalendarDate(
+                                DateTime.now(),
+                              ),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimaryLight,
+                              ),
                             ),
                             if (camp != null) ...[
                               const SizedBox(height: 2),
@@ -272,7 +318,10 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                                 '${camp.name} • ${camp.venue}, Ward ${camp.ward}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
                               ),
                             ],
                           ],
@@ -280,14 +329,21 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryTeal,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           camp?.campCode ?? 'KTM01',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.white),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ],
@@ -303,19 +359,30 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                     decoration: BoxDecoration(
                       color: Colors.amber.shade50,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.amber.shade700, width: 1.5),
+                      border: Border.all(
+                        color: Colors.amber.shade700,
+                        width: 1.5,
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 22),
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              color: Colors.amber.shade900,
+                              size: 22,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'DUPLICATE DATA DETECTED (दोहोरिएको रेकर्ड)',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900, fontSize: 13),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber.shade900,
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
                           ],
@@ -323,13 +390,20 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                         const SizedBox(height: 8),
                         Text(
                           state.duplicateResult.matchReasonEn ?? 'A patient with identical credentials already exists in this camp.',
-                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF78350F)),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF78350F),
+                          ),
                         ),
                         if (state.duplicateResult.matchReasonNe != null) ...[
                           const SizedBox(height: 4),
                           Text(
                             state.duplicateResult.matchReasonNe!,
-                            style: TextStyle(fontSize: 11.5, color: Colors.amber.shade900),
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Colors.amber.shade900,
+                            ),
                           ),
                         ],
                       ],
@@ -350,12 +424,20 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.person_outline_rounded, color: AppTheme.primaryTeal, size: 20),
+                            Icon(
+                              Icons.person_outline_rounded,
+                              color: AppTheme.primaryTeal,
+                              size: 20,
+                            ),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Patient Demographics (महिलाको विवरण)',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E293B),
+                                ),
                               ),
                             ),
                           ],
@@ -440,7 +522,9 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                                 controller: _districtController,
                                 decoration: const InputDecoration(
                                   labelText: 'District (जिल्ला)',
-                                  prefixIcon: Icon(Icons.location_city_outlined),
+                                  prefixIcon: Icon(
+                                    Icons.location_city_outlined,
+                                  ),
                                 ),
                                 onChanged: (val) {
                                   vm.updateField(district: val);
@@ -452,7 +536,8 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                               child: TextField(
                                 controller: _municipalityController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Municipality / Gaunpalika (गाउँपालिका)',
+                                  labelText:
+                                      'Municipality / Gaunpalika (गाउँपालिका)',
                                   prefixIcon: Icon(Icons.domain_outlined),
                                 ),
                                 onChanged: (val) {
@@ -482,12 +567,20 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.family_restroom_outlined, color: AppTheme.primaryTeal, size: 20),
+                            Icon(
+                              Icons.family_restroom_outlined,
+                              color: AppTheme.primaryTeal,
+                              size: 20,
+                            ),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Marital Profile (वैवाहिक स्थिति)',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E293B),
+                                ),
                               ),
                             ),
                           ],
@@ -497,49 +590,67 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                         // Marital Status Classification first
                         const Text(
                           'Marital Status Classification:',
-                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 10,
                           runSpacing: 8,
-                          children: ['married', 'unmarried', 'widow', 'divorced'].map((status) {
-                            final isSelected = state.maritalStatus == status;
-                            return ChoiceChip(
-                              label: Text('${NepaliLocalizationService.translate(status)} ($status)'),
-                              selected: isSelected,
-                              selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.15),
-                              labelStyle: TextStyle(
-                                color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                fontSize: 12.5,
-                              ),
-                              onSelected: (_) {
-                                if (status == 'unmarried') {
-                                  _maritalAgeController.clear();
-                                  vm.updateField(
-                                    maritalStatus: status,
-                                    relationshipType: 'Father',
-                                    clearMaritalAge: true,
-                                  );
-                                } else if (status == 'married') {
-                                  vm.updateField(
-                                    maritalStatus: status,
-                                    relationshipType: 'Husband',
-                                  );
-                                } else if (status == 'divorced') {
-                                  vm.updateField(
-                                    maritalStatus: status,
-                                    relationshipType: 'Father',
-                                  );
-                                } else {
-                                  vm.updateField(maritalStatus: status);
-                                }
-                                setState(() {});
-                                _triggerLiveDuplicateCheck();
-                              },
-                            );
-                          }).toList(),
+                          children:
+                              [
+                                'married',
+                                'unmarried',
+                                'widow',
+                                'divorced',
+                              ].map((status) {
+                                final isSelected =
+                                    state.maritalStatus == status;
+                                return ChoiceChip(
+                                  label: Text(
+                                    '${NepaliLocalizationService.translate(status)} ($status)',
+                                  ),
+                                  selected: isSelected,
+                                  selectedColor: AppTheme.primaryTeal
+                                      .withValues(alpha: 0.15),
+                                  labelStyle: TextStyle(
+                                    color: isSelected
+                                        ? AppTheme.primaryTeal
+                                        : const Color(0xFF334155),
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    fontSize: 12.5,
+                                  ),
+                                  onSelected: (_) {
+                                    if (status == 'unmarried') {
+                                      _maritalAgeController.clear();
+                                      vm.updateField(
+                                        maritalStatus: status,
+                                        relationshipType: 'Father',
+                                        clearMaritalAge: true,
+                                      );
+                                    } else if (status == 'married') {
+                                      vm.updateField(
+                                        maritalStatus: status,
+                                        relationshipType: 'Husband',
+                                      );
+                                    } else if (status == 'divorced') {
+                                      vm.updateField(
+                                        maritalStatus: status,
+                                        relationshipType: 'Father',
+                                      );
+                                    } else {
+                                      vm.updateField(maritalStatus: status);
+                                    }
+                                    setState(() {});
+                                    _triggerLiveDuplicateCheck();
+                                  },
+                                );
+                              }).toList(),
                         ),
                         const SizedBox(height: 16),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -548,9 +659,11 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                         // Relative Name & Relationship Type (Dynamic based on marital status)
                         Builder(
                           builder: (context) {
-                            final isUnmarried = state.maritalStatus == 'unmarried';
+                            final isUnmarried =
+                                state.maritalStatus == 'unmarried';
                             final isWidow = state.maritalStatus == 'widow';
-                            final isDivorced = state.maritalStatus == 'divorced';
+                            final isDivorced =
+                                state.maritalStatus == 'divorced';
 
                             final String relativeLabel;
                             final String relativeHint;
@@ -563,13 +676,16 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                             } else if (isWidow) {
                               relativeLabel = "Late Husband's / Father's Name * (दिवंगत श्रीमान वा बुबाको नाम)";
                               relativeHint = 'e.g. Late Dorje Tamang';
-                              relativeHelper = 'Required for duplicate check (widow)';
+                              relativeHelper =
+                                  'Required for duplicate check (widow)';
                             } else if (isDivorced) {
                               relativeLabel = "Father's / Guardian's Name * (बुबा वा संरक्षकको नाम)";
                               relativeHint = 'e.g. Bir Bahadur Tamang';
-                              relativeHelper = 'Required for duplicate check (divorced)';
+                              relativeHelper =
+                                  'Required for duplicate check (divorced)';
                             } else {
-                              relativeLabel = "Husband's Name * (श्रीमानको नाम)";
+                              relativeLabel =
+                                  "Husband's Name * (श्रीमानको नाम)";
                               relativeHint = 'e.g. Dorje Tamang';
                               relativeHelper = isAdult
                                   ? 'Required for duplicate check (age ≥ 20)'
@@ -579,24 +695,77 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                             final List<DropdownMenuItem<String>> relationItems;
                             if (isUnmarried || isDivorced) {
                               relationItems = const [
-                                DropdownMenuItem(value: 'Father', child: Text('Father (बुबा)', overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Mother', child: Text('Mother (आमा)', overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Guardian', child: Text('Guardian (संरक्षक)', overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Other', child: Text('Other (अन्य)', overflow: TextOverflow.ellipsis)),
+                                DropdownMenuItem(
+                                  value: 'Father',
+                                  child: Text(
+                                    'Father (बुबा)',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Mother',
+                                  child: Text(
+                                    'Mother (आमा)',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Guardian',
+                                  child: Text(
+                                    'Guardian (संरक्षक)',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Other',
+                                  child: Text(
+                                    'Other (अन्य)',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ];
                             } else {
                               relationItems = const [
-                                DropdownMenuItem(value: 'Husband', child: Text('Husband (श्रीमान)', overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Father', child: Text('Father (बुबा)', overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Guardian', child: Text('Guardian (संरक्षक)', overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'M/SM/GP', child: Text('M/SM/GP', overflow: TextOverflow.ellipsis)),
+                                DropdownMenuItem(
+                                  value: 'Husband',
+                                  child: Text(
+                                    'Husband (श्रीमान)',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Father',
+                                  child: Text(
+                                    'Father (बुबा)',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Guardian',
+                                  child: Text(
+                                    'Guardian (संरक्षक)',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'M/SM/GP',
+                                  child: Text(
+                                    'M/SM/GP',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ];
                             }
 
-                            final validValues = relationItems.map((e) => e.value).toSet();
-                            final selectedRelation = validValues.contains(state.relationshipType)
+                            final validValues = relationItems
+                                .map((e) => e.value)
+                                .toSet();
+                            final selectedRelation =
+                                validValues.contains(state.relationshipType)
                                 ? state.relationshipType
-                                : (isUnmarried || isDivorced ? 'Father' : 'Husband');
+                                : (isUnmarried || isDivorced
+                                      ? 'Father'
+                                      : 'Husband');
 
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -610,11 +779,15 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                                         decoration: InputDecoration(
                                           labelText: relativeLabel,
                                           hintText: relativeHint,
-                                          prefixIcon: const Icon(Icons.people_alt_outlined),
+                                          prefixIcon: const Icon(
+                                            Icons.people_alt_outlined,
+                                          ),
                                           helperText: relativeHelper,
                                         ),
                                         onChanged: (val) {
-                                          vm.updateField(spouseOrFatherName: val);
+                                          vm.updateField(
+                                            spouseOrFatherName: val,
+                                          );
                                           _triggerLiveDuplicateCheck();
                                         },
                                       ),
@@ -623,16 +796,24 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                                     Expanded(
                                       flex: 2,
                                       child: DropdownButtonFormField<String>(
-                                        key: ValueKey('relation_$selectedRelation'),
+                                        key: ValueKey(
+                                          'relation_$selectedRelation',
+                                        ),
                                         isExpanded: true,
                                         initialValue: selectedRelation,
                                         decoration: const InputDecoration(
                                           labelText: 'Relation (नाता)',
-                                          prefixIcon: Icon(Icons.group_outlined),
+                                          prefixIcon: Icon(
+                                            Icons.group_outlined,
+                                          ),
                                         ),
                                         items: relationItems,
                                         onChanged: (val) {
-                                          if (val != null) vm.updateField(relationshipType: val);
+                                          if (val != null) {
+                                            vm.updateField(
+                                              relationshipType: val,
+                                            );
+                                          }
                                         },
                                       ),
                                     ),
@@ -644,20 +825,33 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                                 if (isUnmarried)
                                   Container(
                                     width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFF8FAFC),
                                       borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                                      border: Border.all(
+                                        color: const Color(0xFFE2E8F0),
+                                      ),
                                     ),
                                     child: const Row(
                                       children: [
-                                        Icon(Icons.info_outline, size: 18, color: Color(0xFF64748B)),
+                                        Icon(
+                                          Icons.info_outline,
+                                          size: 18,
+                                          color: Color(0xFF64748B),
+                                        ),
                                         SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
                                             'Marriage Age is not applicable for unmarried patients (अविवाहित - विवाह उमेर लागू हुँदैन).',
-                                            style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontStyle: FontStyle.italic),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF64748B),
+                                              fontStyle: FontStyle.italic,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -671,9 +865,13 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                                           controller: _maritalAgeController,
                                           keyboardType: TextInputType.number,
                                           decoration: const InputDecoration(
-                                            labelText: 'Marriage Age (विवाह उमेर)',
-                                            hintText: 'e.g. 18 (Years at marriage)',
-                                            prefixIcon: Icon(Icons.history_edu_outlined),
+                                            labelText:
+                                                'Marriage Age (विवाह उमेर)',
+                                            hintText:
+                                                'e.g. 18 (Years at marriage)',
+                                            prefixIcon: Icon(
+                                              Icons.history_edu_outlined,
+                                            ),
                                             helperText: 'Assessing early marriage and obstetric risks',
                                           ),
                                           onChanged: (val) {
@@ -708,12 +906,20 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.phone_in_talk_outlined, color: AppTheme.primaryTeal, size: 20),
+                            Icon(
+                              Icons.phone_in_talk_outlined,
+                              color: AppTheme.primaryTeal,
+                              size: 20,
+                            ),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Contact Information (सम्पर्क विवरण)',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E293B),
+                                ),
                               ),
                             ),
                           ],
@@ -740,7 +946,8 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                               child: TextField(
                                 controller: _contactPersonController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Secondary Contact (सम्पर्क व्यक्ति)',
+                                  labelText:
+                                      'Secondary Contact (सम्पर्क व्यक्ति)',
                                   hintText: 'Son / Brother / Relative',
                                   prefixIcon: Icon(Icons.person_pin_outlined),
                                 ),
@@ -758,7 +965,9 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                                 decoration: const InputDecoration(
                                   labelText: 'Contact Mobile (सम्पर्क नम्बर)',
                                   hintText: '98XXXXXXXX',
-                                  prefixIcon: Icon(Icons.contact_phone_outlined),
+                                  prefixIcon: Icon(
+                                    Icons.contact_phone_outlined,
+                                  ),
                                 ),
                                 onChanged: (val) {
                                   vm.updateField(contactMobile: val);
@@ -787,12 +996,20 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.checklist_rounded, color: AppTheme.primaryTeal, size: 20),
+                            Icon(
+                              Icons.checklist_rounded,
+                              color: AppTheme.primaryTeal,
+                              size: 20,
+                            ),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Primary Reason for Visit (शिविरमा आउनुको मुख्य कारण)',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E293B),
+                                ),
                               ),
                             ),
                           ],
@@ -800,7 +1017,10 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                         const SizedBox(height: 4),
                         const Text(
                           'Select all presenting symptoms matching Yellow Form Page 1 checkboxes:',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                         const SizedBox(height: 14),
                         LayoutBuilder(
@@ -809,17 +1029,23 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                             return GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: isWide ? 2 : 1,
-                                childAspectRatio: isWide ? 5.5 : 4.5,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 8,
-                              ),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: isWide ? 2 : 1,
+                                    childAspectRatio: isWide ? 5.5 : 4.5,
+                                    crossAxisSpacing: 10,
+                                    mainAxisSpacing: 8,
+                                  ),
                               itemCount: _reasonOptions.length,
                               itemBuilder: (context, index) {
                                 final reason = _reasonOptions[index];
-                                final isChecked = state.selectedReasons.contains(reason);
-                                return _buildReasonTile(reason, isChecked, () => vm.toggleReason(reason));
+                                final isChecked = state.selectedReasons
+                                    .contains(reason);
+                                return _buildReasonTile(
+                                  reason,
+                                  isChecked,
+                                  () => vm.toggleReason(reason),
+                                );
                               },
                             );
                           },
@@ -838,25 +1064,54 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
                     child: Column(
                       children: [
                         SwitchListTile(
                           activeThumbColor: AppTheme.primaryTeal,
                           contentPadding: EdgeInsets.zero,
-                          title: const Text('Consent for Treatment (उपचारको सहमति)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                          subtitle: const Text('Patient consents to medical examination and clinical treatment.', style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+                          title: const Text(
+                            'Consent for Treatment (उपचारको सहमति)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Patient consents to medical examination and clinical treatment.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
                           value: state.consentTreatment,
-                          onChanged: (val) => vm.updateField(consentTreatment: val),
+                          onChanged: (val) =>
+                              vm.updateField(consentTreatment: val),
                         ),
                         const Divider(height: 1),
                         SwitchListTile(
                           activeThumbColor: AppTheme.primaryTeal,
                           contentPadding: EdgeInsets.zero,
-                          title: const Text('Consent to Store Medical Information', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                          subtitle: const Text('Patient consents to secure recording in the Gynocamp health database.', style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+                          title: const Text(
+                            'Consent to Store Medical Information',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Patient consents to secure recording in the Gynocamp health database.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
                           value: state.consentStoreMedicalInfo,
-                          onChanged: (val) => vm.updateField(consentStoreMedicalInfo: val),
+                          onChanged: (val) =>
+                              vm.updateField(consentStoreMedicalInfo: val),
                         ),
                       ],
                     ),
@@ -875,7 +1130,11 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                     ),
                     child: Text(
                       state.errorMessage!,
-                      style: const TextStyle(color: AppTheme.dangerRose, fontSize: 13, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: AppTheme.dangerRose,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -885,8 +1144,13 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                   children: [
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       icon: const Icon(Icons.clear_rounded, size: 18),
                       label: const Text('Clear'),
@@ -899,37 +1163,51 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                           backgroundColor: AppTheme.primaryTeal,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         icon: state.isSubmitting
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               )
                             : const Icon(Icons.arrow_forward_rounded, size: 20),
                         label: Text(
-                          state.isSubmitting
-                              ? 'Registering Patient...'
-                              : 'Register Patient & Start Clinical Form (Station 1 → 2)',
-                          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+                          state.isSubmitting ? 'Registering Patient...' : 'Register Patient & Start Clinical Form (Station 1 → 2)',
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         onPressed: state.isSubmitting || camp == null
                             ? null
                             : () async {
-                                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                final scaffoldMessenger = ScaffoldMessenger.of(
+                                  context,
+                                );
 
                                 if (!state.isValid) {
                                   scaffoldMessenger.showSnackBar(
                                     SnackBar(
                                       content: Row(
                                         children: [
-                                          const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                                          const Icon(
+                                            Icons.error_outline,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
                                           const SizedBox(width: 10),
                                           Expanded(
                                             child: Text(
                                               state.validationError ?? 'Please complete all required fields properly.',
-                                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -947,12 +1225,18 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                                     SnackBar(
                                       content: const Row(
                                         children: [
-                                          Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                                          Icon(
+                                            Icons.warning_amber_rounded,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
                                           SizedBox(width: 10),
                                           Expanded(
                                             child: Text(
                                               'Please select at least one primary reason for visit (शिविरमा आउनुको मुख्य कारण).',
-                                              style: TextStyle(fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -969,23 +1253,34 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                                   campCode: camp.campCode,
                                   staffUserId: user?.id ?? 'usr-field',
                                   deviceId: device?.deviceId ?? 'dev-field',
-                                  tenantId: camp.tenantId.isNotEmpty ? camp.tenantId : (user?.tenantId ?? 'default_tenant'),
+                                  tenantId: camp.tenantId.isNotEmpty
+                                      ? camp.tenantId
+                                      : (user?.tenantId ?? 'default_tenant'),
                                 );
 
                                 if (!mounted) return;
 
                                 if (registered != null) {
-                                  ref.read(campStateProvider.notifier).loadCamps();
-                                  ref.read(patientListProvider.notifier).loadPatients(camp.id);
+                                  ref
+                                      .read(campStateProvider.notifier)
+                                      .loadCamps();
+                                  ref
+                                      .read(patientListProvider.notifier)
+                                      .loadPatients(camp.id);
 
                                   scaffoldMessenger.showSnackBar(
                                     SnackBar(
-                                      content: Text('Registered: ${registered.fullName} (ID: ${registered.patientId})'),
+                                      content: Text(
+                                        'Registered: ${registered.fullName} (ID: ${registered.patientId})',
+                                      ),
                                       backgroundColor: AppTheme.successGreen,
                                     ),
                                   );
 
-                                  await _handlePostRegistrationSlip(registered, camp);
+                                  await _handlePostRegistrationSlip(
+                                    registered,
+                                    camp,
+                                  );
                                 }
                               },
                       ),
@@ -1001,14 +1296,20 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
     );
   }
 
-  Widget _buildReasonTile(String reason, bool isChecked, VoidCallback onToggle) {
+  Widget _buildReasonTile(
+    String reason,
+    bool isChecked,
+    VoidCallback onToggle,
+  ) {
     return InkWell(
       onTap: onToggle,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isChecked ? AppTheme.primaryTeal.withValues(alpha: 0.08) : Colors.transparent,
+          color: isChecked
+              ? AppTheme.primaryTeal.withValues(alpha: 0.08)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isChecked ? AppTheme.primaryTeal : const Color(0xFFE2E8F0),
@@ -1033,7 +1334,9 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
-                  color: isChecked ? AppTheme.primaryTeal : const Color(0xFF1E293B),
+                  color: isChecked
+                      ? AppTheme.primaryTeal
+                      : const Color(0xFF1E293B),
                 ),
               ),
             ),

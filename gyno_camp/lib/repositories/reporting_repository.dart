@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../core/constants/app_constants.dart';
@@ -131,6 +131,11 @@ class ReportingRepository implements IReportingRepository {
     required String filename,
     String? targetDirectoryPath,
   }) async {
+    if (kIsWeb) {
+      // In Web browsers, bypass dart:io Directory and File system access
+      return 'downloads/$filename';
+    }
+
     String dirPath = targetDirectoryPath ?? '';
     if (dirPath.isEmpty) {
       try {

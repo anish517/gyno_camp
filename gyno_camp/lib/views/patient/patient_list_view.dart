@@ -453,76 +453,58 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Optical Viewfinder Simulation
+                    // Hardware Barcode Scanner & USB Wedge Status Card
                     Container(
-                      height: 140,
+                      padding: const EdgeInsets.all(16),
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
+                        gradient: LinearGradient(
+                          colors: matchedPatient != null
+                              ? [const Color(0xFF065F46), const Color(0xFF047857)]
+                              : [const Color(0xFF0F172A), const Color(0xFF1E293B)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.5), width: 1.5),
+                        border: Border.all(
+                          color: matchedPatient != null ? Colors.greenAccent : AppTheme.primaryTeal.withValues(alpha: 0.5),
+                          width: 1.5,
+                        ),
                       ),
-                      child: Stack(
-                        alignment: Alignment.center,
+                      child: Column(
                         children: [
-                          // Viewfinder Reticle Corners
-                          Positioned.fill(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Container(width: 18, height: 3, color: AppTheme.primaryTeal),
-                                      Container(width: 18, height: 3, color: AppTheme.primaryTeal),
-                                    ],
-                                  ),
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Container(width: 18, height: 3, color: AppTheme.primaryTeal),
-                                      Container(width: 18, height: 3, color: AppTheme.primaryTeal),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          // Simulated Laser Beam
-                          Container(
-                            height: 2,
-                            width: 220,
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.redAccent.withValues(alpha: 0.8),
-                                  blurRadius: 8,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Center Barcode Icon & Overlay Prompt
-                          Column(
+                          Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.document_scanner, color: Colors.white54, size: 32),
-                              const SizedBox(height: 6),
+                              Icon(
+                                matchedPatient != null ? Icons.check_circle_rounded : Icons.qr_code_scanner_rounded,
+                                color: matchedPatient != null ? Colors.greenAccent : AppTheme.primaryTeal,
+                                size: 28,
+                              ),
+                              const SizedBox(width: 10),
                               Text(
                                 matchedPatient != null
-                                    ? '✓ TOKEN RECOGNIZED: ${matchedPatient!.patientId}'
-                                    : 'Point Barcode Laser Gun or Camera at Patient Slip',
+                                    ? 'TOKEN MATCHED: ${matchedPatient!.patientId}'
+                                    : 'USB / Bluetooth Scanner Gun Ready',
                                 style: TextStyle(
-                                  color: matchedPatient != null ? Colors.greenAccent : Colors.white70,
-                                  fontSize: 11.5,
+                                  color: matchedPatient != null ? Colors.greenAccent : Colors.white,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.5,
                                 ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            matchedPatient != null
+                                ? '${matchedPatient!.fullName} • Age: ${matchedPatient!.age} • Ward ${matchedPatient!.ward}'
+                                : 'Trigger your physical handheld scanner gun at the patient slip, or tap a token below',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: matchedPatient != null ? Colors.white : Colors.white70,
+                              fontSize: 11.5,
+                            ),
                           ),
                         ],
                       ),
@@ -545,19 +527,39 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               final docService = DocumentCaptureService();
                               final image = await docService.captureFromCamera();
                               if (image != null) {
-                                // If any patient ID matches image name or if there's an existing patient
-                                if (existingPatients.isNotEmpty) {
-                                  final p = existingPatients.first;
-                                  scanInputController.text = p.patientId;
-                                  checkMatch(p.patientId);
+                                final filename = image.name.toLowerCase();
+                                PatientModel? matched;
+                                for (final p in existingPatients) {
+                                  if (filename.contains(p.patientId.toLowerCase()) ||
+                                      filename.contains(p.patientId.replaceAll('-', '').toLowerCase()) ||
+                                      filename.contains(p.fullName.toLowerCase())) {
+                                    matched = p;
+                                    break;
+                                  }
                                 }
-                                if (ctx.mounted) {
-                                  ScaffoldMessenger.of(ctx).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Image captured: ${image.name}'),
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
+
+                                if (matched != null) {
+                                  scanInputController.text = matched.patientId;
+                                  checkMatch(matched.patientId);
+                                  if (ctx.mounted) {
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      SnackBar(
+                                        content: Text('✓ Recognized Token from ${image.name}: ${matched.patientId}'),
+                                        backgroundColor: AppTheme.primaryTeal,
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  if (ctx.mounted) {
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Uploaded "${image.name}". No valid QR/Barcode token found in image. Aim your barcode gun at a printed slip or click a token below.'),
+                                        backgroundColor: Colors.orange.shade800,
+                                        duration: const Duration(seconds: 3),
+                                      ),
+                                    );
+                                  }
                                 }
                               }
                             },
