@@ -5,12 +5,16 @@ import 'patient_registration_viewmodel.dart';
 
 class PatientListState {
   final bool isLoading;
+  final bool hasLoaded;
+  final String? loadedCampId;
   final String? errorMessage;
   final String searchQuery;
   final List<PatientModel> patients;
 
   const PatientListState({
     this.isLoading = false,
+    this.hasLoaded = false,
+    this.loadedCampId,
     this.errorMessage,
     this.searchQuery = '',
     this.patients = const [],
@@ -18,12 +22,16 @@ class PatientListState {
 
   PatientListState copyWith({
     bool? isLoading,
+    bool? hasLoaded,
+    String? loadedCampId,
     String? errorMessage,
     String? searchQuery,
     List<PatientModel>? patients,
   }) {
     return PatientListState(
       isLoading: isLoading ?? this.isLoading,
+      hasLoaded: hasLoaded ?? this.hasLoaded,
+      loadedCampId: loadedCampId ?? this.loadedCampId,
       errorMessage: errorMessage,
       searchQuery: searchQuery ?? this.searchQuery,
       patients: patients ?? this.patients,
@@ -40,9 +48,19 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final list = await _patientRepository.getPatientsByCamp(campId);
-      state = state.copyWith(isLoading: false, patients: list);
+      state = state.copyWith(
+        isLoading: false,
+        hasLoaded: true,
+        loadedCampId: campId,
+        patients: list,
+      );
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Failed to load patients: $e');
+      state = state.copyWith(
+        isLoading: false,
+        hasLoaded: true,
+        loadedCampId: campId,
+        errorMessage: 'Failed to load patients: $e',
+      );
     }
   }
 

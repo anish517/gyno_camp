@@ -78,7 +78,9 @@ class HomeGatewayView extends ConsumerWidget {
     final auditLogs = ref.watch(auditLogProvider);
     final patientState = ref.watch(patientListProvider);
 
-    if (campState.hasActiveCamp && patientState.patients.isEmpty && !patientState.isLoading) {
+    if (campState.hasActiveCamp &&
+        (!patientState.hasLoaded || patientState.loadedCampId != campState.activeCamp!.id) &&
+        !patientState.isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(patientListProvider.notifier).loadPatients(campState.activeCamp!.id);
       });
@@ -547,7 +549,9 @@ class HomeGatewayView extends ConsumerWidget {
     final isCampAssigned = campState.hasActiveCamp &&
         (user == null || user.assignedCampIds.isEmpty || user.assignedCampIds.contains(campState.activeCamp!.id));
 
-    if (campState.hasActiveCamp && patientState.patients.isEmpty && !patientState.isLoading) {
+    if (campState.hasActiveCamp &&
+        (!patientState.hasLoaded || patientState.loadedCampId != campState.activeCamp!.id) &&
+        !patientState.isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(patientListProvider.notifier).loadPatients(campState.activeCamp!.id);
       });
