@@ -18,6 +18,7 @@ import '../patient/patient_registration_view.dart';
 import '../reports/camp_report_view.dart';
 import '../scanner/form_scan_view.dart';
 import '../sync/sync_status_view.dart';
+import '../../viewmodels/reporting_viewmodel.dart';
 
 class HomeGatewayView extends ConsumerWidget {
   const HomeGatewayView({super.key});
@@ -1159,6 +1160,25 @@ class HomeGatewayView extends ConsumerWidget {
   Widget _buildDataAnalystDashboard(BuildContext context, WidgetRef ref) {
     final campState = ref.watch(campStateProvider);
     final user = ref.watch(authStateProvider).currentUser;
+    final reportState = ref.watch(reportingViewModelProvider);
+
+    if (campState.hasActiveCamp &&
+        (reportState.summary == null || reportState.selectedCampId != campState.activeCamp!.id) &&
+        !reportState.isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(reportingViewModelProvider.notifier).loadSummary(campId: campState.activeCamp!.id);
+      });
+    }
+
+    final summary = reportState.summary;
+    final totalVisits = summary?.totalVisitsRecorded ?? 0;
+    final popRateStr = summary != null && totalVisits > 0 ? '${summary.significantPopPercentage}%' : '0.0%';
+    final hyperRateStr = summary != null && totalVisits > 0
+        ? '${((summary.hypertensionCount / totalVisits) * 100).toStringAsFixed(1)}%'
+        : '0.0%';
+    final referralRateStr = summary != null && totalVisits > 0
+        ? '${((summary.totalSurgicalReferrals / totalVisits) * 100).toStringAsFixed(1)}%'
+        : '0.0%';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
@@ -1281,16 +1301,16 @@ class HomeGatewayView extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Code: ${campState.activeCamp?.campCode ?? "N/A"} • Total Intake: ${campState.activeCamp?.totalPatientsRegistered ?? 0}',
+                    'Code: ${campState.activeCamp?.campCode ?? "N/A"} • Total Intake: ${campState.activeCamp?.totalPatientsRegistered ?? 0} • Clinical Visits: $totalVisits',
                     style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryLight),
                   ),
                   const SizedBox(height: 16),
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _StatColumn(label: 'POP Rate', value: '42.8%'),
-                      _StatColumn(label: 'VIA+ Screen', value: '8.5%'),
-                      _StatColumn(label: 'Surgical Referral', value: '14.2%'),
+                      _StatColumn(label: 'POP Rate (>=2)', value: popRateStr),
+                      _StatColumn(label: 'HTN Alert Rate', value: hyperRateStr),
+                      _StatColumn(label: 'Surgical Referral', value: referralRateStr),
                     ],
                   ),
                 ],

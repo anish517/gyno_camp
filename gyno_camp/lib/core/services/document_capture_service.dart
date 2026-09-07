@@ -33,6 +33,16 @@ class DocumentCaptureService {
     }
   }
 
+  /// Selects multiple images from device gallery (e.g. Page 1 Front + Page 2 Back)
+  Future<List<XFile>> pickMultipleImages() async {
+    try {
+      final images = await _picker.pickMultiImage(imageQuality: 90);
+      return images;
+    } catch (e) {
+      return [];
+    }
+  }
+
   /// Returns pre-configured high-fidelity Yellow Form text for demo & automated testing
   String getSampleFormText(String sampleType) {
     switch (sampleType.toLowerCase()) {

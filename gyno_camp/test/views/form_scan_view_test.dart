@@ -6,7 +6,7 @@ import 'package:gyno_camp/views/scanner/form_scan_view.dart';
 
 void main() {
   group('FormScanView Widget Tests', () {
-    testWidgets('FormScanView renders capture prompt with action buttons and demo samples', (WidgetTester tester) async {
+    testWidgets('FormScanView renders dual-slot capture prompt with Page 1 and Page 2 cards', (WidgetTester tester) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
@@ -17,13 +17,14 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Capture Paper Yellow Form'), findsOneWidget);
-      expect(find.text('Capture with Camera'), findsOneWidget);
-      expect(find.text('Select from Device Gallery / File'), findsOneWidget);
-      expect(find.text('Load Full Yellow Form'), findsOneWidget);
+      expect(find.text('Scan & Auto-Fill Yellow Form'), findsOneWidget);
+      expect(find.text('Page 1 (Front Page)'), findsOneWidget);
+      expect(find.text('Page 2 (Back Page)'), findsOneWidget);
+      expect(find.text('Select Both Images at Once (Multi-Select)'), findsOneWidget);
+      expect(find.text('Load Complete 2-Page Template'), findsOneWidget);
     });
 
-    testWidgets('Tapping Load Full Yellow Form renders verification tabs and commit button', (WidgetTester tester) async {
+    testWidgets('Tapping Load Complete 2-Page Template renders dual-page inspection and verification tabs', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -41,11 +42,15 @@ void main() {
       );
       await tester.pump();
 
-      // Tap sample loader
-      await tester.tap(find.text('Load Full Yellow Form'));
+      // Tap complete template loader
+      await tester.tap(find.text('Load Complete 2-Page Template'));
       await tester.pumpAndSettle();
 
-      // Check tabs
+      // Check inspection tabs
+      expect(find.text('📄 Page 1 (Front: Demographics)'), findsOneWidget);
+      expect(find.text('🩺 Page 2 (Back: POP & Vitals)'), findsOneWidget);
+
+      // Check 4 clinical verification tabs
       expect(find.text('1. Demographics'), findsOneWidget);
       expect(find.text('2. Obstetric History'), findsOneWidget);
       expect(find.text('3. POP Staging'), findsOneWidget);

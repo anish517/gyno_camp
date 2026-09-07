@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/nepali_localization_service.dart';
@@ -211,12 +212,13 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
           ],
         ),
         actions: [
-          TextButton.icon(
-            style: TextButton.styleFrom(foregroundColor: Colors.white),
-            icon: const Icon(Icons.auto_fix_high_rounded, size: 16),
-            label: const Text('Demo Sample', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: _fillSamplePatient,
-          ),
+          if (kDebugMode)
+            TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: Colors.white),
+              icon: const Icon(Icons.auto_fix_high_rounded, size: 16),
+              label: const Text('Demo Sample', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              onPressed: _fillSamplePatient,
+            ),
           IconButton(
             tooltip: 'Clear Form',
             icon: const Icon(Icons.refresh_rounded, size: 20),

@@ -67,6 +67,26 @@ void main() {
       expect(result.followUpDestination, 'GynaeSupport Nurse');
     });
 
+    test('mergeScans merges Page 1 and Page 2 scans into single unified scan model', () {
+      final page1 = service.parseFormText(OcrFormService.samplePage1Text, pageNumber: 1, imagePath: 'path/page1.jpg');
+      final page2 = service.parseFormText(OcrFormService.samplePage2Text, pageNumber: 2, imagePath: 'path/page2.jpg');
+
+      final merged = service.mergeScans(page1, page2);
+
+      expect(merged.isDualPage, true);
+      expect(merged.page1ImagePath, 'path/page1.jpg');
+      expect(merged.page2ImagePath, 'path/page2.jpg');
+      expect(merged.demographics['firstName'], 'Maya');
+      expect(merged.demographics['surname'], 'Tamang');
+      expect(merged.obstetrics['deliveries'], 3);
+      expect(merged.vitals['systolicBp'], 130);
+      expect(merged.popStaging['highestPopStage'], 3);
+      expect(merged.diagnoses, contains('POP'));
+      expect(merged.medications, contains('Metronidazole'));
+      expect(merged.surgicalReferral, 'Scheer Memorial Hospital');
+      expect(merged.overallConfidence, greaterThanOrEqualTo(0.70));
+    });
+
     test('parseFormText handles sparse or noisy text with sensible clinical defaults', () {
       const noisyText = 'Random paper text 123 456 invalid form sample';
       final result = service.parseFormText(noisyText, pageNumber: 0);

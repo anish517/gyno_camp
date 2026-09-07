@@ -63,6 +63,7 @@ class ClinicalAssessmentState {
   final bool isSaving;
   final String? errorMessage;
   final ClinicalVisitModel? savedVisit;
+  final String? existingVisitId;
 
   const ClinicalAssessmentState({
     this.currentStationIndex = 0,
@@ -107,6 +108,7 @@ class ClinicalAssessmentState {
     this.isSaving = false,
     this.errorMessage,
     this.savedVisit,
+    this.existingVisitId,
   });
 
   bool get areVitalsValid =>
@@ -160,6 +162,8 @@ class ClinicalAssessmentState {
     String? errorMessage,
     ClinicalVisitModel? savedVisit,
     bool clearSaved = false,
+    String? existingVisitId,
+    bool clearExistingVisitId = false,
   }) {
     return ClinicalAssessmentState(
       currentStationIndex: currentStationIndex ?? this.currentStationIndex,
@@ -204,6 +208,7 @@ class ClinicalAssessmentState {
       isSaving: isSaving ?? this.isSaving,
       errorMessage: errorMessage,
       savedVisit: clearSaved ? null : (savedVisit ?? this.savedVisit),
+      existingVisitId: clearExistingVisitId ? null : (existingVisitId ?? this.existingVisitId),
     );
   }
 }
@@ -435,6 +440,85 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     );
   }
 
+  /// Loads an existing clinical visit for the patient from SQLite if present
+  Future<ClinicalVisitModel?> loadPatientAssessment(String patientId, {String? patientUuid}) async {
+    state = state.copyWith(isSaving: true, errorMessage: null);
+    try {
+      final visit = await _patientRepository.getLatestClinicalVisit(patientId, patientUuid: patientUuid);
+      if (visit != null) {
+        state = state.copyWith(
+          existingVisitId: visit.id,
+          deliveries: visit.deliveries,
+          livingChildren: visit.livingChildren,
+          abortions: visit.abortions,
+          complaints: visit.anamnesisComplaints,
+          uterusInside: visit.uterusInside,
+          vulvaRemarks: visit.vulvaRemarks,
+          vaginaRemarks: visit.vaginaRemarks,
+          cervixRemarks: visit.cervixRemarks,
+          uterusRemarks: visit.uterusRemarks,
+          pelvicFloorTone: visit.pelvicFloorTone,
+          popAnteriorStage: visit.popAnteriorStage,
+          popMiddleStage: visit.popMiddleStage,
+          popPosteriorStage: visit.popPosteriorStage,
+          highestPopStage: visit.highestPopStage,
+          urineTest: visit.urineTest ?? 'normal',
+          pregnancyTest: visit.pregnancyTest ?? 'neg',
+          systolicBp: visit.systolicBp,
+          diastolicBp: visit.diastolicBp,
+          pulse: visit.pulse,
+          spo2: visit.spo2,
+          glucose: visit.glucose,
+          ecgNotes: visit.ecgNotes,
+          selectedDiagnoses: visit.diagnoses,
+          selectedCounseling: visit.counseling,
+          pessaryType: visit.pessaryType,
+          pessarySize: visit.pessarySize,
+          surgicalReferral: visit.surgicalReferral,
+          selectedMedications: visit.medications,
+          customMedication: visit.customMedication,
+          followUpNeeded: visit.followUpNeeded,
+          followUpDestination: visit.followUpDestination,
+          outtakeNotes: visit.outtakeNotes,
+          isSaving: false,
+          savedVisit: visit,
+          systolicValidation: visit.systolicBp != null
+              ? ClinicalValidationService.validateSystolicBp(visit.systolicBp)
+              : const ValidationResult.normal(),
+          diastolicValidation: visit.diastolicBp != null
+              ? ClinicalValidationService.validateDiastolicBp(visit.diastolicBp, systolic: visit.systolicBp)
+              : const ValidationResult.normal(),
+          pulseValidation: visit.pulse != null
+              ? ClinicalValidationService.validatePulse(visit.pulse)
+              : const ValidationResult.normal(),
+          spo2Validation: visit.spo2 != null
+              ? ClinicalValidationService.validateSpO2(visit.spo2)
+              : const ValidationResult.normal(),
+          glucoseValidation: visit.glucose != null
+              ? ClinicalValidationService.validateGlucose(visit.glucose)
+              : const ValidationResult.normal(),
+          obstetricValidation: (visit.deliveries != null && visit.livingChildren != null)
+              ? ClinicalValidationService.validateObstetricCounts(
+                  deliveries: visit.deliveries!,
+                  livingChildren: visit.livingChildren!,
+                  abortions: visit.abortions ?? 0,
+                )
+              : const ValidationResult.normal(),
+        );
+        return visit;
+      } else {
+        state = const ClinicalAssessmentState();
+        return null;
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isSaving: false,
+        errorMessage: 'Failed to load existing visit: $e',
+      );
+      return null;
+    }
+  }
+
   Future<ClinicalVisitModel?> submitAssessment({
     required String patientId,
     required String campId,
@@ -452,7 +536,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
 
     try {
       final visit = ClinicalVisitModel(
-        id: '',
+        id: state.existingVisitId ?? '',
         patientId: patientId,
         campId: campId,
         visitDate: DateTime.now(),
@@ -498,7 +582,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         deviceId: deviceId,
       );
 
-      state = state.copyWith(isSaving: false, savedVisit: saved);
+      state = state.copyWith(isSaving: false, savedVisit: saved, existingVisitId: saved.id);
       return saved;
     } catch (e) {
       state = state.copyWith(

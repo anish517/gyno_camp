@@ -123,86 +123,292 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
   }
 
   // ==========================================
-  // INITIAL CAPTURE PROMPT
+  // INITIAL CAPTURE PROMPT (DUAL-PAGE SLOTS)
   // ==========================================
   Widget _buildCapturePrompt(BuildContext context, OcrScanViewModel ocrVm) {
+    final ocrState = ref.watch(ocrScanProvider);
+
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Header Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_stories, color: AppTheme.primaryTeal, size: 16),
+                    SizedBox(width: 6),
+                    Text(
+                      '2-PAGE MEDICAL YELLOW FORM DIGITIZATION',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                        color: AppTheme.primaryTeal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Scan & Auto-Fill Yellow Form',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Capture both Page 1 (Front: Demographics) and Page 2 (Back: POP & Treatment).\nThe OCR engine will automatically merge both sides into one complete clinical intake.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondaryLight),
+              ),
+              const SizedBox(height: 24),
+
+              // Dual-Slot Cards (Side-by-Side or Column)
+              LayoutBuilder(
+                builder: (context, box) {
+                  final isWide = box.maxWidth >= 600;
+                  final slot1 = _buildPageSlotCard(
+                    pageNumber: 1,
+                    title: 'Page 1 (Front Page)',
+                    subtitle: 'Demographics, Obstetric History & Visit Reasons',
+                    isCaptured: ocrState.hasPage1,
+                    summaryText: ocrState.hasPage1
+                        ? '${ocrState.page1Scan!.demographics["firstName"] ?? "Patient"} ${ocrState.page1Scan!.demographics["surname"] ?? ""} (${ocrState.page1Scan!.demographics["age"] ?? 35}y) • Ward ${ocrState.page1Scan!.demographics["ward"] ?? "03"}'
+                        : null,
+                    onCamera: () => ocrVm.capturePage(1),
+                    onGallery: () => ocrVm.pickPage(1),
+                    onSample: () => ocrVm.loadSample('page1'),
+                    onClear: () => ocrVm.clearSlot(1),
+                  );
+
+                  final slot2 = _buildPageSlotCard(
+                    pageNumber: 2,
+                    title: 'Page 2 (Back Page)',
+                    subtitle: 'POP Staging, Vitals, Diagnoses & Prescriptions',
+                    isCaptured: ocrState.hasPage2,
+                    summaryText: ocrState.hasPage2
+                        ? 'POP Stage ${ocrState.page2Scan!.popStaging["highestPopStage"] ?? 3} • BP ${ocrState.page2Scan!.vitals["systolicBp"] ?? 120}/${ocrState.page2Scan!.vitals["diastolicBp"] ?? 80} • ${ocrState.page2Scan!.diagnoses.length} Diagnoses'
+                        : null,
+                    onCamera: () => ocrVm.capturePage(2),
+                    onGallery: () => ocrVm.pickPage(2),
+                    onSample: () => ocrVm.loadSample('page2'),
+                    onClear: () => ocrVm.clearSlot(2),
+                  );
+
+                  if (isWide) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: slot1),
+                        const SizedBox(width: 16),
+                        Expanded(child: slot2),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      children: [
+                        slot1,
+                        const SizedBox(height: 14),
+                        slot2,
+                      ],
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // Multi-File Quick Action & Primary Proceed Action
+              if (ocrState.hasPage1 || ocrState.hasPage2) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryTeal,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.fact_check_outlined, size: 22),
+                    label: Text(
+                      ocrState.isDualReady
+                          ? 'Review & Verify Dual-Page Form (दुवै पाना रुजु गर्नुहोस्)'
+                          : 'Proceed with Captured Page(s) (रुजु गर्नुहोस्)',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => ocrVm.mergeAndProceed(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Quick Actions Bar
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.photo_library_outlined, size: 18),
+                    label: const Text('Select Both Images at Once (Multi-Select)'),
+                    onPressed: () => ocrVm.pickBothPages(),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo.shade700,
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.description, size: 18),
+                    label: const Text('Load Complete 2-Page Template'),
+                    onPressed: () => ocrVm.loadSample('full'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPageSlotCard({
+    required int pageNumber,
+    required String title,
+    required String subtitle,
+    required bool isCaptured,
+    String? summaryText,
+    required VoidCallback onCamera,
+    required VoidCallback onGallery,
+    required VoidCallback onSample,
+    required VoidCallback onClear,
+  }) {
+    return Card(
+      elevation: isCaptured ? 3 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: isCaptured ? AppTheme.primaryTeal : Colors.grey.shade300,
+          width: isCaptured ? 1.8 : 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryLight.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.document_scanner_outlined, size: 72, color: AppTheme.primaryTeal),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Capture Paper Yellow Form',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Photograph or upload the completed 2-page medical intake form.\nThe intelligent engine will automatically digitize clinical fields.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryLight),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: 320,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryTeal,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                icon: const Icon(Icons.camera_alt),
-                label: const Text('Capture with Camera', style: TextStyle(fontSize: 15)),
-                onPressed: () => ocrVm.captureWithCamera(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: 320,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                icon: const Icon(Icons.photo_library),
-                label: const Text('Select from Device Gallery / File', style: TextStyle(fontSize: 15)),
-                onPressed: () => ocrVm.pickFromGallery(),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Divider(indent: 40, endIndent: 40),
-            const SizedBox(height: 16),
-            const Text(
-              'Clinical Reference Form Templates:',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryLight),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
+            // Top Row: Page Badge & Status
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                ActionChip(
-                  avatar: const Icon(Icons.description, size: 16, color: AppTheme.primaryTeal),
-                  label: const Text('Load Full Yellow Form'),
-                  onPressed: () => ocrVm.loadSample('full'),
+                Expanded(
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 13,
+                        backgroundColor: isCaptured ? AppTheme.primaryTeal : Colors.grey.shade400,
+                        child: Text('$pageNumber', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ),
                 ),
-                ActionChip(
-                  avatar: const Icon(Icons.looks_one, size: 16, color: Colors.indigo),
-                  label: const Text('Page 1: Demographics'),
-                  onPressed: () => ocrVm.loadSample('page1'),
+                const SizedBox(width: 6),
+                if (isCaptured)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.successGreen.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, size: 14, color: AppTheme.successGreen),
+                        SizedBox(width: 4),
+                        Text('Captured', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.successGreen)),
+                      ],
+                    ),
+                  )
+                else
+                  Text('Slot $pageNumber Empty', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(subtitle, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight)),
+            const SizedBox(height: 12),
+
+            // If captured, show summary & clear button
+            if (isCaptured && summaryText != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryLight.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                ActionChip(
-                  avatar: const Icon(Icons.looks_two, size: 16, color: Colors.teal),
-                  label: const Text('Page 2: POP & Vitals'),
-                  onPressed: () => ocrVm.loadSample('page2'),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check, size: 16, color: AppTheme.primaryTeal),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        summaryText,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: onClear,
+                      child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      minimumSize: Size.zero,
+                    ),
+                    icon: const Icon(Icons.camera_alt, size: 15),
+                    label: const Text('Camera', style: TextStyle(fontSize: 11.5)),
+                    onPressed: onCamera,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      minimumSize: Size.zero,
+                    ),
+                    icon: const Icon(Icons.photo, size: 15),
+                    label: const Text('File', style: TextStyle(fontSize: 11.5)),
+                    onPressed: onGallery,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton(
+                  tooltip: 'Load Sample $pageNumber',
+                  icon: const Icon(Icons.auto_fix_high, size: 18, color: AppTheme.primaryTeal),
+                  onPressed: onSample,
                 ),
               ],
             ),
@@ -213,10 +419,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
   }
 
   // ==========================================
-  // LEFT PANE: DOCUMENT PREVIEW
+  // LEFT PANE: DUAL-DOCUMENT PREVIEW & INSPECTION
   // ==========================================
   Widget _buildDocumentPreviewPane(OcrScanState ocrState) {
     final result = ocrState.scanResult!;
+    final activePage = ocrState.activeInspectionPage;
+    final isDual = result.isDualPage || (ocrState.hasPage1 && ocrState.hasPage2);
+
+    final rawTextToShow = isDual
+        ? (activePage == 1 ? (result.page1RawText ?? result.rawText) : (result.page2RawText ?? result.rawText))
+        : result.rawText;
 
     return Container(
       color: Colors.grey.shade100,
@@ -253,7 +465,34 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+
+          // Page 1 / Page 2 Toggle Bar for Dual-Page Form
+          if (isDual) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Text('📄 Page 1 (Front: Demographics)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    selected: activePage == 1,
+                    selectedColor: AppTheme.primaryLight,
+                    onSelected: (_) => ref.read(ocrScanProvider.notifier).switchInspectionPage(1),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Text('🩺 Page 2 (Back: POP & Vitals)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    selected: activePage == 2,
+                    selectedColor: AppTheme.primaryLight,
+                    onSelected: (_) => ref.read(ocrScanProvider.notifier).switchInspectionPage(2),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -275,14 +514,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         color: Colors.amber.shade700,
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text(
-                        'PAPER FORM OCR STREAM CROP',
-                        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      child: Text(
+                        isDual
+                            ? 'PAGE $activePage OCR STREAM & METRICS CROP'
+                            : 'PAPER FORM OCR STREAM CROP',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ),
                     const SizedBox(height: 12),
                     SelectableText(
-                      result.rawText,
+                      rawTextToShow,
                       style: const TextStyle(
                         fontFamily: 'monospace',
                         fontSize: 12,
@@ -417,6 +658,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             ref.read(campStateProvider.notifier).loadCamps();
                             ref.read(patientListProvider.notifier).loadPatients(activeCamp.id);
                             _showSuccessDialog(context, savedPatient);
+                          } else if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(ocrState.errorMessage ?? 'Failed to commit scanned form. Please verify required fields.'),
+                                backgroundColor: Colors.red[700],
+                              ),
+                            );
                           }
                         },
                 ),

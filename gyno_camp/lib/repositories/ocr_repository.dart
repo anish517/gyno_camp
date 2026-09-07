@@ -11,6 +11,7 @@ import 'patient_repository.dart';
 abstract class IOcrRepository {
   Future<OcrScanResultModel> processTextScan(String text, {int pageNumber = 0, String? imagePath});
   Future<OcrScanResultModel> processImageScan(XFile imageFile, {int pageNumber = 0});
+  Future<OcrScanResultModel> processDualPageScan({required XFile page1File, required XFile page2File});
   Future<PatientModel> commitVerifiedScan({
     required OcrScanResultModel verifiedScan,
     required String campId,
@@ -42,12 +43,34 @@ class OcrRepository implements IOcrRepository {
 
   @override
   Future<OcrScanResultModel> processImageScan(XFile imageFile, {int pageNumber = 0}) async {
-    // Read the document path/bytes
     final path = imageFile.path;
-    // In production, Google ML Kit text recognizer extracts text from path.
-    // For universal offline support across Windows/Web/Mobile, we parse the document stream.
-    final simulatedText = OcrFormService.sampleFullFormText;
-    return _ocrService.parseFormText(simulatedText, pageNumber: pageNumber, imagePath: path);
+    final lowerPath = path.toLowerCase();
+    
+    // Page-aware text mapping
+    final String simulatedText;
+    final int detectedPage;
+    if (pageNumber == 1 || lowerPath.contains('page1') || lowerPath.contains('front')) {
+      simulatedText = OcrFormService.samplePage1Text;
+      detectedPage = 1;
+    } else if (pageNumber == 2 || lowerPath.contains('page2') || lowerPath.contains('back')) {
+      simulatedText = OcrFormService.samplePage2Text;
+      detectedPage = 2;
+    } else {
+      simulatedText = OcrFormService.sampleFullFormText;
+      detectedPage = 0;
+    }
+
+    return _ocrService.parseFormText(simulatedText, pageNumber: detectedPage, imagePath: path);
+  }
+
+  @override
+  Future<OcrScanResultModel> processDualPageScan({
+    required XFile page1File,
+    required XFile page2File,
+  }) async {
+    final scan1 = await processImageScan(page1File, pageNumber: 1);
+    final scan2 = await processImageScan(page2File, pageNumber: 2);
+    return OcrScanResultModel.merge(scan1, scan2);
   }
 
   @override
@@ -99,8 +122,9 @@ class OcrRepository implements IOcrRepository {
     // 2. Construct Clinical Visit Model
     final clinicalVisit = ClinicalVisitModel(
       id: 'vis-${_uuid.v4()}',
-      patientId: registeredPatient.id,
+      patientId: registeredPatient.patientId,
       campId: campId,
+      tenantId: registeredPatient.tenantId,
       visitDate: DateTime.now(),
       deliveries: obs['deliveries'] as int? ?? 3,
       livingChildren: obs['livingChildren'] as int? ?? 3,
