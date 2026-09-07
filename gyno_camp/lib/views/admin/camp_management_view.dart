@@ -23,7 +23,7 @@ class CampManagementView extends ConsumerStatefulWidget {
 class _CampManagementViewState extends ConsumerState<CampManagementView> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _statusFilter = 'ALL';
-  DateTime _selectedCalendarMonth = DateTime(2026, 9, 1);
+  DateTime _selectedCalendarMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime? _selectedCalendarDate;
 
   @override
@@ -271,6 +271,21 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                // Edit Camp Details
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  tooltip: 'Edit Camp Details',
+                  onPressed: () => _showEditCampDialog(context, camp),
+                ),
+                // Safe Delete Camp (only if not active/open)
+                if (!camp.isOpen)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerRose),
+                    tooltip: 'Delete Camp',
+                    onPressed: () => _confirmDeleteCamp(context, camp, user, deviceState),
+                  ),
+                const SizedBox(width: 4),
+
                 if (camp.status == CampStatus.draft || camp.status == CampStatus.scheduled) ...[
                   OutlinedButton.icon(
                     icon: const Icon(Icons.play_arrow, size: 18),
@@ -734,10 +749,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   void _showCreateCampDialog(BuildContext context) {
     final codeCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
-    final districtCtrl = TextEditingController(text: 'Dhading');
-    final munCtrl = TextEditingController(text: 'Nilkantha');
-    final wardCtrl = TextEditingController(text: '3');
-    final venueCtrl = TextEditingController(text: 'Primary Health Center');
+    final districtCtrl = TextEditingController();
+    final munCtrl = TextEditingController();
+    final wardCtrl = TextEditingController();
+    final venueCtrl = TextEditingController();
     DateTime startDate = DateTime.now();
     DateTime endDate = DateTime.now().add(const Duration(days: 3));
 
@@ -750,26 +765,36 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             return AlertDialog(
-              title: const Text('Create New Camp'),
+              title: const Text('Schedule New Health Camp'),
               content: SingleChildScrollView(
                 child: SizedBox(
-                  width: 400,
+                  width: 420,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       TextField(
                         controller: codeCtrl,
-                        decoration: const InputDecoration(labelText: 'Camp Code (e.g. DHN03, KTM02)'),
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: const InputDecoration(
+                          labelText: 'Camp Code *',
+                          hintText: 'e.g. KTM02, DHN03, PKR01',
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: nameCtrl,
-                        decoration: const InputDecoration(labelText: 'Camp Name (e.g. Nilkantha Women Camp)'),
+                        decoration: const InputDecoration(
+                          labelText: 'Camp Name *',
+                          hintText: 'e.g. Nilkantha Women Health Outreach Camp',
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: districtCtrl,
-                        decoration: const InputDecoration(labelText: 'District'),
+                        decoration: const InputDecoration(
+                          labelText: 'District *',
+                          hintText: 'e.g. Kathmandu / Dhading / Kaski',
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Row(
@@ -778,14 +803,21 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             flex: 2,
                             child: TextField(
                               controller: munCtrl,
-                              decoration: const InputDecoration(labelText: 'Municipality'),
+                              decoration: const InputDecoration(
+                                labelText: 'Municipality / Rural Mun.',
+                                hintText: 'e.g. Budhanilkantha',
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: TextField(
                               controller: wardCtrl,
-                              decoration: const InputDecoration(labelText: 'Ward'),
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Ward No.',
+                                hintText: 'e.g. 03',
+                              ),
                             ),
                           ),
                         ],
@@ -793,7 +825,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       const SizedBox(height: 8),
                       TextField(
                         controller: venueCtrl,
-                        decoration: const InputDecoration(labelText: 'Venue / Facility'),
+                        decoration: const InputDecoration(
+                          labelText: 'Venue / Health Post Facility *',
+                          hintText: 'e.g. Primary Health Care Center',
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -807,7 +842,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   context: dialogCtx,
                                   initialDate: startDate,
                                   firstDate: DateTime(2025),
-                                  lastDate: DateTime(2030),
+                                  lastDate: DateTime(2035),
                                 );
                                 if (picked != null) {
                                   setDialogState(() => startDate = picked);
@@ -825,7 +860,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   context: dialogCtx,
                                   initialDate: endDate,
                                   firstDate: DateTime(2025),
-                                  lastDate: DateTime(2030),
+                                  lastDate: DateTime(2035),
                                 );
                                 if (picked != null) {
                                   setDialogState(() => endDate = picked);
@@ -845,7 +880,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   onPressed: () async {
                     if (codeCtrl.text.trim().isEmpty || nameCtrl.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please enter camp code and name')),
+                        const SnackBar(content: Text('Please enter camp code and name.')),
                       );
                       return;
                     }
@@ -854,13 +889,15 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       id: 'camp-${DateTime.now().millisecondsSinceEpoch}',
                       campCode: codeCtrl.text.trim().toUpperCase(),
                       name: nameCtrl.text.trim(),
-                      district: districtCtrl.text.trim(),
+                      district: districtCtrl.text.trim().isNotEmpty ? districtCtrl.text.trim() : 'Bagmati',
                       municipality: munCtrl.text.trim(),
-                      ward: wardCtrl.text.trim(),
-                      venue: venueCtrl.text.trim(),
+                      ward: wardCtrl.text.trim().isNotEmpty ? wardCtrl.text.trim() : '01',
+                      venue: venueCtrl.text.trim().isNotEmpty ? venueCtrl.text.trim() : 'Health Post',
                       startDate: startDate,
                       endDate: endDate,
                       status: CampStatus.scheduled,
+                      tenantId: user?.tenantId ?? 'tenant_bir_hospital',
+                      organizationName: user?.tenantName ?? 'Bir Hospital Gyno Outreach',
                       createdAt: DateTime.now(),
                     );
 
@@ -884,6 +921,212 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           },
         );
       },
+    );
+  }
+
+  void _showEditCampDialog(BuildContext context, CampModel camp) {
+    final nameCtrl = TextEditingController(text: camp.name);
+    final districtCtrl = TextEditingController(text: camp.district);
+    final munCtrl = TextEditingController(text: camp.municipality);
+    final wardCtrl = TextEditingController(text: camp.ward);
+    final venueCtrl = TextEditingController(text: camp.venue);
+    DateTime startDate = camp.startDate;
+    DateTime endDate = camp.endDate;
+
+    final user = ref.read(authStateProvider).currentUser;
+    final deviceState = ref.read(deviceSecurityProvider);
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              title: Text('Edit Camp (${camp.campCode})'),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: 420,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(labelText: 'Camp Name *'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: districtCtrl,
+                        decoration: const InputDecoration(labelText: 'District *'),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextField(
+                              controller: munCtrl,
+                              decoration: const InputDecoration(labelText: 'Municipality'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: wardCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(labelText: 'Ward'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: venueCtrl,
+                        decoration: const InputDecoration(labelText: 'Venue / Facility *'),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.date_range, size: 16),
+                              label: Text('Start: ${_formatDate(startDate)}', style: const TextStyle(fontSize: 11)),
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: dialogCtx,
+                                  initialDate: startDate,
+                                  firstDate: DateTime(2025),
+                                  lastDate: DateTime(2035),
+                                );
+                                if (picked != null) {
+                                  setDialogState(() => startDate = picked);
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.date_range, size: 16),
+                              label: Text('End: ${_formatDate(endDate)}', style: const TextStyle(fontSize: 11)),
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: dialogCtx,
+                                  initialDate: endDate,
+                                  firstDate: DateTime(2025),
+                                  lastDate: DateTime(2035),
+                                );
+                                if (picked != null) {
+                                  setDialogState(() => endDate = picked);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (nameCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Camp name cannot be empty.')),
+                      );
+                      return;
+                    }
+
+                    final updated = camp.copyWith(
+                      name: nameCtrl.text.trim(),
+                      district: districtCtrl.text.trim(),
+                      municipality: munCtrl.text.trim(),
+                      ward: wardCtrl.text.trim(),
+                      venue: venueCtrl.text.trim(),
+                      startDate: startDate,
+                      endDate: endDate,
+                    );
+
+                    final messenger = ScaffoldMessenger.of(context);
+                    Navigator.pop(ctx);
+                    final success = await ref.read(campStateProvider.notifier).updateCamp(
+                          updated,
+                          adminUserId: user?.id ?? 'admin-user',
+                          deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                        );
+                    if (mounted && success) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Camp "${updated.name}" updated successfully.')),
+                      );
+                    }
+                  },
+                  child: const Text('Save Changes'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _confirmDeleteCamp(
+    BuildContext context,
+    CampModel camp,
+    UserModel? user,
+    DeviceSecurityState deviceState,
+  ) {
+    if (camp.totalPatientsRegistered > 0) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.gavel, color: AppTheme.dangerRose, size: 36),
+          title: const Text('Clinical Audit Rule: Cannot Delete'),
+          content: Text(
+            'Camp "${camp.name}" (${camp.campCode}) currently contains ${camp.totalPatientsRegistered} registered patient intake records.\n\nUnder healthcare clinical compliance and medical audit regulations, camps with patient records cannot be deleted. You can Archive this camp to preserve all clinical data in read-only mode.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Understood'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRose, size: 36),
+        title: const Text('Delete Camp Configuration?'),
+        content: Text(
+          'Are you sure you want to permanently delete camp "${camp.name}" (${camp.campCode})?\n\nThis action cannot be undone.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerRose),
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+              final success = await ref.read(campStateProvider.notifier).deleteCamp(
+                    camp.id,
+                    adminUserId: user?.id ?? 'admin-user',
+                    deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                  );
+              if (mounted && success) {
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Camp "${camp.name}" deleted.')),
+                );
+              }
+            },
+            child: const Text('Delete Camp'),
+          ),
+        ],
+      ),
     );
   }
 

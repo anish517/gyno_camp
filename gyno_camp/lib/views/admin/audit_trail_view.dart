@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/services/file_download_helper.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/audit_log_model.dart';
 import '../../viewmodels/audit_log_viewmodel.dart';
@@ -83,6 +85,11 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
             ? 'My Activity Trail (Self-Activity Log)'
             : 'Tamper-Evident Audit Trail'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined),
+            tooltip: 'Export Audit Log (JSON)',
+            onPressed: () => _exportAuditLogs(filteredLogs),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh Logs',
@@ -421,5 +428,43 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
       return Colors.indigo;
     }
     return AppTheme.primaryTeal;
+  }
+
+  Future<void> _exportAuditLogs(List<AuditLogModel> logs) async {
+    if (logs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No audit logs available to export.')),
+      );
+      return;
+    }
+    try {
+      final list = logs.map((l) => l.toMap()).toList();
+      final jsonString = const JsonEncoder.withIndent('  ').convert(list);
+      final bytes = utf8.encode(jsonString);
+      final dateStr = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+      final filename = 'audit_trail_export_$dateStr.json';
+      await FileDownloadHelper.saveAndDownloadFile(
+        bytes: bytes,
+        filename: filename,
+        mimeType: 'application/json',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Audit trail exported successfully: $filename'),
+            backgroundColor: AppTheme.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            backgroundColor: AppTheme.dangerRose,
+          ),
+        );
+      }
+    }
   }
 }

@@ -282,7 +282,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 final newItem = LookupItemModel(
                   id: 'lookup-${DateTime.now().millisecondsSinceEpoch}',
                   category: category,
-                  code: enText.toLowerCase().replaceAll(' ', '_'),
+                  code: enText.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'),
                   labelEn: enText,
                   labelNe: neCtrl.text.trim(),
                   isActive: true,
