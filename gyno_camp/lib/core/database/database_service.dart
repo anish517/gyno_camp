@@ -92,7 +92,7 @@ class DatabaseService {
       DatabaseTables.tableUsers,
       {
         'id': 'usr-superadmin-01',
-        'name': 'Dr. Aruna Shrestha',
+        'name': 'Dr. Aarav Sharma (Lead Gynecologist)',
         'email': 'admin@gynocamp.org',
         'phone': '9851000001',
         'role': AppConstants.roleSuperAdmin,

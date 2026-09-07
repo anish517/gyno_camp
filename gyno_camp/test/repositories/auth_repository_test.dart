@@ -71,5 +71,32 @@ void main() {
       final logs = await auditRepo.getRecentLogs();
       expect(logs.any((l) => l.action == 'USER_LOGOUT'), isTrue);
     });
+
+    test('createUser inserts a new staff member and creates audit log', () async {
+      const newStaff = UserModel(
+        id: 'usr-custom-nurse-01',
+        name: 'Nurse Deepa',
+        email: 'deepa@gynocamp.org',
+        phone: '9849999999',
+        role: UserRole.dataTaker,
+      );
+
+      final created = await authRepo.createUser(
+        user: newStaff,
+        adminUserId: 'usr-superadmin-01',
+        deviceId: 'dev-test-01',
+      );
+      expect(created.id, equals('usr-custom-nurse-01'));
+
+      final fetched = await authRepo.getUserByEmail('deepa@gynocamp.org');
+      expect(fetched, isNotNull);
+      expect(fetched!.name, equals('Nurse Deepa'));
+
+      final allUsers = await authRepo.getAllUsers();
+      expect(allUsers.any((u) => u.email == 'deepa@gynocamp.org'), isTrue);
+
+      final logs = await auditRepo.getRecentLogs();
+      expect(logs.any((l) => l.action == 'USER_REGISTERED' && l.entityId == 'usr-custom-nurse-01'), isTrue);
+    });
   });
 }

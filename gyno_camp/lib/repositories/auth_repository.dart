@@ -1,3 +1,4 @@
+import 'package:sqflite/sqflite.dart';
 import '../core/constants/app_constants.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
@@ -8,6 +9,11 @@ abstract class IAuthRepository {
   Future<List<UserModel>> getAllUsers();
   Future<UserModel?> getUserById(String id);
   Future<UserModel?> getUserByEmail(String email);
+  Future<UserModel> createUser({
+    required UserModel user,
+    required String adminUserId,
+    required String deviceId,
+  });
   Future<UserModel?> login({required String email, required String deviceId});
   Future<UserModel?> loginAsRole({required UserRole role, required String deviceId});
   Future<void> logout({required String deviceId});
@@ -64,6 +70,33 @@ class AuthRepository implements IAuthRepository {
     );
     if (maps.isEmpty) return null;
     return UserModel.fromMap(maps.first);
+  }
+
+  @override
+  Future<UserModel> createUser({
+    required UserModel user,
+    required String adminUserId,
+    required String deviceId,
+  }) async {
+    final db = await _databaseService.database;
+    await db.insert(
+      DatabaseTables.tableUsers,
+      user.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    await _auditRepository.logActivity(
+      userId: adminUserId,
+      userName: _currentUser?.name ?? 'Super Admin',
+      userRole: AppConstants.roleSuperAdmin,
+      action: 'USER_REGISTERED',
+      entityType: 'User',
+      entityId: user.id,
+      detailsJson: '{"name":"${user.name}","email":"${user.email}","role":"${user.role.toDbString()}"}',
+      deviceId: deviceId,
+    );
+
+    return user;
   }
 
   @override

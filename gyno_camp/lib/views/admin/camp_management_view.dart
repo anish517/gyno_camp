@@ -672,6 +672,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   }
 
   void _showAssignStaffDialog(BuildContext context, CampModel camp) {
+    ref.invalidate(staffUsersProvider);
     final assigned = Set<String>.from(camp.assignedStaffIds);
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
@@ -679,70 +680,246 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     showDialog(
       context: context,
       builder: (ctx) {
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
+        return Consumer(
+          builder: (dialogCtx, ref, _) {
             final staffAsync = ref.watch(staffUsersProvider);
 
-            return AlertDialog(
-              title: Text('Assign Staff to ${camp.campCode}'),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: staffAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Text('Error loading staff: $e'),
-                  data: (staffList) {
-                    if (staffList.isEmpty) return const Text('No registered staff users found.');
-                    return ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: staffList.length,
-                      itemBuilder: (_, idx) {
-                        final s = staffList[idx];
-                        final isChecked = assigned.contains(s.id);
-                        return CheckboxListTile(
-                          dense: true,
-                          title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('${s.role.displayNameEn} • ${s.email}'),
-                          value: isChecked,
-                          onChanged: (val) {
-                            setDialogState(() {
-                              if (val == true) {
-                                assigned.add(s.id);
-                              } else {
-                                assigned.remove(s.id);
-                              }
-                            });
+            return StatefulBuilder(
+              builder: (innerCtx, setDialogState) {
+                return AlertDialog(
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Assign Staff to ${camp.campCode}',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.person_add_alt_1, size: 18),
+                        label: const Text('Add Staff', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () => _showAddNewStaffDialog(context, assigned, setDialogState),
+                      ),
+                    ],
+                  ),
+                  content: SizedBox(
+                    width: double.maxFinite,
+                    child: staffAsync.when(
+                      loading: () => const SizedBox(
+                        height: 140,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (e, _) => Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text('Error loading staff: $e', style: const TextStyle(color: AppTheme.dangerRose)),
+                      ),
+                      data: (staffList) {
+                        if (staffList.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.people_outline, size: 40, color: Colors.grey),
+                                const SizedBox(height: 8),
+                                const Text('No registered staff users found.'),
+                                const SizedBox(height: 12),
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Register First Staff Member'),
+                                  onPressed: () => _showAddNewStaffDialog(context, assigned, setDialogState),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: staffList.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (_, idx) {
+                            final s = staffList[idx];
+                            final isChecked = assigned.contains(s.id);
+                            return CheckboxListTile(
+                              dense: true,
+                              title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('${s.role.displayNameEn} • ${s.email}'),
+                              value: isChecked,
+                              onChanged: (val) {
+                                setDialogState(() {
+                                  if (val == true) {
+                                    assigned.add(s.id);
+                                  } else {
+                                    assigned.remove(s.id);
+                                  }
+                                });
+                              },
+                            );
                           },
                         );
                       },
-                    );
-                  },
-                ),
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                ElevatedButton(
-                  onPressed: () async {
-                    final messenger = ScaffoldMessenger.of(context);
-                    Navigator.pop(ctx);
-                    final success = await ref.read(campStateProvider.notifier).assignStaff(
-                          camp.id,
-                          assigned.toList(),
-                          adminUserId: user?.id ?? 'admin-user',
-                          deviceId: deviceState.device?.deviceId ?? 'dev-admin',
-                        );
-                    if (mounted && success) {
-                      messenger.showSnackBar(
-                        SnackBar(content: Text('Staff updated for camp "${camp.name}".')),
-                      );
-                    }
-                  },
-                  child: const Text('Save Assignments'),
-                ),
-              ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        Navigator.pop(ctx);
+                        final success = await ref.read(campStateProvider.notifier).assignStaff(
+                              camp.id,
+                              assigned.toList(),
+                              adminUserId: user?.id ?? 'admin-user',
+                              deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                            );
+                        if (mounted && success) {
+                          messenger.showSnackBar(
+                            SnackBar(content: Text('Staff updated for camp "${camp.name}".')),
+                          );
+                        }
+                      },
+                      child: const Text('Save Assignments'),
+                    ),
+                  ],
+                );
+              },
             );
           },
         );
       },
+    );
+  }
+
+  void _showAddNewStaffDialog(
+    BuildContext context,
+    Set<String> assigned,
+    void Function(void Function()) setDialogState,
+  ) {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    UserRole selectedRole = UserRole.dataTaker;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (innerCtx, setInnerState) {
+          return AlertDialog(
+            title: const Text('Register New Staff Member'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      hintText: 'e.g. Dr. Anita Joshi or Nurse Preeti',
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Official Email',
+                      hintText: 'e.g. anita@gynocamp.org',
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone Number',
+                      hintText: 'e.g. 9841234567',
+                      prefixIcon: Icon(Icons.phone),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<UserRole>(
+                    initialValue: selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: 'Role & Responsibility',
+                      prefixIcon: Icon(Icons.badge),
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: UserRole.dataTaker,
+                        child: Text(UserRole.dataTaker.displayNameEn),
+                      ),
+                      DropdownMenuItem(
+                        value: UserRole.superAdmin,
+                        child: Text(UserRole.superAdmin.displayNameEn),
+                      ),
+                      DropdownMenuItem(
+                        value: UserRole.dataAnalyst,
+                        child: Text(UserRole.dataAnalyst.displayNameEn),
+                      ),
+                    ],
+                    onChanged: (role) {
+                      if (role != null) {
+                        setInnerState(() => selectedRole = role);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () async {
+                  final name = nameCtrl.text.trim();
+                  final email = emailCtrl.text.trim().toLowerCase();
+                  if (name.isEmpty || email.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please enter staff name and email.')),
+                    );
+                    return;
+                  }
+
+                  final user = ref.read(authStateProvider).currentUser;
+                  final deviceState = ref.read(deviceSecurityProvider);
+                  final messenger = ScaffoldMessenger.of(context);
+                  final newUser = UserModel(
+                    id: 'usr-${DateTime.now().millisecondsSinceEpoch}',
+                    name: name,
+                    email: email,
+                    phone: phoneCtrl.text.trim(),
+                    role: selectedRole,
+                    isActive: true,
+                    tenantId: user?.tenantId ?? 'tenant_bir_hospital',
+                    tenantName: user?.tenantName ?? 'Bir Hospital Gyno Outreach',
+                  );
+
+                  Navigator.pop(ctx);
+                  await ref.read(authRepositoryProvider).createUser(
+                        user: newUser,
+                        adminUserId: user?.id ?? 'admin-user',
+                        deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                      );
+
+                  ref.invalidate(staffUsersProvider);
+                  setDialogState(() {
+                    assigned.add(newUser.id);
+                  });
+
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Registered "$name" and assigned to camp.')),
+                    );
+                  }
+                },
+                child: const Text('Add Staff'),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
