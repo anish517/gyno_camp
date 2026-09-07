@@ -151,5 +151,30 @@ void main() {
       expect(vm.state.district, 'Kaski');
       expect(vm.state.municipality, 'Pokhara');
     });
+
+    test('Strict field validation rejects invalid phone numbers and single-character guardian names', () {
+      vm.updateField(
+        firstName: 'Sita',
+        surname: 'Poudel',
+        age: 31,
+        ward: '03',
+        spouseOrFatherName: 'b', // Incomplete 1-char name
+        mobile: '234', // Invalid 3-digit phone
+      );
+
+      // Should be invalid
+      expect(vm.state.isValid, isFalse);
+      expect(vm.state.validationError, contains('10 digits'));
+
+      // Fix phone to valid 10-digit Nepali number
+      vm.updateField(mobile: '9841234567');
+      expect(vm.state.isValid, isFalse);
+      expect(vm.state.validationError, contains('Guardian/Spouse name'));
+
+      // Fix guardian name
+      vm.updateField(spouseOrFatherName: 'Bishnu Poudel');
+      expect(vm.state.isValid, isTrue);
+      expect(vm.state.validationError, isNull);
+    });
   });
 }

@@ -5,9 +5,12 @@ import '../../core/theme/app_theme.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
+import '../../models/camp_model.dart';
+import '../../models/patient_model.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
 import 'clinical_assessment_view.dart';
+import 'patient_follow_up_slip_modal.dart';
 
 class PatientRegistrationView extends ConsumerStatefulWidget {
   const PatientRegistrationView({super.key});
@@ -44,18 +47,28 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final camp = ref.read(campStateProvider).activeCamp;
-      if (camp != null) {
-        if (camp.ward.isNotEmpty) _wardController.text = camp.ward;
-        if (camp.district.isNotEmpty) _districtController.text = camp.district;
-        if (camp.municipality.isNotEmpty) _municipalityController.text = camp.municipality;
-        ref.read(patientRegistrationProvider.notifier).updateField(
-              ward: _wardController.text,
-              district: _districtController.text,
-              municipality: _municipalityController.text,
-            );
-      }
+      _applyActiveCampLocation();
     });
+  }
+
+  void _applyActiveCampLocation() {
+    final camp = ref.read(campStateProvider).activeCamp;
+    if (camp != null) {
+      ref.read(patientRegistrationProvider.notifier).updateField(
+        district: camp.district,
+        municipality: camp.municipality,
+        ward: camp.ward,
+      );
+      if (_districtController.text.isEmpty && camp.district.isNotEmpty) {
+        _districtController.text = camp.district;
+      }
+      if (_municipalityController.text.isEmpty && camp.municipality.isNotEmpty) {
+        _municipalityController.text = camp.municipality;
+      }
+      if (_wardController.text.isEmpty && camp.ward.isNotEmpty) {
+        _wardController.text = camp.ward;
+      }
+    }
   }
 
   @override
@@ -78,6 +91,33 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
     final camp = ref.read(campStateProvider).activeCamp;
     if (camp != null) {
       ref.read(patientRegistrationProvider.notifier).runLiveDuplicateCheck(camp.id);
+    }
+  }
+
+  Future<void> _handlePostRegistrationSlip(PatientModel registered, CampModel camp) async {
+    if (!mounted) return;
+    final orgName = camp.organizationName.isNotEmpty
+        ? camp.organizationName
+        : 'Nepal Gyno Health Outreach Network';
+
+    final proceedToStation2 = await PatientFollowUpSlipModal.show(
+      context,
+      patient: registered,
+      camp: camp,
+      organizationName: orgName,
+      showProceedButton: true,
+    );
+    if (!mounted) return;
+
+    if (proceedToStation2 == true) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ClinicalAssessmentView(patient: registered),
+        ),
+      );
+    } else {
+      Navigator.of(context).pop();
     }
   }
 
@@ -876,13 +916,58 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                             ? null
                             : () async {
                                 final scaffoldMessenger = ScaffoldMessenger.of(context);
-                                final navigator = Navigator.of(context);
+
+                                if (!state.isValid) {
+                                  scaffoldMessenger.showSnackBar(
+                                    SnackBar(
+                                      content: Row(
+                                        children: [
+                                          const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              state.validationError ?? 'Please complete all required fields properly.',
+                                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      backgroundColor: Colors.red[700],
+                                      behavior: SnackBarBehavior.floating,
+                                      duration: const Duration(seconds: 4),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                if (state.selectedReasons.isEmpty) {
+                                  scaffoldMessenger.showSnackBar(
+                                    SnackBar(
+                                      content: const Row(
+                                        children: [
+                                          Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                                          SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              'Please select at least one primary reason for visit (शिविरमा आउनुको मुख्य कारण).',
+                                              style: TextStyle(fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      backgroundColor: Colors.orange[800],
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  return;
+                                }
 
                                 final registered = await vm.submitRegistration(
                                   campId: camp.id,
                                   campCode: camp.campCode,
                                   staffUserId: user?.id ?? 'usr-field',
                                   deviceId: device?.deviceId ?? 'dev-field',
+                                  tenantId: camp.tenantId.isNotEmpty ? camp.tenantId : (user?.tenantId ?? 'default_tenant'),
                                 );
 
                                 if (!mounted) return;
@@ -898,12 +983,7 @@ class _PatientRegistrationViewState extends ConsumerState<PatientRegistrationVie
                                     ),
                                   );
 
-                                  // Route to Clinical Assessment Form
-                                  navigator.pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (_) => ClinicalAssessmentView(patient: registered),
-                                    ),
-                                  );
+                                  await _handlePostRegistrationSlip(registered, camp);
                                 }
                               },
                       ),

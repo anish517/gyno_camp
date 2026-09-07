@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/audit_log_model.dart';
 import '../../viewmodels/audit_log_viewmodel.dart';
+import '../../viewmodels/auth_viewmodel.dart';
 
 class AuditTrailView extends ConsumerStatefulWidget {
   const AuditTrailView({super.key});
@@ -26,8 +27,12 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
   Widget build(BuildContext context) {
     final auditState = ref.watch(auditLogProvider);
     final vm = ref.read(auditLogProvider.notifier);
+    final currentUser = ref.watch(authStateProvider).currentUser;
 
     final filteredLogs = auditState.logs.where((log) {
+      if (currentUser?.isDataTaker == true && log.userId != currentUser!.id) {
+        return false;
+      }
       if (_selectedActionPrefix != 'ALL' && !log.action.startsWith(_selectedActionPrefix)) {
         return false;
       }
@@ -44,7 +49,9 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tamper-Evident Audit Trail'),
+        title: Text(currentUser?.isDataTaker == true
+            ? 'My Activity Trail (Self-Activity Log)'
+            : 'Tamper-Evident Audit Trail'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

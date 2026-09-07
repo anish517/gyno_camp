@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/camp_model.dart';
 import '../../models/patient_model.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
 import 'clinical_assessment_view.dart';
+import 'patient_follow_up_slip_modal.dart';
 import 'patient_registration_view.dart';
 
 class PatientListView extends ConsumerStatefulWidget {
@@ -149,7 +151,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                 separatorBuilder: (_, _) => const SizedBox(height: 10),
                                 itemBuilder: (context, index) {
                                   final patient = patientState.patients[index];
-                                  return _buildPatientCard(context, patient, activeCamp.id, vm);
+                                  return _buildPatientCard(context, patient, activeCamp, vm);
                                 },
                               ),
                             ),
@@ -203,7 +205,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
   Widget _buildPatientCard(
     BuildContext context,
     PatientModel patient,
-    String campId,
+    CampModel? activeCamp,
     PatientListViewModel vm,
   ) {
     return Card(
@@ -302,13 +304,52 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             const Divider(height: 1),
             const SizedBox(height: 8),
 
-            // Action Buttons: Open Clinical Intake Form
+            // Action Buttons: Follow-up Slip (QR) & Open Clinical Intake Form
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF334155),
+                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  ),
+                  icon: const Icon(Icons.qr_code_2_rounded, size: 16, color: AppTheme.primaryTeal),
+                  label: const Text('Slip / QR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () async {
+                    final proceed = await PatientFollowUpSlipModal.show(
+                      context,
+                      patient: patient,
+                      camp: activeCamp,
+                      organizationName: activeCamp?.organizationName.isNotEmpty == true
+                          ? activeCamp!.organizationName
+                          : 'Nepal Gyno Health Outreach Network',
+                      showProceedButton: true,
+                    );
+                    if (proceed == true) {
+                      if (!context.mounted) return;
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ClinicalAssessmentView(patient: patient),
+                        ),
+                      );
+                      if (!context.mounted) return;
+                      if (activeCamp != null) {
+                        vm.loadPatients(activeCamp.id);
+                      }
+                    }
+                  },
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryTeal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
                   icon: const Icon(Icons.assignment, size: 16),
-                  label: const Text('Clinical Intake'),
+                  label: const Text('Clinical Intake', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   onPressed: () async {
                     await Navigator.push(
                       context,
@@ -316,8 +357,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         builder: (_) => ClinicalAssessmentView(patient: patient),
                       ),
                     );
-                    if (mounted) {
-                      vm.loadPatients(campId);
+                    if (mounted && activeCamp != null) {
+                      vm.loadPatients(activeCamp.id);
                     }
                   },
                 ),

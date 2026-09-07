@@ -8,6 +8,7 @@ import 'user_model.dart';
 class SyncPushPayload {
   final String deviceId;
   final DateTime generatedAt;
+  final String tenantId;
   final List<PatientModel> patients;
   final List<ClinicalVisitModel> clinicalVisits;
   final List<AuditLogModel> auditLogs;
@@ -15,6 +16,7 @@ class SyncPushPayload {
   const SyncPushPayload({
     required this.deviceId,
     required this.generatedAt,
+    this.tenantId = 'tenant_bir_hospital',
     this.patients = const [],
     this.clinicalVisits = const [],
     this.auditLogs = const [],
@@ -27,6 +29,7 @@ class SyncPushPayload {
     return {
       'device_id': deviceId,
       'generated_at': generatedAt.toIso8601String(),
+      'tenant_id': tenantId,
       'patients': patients.map((p) => p.toMap()).toList(),
       'clinical_visits': clinicalVisits.map((v) => v.toMap()).toList(),
       'audit_logs': auditLogs.map((a) => a.toMap()).toList(),
@@ -37,6 +40,7 @@ class SyncPushPayload {
     return SyncPushPayload(
       deviceId: map['device_id'] as String? ?? '',
       generatedAt: DateTime.tryParse(map['generated_at'] as String? ?? '') ?? DateTime.now(),
+      tenantId: map['tenant_id'] as String? ?? 'tenant_bir_hospital',
       patients: (map['patients'] as List<dynamic>?)
               ?.map((p) => PatientModel.fromMap(p as Map<String, dynamic>))
               .toList() ??

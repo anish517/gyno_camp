@@ -58,6 +58,7 @@ class ClinicalVisitModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String createdByUserId;
+  final String tenantId;
   final bool isSynced;
 
   const ClinicalVisitModel({
@@ -100,6 +101,7 @@ class ClinicalVisitModel {
     required this.createdAt,
     this.updatedAt,
     required this.createdByUserId,
+    this.tenantId = 'tenant_bir_hospital',
     this.isSynced = false,
   });
 
@@ -153,6 +155,7 @@ class ClinicalVisitModel {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'created_by_user_id': createdByUserId,
+      'tenant_id': tenantId,
       'is_synced': isSynced ? 1 : 0,
     };
   }
@@ -215,6 +218,7 @@ class ClinicalVisitModel {
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
       createdByUserId: map['created_by_user_id'] as String? ?? '',
+      tenantId: map['tenant_id'] as String? ?? 'tenant_bir_hospital',
       isSynced: (map['is_synced'] is int)
           ? (map['is_synced'] as int) == 1
           : (map['is_synced'] as bool? ?? false),
