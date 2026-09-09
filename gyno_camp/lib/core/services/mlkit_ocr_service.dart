@@ -15,12 +15,14 @@ class MlKitOcrService {
   /// Extracts raw text from [imageFile].
   /// Returns empty string if OCR is unavailable on this platform.
   Future<String> extractText(XFile imageFile) async {
+    // Web: dart:io Platform is unsupported — return empty (simulation mode)
+    if (kIsWeb) return '';
     if (Platform.isAndroid || Platform.isIOS) {
       return _extractWithMlKit(imageFile);
     } else if (Platform.isWindows) {
       return _extractWithWindowsOcr(imageFile.path);
     }
-    return ''; // macOS / Linux / Web: not supported
+    return ''; // macOS / Linux: not supported
   }
 
   // Android / iOS: Google ML Kit Text Recognition

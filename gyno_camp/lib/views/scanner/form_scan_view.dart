@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/clinical_validation_service.dart';
@@ -489,10 +490,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               const SizedBox(height: 12),
             ],
 
-            // Action Buttons
-            // Camera is only available on Android / iOS.
+            // Camera is only available on Android / iOS and web.
             // On Windows, image_picker does not support ImageSource.camera.
-            if (!Platform.isWindows) ...[
+            if (kIsWeb || !Platform.isWindows) ...[
               Row(
                 children: [
                   Expanded(
