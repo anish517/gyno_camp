@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Directory, Platform;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
@@ -29,6 +31,10 @@ class DatabaseService {
     final String path;
     if (kIsWeb) {
       path = AppConstants.databaseName;
+    } else if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+      final supportDir = await getApplicationSupportDirectory();
+      await Directory(supportDir.path).create(recursive: true);
+      path = p.join(supportDir.path, AppConstants.databaseName);
     } else {
       final dbPath = await getDatabasesPath();
       path = p.join(dbPath, AppConstants.databaseName);

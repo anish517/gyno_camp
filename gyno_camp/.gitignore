@@ -49,3 +49,6 @@ app.*.map.json
 
 # Vercel
 .vercel/
+
+# Chrome Dev Profile
+.chrome_dev_data/
