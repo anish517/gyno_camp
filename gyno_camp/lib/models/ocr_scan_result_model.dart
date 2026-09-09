@@ -6,6 +6,7 @@ class OcrScanResultModel {
   final String? page1RawText;
   final String? page2RawText;
   final bool isDualPage;
+  final bool isSimulated; // true = ML Kit unavailable, demo fallback text was used
   final Map<String, dynamic> demographics;
   final Map<String, dynamic> obstetrics;
   final Map<String, dynamic> vitals;
@@ -27,6 +28,7 @@ class OcrScanResultModel {
     this.page1RawText,
     this.page2RawText,
     this.isDualPage = false,
+    this.isSimulated = false,
     required this.demographics,
     required this.obstetrics,
     required this.vitals,
@@ -49,6 +51,7 @@ class OcrScanResultModel {
     String? page1RawText,
     String? page2RawText,
     bool? isDualPage,
+    bool? isSimulated,
     Map<String, dynamic>? demographics,
     Map<String, dynamic>? obstetrics,
     Map<String, dynamic>? vitals,
@@ -70,6 +73,7 @@ class OcrScanResultModel {
       page1RawText: page1RawText ?? this.page1RawText,
       page2RawText: page2RawText ?? this.page2RawText,
       isDualPage: isDualPage ?? this.isDualPage,
+      isSimulated: isSimulated ?? this.isSimulated,
       demographics: demographics ?? Map<String, dynamic>.from(this.demographics),
       obstetrics: obstetrics ?? Map<String, dynamic>.from(this.obstetrics),
       vitals: vitals ?? Map<String, dynamic>.from(this.vitals),
@@ -106,6 +110,7 @@ ${page2.rawText}
     return OcrScanResultModel(
       pageNumber: 0, // 0 = Full Combined Intake
       isDualPage: true,
+      isSimulated: page1.isSimulated || page2.isSimulated,
       imagePath: page1.imagePath ?? page2.imagePath,
       page1ImagePath: page1.imagePath,
       page2ImagePath: page2.imagePath,
@@ -137,6 +142,7 @@ ${page2.rawText}
   Map<String, dynamic> toMap() {
     return {
       'pageNumber': pageNumber,
+      'isSimulated': isSimulated ? 1 : 0,
       'imagePath': imagePath,
       'page1ImagePath': page1ImagePath,
       'page2ImagePath': page2ImagePath,

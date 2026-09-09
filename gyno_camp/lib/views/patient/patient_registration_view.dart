@@ -36,16 +36,18 @@ class _PatientRegistrationViewState
   final _contactPersonController = TextEditingController();
   final _contactMobileController = TextEditingController();
 
-  final List<String> _reasonOptions = [
-    'something hanging out',
-    'discharge and or itching',
-    'problems passing urine',
-    'problems passing stool',
-    'menstrual problem',
-    'infertility',
-    'pain',
-    'checkup',
-  ];
+  // Reason options with proper clinical display labels (matching Yellow Form page 1)
+  // Keys are the stored values, Values are clinical display names for staff
+  final Map<String, String> _reasonOptions = {
+    'something hanging out': 'Something Hanging Out (Uterine / Vaginal Prolapse)',
+    'discharge and or itching': 'Vaginal Discharge &/or Itching (स्राव / खटिरो)',
+    'problems passing urine': 'Problems Passing Urine (पेसाब सम्बन्धी समस्या)',
+    'problems passing stool': 'Problems Passing Stool (दिसा सम्बन्धी समस्या)',
+    'menstrual problem': 'Menstrual Problem (महिनावारी सम्बन्धी समस्या)',
+    'infertility': 'Infertility (बाँझोपन)',
+    'pain': 'Pelvic / Abdominal Pain (दुखाई)',
+    'checkup': 'General Gynaecological Checkup (सामान्य जाँच)',
+  };
 
   @override
   void initState() {
@@ -262,7 +264,9 @@ class _PatientRegistrationViewState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. Dual Calendar & Live Camp Banner
+                // 0. Form Step Progress Indicator
+                _buildFormStepBar(state),
+                const SizedBox(height: 14),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -1032,17 +1036,19 @@ class _PatientRegistrationViewState
                               gridDelegate:
                                   SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: isWide ? 2 : 1,
-                                    childAspectRatio: isWide ? 5.5 : 4.5,
+                                    childAspectRatio: isWide ? 5.0 : 4.5,
                                     crossAxisSpacing: 10,
                                     mainAxisSpacing: 8,
                                   ),
                               itemCount: _reasonOptions.length,
                               itemBuilder: (context, index) {
-                                final reason = _reasonOptions[index];
+                                final reason = _reasonOptions.keys.elementAt(index);
+                                final label = _reasonOptions[reason]!;
                                 final isChecked = state.selectedReasons
                                     .contains(reason);
                                 return _buildReasonTile(
                                   reason,
+                                  label,
                                   isChecked,
                                   () => vm.toggleReason(reason),
                                 );
@@ -1296,8 +1302,131 @@ class _PatientRegistrationViewState
     );
   }
 
+  Widget _buildFormStepBar(PatientRegistrationState state) {
+    final steps = [
+      _FormStep(label: 'Demographics', icon: Icons.person_outline_rounded, done: state.firstName.isNotEmpty && state.age != null),
+      _FormStep(label: 'Family Profile', icon: Icons.family_restroom_outlined, done: state.spouseOrFatherName.isNotEmpty),
+      _FormStep(label: 'Contact Info', icon: Icons.phone_in_talk_outlined, done: state.mobile.isNotEmpty),
+      _FormStep(label: 'Visit Reasons', icon: Icons.checklist_rounded, done: state.selectedReasons.isNotEmpty),
+      _FormStep(label: 'Consent', icon: Icons.verified_user_outlined, done: state.consentTreatment && state.consentStoreMedicalInfo),
+    ];
+    final completedCount = steps.where((s) => s.done).length;
+    final progressFraction = completedCount / steps.length;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.assignment_turned_in_outlined, size: 16, color: AppTheme.primaryTeal),
+              const SizedBox(width: 6),
+              Text(
+                'Form Completion ($completedCount / ${steps.length} sections)',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${(progressFraction * 100).round()}%',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.primaryTeal,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progressFraction,
+              minHeight: 5,
+              backgroundColor: const Color(0xFFE2E8F0),
+              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryTeal),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: steps.asMap().entries.map((entry) {
+              final step = entry.value;
+              final isLast = entry.key == steps.length - 1;
+              return Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: step.done
+                                  ? AppTheme.primaryTeal
+                                  : const Color(0xFFF1F5F9),
+                              border: Border.all(
+                                color: step.done ? AppTheme.primaryTeal : const Color(0xFFCBD5E1),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                step.done ? Icons.check_rounded : step.icon,
+                                size: 14,
+                                color: step.done ? Colors.white : const Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            step.label,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: step.done ? FontWeight.bold : FontWeight.normal,
+                              color: step.done ? AppTheme.primaryTeal : const Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!isLast)
+                      Container(
+                        width: 16,
+                        height: 1.5,
+                        color: step.done ? AppTheme.primaryTeal : const Color(0xFFE2E8F0),
+                      ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildReasonTile(
     String reason,
+    String displayLabel,
     bool isChecked,
     VoidCallback onToggle,
   ) {
@@ -1328,7 +1457,7 @@ class _PatientRegistrationViewState
             const SizedBox(width: 4),
             Expanded(
               child: Text(
-                '${NepaliLocalizationService.translate(reason)} ($reason)',
+                displayLabel,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1345,4 +1474,11 @@ class _PatientRegistrationViewState
       ),
     );
   }
+}
+
+class _FormStep {
+  final String label;
+  final IconData icon;
+  final bool done;
+  const _FormStep({required this.label, required this.icon, required this.done});
 }

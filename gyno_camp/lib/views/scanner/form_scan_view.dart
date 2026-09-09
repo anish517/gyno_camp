@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/clinical_validation_service.dart';
@@ -489,33 +490,62 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ],
 
             // Action Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            // Camera is only available on Android / iOS.
+            // On Windows, image_picker does not support ImageSource.camera.
+            if (!Platform.isWindows) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.camera_alt, size: 16),
+                      label: const Text('Scan Camera', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      onPressed: onCamera,
                     ),
-                    icon: const Icon(Icons.camera_alt, size: 16),
-                    label: const Text('Scan Camera', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    onPressed: onCamera,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.file_upload_outlined, size: 16),
+                      label: const Text('Upload File', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      onPressed: onGallery,
                     ),
-                    icon: const Icon(Icons.file_upload_outlined, size: 16),
-                    label: const Text('Upload File', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    onPressed: onGallery,
                   ),
+                ],
+              ),
+            ] else ...[
+              // Windows: upload only (camera not supported by image_picker on desktop)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.file_upload_outlined, size: 16),
+                  label: const Text('Upload Image File', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  onPressed: onGallery,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 13, color: Colors.blueGrey),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Camera capture is only available on Android / iOS',
+                    style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade500),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -661,6 +691,47 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
 
     return Column(
       children: [
+        // Simulation Warning Banner — shown when ML Kit OCR was unavailable
+        if (result.isSimulated)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            color: Colors.amber.shade100,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'SIMULATION MODE — OCR Engine Unavailable',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepOrange,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Real-time OCR is only available on Android / iOS devices. '
+                        'Sample demo data is shown below. '
+                        'You MUST edit ALL fields manually before committing this record.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange.shade900,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         // Top Confidence & Warning Alert
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

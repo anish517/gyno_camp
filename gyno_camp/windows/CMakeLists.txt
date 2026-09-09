@@ -106,3 +106,10 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# Bundle the OCR PowerShell script next to the executable.
+# Required by MlKitOcrService._extractWithWindowsOcr() at runtime.
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/scripts/"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/scripts"
+  COMPONENT Runtime
+  FILES_MATCHING PATTERN "*.ps1")

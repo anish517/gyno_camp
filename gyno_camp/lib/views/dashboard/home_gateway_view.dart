@@ -1523,6 +1523,11 @@ class HomeGatewayView extends ConsumerWidget {
     }
 
     final recentPatients = patientState.patients.take(4).toList();
+    final now = DateTime.now();
+    final sessionTime = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final totalRegistered = patientState.patients.length;
+    final pendingSync = syncState.pendingTotalCount;
+    final syncedCount = (totalRegistered - pendingSync).clamp(0, totalRegistered);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
@@ -1690,9 +1695,46 @@ class HomeGatewayView extends ConsumerWidget {
                                 : '100% Synced',
                           ),
                           const Spacer(),
-                          Text(
-                            'Staff: ${user?.name ?? "Field Staff"}',
-                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                user?.name ?? 'Field Staff',
+                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                'Session: $sessionTime',
+                                style: const TextStyle(color: Colors.white60, fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      const Divider(color: Colors.white12, height: 1),
+                      const SizedBox(height: 12),
+                      // TODAY'S SHIFT STATS ROW
+                      Row(
+                        children: [
+                          _buildShiftStatChip(
+                            icon: Icons.person_add_rounded,
+                            label: 'Registered',
+                            value: totalRegistered.toString(),
+                            accent: const Color(0xFF34D399),
+                          ),
+                          const SizedBox(width: 16),
+                          _buildShiftStatChip(
+                            icon: Icons.cloud_done_rounded,
+                            label: 'Synced',
+                            value: syncedCount.toString(),
+                            accent: const Color(0xFF60A5FA),
+                          ),
+                          const SizedBox(width: 16),
+                          _buildShiftStatChip(
+                            icon: Icons.cloud_queue_rounded,
+                            label: 'Pending',
+                            value: pendingSync.toString(),
+                            accent: pendingSync > 0 ? const Color(0xFFFBBF24) : const Color(0xFF34D399),
                           ),
                         ],
                       ),
@@ -1702,7 +1744,7 @@ class HomeGatewayView extends ConsumerWidget {
               ),
               const SizedBox(height: 18),
 
-              // 2. Fast Patient Search & Triage Bar
+              // 2. Fast Patient Search & Triage Bar (Live Search)
               Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -1719,10 +1761,26 @@ class HomeGatewayView extends ConsumerWidget {
                       Expanded(
                         child: TextField(
                           decoration: const InputDecoration(
-                            hintText: 'Quick search patient by Name, Mobile, or Patient ID (e.g. GC-KTM-...)...',
+                            hintText: 'Search by Name, Mobile, or Patient ID (e.g. GC-KTM-...)...',
                             hintStyle: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                             border: InputBorder.none,
                           ),
+                          onChanged: (query) {
+                            // Live search: navigate with query as soon as user types 3+ chars
+                            if (query.trim().length >= 3 && campState.hasActiveCamp) {
+                              // Debounce via postFrameCallback to avoid navigating mid-keystroke
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (query.trim().length >= 3) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PatientListView(initialQuery: query.trim()),
+                                    ),
+                                  );
+                                }
+                              });
+                            }
+                          },
                           onSubmitted: (query) {
                             if (query.trim().isNotEmpty && campState.hasActiveCamp) {
                               Navigator.push(
@@ -1893,9 +1951,27 @@ class HomeGatewayView extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Recent Station Intakes',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                  Row(
+                    children: [
+                      const Text(
+                        'Recent Station Intakes',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      ),
+                      if (patientState.patients.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'Showing 4 of ${patientState.patients.length}',
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   if (patientState.patients.isNotEmpty)
                     TextButton.icon(
@@ -2130,6 +2206,50 @@ class HomeGatewayView extends ConsumerWidget {
           ],
         ),
       ],
+    );
+  }
+
+  /// Shift stats chip for the data taker session header.
+  Widget _buildShiftStatChip({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color accent,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 13, color: accent),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: accent, height: 1.0),
+              ),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 9.5, color: Colors.white60, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

@@ -171,9 +171,30 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryLight),
                       ),
                       const Spacer(),
-                      const Icon(Icons.sync_alt, size: 14, color: AppTheme.textSecondaryLight),
-                      const SizedBox(width: 4),
-                      const Text('Local SQLite Encrypted', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              patientState.patients.isNotEmpty ? Icons.shield_rounded : Icons.sync_alt,
+                              size: 12,
+                              color: AppTheme.primaryTeal,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              patientState.patients.isNotEmpty
+                                  ? 'AES-256 Encrypted • ${patientState.patients.length} Records'
+                                  : 'AES-256 Encrypted',
+                              style: const TextStyle(fontSize: 10.5, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -249,199 +270,383 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     CampModel? activeCamp,
     PatientListViewModel vm,
   ) {
+    // Determine clinical completion status
+    final hasReasons = patient.reasonsForVisit.isNotEmpty;
+    final hasPhone = patient.mobile.isNotEmpty;
+    // Station 1 = registered, Station 2 = clinical form pending
+    // We show a 3-step visual: Registered / Clinical Intake / Synced
+    const Color stationDone = Color(0xFF10B981);
+    const Color stationPending = Color(0xFFE2E8F0);
+
+    // Colour-code visit reasons: urgent = rose, normal = teal
+    final urgentReasons = {'something hanging out', 'problems passing urine', 'problems passing stool', 'pain'};
+    final clinicalLabelMap = {
+      'something hanging out': 'Uterine Prolapse (PV)',
+      'discharge and or itching': 'Discharge / Pruritus',
+      'problems passing urine': 'Urinary Complaint',
+      'problems passing stool': 'Anorectal / Stool Issue',
+      'menstrual problem': 'Menstrual Disorder',
+      'infertility': 'Infertility',
+      'pain': 'Pelvic / Abdominal Pain',
+      'checkup': 'Routine Checkup',
+    };
+
     return Card(
-      elevation: 1,
+      elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: AppTheme.borderLight),
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE8EDF2), width: 1),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      color: Colors.white,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Top Row: Patient ID Badge & Ward
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    patient.patientId,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: AppTheme.primaryDark,
-                    ),
-                  ),
+            // Left coloured strip — teal = complete, amber = pending
+            Container(
+              width: 5,
+              decoration: BoxDecoration(
+                color: hasReasons ? stationDone : const Color(0xFFFBBF24),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  bottomLeft: Radius.circular(12),
                 ),
-                Text(
-                  'Ward ${patient.ward} • ${patient.district.isNotEmpty ? patient.district : "Nepal"}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // Patient Name & Age
-            Text(
-              patient.fullName,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryLight),
-            ),
-            const SizedBox(height: 4),
-
-            // Relative & Mobile Details
-            Row(
-              children: [
-                Icon(
-                  patient.isBelowAdultAge ? Icons.escalator_warning : Icons.favorite_border,
-                  size: 14,
-                  color: AppTheme.textSecondaryLight,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${patient.relationshipType ?? "Guardian"}: ${patient.spouseOrFatherName ?? "N/A"}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
-                ),
-                const SizedBox(width: 16),
-                const Icon(Icons.phone, size: 14, color: AppTheme.textSecondaryLight),
-                const SizedBox(width: 4),
-                Text(
-                  patient.mobile.isNotEmpty ? patient.mobile : 'No Phone',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
-                ),
-                const Spacer(),
-                Text(
-                  'Age: ${patient.age}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryTeal),
-                ),
-              ],
-            ),
-
-            if (patient.reasonsForVisit.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: patient.reasonsForVisit.map((reason) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: Text(reason, style: const TextStyle(fontSize: 10, color: AppTheme.textPrimaryLight)),
-                  );
-                }).toList(),
               ),
-            ],
-
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-
-            // Action Buttons: Download PDF, Follow-up Slip (QR) & Open Clinical Intake Form
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 20, color: AppTheme.dangerRose),
-                  tooltip: 'Download Patient Health Summary (PDF)',
-                  onPressed: () async {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Generating ${patient.fullName} (${patient.patientId}) clinical summary PDF...'),
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
-                    final visit = await ref.read(clinicalAssessmentProvider.notifier).loadPatientAssessment(
-                      patient.patientId,
-                      patientUuid: patient.id,
-                    );
-                    final auth = ref.read(authStateProvider).currentUser;
-                    final saved = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(
-                      patient: patient,
-                      visit: visit,
-                      camp: activeCamp,
-                      userId: auth?.id ?? 'usr-data-taker',
-                      userName: auth?.name ?? 'Health Worker',
-                      userRole: auth?.role.toDbString() ?? 'DATA_TAKER',
-                    );
-                    if (context.mounted && saved != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Patient report downloaded: $saved'),
-                          backgroundColor: AppTheme.successGreen,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(14.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top Row: Patient ID + Ward
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryLight,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            patient.patientId,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11.5,
+                              color: AppTheme.primaryDark,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
                         ),
-                      );
-                    }
-                  },
-                ),
-                const SizedBox(width: 4),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF334155),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  icon: const Icon(Icons.qr_code_2_rounded, size: 16, color: AppTheme.primaryTeal),
-                  label: const Text('Slip / QR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: () async {
-                    final proceed = await PatientFollowUpSlipModal.show(
-                      context,
-                      patient: patient,
-                      camp: activeCamp,
-                      organizationName: activeCamp?.organizationName.isNotEmpty == true
-                          ? activeCamp!.organizationName
-                          : 'Nepal Gyno Health Outreach Network',
-                      showProceedButton: true,
-                    );
-                    if (proceed == true) {
-                      if (!context.mounted) return;
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ClinicalAssessmentView(patient: patient),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            'Ward ${patient.ward}',
+                            style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+                          ),
                         ),
-                      );
-                      if (!context.mounted) return;
-                      if (activeCamp != null) {
-                        vm.loadPatients(activeCamp.id);
-                      }
-                    }
-                  },
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryTeal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  icon: const Icon(Icons.assignment, size: 16),
-                  label: const Text('Clinical Intake', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ClinicalAssessmentView(patient: patient),
+                        const Spacer(),
+                        Text(
+                          patient.district.isNotEmpty ? patient.district : 'Nepal',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Patient Name & Age row
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                          child: Text(
+                            patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: AppTheme.primaryTeal,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                patient.fullName,
+                                style: const TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimaryLight,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Icon(
+                                    patient.isBelowAdultAge ? Icons.escalator_warning : Icons.favorite_border,
+                                    size: 12,
+                                    color: AppTheme.textSecondaryLight,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    '${patient.relationshipType ?? "Guardian"}: ${patient.spouseOrFatherName ?? "N/A"}  •  Age ${patient.age}y',
+                                    style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                                  ),
+                                ],
+                              ),
+                              if (hasPhone) ...[
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.phone, size: 12, color: AppTheme.textSecondaryLight),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      patient.mobile,
+                                      style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Colour-coded reason tags
+                    if (patient.reasonsForVisit.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 4,
+                        children: patient.reasonsForVisit.map((reason) {
+                          final isUrgent = urgentReasons.contains(reason);
+                          final label = clinicalLabelMap[reason] ?? reason;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isUrgent
+                                  ? const Color(0xFFFFF1F2)
+                                  : AppTheme.primaryTeal.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(
+                                color: isUrgent
+                                    ? const Color(0xFFFDA4AF)
+                                    : AppTheme.primaryTeal.withValues(alpha: 0.25),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isUrgent) ...[
+                                  const Icon(Icons.priority_high_rounded, size: 10, color: Color(0xFFE11D48)),
+                                  const SizedBox(width: 2),
+                                ],
+                                Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: isUrgent ? const Color(0xFFBE123C) : AppTheme.primaryTeal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
                       ),
-                    );
-                    if (mounted && activeCamp != null) {
-                      vm.loadPatients(activeCamp.id);
-                    }
-                  },
+                    ],
+
+                    const SizedBox(height: 12),
+
+                    // Clinical Progress Stepper
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFEEF2F7)),
+                      ),
+                      child: Row(
+                        children: [
+                          _buildStepIndicator(label: 'S1: Intake', done: true, color: stationDone),
+                          _buildStepConnector(done: true),
+                          _buildStepIndicator(label: 'S2: Clinical', done: false, color: stationPending),
+                          _buildStepConnector(done: false),
+                          _buildStepIndicator(label: 'S3–6: Specialist', done: false, color: stationPending),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: hasReasons ? stationDone.withValues(alpha: 0.12) : const Color(0xFFFFF3CD),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              hasReasons ? 'REGISTERED' : 'INCOMPLETE',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                                color: hasReasons ? stationDone : const Color(0xFF92400E),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    const SizedBox(height: 8),
+
+                    // Action Buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.picture_as_pdf_rounded, size: 20, color: AppTheme.dangerRose),
+                          tooltip: 'Download Patient Health Summary (PDF)',
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                          onPressed: () async {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Generating ${patient.fullName} (${patient.patientId}) clinical summary PDF...'),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                            final visit = await ref.read(clinicalAssessmentProvider.notifier).loadPatientAssessment(
+                              patient.patientId,
+                              patientUuid: patient.id,
+                            );
+                            final auth = ref.read(authStateProvider).currentUser;
+                            final saved = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(
+                              patient: patient,
+                              visit: visit,
+                              camp: activeCamp,
+                              userId: auth?.id ?? 'usr-data-taker',
+                              userName: auth?.name ?? 'Health Worker',
+                              userRole: auth?.role.toDbString() ?? 'DATA_TAKER',
+                            );
+                            if (context.mounted && saved != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Patient report downloaded: $saved'),
+                                  backgroundColor: AppTheme.successGreen,
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF334155),
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.qr_code_2_rounded, size: 16, color: AppTheme.primaryTeal),
+                          label: const Text('Slip / QR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          onPressed: () async {
+                            final proceed = await PatientFollowUpSlipModal.show(
+                              context,
+                              patient: patient,
+                              camp: activeCamp,
+                              organizationName: activeCamp?.organizationName.isNotEmpty == true
+                                  ? activeCamp!.organizationName
+                                  : 'Nepal Gyno Health Outreach Network',
+                              showProceedButton: true,
+                            );
+                            if (proceed == true) {
+                              if (!context.mounted) return;
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ClinicalAssessmentView(patient: patient),
+                                ),
+                              );
+                              if (!context.mounted) return;
+                              if (activeCamp != null) {
+                                vm.loadPatients(activeCamp.id);
+                              }
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryTeal,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.assignment, size: 16),
+                          label: const Text('Clinical Intake', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ClinicalAssessmentView(patient: patient),
+                              ),
+                            );
+                            if (mounted && activeCamp != null) {
+                              vm.loadPatients(activeCamp.id);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStepIndicator({required String label, required bool done, required Color color}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: done ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w600,
+            color: done ? const Color(0xFF065F46) : const Color(0xFF94A3B8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepConnector({required bool done}) {
+    return Container(
+      width: 16,
+      height: 1.5,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      color: done ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
     );
   }
 
