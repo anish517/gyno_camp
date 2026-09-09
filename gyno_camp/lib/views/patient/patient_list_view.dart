@@ -78,11 +78,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTheme.primaryTeal,
+        backgroundColor: activeCamp == null ? Colors.grey : AppTheme.primaryTeal,
         icon: const Icon(Icons.person_add, color: Colors.white),
         label: const Text('New Patient', style: TextStyle(color: Colors.white)),
         onPressed: activeCamp == null
-            ? null
+            ? () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('No active camp. Please activate a camp from the dashboard first.'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              )
             : () async {
                 await Navigator.push(
                   context,
@@ -273,8 +278,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     // Determine clinical completion status
     final hasReasons = patient.reasonsForVisit.isNotEmpty;
     final hasPhone = patient.mobile.isNotEmpty;
-    // Station 1 = registered, Station 2 = clinical form pending
-    // We show a 3-step visual: Registered / Clinical Intake / Synced
+    // hasClinicalVisit is populated by the repository LEFT JOIN
+    final hasClinical = patient.hasClinicalVisit;
+    // Station 1 = registered, Station 2+ = clinical form
     const Color stationDone = Color(0xFF10B981);
     const Color stationPending = Color(0xFFE2E8F0);
 
@@ -478,25 +484,37 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       ),
                       child: Row(
                         children: [
-                          _buildStepIndicator(label: 'S1: Intake', done: true, color: stationDone),
+                          _buildStepIndicator(label: 'S1: Intake',      done: true,         color: stationDone),
                           _buildStepConnector(done: true),
-                          _buildStepIndicator(label: 'S2: Clinical', done: false, color: stationPending),
-                          _buildStepConnector(done: false),
-                          _buildStepIndicator(label: 'S3–6: Specialist', done: false, color: stationPending),
+                          _buildStepIndicator(label: 'S2: Clinical',    done: hasClinical,  color: hasClinical ? stationDone : stationPending),
+                          _buildStepConnector(done: hasClinical),
+                          _buildStepIndicator(label: 'S3–6: Specialist', done: hasClinical, color: hasClinical ? stationDone : stationPending),
                           const Spacer(),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                             decoration: BoxDecoration(
-                              color: hasReasons ? stationDone.withValues(alpha: 0.12) : const Color(0xFFFFF3CD),
+                              color: hasClinical
+                                  ? stationDone.withValues(alpha: 0.12)
+                                  : hasReasons
+                                      ? const Color(0xFFEFF6FF)
+                                      : const Color(0xFFFFF3CD),
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
-                              hasReasons ? 'REGISTERED' : 'INCOMPLETE',
+                              hasClinical
+                                  ? 'CLINICAL DONE'
+                                  : hasReasons
+                                      ? 'REGISTERED'
+                                      : 'INCOMPLETE',
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.5,
-                                color: hasReasons ? stationDone : const Color(0xFF92400E),
+                                color: hasClinical
+                                    ? stationDone
+                                    : hasReasons
+                                        ? const Color(0xFF1D4ED8)
+                                        : const Color(0xFF92400E),
                               ),
                             ),
                           ),

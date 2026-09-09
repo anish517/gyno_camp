@@ -113,12 +113,21 @@ class PatientRepository implements IPatientRepository {
   @override
   Future<List<PatientModel>> getPatientsByCamp(String campId) async {
     final db = await _databaseService.database;
-    final maps = await db.query(
-      DatabaseTables.tablePatients,
-      where: 'camp_id = ?',
-      whereArgs: [campId],
-      orderBy: 'created_at DESC',
-    );
+    // LEFT JOIN clinical_visits to annotate each patient with whether they
+    // have at least one clinical visit recorded (has_clinical_visit = 1/0).
+    // This transient column is read by PatientModel.fromMap and drives the
+    // station progress stepper and badge in patient_list_view.dart.
+    final maps = await db.rawQuery('''
+      SELECT p.*,
+             CASE WHEN cv.patient_id IS NOT NULL THEN 1 ELSE 0 END AS has_clinical_visit
+      FROM ${DatabaseTables.tablePatients} p
+      LEFT JOIN (
+        SELECT DISTINCT patient_id
+        FROM   ${DatabaseTables.tableClinicalVisits}
+      ) cv ON cv.patient_id = p.patient_id OR cv.patient_id = p.id
+      WHERE p.camp_id = ?
+      ORDER BY p.created_at DESC
+    ''', [campId]);
     return maps.map((m) => PatientModel.fromMap(m)).toList();
   }
 

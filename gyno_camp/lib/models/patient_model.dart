@@ -38,6 +38,10 @@ class PatientModel {
   final bool isSynced;
   final DateTime? syncedAt;
 
+  /// Transient field — populated by repository JOIN, not stored in DB.
+  /// true = at least one clinical visit row exists for this patient.
+  final bool hasClinicalVisit;
+
   const PatientModel({
     required this.id,
     required this.patientId,
@@ -67,6 +71,7 @@ class PatientModel {
     this.tenantId = 'tenant_bir_hospital',
     this.isSynced = false,
     this.syncedAt,
+    this.hasClinicalVisit = false,
   });
 
   String get fullName => '$firstName $surname'.trim();
@@ -135,6 +140,7 @@ class PatientModel {
     String? tenantId,
     bool? isSynced,
     DateTime? syncedAt,
+    bool? hasClinicalVisit,
   }) {
     return PatientModel(
       id: id ?? this.id,
@@ -165,6 +171,7 @@ class PatientModel {
       tenantId: tenantId ?? this.tenantId,
       isSynced: isSynced ?? this.isSynced,
       syncedAt: syncedAt ?? this.syncedAt,
+      hasClinicalVisit: hasClinicalVisit ?? this.hasClinicalVisit,
     );
   }
 
@@ -250,6 +257,8 @@ class PatientModel {
           ? (map['is_synced'] as int) == 1
           : (map['is_synced'] as bool? ?? false),
       syncedAt: map['synced_at'] != null ? DateTime.tryParse(map['synced_at'] as String) : null,
+      // Transient JOIN column — present only when loaded via getPatientsByCamp
+      hasClinicalVisit: (map['has_clinical_visit'] as int? ?? 0) == 1,
     );
   }
 }
