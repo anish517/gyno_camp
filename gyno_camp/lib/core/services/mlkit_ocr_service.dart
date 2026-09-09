@@ -10,7 +10,11 @@ import 'package:path/path.dart' as p;
 /// - Windows        -> Windows.Media.Ocr via PowerShell (built into Windows 10/11)
 /// - macOS / Linux  -> Not supported, returns empty string (simulation mode)
 class MlKitOcrService {
-  final _recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+  TextRecognizer? _recognizer;
+
+  TextRecognizer _getOrCreateRecognizer() {
+    return _recognizer ??= TextRecognizer(script: TextRecognitionScript.latin);
+  }
 
   /// Extracts raw text from [imageFile].
   /// Returns empty string if OCR is unavailable on this platform.
@@ -29,11 +33,12 @@ class MlKitOcrService {
   Future<String> _extractWithMlKit(XFile imageFile) async {
     try {
       final inputImage = InputImage.fromFilePath(imageFile.path);
-      final result = await _recognizer.processImage(inputImage);
+      final recognizer = _getOrCreateRecognizer();
+      final result = await recognizer.processImage(inputImage);
       return result.text;
     } catch (e) {
       if (kDebugMode) debugPrint('[OCR] ML Kit error: $e');
-      return '';
+      rethrow;
     }
   }
 
@@ -44,32 +49,35 @@ class MlKitOcrService {
   // Fully offline, no cloud, no new package dependency.
   Future<String> _extractWithWindowsOcr(String imagePath) async {
     try {
-      // Normalize path: GetFileFromPathAsync requires a full absolute Windows
-      // path with backslashes. image_picker may return forward-slash paths.
+      // Normalize path: requires a full absolute Windows path with backslashes.
       final normalizedPath = imagePath.replaceAll('/', '\\');
 
-      // Locate the PS1 script relative to the executable
+      // Check candidate locations for ocr_image.ps1
       final exeDir = p.dirname(Platform.resolvedExecutable);
-      final scriptPath = p.join(exeDir, 'scripts', 'ocr_image.ps1');
+      final candidates = [
+        p.join(exeDir, 'scripts', 'ocr_image.ps1'),
+        p.join(exeDir, 'data', 'flutter_assets', 'windows', 'scripts', 'ocr_image.ps1'),
+        p.join(Directory.current.path, 'windows', 'scripts', 'ocr_image.ps1'),
+        p.join(Directory.current.path, 'gyno_camp', 'windows', 'scripts', 'ocr_image.ps1'),
+        'F:\\gyno_camp\\gyno_camp\\windows\\scripts\\ocr_image.ps1',
+      ];
 
-      // Fallback: look next to pubspec during development (flutter run)
-      final devScript = p.join(
-        Directory.current.path,
-        'windows',
-        'scripts',
-        'ocr_image.ps1',
-      );
-      final resolvedScript =
-          File(scriptPath).existsSync() ? scriptPath : devScript;
-
-      if (!File(resolvedScript).existsSync()) {
-        if (kDebugMode) {
-          debugPrint('[OCR-Win] Script not found at:\n  $scriptPath\n  $devScript');
+      String? resolvedScript;
+      for (final candidate in candidates) {
+        if (File(candidate).existsSync()) {
+          resolvedScript = candidate;
+          break;
         }
-        throw Exception('ocr_image.ps1 not found. Expected at: $resolvedScript');
       }
 
-      if (kDebugMode) debugPrint('[OCR-Win] Running OCR on: $normalizedPath');
+      if (resolvedScript == null) {
+        if (kDebugMode) {
+          debugPrint('[OCR-Win] Script not found in candidates: $candidates');
+        }
+        throw Exception('ocr_image.ps1 not found in candidates: $candidates');
+      }
+
+      if (kDebugMode) debugPrint('[OCR-Win] Running OCR on: $normalizedPath using $resolvedScript');
 
       final result = await Process.run(
         'powershell',
@@ -90,15 +98,19 @@ class MlKitOcrService {
       }
       final err = (result.stderr as String).trim();
       if (kDebugMode) debugPrint('[OCR-Win] Script failed (exit ${result.exitCode}): $err');
-      // Surface the PowerShell error so it reaches the UI
       if (err.isNotEmpty) throw Exception('Windows OCR script error: $err');
       return '';
     } catch (e) {
       if (kDebugMode) debugPrint('[OCR-Win] Exception: $e');
-      rethrow; // Let ocr_repository.dart catch and surface to UI
+      rethrow;
     }
   }
 
-  /// Frees ML Kit resources. Call when the scan screen is disposed.
-  Future<void> dispose() => _recognizer.close();
+  /// Frees ML Kit resources. Only active on mobile platforms.
+  Future<void> dispose() async {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      await _recognizer?.close();
+      _recognizer = null;
+    }
+  }
 }

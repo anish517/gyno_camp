@@ -539,9 +539,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   const Icon(Icons.info_outline, size: 13, color: Colors.blueGrey),
                   const SizedBox(width: 5),
-                  Text(
-                    'Camera capture is only available on Android / iOS',
-                    style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade500),
+                  Expanded(
+                    child: Text(
+                      'Camera capture is only available on Android / iOS',
+                      style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade500),
+                    ),
                   ),
                 ],
               ),

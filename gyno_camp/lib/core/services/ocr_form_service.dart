@@ -77,8 +77,9 @@ class OcrFormService {
       confidences['relative'] = 0.50;
     }
 
-    // Mobile Number (Nepali standard 10 digits)
-    final mobileMatch = RegExp(r'\b(98\d{8}|97\d{8})\b').firstMatch(text);
+    // Mobile Number (Nepali standard 10 digits, handling common OCR 'q'/'g' for '9')
+    final normalizedTextForMobile = text.replaceAll(RegExp(r'\b[qgQG]([78]\d{8})\b'), r'9$1');
+    final mobileMatch = RegExp(r'\b(98\d{8}|97\d{8})\b').firstMatch(normalizedTextForMobile);
     if (mobileMatch != null) {
       demographics['mobile'] = mobileMatch.group(1);
       confidences['mobile'] = 0.98;

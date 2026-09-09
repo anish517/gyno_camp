@@ -157,9 +157,13 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         );
       }
     } catch (e) {
+      final msg = e.toString();
+      final friendlyMsg = msg.contains('camera_access_denied') || msg.contains('permission')
+          ? 'Camera permission was denied. Please grant camera permission or use "Upload File".'
+          : 'Camera capture error: $msg';
       state = state.copyWith(
         isProcessing: false,
-        errorMessage: 'Camera capture error: ${e.toString()}',
+        errorMessage: friendlyMsg,
       );
     }
   }

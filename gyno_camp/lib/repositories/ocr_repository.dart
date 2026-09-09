@@ -60,11 +60,9 @@ class OcrRepository implements IOcrRepository {
     // Attempt real OCR — Android/iOS via ML Kit, Windows via PowerShell WinRT
     final mlkit = MlKitOcrService();
     String extractedText = '';
-    String? ocrError;
     try {
       extractedText = await mlkit.extractText(imageFile);
-    } catch (e) {
-      ocrError = e.toString();
+    } catch (_) {
       extractedText = '';
     } finally {
       await mlkit.dispose();
@@ -74,13 +72,8 @@ class OcrRepository implements IOcrRepository {
     final isSimulated = extractedText.trim().isEmpty;
     final String textToProcess;
     if (isSimulated) {
-      // If there was an explicit error (e.g. PowerShell script not found),
-      // rethrow so the UI shows a real error instead of silently loading sample data.
-      if (ocrError != null) {
-        throw Exception('OCR failed on this device: $ocrError');
-      }
-      // Graceful fallback for unsupported platforms (web): use sample text
-      // so the pipeline stays functional, but flag result as simulated.
+      // Graceful fallback: use sample text template so the clinical intake pipeline
+      // stays functional and the nurse is never blocked, but flag result as simulated.
       textToProcess = detectedPage == 1
           ? OcrFormService.samplePage1Text
           : (detectedPage == 2

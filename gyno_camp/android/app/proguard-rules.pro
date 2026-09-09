@@ -3,7 +3,11 @@
 -keep class io.flutter.plugins.** { *; }
 
 # ML Kit Latin text recognition (used on Android for Yellow Form OCR)
--keep class com.google.mlkit.vision.text.** { *; }
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.internal.mlkit_** { *; }
+-keep class com.google.android.gms.vision.** { *; }
+-keep class com.google.android.gms.tasks.** { *; }
+-dontwarn com.google.android.gms.**
 
 # ML Kit optional language scripts — NOT used (only Latin/English is needed).
 # R8 warns about these because google_mlkit_text_recognition references them

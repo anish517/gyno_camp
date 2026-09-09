@@ -8,39 +8,24 @@ class DocumentCaptureService {
 
   /// Captures document photo from device camera
   Future<XFile?> captureFromCamera() async {
-    try {
-      final photo = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 90,
-        preferredCameraDevice: CameraDevice.rear,
-      );
-      return photo;
-    } catch (e) {
-      return null;
-    }
+    return await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 90,
+      preferredCameraDevice: CameraDevice.rear,
+    );
   }
 
   /// Selects existing Yellow Form image from device gallery or filesystem
   Future<XFile?> pickFromGallery() async {
-    try {
-      final image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 90,
-      );
-      return image;
-    } catch (e) {
-      return null;
-    }
+    return await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+    );
   }
 
   /// Selects multiple images from device gallery (e.g. Page 1 Front + Page 2 Back)
   Future<List<XFile>> pickMultipleImages() async {
-    try {
-      final images = await _picker.pickMultiImage(imageQuality: 90);
-      return images;
-    } catch (e) {
-      return [];
-    }
+    return await _picker.pickMultiImage(imageQuality: 90);
   }
 
   /// Returns pre-configured high-fidelity Yellow Form text for demo & automated testing
