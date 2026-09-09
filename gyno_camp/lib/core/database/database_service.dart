@@ -64,6 +64,13 @@ class DatabaseService {
         // Safe to ignore if column already exists
       }
     }
+
+    // Migrate legacy hardcoded doctor name to generic SaaS Admin identity
+    try {
+      await db.rawUpdate(
+        "UPDATE ${DatabaseTables.tableUsers} SET name = 'System Administrator (Super Admin)', tenant_name = 'Nepal Health Outreach Network' WHERE id = 'usr-superadmin-01' AND name = 'Dr. Aarav Sharma (Lead Gynecologist)'",
+      );
+    } catch (_) {}
   }
 
   Future<void> _createDb(Database db) async {
@@ -89,13 +96,13 @@ class DatabaseService {
   }
 
   Future<void> _seedInitialData(Database db) async {
-    // 1. Seed initial users for all 3 roles
+    // 1. Seed initial users for all 3 roles (SaaS multi-tenant defaults)
     final now = DateTime.now().toIso8601String();
     await db.insert(
       DatabaseTables.tableUsers,
       {
         'id': 'usr-superadmin-01',
-        'name': 'Dr. Aarav Sharma (Lead Gynecologist)',
+        'name': 'System Administrator (Super Admin)',
         'email': 'admin@gynocamp.org',
         'phone': '9851000001',
         'role': AppConstants.roleSuperAdmin,
@@ -103,7 +110,7 @@ class DatabaseService {
         'last_login_at': now,
         'assigned_camp_ids': 'camp-ktm-01,camp-dhn-02',
         'tenant_id': 'tenant_default',
-        'tenant_name': 'Community Health Outreach',
+        'tenant_name': 'Nepal Health Outreach Network',
         'password_hash': SecurityService.hashSha256('admin123'),
         'pin_hash': SecurityService.hashPin('1234'),
       },

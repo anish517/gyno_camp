@@ -812,6 +812,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
   }
 
   void _showEditStaffDialog(BuildContext context, UserModel staff) {
+    final nameCtrl = TextEditingController(text: staff.name);
+    final tenantCtrl = TextEditingController(text: staff.tenantName);
     final phoneCtrl = TextEditingController(text: staff.phone);
     final passwordCtrl = TextEditingController();
     final pinCtrl = TextEditingController();
@@ -837,7 +839,27 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Email: ${staff.email}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                    Text('Email: ${staff.email} • ID: ${staff.id}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name / Staff Title *',
+                        hintText: 'e.g. System Administrator or Dr. Jane Doe',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: tenantCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Organization / Tenant Name',
+                        hintText: 'e.g. Nepal Health Outreach Network',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: phoneCtrl,
@@ -915,7 +937,11 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                   final currentUser = ref.read(authStateProvider).currentUser;
                   final deviceState = ref.read(deviceSecurityProvider);
 
+                  final newName = nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : staff.name;
+                  final newTenant = tenantCtrl.text.trim().isNotEmpty ? tenantCtrl.text.trim() : staff.tenantName;
                   final updated = staff.copyWith(
+                    name: newName,
+                    tenantName: newTenant,
                     phone: phoneCtrl.text.trim(),
                     role: selectedRole,
                     isActive: isActive,
@@ -935,10 +961,13 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                           adminUserId: currentUser?.id ?? 'admin-root',
                           deviceId: deviceState.device?.deviceId ?? 'dev-admin',
                         );
+                    if (currentUser?.id == staff.id) {
+                      ref.read(authStateProvider.notifier).updateCurrentUser(updated);
+                    }
                     ref.invalidate(allUsersProvider);
                     if (mounted) {
                       messenger.showSnackBar(
-                        SnackBar(content: Text('Staff profile updated for ${staff.name}.')),
+                        SnackBar(content: Text('Staff profile updated for $newName.')),
                       );
                     }
                   } catch (e) {

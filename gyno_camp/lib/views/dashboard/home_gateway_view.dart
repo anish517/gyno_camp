@@ -196,14 +196,27 @@ class HomeGatewayView extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                user?.name ?? 'Lead Gynecologist / Camp Lead',
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                  letterSpacing: -0.4,
-                                ),
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      user?.name ?? 'System Administrator',
+                                      style: const TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                        letterSpacing: -0.4,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_outlined, color: Color(0xFF5EEAD4), size: 18),
+                                    tooltip: 'Edit SaaS Profile & Organization',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () => _showEditProfileDialog(context, ref, user),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 3),
                               const Text(
@@ -2512,6 +2525,145 @@ class HomeGatewayView extends ConsumerWidget {
                 MaterialPageRoute(builder: (_) => const CampManagementView()),
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditProfileDialog(BuildContext context, WidgetRef ref, UserModel? user) {
+    if (user == null) return;
+    final nameCtrl = TextEditingController(text: user.name);
+    final tenantCtrl = TextEditingController(text: user.tenantName);
+    final phoneCtrl = TextEditingController(text: user.phone);
+    final deviceState = ref.read(deviceSecurityProvider);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.business_center_outlined, color: Color(0xFF0F766E), size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('SaaS Profile & Tenant Settings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text('Configure your admin identity & organization details', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Administrator / User Name *',
+                    hintText: 'e.g. System Administrator or Dr. Jane Doe',
+                    prefixIcon: Icon(Icons.person_outline, size: 18),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: tenantCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Organization / Tenant Name *',
+                    hintText: 'e.g. Nepal Health Outreach Network',
+                    prefixIcon: Icon(Icons.corporate_fare_outlined, size: 18),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: phoneCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Contact Phone Number',
+                    hintText: 'e.g. 9851000001',
+                    prefixIcon: Icon(Icons.phone_outlined, size: 18),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 16, color: Color(0xFF16A34A)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Tenant ID: ${user.tenantId} • Role: ${user.role.displayNameEn}',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F766E),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              final newName = nameCtrl.text.trim();
+              final newTenant = tenantCtrl.text.trim();
+              if (newName.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter an administrator name.')),
+                );
+                return;
+              }
+              final updated = user.copyWith(
+                name: newName,
+                tenantName: newTenant.isNotEmpty ? newTenant : user.tenantName,
+                phone: phoneCtrl.text.trim(),
+              );
+
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+
+              final success = await ref.read(authStateProvider.notifier).updateProfile(
+                updatedUser: updated,
+                deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+              );
+
+              if (success) {
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Updated profile to "$newName" ($newTenant).')),
+                );
+              }
+            },
+            child: const Text('Save Profile'),
           ),
         ],
       ),

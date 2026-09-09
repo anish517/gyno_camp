@@ -109,6 +109,32 @@ class AuthViewModel extends StateNotifier<AuthState> {
     }
   }
 
+  Future<bool> updateProfile({
+    required UserModel updatedUser,
+    required String deviceId,
+  }) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final saved = await _authRepository.updateUser(
+        user: updatedUser,
+        adminUserId: state.currentUser?.id ?? updatedUser.id,
+        deviceId: deviceId,
+      );
+      state = state.copyWith(currentUser: saved, isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Failed to update profile: $e',
+      );
+      return false;
+    }
+  }
+
+  void updateCurrentUser(UserModel user) {
+    state = state.copyWith(currentUser: user);
+  }
+
   Future<void> logout({required String deviceId}) async {
     state = state.copyWith(isLoading: true);
     await _authRepository.logout(deviceId: deviceId);

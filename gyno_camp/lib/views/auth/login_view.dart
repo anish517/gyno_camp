@@ -228,8 +228,8 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   _buildRoleCard(
                     title: 'Super Admin',
                     nepaliTitle: 'सुपर एडमिन (प्रणाली नियन्त्रक)',
-                    subtitle: 'Lead Clinician, Camp Operations & Hardware Security',
-                    description: 'Camp scheduling, staff deployment roster, device approvals & master formulary',
+                    subtitle: 'Organization Admin, Camp Operations & System Governance',
+                    description: 'Tenant configuration, camp deployments, personnel provisioning & security policies',
                     icon: Icons.admin_panel_settings_rounded,
                     color: const Color(0xFF4338CA),
                     isSelected: _selectedRole == UserRole.superAdmin,
