@@ -13,6 +13,8 @@ abstract class IPatientRepository {
   Future<PatientModel> registerPatient(
     PatientModel patient, {
     required String createdByUserId,
+    required String createdByUserName,
+    required String createdByUserRole,
     required String deviceId,
   });
   Future<List<PatientModel>> getPatientsByCamp(String campId);
@@ -52,6 +54,8 @@ class PatientRepository implements IPatientRepository {
   Future<PatientModel> registerPatient(
     PatientModel patient, {
     required String createdByUserId,
+    required String createdByUserName,
+    required String createdByUserRole,
     required String deviceId,
   }) async {
     final db = await _databaseService.database;
@@ -91,11 +95,11 @@ class PatientRepository implements IPatientRepository {
       [patient.campId],
     );
 
-    // Audit log
+    // Audit log — use real logged-in user name and role (not hardcoded)
     await _auditRepository.logActivity(
       userId: createdByUserId,
-      userName: 'Field Nurse',
-      userRole: AppConstants.roleDataTaker,
+      userName: createdByUserName,
+      userRole: createdByUserRole,
       action: AppConstants.auditActionPatientRegister,
       entityType: 'Patient',
       entityId: newPatient.patientId,

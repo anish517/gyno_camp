@@ -140,6 +140,8 @@ class OcrRepository implements IOcrRepository {
     final registeredPatient = await _patientRepository.registerPatient(
       patient,
       createdByUserId: userId,
+      createdByUserName: userName,
+      createdByUserRole: AppConstants.roleDataTaker,
       deviceId: deviceId,
     );
 

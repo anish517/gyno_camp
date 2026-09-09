@@ -214,6 +214,8 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     required String campId,
     required String campCode,
     required String staffUserId,
+    required String staffUserName,
+    required String staffUserRole,
     required String deviceId,
     String tenantId = 'default_tenant',
   }) async {
@@ -256,6 +258,8 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
       final registered = await _patientRepository.registerPatient(
         patient,
         createdByUserId: staffUserId,
+        createdByUserName: staffUserName,
+        createdByUserRole: staffUserRole,
         deviceId: deviceId,
       );
 
