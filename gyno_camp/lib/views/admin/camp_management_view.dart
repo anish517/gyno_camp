@@ -486,98 +486,150 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   Widget _buildInteractiveCalendarTab(BuildContext context, CampState campState) {
     final camps = campState.camps;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Top Controls Bar: Dual Mode Switcher & Month Navigation
-          Card(
-            elevation: 0,
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: AppTheme.borderLight),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 1020;
+
+        final calendarColumn = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top Controls Bar: Dual Mode Switcher & Month Navigation
+            _buildCalendarControlsBar(),
+            const SizedBox(height: 10),
+
+            // "Why are dates marked?" Mission Schedule Explanation Banner
+            _buildMissionExplanationBanner(camps),
+            const SizedBox(height: 10),
+
+            // The Active Calendar View (Nepali or Gregorian)
+            _isNepaliCalendarMode
+                ? _buildNepaliCalendarGrid(context, camps)
+                : _buildGregorianCalendarGrid(context, camps),
+          ],
+        );
+
+        if (isDesktop) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 440,
+                  child: calendarColumn,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildSelectedDateMissionDetails(context, camps),
+                ),
+              ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
+          );
+        } else {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: calendarColumn,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildSelectedDateMissionDetails(context, camps),
+              ],
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildCalendarControlsBar() {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppTheme.borderLight),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+        child: Column(
+          children: [
+            // Row 1: Dual Mode Switcher (segmented bar)
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.all(3),
               child: Row(
                 children: [
-                  // Dual Mode Toggle: Nepali (BS) vs Gregorian (AD)
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8),
+                  Expanded(
+                    child: _buildCalendarModePill(
+                      title: '🇳🇵 Bikram Sambat (BS)',
+                      isSelected: _isNepaliCalendarMode,
+                      onTap: () => setState(() => _isNepaliCalendarMode = true),
                     ),
-                    padding: const EdgeInsets.all(3),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildCalendarModePill(
-                          title: '🇳🇵 Bikram Sambat (BS)',
-                          isSelected: _isNepaliCalendarMode,
-                          onTap: () => setState(() => _isNepaliCalendarMode = true),
-                        ),
-                        _buildCalendarModePill(
-                          title: '🌐 Gregorian (AD)',
-                          isSelected: !_isNepaliCalendarMode,
-                          onTap: () => setState(() => _isNepaliCalendarMode = false),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-
-                  // Month Navigation with Arrows & Title
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left),
-                    tooltip: 'Previous Month',
-                    onPressed: () => _navigateMonth(-1),
                   ),
                   const SizedBox(width: 4),
-                  Column(
+                  Expanded(
+                    child: _buildCalendarModePill(
+                      title: '🌐 Gregorian (AD)',
+                      isSelected: !_isNepaliCalendarMode,
+                      onTap: () => setState(() => _isNepaliCalendarMode = false),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Row 2: Month Navigation Bar (< भाद्र २०८३ >)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left, size: 22, color: AppTheme.primaryTeal),
+                  tooltip: 'Previous Month',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _navigateMonth(-1),
+                ),
+                Expanded(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         _isNepaliCalendarMode
                             ? '${NepaliDateHelper.nepaliMonthPureNp[_selectedBsMonth.month - 1]} ${_selectedBsMonth.year} (${NepaliDateHelper.nepaliMonthPureEn[_selectedBsMonth.month - 1]} ${_selectedBsMonth.year} BS)'
                             : '${_getMonthName(_selectedCalendarMonth.month)} ${_selectedCalendarMonth.year}',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         _isNepaliCalendarMode
                             ? 'September 2026 (Aug 18 – Sep 17, 2026 AD)'
                             : 'वि.सं. भाद्र – असोज २०८३ (Bhadra – Ashwin 2083 BS)',
+                        textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
                       ),
                     ],
                   ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    tooltip: 'Next Month',
-                    onPressed: () => _navigateMonth(1),
-                  ),
-                ],
-              ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right, size: 22, color: AppTheme.primaryTeal),
+                  tooltip: 'Next Month',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _navigateMonth(1),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-
-          // "Why are dates marked?" Mission Schedule Explanation Banner
-          _buildMissionExplanationBanner(camps),
-          const SizedBox(height: 12),
-
-          // The Active Calendar View (Nepali or Gregorian)
-          _isNepaliCalendarMode
-              ? _buildNepaliCalendarGrid(context, camps)
-              : _buildGregorianCalendarGrid(context, camps),
-
-          const SizedBox(height: 16),
-
-          // Detail Section for Selected Date / Mission Inspection
-          _buildSelectedDateMissionDetails(context, camps),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -612,7 +664,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
@@ -628,6 +680,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
         ),
         child: Text(
           title,
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -657,11 +710,12 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             children: [
               const Icon(Icons.info_outline, size: 18, color: Color(0xFF16A34A)),
               const SizedBox(width: 8),
-              const Text(
-                'Why are calendar dates marked?',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF166534)),
+              const Expanded(
+                child: Text(
+                  'Why are calendar dates marked?',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF166534)),
+                ),
               ),
-              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -670,7 +724,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   border: Border.all(color: const Color(0xFF86EFAC)),
                 ),
                 child: Text(
-                  '${camps.length} Missions Registered',
+                  '${camps.length} Missions',
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
                 ),
               ),
@@ -686,12 +740,12 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             style: const TextStyle(fontSize: 12, color: Color(0xFF15803D)),
           ),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
             children: [
               _buildLegendPill(AppTheme.primaryTeal, 'Active / Open Camp'),
-              const SizedBox(width: 14),
               _buildLegendPill(Colors.indigo, 'Scheduled Mission'),
-              const SizedBox(width: 14),
               _buildLegendPill(Colors.grey.shade400, 'Available Date'),
             ],
           ),
@@ -762,9 +816,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               itemCount: 42,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 7,
-                mainAxisSpacing: 6,
-                crossAxisSpacing: 6,
-                childAspectRatio: 1.15,
+                mainAxisSpacing: 4,
+                crossAxisSpacing: 4,
+                childAspectRatio: 1.35,
               ),
               itemBuilder: (context, index) {
                 final dayOffset = index - firstDayOffset;
@@ -798,7 +852,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       _selectedBsDate = currentBs;
                     });
                   },
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                   child: Container(
                     decoration: BoxDecoration(
                       color: isSelected
@@ -808,7 +862,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               : (hasScheduledCamp
                                   ? Colors.blue.withValues(alpha: 0.1)
                                   : Colors.transparent)),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                       border: Border.all(
                         color: isSelected
                             ? AppTheme.primaryTeal
@@ -824,7 +878,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         Text(
                           '$dayNum',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: isSelected || dayCamps.isNotEmpty ? FontWeight.bold : FontWeight.w500,
                             color: isSaturday
                                 ? const Color(0xFFDC2626)
@@ -834,15 +888,15 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         Text(
                           '${currentAd.day}',
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 8.5,
                             color: isSelected ? AppTheme.primaryDark : Colors.grey.shade500,
                           ),
                         ),
                         if (dayCamps.isNotEmpty)
                           Container(
-                            margin: const EdgeInsets.only(top: 2),
-                            width: 6,
-                            height: 6,
+                            margin: const EdgeInsets.only(top: 1),
+                            width: 5,
+                            height: 5,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: hasActiveCamp ? AppTheme.primaryTeal : Colors.indigo,
@@ -902,9 +956,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               itemCount: 42,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 7,
-                mainAxisSpacing: 6,
-                crossAxisSpacing: 6,
-                childAspectRatio: 1.15,
+                mainAxisSpacing: 4,
+                crossAxisSpacing: 4,
+                childAspectRatio: 1.35,
               ),
               itemBuilder: (context, index) {
                 final dayOffset = index - firstDayOffset;
@@ -945,7 +999,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               : (hasScheduledCamp
                                   ? Colors.blue.withValues(alpha: 0.1)
                                   : Colors.transparent)),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                       border: Border.all(
                         color: isSelected
                             ? AppTheme.primaryTeal
@@ -961,7 +1015,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         Text(
                           '$dayNum',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: isSelected || dayCamps.isNotEmpty ? FontWeight.bold : FontWeight.w500,
                             color: hasActiveCamp ? AppTheme.primaryTeal : Colors.black87,
                           ),
@@ -969,15 +1023,15 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         Text(
                           '${currentBs.day}',
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 8.5,
                             color: isSelected ? AppTheme.primaryDark : Colors.grey.shade500,
                           ),
                         ),
                         if (dayCamps.isNotEmpty)
                           Container(
-                            margin: const EdgeInsets.only(top: 2),
-                            width: 6,
-                            height: 6,
+                            margin: const EdgeInsets.only(top: 1),
+                            width: 5,
+                            height: 5,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: hasActiveCamp ? AppTheme.primaryTeal : Colors.indigo,
@@ -1172,7 +1226,13 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             '${c.assignedStaffIds.length} Staff Assigned  •  ${c.totalPatientsRegistered} Intakes',
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryLight),
                           ),
-                          const Spacer(),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
                           if (c.isOpen)
                             ElevatedButton.icon(
                               icon: const Icon(Icons.medical_services_outlined, size: 16),
@@ -1184,7 +1244,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               ),
                               onPressed: () => _openCampWorkstation(c),
                             ),
-                          const SizedBox(width: 8),
                           OutlinedButton.icon(
                             icon: const Icon(Icons.person_add_alt_1, size: 16),
                             label: const Text('Staff'),
