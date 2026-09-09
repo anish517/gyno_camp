@@ -21,10 +21,13 @@ import '../admin/user_management_view.dart';
 import '../patient/clinical_assessment_view.dart';
 import '../patient/patient_list_view.dart';
 import '../patient/patient_registration_view.dart';
+import '../../models/clinical_visit_model.dart';
+import '../../models/patient_model.dart';
 import '../reports/camp_report_view.dart';
 import '../scanner/form_scan_view.dart';
 import '../sync/sync_status_view.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
+import '../../viewmodels/patient_registration_viewmodel.dart';
 
 class HomeGatewayView extends ConsumerWidget {
   const HomeGatewayView({super.key});
@@ -2134,168 +2137,7 @@ class HomeGatewayView extends ConsumerWidget {
   // 3. DATA ANALYST DASHBOARD
   // ==========================================
   Widget _buildDataAnalystDashboard(BuildContext context, WidgetRef ref) {
-    final campState = ref.watch(campStateProvider);
-    final user = ref.watch(authStateProvider).currentUser;
-    final reportState = ref.watch(reportingViewModelProvider);
-
-    if (campState.hasActiveCamp &&
-        (reportState.summary == null || reportState.selectedCampId != campState.activeCamp!.id) &&
-        !reportState.isLoading) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(reportingViewModelProvider.notifier).loadSummary(campId: campState.activeCamp!.id);
-      });
-    }
-
-    final summary = reportState.summary;
-    final totalVisits = summary?.totalVisitsRecorded ?? 0;
-    final popRateStr = summary != null && totalVisits > 0 ? '${summary.significantPopPercentage}%' : '0.0%';
-    final hyperRateStr = summary != null && totalVisits > 0
-        ? '${((summary.hypertensionCount / totalVisits) * 100).toStringAsFixed(1)}%'
-        : '0.0%';
-    final referralRateStr = summary != null && totalVisits > 0
-        ? '${((summary.totalSurgicalReferrals / totalVisits) * 100).toStringAsFixed(1)}%'
-        : '0.0%';
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Analyst Header Card
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF312E81), Color(0xFF4338CA)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.analytics_outlined, color: Colors.white, size: 24),
-                    SizedBox(width: 8),
-                    Text(
-                      'ANALYTICS & EPIDEMIOLOGY HUB',
-                      style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  user?.name ?? 'Data Analyst',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Statistical summaries, cross-camp disease prevalence & export engine',
-                  style: TextStyle(fontSize: 12, color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Primary Export Center
-          const Text(
-            'Camp Export & Reports Engine',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  icon: const Icon(Icons.picture_as_pdf),
-                  label: const Text('One-Tap PDF Report'),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => CampReportView(
-                          initialCampId: campState.activeCamp?.id,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal.shade700,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  icon: const Icon(Icons.table_view),
-                  label: const Text('Export Excel Dataset'),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => CampReportView(
-                          initialCampId: campState.activeCamp?.id,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Selected Camp Statistics Preview
-          const Text(
-            'Camp Indicators & Metrics',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    campState.activeCamp?.name ?? 'No active camp selected',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Code: ${campState.activeCamp?.campCode ?? "N/A"} • Total Intake: ${campState.activeCamp?.totalPatientsRegistered ?? 0} • Clinical Visits: $totalVisits',
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryLight),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _StatColumn(label: 'POP Rate (>=2)', value: popRateStr),
-                      _StatColumn(label: 'HTN Alert Rate', value: hyperRateStr),
-                      _StatColumn(label: 'Surgical Referral', value: referralRateStr),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const _DataAnalystWorkstation();
   }
 
   // ==========================================
@@ -2671,24 +2513,1257 @@ class HomeGatewayView extends ConsumerWidget {
   }
 }
 
-class _StatColumn extends StatelessWidget {
-  final String label;
-  final String value;
+class _DataAnalystWorkstation extends ConsumerStatefulWidget {
+  const _DataAnalystWorkstation();
 
-  const _StatColumn({required this.label, required this.value});
+  @override
+  ConsumerState<_DataAnalystWorkstation> createState() => _DataAnalystWorkstationState();
+}
+
+class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation> {
+  final TextEditingController _searchController = TextEditingController();
+  String _selectedFilter = 'ALL'; // 'ALL', 'STAGE_2_PLUS', 'SURGICAL', 'HIGH_BP'
+  String? _exportingPatientId;
+  final Map<String, ClinicalVisitModel> _patientVisits = {};
+  bool _isLoadingVisits = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initCampAndData();
+    });
+  }
+
+  void _initCampAndData() {
+    final campState = ref.read(campStateProvider);
+    final targetCamp = campState.selectedCamp ??
+        campState.activeCamp ??
+        (campState.camps.isNotEmpty ? campState.camps.first : null);
+    if (targetCamp != null) {
+      if (campState.selectedCamp?.id != targetCamp.id) {
+        ref.read(campStateProvider.notifier).selectCamp(targetCamp);
+      }
+      ref.read(patientListProvider.notifier).loadPatients(targetCamp.id);
+      ref.read(reportingViewModelProvider.notifier).loadSummary(campId: targetCamp.id);
+    }
+  }
+
+  void _loadVisitsForPatients(List<PatientModel> patients) async {
+    if (_isLoadingVisits) return;
+    _isLoadingVisits = true;
+    final repo = ref.read(patientRepositoryProvider);
+    final Map<String, ClinicalVisitModel> loaded = {};
+    for (final p in patients) {
+      if (!_patientVisits.containsKey(p.patientId)) {
+        try {
+          final visit = await repo.getLatestClinicalVisit(p.patientId, patientUuid: p.id);
+          if (visit != null) {
+            loaded[p.patientId] = visit;
+          }
+        } catch (_) {}
+      }
+    }
+    if (mounted && loaded.isNotEmpty) {
+      setState(() {
+        _patientVisits.addAll(loaded);
+        _isLoadingVisits = false;
+      });
+    } else {
+      _isLoadingVisits = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _exportPatientDossier(PatientModel patient) async {
+    final user = ref.read(authStateProvider).currentUser;
+    final deviceState = ref.read(deviceSecurityProvider);
+    final campState = ref.read(campStateProvider);
+    final targetCamp = campState.selectedCamp ??
+        campState.activeCamp ??
+        (campState.camps.isNotEmpty
+            ? campState.camps.firstWhere((c) => c.id == patient.campId, orElse: () => campState.camps.first)
+            : null);
+
+    setState(() {
+      _exportingPatientId = patient.patientId;
+    });
+
+    try {
+      final visit = _patientVisits[patient.patientId] ??
+          await ref.read(patientRepositoryProvider).getLatestClinicalVisit(
+                patient.patientId,
+                patientUuid: patient.id,
+              );
+
+      final savedPath = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(
+            patient: patient,
+            visit: visit,
+            camp: targetCamp,
+            userId: user?.id ?? 'usr-analyst',
+            userName: user?.name ?? 'Data Analyst',
+            userRole: user?.role.toDbString() ?? 'DATA_ANALYST',
+            deviceId: deviceState.device?.deviceId ?? 'dev-field',
+          );
+
+      if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        if (savedPath != null) {
+          messenger.showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF0F766E),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Individual Dossier Saved: ${patient.fullName}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          savedPath,
+                          style: const TextStyle(fontSize: 11, color: Colors.white70),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else {
+          messenger.showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.red.shade700,
+              content: Text('Failed to generate individual dossier for ${patient.fullName}.'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text('Error generating PDF: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _exportingPatientId = null;
+        });
+      }
+    }
+  }
+
+  void _inspectPatientDossier(PatientModel patient) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _PatientDossierInspectionSheet(
+        patient: patient,
+        cachedVisit: _patientVisits[patient.patientId],
+        onExportPdf: () {
+          Navigator.pop(ctx);
+          _exportPatientDossier(patient);
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authStateProvider).currentUser;
+    final campState = ref.watch(campStateProvider);
+    final reportingState = ref.watch(reportingViewModelProvider);
+    final patientState = ref.watch(patientListProvider);
+
+    final currentCamp = campState.selectedCamp ?? campState.activeCamp ?? (campState.camps.isNotEmpty ? campState.camps.first : null);
+    final summary = reportingState.summary;
+    final allPatients = patientState.patients;
+
+    if (allPatients.isNotEmpty && _patientVisits.length < allPatients.length && !_isLoadingVisits) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadVisitsForPatients(allPatients);
+      });
+    }
+
+    final query = _searchController.text.trim().toLowerCase();
+    final filteredPatients = allPatients.where((p) {
+      if (query.isNotEmpty) {
+        final matchesName = p.fullName.toLowerCase().contains(query);
+        final matchesId = p.patientId.toLowerCase().contains(query);
+        final matchesMobile = p.mobile.contains(query);
+        if (!matchesName && !matchesId && !matchesMobile) return false;
+      }
+
+      final visit = _patientVisits[p.patientId];
+      if (_selectedFilter == 'STAGE_2_PLUS') {
+        if (visit == null || visit.highestPopStage < 2) return false;
+      } else if (_selectedFilter == 'SURGICAL') {
+        if (visit == null || visit.surgicalReferral == null || visit.surgicalReferral!.isEmpty) return false;
+      } else if (_selectedFilter == 'HIGH_BP') {
+        if (visit == null) return false;
+        final sys = visit.systolicBp ?? 0;
+        final dia = visit.diastolicBp ?? 0;
+        if (sys < 140 && dia < 90) return false;
+      }
+      return true;
+    }).toList();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1180),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 1. EXECUTIVE COMMAND HEADER
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F766E)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Role Badge & Tenant
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0D9488),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.analytics_rounded, color: Colors.white, size: 14),
+                              SizedBox(width: 5),
+                              Text(
+                                'CLINICAL DATA ANALYST WORKSTATION',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${currentCamp?.organizationName ?? user?.tenantName ?? "Nepal Health Outreach Network"} • Tenant: ${user?.tenantId ?? "tenant_default"}',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // User Identity & Camp Switcher
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 650;
+                        final userProfile = Row(
+                          children: [
+                            Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF0D9488), Color(0xFF042F2E)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.teal.shade200, width: 1.5),
+                              ),
+                              child: const Icon(Icons.insights_rounded, color: Colors.white, size: 28),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    user?.name ?? 'Population Health Analyst',
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Multi-station Epidemiology, POP-Q Triage & Dossier Issuance',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white.withValues(alpha: 0.75),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+
+                        final campSwitcher = Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              dropdownColor: const Color(0xFF1E293B),
+                              value: currentCamp?.id,
+                              hint: const Text('Select Camp', style: TextStyle(color: Colors.white70)),
+                              icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                              items: campState.camps.map((c) {
+                                return DropdownMenuItem<String>(
+                                  value: c.id,
+                                  child: Text(
+                                    '${c.campCode} - ${c.name}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (campId) {
+                                if (campId != null) {
+                                  final selected = campState.camps.firstWhere((c) => c.id == campId);
+                                  ref.read(campStateProvider.notifier).selectCamp(selected);
+                                  ref.read(patientListProvider.notifier).loadPatients(selected.id);
+                                  ref.read(reportingViewModelProvider.notifier).loadSummary(campId: selected.id);
+                                }
+                              },
+                            ),
+                          ),
+                        );
+
+                        if (isNarrow) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              userProfile,
+                              const SizedBox(height: 12),
+                              campSwitcher,
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            Expanded(child: userProfile),
+                            const SizedBox(width: 16),
+                            campSwitcher,
+                          ],
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
+                    const Divider(color: Colors.white12, height: 1),
+                    const SizedBox(height: 14),
+
+                    // Quick Actions Bar
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D9488),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.assessment_rounded, size: 18),
+                          label: const Text('Aggregate Camp Report (पिडिएफ)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CampReportView(initialCampId: currentCamp?.id),
+                              ),
+                            );
+                          },
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white30),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.history_edu_rounded, size: 18),
+                          label: const Text('Audit Trail', style: TextStyle(fontSize: 12.5)),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const AuditTrailView()),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // 2. REAL-TIME KPI METRICS (4 CARDS)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 720;
+                  final totalReg = summary?.totalPatientsRegistered ?? allPatients.length;
+                  final totalExam = summary?.totalVisitsRecorded ?? _patientVisits.length;
+                  final popSignificant = summary?.significantPopCount ?? 0;
+                  final popPercentage = summary?.significantPopPercentage ?? 0.0;
+                  final referrals = summary?.totalSurgicalReferrals ?? 0;
+
+                  final cards = [
+                    _buildTelemetryCard(
+                      title: 'Registered Cohort',
+                      value: '$totalReg',
+                      subtitle: 'Total Screened: $totalExam',
+                      icon: Icons.people_alt_rounded,
+                      color: const Color(0xFF0D9488),
+                    ),
+                    _buildTelemetryCard(
+                      title: 'POP Grade II-IV',
+                      value: '$popPercentage%',
+                      subtitle: '$popSignificant Patients Affected',
+                      icon: Icons.healing_rounded,
+                      color: const Color(0xFFF59E0B),
+                    ),
+                    _buildTelemetryCard(
+                      title: 'Surgical Candidates',
+                      value: '$referrals',
+                      subtitle: 'Hospital Referrals',
+                      icon: Icons.local_hospital_rounded,
+                      color: const Color(0xFFF43F5E),
+                    ),
+                    _buildTelemetryCard(
+                      title: 'Prescriptions',
+                      value: '${summary?.totalPrescriptionsCount ?? 0}',
+                      subtitle: 'Pessaries: ${summary?.totalPessariesInserted ?? 0}',
+                      icon: Icons.medication_rounded,
+                      color: const Color(0xFF3B82F6),
+                    ),
+                  ];
+
+                  if (isWide) {
+                    return Row(
+                      children: cards
+                          .map((c) => Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                                  child: c,
+                                ),
+                              ))
+                          .toList(),
+                    );
+                  }
+
+                  return GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 1.6,
+                    children: cards,
+                  );
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              // 3. POP-Q SEVERITY SPECTRUM BREAKDOWN
+              if (summary != null)
+                Card(
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.bar_chart_rounded, color: Color(0xFF0F766E), size: 22),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Pelvic Organ Prolapse Severity Spectrum (Baden-Walker / POP-Q)',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            _buildPopSpectrumSegment(
+                              label: 'Stage 0 (Normal)',
+                              count: summary.highestPopStages[0] ?? 0,
+                              total: summary.totalVisitsRecorded,
+                              color: const Color(0xFF10B981),
+                            ),
+                            const SizedBox(width: 10),
+                            _buildPopSpectrumSegment(
+                              label: 'Stage I (Mild)',
+                              count: summary.highestPopStages[1] ?? 0,
+                              total: summary.totalVisitsRecorded,
+                              color: const Color(0xFF06B6D4),
+                            ),
+                            const SizedBox(width: 10),
+                            _buildPopSpectrumSegment(
+                              label: 'Stage II (Moderate)',
+                              count: summary.highestPopStages[2] ?? 0,
+                              total: summary.totalVisitsRecorded,
+                              color: const Color(0xFFF59E0B),
+                            ),
+                            const SizedBox(width: 10),
+                            _buildPopSpectrumSegment(
+                              label: 'Stage III-IV (Severe)',
+                              count: (summary.highestPopStages[3] ?? 0) + (summary.highestPopStages[4] ?? 0),
+                              total: summary.totalVisitsRecorded,
+                              color: const Color(0xFFEF4444),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              const SizedBox(height: 24),
+
+              // 4. INDIVIDUAL PATIENT REGISTRY & PDF DOSSIER DOWNLOAD HUB
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.folder_shared_rounded, color: Color(0xFF0F766E), size: 24),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Individual Patient Clinical Dossiers (व्यक्तिगत बिरामी कागजात)',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  '1-tap tamper-evident clinical export containing multi-station anamnesis, vitals, POP-Q, and prescriptions.',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Search Bar & Filter Chips
+                      TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search by Patient Name, ID (GC-...), or Phone...',
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                    });
+                                  },
+                                )
+                              : null,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      const SizedBox(height: 12),
+
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildFilterChip('All Patients (${allPatients.length})', 'ALL'),
+                            const SizedBox(width: 8),
+                            _buildFilterChip('POP Stage II-IV', 'STAGE_2_PLUS'),
+                            const SizedBox(width: 8),
+                            _buildFilterChip('Surgical Referrals', 'SURGICAL'),
+                            const SizedBox(width: 8),
+                            _buildFilterChip('High BP (HTN >= 140/90)', 'HIGH_BP'),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Patient Dossier List
+                      if (filteredPatients.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 36),
+                          alignment: Alignment.center,
+                          child: Column(
+                            children: [
+                              Icon(Icons.person_search_rounded, size: 48, color: Colors.grey.shade400),
+                              const SizedBox(height: 10),
+                              Text(
+                                allPatients.isEmpty
+                                    ? 'No patients registered for this camp.'
+                                    : 'No patients match your search or filter.',
+                                style: const TextStyle(color: Color(0xFF64748B), fontSize: 13.5),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: filteredPatients.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          itemBuilder: (context, index) {
+                            final patient = filteredPatients[index];
+                            final visit = _patientVisits[patient.patientId];
+                            final isExporting = _exportingPatientId == patient.patientId;
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  // Avatar
+                                  CircleAvatar(
+                                    radius: 22,
+                                    backgroundColor: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                                    child: Text(
+                                      patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F766E), fontSize: 16),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+
+                                  // Bio & Medical Tags
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              patient.fullName,
+                                              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF1F5F9),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                patient.patientId,
+                                                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          'Age: ${patient.age}y • Ward: ${patient.ward} • Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"}',
+                                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                        ),
+                                        if (visit != null) ...[
+                                          const SizedBox(height: 4),
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 4,
+                                            children: [
+                                              _buildMiniBadge(
+                                                text: 'POP Stage ${visit.highestPopStage}',
+                                                color: visit.highestPopStage >= 2 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                                              ),
+                                              if (visit.systolicBp != null && visit.diastolicBp != null)
+                                                _buildMiniBadge(
+                                                  text: 'BP ${visit.systolicBp}/${visit.diastolicBp}',
+                                                  color: (visit.systolicBp! >= 140 || visit.diastolicBp! >= 90)
+                                                      ? const Color(0xFFEF4444)
+                                                      : const Color(0xFF3B82F6),
+                                                ),
+                                              if (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty)
+                                                _buildMiniBadge(
+                                                  text: 'Ref: ${visit.surgicalReferral}',
+                                                  color: const Color(0xFFDC2626),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(width: 10),
+
+                                  // Actions
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF0F766E),
+                                      side: BorderSide(color: Colors.teal.shade200),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    icon: const Icon(Icons.visibility_outlined, size: 15),
+                                    label: const Text('Inspect', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    onPressed: () => _inspectPatientDossier(patient),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF0F766E),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    icon: isExporting
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          )
+                                        : const Icon(Icons.picture_as_pdf_rounded, size: 15),
+                                    label: Text(
+                                      isExporting ? 'Exporting...' : 'PDF Dossier',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                    ),
+                                    onPressed: isExporting ? null : () => _exportPatientDossier(patient),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String value) {
+    final isSelected = _selectedFilter == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: const Color(0xFF0F766E),
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : const Color(0xFF334155),
+        fontSize: 12,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      backgroundColor: const Color(0xFFF1F5F9),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      onSelected: (_) {
+        setState(() {
+          _selectedFilter = value;
+        });
+      },
+    );
+  }
+
+  Widget _buildMiniBadge({required String text, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+      ),
+    );
+  }
+
+  Widget _buildTelemetryCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+                ),
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPopSpectrumSegment({
+    required String label,
+    required int count,
+    required int total,
+    required Color color,
+  }) {
+    final pct = total > 0 ? (count / total * 100).toStringAsFixed(1) : '0';
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              '$count',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+            ),
+            Text(
+              '$pct%',
+              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: color),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 10, color: Color(0xFF475569)),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PatientDossierInspectionSheet extends ConsumerStatefulWidget {
+  final PatientModel patient;
+  final ClinicalVisitModel? cachedVisit;
+  final VoidCallback onExportPdf;
+
+  const _PatientDossierInspectionSheet({
+    required this.patient,
+    this.cachedVisit,
+    required this.onExportPdf,
+  });
+
+  @override
+  ConsumerState<_PatientDossierInspectionSheet> createState() => _PatientDossierInspectionSheetState();
+}
+
+class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierInspectionSheet> {
+  ClinicalVisitModel? _visit;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _visit = widget.cachedVisit;
+    if (_visit == null) {
+      _loadVisit();
+    }
+  }
+
+  void _loadVisit() async {
+    setState(() => _isLoading = true);
+    try {
+      final v = await ref.read(patientRepositoryProvider).getLatestClinicalVisit(
+            widget.patient.patientId,
+            patientUuid: widget.patient.id,
+          );
+      if (mounted) {
+        setState(() {
+          _visit = v;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.patient;
+    final v = _visit;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.88,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.only(top: 10, bottom: 6),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            p.fullName,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              p.patientId,
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F766E), fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Age: ${p.age}y • Ward: ${p.ward} • Mobile: ${p.mobile.isNotEmpty ? p.mobile : "N/A"}',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1),
+
+          // Content
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF0F766E)))
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Section 1: Obstetric History
+                        _buildSectionHeader('1. Obstetric History (प्रसूति इतिहास)'),
+                        _buildInfoGrid([
+                          {'label': 'Parity / Deliveries', 'val': '${v?.deliveries ?? "Not recorded"}'},
+                          {'label': 'Living Children', 'val': '${v?.livingChildren ?? "Not recorded"}'},
+                          {'label': 'Abortions', 'val': '${v?.abortions ?? "0"}'},
+                          {'label': 'Marital Status', 'val': p.maritalStatus},
+                        ]),
+
+                        const SizedBox(height: 16),
+
+                        // Section 2: Vitals Screening
+                        _buildSectionHeader('2. Triage & Vitals (शारीरिक परीक्षण)'),
+                        _buildInfoGrid([
+                          {
+                            'label': 'Blood Pressure',
+                            'val': v?.systolicBp != null ? '${v!.systolicBp}/${v.diastolicBp} mmHg' : 'N/A'
+                          },
+                          {'label': 'Pulse', 'val': v?.pulse != null ? '${v!.pulse} bpm' : 'N/A'},
+                          {'label': 'SpO2', 'val': v?.spo2 != null ? '${v!.spo2}%' : 'N/A'},
+                          {'label': 'Blood Glucose', 'val': v?.glucose != null ? '${v!.glucose} mg/dL' : 'N/A'},
+                          {'label': 'Urine Test', 'val': v?.urineTest ?? 'N/A'},
+                          {'label': 'Pregnancy Test', 'val': v?.pregnancyTest ?? 'N/A'},
+                        ]),
+
+                        const SizedBox(height: 16),
+
+                        // Section 3: POP-Q Staging
+                        _buildSectionHeader('3. Pelvic Organ Prolapse (Baden-Walker POP-Q)'),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildPopBox('Anterior', 'Stage ${v?.popAnteriorStage ?? 0}'),
+                              _buildPopBox('Apical', 'Stage ${v?.popMiddleStage ?? 0}'),
+                              _buildPopBox('Posterior', 'Stage ${v?.popPosteriorStage ?? 0}'),
+                              _buildPopBox(
+                                'Overall Highest',
+                                'Stage ${v?.highestPopStage ?? 0}',
+                                isHighlight: true,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Section 4: Diagnoses & Management
+                        _buildSectionHeader('4. Diagnoses & Management (निदान तथा उपचार)'),
+                        if (v != null && v.diagnoses.isNotEmpty)
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: v.diagnoses
+                                .map((d) => Chip(
+                                      label: Text(d, style: const TextStyle(fontSize: 11)),
+                                      backgroundColor: const Color(0xFFE0F2FE),
+                                    ))
+                                .toList(),
+                          )
+                        else
+                          const Text('No diagnoses specified.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+
+                        const SizedBox(height: 10),
+
+                        _buildInfoGrid([
+                          {'label': 'Pessary Fitted', 'val': v?.pessaryType != null ? '${v!.pessaryType} (${v.pessarySize ?? ""})' : 'None'},
+                          {'label': 'Surgical Referral', 'val': v?.surgicalReferral ?? 'None'},
+                          {'label': 'Follow-Up', 'val': v?.followUpDestination ?? 'Health Post'},
+                        ]),
+
+                        if (v != null && v.medications.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          const Text('Dispensed Medications:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                          const SizedBox(height: 4),
+                          ...v.medications.map((m) => Text('• $m', style: const TextStyle(fontSize: 12, color: Color(0xFF475569)))),
+                        ],
+                      ],
+                    ),
+                  ),
+          ),
+
+          // Bottom Action
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F766E),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.picture_as_pdf_rounded, size: 20),
+                label: const Text(
+                  'Download Individual Dossier PDF (पिडिएफ डाउनलोड)',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                onPressed: widget.onExportPdf,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+      ),
+    );
+  }
+
+  Widget _buildInfoGrid(List<Map<String, String>> items) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 10,
+        children: items.map((it) {
+          return SizedBox(
+            width: 140,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(it['label']!, style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                const SizedBox(height: 2),
+                Text(
+                  it['val']!,
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildPopBox(String label, String value, {bool isHighlight = false}) {
     return Column(
       children: [
-        Text(
-          value,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+        const SizedBox(height: 3),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: isHighlight ? const Color(0xFF0F766E) : const Color(0xFFE2E8F0),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isHighlight ? Colors.white : const Color(0xFF1E293B),
+            ),
+          ),
         ),
       ],
     );

@@ -204,6 +204,52 @@ void main() {
       expect(find.text('Set Active'), findsOneWidget);
     });
   });
+
+  group('HomeGatewayView Data Analyst Dashboard Widget Tests', () {
+    final testDataAnalyst = UserModel(
+      id: 'u-analyst-1',
+      name: 'Sita Thapa',
+      email: 'analyst@gynocamp.org',
+      phone: '9841111111',
+      role: UserRole.dataAnalyst,
+      tenantId: 'tenant_bir',
+      tenantName: 'Kathmandu Outreach Center',
+      isActive: true,
+    );
+
+    testWidgets('renders Clinical Data Analyst Workstation, KPI cards, and Dossier Export Hub', (tester) async {
+      tester.view.physicalSize = const Size(1280, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final fakeRepo = FakeCampRepoForHome();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            campRepositoryProvider.overrideWithValue(fakeRepo),
+            authStateProvider.overrideWith((ref) {
+              return AuthViewModel(FakeAuthRepositorySimple(testDataAnalyst));
+            }),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: const HomeGatewayView(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('CLINICAL DATA ANALYST WORKSTATION'), findsOneWidget);
+      expect(find.text('Sita Thapa'), findsWidgets);
+      expect(find.textContaining('Multi-station Epidemiology'), findsOneWidget);
+      expect(find.text('Registered Cohort'), findsOneWidget);
+      expect(find.text('POP Grade II-IV'), findsOneWidget);
+      expect(find.text('Surgical Candidates'), findsOneWidget);
+      expect(find.text('Prescriptions'), findsOneWidget);
+      expect(find.textContaining('Individual Patient Clinical Dossiers'), findsOneWidget);
+      expect(find.text('Aggregate Camp Report (पिडिएफ)'), findsOneWidget);
+    });
+  });
 }
 
 class FakeAuthRepositorySimple implements IAuthRepository {

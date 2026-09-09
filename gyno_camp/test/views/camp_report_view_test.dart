@@ -129,6 +129,7 @@ void main() {
       expect(find.text('POP Staging'), findsOneWidget);
       expect(find.text('Diagnoses'), findsOneWidget);
       expect(find.text('Treatment'), findsOneWidget);
+      expect(find.text('Patient Records'), findsOneWidget);
     });
 
     testWidgets('switching tabs displays corresponding clinical sections', (WidgetTester tester) async {
@@ -169,6 +170,13 @@ void main() {
 
       expect(find.text('Interventions & Referrals'), findsOneWidget);
       expect(find.text('• Pessaries Fitted: 8 patients'), findsOneWidget);
+
+      // Tap Patient Records Tab
+      await tester.tap(find.text('Patient Records'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.textContaining('Search patients in this camp'), findsOneWidget);
     });
 
     testWidgets('tapping Export PDF generates report and displays success banner', (WidgetTester tester) async {

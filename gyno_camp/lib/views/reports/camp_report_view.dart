@@ -6,6 +6,8 @@ import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
+import '../../viewmodels/patient_list_viewmodel.dart';
+import '../../viewmodels/patient_registration_viewmodel.dart';
 
 class CampReportView extends ConsumerStatefulWidget {
   final String? initialCampId;
@@ -19,11 +21,13 @@ class CampReportView extends ConsumerStatefulWidget {
 class _CampReportViewState extends ConsumerState<CampReportView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final TextEditingController _patientSearchController = TextEditingController();
+  String? _exportingPatientId;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final activeCamp = ref.read(campStateProvider).activeCamp;
       final targetCampId = widget.initialCampId ?? activeCamp?.id;
@@ -34,6 +38,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   @override
   void dispose() {
     _tabController.dispose();
+    _patientSearchController.dispose();
     super.dispose();
   }
 
@@ -287,6 +292,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                               Tab(icon: Icon(Icons.healing), text: 'POP Staging'),
                               Tab(icon: Icon(Icons.medication), text: 'Diagnoses'),
                               Tab(icon: Icon(Icons.local_hospital), text: 'Treatment'),
+                              Tab(icon: Icon(Icons.folder_shared_rounded), text: 'Patient Records'),
                             ],
                           ),
                           SizedBox(
@@ -298,6 +304,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                                 _buildPopStagingTab(reportState.summary!),
                                 _buildDiagnosesTab(reportState.summary!),
                                 _buildTreatmentTab(reportState.summary!),
+                                _buildPatientRecordsTab(reportState.selectedCampId ?? campState.activeCamp?.id),
                               ],
                             ),
                           ),
@@ -561,6 +568,165 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               );
             }).toList(),
           ),
+      ],
+    );
+  }
+
+  Widget _buildPatientRecordsTab(String? campId) {
+    final patientState = ref.watch(patientListProvider);
+    final user = ref.watch(authStateProvider).currentUser;
+    final deviceState = ref.watch(deviceSecurityProvider);
+    final campState = ref.watch(campStateProvider);
+
+    if (campId != null &&
+        (!patientState.hasLoaded || patientState.loadedCampId != campId) &&
+        !patientState.isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(patientListProvider.notifier).loadPatients(campId);
+      });
+    }
+
+    final query = _patientSearchController.text.trim().toLowerCase();
+    final patients = patientState.patients.where((p) {
+      if (query.isEmpty) return true;
+      return p.fullName.toLowerCase().contains(query) ||
+          p.patientId.toLowerCase().contains(query) ||
+          p.mobile.contains(query);
+    }).toList();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: TextField(
+            controller: _patientSearchController,
+            decoration: InputDecoration(
+              hintText: 'Search patients in this camp by name or ID...',
+              prefixIcon: const Icon(Icons.search, size: 18),
+              suffixIcon: _patientSearchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 16),
+                      onPressed: () => setState(() => _patientSearchController.clear()),
+                    )
+                  : null,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+        Expanded(
+          child: patients.isEmpty
+              ? Center(
+                  child: Text(
+                    patientState.isLoading
+                        ? 'Loading patients...'
+                        : 'No patient records found.',
+                    style: const TextStyle(color: AppTheme.textSecondaryLight),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  itemCount: patients.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final patient = patients[index];
+                    final isExporting = _exportingPatientId == patient.patientId;
+
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.15),
+                        child: Text(
+                          patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryTeal, fontSize: 13),
+                        ),
+                      ),
+                      title: Row(
+                        children: [
+                          Text(patient.fullName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              patient.patientId,
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
+                            ),
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        'Age: ${patient.age}y • Ward: ${patient.ward} • Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"}',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                      ),
+                      trailing: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryTeal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                        icon: isExporting
+                            ? const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.picture_as_pdf, size: 14),
+                        label: Text(
+                          isExporting ? 'Exporting...' : 'PDF Dossier',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: isExporting
+                            ? null
+                            : () async {
+                                final messenger = ScaffoldMessenger.of(context);
+                                setState(() => _exportingPatientId = patient.patientId);
+                                try {
+                                  final visit = await ref.read(patientRepositoryProvider).getLatestClinicalVisit(
+                                        patient.patientId,
+                                        patientUuid: patient.id,
+                                      );
+                                  final targetCamp = campState.selectedCamp ??
+                                      campState.activeCamp ??
+                                      (campState.camps.isNotEmpty
+                                          ? campState.camps.firstWhere((c) => c.id == patient.campId, orElse: () => campState.camps.first)
+                                          : null);
+
+                                  final saved = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(
+                                        patient: patient,
+                                        visit: visit,
+                                        camp: targetCamp,
+                                        userId: user?.id ?? 'usr-analyst',
+                                        userName: user?.name ?? 'Data Analyst',
+                                        userRole: user?.role.toDbString() ?? 'DATA_ANALYST',
+                                        deviceId: deviceState.device?.deviceId ?? 'dev-field',
+                                      );
+                                  if (mounted && saved != null) {
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: AppTheme.primaryTeal,
+                                        content: Text('Saved dossier: $saved'),
+                                        duration: const Duration(seconds: 4),
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) setState(() => _exportingPatientId = null);
+                                }
+                              },
+                      ),
+                    );
+                  },
+                ),
+        ),
       ],
     );
   }

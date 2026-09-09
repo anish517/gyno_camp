@@ -91,5 +91,95 @@ void main() {
       final header = utf8.decode(bytes.sublist(0, 5));
       expect(header, equals('%PDF-'));
     });
+
+    test('generates valid individual patient dossier PDF with full anamnesis and POP-Q data', () async {
+      final camp = CampModel(
+        id: 'camp-pdf-02',
+        campCode: 'PKR01',
+        name: 'Pokhara Women Health Camp',
+        district: 'Kaski',
+        municipality: 'Pokhara',
+        ward: '05',
+        venue: 'District Health Center',
+        startDate: DateTime(2026, 4, 1),
+        endDate: DateTime(2026, 4, 5),
+        createdAt: DateTime(2026, 3, 20),
+      );
+
+      final patient = PatientModel(
+        id: 'p2',
+        patientId: 'GC-PKR01-2026-0002',
+        campId: camp.id,
+        campCode: camp.campCode,
+        intakeDate: DateTime(2026, 4, 2),
+        firstName: 'Radha',
+        surname: 'Adhikari',
+        age: 48,
+        ward: '05',
+        maritalStatus: 'married',
+        spouseOrFatherName: 'Hari Adhikari',
+        mobile: '9856000000',
+        reasonsForVisit: ['Pelvic heaviness', 'Difficulty voiding'],
+        createdByUserId: 'usr-1',
+        createdByDeviceId: 'dev-1',
+        createdAt: DateTime.now(),
+      );
+
+      final visit = ClinicalVisitModel(
+        id: 'v2',
+        patientId: patient.patientId,
+        campId: camp.id,
+        visitDate: DateTime(2026, 4, 2),
+        deliveries: 4,
+        livingChildren: 4,
+        abortions: 0,
+        anamnesisComplaints: {
+          'pelvic_heaviness': {
+            'duration': '>1 year',
+            'options': ['Continuous dragging sensation'],
+            'remarks': 'Aggravated by standing',
+          },
+          'burning_micturition': {
+            'duration': '2 weeks',
+            'options': ['Dysuria'],
+            'remarks': 'Mild burning',
+          },
+        },
+        uterusInside: false,
+        pelvicFloorTone: 'weak',
+        popAnteriorStage: 2,
+        popMiddleStage: 3,
+        popPosteriorStage: 2,
+        highestPopStage: 3,
+        systolicBp: 150,
+        diastolicBp: 95,
+        pulse: 82,
+        spo2: 97,
+        glucose: 115,
+        urineTest: 'Normal',
+        pregnancyTest: 'Negative',
+        diagnoses: ['Pelvic Organ Prolapse Stage 3', 'Cystocele', 'Hypertension Stage 1'],
+        medications: ['Amoxicillin 500mg TDS x 5d', 'Pelvic Muscle Training'],
+        pessaryType: 'Ring with Support',
+        pessarySize: '70mm',
+        followUpNeeded: true,
+        followUpDestination: 'Regional Hospital Pokhara',
+        surgicalReferral: 'Pokhara Academy of Health Sciences',
+        outtakeNotes: 'Refer for vaginal hysterectomy and pelvic floor repair.',
+        createdByUserId: 'usr-1',
+        createdAt: DateTime.now(),
+      );
+
+      final bytes = await pdfService.generateIndividualPatientPdf(
+        patient: patient,
+        visit: visit,
+        camp: camp,
+      );
+
+      expect(bytes, isNotEmpty);
+      expect(bytes.length, greaterThan(1500));
+      final header = utf8.decode(bytes.sublist(0, 5));
+      expect(header, equals('%PDF-'));
+    });
   });
 }
