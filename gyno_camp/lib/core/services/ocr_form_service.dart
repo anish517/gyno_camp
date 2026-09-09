@@ -23,13 +23,13 @@ class OcrFormService {
       final singleNameMatch = RegExp(r'(?:name|नाम)[:\s]+([A-Za-z\u0900-\u097F\s]{3,30})', caseSensitive: false).firstMatch(text);
       if (singleNameMatch != null) {
         final parts = singleNameMatch.group(1)!.trim().split(RegExp(r'\s+'));
-        demographics['firstName'] = parts.isNotEmpty ? parts[0] : 'Unknown';
-        demographics['surname'] = parts.length > 1 ? parts.sublist(1).join(' ') : 'Sharma';
+        demographics['firstName'] = parts.isNotEmpty ? parts[0] : null;
+        demographics['surname'] = parts.length > 1 ? parts.sublist(1).join(' ') : null;
         confidences['name'] = 0.70;
       } else {
-        demographics['firstName'] = 'Sita';
-        demographics['surname'] = 'Devi';
-        confidences['name'] = 0.50;
+        demographics['firstName'] = null;   // null → human must enter manually
+        demographics['surname'] = null;
+        confidences['name'] = 0.30;
       }
     }
 
@@ -49,16 +49,32 @@ class OcrFormService {
       confidences['age'] = 0.50;
     }
 
-    // Relative / Spouse / Father Name
-    final relMatch = RegExp(r'(?:husband|spouse|father|relative|श्रीमान|बुबा)[:\s]+([A-Za-z\u0900-\u097F\s]{3,30})', caseSensitive: false).firstMatch(text);
+    // Relative / Spouse / Father Name (format: "Relative: Som Bahadur Tamang (Husband)")
+    final relMatch = RegExp(
+      r'(?:husband|spouse|father|relative|guardian|श्रीमान|बुबा)[:\s]+([A-Za-z\u0900-\u097F\s]{3,35})',
+      caseSensitive: false,
+    ).firstMatch(text);
     if (relMatch != null) {
-      demographics['relativeName'] = relMatch.group(1)!.trim();
-      demographics['relativeType'] = (demographics['age'] as int? ?? 30) < 20 ? 'Father' : 'Husband';
+      // Strip trailing bracketed annotation e.g. " (Husband)" or " (Father)"
+      var relName = relMatch.group(1)!.trim();
+      relName = relName.replaceAll(RegExp(r'\s*\(.*?\)\s*$'), '').trim();
+      demographics['relativeName'] = relName;
+      // Derive relationship type from the bracketed annotation on the same line
+      final relLine = relMatch.group(0)!.toLowerCase();
+      if (relLine.contains('(husband)') || relLine.contains('husband')) {
+        demographics['relativeType'] = 'Husband';
+      } else if (relLine.contains('(father)') || relLine.contains('father') || relLine.contains('बुबा')) {
+        demographics['relativeType'] = 'Father';
+      } else if (relLine.contains('(guardian)') || relLine.contains('guardian')) {
+        demographics['relativeType'] = 'Guardian';
+      } else {
+        demographics['relativeType'] = (demographics['age'] as int? ?? 30) < 20 ? 'Father' : 'Husband';
+      }
       confidences['relative'] = 0.90;
     } else {
-      demographics['relativeName'] = 'Ram Bahadur';
+      demographics['relativeName'] = null;   // null → human must fill
       demographics['relativeType'] = 'Husband';
-      confidences['relative'] = 0.60;
+      confidences['relative'] = 0.50;
     }
 
     // Mobile Number (Nepali standard 10 digits)
@@ -81,10 +97,19 @@ class OcrFormService {
       confidences['ward'] = 0.60;
     }
 
-    // District & Municipality
-    demographics['district'] = 'Kathmandu';
-    demographics['municipality'] = 'Ward 03 Health Center';
-    confidences['location'] = 0.90;
+    // District & Municipality — extracted from form text
+    final districtMatch = RegExp(
+      r'(?:district|जिल्ला)[:\s]+([A-Za-z\u0900-\u097F\s]{3,25})',
+      caseSensitive: false,
+    ).firstMatch(text);
+    demographics['district'] = districtMatch?.group(1)?.trim() ?? '';
+
+    final muniMatch = RegExp(
+      r'(?:municipality|vdc|ward\s*center|गाउँपालिका|नगरपालिका)[:\s]+([A-Za-z\u0900-\u097F\s0-9]{3,40})',
+      caseSensitive: false,
+    ).firstMatch(text);
+    demographics['municipality'] = muniMatch?.group(1)?.trim() ?? '';
+    confidences['location'] = (districtMatch != null) ? 0.92 : 0.55;
 
     // Marital Status
     if (lowerText.contains('widow') || lowerText.contains('विधवा')) {
@@ -98,25 +123,43 @@ class OcrFormService {
       confidences['maritalStatus'] = 0.85;
     }
 
-    // Reasons for visit (OMR checkboxes)
+    // Reasons for visit — keys must EXACTLY match PatientModel.reasonsForVisit values
     final reasons = <String>[];
-    if (lowerText.contains('prolapse') || lowerText.contains('hanging') || lowerText.contains('पाठेघर खस्ने')) {
-      reasons.add('Something hanging out / Prolapse');
+    // Prolapse / Something hanging out
+    if (lowerText.contains('prolapse') || lowerText.contains('hanging') || lowerText.contains('पाठेघर खस्ने') || lowerText.contains('something hanging')) {
+      reasons.add('something hanging out');
     }
+    // Discharge / Itching
     if (lowerText.contains('discharge') || lowerText.contains('itching') || lowerText.contains('चिलाउने')) {
-      reasons.add('Discharge and/or itching');
+      reasons.add('discharge and or itching');
     }
-    if (lowerText.contains('urine') || lowerText.contains('incontinence') || lowerText.contains('पिसाब फेर्न समस्या')) {
-      reasons.add('Problems passing urine / Incontinence');
+    // Urinary problems
+    if (lowerText.contains('urine') || lowerText.contains('incontinence') || lowerText.contains('पिसाब') || lowerText.contains('पेसाब')) {
+      reasons.add('problems passing urine');
     }
-    if (lowerText.contains('back pain') || lowerText.contains('abdominal') || lowerText.contains('ढाड दुख्ने')) {
-      reasons.add('Abdominal / Back pain');
+    // Anorectal / Stool problems
+    if (lowerText.contains('stool') || lowerText.contains('rectum') || lowerText.contains('दिसा')) {
+      reasons.add('problems passing stool');
     }
-    if (reasons.isEmpty) {
-      reasons.add('Something hanging out / Prolapse');
+    // Pelvic / Abdominal / Back pain
+    if (lowerText.contains('back pain') || lowerText.contains('abdominal') || lowerText.contains('pelvic pain') || lowerText.contains('ढाड दुख्ने') || lowerText.contains('दुखाई')) {
+      reasons.add('pain');
     }
+    // Menstrual problem
+    if (lowerText.contains('menstrual') || lowerText.contains('mahina') || lowerText.contains('महिनावारी') || lowerText.contains('period')) {
+      reasons.add('menstrual problem');
+    }
+    // Infertility
+    if (lowerText.contains('infertil') || lowerText.contains('banjhopan') || lowerText.contains('बाँझोपन')) {
+      reasons.add('infertility');
+    }
+    // General checkup
+    if (lowerText.contains('checkup') || lowerText.contains('general check') || lowerText.contains('सामान्य जाँच')) {
+      reasons.add('checkup');
+    }
+    // Do NOT add fallback reasons — leave empty so human verifier must select
     demographics['reasonsForVisit'] = reasons;
-    confidences['reasonsForVisit'] = 0.90;
+    confidences['reasonsForVisit'] = reasons.isNotEmpty ? 0.88 : 0.40;
 
     // 2. Obstetric History (Anamnesis)
     final obstetrics = <String, dynamic>{};
@@ -233,10 +276,9 @@ class OcrFormService {
       diagnoses.add('diabetes mellitus');
     }
     if (diagnoses.isEmpty) {
-      diagnoses.add('POP');
-      diagnoses.add('candid infection');
+      // Leave empty — do NOT add fallback diagnoses that may be clinically wrong
     }
-    confidences['diagnoses'] = 0.88;
+    confidences['diagnoses'] = diagnoses.isNotEmpty ? 0.88 : 0.40;
 
     // 6. Medications & Treatment
     final medications = <String>[];
@@ -245,10 +287,9 @@ class OcrFormService {
     if (lowerText.contains('ciprofloxacin')) medications.add('Ciprofloxacin');
     if (lowerText.contains('clotrimazole')) medications.add('Clotrimazole');
     if (medications.isEmpty) {
-      medications.add('Metronidazole');
-      medications.add('Fluconazole');
+      // Leave empty — do NOT prescribe medications that may be wrong
     }
-    confidences['medications'] = 0.85;
+    confidences['medications'] = medications.isNotEmpty ? 0.85 : 0.40;
 
     // Referrals & Outtake
     String? surgicalReferral;

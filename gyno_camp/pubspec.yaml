@@ -47,6 +47,7 @@ dependencies:
   sqflite_common_ffi_web: ^1.1.2
   image_picker: ^1.2.3
   nepali_utils: ^3.0.8
+  google_mlkit_text_recognition: ^0.13.1
 
 dev_dependencies:
   flutter_test:

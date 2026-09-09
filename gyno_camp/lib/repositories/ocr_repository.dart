@@ -1,6 +1,7 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
+import '../core/services/mlkit_ocr_service.dart';
 import '../core/services/ocr_form_service.dart';
 import '../models/clinical_visit_model.dart';
 import '../models/ocr_scan_result_model.dart';
@@ -45,22 +46,45 @@ class OcrRepository implements IOcrRepository {
   Future<OcrScanResultModel> processImageScan(XFile imageFile, {int pageNumber = 0}) async {
     final path = imageFile.path;
     final lowerPath = path.toLowerCase();
-    
-    // Page-aware text mapping
-    final String simulatedText;
+
+    // Determine which form page this image represents
     final int detectedPage;
     if (pageNumber == 1 || lowerPath.contains('page1') || lowerPath.contains('front')) {
-      simulatedText = OcrFormService.samplePage1Text;
       detectedPage = 1;
     } else if (pageNumber == 2 || lowerPath.contains('page2') || lowerPath.contains('back')) {
-      simulatedText = OcrFormService.samplePage2Text;
       detectedPage = 2;
     } else {
-      simulatedText = OcrFormService.sampleFullFormText;
-      detectedPage = 0;
+      detectedPage = pageNumber;
     }
 
-    return _ocrService.parseFormText(simulatedText, pageNumber: detectedPage, imagePath: path);
+    // Attempt real OCR via Google ML Kit (Android / iOS only)
+    final mlkit = MlKitOcrService();
+    final extractedText = await mlkit.extractText(imageFile);
+    await mlkit.dispose();
+
+    // extractedText is empty when ML Kit is unavailable (Windows / Web / bad image)
+    final isSimulated = extractedText.trim().isEmpty;
+    final String textToProcess;
+    if (isSimulated) {
+      // Graceful fallback: use sample text so the pipeline stays functional,
+      // but flag the result so the UI can display a clear warning banner.
+      textToProcess = detectedPage == 1
+          ? OcrFormService.samplePage1Text
+          : (detectedPage == 2
+              ? OcrFormService.samplePage2Text
+              : OcrFormService.sampleFullFormText);
+    } else {
+      textToProcess = extractedText;
+    }
+
+    final result = _ocrService.parseFormText(
+      textToProcess,
+      pageNumber: detectedPage,
+      imagePath: path,
+    );
+
+    // Propagate simulation flag so FormScanView can show the amber warning banner
+    return isSimulated ? result.copyWith(isSimulated: true) : result;
   }
 
   @override
