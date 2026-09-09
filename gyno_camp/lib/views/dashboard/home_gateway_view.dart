@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/database/database_service.dart';
+import '../../core/services/file_download_helper.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/audit_log_model.dart';
 import '../../models/user_model.dart';
 import '../../viewmodels/audit_log_viewmodel.dart';
 import '../../viewmodels/auth_viewmodel.dart';
@@ -89,563 +93,1393 @@ class HomeGatewayView extends ConsumerWidget {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Admin Welcome Banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F766E), Color(0xFF134E4A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 28),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'SUPER ADMIN COMMAND CENTER',
-                        style: TextStyle(
-                          fontSize: 11,
-                          letterSpacing: 1.2,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white70,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        user?.name ?? 'Super Administrator',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Full governance: Camp scheduling, device approvals & master data',
-                        style: TextStyle(fontSize: 12, color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Action Required: Pending Devices Alert Banner
-          if (deviceMgmt.pendingCount > 0) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.amber.shade400, width: 1.2),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.notification_important_rounded, color: Colors.amber, size: 26),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${deviceMgmt.pendingCount} Field Device${deviceMgmt.pendingCount > 1 ? "s" : ""} Awaiting Super Admin Review',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF78350F)),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'A new field tablet has submitted registration. Verify hardware signature and whitelist access.',
-                          style: TextStyle(fontSize: 11.5, color: Color(0xFF92400E)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFD97706),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const DeviceManagementView()),
-                      );
-                    },
-                    child: const Text('Review & Approve', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // High-Level Management KPI Cards
-          Row(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1180),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: _buildMetricCard(
-                  label: 'Camp Status',
-                  value: campState.hasActiveCamp ? '1 Active' : '0 Open',
-                  badgeColor: campState.hasActiveCamp ? AppTheme.successGreen : Colors.orange,
-                  icon: Icons.campaign,
-                  iconColor: AppTheme.primaryTeal,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CampManagementView()),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMetricCard(
-                  label: 'Field Devices',
-                  value: deviceMgmt.pendingCount > 0
-                      ? '${deviceMgmt.pendingCount} Pending'
-                      : '${deviceMgmt.approvedCount} Active',
-                  badgeColor: deviceMgmt.pendingCount > 0 ? Colors.orange : AppTheme.primaryTeal,
-                  icon: Icons.devices,
-                  iconColor: Colors.indigo,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DeviceManagementView()),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildMetricCard(
-                  label: 'Patients Registered',
-                  value: '${patientState.patients.isNotEmpty ? patientState.patients.length : (campState.activeCamp?.totalPatientsRegistered ?? 0)}',
-                  badgeColor: (patientState.patients.isNotEmpty || (campState.activeCamp?.totalPatientsRegistered ?? 0) > 0)
-                      ? AppTheme.primaryTeal
-                      : Colors.blueGrey,
-                  icon: Icons.people,
-                  iconColor: Colors.teal,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const PatientListView()),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMetricCard(
-                  label: 'Audit Integrity',
-                  value: 'SHA-256 OK',
-                  badgeColor: AppTheme.successGreen,
-                  icon: Icons.verified_user,
-                  iconColor: AppTheme.successGreen,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AuditTrailView()),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Primary Admin Management Modules
-          const Text(
-            'Administrative Controls',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Column(
-              children: [
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
+              // 1. EXECUTIVE COMMAND HEADER WITH LIVE PULSE & QUICK ACTIONS
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF042F2E), Color(0xFF0F766E), Color(0xFF134E4A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF042F2E).withValues(alpha: 0.25),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
                     ),
-                    child: const Icon(Icons.campaign_outlined, color: AppTheme.primaryTeal),
-                  ),
-                  title: const Text('Camp Lifecycle & Calendar', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(
-                    campState.hasActiveCamp
-                        ? 'Active: ${campState.activeCamp!.name} (${campState.activeCamp!.campCode})'
-                        : '${campState.camps.length} camps configured (No open camp)',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CampManagementView()),
-                    );
-                  },
+                  ],
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                 ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.indigo.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.devices, color: Colors.indigo),
-                  ),
-                  title: Row(
-                    children: [
-                      const Text('Device Whitelist & Hardware Security', style: TextStyle(fontWeight: FontWeight.bold)),
-                      if (deviceMgmt.pendingCount > 0) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade800,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${deviceMgmt.pendingCount} PENDING',
-                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  subtitle: Text(
-                    deviceMgmt.pendingCount > 0
-                        ? '${deviceMgmt.pendingCount} device(s) awaiting approval • ${deviceMgmt.approvedCount} authorized'
-                        : '${deviceMgmt.approvedCount} authorized field tablet(s) active',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DeviceManagementView()),
-                    );
-                  },
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.tune, color: Colors.teal),
-                  ),
-                  title: const Text('Clinical Master Data & Formulary', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Dynamic diagnoses, Yellow Form dropdowns, and medicine formulary'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MasterConfigView()),
-                    );
-                  },
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F766E).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.badge_outlined, color: Color(0xFF0F766E)),
-                  ),
-                  title: const Text('Staff & Personnel Management', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('User directory, station role permissions & camp roster assignments'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const UserManagementView()),
-                    );
-                  },
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.purple.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.assessment_outlined, color: Colors.purple),
-                  ),
-                  title: const Text('Reports & Camp Aggregations', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('One-Tap PDF Camp Summary & Full Dataset Excel Export'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => CampReportView(
-                          initialCampId: campState.activeCamp?.id,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Clinical Field Operations Hub (Supervisor Override Access)
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.health_and_safety_rounded, color: AppTheme.primaryTeal, size: 24),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Clinical Field Operations Hub',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    // Top Sub-Row: Live Status Pulse + Tenant Badge
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.4)),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            campState.hasActiveCamp
-                                ? 'Active Station: ${campState.activeCamp!.name} (${campState.activeCamp!.campCode})'
-                                : 'No camp currently open • Camp activation required for data entry',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: campState.hasActiveCamp ? AppTheme.primaryTeal : AppTheme.warningAmber,
-                              fontWeight: campState.hasActiveCamp ? FontWeight.w600 : FontWeight.w500,
-                            ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.fiber_manual_record, color: Color(0xFF34D399), size: 10),
+                              SizedBox(width: 6),
+                              Text(
+                                'SECURE ROOT SESSION ACTIVE',
+                                style: TextStyle(
+                                  color: Color(0xFF6EE7B7),
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: campState.hasActiveCamp
-                            ? AppTheme.successGreen.withValues(alpha: 0.12)
-                            : AppTheme.warningAmber.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        campState.hasActiveCamp ? 'STATION READY' : 'CAMP CLOSED',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: campState.hasActiveCamp ? AppTheme.successGreen : AppTheme.warningAmber,
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${campState.activeCamp?.organizationName ?? user?.tenantName ?? "Nepal Health Outreach"} • Tenant: ${user?.tenantId ?? "tenant_default"}',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Middle Main Row: User Identity & Action Buttons
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
+                          ),
+                          child: const Icon(Icons.shield_outlined, color: Colors.white, size: 30),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user?.name ?? 'Lead Gynecologist / Camp Lead',
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: -0.4,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              const Text(
+                                'Super Admin Command Console • Field Operations & Clinical Governance',
+                                style: TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF14B8A6),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                elevation: 2,
+                              ),
+                              icon: const Icon(Icons.add_location_alt_rounded, size: 17),
+                              label: const Text('New Camp', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const CampManagementView()),
+                                );
+                              },
+                            ),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: BorderSide(color: Colors.white.withValues(alpha: 0.4), width: 1.2),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: const Icon(Icons.swap_horiz_rounded, size: 17),
+                              label: const Text('Switch Camp', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                              onPressed: () => _showQuickCampSwitchDialog(context, ref),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                const Divider(height: 1),
-                const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 18),
 
-                // 3 Rich Tactile Action Cards
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isWide = constraints.maxWidth > 650;
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        _buildSupervisorActionCard(
-                          context: context,
-                          width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
-                          icon: Icons.person_add_alt_1_rounded,
-                          iconColor: const Color(0xFF0F766E),
-                          iconBgColor: const Color(0xFFCCFBF1),
-                          badgeText: 'STATION 1',
-                          badgeColor: const Color(0xFF0F766E),
-                          title: 'Register Patient',
-                          description: 'Demographics, triage intake & official token slip generation',
+              // 2. ACTION REQUIRED ALERT (IF FIELD DEVICES ARE PENDING REVIEW)
+              if (deviceMgmt.pendingCount > 0) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFFCD34D), width: 1.3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.amber.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF59E0B),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.devices_other_rounded, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${deviceMgmt.pendingCount} Field Tablet${deviceMgmt.pendingCount > 1 ? "s" : ""} Awaiting Hardware Whitelist Approval',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF78350F)),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'New field workstations have submitted OTP verification challenges. Review hardware signatures before intake begins.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD97706),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 1,
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const DeviceManagementView()),
+                          );
+                        },
+                        child: const Text('Review Devices', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+              ],
+
+              // 3. EXECUTIVE TELEMETRY & KPI METRICS (RESPONSIVE GRID)
+              LayoutBuilder(
+                builder: (ctx, constraints) {
+                  final isWide = constraints.maxWidth > 850;
+                  final isMedium = constraints.maxWidth > 550;
+                  final cardWidth = isWide
+                      ? (constraints.maxWidth - 48) / 4
+                      : isMedium
+                          ? (constraints.maxWidth - 16) / 2
+                          : constraints.maxWidth;
+
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 14,
+                    children: [
+                      SizedBox(
+                        width: cardWidth,
+                        child: _buildExecutiveMetricCard(
+                          label: 'Camp Operations',
+                          value: campState.hasActiveCamp ? '1 Live Active' : '0 Live Open',
+                          subtitle: '${campState.camps.length} total scheduled camps',
+                          icon: Icons.campaign_rounded,
+                          accentColor: const Color(0xFF0F766E),
+                          trailingBadge: campState.hasActiveCamp
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFECFDF5),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                                  ),
+                                  child: const Text('LIVE', style: TextStyle(color: Color(0xFF059669), fontSize: 10, fontWeight: FontWeight.bold)),
+                                )
+                              : null,
                           onTap: () {
-                            if (!campState.hasActiveCamp) {
-                              _showNoCampAlert(context);
-                              return;
-                            }
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => const PatientRegistrationView()),
+                              MaterialPageRoute(builder: (_) => const CampManagementView()),
                             );
                           },
                         ),
-                        _buildSupervisorActionCard(
-                          context: context,
-                          width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
-                          icon: Icons.document_scanner_rounded,
-                          iconColor: const Color(0xFF4338CA),
-                          iconBgColor: const Color(0xFFE0E7FF),
-                          badgeText: 'DUAL-SLOT OCR',
-                          badgeColor: const Color(0xFF4338CA),
-                          title: 'Scan Yellow Form',
-                          description: 'AI document scanner for Page 1 & Page 2 paper forms',
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _buildExecutiveMetricCard(
+                          label: 'Hardware Security',
+                          value: '${deviceMgmt.approvedCount} Authorized',
+                          subtitle: deviceMgmt.pendingCount > 0
+                              ? '${deviceMgmt.pendingCount} device(s) pending review'
+                              : 'All hardware whitelisted',
+                          icon: Icons.devices_rounded,
+                          accentColor: const Color(0xFF4338CA),
+                          trailingBadge: deviceMgmt.pendingCount > 0
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFFCD34D)),
+                                  ),
+                                  child: Text('${deviceMgmt.pendingCount} PENDING', style: const TextStyle(color: Color(0xFFB45309), fontSize: 9.5, fontWeight: FontWeight.bold)),
+                                )
+                              : null,
                           onTap: () {
-                            if (!campState.hasActiveCamp) {
-                              _showNoCampAlert(context);
-                              return;
-                            }
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => const FormScanView()),
+                              MaterialPageRoute(builder: (_) => const DeviceManagementView()),
                             );
                           },
                         ),
-                        _buildSupervisorActionCard(
-                          context: context,
-                          width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
-                          icon: Icons.assignment_ind_rounded,
-                          iconColor: const Color(0xFF7E22CE),
-                          iconBgColor: const Color(0xFFF3E8FF),
-                          badgeText: '${patientState.patients.length} INTAKES',
-                          badgeColor: const Color(0xFF7E22CE),
-                          title: 'Patient Roll & Charts',
-                          description: '6-station clinical exams, POP staging & PDF downloads',
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _buildExecutiveMetricCard(
+                          label: 'Intake Throughput',
+                          value: '${patientState.patients.length} Registered',
+                          subtitle: campState.hasActiveCamp
+                              ? 'Active camp patient roll'
+                              : '${patientState.patients.length} historical records',
+                          icon: Icons.people_alt_rounded,
+                          accentColor: const Color(0xFF0D9488),
                           onTap: () {
-                            if (!campState.hasActiveCamp) {
-                              _showNoCampAlert(context);
-                              return;
-                            }
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (_) => const PatientListView()),
                             );
                           },
                         ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _buildExecutiveMetricCard(
+                          label: 'Cryptographic Ledger',
+                          value: 'SHA-256 Verified',
+                          subtitle: '${auditLogs.logs.length} chained blocks anchored',
+                          icon: Icons.verified_user_rounded,
+                          accentColor: const Color(0xFF10B981),
+                          trailingBadge: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECFDF5),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFA7F3D0)),
+                            ),
+                            child: const Text('OK', style: TextStyle(color: Color(0xFF059669), fontSize: 10, fontWeight: FontWeight.bold)),
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const AuditTrailView()),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
 
-          // Tamper-Evident System Audit Trail
+              // 4. ACTIVE CAMP SPOTLIGHT & SUPERVISOR FIELD WORKSTATION HUB
+              _buildActiveCampSpotlight(context, ref, campState, patientState),
+              const SizedBox(height: 28),
+
+              // 5. ADMINISTRATIVE CONTROL MODULES (2-COLUMN / 3-COLUMN GRID)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Administrative Governance & Master Controls',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), letterSpacing: -0.2),
+                  ),
+                  Text(
+                    '6 System Modules Active',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              LayoutBuilder(
+                builder: (ctx, constraints) {
+                  final isWide = constraints.maxWidth > 750;
+                  final itemWidth = isWide ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth;
+
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: [
+                      SizedBox(
+                        width: itemWidth,
+                        child: _buildAdminModuleCard(
+                          context: context,
+                          icon: Icons.calendar_month_rounded,
+                          title: 'Camp Lifecycle & Interactive Calendar',
+                          description: 'Schedule outreach camps, enforce single-active camp sessions, view monthly calendar & assign staff rosters.',
+                          badgeText: campState.hasActiveCamp ? 'Active: ${campState.activeCamp!.campCode}' : '${campState.camps.length} Camps',
+                          badgeColor: const Color(0xFF0F766E),
+                          accentColor: const Color(0xFF0F766E),
+                          actionPrompt: 'Manage Camp Roster',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const CampManagementView()),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _buildAdminModuleCard(
+                          context: context,
+                          icon: Icons.devices_rounded,
+                          title: 'Field Hardware Whitelist & Terminal Security',
+                          description: 'Deterministic SHA-256 hardware signatures, 6-digit cryptographic OTP verification & terminal app lockouts.',
+                          badgeText: deviceMgmt.pendingCount > 0 ? '${deviceMgmt.pendingCount} PENDING' : '${deviceMgmt.approvedCount} Active Tablets',
+                          badgeColor: deviceMgmt.pendingCount > 0 ? const Color(0xFFD97706) : const Color(0xFF4338CA),
+                          accentColor: const Color(0xFF4338CA),
+                          actionPrompt: 'Manage Whitelist',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const DeviceManagementView()),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _buildAdminModuleCard(
+                          context: context,
+                          icon: Icons.badge_rounded,
+                          title: 'Staff & Personnel Directory (RBAC)',
+                          description: 'Provision staff credentials, station role permissions, password/PIN resets & camp roster assignments.',
+                          badgeText: 'RBAC Active',
+                          badgeColor: const Color(0xFF0D9488),
+                          accentColor: const Color(0xFF0D9488),
+                          actionPrompt: 'Staff Directory',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const UserManagementView()),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _buildAdminModuleCard(
+                          context: context,
+                          icon: Icons.tune_rounded,
+                          title: 'Clinical Master Data & Formulary',
+                          description: 'Dynamic diagnoses, Yellow Form dropdown values, medicine formulary & referral hospital directories with EN/NE bilingual support.',
+                          badgeText: 'Bilingual Formulary',
+                          badgeColor: const Color(0xFF0284C7),
+                          accentColor: const Color(0xFF0284C7),
+                          actionPrompt: 'Configure Formularies',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const MasterConfigView()),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _buildAdminModuleCard(
+                          context: context,
+                          icon: Icons.analytics_rounded,
+                          title: 'Executive Reports & Cohort Analytics',
+                          description: 'POP prolapse staging breakdown, cervical inspection metrics, 1-tap branded PDF clinical summary & full dataset Excel export.',
+                          badgeText: 'PDF & Excel Ready',
+                          badgeColor: const Color(0xFF7E22CE),
+                          accentColor: const Color(0xFF7E22CE),
+                          actionPrompt: 'Generate Reports',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CampReportView(
+                                  initialCampId: campState.activeCamp?.id,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _buildAdminModuleCard(
+                          context: context,
+                          icon: Icons.lock_clock_rounded,
+                          title: 'Tamper-Evident System Audit Ledger',
+                          description: 'Cryptographically chained event ledger, immutable SHA-256 verification & downloadable JSON compliance proof.',
+                          badgeText: '${auditLogs.logs.length} Chained Blocks',
+                          badgeColor: const Color(0xFF334155),
+                          accentColor: const Color(0xFF334155),
+                          actionPrompt: 'Inspect Audit Log',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const AuditTrailView()),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 28),
+
+              // 6. DISASTER RECOVERY & 1-TAP SYSTEM ACTIONS DOCK
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.storage_rounded, color: Color(0xFF334155), size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Disaster Recovery & Data Export Operations',
+                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Safeguard clinical records with 1-tap local database snapshots and proof-of-work audit exports.',
+                            style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF0F766E),
+                            side: const BorderSide(color: Color(0xFF0F766E)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.download_rounded, size: 16),
+                          label: const Text('Export Audit Log', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          onPressed: () => _exportAuditLogs(context, auditLogs.logs),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F766E),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.backup_table_rounded, size: 16),
+                          label: const Text('Database Backup', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          onPressed: () => _exportDatabaseBackup(context),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // 7. LIVE AUDIT ACTIVITY FEED
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Live System Activity & Cryptographic Log',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.open_in_new, size: 14),
+                    label: Text(
+                      '${auditLogs.logs.length} Events (View All)',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AuditTrailView()),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _buildAuditFeedCard(context, auditLogs.logs),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // SUPER ADMIN HELPER WIDGETS & METHODS
+  // ==========================================
+  Widget _buildActiveCampSpotlight(
+    BuildContext context,
+    WidgetRef ref,
+    CampState campState,
+    PatientListState patientState,
+  ) {
+    if (!campState.hasActiveCamp) {
+      return Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.campaign_outlined, color: Colors.amber.shade900, size: 28),
+            ),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'No Active Clinical Camp Session In Progress',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    'Activate a scheduled camp session from your roster to begin recording patient intake and clinical exams.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryTeal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: const Icon(Icons.swap_horiz_rounded, size: 16),
+              label: const Text('Open Camp Session'),
+              onPressed: () => _showQuickCampSwitchDialog(context, ref),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final camp = campState.activeCamp!;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF0F766E).withValues(alpha: 0.25), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F766E).withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: Code + Live Badge + Switch action
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0F766E), Color(0xFF134E4A)],
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      camp.campCode,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFA7F3D0)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.fiber_manual_record, color: Color(0xFF059669), size: 10),
+                        SizedBox(width: 5),
+                        Text(
+                          'LIVE OPERATIONAL STATION',
+                          style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.w700, fontSize: 10.5, letterSpacing: 0.3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0F766E),
+                  side: const BorderSide(color: Color(0xFF0F766E)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.swap_horiz_rounded, size: 15),
+                label: const Text('Switch Camp', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                onPressed: () => _showQuickCampSwitchDialog(context, ref),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Camp Name
+          Text(
+            camp.name,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), letterSpacing: -0.3),
+          ),
+          const SizedBox(height: 8),
+
+          // Location & logistics pills
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.location_on_rounded, size: 15, color: Color(0xFF64748B)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${camp.venue}, Ward ${camp.ward}, ${camp.municipality.isNotEmpty ? "${camp.municipality}, " : ""}${camp.district}',
+                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.date_range_rounded, size: 15, color: Color(0xFF64748B)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${_formatDate(camp.startDate)} – ${_formatDate(camp.endDate)}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.badge_rounded, size: 15, color: Color(0xFF0F766E)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${camp.assignedStaffIds.length} Staff Assigned',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF0F766E), fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 16),
+
+          // Sub-Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Tamper-Evident System Audit Trail',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                'Clinical Field Workstations (Supervisor Access)',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155), letterSpacing: 0.2),
               ),
-              TextButton.icon(
-                icon: const Icon(Icons.open_in_new, size: 14),
-                label: Text(
-                  '${auditLogs.logs.length} Events (View All)',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AuditTrailView()),
-                  );
-                },
+                child: Text(
+                  '${patientState.patients.length} Intakes Recorded',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: auditLogs.logs.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text('No activity recorded yet.'),
-                  )
-                : ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: auditLogs.logs.take(5).length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final log = auditLogs.logs[index];
-                      return ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.history, size: 20, color: AppTheme.primaryTeal),
-                        title: Text(
-                          log.action,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                        subtitle: Text(
-                          'By: ${log.userName} • ${log.timestamp.hour}:${log.timestamp.minute.toString().padLeft(2, "0")}',
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        trailing: Text(
-                          log.logHash.substring(0, 8),
-                          style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: Colors.grey),
-                        ),
-                      );
+          const SizedBox(height: 12),
+
+          // 3 Field Workstation Action Cards
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 700;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _buildSupervisorActionCard(
+                    context: context,
+                    width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                    icon: Icons.person_add_alt_1_rounded,
+                    iconColor: const Color(0xFF0F766E),
+                    iconBgColor: const Color(0xFFCCFBF1),
+                    badgeText: 'STATION 1: INTAKE',
+                    badgeColor: const Color(0xFF0F766E),
+                    title: 'Register Patient',
+                    description: 'Demographics, triage vitals & official barcode token slip generation',
+                    onTap: () {
+                      if (!campState.hasActiveCamp) {
+                        _showNoCampAlert(context);
+                        return;
+                      }
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientRegistrationView()));
                     },
                   ),
+                  _buildSupervisorActionCard(
+                    context: context,
+                    width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                    icon: Icons.document_scanner_rounded,
+                    iconColor: const Color(0xFF4338CA),
+                    iconBgColor: const Color(0xFFE0E7FF),
+                    badgeText: 'AI SCAN ENGINE',
+                    badgeColor: const Color(0xFF4338CA),
+                    title: 'Scan Yellow Form',
+                    description: 'Dual-page camera OCR & OMR checkbox auto-digitization for Page 1 & 2',
+                    onTap: () {
+                      if (!campState.hasActiveCamp) {
+                        _showNoCampAlert(context);
+                        return;
+                      }
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const FormScanView()));
+                    },
+                  ),
+                  _buildSupervisorActionCard(
+                    context: context,
+                    width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                    icon: Icons.assignment_ind_rounded,
+                    iconColor: const Color(0xFF7E22CE),
+                    iconBgColor: const Color(0xFFF3E8FF),
+                    badgeText: 'CHARTS & QUEUE',
+                    badgeColor: const Color(0xFF7E22CE),
+                    title: 'Patient Roll & Charts',
+                    description: '6-station clinical exam records, POP-Q staging & PDF follow-up slips',
+                    onTap: () {
+                      if (!campState.hasActiveCamp) {
+                        _showNoCampAlert(context);
+                        return;
+                      }
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientListView()));
+                    },
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildExecutiveMetricCard({
+    required String label,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color accentColor,
+    VoidCallback? onTap,
+    Widget? trailingBadge,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.1),
+      ),
+      color: Colors.white,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: accentColor, size: 20),
+                  ),
+                  if (trailingBadge != null)
+                    trailingBadge
+                  else
+                    Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey.shade400),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF475569),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF94A3B8),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminModuleCard({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String description,
+    required String badgeText,
+    required Color badgeColor,
+    required Color accentColor,
+    required String actionPrompt,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+      ),
+      color: Colors.white,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        hoverColor: accentColor.withValues(alpha: 0.03),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [accentColor.withValues(alpha: 0.18), accentColor.withValues(alpha: 0.08)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: accentColor.withValues(alpha: 0.25)),
+                        ),
+                        child: Icon(icon, color: accentColor, size: 24),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: badgeColor.withValues(alpha: 0.28)),
+                        ),
+                        child: Text(
+                          badgeText,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: badgeColor,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFF64748B),
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Text(
+                    actionPrompt,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: accentColor,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.arrow_forward_rounded, size: 14, color: accentColor),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showQuickCampSwitchDialog(BuildContext context, WidgetRef ref) {
+    final campState = ref.read(campStateProvider);
+    final user = ref.read(authStateProvider).currentUser;
+    final deviceState = ref.read(deviceSecurityProvider);
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.swap_horiz_rounded, color: AppTheme.primaryTeal),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Switch Active Field Camp', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text('Activates the selected camp for all staff intake sessions', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 500,
+            child: campState.camps.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('No camps configured yet. Please schedule a new camp first.'),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: campState.camps.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (dialogCtx, index) {
+                      final camp = campState.camps[index];
+                      final isCurrent = camp.id == campState.activeCamp?.id;
+                      return ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isCurrent ? AppTheme.primaryTeal : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            camp.campCode,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                              color: isCurrent ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                        ),
+                        title: Text(camp.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        subtitle: Text('${camp.venue}, Ward ${camp.ward}, ${camp.district}', style: const TextStyle(fontSize: 11)),
+                        trailing: isCurrent
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.successGreen.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppTheme.successGreen.withValues(alpha: 0.3)),
+                                ),
+                                child: const Text(
+                                  'ACTIVE',
+                                  style: TextStyle(color: AppTheme.successGreen, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              )
+                            : OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () async {
+                                  Navigator.pop(ctx);
+                                  final success = await ref.read(campStateProvider.notifier).openCamp(
+                                        camp.id,
+                                        adminUserId: user?.id ?? 'admin-root',
+                                        deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                                      );
+                                  if (context.mounted && success) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Switched active camp to "${camp.name}" (${camp.campCode})'),
+                                        backgroundColor: AppTheme.successGreen,
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: const Text('Set Active', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAuditFeedCard(BuildContext context, List<AuditLogModel> logs) {
+    if (logs.isEmpty) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        color: Colors.white,
+        child: const Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Center(child: Text('No system audit events recorded yet.')),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      color: Colors.white,
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: logs.take(4).length,
+        separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        itemBuilder: (context, index) {
+          final log = logs[index];
+          final categoryColor = _getAuditCategoryColor(log.action);
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: categoryColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.history_rounded, size: 18, color: categoryColor),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: categoryColor.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _extractCategoryTag(log.action),
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: categoryColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              log.action,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'By: ${log.userName} • ${log.timestamp.hour.toString().padLeft(2, "0")}:${log.timestamp.minute.toString().padLeft(2, "0")} (${_formatDate(log.timestamp)})',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    log.logHash.length >= 8 ? log.logHash.substring(0, 8) : log.logHash,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Color _getAuditCategoryColor(String action) {
+    final upper = action.toUpperCase();
+    if (upper.contains('CAMP')) return const Color(0xFF0F766E);
+    if (upper.contains('DEVICE') || upper.contains('SECURITY') || upper.contains('LOCK')) return const Color(0xFF4338CA);
+    if (upper.contains('USER') || upper.contains('STAFF')) return const Color(0xFF0D9488);
+    if (upper.contains('PATIENT') || upper.contains('INTAKE') || upper.contains('ASSESSMENT')) return const Color(0xFF10B981);
+    if (upper.contains('REPORT') || upper.contains('EXPORT')) return const Color(0xFF7E22CE);
+    return const Color(0xFF64748B);
+  }
+
+  String _extractCategoryTag(String action) {
+    final upper = action.toUpperCase();
+    if (upper.contains('CAMP')) return 'CAMP';
+    if (upper.contains('DEVICE') || upper.contains('SECURITY')) return 'SECURITY';
+    if (upper.contains('USER') || upper.contains('STAFF')) return 'STAFF';
+    if (upper.contains('PATIENT') || upper.contains('INTAKE')) return 'CLINICAL';
+    if (upper.contains('REPORT') || upper.contains('EXPORT')) return 'REPORT';
+    return 'SYSTEM';
+  }
+
+  String _formatDate(DateTime dt) {
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _exportDatabaseBackup(BuildContext context) async {
+    try {
+      final snapshot = await DatabaseService().exportDatabaseSnapshot();
+      final jsonString = const JsonEncoder.withIndent('  ').convert(snapshot);
+      final bytes = utf8.encode(jsonString);
+      final dateStr = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+      final filename = 'gynocamp_backup_$dateStr.json';
+      await FileDownloadHelper.saveAndDownloadFile(
+        bytes: bytes,
+        filename: filename,
+        mimeType: 'application/json',
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Database backup exported successfully: $filename'),
+            backgroundColor: AppTheme.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Backup failed: $e'),
+            backgroundColor: AppTheme.dangerRose,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportAuditLogs(BuildContext context, List<AuditLogModel> logs) async {
+    if (logs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No audit logs available to export.')),
+      );
+      return;
+    }
+    try {
+      final list = logs.map((l) => l.toMap()).toList();
+      final jsonString = const JsonEncoder.withIndent('  ').convert(list);
+      final bytes = utf8.encode(jsonString);
+      final dateStr = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+      final filename = 'audit_trail_export_$dateStr.json';
+      await FileDownloadHelper.saveAndDownloadFile(
+        bytes: bytes,
+        filename: filename,
+        mimeType: 'application/json',
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Audit trail exported successfully: $filename'),
+            backgroundColor: AppTheme.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            backgroundColor: AppTheme.dangerRose,
+          ),
+        );
+      }
+    }
   }
 
   // ==========================================
@@ -1454,60 +2288,6 @@ class HomeGatewayView extends ConsumerWidget {
   // ==========================================
   // SHARED REUSABLE COMPONENTS
   // ==========================================
-  Widget _buildMetricCard({
-    required String label,
-    required String value,
-    required Color badgeColor,
-    required IconData icon,
-    required Color iconColor,
-    VoidCallback? onTap,
-  }) {
-    return Card(
-      elevation: 1.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14.0),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: badgeColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
   Widget _buildActionTile({
     required IconData icon,
     required String title,

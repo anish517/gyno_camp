@@ -241,4 +241,35 @@ class DatabaseService {
       _db = null;
     }
   }
+
+  Future<Map<String, dynamic>> exportDatabaseSnapshot() async {
+    final db = await database;
+    final camps = await db.query(DatabaseTables.tableCamps);
+    final users = await db.query(DatabaseTables.tableUsers);
+    final devices = await db.query(DatabaseTables.tableDevices);
+    final patients = await db.query(DatabaseTables.tablePatients);
+    final clinicalVisits = await db.query(DatabaseTables.tableClinicalVisits);
+    final lookups = await db.query(DatabaseTables.tableLookupItems);
+    final auditLogs = await db.query(DatabaseTables.tableAuditLogs);
+
+    return {
+      'exported_at': DateTime.now().toIso8601String(),
+      'version': AppConstants.databaseVersion,
+      'app': AppConstants.appName,
+      'tables': {
+        DatabaseTables.tableCamps: camps,
+        DatabaseTables.tableUsers: users.map((u) {
+          final copy = Map<String, dynamic>.from(u);
+          copy.remove('password_hash');
+          copy.remove('pin_hash');
+          return copy;
+        }).toList(),
+        DatabaseTables.tableDevices: devices,
+        DatabaseTables.tablePatients: patients,
+        DatabaseTables.tableClinicalVisits: clinicalVisits,
+        DatabaseTables.tableLookupItems: lookups,
+        DatabaseTables.tableAuditLogs: auditLogs,
+      },
+    };
+  }
 }
