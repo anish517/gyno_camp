@@ -46,6 +46,7 @@ dependencies:
   path_provider: ^2.1.6
   sqflite_common_ffi_web: ^1.1.2
   image_picker: ^1.2.3
+  nepali_utils: ^3.0.8
 
 dev_dependencies:
   flutter_test:

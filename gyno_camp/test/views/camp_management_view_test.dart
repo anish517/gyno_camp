@@ -153,7 +153,7 @@ void main() {
     expect(find.text('45 Intakes'), findsOneWidget);
   });
 
-  testWidgets('CampManagementView switches to Interactive Calendar tab', (tester) async {
+  testWidgets('CampManagementView switches to Interactive Calendar tab and toggles Nepali BS / Gregorian AD', (tester) async {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -165,8 +165,23 @@ void main() {
     await tester.tap(find.text('Interactive Calendar'));
     await tester.pumpAndSettle();
 
+    // Verify Bikram Sambat Nepali calendar is active by default with explanation banner
+    expect(find.text('🇳🇵 Bikram Sambat (BS)'), findsOneWidget);
+    expect(find.text('🌐 Gregorian (AD)'), findsOneWidget);
+    expect(find.text('Why are calendar dates marked?'), findsOneWidget);
+
+    // Switch to Gregorian (AD) mode
+    await tester.tap(find.text('🌐 Gregorian (AD)'));
+    await tester.pumpAndSettle();
+
     expect(find.text('September 2026'), findsOneWidget);
     expect(find.text('Mon'), findsOneWidget);
     expect(find.text('Sun'), findsOneWidget);
+
+    // Switch back to Bikram Sambat (BS) mode
+    await tester.tap(find.text('🇳🇵 Bikram Sambat (BS)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Why are calendar dates marked?'), findsOneWidget);
   });
 }
