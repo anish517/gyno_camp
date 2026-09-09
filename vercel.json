@@ -1,0 +1,11 @@
+{
+  "buildCommand": "cd gyno_camp && bash vercel-build.sh",
+  "outputDirectory": "gyno_camp/build/web",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
