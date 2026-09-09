@@ -44,6 +44,10 @@ class MlKitOcrService {
   // Fully offline, no cloud, no new package dependency.
   Future<String> _extractWithWindowsOcr(String imagePath) async {
     try {
+      // Normalize path: GetFileFromPathAsync requires a full absolute Windows
+      // path with backslashes. image_picker may return forward-slash paths.
+      final normalizedPath = imagePath.replaceAll('/', '\\');
+
       // Locate the PS1 script relative to the executable
       final exeDir = p.dirname(Platform.resolvedExecutable);
       final scriptPath = p.join(exeDir, 'scripts', 'ocr_image.ps1');
@@ -59,9 +63,13 @@ class MlKitOcrService {
           File(scriptPath).existsSync() ? scriptPath : devScript;
 
       if (!File(resolvedScript).existsSync()) {
-        if (kDebugMode) debugPrint('[OCR] Windows script not found at $resolvedScript');
-        return '';
+        if (kDebugMode) {
+          debugPrint('[OCR-Win] Script not found at:\n  $scriptPath\n  $devScript');
+        }
+        throw Exception('ocr_image.ps1 not found. Expected at: $resolvedScript');
       }
+
+      if (kDebugMode) debugPrint('[OCR-Win] Running OCR on: $normalizedPath');
 
       final result = await Process.run(
         'powershell',
@@ -70,21 +78,24 @@ class MlKitOcrService {
           '-NonInteractive',
           '-ExecutionPolicy', 'Bypass',
           '-File', resolvedScript,
-          '-ImagePath', imagePath,
+          '-ImagePath', normalizedPath,
         ],
         runInShell: false,
       );
 
       final text = (result.stdout as String).trim();
       if (result.exitCode == 0 && text.isNotEmpty) {
-        if (kDebugMode) debugPrint('[OCR] Windows OCR extracted ${text.length} chars');
+        if (kDebugMode) debugPrint('[OCR-Win] Extracted ${text.length} chars');
         return text;
       }
-      if (kDebugMode) debugPrint('[OCR] Windows OCR failed: ${result.stderr}');
+      final err = (result.stderr as String).trim();
+      if (kDebugMode) debugPrint('[OCR-Win] Script failed (exit ${result.exitCode}): $err');
+      // Surface the PowerShell error so it reaches the UI
+      if (err.isNotEmpty) throw Exception('Windows OCR script error: $err');
       return '';
     } catch (e) {
-      if (kDebugMode) debugPrint('[OCR] Windows OCR exception: $e');
-      return '';
+      if (kDebugMode) debugPrint('[OCR-Win] Exception: $e');
+      rethrow; // Let ocr_repository.dart catch and surface to UI
     }
   }
 

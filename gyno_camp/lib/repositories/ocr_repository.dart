@@ -57,17 +57,30 @@ class OcrRepository implements IOcrRepository {
       detectedPage = pageNumber;
     }
 
-    // Attempt real OCR via Google ML Kit (Android / iOS only)
+    // Attempt real OCR — Android/iOS via ML Kit, Windows via PowerShell WinRT
     final mlkit = MlKitOcrService();
-    final extractedText = await mlkit.extractText(imageFile);
-    await mlkit.dispose();
+    String extractedText = '';
+    String? ocrError;
+    try {
+      extractedText = await mlkit.extractText(imageFile);
+    } catch (e) {
+      ocrError = e.toString();
+      extractedText = '';
+    } finally {
+      await mlkit.dispose();
+    }
 
-    // extractedText is empty when ML Kit is unavailable (Windows / Web / bad image)
+    // extractedText is empty when OCR failed or is unavailable (Web / bad image)
     final isSimulated = extractedText.trim().isEmpty;
     final String textToProcess;
     if (isSimulated) {
-      // Graceful fallback: use sample text so the pipeline stays functional,
-      // but flag the result so the UI can display a clear warning banner.
+      // If there was an explicit error (e.g. PowerShell script not found),
+      // rethrow so the UI shows a real error instead of silently loading sample data.
+      if (ocrError != null) {
+        throw Exception('OCR failed on this device: $ocrError');
+      }
+      // Graceful fallback for unsupported platforms (web): use sample text
+      // so the pipeline stays functional, but flag result as simulated.
       textToProcess = detectedPage == 1
           ? OcrFormService.samplePage1Text
           : (detectedPage == 2
