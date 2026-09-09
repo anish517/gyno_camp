@@ -129,13 +129,15 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
   /// Captures specific page (1 or 2) using device camera
   Future<void> capturePage(int pageNumber) async {
-    state = state.copyWith(isProcessing: true, errorMessage: null);
+    // Don't show loading spinner until the user has actually taken a photo
+    state = state.copyWith(errorMessage: null);
     try {
       final photo = await _captureService.captureFromCamera();
       if (photo == null) {
-        state = state.copyWith(isProcessing: false);
-        return;
+        return; // user cancelled — nothing to do
       }
+      // Photo confirmed — now show the processing indicator
+      state = state.copyWith(isProcessing: true);
       final result = await _repository.processImageScan(photo, pageNumber: pageNumber);
       if (pageNumber == 1) {
         final merged = state.hasPage2 ? OcrScanResultModel.merge(result, state.page2Scan!) : null;
@@ -167,13 +169,15 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
   /// Picks image for specific page slot (1 or 2)
   Future<void> pickPage(int pageNumber) async {
-    state = state.copyWith(isProcessing: true, errorMessage: null);
+    // Don't show loading spinner until the user has actually chosen a file
+    state = state.copyWith(errorMessage: null);
     try {
       final photo = await _captureService.pickFromGallery();
       if (photo == null) {
-        state = state.copyWith(isProcessing: false);
-        return;
+        return; // user cancelled — nothing to do
       }
+      // File confirmed — now show the processing indicator
+      state = state.copyWith(isProcessing: true);
       final result = await _repository.processImageScan(photo, pageNumber: pageNumber);
       if (pageNumber == 1) {
         final merged = state.hasPage2 ? OcrScanResultModel.merge(result, state.page2Scan!) : null;
@@ -205,13 +209,15 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
   /// Selects both Page 1 and Page 2 at once via multi-image picker
   Future<void> pickBothPages() async {
-    state = state.copyWith(isProcessing: true, errorMessage: null);
+    // Don't show loading spinner until the user has actually chosen files
+    state = state.copyWith(errorMessage: null);
     try {
       final photos = await _captureService.pickMultipleImages();
       if (photos.isEmpty) {
-        state = state.copyWith(isProcessing: false);
-        return;
+        return; // user cancelled — nothing to do
       }
+      // Files confirmed — now show the processing indicator
+      state = state.copyWith(isProcessing: true);
       if (photos.length == 1) {
         final res = await _repository.processImageScan(photos[0], pageNumber: 1);
         state = state.copyWith(
