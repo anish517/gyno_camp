@@ -74,6 +74,8 @@ void main() {
         campId: 'camp-ktm-01',
         campCode: 'KTM',
         staffUserId: 'usr-1',
+        staffUserName: 'Test Nurse',
+        staffUserRole: 'DATA_TAKER',
         deviceId: 'dev-1',
       );
 
@@ -108,6 +110,8 @@ void main() {
         campId: 'camp-ktm-01',
         campCode: 'KTM',
         staffUserId: 'usr-nurse',
+        staffUserName: 'Test Nurse',
+        staffUserRole: 'DATA_TAKER',
         deviceId: 'dev-tab-1',
       );
 

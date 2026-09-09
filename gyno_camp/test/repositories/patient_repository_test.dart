@@ -54,6 +54,8 @@ void main() {
       final registered1 = await patientRepo.registerPatient(
         p1,
         createdByUserId: 'usr-nurse-1',
+        createdByUserName: 'Test Nurse',
+        createdByUserRole: 'DATA_TAKER',
         deviceId: 'dev-field-1',
       );
 
@@ -70,6 +72,8 @@ void main() {
       final registered2 = await patientRepo.registerPatient(
         p2,
         createdByUserId: 'usr-nurse-1',
+        createdByUserName: 'Test Nurse',
+        createdByUserRole: 'DATA_TAKER',
         deviceId: 'dev-field-1',
       );
 
@@ -105,7 +109,7 @@ void main() {
         createdByDeviceId: 'dev-1',
       );
 
-      await patientRepo.registerPatient(p, createdByUserId: 'usr-1', deviceId: 'dev-1');
+      await patientRepo.registerPatient(p, createdByUserId: 'usr-1', createdByUserName: 'Test Nurse', createdByUserRole: 'DATA_TAKER', deviceId: 'dev-1');
 
       final list = await patientRepo.getPatientsByCamp('camp-ktm-01');
       expect(list.length, 1);
@@ -147,7 +151,7 @@ void main() {
         createdByDeviceId: 'dev-1',
       );
 
-      await patientRepo.registerPatient(p, createdByUserId: 'usr-1', deviceId: 'dev-1');
+      await patientRepo.registerPatient(p, createdByUserId: 'usr-1', createdByUserName: 'Test Nurse', createdByUserRole: 'DATA_TAKER', deviceId: 'dev-1');
 
       // Check with same phone
       final dupPhone = await patientRepo.checkDuplicate(
@@ -237,3 +241,4 @@ void main() {
     });
   });
 }
+

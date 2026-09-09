@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
+
 import '../../core/services/nepali_localization_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../viewmodels/auth_viewmodel.dart';
@@ -267,6 +269,42 @@ class _PatientRegistrationViewState
                 // 0. Form Step Progress Indicator
                 _buildFormStepBar(state),
                 const SizedBox(height: 14),
+
+                // No active camp warning banner (Bug #2 fix)
+                if (camp == null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.orange.shade400,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.orange.shade700,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'No active camp selected. Please activate a camp from the dashboard before registering patients.',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -1258,6 +1296,8 @@ class _PatientRegistrationViewState
                                   campId: camp.id,
                                   campCode: camp.campCode,
                                   staffUserId: user?.id ?? 'usr-field',
+                                  staffUserName: user?.name ?? 'Field Nurse',
+                                  staffUserRole: user?.role.toDbString() ?? AppConstants.roleDataTaker,
                                   deviceId: device?.deviceId ?? 'dev-field',
                                   tenantId: camp.tenantId.isNotEmpty
                                       ? camp.tenantId
