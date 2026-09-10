@@ -53,3 +53,11 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Bundled ML Kit Text Recognition models (statically linked into APK)
+    // Runs 100% offline with ZERO network download or Google Play Services dependencies
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")
+}
+

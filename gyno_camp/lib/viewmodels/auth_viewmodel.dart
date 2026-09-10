@@ -34,7 +34,11 @@ class AuthState {
 class AuthViewModel extends StateNotifier<AuthState> {
   final IAuthRepository _authRepository;
 
-  AuthViewModel(this._authRepository) : super(const AuthState()) {
+  AuthViewModel(this._authRepository)
+      : super(AuthState(
+          isLoading: SessionService.current?.hasActiveSession() ?? false,
+          currentUser: _authRepository.currentUser,
+        )) {
     _init();
   }
 

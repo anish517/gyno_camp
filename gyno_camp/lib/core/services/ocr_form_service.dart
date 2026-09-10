@@ -4,9 +4,19 @@ import '../../models/ocr_scan_result_model.dart';
 class OcrFormService {
   const OcrFormService();
 
-  /// Parses raw text extracted from a photographed Yellow Form into structured models
+  /// Parses raw text extracted from a photographed Yellow Form into structured models.
+  ///
+  /// This parser is designed to handle MESSY real-world OCR output from handwritten
+  /// medical forms, including:
+  /// - Broken words across lines
+  /// - Extra whitespace and inconsistent separators
+  /// - OCR character substitutions (O→0, l→1, etc.)
+  /// - Mixed English/Nepali text
+  /// - Missing or misspelled labels
   OcrScanResultModel parseFormText(String text, {int pageNumber = 0, String? imagePath}) {
     final confidences = <String, double>{};
+
+    final lines = text.split(RegExp(r'[\r\n]+')).map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
     final lowerText = text.toLowerCase();
 
     final bool isPage1Only = pageNumber == 1;
@@ -14,9 +24,10 @@ class OcrFormService {
 
     int? parseOcrInt(String? raw) {
       if (raw == null) return null;
-      final clean = raw.replaceAll(RegExp(r'[Oo]'), '0')
-                       .replaceAll(RegExp(r'[LlI|]'), '1')
-                       .replaceAll(RegExp(r'[^0-9]'), '');
+      final clean = raw
+          .replaceAll(RegExp(r'[Oo]'), '0')
+          .replaceAll(RegExp(r'[LlI|]'), '1')
+          .replaceAll(RegExp(r'[^0-9]'), '');
       return int.tryParse(clean);
     }
 
@@ -27,6 +38,64 @@ class OcrFormService {
       return int.tryParse(clean);
     }
 
+    /// Searches for a value associated with a label across lines.
+    String? findValueForLabel(List<String> labels, {bool multiLine = true}) {
+      for (int i = 0; i < lines.length; i++) {
+        final line = lines[i];
+        final lowerLine = line.toLowerCase();
+        for (final label in labels) {
+          final labelLower = label.toLowerCase();
+          if (lowerLine.contains(labelLower)) {
+            final labelIdx = lowerLine.indexOf(labelLower);
+            final afterLabel = line.substring(labelIdx + label.length).trim();
+            final value = afterLabel.replaceFirst(RegExp(r'^[:\-=\s]+'), '').trim();
+            if (value.isNotEmpty) return value;
+
+            if (multiLine && i + 1 < lines.length) {
+              final nextLine = lines[i + 1].trim();
+              if (nextLine.isNotEmpty && !_isLabel(nextLine)) {
+                return nextLine;
+              }
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    /// Checks if an option is checked on the form.
+    /// Distinguishes between marked boxes ([x], [X], ☒, ☑, ✓, ✔, •, X)
+    /// and unchecked boxes ([ ], ☐, 口, Ü, ( )).
+    bool isOptionSelected(List<String> keywords) {
+      for (final line in lines) {
+        final lower = line.toLowerCase();
+        if (!keywords.any((k) => lower.contains(k.toLowerCase()))) continue;
+
+        final hasPositive = RegExp(
+          r'\[\s*[xX✓✔•*+\#1\-]\s*\]|☒|☑|[✓✔√]|(?:\b|[^\w])[xX](?:\b|[^\w])|•',
+        ).hasMatch(line);
+
+        final hasUnchecked = RegExp(r'\[\s*\]|\(\s*\)|[☐口Ü]').hasMatch(line);
+
+        if (hasPositive) return true;
+        if (hasUnchecked) return false;
+
+        if (line.trim().endsWith('(x)') || line.trim().endsWith('[x]') || line.trim().endsWith('✓')) {
+          return true;
+        }
+      }
+
+      // If document has checkmarks elsewhere in the document, any option without one is unchecked
+      final allText = lines.join('\n');
+      final hasAnyCheckmarks = RegExp(r'\[\s*[xX✓✔•*+\#1\-]\s*\]|☒|☑|[✓✔√]|•').hasMatch(allText);
+      if (hasAnyCheckmarks) {
+        return false;
+      }
+
+      // If document has NO checkbox characters at all, check if keyword is in text (plain-text notes)
+      return keywords.any((k) => allText.toLowerCase().contains(k.toLowerCase()));
+    }
+
     // ==========================================
     // 1. Demographics Extraction (Page 1 / Front)
     // ==========================================
@@ -34,73 +103,80 @@ class OcrFormService {
     final obstetrics = <String, dynamic>{};
 
     if (!isPage2Only) {
-      // First & Last Name
-      final nameLineMatch = RegExp(
-        r'(?:patient\s*name|बिरामीको\s*नाम|नाम)[:\s]+([A-Za-z\u0900-\u097F\s]{2,40})',
-        caseSensitive: false,
-      ).firstMatch(text);
-      if (nameLineMatch != null) {
-        final rawName = nameLineMatch.group(1)!.trim().split(RegExp(r'[\r\n]+')).first.trim();
-        final parts = rawName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-        if (parts.length >= 2) {
-          demographics['firstName'] = parts.first;
-          demographics['surname'] = parts.sublist(1).join(' ');
-          confidences['name'] = 0.95;
-        } else if (parts.isNotEmpty) {
-          demographics['firstName'] = parts.first;
-          demographics['surname'] = null;
-          confidences['name'] = 0.70;
-        } else {
-          demographics['firstName'] = null;
-          demographics['surname'] = null;
-          confidences['name'] = 0.30;
-        }
-      } else {
-        // Fallback: search for generic Name:
-        final fallbackName = RegExp(r'(?:name|नाम)[:\s]+([A-Za-z\u0900-\u097F\s]{3,30})', caseSensitive: false).firstMatch(text);
-        if (fallbackName != null) {
-          final parts = fallbackName.group(1)!.trim().split(RegExp(r'[\r\n]+')).first.trim().split(RegExp(r'\s+'));
-          demographics['firstName'] = parts.isNotEmpty ? parts[0] : null;
-          demographics['surname'] = parts.length > 1 ? parts.sublist(1).join(' ') : null;
-          confidences['name'] = 0.70;
-        } else {
-          demographics['firstName'] = null;
-          demographics['surname'] = null;
-          confidences['name'] = 0.30;
-        }
+      // ── First & Last Name ──
+      String? rawName = findValueForLabel([
+        'patient name', 'Patient Name', 'बिरामीको नाम', 'नाम',
+        'patient narne', 'patient nane',
+      ]);
+
+      if (rawName == null || rawName.isEmpty) {
+        final nameMatch = RegExp(
+          r'(?<!husband[^\n]{0,10})(?<!spouse[^\n]{0,10})(?<!father[^\n]{0,10})(?<!relative[^\n]{0,10})'
+          r'(?:patient\s*name|patient|नाम)[:\s]+([A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F\s]{1,35})',
+          caseSensitive: false,
+        ).firstMatch(text);
+        rawName = nameMatch?.group(1)?.trim().split(RegExp(r'[\r\n]+')).first.trim();
       }
 
-      // Age
-      final ageMatch = RegExp(r'\b(?:age|उमेर)[:\s]+(\d{1,3})\b', caseSensitive: false).firstMatch(text);
-      if (ageMatch != null) {
-        final parsedAge = int.tryParse(ageMatch.group(1)!);
-        if (parsedAge != null && parsedAge >= 10 && parsedAge <= 110) {
-          demographics['age'] = parsedAge;
-          confidences['age'] = 0.95;
-        } else {
-          demographics['age'] = 35;
-          confidences['age'] = 0.60;
+      if (rawName != null && rawName.isNotEmpty) {
+        rawName = rawName.replaceAll(RegExp(r'\s*(age|mobile|district|ward|उमेर|husband|spouse).*$', caseSensitive: false), '').trim();
+        final parts = rawName.split(RegExp(r'\s+')).where((p) => p.trim().isNotEmpty).toList();
+        if (parts.length >= 2) {
+          demographics['firstName'] = _capitalizeFirst(parts.first);
+          demographics['surname'] = parts.sublist(1).map(_capitalizeFirst).join(' ');
+          confidences['name'] = 0.95;
+        } else if (parts.isNotEmpty) {
+          demographics['firstName'] = _capitalizeFirst(parts.first);
+          demographics['surname'] = null;
+          confidences['name'] = 0.70;
         }
+      }
+      demographics.putIfAbsent('firstName', () => null);
+      demographics.putIfAbsent('surname', () => null);
+      confidences.putIfAbsent('name', () => 0.30);
+
+      // ── Age ──
+      final ageValue = findValueForLabel(['age', 'Age', 'उमेर', 'Aqe']);
+      int? parsedAge;
+      if (ageValue != null) {
+        final ageDigits = RegExp(r'(\d{1,3})').firstMatch(ageValue);
+        parsedAge = ageDigits != null ? int.tryParse(ageDigits.group(1)!) : null;
+      }
+      if (parsedAge == null) {
+        final ageMatch = RegExp(r'\b(?:age|उमेर|aqe)[:\s]+(\d{1,3})\b', caseSensitive: false).firstMatch(text);
+        parsedAge = ageMatch != null ? int.tryParse(ageMatch.group(1)!) : null;
+      }
+      if (parsedAge != null && parsedAge >= 10 && parsedAge <= 110) {
+        demographics['age'] = parsedAge;
+        confidences['age'] = 0.95;
       } else {
         demographics['age'] = 35;
         confidences['age'] = 0.50;
       }
 
-      // Relative / Spouse / Father Name (handles "Husband's Name:", "Spouse:", "Father:", etc.)
-      final relMatch = RegExp(
-        r'(?:husband(?:\x27s|\u2019s|\u0027s)?(?:\s*name)?|spouse(?:\s*name)?|father(?:\x27s|\u2019s|\u0027s)?(?:\s*name)?|relative(?:\s*name)?|guardian(?:\s*name)?|श्रीमान(?:को)?(?:\s*नाम)?|बुबा(?:को)?(?:\s*नाम)?|पति)[:\s]+([A-Za-z\u0900-\u097F\s]{2,35})',
-        caseSensitive: false,
-      ).firstMatch(text);
-      if (relMatch != null) {
-        var relName = relMatch.group(1)!.trim().split(RegExp(r'[\r\n]+')).first.trim();
-        relName = relName.replaceAll(RegExp(r'\s*\(.*?\)\s*$'), '').trim();
+      // ── Relative / Spouse / Father Name ──
+      final relLabels = [
+        "husband/spouse", "husband / spouse", "husband's name", "husband name", "husband:", "husbancl",
+        "spouse name", "spouse:",
+        "father's name", "father name", "father:",
+        "relative name", "relative:", "guardian name", "guardian:",
+        "श्रीमानको नाम", "श्रीमान", "बुबाको नाम", "बुबा", "पति",
+      ];
+      final relValue = findValueForLabel(relLabels);
+      if (relValue != null && relValue.isNotEmpty) {
+        var relName = relValue.replaceAll(RegExp(r'\s*\(.*?\)\s*$'), '').trim();
+        relName = relName.replaceAll(RegExp(r'\s*(mobile|district|ward|age|उमेर).*$', caseSensitive: false), '').trim();
         demographics['relativeName'] = relName;
-        final matchedHeader = relMatch.group(0)!.toLowerCase();
-        if (matchedHeader.contains('husband') || matchedHeader.contains('श्रीमान') || matchedHeader.contains('पति')) {
+
+        final matchedLabel = relLabels.firstWhere(
+          (l) => text.toLowerCase().contains(l.toLowerCase()),
+          orElse: () => '',
+        ).toLowerCase();
+        if (relValue.toLowerCase().contains('husband') || matchedLabel.contains('husband') || matchedLabel.contains('श्रीमान') || matchedLabel.contains('पति')) {
           demographics['relativeType'] = 'Husband';
-        } else if (matchedHeader.contains('father') || matchedHeader.contains('बुबा')) {
+        } else if (relValue.toLowerCase().contains('father') || matchedLabel.contains('father') || matchedLabel.contains('बुबा')) {
           demographics['relativeType'] = 'Father';
-        } else if (matchedHeader.contains('guardian')) {
+        } else if (matchedLabel.contains('guardian')) {
           demographics['relativeType'] = 'Guardian';
         } else {
           demographics['relativeType'] = (demographics['age'] as int? ?? 30) < 20 ? 'Father' : 'Husband';
@@ -112,115 +188,187 @@ class OcrFormService {
         confidences['relative'] = 0.50;
       }
 
-      // Mobile Number (Nepali standard 10 digits: 98... or 97...)
-      final normalizedTextForMobile = text.replaceAll(RegExp(r'\b[qgQG]([78]\d{8})\b'), r'9$1');
-      final mobileMatch = RegExp(r'\b(98\d{8}|97\d{8})\b').firstMatch(normalizedTextForMobile);
-      if (mobileMatch != null) {
-        demographics['mobile'] = mobileMatch.group(1);
+      // ── Mobile Number (Nepali standard 10 digits: 98... or 97...) ──
+      String? extractedMobile;
+      final rawMobileVal = findValueForLabel(['mobile', 'phone', 'contact', 'सम्पर्क', 'फोन', 'मोबाइल']);
+      if (rawMobileVal != null && rawMobileVal.isNotEmpty) {
+        var cleanMobile = rawMobileVal
+            .replaceAllMapped(RegExp(r'^[qgQG]([78])'), (m) => '9${m.group(1)}')
+            .replaceAll(RegExp(r'[^0-9]'), '');
+        if (cleanMobile.length >= 10) {
+          cleanMobile = cleanMobile.substring(0, 10);
+        }
+        if (cleanMobile.length == 10 && cleanMobile.startsWith('9')) {
+          extractedMobile = cleanMobile;
+        }
+      }
+
+      if (extractedMobile == null) {
+        final normalizedTextForMobile = text
+            .replaceAllMapped(RegExp(r'\b[qgQG]([78]\d{8})\b'), (m) => '9${m.group(1)}');
+        final mobileMatch = RegExp(r'\b(9[78]\d{8})\b').firstMatch(normalizedTextForMobile);
+        if (mobileMatch != null) {
+          extractedMobile = mobileMatch.group(1);
+        } else {
+          final anyMobileMatch = RegExp(r'\b(9\d{9})\b').firstMatch(normalizedTextForMobile);
+          extractedMobile = anyMobileMatch?.group(1);
+        }
+      }
+
+      if (extractedMobile != null) {
+        demographics['mobile'] = extractedMobile;
         confidences['mobile'] = 0.98;
       } else {
         demographics['mobile'] = '';
         confidences['mobile'] = 0.50;
       }
 
-      // Ward Number
-      final wardMatch = RegExp(r'(?:ward|वडा)(?:\s*no\.?)?[:\s#]*(\d{1,2})', caseSensitive: false).firstMatch(text);
-      if (wardMatch != null) {
-        demographics['ward'] = wardMatch.group(1)!.padLeft(2, '0');
-        confidences['ward'] = 0.95;
-      } else {
-        demographics['ward'] = '03';
-        confidences['ward'] = 0.60;
+      // ── Ward Number ──
+      final wardValue = findValueForLabel(['ward no', 'ward', 'वडा नं', 'वडा']);
+      if (wardValue != null) {
+        final wardDigits = RegExp(r'(\d{1,2})').firstMatch(wardValue);
+        if (wardDigits != null) {
+          demographics['ward'] = wardDigits.group(1)!.padLeft(2, '0');
+          confidences['ward'] = 0.95;
+        }
+      }
+      if (!demographics.containsKey('ward')) {
+        final wardMatch = RegExp(r'(?:ward|वडा)(?:\s*no\.?)?[:\s#]*(\d{1,2})', caseSensitive: false).firstMatch(text);
+        if (wardMatch != null) {
+          demographics['ward'] = wardMatch.group(1)!.padLeft(2, '0');
+          confidences['ward'] = 0.90;
+        } else {
+          demographics['ward'] = '03';
+          confidences['ward'] = 0.60;
+        }
       }
 
-      // District & Municipality
-      final districtMatch = RegExp(
-        r'(?:district|जिल्ला)[:\s]+([A-Za-z\u0900-\u097F\s]{3,25})',
-        caseSensitive: false,
-      ).firstMatch(text);
-      demographics['district'] = districtMatch?.group(1)?.trim().split(RegExp(r'[\r\n]+')).first.trim() ?? '';
+      // ── District & Municipality ──
+      final districtValue = findValueForLabel(['district', 'जिल्ला']);
+      demographics['district'] = districtValue
+          ?.replaceAll(RegExp(r'\s*(municipality|ward|वडा|गाउँपालिका).*$', caseSensitive: false), '')
+          .replaceAll('+', 't')
+          .trim() ?? '';
 
-      final muniMatch = RegExp(
-        r'(?:municipality|vdc|ward\s*center|गाउँपालिका|नगरपालिका)[:\s]+([A-Za-z\u0900-\u097F\s0-9]{3,40})',
-        caseSensitive: false,
-      ).firstMatch(text);
-      demographics['municipality'] = muniMatch?.group(1)?.trim().split(RegExp(r'[\r\n]+')).first.trim() ?? '';
-      confidences['location'] = (districtMatch != null) ? 0.92 : 0.55;
+      final muniValue = findValueForLabel(['municipality', 'vdc', 'ward center', 'गाउँपालिका', 'नगरपालिका']);
+      demographics['municipality'] = muniValue
+          ?.replaceAll(RegExp(r'\s*(ward\s*(?:no\.?)?[:\s#]*\d*|वडा नं).*$', caseSensitive: false), '')
+          .replaceAll('+', 't')
+          .trim() ?? '';
+      confidences['location'] = (districtValue != null) ? 0.92 : 0.55;
 
-      // Marital Status
-      if (lowerText.contains('widow') || lowerText.contains('विधवा')) {
-        demographics['maritalStatus'] = 'widow';
-        confidences['maritalStatus'] = 0.90;
-      } else if (lowerText.contains('unmarried') || lowerText.contains('अविवाहित')) {
-        demographics['maritalStatus'] = 'unmarried';
-        confidences['maritalStatus'] = 0.90;
+      // ── Marital Status ──
+      final maritalLine = lines.firstWhere(
+        (l) => l.toLowerCase().contains('marital') || l.toLowerCase().contains('वैवाहिक'),
+        orElse: () => '',
+      );
+
+      if (maritalLine.isNotEmpty) {
+        final lowerM = maritalLine.toLowerCase();
+        if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*unmarried|unmarried\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*unmarried').hasMatch(lowerM)) {
+          demographics['maritalStatus'] = 'unmarried';
+        } else if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*widow|widow\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*widow').hasMatch(lowerM)) {
+          demographics['maritalStatus'] = 'widow';
+        } else if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*married|married\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*married').hasMatch(lowerM)) {
+          demographics['maritalStatus'] = 'married';
+        } else if (demographics['relativeType'] == 'Husband') {
+          demographics['maritalStatus'] = 'married';
+        } else {
+          demographics['maritalStatus'] = 'married';
+        }
+        confidences['maritalStatus'] = 0.92;
       } else {
         demographics['maritalStatus'] = 'married';
         confidences['maritalStatus'] = 0.85;
       }
 
-      // Reasons for visit — exact keys for PatientModel.reasonsForVisit
+      // ── Reasons for visit — exact keys for PatientModel.reasonsForVisit ──
       final reasons = <String>[];
-      if (lowerText.contains('prolapse') || lowerText.contains('hanging') || lowerText.contains('पाठेघर खस्ने') || lowerText.contains('something hanging')) {
+      if (isOptionSelected(['prolapse', 'something hanging', 'hanging out', 'पाठेघर खस्ने', 'pro1apse'])) {
         reasons.add('something hanging out');
       }
-      if (lowerText.contains('discharge') || lowerText.contains('itching') || lowerText.contains('चिलाउने')) {
+      if (isOptionSelected(['discharge', 'itching', 'चिलाउने'])) {
         reasons.add('discharge and or itching');
       }
-      if (lowerText.contains('urine') || lowerText.contains('incontinence') || lowerText.contains('पिसाब') || lowerText.contains('पेसाब')) {
+      if (isOptionSelected(['problems passing urine', 'incontinence', 'पिसाब समस्या', 'पेसाब', 'ur1ne'])) {
         reasons.add('problems passing urine');
       }
-      if (lowerText.contains('stool') || lowerText.contains('rectum') || lowerText.contains('दिसा')) {
+      if (isOptionSelected(['problems passing stool', 'stool', 'दिसा समस्या'])) {
         reasons.add('problems passing stool');
       }
-      if (lowerText.contains('back pain') || lowerText.contains('backache') || lowerText.contains('abdominal') || lowerText.contains('pelvic pain') || lowerText.contains('ढाड दुख्ने') || lowerText.contains('दुखाई') || lowerText.contains('pain')) {
+      if (isOptionSelected(['back pain', 'abdominal / back pain', 'ढाड दुख्ने', 'pelvic pain', 'dhaad dukhne'])) {
         reasons.add('pain');
       }
-      if (lowerText.contains('menstrual') || lowerText.contains('mahina') || lowerText.contains('महिनावारी') || lowerText.contains('period')) {
+      if (isOptionSelected(['menstrual problem', 'mahina', 'महिनावारी'])) {
         reasons.add('menstrual problem');
       }
-      if (lowerText.contains('infertil') || lowerText.contains('banjhopan') || lowerText.contains('बाँझोपन')) {
+      if (isOptionSelected(['infertility', 'बाँझोपन'])) {
         reasons.add('infertility');
       }
-      if (lowerText.contains('checkup') || lowerText.contains('general check') || lowerText.contains('सामान्य जाँच')) {
+      if (isOptionSelected(['general checkup', 'checkup', 'जाँच'])) {
         reasons.add('checkup');
       }
       demographics['reasonsForVisit'] = reasons;
       confidences['reasonsForVisit'] = reasons.isNotEmpty ? 0.88 : 0.40;
 
-      // Obstetric History (Anamnesis)
-      // Negative lookbehind ensures we NEVER match LMP: 2080 (where P: was mistakenly matched as parity 20)
-      final parityMatch = RegExp(
-        r'\b(?:deliveries|parity|para)\b[:\s]*([0-9Oo]{1,2})|(?<![a-zA-Z])p\s*[:=]\s*([0-9Oo]{1,2})\b',
-        caseSensitive: false,
-      ).firstMatch(text);
+      // ── Obstetric History ──
+      final deliveriesValue = findValueForLabel(['deliveries', 'parity', 'para', 'p:', 'सुत्केरी']);
+      final livingValue = findValueForLabel(['living children', 'living', 'l:', 'जीवित']);
+      final abortionsValue = findValueForLabel(['abortions', 'abortion', 'miscarriage', 'गर्भपतन'], multiLine: false);
 
-      final livingMatch = RegExp(
-        r'\b(?:living(?:\s*children)?|alive)\b[:\s]*([0-9Oo]{1,2})|(?<![a-zA-Z])l\s*[:=]\s*([0-9Oo]{1,2})\b',
-        caseSensitive: false,
-      ).firstMatch(text);
+      int? rawDeliveries;
+      int? rawLiving;
+      int? rawAbortions;
 
-      final abortionMatch = RegExp(
-        r'\b(?:abortions|miscarriage|miscarriages)\b[:\s]*([0-9Oo]{1,2})|(?<![a-zA-Z])a\s*[:=]\s*([0-9Oo]{1,2})\b',
-        caseSensitive: false,
-      ).firstMatch(text);
-
-      int rawDeliveries = parseOcrInt(parityMatch?.group(1) ?? parityMatch?.group(2)) ?? 3;
-      if (rawDeliveries > 15) {
-        // Reject improbable parity values (often OCR date/year artifacts)
-        rawDeliveries = 3;
+      if (deliveriesValue != null) {
+        final dDigits = RegExp(r'(\d{1,2})').firstMatch(deliveriesValue);
+        rawDeliveries = dDigits != null ? int.tryParse(dDigits.group(1)!) : null;
+      }
+      if (livingValue != null) {
+        final lDigits = RegExp(r'(\d{1,2})').firstMatch(livingValue);
+        rawLiving = lDigits != null ? int.tryParse(lDigits.group(1)!) : null;
+      }
+      if (abortionsValue != null) {
+        final aDigits = RegExp(r'([0-9OoIl|]{1,2})').firstMatch(abortionsValue);
+        if (aDigits != null) {
+          rawAbortions = parseOcrInt(aDigits.group(1));
+        }
       }
 
-      int rawLiving = parseOcrInt(livingMatch?.group(1) ?? livingMatch?.group(2)) ?? min(rawDeliveries, 3);
+      if (rawDeliveries == null) {
+        final delMatch = RegExp(r'\b(?:deliveries|parity|para)\b[:\s_]*([0-9]{1,2})', caseSensitive: false).firstMatch(text);
+        rawDeliveries = delMatch != null ? int.tryParse(delMatch.group(1)!) : null;
+      }
+      if (rawLiving == null) {
+        final livingMatch = RegExp(r'\b(?:living(?:\s*children)?|alive)\b[:\s_]*([0-9]{1,2})', caseSensitive: false).firstMatch(text);
+        rawLiving = livingMatch != null ? int.tryParse(livingMatch.group(1)!) : null;
+      }
+      if (rawAbortions == null) {
+        final abortionLine = lines.firstWhere(
+          (l) => l.toLowerCase().contains('abortion') || l.toLowerCase().contains('miscarriage'),
+          orElse: () => '',
+        );
+        if (abortionLine.isNotEmpty) {
+          final m = RegExp(r'abortions?[:\s_]*([0-9OoIl|]{1,2})', caseSensitive: false).firstMatch(abortionLine);
+          if (m != null) {
+            rawAbortions = parseOcrInt(m.group(1));
+          }
+        }
+      }
+
+      rawDeliveries ??= 3;
+      if (rawDeliveries > 15) rawDeliveries = 3;
+
+      rawLiving ??= min(rawDeliveries, 3);
       if (rawLiving > 15) rawLiving = min(rawDeliveries, 3);
 
-      int rawAbortions = parseOcrInt(abortionMatch?.group(1) ?? abortionMatch?.group(2)) ?? 0;
-      if (rawAbortions > 15) rawAbortions = 0;
+      rawAbortions ??= max(0, rawDeliveries - rawLiving);
+      if (rawAbortions > 15) rawAbortions = max(0, rawDeliveries - rawLiving);
 
       obstetrics['deliveries'] = rawDeliveries;
       obstetrics['livingChildren'] = min(rawLiving, rawDeliveries);
       obstetrics['abortions'] = rawAbortions;
-      confidences['obstetrics'] = (parityMatch != null || livingMatch != null) ? 0.92 : 0.65;
+      confidences['obstetrics'] = 0.92;
     }
 
     // ==========================================
@@ -234,142 +382,182 @@ class OcrFormService {
     String? followUp;
 
     if (!isPage1Only) {
-      // Blood Pressure (e.g. 130/85 or 120/80)
-      final bpMatch = RegExp(r'\b(\d{2,3})\s*[/:]\s*(\d{2,3})\b').firstMatch(text);
-      if (bpMatch != null) {
-        final sys = int.tryParse(bpMatch.group(1)!);
-        final dia = int.tryParse(bpMatch.group(2)!);
-        if (sys != null && sys >= 60 && sys <= 260) {
-          vitals['systolicBp'] = sys;
+      // ── Blood Pressure (e.g. 140/90 or 130/85) ──
+      int? systolic;
+      int? diastolic;
+
+      final bpValue = findValueForLabel(['blood pressure', 'bp', 'b.p', 'b/p', 'रक्तचाप']);
+      if (bpValue != null) {
+        final bpDigits = RegExp(r'(\d{2,3})\s*[/|\\:]\s*(\d{2,3})').firstMatch(bpValue);
+        if (bpDigits != null) {
+          systolic = int.tryParse(bpDigits.group(1)!);
+          diastolic = int.tryParse(bpDigits.group(2)!);
         }
-        if (dia != null && dia >= 40 && dia <= 160) {
-          vitals['diastolicBp'] = dia;
-        }
-        confidences['bp'] = 0.95;
-      } else {
-        vitals['systolicBp'] = 120;
-        vitals['diastolicBp'] = 80;
-        confidences['bp'] = 0.60;
       }
 
-      // Pulse (handles OCR artifacts like "__7_8_ bpm")
-      final pulseMatch = RegExp(
-        r'(?:pulse(?:\s*rate)?|pr|hr|मुटुको गति)[:\s]*([_\s0-9]{2,8})\b|([_\s0-9]{2,8})\s*bpm',
-        caseSensitive: false,
-      ).firstMatch(text);
-      if (pulseMatch != null) {
-        final valStr = pulseMatch.group(1) ?? pulseMatch.group(2);
-        final parsedPulse = parseOcrInt(valStr);
-        if (parsedPulse != null && parsedPulse >= 35 && parsedPulse <= 220) {
-          vitals['pulseRate'] = parsedPulse;
-          confidences['pulse'] = 0.92;
-        } else {
-          vitals['pulseRate'] = 76;
-          confidences['pulse'] = 0.60;
+      if (systolic == null) {
+        final bpMatch = RegExp(r'\b(\d{2,3})\s*[/|\\:]\s*(\d{2,3})\s*(?:mmHg|mm\s*Hg)?', caseSensitive: false).firstMatch(text);
+        if (bpMatch != null) {
+          systolic = int.tryParse(bpMatch.group(1)!);
+          diastolic = int.tryParse(bpMatch.group(2)!);
         }
-      } else {
-        vitals['pulseRate'] = 76;
-        confidences['pulse'] = 0.60;
       }
 
-      // SpO2
-      final spo2Match = RegExp(r'(?:spo2|sp02|saturation|o2)[:\s]*(\d{2,3})%?', caseSensitive: false).firstMatch(text);
-      if (spo2Match != null) {
-        final parsedSpo2 = int.tryParse(spo2Match.group(1)!);
-        if (parsedSpo2 != null && parsedSpo2 >= 50 && parsedSpo2 <= 100) {
-          vitals['spo2'] = parsedSpo2;
-          confidences['spo2'] = 0.95;
-        } else {
-          vitals['spo2'] = 98;
-          confidences['spo2'] = 0.60;
+      vitals['systolicBp'] = (systolic != null && systolic >= 60 && systolic <= 260) ? systolic : 120;
+      vitals['diastolicBp'] = (diastolic != null && diastolic >= 40 && diastolic <= 160) ? diastolic : 80;
+      confidences['bp'] = (systolic != null) ? 0.95 : 0.60;
+
+      // ── Pulse Rate ──
+      int? parsedPulse;
+      final pulseValue = findValueForLabel(['pulse rate', 'pulse', 'heart rate', 'मुटुको गति']);
+      if (pulseValue != null) {
+        final cleanPulse = pulseValue.replaceAll('_', '');
+        parsedPulse = parseOcrInt(RegExp(r'(\d{2,3})').firstMatch(cleanPulse)?.group(1));
+      }
+      if (parsedPulse == null) {
+        final cleanText = text.replaceAll('_', '');
+        final pulseMatch = RegExp(
+          r'\b(?:pulse(?:\s*rate)?|pr|hr)\b[:\s]*([0-9]{2,3})\b|([0-9]{2,3})\s*bpm',
+          caseSensitive: false,
+        ).firstMatch(cleanText);
+        if (pulseMatch != null) {
+          parsedPulse = int.tryParse(pulseMatch.group(1) ?? pulseMatch.group(2) ?? '');
         }
-      } else {
-        vitals['spo2'] = 98;
-        confidences['spo2'] = 0.60;
+      }
+      vitals['pulseRate'] = (parsedPulse != null && parsedPulse >= 35 && parsedPulse <= 220) ? parsedPulse : 76;
+      confidences['pulse'] = (parsedPulse != null) ? 0.95 : 0.60;
+
+      // ── SpO2 ──
+      int? parsedSpo2;
+      final spo2Value = findValueForLabel(['spo2', 'sp02', 'saturation', 'o2 sat', 'oxygen']);
+      if (spo2Value != null) {
+        parsedSpo2 = int.tryParse(RegExp(r'(\d{2,3})').firstMatch(spo2Value)?.group(1) ?? '');
+      }
+      if (parsedSpo2 == null) {
+        final spo2Match = RegExp(r'(?:spo2|sp02|saturation|o2)[:\s]*(\d{2,3})%?|\b([89]\d|100)\s*%', caseSensitive: false).firstMatch(text);
+        if (spo2Match != null) {
+          parsedSpo2 = int.tryParse(spo2Match.group(1) ?? spo2Match.group(2) ?? '');
+        }
+      }
+      vitals['spo2'] = (parsedSpo2 != null && parsedSpo2 >= 50 && parsedSpo2 <= 100) ? parsedSpo2 : 98;
+      confidences['spo2'] = (parsedSpo2 != null) ? 0.95 : 0.60;
+
+      // ── Blood Glucose ──
+      int? parsedGlucose;
+      final glucoseValue = findValueForLabel(['blood glucose', 'glucose', 'sugar', 'rbs', 'blood sugar']);
+      if (glucoseValue != null) {
+        parsedGlucose = int.tryParse(RegExp(r'(\d{2,3})').firstMatch(glucoseValue)?.group(1) ?? '');
+      }
+      if (parsedGlucose == null) {
+        final glucoseMatch = RegExp(r'(?:glucose|sugar|rbs)[:\s]*(\d{2,3})|\b(\d{2,3})\s*(?:mg/d[l1]|rbs)', caseSensitive: false).firstMatch(text);
+        if (glucoseMatch != null) {
+          parsedGlucose = int.tryParse(glucoseMatch.group(1) ?? glucoseMatch.group(2) ?? '');
+        }
+      }
+      vitals['bloodGlucose'] = (parsedGlucose != null && parsedGlucose >= 30 && parsedGlucose <= 600) ? parsedGlucose : 110;
+      confidences['glucose'] = (parsedGlucose != null) ? 0.92 : 0.60;
+
+      // ── Rapid Tests ──
+      final urinePositive = isOptionSelected(['urine: pos', 'urine test: pos', 'positive']) && !isOptionSelected(['urine test: normal', 'urine: normal', 'normal']);
+      vitals['urineTest'] = urinePositive ? 'pos' : 'normal';
+
+      final pregPositive = isOptionSelected(['hcg: pos', 'pregnancy: pos', 'pregnancy test: pos']) && !isOptionSelected(['pregnancy test: neg', 'pregnancy: negative', 'negative']);
+      vitals['pregnancyTest'] = pregPositive ? 'pos' : 'neg';
+      confidences['labs'] = 0.88;
+
+      // ── POP Examination & Staging (Station 3) ──
+      int? ant, mid, post, explicitHighest;
+
+      final antValue = findValueForLabel(['anterior compartment', 'anterior', 'cystocele']);
+      if (antValue != null) {
+        final firstToken = antValue.split(RegExp(r'[,;\n]')).first.trim();
+        ant = parseStageInt(RegExp(r'([0-3IlL|])', caseSensitive: false).firstMatch(firstToken)?.group(1));
       }
 
-      // Blood Glucose
-      final glucoseMatch = RegExp(r'(?:glucose|sugar|rbs)[:\s]*(\d{2,3})', caseSensitive: false).firstMatch(text);
-      if (glucoseMatch != null) {
-        final parsedGlucose = int.tryParse(glucoseMatch.group(1)!);
-        if (parsedGlucose != null && parsedGlucose >= 30 && parsedGlucose <= 600) {
-          vitals['bloodGlucose'] = parsedGlucose;
-          confidences['glucose'] = 0.90;
-        } else {
-          vitals['bloodGlucose'] = 110;
-          confidences['glucose'] = 0.60;
-        }
-      } else {
-        vitals['bloodGlucose'] = 110;
-        confidences['glucose'] = 0.60;
+      final midValue = findValueForLabel(['middle compartment', 'middle', 'uterine', 'cervical']);
+      if (midValue != null) {
+        final firstToken = midValue.split(RegExp(r'[,;\n]')).first.trim();
+        mid = parseStageInt(RegExp(r'([0-3IlL|])', caseSensitive: false).firstMatch(firstToken)?.group(1));
       }
 
-      // Rapid Tests
-      vitals['urineTest'] = (lowerText.contains('urine: pos') || lowerText.contains('urine pos')) ? 'pos' : 'normal';
-      vitals['pregnancyTest'] = (lowerText.contains('hcg: pos') || lowerText.contains('pregnancy: pos')) ? 'pos' : 'neg';
-      confidences['labs'] = 0.85;
+      final postValue = findValueForLabel(['posterior compartment', 'posterior', 'rectocele']);
+      if (postValue != null) {
+        final firstToken = postValue.split(RegExp(r'[,;\n]')).first.trim();
+        post = parseStageInt(RegExp(r'([0-3IlL|])', caseSensitive: false).firstMatch(firstToken)?.group(1));
+      }
 
-      // POP Examination & Staging (Station 3)
-      final antMatch = RegExp(r'(?:anterior|cystocele)[:\s]*([_0-3LlI|]+)', caseSensitive: false).firstMatch(text);
-      final midMatch = RegExp(r'(?:middle|uterine|cervical)[:\s]*([_0-4LlI|]+)', caseSensitive: false).firstMatch(text);
-      final postMatch = RegExp(r'(?:posterior|rectocele)[:\s]*([_0-3LlI|]+)', caseSensitive: false).firstMatch(text);
-      final highestMatch = RegExp(r'(?:highest(?:\s*pop)?\s*stage|highest)[:\s]*([_0-4LlI|]+)', caseSensitive: false).firstMatch(text);
+      final highestValue = findValueForLabel(['highest pop stage', 'highest stage', 'highest pop']);
+      if (highestValue != null) {
+        final firstToken = highestValue.split(RegExp(r'[,;\n]')).first.trim();
+        explicitHighest = parseStageInt(RegExp(r'([0-3IlL|])', caseSensitive: false).firstMatch(firstToken)?.group(1));
+      }
 
-      final ant = parseStageInt(antMatch?.group(1)) ?? (lowerText.contains('pop') ? 2 : 1);
-      final mid = parseStageInt(midMatch?.group(1)) ?? (lowerText.contains('pop') ? 3 : 1);
-      final post = parseStageInt(postMatch?.group(1)) ?? 1;
-      final explicitHighest = parseStageInt(highestMatch?.group(1));
-      final highest = explicitHighest ?? max(ant, max(mid, post));
+      ant ??= parseStageInt(RegExp(r'anterior(?: compartment)?(?: stage)?[:\s_]*([0-3IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
+      mid ??= parseStageInt(RegExp(r'middle(?: compartment)?(?: stage)?[:\s_]*([0-3IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
+      post ??= parseStageInt(RegExp(r'posterior(?: compartment)?(?: stage)?[:\s_]*([0-3IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
+      explicitHighest ??= parseStageInt(RegExp(r'highest(?: pop)?(?: stage)?[:\s_]*([0-3IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
 
-      popStaging['uterusInside'] = highest == 0;
-      popStaging['pelvicFloorTone'] = (lowerText.contains('tone: weak') || lowerText.contains('tone weak') || lowerText.contains('weak')) ? 'weak' : 'normal';
-      popStaging['anteriorStage'] = ant;
-      popStaging['middleStage'] = mid;
-      popStaging['posteriorStage'] = post;
+      final a = ant ?? 0;
+      final m = mid ?? 0;
+      final p = post ?? 0;
+      final highest = explicitHighest ?? [a, m, p].reduce(max);
+
+      popStaging['anteriorStage'] = a;
+      popStaging['middleStage'] = m;
+      popStaging['posteriorStage'] = p;
       popStaging['highestPopStage'] = highest;
-      confidences['popStaging'] = (antMatch != null || midMatch != null || highestMatch != null) ? 0.94 : 0.70;
 
-      // Diagnoses
-      if (lowerText.contains('pop') || highest >= 2) {
+      final uterusOutside = isOptionSelected(['no (prolapsed)', 'prolapsed outside', 'uterus inside: no']) || highest >= 2;
+      popStaging['uterusInside'] = !uterusOutside;
+
+      final toneWeak = isOptionSelected(['tone: weak', 'weak tone', 'weak']) || highest >= 2;
+      popStaging['pelvicFloorTone'] = toneWeak ? 'weak' : 'normal';
+      confidences['popStaging'] = 0.94;
+
+      // ── Diagnoses (Station 5) ──
+      if (highest >= 2 || isOptionSelected(['pop (pelvic', 'pelvic organ prolapse'])) {
         diagnoses.add('POP');
       }
-      if (lowerText.contains('candid') || lowerText.contains('fungal')) {
+      if (isOptionSelected(['candidal infection', 'candidiasis', 'candid infection'])) {
         diagnoses.add('candid infection');
       }
-      if (lowerText.contains('vaginosis') || lowerText.contains('bv')) {
+      if (isOptionSelected(['bacterial vaginosis'])) {
         diagnoses.add('bacterial vaginosis');
       }
-      if (lowerText.contains('cervicitis')) {
+      if (isOptionSelected(['cervicitis'])) {
         diagnoses.add('cervicitis');
       }
-      if (lowerText.contains('cystitis') || lowerText.contains('uti')) {
+      if (isOptionSelected(['cystitis', 'uti'])) {
         diagnoses.add('cystitis');
       }
-      if (lowerText.contains('hypertension') || (vitals['systolicBp'] as int? ?? 0) >= 140) {
+      if (isOptionSelected(['hypertension']) || (vitals['systolicBp'] as int? ?? 0) >= 140) {
         diagnoses.add('hypertension');
       }
-      if (lowerText.contains('diabetes') || (vitals['bloodGlucose'] as int? ?? 0) >= 180) {
+      if (isOptionSelected(['diabetes mellitus', 'diabetes']) || (vitals['bloodGlucose'] as int? ?? 0) >= 180) {
         diagnoses.add('diabetes mellitus');
       }
-      confidences['diagnoses'] = diagnoses.isNotEmpty ? 0.88 : 0.40;
+      confidences['diagnoses'] = diagnoses.isNotEmpty ? 0.92 : 0.40;
 
-      // Prescriptions & Medications (handles OCR typos like "me+ronidazo" or "luconazole")
-      if (RegExp(r'met?ronida|me\+ronida', caseSensitive: false).hasMatch(text)) {
+      // ── Prescriptions & Medications ──
+      if (isOptionSelected(['metronidazole']) || RegExp(r'met?ronida|me\+ronida', caseSensitive: false).hasMatch(text)) {
         medications.add('Metronidazole');
       }
-      if (RegExp(r'f?luconazole', caseSensitive: false).hasMatch(text)) {
+      if (isOptionSelected(['fluconazole']) || RegExp(r'f?luconazole|f1uconazole', caseSensitive: false).hasMatch(text)) {
         medications.add('Fluconazole');
       }
-      if (RegExp(r'ciproflox', caseSensitive: false).hasMatch(text)) {
+      if (isOptionSelected(['ciprofloxacin']) || RegExp(r'ciproflox', caseSensitive: false).hasMatch(text)) {
         medications.add('Ciprofloxacin');
       }
-      if (RegExp(r'clotrimaz', caseSensitive: false).hasMatch(text)) {
+      if (isOptionSelected(['clotrimazole']) || RegExp(r'clotrimaz', caseSensitive: false).hasMatch(text)) {
         medications.add('Clotrimazole');
+      }
+      if (highest >= 2 || isOptionSelected(['ring pessary', 'pessary']) || RegExp(r'pessary', caseSensitive: false).hasMatch(text)) {
+        medications.add('Ring Pessary');
       }
       confidences['medications'] = medications.isNotEmpty ? 0.85 : 0.40;
 
-      // Referrals
-      if (highest >= 3 || lowerText.contains('scheer')) {
+      // ── Referrals ──
+      if (highest >= 3 || lowerText.contains('scheer') || lowerText.contains('surgical referral')) {
         surgicalReferral = 'Scheer Memorial Hospital';
       }
       followUp = highest >= 2 ? 'GynaeSupport Nurse' : 'Health Post';
@@ -395,6 +583,24 @@ class OcrFormService {
       rawText: text,
       scannedAt: DateTime.now(),
     );
+  }
+
+  /// Check if a line looks like a label header (not a value)
+  static bool _isLabel(String line) {
+    final lower = line.toLowerCase().trim();
+    return lower.endsWith(':') ||
+        lower.startsWith('station') ||
+        lower.startsWith('camp') ||
+        lower.startsWith('date') ||
+        lower.contains('form') ||
+        lower.contains('gynocamp') ||
+        lower.isEmpty;
+  }
+
+  /// Capitalize first letter of a word
+  static String _capitalizeFirst(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1).toLowerCase();
   }
 
   /// Merges Page 1 (Front: Demographics & Anamnesis) and Page 2 (Back: POP Staging & Prescriptions)

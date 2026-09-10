@@ -154,8 +154,12 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 20));
       expect(viewModel.state.isOnline, isTrue);
 
-      // Wait a short duration for auto-sync listener to process
-      await Future.delayed(const Duration(milliseconds: 250));
+      // Wait for auto-sync listener to trigger and complete execution
+      final stopwatch = Stopwatch()..start();
+      while (stopwatch.elapsedMilliseconds < 2000 &&
+          (viewModel.state.isSyncing || viewModel.state.pendingTotalCount > 0)) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
 
       expect(viewModel.state.pendingTotalCount, 0);
       expect(viewModel.state.isFullySynced, isTrue);

@@ -53,6 +53,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
   DeviceSecurityViewModel(this._repository)
       : super(DeviceSecurityState(
           hardwareFingerprint: SecurityService.generateDeviceFingerprint(),
+          isChecking: true,
         )) {
     checkCurrentDevice();
   }

@@ -6,26 +6,36 @@ class DocumentCaptureService {
 
   DocumentCaptureService({ImagePicker? picker}) : _picker = picker ?? ImagePicker();
 
-  /// Captures document photo from device camera
+  /// Captures document photo from device camera at FULL RESOLUTION.
+  ///
+  /// For OCR accuracy, we do NOT compress the image. The full-resolution
+  /// camera sensor output gives ML Kit the best chance of reading
+  /// handwritten text on forms.
   Future<XFile?> captureFromCamera() async {
     return await _picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 90,
+      // No imageQuality set = full resolution (100%).
+      // JPEG compression destroys fine details needed for handwriting OCR.
+      // No maxWidth/maxHeight set = full sensor resolution.
       preferredCameraDevice: CameraDevice.rear,
     );
   }
 
-  /// Selects existing Yellow Form image from device gallery or filesystem
+  /// Selects existing Yellow Form image from device gallery or filesystem.
+  /// Full resolution preserved for OCR.
   Future<XFile?> pickFromGallery() async {
     return await _picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 90,
+      // No imageQuality compression for OCR accuracy
     );
   }
 
   /// Selects multiple images from device gallery (e.g. Page 1 Front + Page 2 Back)
+  /// Full resolution preserved for OCR.
   Future<List<XFile>> pickMultipleImages() async {
-    return await _picker.pickMultiImage(imageQuality: 90);
+    return await _picker.pickMultiImage(
+      // No imageQuality compression for OCR accuracy
+    );
   }
 
   /// Returns pre-configured high-fidelity Yellow Form text for demo & automated testing

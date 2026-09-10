@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
@@ -57,13 +58,25 @@ class OcrRepository implements IOcrRepository {
       detectedPage = pageNumber;
     }
 
-    // Attempt real OCR — Android/iOS via ML Kit, Windows via PowerShell WinRT
+    // Attempt real OCR — Android/iOS via ML Kit (dual-pass Latin+Devanagari),
+    // Windows via PowerShell WinRT
     final mlkit = MlKitOcrService();
     String extractedText = '';
+    String? ocrError;
     try {
       extractedText = await mlkit.extractText(imageFile);
-    } catch (_) {
+      if (kDebugMode) {
+        debugPrint('[OcrRepo] ✅ ML Kit extracted ${extractedText.length} chars for page $detectedPage');
+        debugPrint('[OcrRepo] Image path: $path');
+      }
+    } catch (e) {
+      ocrError = e.toString();
       extractedText = '';
+      if (kDebugMode) {
+        debugPrint('[OcrRepo] ❌ ML Kit OCR FAILED for page $detectedPage: $ocrError');
+        debugPrint('[OcrRepo] Image path: $path');
+        debugPrint('[OcrRepo] Falling back to sample text (SIMULATION MODE)');
+      }
     } finally {
       await mlkit.dispose();
     }
@@ -72,6 +85,14 @@ class OcrRepository implements IOcrRepository {
     final isSimulated = extractedText.trim().isEmpty;
     final String textToProcess;
     if (isSimulated) {
+      if (kDebugMode) {
+        debugPrint('[OcrRepo] ⚠️  SIMULATION MODE active for page $detectedPage');
+        if (ocrError != null) {
+          debugPrint('[OcrRepo] Reason: OCR engine error — $ocrError');
+        } else {
+          debugPrint('[OcrRepo] Reason: OCR returned empty text (image may be too blurry/dark)');
+        }
+      }
       // Graceful fallback: use sample text template so the clinical intake pipeline
       // stays functional and the nurse is never blocked, but flag result as simulated.
       textToProcess = detectedPage == 1
@@ -88,6 +109,13 @@ class OcrRepository implements IOcrRepository {
       pageNumber: detectedPage,
       imagePath: path,
     );
+
+    if (kDebugMode) {
+      final demo = result.demographics;
+      debugPrint('[OcrRepo] Parsed fields → Name: ${demo['firstName']} ${demo['surname']}, '
+          'Age: ${demo['age']}, Mobile: ${demo['mobile']}, Ward: ${demo['ward']}');
+      debugPrint('[OcrRepo] Overall confidence: ${(result.overallConfidence * 100).toStringAsFixed(0)}%');
+    }
 
     // Propagate simulation flag so FormScanView can show the amber warning banner
     return isSimulated ? result.copyWith(isSimulated: true) : result;

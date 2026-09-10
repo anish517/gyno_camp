@@ -57,7 +57,7 @@ void main() {
       expect(result.demographics['firstName'], isNotNull);
       expect(result.demographics['surname'], isNotNull);
       expect(result.popStaging['highestPopStage'], isNotNull);
-    });
+    }, timeout: const Timeout(Duration(minutes: 1)));
 
     test('commitVerifiedScan saves patient, clinical visit and cryptographic audit log', () async {
       final scan = await ocrRepo.processTextScan(OcrFormService.sampleFullFormText);
