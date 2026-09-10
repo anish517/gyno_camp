@@ -270,6 +270,17 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 runSpacing: 10,
                 alignment: WrapAlignment.center,
                 children: [
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.primaryTeal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.document_scanner_outlined, size: 18),
+                    label: const Text('Scan Both Pages (Edge Detect & OMR)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: () => ocrVm.scanBothPagesWithDocumentScanner(),
+                  ),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -1249,7 +1260,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   _buildStageDropdown(
                     label: 'Anterior Compartment (Cystocele)',
                     value: pop['anteriorStage'] as int? ?? 2,
-                    maxStage: 3,
+                    maxStage: 4,
                     onChanged: (v) => vm.updatePopStage('anteriorStage', v),
                   ),
                   const Divider(height: 24),
@@ -1263,7 +1274,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   _buildStageDropdown(
                     label: 'Posterior Compartment (Rectocele)',
                     value: pop['posteriorStage'] as int? ?? 1,
-                    maxStage: 3,
+                    maxStage: 4,
                     onChanged: (v) => vm.updatePopStage('posteriorStage', v),
                   ),
                 ],
@@ -1516,14 +1527,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     required int maxStage,
     required ValueChanged<int> onChanged,
   }) {
+    final int effectiveMax = maxStage < 4 ? 4 : (value > maxStage ? value : maxStage);
+    final int safeValue = value < 0 ? 0 : (value > effectiveMax ? effectiveMax : value);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
         DropdownButton<int>(
-          value: value,
+          value: safeValue,
           items: List.generate(
-            maxStage + 1,
+            effectiveMax + 1,
             (i) => DropdownMenuItem(value: i, child: Text('Stage $i')),
           ),
           onChanged: (v) => v != null ? onChanged(v) : null,

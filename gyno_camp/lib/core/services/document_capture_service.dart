@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
+import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 import 'ocr_form_service.dart';
 
@@ -5,6 +8,49 @@ class DocumentCaptureService {
   final ImagePicker _picker;
 
   DocumentCaptureService({ImagePicker? picker}) : _picker = picker ?? ImagePicker();
+
+  /// Scans physical documents with automatic 4-corner edge detection,
+  /// perspective rectification, shadow removal, and contrast enhancement.
+  ///
+  /// On Android, uses native Google Play Services Document Scanner.
+  /// On Desktop, iOS, or Web, seamlessly falls back to camera or file picker.
+  Future<List<XFile>> scanDocumentPages({int pageLimit = 2}) async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final scanner = DocumentScanner(
+          options: DocumentScannerOptions(
+            documentFormats: {DocumentFormat.jpeg},
+            mode: ScannerMode.full,
+            pageLimit: pageLimit,
+            isGalleryImport: true,
+          ),
+        );
+
+        final result = await scanner.scanDocument();
+        await scanner.close();
+
+        final imagePaths = result.images;
+        if (imagePaths != null && imagePaths.isNotEmpty) {
+          return imagePaths.map((p) => XFile(p)).toList();
+        }
+        return [];
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[DocCapture] DocumentScanner failed or cancelled: $e. Falling back to camera/picker.');
+        }
+      }
+    }
+
+    // Fallback: standard camera capture
+    final single = await captureFromCamera();
+    return single != null ? [single] : [];
+  }
+
+  /// Scans a single document page with edge detection and perspective flattening.
+  Future<XFile?> scanSingleDocumentPage() async {
+    final list = await scanDocumentPages(pageLimit: 1);
+    return list.isNotEmpty ? list.first : null;
+  }
 
   /// Captures document photo from device camera at FULL RESOLUTION.
   ///

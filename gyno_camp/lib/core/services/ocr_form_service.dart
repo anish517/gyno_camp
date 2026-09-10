@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:math';
 import '../../models/ocr_scan_result_model.dart';
+import 'omr_service.dart';
 
 class OcrFormService {
   const OcrFormService();
@@ -21,6 +23,32 @@ class OcrFormService {
 
     final bool isPage1Only = pageNumber == 1;
     final bool isPage2Only = pageNumber == 2;
+
+    // Optical Mark Recognition (OMR) on image file if available
+    Map<String, OmrResult>? page1OmrReasons;
+    Map<String, OmrResult>? page1OmrMarital;
+    Map<String, OmrResult>? page2OmrPop;
+    Map<String, OmrResult>? page2OmrDiagnoses;
+
+    if (imagePath != null) {
+      try {
+        final imgFile = File(imagePath);
+        if (imgFile.existsSync()) {
+          final bytes = imgFile.readAsBytesSync();
+          const omr = OmrService();
+          if (!isPage2Only) {
+            page1OmrReasons = omr.evaluateImageBytes(bytes, OmrService.page1VisitReasonsBoxes);
+            page1OmrMarital = omr.evaluateImageBytes(bytes, OmrService.page1MaritalStatusBoxes);
+          }
+          if (!isPage1Only) {
+            page2OmrPop = omr.evaluateImageBytes(bytes, OmrService.page2PopStagingBoxes);
+            page2OmrDiagnoses = omr.evaluateImageBytes(bytes, OmrService.page2DiagnosesBoxes);
+          }
+        }
+      } catch (_) {
+        // Fall back gracefully to OCR text parsing
+      }
+    }
 
     int? parseOcrInt(String? raw) {
       if (raw == null) return null;
@@ -258,58 +286,74 @@ class OcrFormService {
       confidences['location'] = (districtValue != null) ? 0.92 : 0.55;
 
       // ── Marital Status ──
-      final maritalLine = lines.firstWhere(
-        (l) => l.toLowerCase().contains('marital') || l.toLowerCase().contains('वैवाहिक'),
-        orElse: () => '',
-      );
+      if (page1OmrMarital != null && page1OmrMarital.values.any((r) => r.isMarked)) {
+        final marked = page1OmrMarital.values.firstWhere((r) => r.isMarked);
+        demographics['maritalStatus'] = marked.id;
+        confidences['maritalStatus'] = marked.confidence;
+      } else {
+        final maritalLine = lines.firstWhere(
+          (l) => l.toLowerCase().contains('marital') || l.toLowerCase().contains('वैवाहिक'),
+          orElse: () => '',
+        );
 
-      if (maritalLine.isNotEmpty) {
-        final lowerM = maritalLine.toLowerCase();
-        if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*unmarried|unmarried\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*unmarried').hasMatch(lowerM)) {
-          demographics['maritalStatus'] = 'unmarried';
-        } else if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*widow|widow\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*widow').hasMatch(lowerM)) {
-          demographics['maritalStatus'] = 'widow';
-        } else if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*married|married\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*married').hasMatch(lowerM)) {
-          demographics['maritalStatus'] = 'married';
-        } else if (demographics['relativeType'] == 'Husband') {
-          demographics['maritalStatus'] = 'married';
+        if (maritalLine.isNotEmpty) {
+          final lowerM = maritalLine.toLowerCase();
+          if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*unmarried|unmarried\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*unmarried').hasMatch(lowerM)) {
+            demographics['maritalStatus'] = 'unmarried';
+          } else if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*widow|widow\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*widow').hasMatch(lowerM)) {
+            demographics['maritalStatus'] = 'widow';
+          } else if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*married|married\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*married').hasMatch(lowerM)) {
+            demographics['maritalStatus'] = 'married';
+          } else if (demographics['relativeType'] == 'Husband') {
+            demographics['maritalStatus'] = 'married';
+          } else {
+            demographics['maritalStatus'] = 'married';
+          }
+          confidences['maritalStatus'] = 0.92;
         } else {
           demographics['maritalStatus'] = 'married';
+          confidences['maritalStatus'] = 0.85;
         }
-        confidences['maritalStatus'] = 0.92;
-      } else {
-        demographics['maritalStatus'] = 'married';
-        confidences['maritalStatus'] = 0.85;
       }
 
       // ── Reasons for visit — exact keys for PatientModel.reasonsForVisit ──
       final reasons = <String>[];
-      if (isOptionSelected(['prolapse', 'something hanging', 'hanging out', 'पाठेघर खस्ने', 'pro1apse'])) {
-        reasons.add('something hanging out');
+      if (page1OmrReasons != null && page1OmrReasons.values.any((r) => r.isMarked)) {
+        for (final entry in page1OmrReasons.entries) {
+          if (entry.value.isMarked) {
+            reasons.add(entry.key);
+          }
+        }
+        demographics['reasonsForVisit'] = reasons;
+        confidences['reasonsForVisit'] = 0.96;
+      } else {
+        if (isOptionSelected(['prolapse', 'something hanging', 'hanging out', 'पाठेघर खस्ने', 'pro1apse'])) {
+          reasons.add('something hanging out');
+        }
+        if (isOptionSelected(['discharge', 'itching', 'चिलाउने'])) {
+          reasons.add('discharge and or itching');
+        }
+        if (isOptionSelected(['problems passing urine', 'incontinence', 'पिसाब समस्या', 'पेसाब', 'ur1ne'])) {
+          reasons.add('problems passing urine');
+        }
+        if (isOptionSelected(['problems passing stool', 'stool', 'दिसा समस्या'])) {
+          reasons.add('problems passing stool');
+        }
+        if (isOptionSelected(['back pain', 'abdominal / back pain', 'ढाड दुख्ने', 'pelvic pain', 'dhaad dukhne'])) {
+          reasons.add('pain');
+        }
+        if (isOptionSelected(['menstrual problem', 'mahina', 'महिनावारी'])) {
+          reasons.add('menstrual problem');
+        }
+        if (isOptionSelected(['infertility', 'बाँझोपन'])) {
+          reasons.add('infertility');
+        }
+        if (isOptionSelected(['general checkup', 'checkup', 'जाँच'])) {
+          reasons.add('checkup');
+        }
+        demographics['reasonsForVisit'] = reasons;
+        confidences['reasonsForVisit'] = reasons.isNotEmpty ? 0.88 : 0.40;
       }
-      if (isOptionSelected(['discharge', 'itching', 'चिलाउने'])) {
-        reasons.add('discharge and or itching');
-      }
-      if (isOptionSelected(['problems passing urine', 'incontinence', 'पिसाब समस्या', 'पेसाब', 'ur1ne'])) {
-        reasons.add('problems passing urine');
-      }
-      if (isOptionSelected(['problems passing stool', 'stool', 'दिसा समस्या'])) {
-        reasons.add('problems passing stool');
-      }
-      if (isOptionSelected(['back pain', 'abdominal / back pain', 'ढाड दुख्ने', 'pelvic pain', 'dhaad dukhne'])) {
-        reasons.add('pain');
-      }
-      if (isOptionSelected(['menstrual problem', 'mahina', 'महिनावारी'])) {
-        reasons.add('menstrual problem');
-      }
-      if (isOptionSelected(['infertility', 'बाँझोपन'])) {
-        reasons.add('infertility');
-      }
-      if (isOptionSelected(['general checkup', 'checkup', 'जाँच'])) {
-        reasons.add('checkup');
-      }
-      demographics['reasonsForVisit'] = reasons;
-      confidences['reasonsForVisit'] = reasons.isNotEmpty ? 0.88 : 0.40;
 
       // ── Obstetric History ──
       final deliveriesValue = findValueForLabel(['deliveries', 'parity', 'para', 'p:', 'सुत्केरी']);
@@ -497,6 +541,21 @@ class OcrFormService {
       post ??= parseStageInt(RegExp(r'posterior(?: compartment)?(?: stage)?[:\s_]*([0-3IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
       explicitHighest ??= parseStageInt(RegExp(r'highest(?: pop)?(?: stage)?[:\s_]*([0-3IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
 
+      // OMR override for POP compartments if pixel analysis detected marked boxes
+      if (page2OmrPop != null && page2OmrPop.values.any((r) => r.isMarked)) {
+        for (final entry in page2OmrPop.entries) {
+          if (entry.value.isMarked) {
+            if (entry.key.startsWith('anterior_')) {
+              ant = int.tryParse(entry.key.split('_')[1]);
+            } else if (entry.key.startsWith('middle_')) {
+              mid = int.tryParse(entry.key.split('_')[1]);
+            } else if (entry.key.startsWith('posterior_')) {
+              post = int.tryParse(entry.key.split('_')[1]);
+            }
+          }
+        }
+      }
+
       final a = ant ?? 0;
       final m = mid ?? 0;
       final p = post ?? 0;
@@ -510,31 +569,48 @@ class OcrFormService {
       final uterusOutside = isOptionSelected(['no (prolapsed)', 'prolapsed outside', 'uterus inside: no']) || highest >= 2;
       popStaging['uterusInside'] = !uterusOutside;
 
-      final toneWeak = isOptionSelected(['tone: weak', 'weak tone', 'weak']) || highest >= 2;
-      popStaging['pelvicFloorTone'] = toneWeak ? 'weak' : 'normal';
+      if (page2OmrPop != null && (page2OmrPop['tone_weak']?.isMarked == true || page2OmrPop['tone_torn']?.isMarked == true || page2OmrPop['tone_normal']?.isMarked == true)) {
+        if (page2OmrPop['tone_torn']?.isMarked == true) {
+          popStaging['pelvicFloorTone'] = 'torn';
+        } else if (page2OmrPop['tone_weak']?.isMarked == true) {
+          popStaging['pelvicFloorTone'] = 'weak';
+        } else {
+          popStaging['pelvicFloorTone'] = 'normal';
+        }
+      } else {
+        final toneWeak = isOptionSelected(['tone: weak', 'weak tone', 'weak']) || highest >= 2;
+        popStaging['pelvicFloorTone'] = toneWeak ? 'weak' : 'normal';
+      }
       confidences['popStaging'] = 0.94;
 
       // ── Diagnoses (Station 5) ──
+      if (page2OmrDiagnoses != null && page2OmrDiagnoses.values.any((r) => r.isMarked)) {
+        for (final entry in page2OmrDiagnoses.entries) {
+          if (entry.value.isMarked && !diagnoses.contains(entry.key)) {
+            diagnoses.add(entry.key);
+          }
+        }
+      }
       if (highest >= 2 || isOptionSelected(['pop (pelvic', 'pelvic organ prolapse'])) {
-        diagnoses.add('POP');
+        if (!diagnoses.contains('POP')) diagnoses.add('POP');
       }
       if (isOptionSelected(['candidal infection', 'candidiasis', 'candid infection'])) {
-        diagnoses.add('candid infection');
+        if (!diagnoses.contains('candid infection')) diagnoses.add('candid infection');
       }
       if (isOptionSelected(['bacterial vaginosis'])) {
-        diagnoses.add('bacterial vaginosis');
+        if (!diagnoses.contains('bacterial vaginosis')) diagnoses.add('bacterial vaginosis');
       }
       if (isOptionSelected(['cervicitis'])) {
-        diagnoses.add('cervicitis');
+        if (!diagnoses.contains('cervicitis')) diagnoses.add('cervicitis');
       }
       if (isOptionSelected(['cystitis', 'uti'])) {
-        diagnoses.add('cystitis');
+        if (!diagnoses.contains('cystitis')) diagnoses.add('cystitis');
       }
       if (isOptionSelected(['hypertension']) || (vitals['systolicBp'] as int? ?? 0) >= 140) {
-        diagnoses.add('hypertension');
+        if (!diagnoses.contains('hypertension')) diagnoses.add('hypertension');
       }
       if (isOptionSelected(['diabetes mellitus', 'diabetes']) || (vitals['bloodGlucose'] as int? ?? 0) >= 180) {
-        diagnoses.add('diabetes mellitus');
+        if (!diagnoses.contains('diabetes mellitus')) diagnoses.add('diabetes mellitus');
       }
       confidences['diagnoses'] = diagnoses.isNotEmpty ? 0.92 : 0.40;
 

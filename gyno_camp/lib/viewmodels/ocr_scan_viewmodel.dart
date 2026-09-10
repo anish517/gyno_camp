@@ -127,12 +127,12 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     }
   }
 
-  /// Captures specific page (1 or 2) using device camera
+  /// Captures specific page (1 or 2) using edge-detecting document scanner or camera
   Future<void> capturePage(int pageNumber) async {
     // Don't show loading spinner until the user has actually taken a photo
     state = state.copyWith(errorMessage: null);
     try {
-      final photo = await _captureService.captureFromCamera();
+      final photo = await _captureService.scanSingleDocumentPage();
       if (photo == null) {
         return; // user cancelled — nothing to do
       }
@@ -244,6 +244,43 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       state = state.copyWith(
         isProcessing: false,
         errorMessage: 'Multi-image pick error: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Scans both Page 1 and Page 2 in a unified edge-detecting document scanner session
+  Future<void> scanBothPagesWithDocumentScanner() async {
+    state = state.copyWith(errorMessage: null);
+    try {
+      final photos = await _captureService.scanDocumentPages(pageLimit: 2);
+      if (photos.isEmpty) return;
+
+      state = state.copyWith(isProcessing: true);
+      if (photos.length == 1) {
+        final res = await _repository.processImageScan(photos[0], pageNumber: 1);
+        state = state.copyWith(
+          isProcessing: false,
+          page1Scan: res,
+          successMessage: 'Page 1 scanned and rectified. Capture Page 2 or tap Review.',
+        );
+        return;
+      }
+
+      final res1 = await _repository.processImageScan(photos[0], pageNumber: 1);
+      final res2 = await _repository.processImageScan(photos[1], pageNumber: 2);
+      final merged = OcrScanResultModel.merge(res1, res2);
+
+      state = state.copyWith(
+        isProcessing: false,
+        page1Scan: res1,
+        page2Scan: res2,
+        scanResult: merged,
+        successMessage: 'Both Page 1 (Front) & Page 2 (Back) scanned, deskewed & merged!',
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isProcessing: false,
+        errorMessage: 'Document scanner error: ${e.toString()}',
       );
     }
   }
