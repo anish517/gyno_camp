@@ -6,7 +6,10 @@
       "request": "launch",
       "type": "dart",
       "deviceId": "chrome",
-      "args": ["--web-port=5000", "--user-data-dir=.chrome_dev_data"]
+      "args": [
+        "--web-port=5000",
+        "--web-browser-flag=--user-data-dir=${workspaceFolder}/.chrome_dev_data"
+      ]
     },
     {
       "name": "Gynocamp (Windows Desktop - Persistent SQLite Disk)",

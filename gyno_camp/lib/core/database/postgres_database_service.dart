@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:postgres/postgres.dart';
+
 import '../services/session_service.dart';
 import 'database_service.dart';
 import 'database_tables.dart';
@@ -24,11 +26,13 @@ class PostgresSyncResult {
     this.duration,
   });
 
-  int get totalRecords => syncedPatients + syncedVisits + syncedCamps + syncedUsers;
+  int get totalRecords =>
+      syncedPatients + syncedVisits + syncedCamps + syncedUsers;
 }
 
 class PostgresDatabaseService {
-  static final PostgresDatabaseService _instance = PostgresDatabaseService._internal();
+  static final PostgresDatabaseService _instance =
+      PostgresDatabaseService._internal();
   factory PostgresDatabaseService() => _instance;
   PostgresDatabaseService._internal();
 
@@ -60,7 +64,10 @@ class PostgresDatabaseService {
       return _connection!;
     }
 
-    final effectiveConfig = config ?? SessionService.current?.getPostgresConfig() ?? const PostgresConfig();
+    final effectiveConfig =
+        config ??
+        SessionService.current?.getPostgresConfig() ??
+        const PostgresConfig();
     _connection = await Connection.open(
       _buildEndpoint(effectiveConfig),
       settings: _buildSettings(effectiveConfig),
@@ -257,11 +264,21 @@ class PostgresDatabaseService {
     ''');
 
     // Indexes for fast lookup
-    await conn.execute('CREATE INDEX IF NOT EXISTS idx_pg_patients_camp_id ON patients(camp_id);');
-    await conn.execute('CREATE INDEX IF NOT EXISTS idx_pg_patients_patient_id ON patients(patient_id);');
-    await conn.execute('CREATE INDEX IF NOT EXISTS idx_pg_patients_mobile ON patients(mobile);');
-    await conn.execute('CREATE INDEX IF NOT EXISTS idx_pg_visits_patient_id ON clinical_visits(patient_id);');
-    await conn.execute('CREATE INDEX IF NOT EXISTS idx_pg_visits_camp_id ON clinical_visits(camp_id);');
+    await conn.execute(
+      'CREATE INDEX IF NOT EXISTS idx_pg_patients_camp_id ON patients(camp_id);',
+    );
+    await conn.execute(
+      'CREATE INDEX IF NOT EXISTS idx_pg_patients_patient_id ON patients(patient_id);',
+    );
+    await conn.execute(
+      'CREATE INDEX IF NOT EXISTS idx_pg_patients_mobile ON patients(mobile);',
+    );
+    await conn.execute(
+      'CREATE INDEX IF NOT EXISTS idx_pg_visits_patient_id ON clinical_visits(patient_id);',
+    );
+    await conn.execute(
+      'CREATE INDEX IF NOT EXISTS idx_pg_visits_camp_id ON clinical_visits(camp_id);',
+    );
   }
 
   /// Two-way sync: Syncs all local SQLite records into the PostgreSQL central database
@@ -340,10 +357,13 @@ class PostgresDatabaseService {
             'end_date': c['end_date']?.toString() ?? '',
             'status': c['status']?.toString() ?? 'active',
             'assigned_staff_ids': c['assigned_staff_ids']?.toString(),
-            'total_patients_registered': c['total_patients_registered'] is int ? c['total_patients_registered'] : 0,
+            'total_patients_registered': c['total_patients_registered'] is int
+                ? c['total_patients_registered']
+                : 0,
             'tenant_id': c['tenant_id']?.toString(),
             'organization_name': c['organization_name']?.toString(),
-            'created_at': c['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+            'created_at':
+                c['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': c['updated_at']?.toString(),
           },
         );
@@ -399,9 +419,14 @@ class PostgresDatabaseService {
             'marital_status': p['marital_status']?.toString(),
             'marital_age': p['marital_age'] is int ? p['marital_age'] : null,
             'reasons_for_visit': p['reasons_for_visit']?.toString(),
-            'consent_treatment': p['consent_treatment'] is int ? p['consent_treatment'] : 1,
-            'consent_store_medical_info': p['consent_store_medical_info'] is int ? p['consent_store_medical_info'] : 1,
-            'created_at': p['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+            'consent_treatment': p['consent_treatment'] is int
+                ? p['consent_treatment']
+                : 1,
+            'consent_store_medical_info': p['consent_store_medical_info'] is int
+                ? p['consent_store_medical_info']
+                : 1,
+            'created_at':
+                p['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': p['updated_at']?.toString(),
             'created_by_user_id': p['created_by_user_id']?.toString() ?? '',
             'created_by_device_id': p['created_by_device_id']?.toString() ?? '',
@@ -421,7 +446,9 @@ class PostgresDatabaseService {
       }
 
       // 4. Sync Clinical Visits
-      final localVisits = await localDb.query(DatabaseTables.tableClinicalVisits);
+      final localVisits = await localDb.query(
+        DatabaseTables.tableClinicalVisits,
+      );
       for (final v in localVisits) {
         await conn.execute(
           Sql.named('''
@@ -459,7 +486,9 @@ class PostgresDatabaseService {
             'camp_id': v['camp_id']?.toString() ?? '',
             'visit_date': v['visit_date']?.toString() ?? '',
             'deliveries': v['deliveries'] is int ? v['deliveries'] : null,
-            'living_children': v['living_children'] is int ? v['living_children'] : null,
+            'living_children': v['living_children'] is int
+                ? v['living_children']
+                : null,
             'abortions': v['abortions'] is int ? v['abortions'] : null,
             'anamnesis_json': v['anamnesis_json']?.toString(),
             'uterus_inside': v['uterus_inside'] is int ? v['uterus_inside'] : 1,
@@ -468,10 +497,18 @@ class PostgresDatabaseService {
             'cervix_remarks': v['cervix_remarks']?.toString(),
             'uterus_remarks': v['uterus_remarks']?.toString(),
             'pelvic_floor_tone': v['pelvic_floor_tone']?.toString() ?? 'normal',
-            'pop_anterior_stage': v['pop_anterior_stage'] is int ? v['pop_anterior_stage'] : 0,
-            'pop_middle_stage': v['pop_middle_stage'] is int ? v['pop_middle_stage'] : 0,
-            'pop_posterior_stage': v['pop_posterior_stage'] is int ? v['pop_posterior_stage'] : 0,
-            'highest_pop_stage': v['highest_pop_stage'] is int ? v['highest_pop_stage'] : 0,
+            'pop_anterior_stage': v['pop_anterior_stage'] is int
+                ? v['pop_anterior_stage']
+                : 0,
+            'pop_middle_stage': v['pop_middle_stage'] is int
+                ? v['pop_middle_stage']
+                : 0,
+            'pop_posterior_stage': v['pop_posterior_stage'] is int
+                ? v['pop_posterior_stage']
+                : 0,
+            'highest_pop_stage': v['highest_pop_stage'] is int
+                ? v['highest_pop_stage']
+                : 0,
             'urine_test': v['urine_test']?.toString(),
             'pregnancy_test': v['pregnancy_test']?.toString(),
             'systolic_bp': v['systolic_bp'] is int ? v['systolic_bp'] : null,
@@ -487,10 +524,13 @@ class PostgresDatabaseService {
             'surgical_referral': v['surgical_referral']?.toString(),
             'medications': v['medications']?.toString(),
             'custom_medication': v['custom_medication']?.toString(),
-            'follow_up_needed': v['follow_up_needed'] is int ? v['follow_up_needed'] : null,
+            'follow_up_needed': v['follow_up_needed'] is int
+                ? v['follow_up_needed']
+                : null,
             'follow_up_destination': v['follow_up_destination']?.toString(),
             'outtake_notes': v['outtake_notes']?.toString(),
-            'created_at': v['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+            'created_at':
+                v['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': v['updated_at']?.toString(),
             'created_by_user_id': v['created_by_user_id']?.toString() ?? '',
             'tenant_id': v['tenant_id']?.toString() ?? 'tenant_bir_hospital',
@@ -527,7 +567,10 @@ class PostgresDatabaseService {
   }
 
   /// Direct insert/update patient to PostgreSQL
-  Future<void> directSavePatient(Map<String, dynamic> p, {PostgresConfig? config}) async {
+  Future<void> directSavePatient(
+    Map<String, dynamic> p, {
+    PostgresConfig? config,
+  }) async {
     final conn = await getConnection(config: config);
     await conn.execute(
       Sql.named('''
@@ -575,9 +618,14 @@ class PostgresDatabaseService {
         'marital_status': p['marital_status']?.toString(),
         'marital_age': p['marital_age'] is int ? p['marital_age'] : null,
         'reasons_for_visit': p['reasons_for_visit']?.toString(),
-        'consent_treatment': p['consent_treatment'] is int ? p['consent_treatment'] : 1,
-        'consent_store_medical_info': p['consent_store_medical_info'] is int ? p['consent_store_medical_info'] : 1,
-        'created_at': p['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+        'consent_treatment': p['consent_treatment'] is int
+            ? p['consent_treatment']
+            : 1,
+        'consent_store_medical_info': p['consent_store_medical_info'] is int
+            ? p['consent_store_medical_info']
+            : 1,
+        'created_at':
+            p['created_at']?.toString() ?? DateTime.now().toIso8601String(),
         'updated_at': p['updated_at']?.toString(),
         'created_by_user_id': p['created_by_user_id']?.toString() ?? '',
         'created_by_device_id': p['created_by_device_id']?.toString() ?? '',
