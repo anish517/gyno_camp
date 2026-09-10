@@ -244,12 +244,23 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     label: Text(
                       ocrState.isDualReady
                           ? 'Review & Verify Complete Dual-Page Intake (दुवै पाना रुजु गर्नुहोस्)'
-                          : 'Proceed to Clinical Verification (रुजु गर्नुहोस्)',
+                          : (ocrState.hasPage1
+                              ? 'Review Page 1 (Front) Only & Fill Page 2 Manually'
+                              : 'Review Page 2 (Back) Only & Fill Page 1 Manually'),
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                     onPressed: () => ocrVm.mergeAndProceed(),
                   ),
                 ),
+                if (!ocrState.isDualReady) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    ocrState.hasPage1
+                        ? 'Tip: You can upload Page 2 into Slot 2 above for complete 2-page extraction.'
+                        : 'Tip: You can upload Page 1 into Slot 1 above for complete 2-page extraction.',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight, fontStyle: FontStyle.italic),
+                  ),
+                ],
                 const SizedBox(height: 16),
               ],
 
@@ -734,19 +745,47 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ),
           ),
 
-        // Top Confidence & Warning Alert
+        // Top Header Bar with Return to Slots Button
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          color: AppTheme.primaryLight.withValues(alpha: 0.4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+          ),
           child: Row(
             children: [
-              const Icon(Icons.verified_user, color: AppTheme.primaryTeal, size: 20),
-              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: AppTheme.primaryDark),
+                tooltip: 'Return to Document Upload Slots',
+                onPressed: () => ocrVm.returnToCaptureSlots(),
+              ),
+              const SizedBox(width: 4),
               Expanded(
-                child: Text(
-                  'Review Extracted Data (${(result.overallConfidence * 100).toInt()}% Confidence). Cross-check before saving.',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ocrState.isDualReady || result.isDualPage
+                          ? 'Dual-Page Verification (दुवै पाना रुजु गर्नुहोस्)'
+                          : (ocrState.hasPage1 ? 'Page 1 Verification (Front Page)' : 'Page 2 Verification (Back Page)'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                    ),
+                    Text(
+                      'AI Digitization: ${(result.overallConfidence * 100).toInt()}% Confidence • Cross-check against form',
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.file_upload_outlined, size: 14),
+                label: const Text('Capture Slots', style: TextStyle(fontSize: 11)),
+                onPressed: () => ocrVm.returnToCaptureSlots(),
               ),
             ],
           ),
@@ -953,6 +992,30 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ),
           ],
 
+          if (!result.isDualPage && (demo.isEmpty || demo['firstName'] == null)) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Page 1 (Front: Demographics) was not photographed. Please enter patient information manually or tap "Capture Slots" above to upload Page 1.',
+                      style: TextStyle(fontSize: 12, color: Colors.deepOrange),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           _buildFieldWithConfidence(
             label: 'First Name (नाम)',
             value: demo['firstName']?.toString() ?? '',
@@ -1038,51 +1101,62 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryLight.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.child_friendly, color: AppTheme.primaryTeal, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Obstetric History & Parity (प्रसूति इतिहास) — Cross-check with Yellow Form Box 2',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildNumericStepper(
-                          label: 'Deliveries (Parity)',
-                          value: obs['deliveries'] as int? ?? 3,
-                          onChanged: (v) {
-                            obs['deliveries'] = v;
-                            vm.updateDemographic('deliveries', v);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildNumericStepper(
-                          label: 'Living Children',
-                          value: obs['livingChildren'] as int? ?? 3,
-                          onChanged: (v) {
-                            obs['livingChildren'] = v;
-                            vm.updateDemographic('livingChildren', v);
-                          },
-                        ),
-                      ),
-                    ],
+                  _buildStepperCardRow(
+                    label: 'Deliveries / Parity (सुत्केरी संख्या)',
+                    description: 'Total live or stillborn deliveries',
+                    value: obs['deliveries'] as int? ?? 3,
+                    onChanged: (v) {
+                      obs['deliveries'] = v;
+                      vm.updateDemographic('deliveries', v);
+                    },
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildNumericStepper(
-                          label: 'Abortions / Miscarriages',
-                          value: obs['abortions'] as int? ?? 0,
-                          onChanged: (v) {
-                            obs['abortions'] = v;
-                            vm.updateDemographic('abortions', v);
-                          },
-                        ),
-                      ),
-                    ],
+                  const Divider(height: 24),
+                  _buildStepperCardRow(
+                    label: 'Living Children (जीवित बालबच्चा)',
+                    description: 'Number of living children at present',
+                    value: obs['livingChildren'] as int? ?? 3,
+                    onChanged: (v) {
+                      obs['livingChildren'] = v;
+                      vm.updateDemographic('livingChildren', v);
+                    },
+                  ),
+                  const Divider(height: 24),
+                  _buildStepperCardRow(
+                    label: 'Abortions / Miscarriages (गर्भपतन)',
+                    description: 'Spontaneous miscarriages or terminations',
+                    value: obs['abortions'] as int? ?? 0,
+                    onChanged: (v) {
+                      obs['abortions'] = v;
+                      vm.updateDemographic('abortions', v);
+                    },
                   ),
                 ],
               ),
@@ -1102,6 +1176,30 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (!result.isDualPage && pop.isEmpty) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Page 2 (Back: POP Exam & Vitals) was not photographed. Values below are unset. You can edit them manually or tap "Capture Slots" above to upload Page 2.',
+                      style: TextStyle(fontSize: 12, color: Colors.deepOrange),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           // Highest POP Stage Hero Banner
           Container(
             padding: const EdgeInsets.all(16),
@@ -1197,6 +1295,30 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (!result.isDualPage && vitals.isEmpty) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Page 2 (Back: Vitals & Prescriptions) was not photographed. Values below are unconfirmed. You can edit them manually or tap "Capture Slots" above to upload Page 2.',
+                      style: TextStyle(fontSize: 12, color: Colors.deepOrange),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const Text('Point-of-Care Vitals (भाइटल परीक्षण):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           const SizedBox(height: 12),
           Row(
@@ -1330,23 +1452,59 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     );
   }
 
-  Widget _buildNumericStepper({
+  Widget _buildStepperCardRow({
     required String label,
+    required String description,
     required int value,
     required ValueChanged<int> onChanged,
   }) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-        IconButton(
-          icon: const Icon(Icons.remove_circle_outline),
-          onPressed: value > 0 ? () => onChanged(value - 1) : null,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                description,
+                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+              ),
+            ],
+          ),
         ),
-        Text('$value', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        IconButton(
-          icon: const Icon(Icons.add_circle_outline),
-          onPressed: () => onChanged(value + 1),
+        const SizedBox(width: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.remove, size: 18, color: Colors.blueGrey),
+                onPressed: value > 0 ? () => onChanged(value - 1) : null,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  '$value',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.add, size: 18, color: AppTheme.primaryTeal),
+                onPressed: () => onChanged(value + 1),
+              ),
+            ],
+          ),
         ),
       ],
     );

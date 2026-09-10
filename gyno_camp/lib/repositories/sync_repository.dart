@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
+import '../core/database/postgres_database_service.dart';
 import '../core/services/central_api_service.dart';
 import '../models/audit_log_model.dart';
 import '../models/clinical_visit_model.dart';
@@ -101,6 +102,13 @@ class SyncRepository implements ISyncRepository {
 
     // 4. Send delta to central server
     final response = await _centralApiService.pushDelta(payload);
+
+    // Automatically sync to PostgreSQL central database
+    try {
+      await PostgresDatabaseService().syncSqliteToPostgres();
+    } catch (_) {
+      // Continues gracefully if PostgreSQL is not currently running or in mock tests
+    }
 
     // 5. Update local SQLite records to synced
     if (response.success) {
@@ -202,14 +210,30 @@ class SyncRepository implements ISyncRepository {
       // Step 1: Push local deltas
       final pushRes = await pushDelta(deviceId: deviceId, userId: userId);
 
-      // Step 2: Pull remote deltas
+      // Step 2: Auto-sync to PostgreSQL database
+      int pgPatients = 0;
+      int pgVisits = 0;
+      try {
+        final pgResult = await PostgresDatabaseService().syncSqliteToPostgres();
+        if (pgResult.success) {
+          pgPatients = pgResult.syncedPatients;
+          pgVisits = pgResult.syncedVisits;
+        }
+      } catch (_) {
+        // Continues gracefully if PostgreSQL is offline
+      }
+
+      // Step 3: Pull remote deltas
       final pullRes = await pullDelta(deviceId: deviceId, userId: userId);
+
+      final totalPatients = pushRes.syncedPatientIds.isNotEmpty ? pushRes.syncedPatientIds.length : pgPatients;
+      final totalVisits = pushRes.syncedVisitIds.isNotEmpty ? pushRes.syncedVisitIds.length : pgVisits;
 
       final historyItem = SyncHistoryItem(
         id: _uuid.v4(),
         timestamp: cycleStart,
-        patientsPushed: pushRes.syncedPatientIds.length,
-        visitsPushed: pushRes.syncedVisitIds.length,
+        patientsPushed: totalPatients,
+        visitsPushed: totalVisits,
         auditLogsPushed: pushRes.syncedAuditLogIds.length,
         campsPulled: pullRes.camps.length,
         isSuccess: true,

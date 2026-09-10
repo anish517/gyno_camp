@@ -28,6 +28,7 @@ abstract class IAuthRepository {
   Future<UserModel?> loginAsRole({required UserRole role, required String deviceId});
   Future<void> logout({required String deviceId});
   UserModel? get currentUser;
+  void setCurrentUser(UserModel? user);
 }
 
 class AuthRepository implements IAuthRepository {
@@ -43,6 +44,11 @@ class AuthRepository implements IAuthRepository {
 
   @override
   UserModel? get currentUser => _currentUser;
+
+  @override
+  void setCurrentUser(UserModel? user) {
+    _currentUser = user;
+  }
 
   @override
   Future<List<UserModel>> getAllUsers({bool includeInactive = false}) async {

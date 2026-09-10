@@ -48,6 +48,8 @@ dependencies:
   image_picker: ^1.2.3
   nepali_utils: ^3.0.8
   google_mlkit_text_recognition: ^0.13.1
+  shared_preferences: ^2.5.2
+  postgres: ^3.5.12
 
 dev_dependencies:
   flutter_test:

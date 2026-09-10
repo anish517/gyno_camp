@@ -15,7 +15,7 @@ class SecurityGatewayView extends ConsumerWidget {
     final deviceState = ref.watch(deviceSecurityProvider);
     final authState = ref.watch(authStateProvider);
 
-    if (deviceState.isChecking) {
+    if (deviceState.isChecking || authState.isLoading) {
       return const Scaffold(
         body: Center(
           child: Column(
@@ -24,7 +24,7 @@ class SecurityGatewayView extends ConsumerWidget {
               CircularProgressIndicator(color: AppTheme.primaryTeal),
               SizedBox(height: 16),
               Text(
-                'Checking device authorization...',
+                'Restoring secure session...',
                 style: TextStyle(color: AppTheme.textSecondaryLight, fontSize: 15),
               ),
             ],

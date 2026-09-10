@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/sync_viewmodel.dart';
+import '../settings/postgres_settings_view.dart';
 
 class SyncStatusView extends ConsumerStatefulWidget {
   const SyncStatusView({super.key});
@@ -36,6 +37,16 @@ class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
       appBar: AppBar(
         title: const Text('Offline Sync Manager'),
         actions: [
+          IconButton(
+            tooltip: 'PostgreSQL Server Configuration',
+            icon: const Icon(Icons.storage_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PostgresSettingsView()),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Refresh Pending Counts',
             icon: const Icon(Icons.refresh),

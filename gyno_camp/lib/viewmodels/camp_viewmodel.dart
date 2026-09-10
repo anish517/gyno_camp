@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/services/session_service.dart';
 import '../models/camp_model.dart';
 import '../repositories/camp_repository.dart';
 
@@ -49,7 +50,25 @@ class CampViewModel extends StateNotifier<CampState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final camps = await _campRepository.getAllCamps();
-      final active = await _campRepository.getActiveCamp();
+      var active = await _campRepository.getActiveCamp();
+
+      // If no camp is open in DB, check if the saved active camp from session is still open
+      if (active == null && SessionService.current != null) {
+        final savedCampId = SessionService.current!.getSavedActiveCampId();
+        if (savedCampId != null) {
+          final matched = camps.where((c) => c.id == savedCampId && c.status == CampStatus.open).toList();
+          if (matched.isNotEmpty) {
+            active = matched.first;
+          }
+        }
+      }
+
+      if (active != null) {
+        await SessionService.current?.saveActiveCampId(active.id);
+      } else {
+        await SessionService.current?.clearActiveCampId();
+      }
+
       state = state.copyWith(
         camps: camps,
         activeCamp: active,
@@ -66,7 +85,29 @@ class CampViewModel extends StateNotifier<CampState> {
   }
 
   void selectCamp(CampModel camp) {
-    state = state.copyWith(selectedCamp: camp);
+    final isOpen = camp.status == CampStatus.open;
+    state = state.copyWith(
+      selectedCamp: camp,
+      activeCamp: isOpen ? camp : (state.activeCamp?.status == CampStatus.open ? state.activeCamp : null),
+      clearActiveCamp: !isOpen && (state.activeCamp == null || state.activeCamp?.id == camp.id),
+    );
+    if (isOpen) {
+      SessionService.current?.saveActiveCampId(camp.id);
+    }
+  }
+
+  void setActiveCamp(CampModel camp) {
+    final isOpen = camp.status == CampStatus.open;
+    state = state.copyWith(
+      activeCamp: isOpen ? camp : null,
+      selectedCamp: camp,
+      clearActiveCamp: !isOpen,
+    );
+    if (isOpen) {
+      SessionService.current?.saveActiveCampId(camp.id);
+    } else {
+      SessionService.current?.clearActiveCampId();
+    }
   }
 
   Future<bool> createCamp(CampModel camp, {required String adminUserId, required String deviceId}) async {
@@ -115,6 +156,9 @@ class CampViewModel extends StateNotifier<CampState> {
         deviceId: deviceId,
       );
       if (success) {
+        if (SessionService.current?.getSavedActiveCampId() == campId) {
+          await SessionService.current?.clearActiveCampId();
+        }
         await loadCamps();
         return true;
       }
@@ -135,6 +179,9 @@ class CampViewModel extends StateNotifier<CampState> {
         deviceId: deviceId,
       );
       if (success) {
+        if (SessionService.current?.getSavedActiveCampId() == campId) {
+          await SessionService.current?.clearActiveCampId();
+        }
         await loadCamps();
         return true;
       }
@@ -171,6 +218,9 @@ class CampViewModel extends StateNotifier<CampState> {
         deviceId: deviceId,
       );
       if (success) {
+        if (SessionService.current?.getSavedActiveCampId() == campId) {
+          await SessionService.current?.clearActiveCampId();
+        }
         await loadCamps();
         return true;
       }

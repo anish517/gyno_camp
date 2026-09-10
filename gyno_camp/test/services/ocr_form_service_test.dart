@@ -183,4 +183,94 @@ void main() {
       expect(service.mergeScans(p1, p2).isSimulated, false);
     });
   });
+
+  group('Page-Aware Separation & Real Test Samples', () {
+    test('pageNumber 1 only extracts demographics & obstetrics, vitals/pop/dx are empty', () {
+      final p1 = service.parseFormText(_page1, pageNumber: 1);
+      expect(p1.demographics['firstName'], 'Kamala');
+      expect(p1.obstetrics['deliveries'], 4);
+      expect(p1.vitals, isEmpty);
+      expect(p1.popStaging, isEmpty);
+      expect(p1.diagnoses, isEmpty);
+      expect(p1.medications, isEmpty);
+      expect(p1.surgicalReferral, isNull);
+    });
+
+    test('pageNumber 2 only extracts clinical vitals/pop/dx, demographics/obs are empty', () {
+      final p2 = service.parseFormText(_page2, pageNumber: 2);
+      expect(p2.demographics, isEmpty);
+      expect(p2.obstetrics, isEmpty);
+      expect(p2.vitals['systolicBp'], 140);
+      expect(p2.popStaging['highestPopStage'], 3);
+      expect(p2.diagnoses, contains('POP'));
+      expect(p2.medications, contains('Metronidazole'));
+    });
+
+    test('Real test sample page 1 OCR text: LMP 2080 does not pollute parity, husband name matches, abortions O is 0', () {
+      const realSampleP1Ocr = """
+GYNOCAMP CLINICAL INTAKE FORM (PAGE 1)
+PATIENT INFORMATION
+Patient Name: Maya Tamang
+Husband's Name: Som Bahadur Tamang
+Mobile: 9841987654
+District: Kathmandu
+Age: 44
+Ward No: 04
+Presenting Complaints:
+Discharge / itching
+Abdominal pain
+Obstetric History:
+Gravida: 3 Para: 3
+Living: 3
+Abortions: O
+LMP: 2080-05-18 (N.s.)
+""";
+      final res = service.parseFormText(realSampleP1Ocr, pageNumber: 1);
+      expect(res.demographics['firstName'], 'Maya');
+      expect(res.demographics['surname'], 'Tamang');
+      expect(res.demographics['relativeName'], 'Som Bahadur Tamang');
+      expect(res.demographics['relativeType'], 'Husband');
+      // Deliveries must be 3, NOT 20 from LMP 2080!
+      expect(res.obstetrics['deliveries'], 3);
+      expect(res.obstetrics['livingChildren'], 3);
+      // Abortions 'O' must be normalized to 0
+      expect(res.obstetrics['abortions'], 0);
+    });
+
+    test('Real test sample page 2 OCR text: underscores and OCR letters in stages & pulse', () {
+      const realSampleP2Ocr = """
+GYNOCAMP CLINICAL ASSESSMENT & EXAMINATION (PAGE 2)
+POP Staging (Pelvic Organ Prolapse)
+Anterior: L, Middle: 3, Posterior: _l_ Highest Stage: 3_
+Vitals
+BP: 130/85 mmHg, Pulse: __7_8_ bpm, Sp02: 98%
+Blood Glucose: 115 mg/dL, Urine: Normal, HCG: Neg
+Diagnoses
+[X] POP
+[X] candid infection
+[x] hypertension
+Prescriptions
+[x] Rin Pessar (05mm
+[x] Me+ronidazo e 00m BD
+[x] luconazole 150m s+a+
+Referrals
+Surgical Referral: Scheer Memorial Hospi+al
+""";
+      final res = service.parseFormText(realSampleP2Ocr, pageNumber: 2);
+      expect(res.popStaging['anteriorStage'], 1);
+      expect(res.popStaging['middleStage'], 3);
+      expect(res.popStaging['posteriorStage'], 1);
+      expect(res.popStaging['highestPopStage'], 3);
+      expect(res.vitals['systolicBp'], 130);
+      expect(res.vitals['diastolicBp'], 85);
+      expect(res.vitals['pulseRate'], 78);
+      expect(res.vitals['bloodGlucose'], 115);
+      expect(res.diagnoses, contains('POP'));
+      expect(res.diagnoses, contains('candid infection'));
+      expect(res.diagnoses, contains('hypertension'));
+      expect(res.medications, contains('Metronidazole'));
+      expect(res.medications, contains('Fluconazole'));
+      expect(res.surgicalReferral, contains('Scheer Memorial Hospital'));
+    });
+  });
 }

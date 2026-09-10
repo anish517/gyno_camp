@@ -83,6 +83,9 @@ class FakeAuthRepository implements IAuthRepository {
 
   @override
   UserModel? get currentUser => users.first;
+
+  @override
+  void setCurrentUser(UserModel? user) {}
 }
 
 void main() {

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/services/session_service.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 
@@ -40,6 +41,31 @@ class AuthViewModel extends StateNotifier<AuthState> {
   void _init() {
     if (_authRepository.currentUser != null) {
       state = state.copyWith(currentUser: _authRepository.currentUser);
+    } else {
+      restoreSession();
+    }
+  }
+
+  Future<void> restoreSession() async {
+    final session = SessionService.current;
+    if (session != null && session.hasActiveSession()) {
+      state = state.copyWith(isLoading: true);
+      try {
+        final userId = session.getSavedUserId();
+        if (userId != null && userId.isNotEmpty) {
+          final user = await _authRepository.getUserById(userId);
+          if (user != null && user.isActive) {
+            _authRepository.setCurrentUser(user);
+            state = state.copyWith(currentUser: user, isLoading: false);
+            return;
+          } else {
+            await session.clearSession();
+          }
+        }
+      } catch (_) {
+        // Fallback gracefully on read error
+      }
+      state = state.copyWith(isLoading: false);
     }
   }
 
@@ -68,6 +94,11 @@ class AuthViewModel extends StateNotifier<AuthState> {
           );
           return false;
         }
+        await SessionService.current?.saveUserSession(
+          userId: user.id,
+          email: user.email,
+          role: user.role.toDbString(),
+        );
         state = state.copyWith(currentUser: user, isLoading: false);
         return true;
       } else {
@@ -91,6 +122,11 @@ class AuthViewModel extends StateNotifier<AuthState> {
     try {
       final user = await _authRepository.loginAsRole(role: role, deviceId: deviceId);
       if (user != null) {
+        await SessionService.current?.saveUserSession(
+          userId: user.id,
+          email: user.email,
+          role: user.role.toDbString(),
+        );
         state = state.copyWith(currentUser: user, isLoading: false);
         return true;
       } else {
@@ -138,6 +174,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
   Future<void> logout({required String deviceId}) async {
     state = state.copyWith(isLoading: true);
     await _authRepository.logout(deviceId: deviceId);
+    await SessionService.current?.clearSession();
     state = state.copyWith(clearUser: true, isLoading: false);
   }
 }

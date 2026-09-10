@@ -54,6 +54,31 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     final vm = ref.read(patientListProvider.notifier);
     final activeCamp = campState.activeCamp;
 
+    ref.listen<CampState>(campStateProvider, (previous, next) {
+      final active = next.activeCamp;
+      if (active != null && (previous?.activeCamp?.id != active.id || !patientState.hasLoaded)) {
+        if (_searchController.text.trim().isNotEmpty) {
+          ref.read(patientListProvider.notifier).search(active.id, _searchController.text.trim());
+        } else {
+          ref.read(patientListProvider.notifier).loadPatients(active.id);
+        }
+      }
+    });
+
+    if (activeCamp != null &&
+        !patientState.isLoading &&
+        (!patientState.hasLoaded || patientState.loadedCampId != activeCamp.id)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          if (_searchController.text.trim().isNotEmpty) {
+            vm.search(activeCamp.id, _searchController.text.trim());
+          } else {
+            vm.loadPatients(activeCamp.id);
+          }
+        }
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Column(

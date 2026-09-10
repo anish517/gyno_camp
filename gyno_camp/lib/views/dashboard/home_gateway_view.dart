@@ -25,6 +25,7 @@ import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
 import '../reports/camp_report_view.dart';
 import '../scanner/form_scan_view.dart';
+import '../settings/postgres_settings_view.dart';
 import '../sync/sync_status_view.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
@@ -599,6 +600,25 @@ class HomeGatewayView extends ConsumerWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (_) => const AuditTrailView()),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _buildAdminModuleCard(
+                          context: context,
+                          icon: Icons.storage_rounded,
+                          title: 'PostgreSQL Database & Direct Sync',
+                          description: 'Configure enterprise PostgreSQL host, port, credentials, direct online database mode, and two-way local SQLite sync.',
+                          badgeText: 'PostgreSQL Engine',
+                          badgeColor: const Color(0xFF1E3A8A),
+                          accentColor: const Color(0xFF1E3A8A),
+                          actionPrompt: 'Database Config',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const PostgresSettingsView()),
                             );
                           },
                         ),

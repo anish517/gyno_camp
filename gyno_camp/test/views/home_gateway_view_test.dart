@@ -260,6 +260,9 @@ class FakeAuthRepositorySimple implements IAuthRepository {
   UserModel? get currentUser => admin;
 
   @override
+  void setCurrentUser(UserModel? user) {}
+
+  @override
   Future<UserModel?> login({required String email, String? password, required String deviceId}) async => admin;
 
   @override

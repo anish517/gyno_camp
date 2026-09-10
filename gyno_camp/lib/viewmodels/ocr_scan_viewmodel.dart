@@ -92,7 +92,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         state = state.copyWith(
           isProcessing: false,
           page1Scan: res,
-          scanResult: state.hasPage2 ? OcrScanResultModel.merge(res, state.page2Scan!) : res,
+          scanResult: state.hasPage2 ? OcrScanResultModel.merge(res, state.page2Scan!) : null,
           successMessage: 'Page 1 (Demographics & Obstetric History) parsed.',
         );
       } else if (sampleType == 'page2') {
@@ -101,7 +101,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         state = state.copyWith(
           isProcessing: false,
           page2Scan: res,
-          scanResult: state.hasPage1 ? OcrScanResultModel.merge(state.page1Scan!, res) : res,
+          scanResult: state.hasPage1 ? OcrScanResultModel.merge(state.page1Scan!, res) : null,
           successMessage: 'Page 2 (POP Exam, Vitals & Treatment) parsed.',
         );
       } else {
@@ -140,20 +140,18 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       state = state.copyWith(isProcessing: true);
       final result = await _repository.processImageScan(photo, pageNumber: pageNumber);
       if (pageNumber == 1) {
-        final merged = state.hasPage2 ? OcrScanResultModel.merge(result, state.page2Scan!) : null;
         state = state.copyWith(
           isProcessing: false,
           page1Scan: result,
-          scanResult: merged ?? (state.hasPage2 ? null : result),
-          successMessage: 'Page 1 (Front) captured successfully.',
+          // Stay on dual-slot view so user can review Slot 1 status and proceed to Slot 2
+          successMessage: 'Page 1 (Front) captured successfully. Capture Page 2 or tap Review.',
         );
       } else {
-        final merged = state.hasPage1 ? OcrScanResultModel.merge(state.page1Scan!, result) : null;
         state = state.copyWith(
           isProcessing: false,
           page2Scan: result,
-          scanResult: merged ?? (state.hasPage1 ? null : result),
-          successMessage: 'Page 2 (Back) captured successfully.',
+          // Stay on dual-slot view so user can see both slots ready
+          successMessage: 'Page 2 (Back) captured successfully. Both pages ready for review.',
         );
       }
     } catch (e) {
@@ -184,20 +182,18 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       state = state.copyWith(isProcessing: true);
       final result = await _repository.processImageScan(photo, pageNumber: pageNumber);
       if (pageNumber == 1) {
-        final merged = state.hasPage2 ? OcrScanResultModel.merge(result, state.page2Scan!) : null;
         state = state.copyWith(
           isProcessing: false,
           page1Scan: result,
-          scanResult: merged ?? (state.hasPage2 ? null : result),
-          successMessage: 'Page 1 (Front) imported successfully.',
+          // Stay on dual-slot view so user can review Slot 1 status and proceed to Slot 2
+          successMessage: 'Page 1 (Front) imported successfully. Import Page 2 or tap Review.',
         );
       } else {
-        final merged = state.hasPage1 ? OcrScanResultModel.merge(state.page1Scan!, result) : null;
         state = state.copyWith(
           isProcessing: false,
           page2Scan: result,
-          scanResult: merged ?? (state.hasPage1 ? null : result),
-          successMessage: 'Page 2 (Back) imported successfully.',
+          // Stay on dual-slot view so user can see both slots ready
+          successMessage: 'Page 2 (Back) imported successfully. Both pages ready for review.',
         );
       }
     } catch (e) {
@@ -227,8 +223,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         state = state.copyWith(
           isProcessing: false,
           page1Scan: res,
-          scanResult: res,
-          successMessage: '1 document page imported.',
+          successMessage: '1 document page imported. Import Page 2 or tap Review.',
         );
         return;
       }
@@ -263,6 +258,11 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     } else if (state.hasPage2) {
       state = state.copyWith(scanResult: state.page2Scan);
     }
+  }
+
+  /// Returns from verification pane to the dual-slot capture screen without losing captured scans
+  void returnToCaptureSlots() {
+    state = state.copyWith(clearScanResult: true);
   }
 
   /// Switches active inspection tab between Page 1 and Page 2
