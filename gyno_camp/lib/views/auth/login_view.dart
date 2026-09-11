@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
-import '../../models/user_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../security/device_activation_view.dart';
@@ -18,7 +17,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  UserRole? _selectedRole;
 
   @override
   void dispose() {
@@ -27,22 +25,12 @@ class _LoginViewState extends ConsumerState<LoginView> {
     super.dispose();
   }
 
-  void _selectRole(UserRole? role) {
-    setState(() {
-      if (_selectedRole == role) {
-        _selectedRole = null;
-      } else {
-        _selectedRole = role;
-      }
-    });
-  }
-
   Future<void> _handleLogin(String deviceId) async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your staff email or username.')),
+        const SnackBar(content: Text('Please enter your staff email, username, or mobile number.')),
       );
       return;
     }
@@ -54,23 +42,107 @@ class _LoginViewState extends ConsumerState<LoginView> {
     }
 
     final authVm = ref.read(authStateProvider.notifier);
-    await authVm.login(
+    final success = await authVm.login(
       email: email,
       password: password,
       deviceId: deviceId,
-      requiredRole: _selectedRole,
     );
-  }
 
-  Color _getRoleColor(UserRole? role) {
-    if (role == null) return AppTheme.primaryTeal;
-    switch (role) {
-      case UserRole.dataTaker:
-        return AppTheme.primaryTeal;
-      case UserRole.superAdmin:
-        return const Color(0xFF4338CA);
-      case UserRole.dataAnalyst:
-        return const Color(0xFF0F766E);
+    if (!success || !mounted) return;
+
+    final user = ref.read(authStateProvider).currentUser;
+    if (user == null) return;
+
+    // Super Admin is exempt from device lockout so the administrator can always access the console
+    if (user.isSuperAdmin) {
+      return;
+    }
+
+    final currentDeviceState = ref.read(deviceSecurityProvider);
+    if (!currentDeviceState.isApproved) {
+      if (currentDeviceState.isUnregistered) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.devices_other, color: AppTheme.primaryTeal),
+                SizedBox(width: 8),
+                Text('New Workstation Detected'),
+              ],
+            ),
+            content: Text(
+              'Welcome, ${user.name}. This workstation is not yet recognized on the clinical outreach network. For medical record security, new hardware must be registered and authorized by the Super Admin before clinical intake begins.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ref.read(authStateProvider.notifier).logout(deviceId: deviceId);
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.security, size: 16),
+                label: const Text('Register This Device'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DeviceActivationView(
+                        prefillStaffName: user.name,
+                        prefillStaffUserId: user.id,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      } else if (currentDeviceState.isPendingApproval) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.hourglass_top, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('Device Pending Approval'),
+              ],
+            ),
+            content: Text(
+              'Workstation "${currentDeviceState.device?.deviceName ?? "Device"}" is registered but awaiting Super Admin authorization. Please notify your administrator to approve this device in the central Admin Console.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Close'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const DeviceActivationView()),
+                  );
+                },
+                child: const Text('View Status'),
+              ),
+            ],
+          ),
+        );
+      } else if (currentDeviceState.isRevoked) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Access Denied: This hardware workstation has been revoked by administration.'),
+            backgroundColor: AppTheme.dangerRose,
+          ),
+        );
+        ref.read(authStateProvider.notifier).logout(deviceId: deviceId);
+      }
     }
   }
 
@@ -85,17 +157,17 @@ class _LoginViewState extends ConsumerState<LoginView> {
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
+            constraints: const BoxConstraints(maxWidth: 520),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 36.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // App Brand Header
                   Center(
                     child: Container(
-                      width: 68,
-                      height: 68,
+                      width: 72,
+                      height: 72,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [AppTheme.primaryTeal, Color(0xFF0F766E)],
@@ -105,16 +177,16 @@ class _LoginViewState extends ConsumerState<LoginView> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.primaryTeal.withValues(alpha: 0.25),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+                            color: AppTheme.primaryTeal.withValues(alpha: 0.28),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.medical_services_rounded, size: 34, color: Colors.white),
+                      child: const Icon(Icons.medical_services_rounded, size: 36, color: Colors.white),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   Text(
                     AppConstants.appTitleEn,
                     textAlign: TextAlign.center,
@@ -135,7 +207,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       color: Color(0xFF475569),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
 
                   // Hardware Security Badge
                   Center(
@@ -151,105 +223,47 @@ class _LoginViewState extends ConsumerState<LoginView> {
                         children: [
                           const Icon(Icons.verified_user_rounded, color: Color(0xFF059669), size: 16),
                           const SizedBox(width: 8),
-                          Text(
-                            deviceState.device?.deviceName != null
-                                ? 'Authorized Terminal: ${deviceState.device!.deviceName} (RBAC Active)'
-                                : 'Clinical Workstation (RBAC Active)',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF065F46)),
+                          Flexible(
+                            child: Text(
+                              deviceState.device?.deviceName != null
+                                  ? 'Authorized Terminal: ${deviceState.device!.deviceName} (RBAC Active)'
+                                  : 'Clinical Workstation (RBAC Active)',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF065F46)),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
                   // Error Message Banner
                   if (authState.errorMessage != null)
                     Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 18),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: AppTheme.dangerRose.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.dangerRose),
+                        color: AppTheme.dangerRose.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.4)),
                       ),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Icon(Icons.error_outline, color: AppTheme.dangerRose, size: 20),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               authState.errorMessage!,
-                              style: const TextStyle(color: AppTheme.dangerRose, fontSize: 13),
+                              style: const TextStyle(color: AppTheme.dangerRose, fontSize: 13, height: 1.3),
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                  // Role Selection Header
-                  const Text(
-                    'Select User Role to Continue:',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Choose a designated station console (enforces strict RBAC), or use Unified Portal for automatic role detection:',
-                    style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // 0. Unified Portal Option (Auto-Detect Role)
-                  _buildRoleCard(
-                    title: 'Unified Staff Portal (Auto-Detect Role)',
-                    nepaliTitle: 'एकीकृत कर्मचारी पोर्टल (स्वचालित भूमिका)',
-                    subtitle: 'Universal Sign-In for all registered clinical & admin personnel',
-                    description: 'Directs you automatically to your authorized console based on your account credentials',
-                    icon: Icons.badge_rounded,
-                    color: AppTheme.primaryTeal,
-                    isSelected: _selectedRole == null,
-                    onTap: () => setState(() => _selectedRole = null),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // 3 Role Station Cards
-                  _buildRoleCard(
-                    title: 'Data Taker (Field Staff)',
-                    nepaliTitle: 'डाटा टेकर (क्षेत्रीय कर्मचारी)',
-                    subtitle: 'Station Intakes, Demographic Registration & Yellow Form Scanner',
-                    description: 'Patient intake, vital signs triage, POP-Q clinical exams & offline local sync',
-                    icon: Icons.assignment_ind_rounded,
-                    color: AppTheme.primaryTeal,
-                    isSelected: _selectedRole == UserRole.dataTaker,
-                    onTap: () => _selectRole(UserRole.dataTaker),
-                  ),
-                  const SizedBox(height: 10),
-
-                  _buildRoleCard(
-                    title: 'Super Admin',
-                    nepaliTitle: 'सुपर एडमिन (प्रणाली नियन्त्रक)',
-                    subtitle: 'Organization Admin, Camp Operations & System Governance',
-                    description: 'Tenant configuration, camp deployments, personnel provisioning & security policies',
-                    icon: Icons.admin_panel_settings_rounded,
-                    color: const Color(0xFF4338CA),
-                    isSelected: _selectedRole == UserRole.superAdmin,
-                    onTap: () => _selectRole(UserRole.superAdmin),
-                  ),
-                  const SizedBox(height: 10),
-
-                  _buildRoleCard(
-                    title: 'Data Analyst',
-                    nepaliTitle: 'डाटा विश्लेषक (तथ्याङ्कविद्)',
-                    subtitle: 'Clinical Epidemiology, POP-Q Metrics & Aggregations',
-                    description: 'Cohort analytics, prevalence indicators & instant PDF / Excel reporting',
-                    icon: Icons.analytics_rounded,
-                    color: const Color(0xFF0F766E),
-                    isSelected: _selectedRole == UserRole.dataAnalyst,
-                    onTap: () => _selectRole(UserRole.dataAnalyst),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Credential Authentication Card
+                  // Single Unified Credential Authentication Card
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -258,60 +272,96 @@ class _LoginViewState extends ConsumerState<LoginView> {
                     ),
                     color: Colors.white,
                     child: Padding(
-                      padding: const EdgeInsets.all(22.0),
+                      padding: const EdgeInsets.all(26.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Wrap(
                             alignment: WrapAlignment.spaceBetween,
                             crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 6,
+                            spacing: 12,
+                            runSpacing: 10,
                             children: [
+                              const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Staff Sign-In',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF1E293B),
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'अधिकृत कर्मचारी लगइन',
+                                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: _getRoleColor(_selectedRole).withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: Text(
-                                  _selectedRole == null
-                                      ? 'Active Station: Unified Portal (Auto-Detect Role)'
-                                      : 'Active Station: ${_selectedRole!.displayNameEn} (RBAC Enforced)',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: _getRoleColor(_selectedRole),
-                                  ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.auto_awesome_rounded, size: 13, color: AppTheme.primaryTeal),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Auto-Detect Role',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryTeal,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              const Text(
-                                'Staff Login (कर्मचारी लगइन)',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Sign in with your staff account. The system will automatically direct you to your designated console.',
+                            style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.35),
+                          ),
+                          const SizedBox(height: 22),
 
-                          // Email Field
+                          // Email / Username Field
+                          const Text(
+                            'Staff Email / Username',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                          ),
+                          const SizedBox(height: 6),
                           TextField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              labelText: 'Staff Email / Username / Mobile',
+                              hintText: 'Enter registered staff email or phone',
                               prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                             ),
+                            onSubmitted: (_) => _handleLogin(deviceId),
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 16),
 
                           // Password Field
+                          const Text(
+                            'Password / Security PIN',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                          ),
+                          const SizedBox(height: 6),
                           TextField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
                             decoration: InputDecoration(
-                              labelText: 'Password / Security PIN',
+                              hintText: 'Enter account password or 4-digit PIN',
                               prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
                               suffixIcon: IconButton(
                                 icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
@@ -320,8 +370,9 @@ class _LoginViewState extends ConsumerState<LoginView> {
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                             ),
+                            onSubmitted: (_) => _handleLogin(deviceId),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 24),
 
                           // Submit Action Button
                           SizedBox(
@@ -329,7 +380,8 @@ class _LoginViewState extends ConsumerState<LoginView> {
                             height: 50,
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _getRoleColor(_selectedRole),
+                                backgroundColor: AppTheme.primaryTeal,
+                                foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 elevation: 1,
                               ),
@@ -341,11 +393,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                                     )
                                   : const Icon(Icons.login_rounded, size: 20),
                               label: Text(
-                                authState.isLoading
-                                    ? 'Authenticating Session...'
-                                    : _selectedRole == null
-                                        ? 'Sign In to GynoCamp'
-                                        : 'Sign In as ${_selectedRole!.displayNameEn}',
+                                authState.isLoading ? 'Authenticating Session...' : 'Sign In to GynoCamp',
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.2),
                               ),
                               onPressed: authState.isLoading ? null : () => _handleLogin(deviceId),
@@ -355,7 +403,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 22),
 
                   // Bottom Security Link
                   Center(
@@ -363,7 +411,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       icon: const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF64748B)),
                       label: const Text(
                         'Device Authorization & Security Management',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                       ),
                       onPressed: () {
                         Navigator.of(context).push(
@@ -382,113 +430,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
                 ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRoleCard({
-    required String title,
-    required String nepaliTitle,
-    required String subtitle,
-    required String description,
-    required IconData icon,
-    required Color color,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      elevation: isSelected ? 2 : 0,
-      color: isSelected ? color.withValues(alpha: 0.04) : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: isSelected ? color : const Color(0xFFE2E8F0),
-          width: isSelected ? 2 : 1,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            title,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.bold,
-                              color: isSelected ? color : const Color(0xFF1E293B),
-                            ),
-                          ),
-                        ),
-                        if (isSelected) ...[
-                          const SizedBox(width: 6),
-                          Icon(Icons.check_circle_rounded, size: 16, color: color),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected ? color : const Color(0xFF64748B),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      description,
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (isSelected)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: color.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.radio_button_checked, size: 13, color: color),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Active',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                const Icon(Icons.radio_button_unchecked, color: Color(0xFFCBD5E1), size: 16),
-            ],
           ),
         ),
       ),

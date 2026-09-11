@@ -31,16 +31,97 @@
 
   <title>GynoCamp Clinical Health System</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0F172A;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 32px;
+    }
+    .brand-icon {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #0F766E, #0D9488);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 25px rgba(15, 118, 110, 0.4);
+      margin-bottom: 20px;
+    }
+    .brand-icon svg {
+      width: 42px;
+      height: 42px;
+      fill: #FFFFFF;
+    }
+    .app-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: #F8FAFC;
+      letter-spacing: -0.3px;
+      margin: 0 0 6px 0;
+    }
+    .app-subtitle {
+      font-size: 13px;
+      font-weight: 500;
+      color: #94A3B8;
+      margin: 0 0 24px 0;
+    }
+    .pulse-bar {
+      width: 180px;
+      height: 4px;
+      background-color: #1E293B;
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .pulse-bar::after {
+      content: '';
+      position: absolute;
+      left: -50%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(90deg, #0D9488, #2DD4BF);
+      border-radius: 4px;
+      animation: pulseAnim 1.4s infinite ease-in-out;
+    }
+    @keyframes pulseAnim {
+      0% { left: -50%; width: 30%; }
+      50% { left: 35%; width: 50%; }
+      100% { left: 100%; width: 30%; }
+    }
+    .status-text {
+      font-size: 12px;
+      color: #64748B;
+      margin-top: 14px;
+      letter-spacing: 0.2px;
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <div id="loading-container">
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24">
+        <path d="M19 10.5h-4.5V6c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v4.5H7c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5h4.5V18c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-4.5H19c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5z"/>
+      </svg>
+    </div>
+    <div class="app-title">GynoCamp Clinical Outreach</div>
+    <div class="app-subtitle">Nepal Rural Women's Health & Outreach Network</div>
+    <div class="pulse-bar"></div>
+    <div class="status-text">Initializing clinical workstation & security vault...</div>
+  </div>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -1591,8 +1591,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
-    final passwordCtrl = TextEditingController(text: 'nurse123');
-    final pinCtrl = TextEditingController(text: '1234');
+    final passwordCtrl = TextEditingController();
+    final pinCtrl = TextEditingController();
     UserRole selectedRole = UserRole.dataTaker;
 
     showDialog(
@@ -1666,6 +1666,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           obscureText: true,
                           decoration: const InputDecoration(
                             labelText: 'Initial Password',
+                            hintText: 'Min 6 characters',
                             prefixIcon: Icon(Icons.lock_outline),
                           ),
                         ),
@@ -1677,7 +1678,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           keyboardType: TextInputType.number,
                           maxLength: 6,
                           decoration: const InputDecoration(
-                            labelText: 'Station PIN (4-6 Digits)',
+                            labelText: 'Station PIN',
+                            hintText: '4-6 digits',
                             counterText: '',
                             prefixIcon: Icon(Icons.pin),
                           ),
@@ -1694,12 +1696,26 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 onPressed: () async {
                   final name = nameCtrl.text.trim();
                   final email = emailCtrl.text.trim().toLowerCase();
-                  final password = passwordCtrl.text.trim().isNotEmpty ? passwordCtrl.text.trim() : 'nurse123';
-                  final pin = pinCtrl.text.trim().isNotEmpty ? pinCtrl.text.trim() : '1234';
+                  final password = passwordCtrl.text.trim();
+                  final pin = pinCtrl.text.trim();
 
                   if (name.isEmpty || email.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter staff name and email.')),
+                      const SnackBar(content: Text('Please enter staff name and official email.')),
+                    );
+                    return;
+                  }
+
+                  if (password.isEmpty || pin.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please set both an initial password and a 4-6 digit station PIN.')),
+                    );
+                    return;
+                  }
+
+                  if (pin.length < 4 || pin.length > 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Station PIN must be between 4 and 6 digits.')),
                     );
                     return;
                   }

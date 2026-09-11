@@ -157,13 +157,14 @@ void main() {
       expect(find.text('Cryptographic Ledger'), findsOneWidget);
       expect(find.text('SHA-256 Verified'), findsOneWidget);
 
-      // Active Camp Spotlight
+      // Active Camp Spotlight - Governance & Operations
       expect(find.text('KTM01'), findsWidgets);
       expect(find.text('LIVE OPERATIONAL STATION'), findsOneWidget);
       expect(find.text('Outreach Gyno Health Camp'), findsWidgets);
-      expect(find.text('Register Patient'), findsWidgets);
-      expect(find.text('Scan Yellow Form'), findsWidgets);
-      expect(find.text('Patient Roll & Charts'), findsWidgets);
+      expect(find.text('Camp Staff Assignments'), findsWidgets);
+      expect(find.text('Authorize Camp Hardware'), findsWidgets);
+      expect(find.text('Clinical Protocols & Master Data'), findsWidgets);
+      expect(find.text('Clinical Override'), findsOneWidget);
     });
 
     testWidgets('renders 6 Administrative Module Cards', (tester) async {
@@ -250,10 +251,91 @@ void main() {
       expect(find.text('Aggregate Camp Report (पिडिएफ)'), findsOneWidget);
     });
   });
+
+  group('HomeGatewayView Data Taker Dashboard Widget Tests', () {
+    final testDataTaker = UserModel(
+      id: 'u-taker-1',
+      name: 'Sita Sharma (Field Nurse)',
+      email: 'sita@gynocamp.org',
+      phone: '9841234567',
+      role: UserRole.dataTaker,
+      tenantId: 'tenant_bir',
+      tenantName: 'Community Health Outreach',
+      assignedCampIds: const ['camp-1'],
+      isActive: true,
+    );
+
+    testWidgets('renders Data Taker clinical stations and isolates from administrative modules', (tester) async {
+      tester.view.physicalSize = const Size(1280, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final fakeRepo = FakeCampRepoForHome();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            campRepositoryProvider.overrideWithValue(fakeRepo),
+            authStateProvider.overrideWith((ref) {
+              return AuthViewModel(FakeAuthRepositorySimple(testDataTaker));
+            }),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: const HomeGatewayView(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Clinical intake stations must be present
+      expect(find.text('Sita Sharma (Field Nurse)'), findsWidgets);
+      expect(find.text('Clinical Stations (Field Workstation Workflow)'), findsOneWidget);
+      expect(find.text('Register Patient (दर्ता)'), findsOneWidget);
+      expect(find.text('Scan Yellow Form (स्क्यान)'), findsOneWidget);
+      expect(find.text('Patient Roll & Triage (सूची)'), findsOneWidget);
+
+      // Super Admin governance modules must NOT be present
+      expect(find.text('Field Hardware Whitelist & Terminal Security'), findsNothing);
+      expect(find.text('Staff & Personnel Directory (RBAC)'), findsNothing);
+      expect(find.text('Tamper-Evident System Audit Ledger'), findsNothing);
+      expect(find.text('Disaster Recovery & Data Export Operations'), findsNothing);
+    });
+
+    testWidgets('renders loading guard when auth state is loading, preventing role bleed', (tester) async {
+      tester.view.physicalSize = const Size(1280, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final fakeRepo = FakeCampRepoForHome();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            campRepositoryProvider.overrideWithValue(fakeRepo),
+            authStateProvider.overrideWith((ref) {
+              final vm = AuthViewModel(FakeAuthRepositorySimple(null));
+              vm.state = const AuthState(isLoading: true);
+              return vm;
+            }),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: const HomeGatewayView(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Verifying authorized role terminal...'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // Ensure no premature dashboard renders
+      expect(find.text('SECURE ROOT SESSION ACTIVE'), findsNothing);
+      expect(find.text('Clinical Stations (Field Workstation Workflow)'), findsNothing);
+    });
+  });
 }
 
 class FakeAuthRepositorySimple implements IAuthRepository {
-  final UserModel admin;
+  final UserModel? admin;
   FakeAuthRepositorySimple(this.admin);
 
   @override
@@ -278,7 +360,7 @@ class FakeAuthRepositorySimple implements IAuthRepository {
   Future<UserModel?> getUserById(String id) async => admin;
 
   @override
-  Future<List<UserModel>> getAllUsers({bool includeInactive = false}) async => [admin];
+  Future<List<UserModel>> getAllUsers({bool includeInactive = false}) async => admin != null ? [admin!] : [];
 
   @override
   Future<UserModel> createUser({

@@ -1,8 +1,10 @@
 import 'package:sqflite/sqflite.dart';
+
 import '../core/constants/app_constants.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
 import '../core/security/security_service.dart';
+import '../core/services/http_central_api_service.dart';
 import '../models/user_model.dart';
 import 'audit_repository.dart';
 
@@ -25,7 +27,10 @@ abstract class IAuthRepository {
     String? password,
     required String deviceId,
   });
-  Future<UserModel?> loginAsRole({required UserRole role, required String deviceId});
+  Future<UserModel?> loginAsRole({
+    required UserRole role,
+    required String deviceId,
+  });
   Future<void> logout({required String deviceId});
   UserModel? get currentUser;
   void setCurrentUser(UserModel? user);
@@ -34,13 +39,15 @@ abstract class IAuthRepository {
 class AuthRepository implements IAuthRepository {
   final DatabaseService _databaseService;
   final AuditRepository _auditRepository;
+  final bool enableCentralSync;
   UserModel? _currentUser;
 
   AuthRepository({
     DatabaseService? databaseService,
     AuditRepository? auditRepository,
-  })  : _databaseService = databaseService ?? DatabaseService(),
-        _auditRepository = auditRepository ?? AuditRepository();
+    this.enableCentralSync = false,
+  }) : _databaseService = databaseService ?? DatabaseService(),
+       _auditRepository = auditRepository ?? AuditRepository();
 
   @override
   UserModel? get currentUser => _currentUser;
@@ -53,13 +60,41 @@ class AuthRepository implements IAuthRepository {
   @override
   Future<List<UserModel>> getAllUsers({bool includeInactive = false}) async {
     final db = await _databaseService.database;
+
+    // 1. Merge latest users from Central Cloud if available
+    if (enableCentralSync) {
+      try {
+        final centralUsers = await HttpCentralApiService().fetchCentralUsers();
+        if (centralUsers.isNotEmpty) {
+          for (final u in centralUsers) {
+            await db.insert(
+              DatabaseTables.tableUsers,
+              u.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+        }
+      } catch (_) {}
+    }
+
     final maps = await db.query(
       DatabaseTables.tableUsers,
       where: includeInactive ? null : 'is_active = ?',
       whereArgs: includeInactive ? null : [1],
       orderBy: 'name ASC',
     );
-    return maps.map((m) => UserModel.fromMap(m)).toList();
+    final users = maps.map((m) => UserModel.fromMap(m)).toList();
+
+    // 2. Broadcast any local users to central cloud
+    if (enableCentralSync) {
+      try {
+        for (final u in users) {
+          HttpCentralApiService().broadcastUser(u);
+        }
+      } catch (_) {}
+    }
+
+    return users;
   }
 
   @override
@@ -71,8 +106,24 @@ class AuthRepository implements IAuthRepository {
       whereArgs: [id],
       limit: 1,
     );
-    if (maps.isEmpty) return null;
-    return UserModel.fromMap(maps.first);
+    if (maps.isNotEmpty) return UserModel.fromMap(maps.first);
+
+    // Try central cloud if enabled
+    if (enableCentralSync) {
+      try {
+        final centralUsers = await HttpCentralApiService().fetchCentralUsers();
+        for (final u in centralUsers) {
+          await db.insert(
+            DatabaseTables.tableUsers,
+            u.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          if (u.id == id) return u;
+        }
+      } catch (_) {}
+    }
+
+    return null;
   }
 
   @override
@@ -80,15 +131,36 @@ class AuthRepository implements IAuthRepository {
     final db = await _databaseService.database;
     final trimmed = email.trim();
     final lower = trimmed.toLowerCase();
-    final defaultEmail = lower.contains('@') ? lower : '$lower@gynocamp.org';
+    final isSuperAdminAlias = lower == 'admin';
+    
     final maps = await db.query(
       DatabaseTables.tableUsers,
-      where: 'LOWER(email) = ? OR LOWER(email) = ? OR phone = ?',
-      whereArgs: [lower, defaultEmail, trimmed],
+      where: isSuperAdminAlias
+          ? "LOWER(email) = ? OR phone = ? OR LOWER(email) = 'admin@gynocamp.org' OR id = 'usr-superadmin-01'"
+          : 'LOWER(email) = ? OR phone = ?',
+      whereArgs: [lower, trimmed],
       limit: 1,
     );
-    if (maps.isEmpty) return null;
-    return UserModel.fromMap(maps.first);
+    if (maps.isNotEmpty) return UserModel.fromMap(maps.first);
+
+    // Try central cloud for newly registered staff from other devices
+    if (enableCentralSync) {
+      try {
+        final centralUsers = await HttpCentralApiService().fetchCentralUsers();
+        for (final u in centralUsers) {
+          await db.insert(
+            DatabaseTables.tableUsers,
+            u.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          if (u.email.trim().toLowerCase() == lower || u.phone == trimmed) {
+            return u;
+          }
+        }
+      } catch (_) {}
+    }
+
+    return null;
   }
 
   @override
@@ -111,9 +183,14 @@ class AuthRepository implements IAuthRepository {
       action: 'USER_REGISTERED',
       entityType: 'User',
       entityId: user.id,
-      detailsJson: '{"name":"${user.name}","email":"${user.email}","role":"${user.role.toDbString()}"}',
+      detailsJson:
+          '{"name":"${user.name}","email":"${user.email}","role":"${user.role.toDbString()}"}',
       deviceId: deviceId,
     );
+
+    try {
+      HttpCentralApiService().broadcastUser(user);
+    } catch (_) {}
 
     return user;
   }
@@ -139,9 +216,14 @@ class AuthRepository implements IAuthRepository {
       action: 'USER_UPDATED',
       entityType: 'User',
       entityId: user.id,
-      detailsJson: '{"name":"${user.name}","email":"${user.email}","role":"${user.role.toDbString()}","isActive":${user.isActive}}',
+      detailsJson:
+          '{"name":"${user.name}","email":"${user.email}","role":"${user.role.toDbString()}","isActive":${user.isActive}}',
       deviceId: deviceId,
     );
+
+    try {
+      HttpCentralApiService().broadcastUser(user);
+    } catch (_) {}
 
     if (_currentUser?.id == user.id) {
       _currentUser = user;
@@ -160,14 +242,15 @@ class AuthRepository implements IAuthRepository {
 
     if (password != null && password.isNotEmpty) {
       final inputHash = SecurityService.hashSha256(password);
-      final isPinValid = user.pinHash != null && SecurityService.verifyPin(password, user.pinHash!);
-      final isPasswordValid = user.passwordHash == null ||
-          user.passwordHash!.isEmpty ||
-          user.passwordHash == inputHash ||
-          password == 'admin123' ||
-          password == 'nurse123' ||
-          password == 'analyst123' ||
-          password == 'pass123';
+      final isPinValid =
+          user.pinHash != null &&
+          user.pinHash!.isNotEmpty &&
+          SecurityService.verifyPin(password, user.pinHash!);
+      final isPasswordValid =
+          user.passwordHash != null &&
+          user.passwordHash!.isNotEmpty &&
+          user.passwordHash == inputHash;
+
       if (!isPasswordValid && !isPinValid) {
         return null;
       }
@@ -192,7 +275,7 @@ class AuthRepository implements IAuthRepository {
       action: AppConstants.auditActionLogin,
       entityType: 'User',
       entityId: user.id,
-      detailsJson: '{"loginMethod":"credentials","email":"$email"}',
+      detailsJson: '{"loginMethod":"credentials","email":"${user.email}"}',
       deviceId: deviceId,
     );
 
@@ -200,7 +283,10 @@ class AuthRepository implements IAuthRepository {
   }
 
   @override
-  Future<UserModel?> loginAsRole({required UserRole role, required String deviceId}) async {
+  Future<UserModel?> loginAsRole({
+    required UserRole role,
+    required String deviceId,
+  }) async {
     final db = await _databaseService.database;
     final maps = await db.query(
       DatabaseTables.tableUsers,
@@ -229,7 +315,8 @@ class AuthRepository implements IAuthRepository {
       action: AppConstants.auditActionLogin,
       entityType: 'User',
       entityId: user.id,
-      detailsJson: '{"loginMethod":"role_switch","role":"${role.toDbString()}"}',
+      detailsJson:
+          '{"loginMethod":"role_switch","role":"${role.toDbString()}"}',
       deviceId: deviceId,
     );
 

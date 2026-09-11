@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io' show Directory, Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+
 import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
 import '../security/security_service.dart';
@@ -31,7 +33,8 @@ class DatabaseService {
     final String path;
     if (kIsWeb) {
       path = AppConstants.databaseName;
-    } else if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    } else if (!kIsWeb &&
+        (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
       final supportDir = await getApplicationSupportDirectory();
       await Directory(supportDir.path).create(recursive: true);
       path = p.join(supportDir.path, AppConstants.databaseName);
@@ -77,6 +80,46 @@ class DatabaseService {
         "UPDATE ${DatabaseTables.tableUsers} SET name = 'System Administrator (Super Admin)', tenant_name = 'Nepal Health Outreach Network' WHERE id = 'usr-superadmin-01' AND name = 'Dr. Aarav Sharma (Lead Gynecologist)'",
       );
     } catch (_) {}
+
+    // Guarantee bootstrap Super Admin has valid credentials in SQLite
+    try {
+      final adminPassHash = SecurityService.hashSha256('admin123');
+      final adminPinHash = SecurityService.hashPin('1234');
+
+      final adminCheck = await db.query(
+        DatabaseTables.tableUsers,
+        where: 'LOWER(email) = ? OR id = ?',
+        whereArgs: ['admin@gynocamp.org', 'usr-superadmin-01'],
+        limit: 1,
+      );
+
+      if (adminCheck.isEmpty) {
+        final now = DateTime.now().toIso8601String();
+        await db.insert(
+          DatabaseTables.tableUsers,
+          {
+            'id': 'usr-superadmin-01',
+            'name': 'System Administrator (Super Admin)',
+            'email': 'admin@gynocamp.org',
+            'phone': '9851000001',
+            'role': AppConstants.roleSuperAdmin,
+            'is_active': 1,
+            'last_login_at': now,
+            'assigned_camp_ids': '',
+            'tenant_id': 'tenant_default',
+            'tenant_name': 'Nepal Health Outreach Network',
+            'password_hash': adminPassHash,
+            'pin_hash': adminPinHash,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } else {
+        await db.rawUpdate(
+          "UPDATE ${DatabaseTables.tableUsers} SET password_hash = ?, pin_hash = ?, is_active = 1 WHERE (LOWER(email) = 'admin@gynocamp.org' OR id = 'usr-superadmin-01') AND (password_hash IS NULL OR password_hash = '' OR pin_hash IS NULL OR pin_hash = '')",
+          [adminPassHash, adminPinHash],
+        );
+      }
+    } catch (_) {}
   }
 
   Future<void> _createDb(Database db) async {
@@ -104,122 +147,100 @@ class DatabaseService {
   Future<void> _seedInitialData(Database db) async {
     // 1. Seed initial users for all 3 roles (SaaS multi-tenant defaults)
     final now = DateTime.now().toIso8601String();
-    await db.insert(
-      DatabaseTables.tableUsers,
-      {
-        'id': 'usr-superadmin-01',
-        'name': 'System Administrator (Super Admin)',
-        'email': 'admin@gynocamp.org',
-        'phone': '9851000001',
-        'role': AppConstants.roleSuperAdmin,
-        'is_active': 1,
-        'last_login_at': now,
-        'assigned_camp_ids': 'camp-ktm-01,camp-dhn-02',
-        'tenant_id': 'tenant_default',
-        'tenant_name': 'Nepal Health Outreach Network',
-        'password_hash': SecurityService.hashSha256('admin123'),
-        'pin_hash': SecurityService.hashPin('1234'),
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await db.insert(DatabaseTables.tableUsers, {
+      'id': 'usr-superadmin-01',
+      'name': 'System Administrator (Super Admin)',
+      'email': 'admin@gynocamp.org',
+      'phone': '9851000001',
+      'role': AppConstants.roleSuperAdmin,
+      'is_active': 1,
+      'last_login_at': now,
+      'assigned_camp_ids': 'camp-ktm-01,camp-dhn-02',
+      'tenant_id': 'tenant_default',
+      'tenant_name': 'Nepal Health Outreach Network',
+      'password_hash': SecurityService.hashSha256('admin123'),
+      'pin_hash': SecurityService.hashPin('1234'),
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert(
-      DatabaseTables.tableUsers,
-      {
-        'id': 'usr-datataker-01',
-        'name': 'Sita Sharma (Field Nurse)',
-        'email': 'sita@gynocamp.org',
-        'phone': '9841234567',
-        'role': AppConstants.roleDataTaker,
-        'is_active': 1,
-        'last_login_at': now,
-        'assigned_camp_ids': 'camp-ktm-01',
-        'tenant_id': 'tenant_default',
-        'tenant_name': 'Community Health Outreach',
-        'password_hash': SecurityService.hashSha256('nurse123'),
-        'pin_hash': SecurityService.hashPin('1234'),
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await db.insert(DatabaseTables.tableUsers, {
+      'id': 'usr-datataker-01',
+      'name': 'Sita Sharma (Field Nurse)',
+      'email': 'sita@gynocamp.org',
+      'phone': '9841234567',
+      'role': AppConstants.roleDataTaker,
+      'is_active': 1,
+      'last_login_at': now,
+      'assigned_camp_ids': 'camp-ktm-01',
+      'tenant_id': 'tenant_default',
+      'tenant_name': 'Community Health Outreach',
+      'password_hash': SecurityService.hashSha256('nurse123'),
+      'pin_hash': SecurityService.hashPin('1234'),
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert(
-      DatabaseTables.tableUsers,
-      {
-        'id': 'usr-dataanalyst-01',
-        'name': 'Bikash Adhikari',
-        'email': 'analyst@gynocamp.org',
-        'phone': '9860123456',
-        'role': AppConstants.roleDataAnalyst,
-        'is_active': 1,
-        'last_login_at': now,
-        'assigned_camp_ids': '',
-        'tenant_id': 'tenant_default',
-        'tenant_name': 'Community Health Outreach',
-        'password_hash': SecurityService.hashSha256('analyst123'),
-        'pin_hash': SecurityService.hashPin('1234'),
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await db.insert(DatabaseTables.tableUsers, {
+      'id': 'usr-dataanalyst-01',
+      'name': 'Bikash Adhikari',
+      'email': 'analyst@gynocamp.org',
+      'phone': '9860123456',
+      'role': AppConstants.roleDataAnalyst,
+      'is_active': 1,
+      'last_login_at': now,
+      'assigned_camp_ids': '',
+      'tenant_id': 'tenant_default',
+      'tenant_name': 'Community Health Outreach',
+      'password_hash': SecurityService.hashSha256('analyst123'),
+      'pin_hash': SecurityService.hashPin('1234'),
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 2. Seed active sample camp
-    await db.insert(
-      DatabaseTables.tableCamps,
-      {
-        'id': 'camp-ktm-01',
-        'camp_code': 'KTM01',
-        'name': 'Outreach Gyno Health Camp',
-        'district': 'Kathmandu',
-        'municipality': 'Budhanilkantha Municipality',
-        'ward': '03',
-        'venue': 'Primary Health Care Center',
-        'start_date': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-        'end_date': DateTime.now().add(const Duration(days: 3)).toIso8601String(),
-        'status': AppConstants.campStatusOpen,
-        'assigned_staff_ids': 'usr-datataker-01,usr-superadmin-01',
-        'total_patients_registered': 0,
-        'tenant_id': 'tenant_default',
-        'organization_name': 'Community Health Outreach Mission',
-        'created_at': now,
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await db.insert(DatabaseTables.tableCamps, {
+      'id': 'camp-ktm-01',
+      'camp_code': 'KTM01',
+      'name': 'Outreach Gyno Health Camp',
+      'district': 'Kathmandu',
+      'municipality': 'Budhanilkantha Municipality',
+      'ward': '03',
+      'venue': 'Primary Health Care Center',
+      'start_date': DateTime.now()
+          .subtract(const Duration(days: 1))
+          .toIso8601String(),
+      'end_date': DateTime.now().add(const Duration(days: 3)).toIso8601String(),
+      'status': AppConstants.campStatusOpen,
+      'assigned_staff_ids': 'usr-datataker-01,usr-superadmin-01',
+      'total_patients_registered': 0,
+      'tenant_id': 'tenant_default',
+      'organization_name': 'Community Health Outreach Mission',
+      'created_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 3. Seed default diagnoses from Yellow Form
     int sortIdx = 0;
     for (final diag in ClinicalConstants.defaultDiagnoses) {
       sortIdx++;
-      await db.insert(
-        DatabaseTables.tableLookupItems,
-        {
-          'id': 'diag-$sortIdx',
-          'category': 'diagnosis',
-          'code': diag.toLowerCase().replaceAll(' ', '_'),
-          'label_en': diag,
-          'label_ne': _getNepaliDiagnosisName(diag),
-          'is_active': 1,
-          'sort_order': sortIdx,
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
+      await db.insert(DatabaseTables.tableLookupItems, {
+        'id': 'diag-$sortIdx',
+        'category': 'diagnosis',
+        'code': diag.toLowerCase().replaceAll(' ', '_'),
+        'label_en': diag,
+        'label_ne': _getNepaliDiagnosisName(diag),
+        'is_active': 1,
+        'sort_order': sortIdx,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
 
     // 4. Seed default medicines from Yellow Form
     sortIdx = 0;
     for (final med in ClinicalConstants.defaultMedications) {
       sortIdx++;
-      await db.insert(
-        DatabaseTables.tableLookupItems,
-        {
-          'id': 'med-$sortIdx',
-          'category': 'medicine',
-          'code': med.toLowerCase().replaceAll(' ', '_'),
-          'label_en': med,
-          'label_ne': med,
-          'is_active': 1,
-          'sort_order': sortIdx,
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
+      await db.insert(DatabaseTables.tableLookupItems, {
+        'id': 'med-$sortIdx',
+        'category': 'medicine',
+        'code': med.toLowerCase().replaceAll(' ', '_'),
+        'label_en': med,
+        'label_ne': med,
+        'is_active': 1,
+        'sort_order': sortIdx,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
   }
 

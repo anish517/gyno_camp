@@ -184,7 +184,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
 }
 
 final authRepositoryProvider = Provider<IAuthRepository>((ref) {
-  return AuthRepository();
+  return AuthRepository(enableCentralSync: true);
 });
 
 final authStateProvider = StateNotifierProvider<AuthViewModel, AuthState>((ref) {

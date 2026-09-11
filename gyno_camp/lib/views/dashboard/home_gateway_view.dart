@@ -28,6 +28,7 @@ import '../scanner/form_scan_view.dart';
 import '../settings/postgres_settings_view.dart';
 import '../sync/sync_status_view.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
+import '../splash/security_gateway_view.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
 
 class HomeGatewayView extends ConsumerWidget {
@@ -39,14 +40,33 @@ class HomeGatewayView extends ConsumerWidget {
     final user = authState.currentUser;
     final deviceState = ref.watch(deviceSecurityProvider);
 
+    // Guard: Prevent premature dashboard render before role claim is fully loaded from session
+    if (user == null || authState.isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: AppTheme.primaryTeal),
+              SizedBox(height: 16),
+              Text(
+                'Verifying authorized role terminal...',
+                style: TextStyle(color: AppTheme.textSecondaryLight, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(user?.name ?? 'Gynocamp System'),
+            Text(user.name.isNotEmpty ? user.name : 'Gynocamp System'),
             Text(
-              '${user?.role.displayNameEn ?? "Staff"} • ${deviceState.device?.deviceName ?? "Authorized Device"}',
+              '${user.role.displayNameEn} • ${deviceState.device?.deviceName ?? "Authorized Device"}',
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.normal, color: Colors.white70),
             ),
           ],
@@ -60,21 +80,58 @@ class HomeGatewayView extends ConsumerWidget {
             },
           ),
           IconButton(
-            tooltip: 'Logout',
+            tooltip: 'Logout / Sign Out',
             icon: const Icon(Icons.logout),
             onPressed: () {
-              ref.read(authStateProvider.notifier).logout(
-                    deviceId: deviceState.device?.deviceId ?? 'dev-local',
-                  );
+              showDialog(
+                context: context,
+                builder: (dialogCtx) => AlertDialog(
+                  title: const Row(
+                    children: [
+                      Icon(Icons.logout, color: AppTheme.dangerRose),
+                      SizedBox(width: 8),
+                      Text('Confirm Sign Out'),
+                    ],
+                  ),
+                  content: Text(
+                    'Are you sure you want to sign out of "${user.name}"? This will terminate your active clinical session and return to the Staff Login screen.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogCtx),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.dangerRose,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () async {
+                        Navigator.pop(dialogCtx);
+                        await ref.read(authStateProvider.notifier).logout(
+                              deviceId: deviceState.device?.deviceId ?? 'dev-local',
+                            );
+                        if (context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const SecurityGatewayView()),
+                            (route) => false,
+                          );
+                        }
+                      },
+                      child: const Text('Sign Out'),
+                    ),
+                  ],
+                ),
+              );
             },
           ),
         ],
       ),
-      body: user?.isSuperAdmin == true
-          ? _buildSuperAdminDashboard(context, ref)
-          : user?.isDataAnalyst == true
-              ? _buildDataAnalystDashboard(context, ref)
-              : _buildDataTakerDashboard(context, ref),
+      body: switch (user.role) {
+        UserRole.superAdmin => _buildSuperAdminDashboard(context, ref),
+        UserRole.dataAnalyst => _buildDataAnalystDashboard(context, ref),
+        UserRole.dataTaker => _buildDataTakerDashboard(context, ref),
+      },
     );
   }
 
@@ -924,7 +981,7 @@ class HomeGatewayView extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Clinical Field Workstations (Supervisor Access)',
+                'Active Camp Operations & Roster Governance',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155), letterSpacing: 0.2),
               ),
               Container(
@@ -942,7 +999,7 @@ class HomeGatewayView extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
 
-          // 3 Field Workstation Action Cards
+          // 3 Operational Governance Cards
           LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth > 700;
@@ -953,60 +1010,74 @@ class HomeGatewayView extends ConsumerWidget {
                   _buildSupervisorActionCard(
                     context: context,
                     width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
-                    icon: Icons.person_add_alt_1_rounded,
+                    icon: Icons.assignment_ind_rounded,
                     iconColor: const Color(0xFF0F766E),
                     iconBgColor: const Color(0xFFCCFBF1),
-                    badgeText: 'STATION 1: INTAKE',
+                    badgeText: 'STAFF ROSTER',
                     badgeColor: const Color(0xFF0F766E),
-                    title: 'Register Patient',
-                    description: 'Demographics, triage vitals & official barcode token slip generation',
+                    title: 'Camp Staff Assignments',
+                    description: 'Provision field nurses, gynecologists & assign clinical roles to ${camp.campCode}',
                     onTap: () {
-                      if (!campState.hasActiveCamp) {
-                        _showNoCampAlert(context);
-                        return;
-                      }
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientRegistrationView()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const CampManagementView()));
                     },
                   ),
                   _buildSupervisorActionCard(
                     context: context,
                     width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
-                    icon: Icons.document_scanner_rounded,
+                    icon: Icons.devices_other_rounded,
                     iconColor: const Color(0xFF4338CA),
                     iconBgColor: const Color(0xFFE0E7FF),
-                    badgeText: 'AI SCAN ENGINE',
+                    badgeText: 'SECURITY WHITELIST',
                     badgeColor: const Color(0xFF4338CA),
-                    title: 'Scan Yellow Form',
-                    description: 'Dual-page camera OCR & OMR checkbox auto-digitization for Page 1 & 2',
+                    title: 'Authorize Camp Hardware',
+                    description: 'Manage SHA-256 hardware fingerprints & active field tablets for this camp',
                     onTap: () {
-                      if (!campState.hasActiveCamp) {
-                        _showNoCampAlert(context);
-                        return;
-                      }
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const FormScanView()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DeviceManagementView()));
                     },
                   ),
                   _buildSupervisorActionCard(
                     context: context,
                     width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
-                    icon: Icons.assignment_ind_rounded,
+                    icon: Icons.tune_rounded,
                     iconColor: const Color(0xFF7E22CE),
                     iconBgColor: const Color(0xFFF3E8FF),
-                    badgeText: 'CHARTS & QUEUE',
+                    badgeText: 'FORMULARY & CONFIG',
                     badgeColor: const Color(0xFF7E22CE),
-                    title: 'Patient Roll & Charts',
-                    description: '6-station clinical exam records, POP-Q staging & PDF follow-up slips',
+                    title: 'Clinical Protocols & Master Data',
+                    description: 'Configure standard medication formularies, wards, and diagnosis dropdowns',
                     onTap: () {
-                      if (!campState.hasActiveCamp) {
-                        _showNoCampAlert(context);
-                        return;
-                      }
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientListView()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const MasterConfigView()));
                     },
                   ),
                 ],
               );
             },
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.verified_user_outlined, size: 18, color: Color(0xFF64748B)),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Clinical Intake & OCR Scanner are restricted to designated Data Taker consoles.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.open_in_new, size: 14),
+                  label: const Text('Clinical Override', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () => _showSupervisorClinicalOverrideDialog(context, campState),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -2506,6 +2577,63 @@ class HomeGatewayView extends ConsumerWidget {
                 context,
                 MaterialPageRoute(builder: (_) => const CampManagementView()),
               );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSupervisorClinicalOverrideDialog(BuildContext context, CampState campState) {
+    if (!campState.hasActiveCamp) {
+      _showNoCampAlert(context);
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.medical_services_rounded, color: AppTheme.primaryTeal),
+            SizedBox(width: 10),
+            Text('Supervisor Clinical Override', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'You are launching field clinical entry from an administrative Super Admin console. Select the station you wish to access:',
+          style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+            label: const Text('Station 1: Intake'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryTeal, foregroundColor: Colors.white),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientRegistrationView()));
+            },
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.document_scanner_rounded, size: 16),
+            label: const Text('Scan Form'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4338CA), foregroundColor: Colors.white),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const FormScanView()));
+            },
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.assignment_ind_rounded, size: 16),
+            label: const Text('Patient Roll'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7E22CE), foregroundColor: Colors.white),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientListView()));
             },
           ),
         ],

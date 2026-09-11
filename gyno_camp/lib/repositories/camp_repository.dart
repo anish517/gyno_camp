@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
+import '../core/services/http_central_api_service.dart';
 import '../models/camp_model.dart';
 import 'audit_repository.dart';
 
@@ -22,30 +23,60 @@ abstract class ICampRepository {
 class CampRepository implements ICampRepository {
   final DatabaseService _databaseService;
   final AuditRepository _auditRepository;
+  final bool enableCentralSync;
   final Uuid _uuid = const Uuid();
 
   CampRepository({
     DatabaseService? databaseService,
     AuditRepository? auditRepository,
+    this.enableCentralSync = false,
   })  : _databaseService = databaseService ?? DatabaseService(),
         _auditRepository = auditRepository ?? AuditRepository();
 
   @override
   Future<List<CampModel>> getAllCamps() async {
     final db = await _databaseService.database;
+
+    // 1. Merge latest camps from Central Cloud if available
+    if (enableCentralSync) {
+      try {
+        final centralCamps = await HttpCentralApiService().fetchCentralCamps();
+        if (centralCamps.isNotEmpty) {
+          for (final c in centralCamps) {
+            await db.insert(
+              DatabaseTables.tableCamps,
+              c.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+        }
+      } catch (_) {}
+    }
+
     final maps = await db.rawQuery('''
       SELECT c.*,
              COALESCE((SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} p WHERE p.camp_id = c.id), 0) AS live_patient_count
       FROM ${DatabaseTables.tableCamps} c
       ORDER BY c.start_date DESC
     ''');
-    return maps.map((m) {
+    final localCamps = maps.map((m) {
       final map = Map<String, dynamic>.from(m);
       if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
         map['total_patients_registered'] = map['live_patient_count'];
       }
       return CampModel.fromMap(map);
     }).toList();
+
+    // 2. Broadcast any local camps to central cloud
+    if (enableCentralSync) {
+      try {
+        for (final camp in localCamps) {
+          HttpCentralApiService().broadcastCamp(camp);
+        }
+      } catch (_) {}
+    }
+
+    return localCamps;
   }
 
   @override
@@ -58,12 +89,32 @@ class CampRepository implements ICampRepository {
       WHERE c.id = ?
       LIMIT 1
     ''', [id]);
-    if (maps.isEmpty) return null;
-    final map = Map<String, dynamic>.from(maps.first);
-    if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
-      map['total_patients_registered'] = map['live_patient_count'];
+    if (maps.isNotEmpty) {
+      final map = Map<String, dynamic>.from(maps.first);
+      if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
+        map['total_patients_registered'] = map['live_patient_count'];
+      }
+      return CampModel.fromMap(map);
     }
-    return CampModel.fromMap(map);
+
+    // Try central cloud if enabled
+    if (enableCentralSync) {
+      try {
+        final centralCamps = await HttpCentralApiService().fetchCentralCamps();
+        CampModel? matched;
+        for (final c in centralCamps) {
+          await db.insert(
+            DatabaseTables.tableCamps,
+            c.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          if (c.id == id) matched = c;
+        }
+        if (matched != null) return matched;
+      } catch (_) {}
+    }
+
+    return null;
   }
 
   @override
@@ -76,12 +127,34 @@ class CampRepository implements ICampRepository {
       WHERE c.status = ?
       LIMIT 1
     ''', [AppConstants.campStatusOpen]);
-    if (maps.isEmpty) return null;
-    final map = Map<String, dynamic>.from(maps.first);
-    if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
-      map['total_patients_registered'] = map['live_patient_count'];
+    if (maps.isNotEmpty) {
+      final map = Map<String, dynamic>.from(maps.first);
+      if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
+        map['total_patients_registered'] = map['live_patient_count'];
+      }
+      return CampModel.fromMap(map);
     }
-    return CampModel.fromMap(map);
+
+    // Check central cloud if local has no active camp
+    if (enableCentralSync) {
+      try {
+        final centralCamps = await HttpCentralApiService().fetchCentralCamps();
+        CampModel? active;
+        for (final c in centralCamps) {
+          await db.insert(
+            DatabaseTables.tableCamps,
+            c.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          if (c.status == CampStatus.open && active == null) {
+            active = c;
+          }
+        }
+        if (active != null) return active;
+      } catch (_) {}
+    }
+
+    return null;
   }
 
   @override
@@ -106,6 +179,10 @@ class CampRepository implements ICampRepository {
       detailsJson: '{"campCode":"${newCamp.campCode}","name":"${newCamp.name}"}',
       deviceId: deviceId,
     );
+
+    try {
+      HttpCentralApiService().broadcastCamp(newCamp);
+    } catch (_) {}
 
     return newCamp;
   }
@@ -146,6 +223,10 @@ class CampRepository implements ICampRepository {
       detailsJson: '{"campCode":"${camp.campCode}","status":"OPEN"}',
       deviceId: deviceId,
     );
+
+    try {
+      HttpCentralApiService().broadcastCamp(updated);
+    } catch (_) {}
 
     return true;
   }
@@ -241,6 +322,10 @@ class CampRepository implements ICampRepository {
       detailsJson: '{"campCode":"${camp.campCode}","name":"${camp.name}"}',
       deviceId: deviceId,
     );
+
+    try {
+      HttpCentralApiService().broadcastCamp(updated);
+    } catch (_) {}
 
     return updated;
   }

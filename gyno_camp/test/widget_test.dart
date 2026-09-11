@@ -12,7 +12,7 @@ import 'package:gyno_camp/views/security/device_activation_view.dart';
 
 void main() {
   group('Widget & View Tests (MVVM)', () {
-    testWidgets('LoginView renders all 3 user role selection options', (WidgetTester tester) async {
+    testWidgets('LoginView renders unified staff sign-in form with auto role detection', (WidgetTester tester) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
@@ -23,10 +23,9 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Select User Role to Continue:'), findsOneWidget);
-      expect(find.text('Data Taker (Field Staff)'), findsOneWidget);
-      expect(find.text('Super Admin'), findsOneWidget);
-      expect(find.text('Data Analyst'), findsOneWidget);
+      expect(find.text('Staff Sign-In'), findsOneWidget);
+      expect(find.text('Auto-Detect Role'), findsOneWidget);
+      expect(find.text('Sign In to GynoCamp'), findsOneWidget);
     });
 
     testWidgets('DeviceActivationView displays hardware signature card and activation fields', (WidgetTester tester) async {

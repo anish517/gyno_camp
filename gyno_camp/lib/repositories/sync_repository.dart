@@ -5,6 +5,7 @@ import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
 import '../core/database/postgres_database_service.dart';
 import '../core/services/central_api_service.dart';
+import '../core/services/http_central_api_service.dart';
 import '../models/audit_log_model.dart';
 import '../models/clinical_visit_model.dart';
 import '../models/patient_model.dart';
@@ -32,7 +33,7 @@ class SyncRepository implements ISyncRepository {
     ICentralApiService? centralApiService,
     AuditRepository? auditRepository,
   })  : _databaseService = databaseService ?? DatabaseService(),
-        _centralApiService = centralApiService ?? CentralApiService(),
+        _centralApiService = centralApiService ?? HttpCentralApiService(),
         _auditRepository = auditRepository ?? AuditRepository();
 
   @override

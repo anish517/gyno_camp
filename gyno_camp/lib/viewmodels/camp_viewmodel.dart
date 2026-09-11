@@ -255,7 +255,7 @@ class CampViewModel extends StateNotifier<CampState> {
 }
 
 final campRepositoryProvider = Provider<ICampRepository>((ref) {
-  return CampRepository();
+  return CampRepository(enableCentralSync: true);
 });
 
 final campStateProvider = StateNotifierProvider<CampViewModel, CampState>((ref) {

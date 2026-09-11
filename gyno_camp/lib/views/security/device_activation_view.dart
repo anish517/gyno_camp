@@ -5,7 +5,14 @@ import '../../viewmodels/device_security_viewmodel.dart';
 import '../auth/login_view.dart';
 
 class DeviceActivationView extends ConsumerStatefulWidget {
-  const DeviceActivationView({super.key});
+  final String? prefillStaffName;
+  final String? prefillStaffUserId;
+
+  const DeviceActivationView({
+    super.key,
+    this.prefillStaffName,
+    this.prefillStaffUserId,
+  });
 
   @override
   ConsumerState<DeviceActivationView> createState() => _DeviceActivationViewState();
@@ -14,7 +21,13 @@ class DeviceActivationView extends ConsumerStatefulWidget {
 class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
   final _deviceNameController = TextEditingController();
   final _otpController = TextEditingController();
-  final _staffNameController = TextEditingController();
+  late final TextEditingController _staffNameController;
+
+  @override
+  void initState() {
+    super.initState();
+    _staffNameController = TextEditingController(text: widget.prefillStaffName ?? '');
+  }
 
   @override
   void dispose() {
@@ -185,7 +198,7 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                         }
                         await vm.requestRegistration(
                           deviceName: deviceName,
-                          staffUserId: 'usr-datataker-01',
+                          staffUserId: widget.prefillStaffUserId ?? 'usr-staff-${DateTime.now().millisecondsSinceEpoch}',
                           staffName: staffName,
                         );
                       },
@@ -195,7 +208,7 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
             // Step 2: OTP Entry (If pending OTP)
             if (state.isPendingOtp) ...[
               const Text(
-                'Step 2: Enter 6-Digit OTP Code',
+                'Step 2: Enter 6-Digit Verification Code',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
@@ -220,6 +233,64 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                   ],
                 ),
               ),
+              if (state.latestOtp != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF93C5FD)),
+                  ),
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.pin_outlined, color: Color(0xFF1D4ED8), size: 22),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Security Authorization Code (SMS / Local Terminal):',
+                                style: TextStyle(fontSize: 11, color: Color(0xFF1E40AF), fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                state.latestOtp!,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 3,
+                                  color: Color(0xFF1E3A8A),
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFFDBEAFE),
+                          foregroundColor: const Color(0xFF1D4ED8),
+                        ),
+                        icon: const Icon(Icons.copy_rounded, size: 16),
+                        label: const Text('Fill Code', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          setState(() {
+                            _otpController.text = state.latestOtp!;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               TextField(
                 controller: _otpController,
                 keyboardType: TextInputType.number,
@@ -232,7 +303,7 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
               const SizedBox(height: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.verified),
-                label: const Text('Verify OTP'),
+                label: const Text('Verify Code'),
                 onPressed: state.isChecking
                     ? null
                     : () async {
@@ -255,21 +326,22 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                     const Icon(Icons.hourglass_top, color: Colors.orange, size: 48),
                     const SizedBox(height: 12),
                     const Text(
-                      'Awaiting Super Admin Approval',
+                      'Awaiting Central Administrator Approval',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'OTP verified successfully! Your device request has been forwarded to the Super Admin dashboard. You will be able to access the app once approved.',
+                      'Hardware signature has been verified and registered. The Super Administrator can authorize this workstation from the central Admin Console (Device Whitelist & Security).',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13, color: Colors.black87),
                     ),
                     const SizedBox(height: 16),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Check Approval Status'),
+                      label: const Text('Check Authorization Status'),
                       onPressed: () => vm.checkCurrentDevice(),
                     ),
+                    const SizedBox(height: 8),
                     TextButton.icon(
                       icon: const Icon(Icons.arrow_back),
                       label: const Text('Return to Staff Login'),
@@ -278,6 +350,72 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                           MaterialPageRoute(builder: (_) => const LoginView()),
                         );
                       },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Step 4: Approved & Whitelisted Device
+            if (state.isApproved) ...[
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFA7F3D0), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF059669).withValues(alpha: 0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFD1FAE5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.verified_rounded, color: Color(0xFF059669), size: 36),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Terminal Hardware Approved & Authorized',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Device "${state.device?.deviceName ?? "Workstation"}" has been whitelisted by Super Admin. You can now log in to your designated clinical role console.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF047857), height: 1.4),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.login_rounded, size: 18),
+                        label: const Text(
+                          'Proceed to Staff Sign-In',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(builder: (_) => const LoginView()),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),

@@ -9,7 +9,8 @@
     <application
         android:label="gyno_camp"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <!-- Automatically download ML Kit OCR models at install time -->
         <!-- Both Latin (ocr) and Devanagari (ocr_devanagari) for dual-script recognition -->
         <meta-data

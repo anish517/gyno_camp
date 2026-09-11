@@ -522,8 +522,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
-    final passwordCtrl = TextEditingController(text: 'nurse123');
-    final pinCtrl = TextEditingController(text: '1234');
+    final passwordCtrl = TextEditingController();
+    final pinCtrl = TextEditingController();
     UserRole selectedRole = UserRole.dataTaker;
     final selectedCampIds = <String>{};
 
@@ -668,7 +668,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryTeal),
                 onPressed: () async {
                   final name = nameCtrl.text.trim();
-                  final email = emailCtrl.text.trim();
+                  final email = emailCtrl.text.trim().toLowerCase();
                   final phone = phoneCtrl.text.trim();
                   final password = passwordCtrl.text.trim();
                   final pin = pinCtrl.text.trim();
@@ -676,6 +676,13 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                   if (name.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty || pin.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Please complete all required fields.')),
+                    );
+                    return;
+                  }
+
+                  if (pin.length < 4 || pin.length > 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Station PIN must be between 4 and 6 digits.')),
                     );
                     return;
                   }

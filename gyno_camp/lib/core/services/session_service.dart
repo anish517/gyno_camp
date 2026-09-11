@@ -65,6 +65,7 @@ class SessionService {
   static const String _keyPgPassword = 'gynocamp_pg_password';
   static const String _keyPgUseSsl = 'gynocamp_pg_use_ssl';
   static const String _keyPgDirectMode = 'gynocamp_pg_direct_mode';
+  static const String _keyDeviceInstallToken = 'gynocamp_device_install_token';
 
   static SessionService? _instance;
   final SharedPreferences? _prefs;
@@ -121,6 +122,17 @@ class SessionService {
   Future<void> clearActiveCampId() async {
     if (_prefs == null) return;
     await _prefs.remove(_keyActiveCampId);
+  }
+
+  // Device Hardware Token
+  String getOrCreateDeviceInstallToken() {
+    if (_prefs == null) return 'GC-DEV-DEFAULT';
+    var token = _prefs.getString(_keyDeviceInstallToken);
+    if (token == null || token.isEmpty) {
+      token = 'GC-DEV-${DateTime.now().millisecondsSinceEpoch}';
+      _prefs.setString(_keyDeviceInstallToken, token);
+    }
+    return token;
   }
 
   // PostgreSQL Connection Configuration
