@@ -535,6 +535,8 @@ class GynoCampSyncServer {
     final campsList = <Map<String, dynamic>>[];
     final usersList = <Map<String, dynamic>>[];
     final lookupList = <Map<String, dynamic>>[];
+    final patientsList = <Map<String, dynamic>>[];
+    final visitsList = <Map<String, dynamic>>[];
 
     if (_isPgConnected && _connection != null) {
       try {
@@ -577,6 +579,86 @@ class GynoCampSyncServer {
             'pin_hash': row[11],
           });
         }
+        final patientRows = await _connection!.execute('SELECT * FROM patients ORDER BY intake_date DESC;');
+        for (final row in patientRows) {
+          patientsList.add({
+            'id': row[0],
+            'patient_id': row[1],
+            'camp_id': row[2],
+            'camp_code': row[3],
+            'intake_date': row[4]?.toString(),
+            'first_name': row[5],
+            'surname': row[6],
+            'age': row[7],
+            'spouse_or_father_name': row[8],
+            'relationship_type': row[9],
+            'mobile': row[10],
+            'district': row[11],
+            'municipality': row[12],
+            'ward': row[13],
+            'contact_person': row[14],
+            'contact_mobile': row[15],
+            'marital_status': row[16],
+            'marital_age': row[17],
+            'reasons_for_visit': row[18],
+            'consent_treatment': row[19],
+            'consent_store_medical_info': row[20],
+            'created_at': row[21]?.toString(),
+            'updated_at': row[22]?.toString(),
+            'created_by_user_id': row[23],
+            'created_by_device_id': row[24],
+            'tenant_id': row[25],
+            'is_synced': 1,
+            'synced_at': row[27]?.toString(),
+          });
+        }
+
+        final visitRows = await _connection!.execute('SELECT * FROM clinical_visits ORDER BY visit_date DESC;');
+        for (final row in visitRows) {
+          visitsList.add({
+            'id': row[0],
+            'patient_id': row[1],
+            'camp_id': row[2],
+            'visit_date': row[3]?.toString(),
+            'deliveries': row[4],
+            'living_children': row[5],
+            'abortions': row[6],
+            'anamnesis_json': row[7],
+            'uterus_inside': row[8],
+            'vulva_remarks': row[9],
+            'vagina_remarks': row[10],
+            'cervix_remarks': row[11],
+            'uterus_remarks': row[12],
+            'pelvic_floor_tone': row[13],
+            'pop_anterior_stage': row[14],
+            'pop_middle_stage': row[15],
+            'pop_posterior_stage': row[16],
+            'highest_pop_stage': row[17],
+            'urine_test': row[18],
+            'pregnancy_test': row[19],
+            'systolic_bp': row[20],
+            'diastolic_bp': row[21],
+            'pulse': row[22],
+            'spo2': row[23],
+            'glucose': row[24],
+            'ecg_notes': row[25],
+            'diagnoses': row[26],
+            'counseling': row[27],
+            'pessary_type': row[28],
+            'pessary_size': row[29],
+            'surgical_referral': row[30],
+            'medications': row[31],
+            'custom_medication': row[32],
+            'follow_up_needed': row[33],
+            'follow_up_destination': row[34],
+            'outtake_notes': row[35],
+            'created_at': row[36]?.toString(),
+            'updated_at': row[37]?.toString(),
+            'created_by_user_id': row[38],
+            'tenant_id': row[39],
+            'is_synced': 1,
+          });
+        }
       } catch (e) {
         print('Error pulling from PG: $e');
       }
@@ -589,6 +671,12 @@ class GynoCampSyncServer {
     if (usersList.isEmpty) {
       usersList.addAll(_memUsers.values);
     }
+    if (patientsList.isEmpty) {
+      patientsList.addAll(_memPatients.values);
+    }
+    if (visitsList.isEmpty) {
+      visitsList.addAll(_memVisits.values);
+    }
 
     request.response.statusCode = HttpStatus.ok;
     request.response.write(jsonEncode({
@@ -597,7 +685,9 @@ class GynoCampSyncServer {
       'camps': campsList,
       'users': usersList,
       'lookup_items': lookupList,
-      'message': 'Pulled ${campsList.length} camps and ${usersList.length} staff accounts from cloud.',
+      'patients': patientsList,
+      'clinical_visits': visitsList,
+      'message': 'Pulled ${campsList.length} camps, ${usersList.length} staff, ${patientsList.length} patients from cloud.',
     }));
     await request.response.close();
   }

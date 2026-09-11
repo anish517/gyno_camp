@@ -5,6 +5,7 @@ import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
 import '../core/services/http_central_api_service.dart';
 import '../models/camp_model.dart';
+import '../models/user_model.dart';
 import 'audit_repository.dart';
 
 abstract class ICampRepository {
@@ -373,6 +374,42 @@ class CampRepository implements ICampRepository {
       where: 'id = ?',
       whereArgs: [campId],
     );
+
+    // 1. Broadcast the updated camp to Central Cloud
+    if (enableCentralSync) {
+      try {
+        HttpCentralApiService().broadcastCamp(updated);
+      } catch (_) {}
+    }
+
+    // 2. Also update each assigned staff's user record with this campId
+    try {
+      for (final staffId in staffIds) {
+        final userMaps = await db.query(
+          DatabaseTables.tableUsers,
+          where: 'id = ?',
+          whereArgs: [staffId],
+          limit: 1,
+        );
+        if (userMaps.isNotEmpty) {
+          final user = UserModel.fromMap(userMaps.first);
+          final existingCamps = List<String>.from(user.assignedCampIds);
+          if (!existingCamps.contains(campId)) {
+            existingCamps.add(campId);
+            final updatedUser = user.copyWith(assignedCampIds: existingCamps);
+            await db.update(
+              DatabaseTables.tableUsers,
+              updatedUser.toMap(),
+              where: 'id = ?',
+              whereArgs: [user.id],
+            );
+            if (enableCentralSync) {
+              HttpCentralApiService().broadcastUser(updatedUser);
+            }
+          }
+        }
+      }
+    } catch (_) {}
 
     await _auditRepository.logActivity(
       userId: adminUserId,

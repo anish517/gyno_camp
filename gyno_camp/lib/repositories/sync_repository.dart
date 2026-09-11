@@ -184,6 +184,24 @@ class SyncRepository implements ISyncRepository {
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
+
+        // Upsert patients from central cloud
+        for (final patient in response.patients) {
+          await txn.insert(
+            DatabaseTables.tablePatients,
+            patient.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+
+        // Upsert clinical visits from central cloud
+        for (final visit in response.clinicalVisits) {
+          await txn.insert(
+            DatabaseTables.tableClinicalVisits,
+            visit.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
       });
 
       await _auditRepository.logActivity(
