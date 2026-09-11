@@ -6,11 +6,13 @@ import '../repositories/auth_repository.dart';
 class AuthState {
   final UserModel? currentUser;
   final bool isLoading;
+  final bool isRestoringSession;
   final String? errorMessage;
 
   const AuthState({
     this.currentUser,
     this.isLoading = false,
+    this.isRestoringSession = false,
     this.errorMessage,
   });
 
@@ -20,12 +22,14 @@ class AuthState {
   AuthState copyWith({
     UserModel? currentUser,
     bool? isLoading,
+    bool? isRestoringSession,
     String? errorMessage,
     bool clearUser = false,
   }) {
     return AuthState(
       currentUser: clearUser ? null : (currentUser ?? this.currentUser),
       isLoading: isLoading ?? this.isLoading,
+      isRestoringSession: isRestoringSession ?? this.isRestoringSession,
       errorMessage: errorMessage,
     );
   }
@@ -36,7 +40,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
 
   AuthViewModel(this._authRepository)
       : super(AuthState(
-          isLoading: SessionService.current?.hasActiveSession() ?? false,
+          isRestoringSession: SessionService.current?.hasActiveSession() ?? false,
           currentUser: _authRepository.currentUser,
         )) {
     _init();
@@ -53,14 +57,14 @@ class AuthViewModel extends StateNotifier<AuthState> {
   Future<void> restoreSession() async {
     final session = SessionService.current;
     if (session != null && session.hasActiveSession()) {
-      state = state.copyWith(isLoading: true);
+      state = state.copyWith(isRestoringSession: true);
       try {
         final userId = session.getSavedUserId();
         if (userId != null && userId.isNotEmpty) {
           final user = await _authRepository.getUserById(userId);
           if (user != null && user.isActive) {
             _authRepository.setCurrentUser(user);
-            state = state.copyWith(currentUser: user, isLoading: false);
+            state = state.copyWith(currentUser: user, isRestoringSession: false);
             return;
           } else {
             await session.clearSession();
@@ -69,7 +73,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
       } catch (_) {
         // Fallback gracefully on read error
       }
-      state = state.copyWith(isLoading: false);
+      state = state.copyWith(isRestoringSession: false);
     }
   }
 

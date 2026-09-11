@@ -15,7 +15,7 @@ class SecurityGatewayView extends ConsumerWidget {
     final deviceState = ref.watch(deviceSecurityProvider);
     final authState = ref.watch(authStateProvider);
 
-    if (deviceState.isChecking || authState.isLoading) {
+    if (deviceState.isChecking || authState.isRestoringSession) {
       return const Scaffold(
         body: Center(
           child: Column(

@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../security/device_activation_view.dart';
+import '../splash/security_gateway_view.dart';
 
 class LoginView extends ConsumerStatefulWidget {
   const LoginView({super.key});
@@ -26,6 +27,8 @@ class _LoginViewState extends ConsumerState<LoginView> {
   }
 
   Future<void> _handleLogin(String deviceId) async {
+    if (ref.read(authStateProvider).isLoading) return;
+
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     if (email.isEmpty) {
@@ -53,96 +56,105 @@ class _LoginViewState extends ConsumerState<LoginView> {
     final user = ref.read(authStateProvider).currentUser;
     if (user == null) return;
 
-    // Super Admin is exempt from device lockout so the administrator can always access the console
-    if (user.isSuperAdmin) {
-      return;
+    // If regular staff (non-admin), enforce hardware registration & approval
+    if (!user.isSuperAdmin) {
+      final currentDeviceState = ref.read(deviceSecurityProvider);
+      if (!currentDeviceState.isApproved) {
+        if (currentDeviceState.isUnregistered) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.devices_other, color: AppTheme.primaryTeal),
+                  SizedBox(width: 8),
+                  Text('New Workstation Detected'),
+                ],
+              ),
+              content: Text(
+                'Welcome, ${user.name}. This workstation is not yet recognized on the clinical outreach network. For medical record security, new hardware must be registered and authorized by the Super Admin before clinical intake begins.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    ref.read(authStateProvider.notifier).logout(deviceId: deviceId);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.security, size: 16),
+                  label: const Text('Register This Device'),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DeviceActivationView(
+                          prefillStaffName: user.name,
+                          prefillStaffUserId: user.id,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+          return;
+        } else if (currentDeviceState.isPendingApproval) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.hourglass_top, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('Device Pending Approval'),
+                ],
+              ),
+              content: Text(
+                'Workstation "${currentDeviceState.device?.deviceName ?? "Device"}" is registered but awaiting Super Admin authorization. Please notify your administrator to approve this device in the central Admin Console.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Close'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DeviceActivationView()),
+                    );
+                  },
+                  child: const Text('View Status'),
+                ),
+              ],
+            ),
+          );
+          return;
+        } else if (currentDeviceState.isRevoked) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Access Denied: This hardware workstation has been revoked by administration.'),
+              backgroundColor: AppTheme.dangerRose,
+            ),
+          );
+          ref.read(authStateProvider.notifier).logout(deviceId: deviceId);
+          return;
+        }
+      }
     }
 
-    final currentDeviceState = ref.read(deviceSecurityProvider);
-    if (!currentDeviceState.isApproved) {
-      if (currentDeviceState.isUnregistered) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.devices_other, color: AppTheme.primaryTeal),
-                SizedBox(width: 8),
-                Text('New Workstation Detected'),
-              ],
-            ),
-            content: Text(
-              'Welcome, ${user.name}. This workstation is not yet recognized on the clinical outreach network. For medical record security, new hardware must be registered and authorized by the Super Admin before clinical intake begins.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  ref.read(authStateProvider.notifier).logout(deviceId: deviceId);
-                },
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.security, size: 16),
-                label: const Text('Register This Device'),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => DeviceActivationView(
-                        prefillStaffName: user.name,
-                        prefillStaffUserId: user.id,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      } else if (currentDeviceState.isPendingApproval) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.hourglass_top, color: Colors.orange),
-                SizedBox(width: 8),
-                Text('Device Pending Approval'),
-              ],
-            ),
-            content: Text(
-              'Workstation "${currentDeviceState.device?.deviceName ?? "Device"}" is registered but awaiting Super Admin authorization. Please notify your administrator to approve this device in the central Admin Console.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Close'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const DeviceActivationView()),
-                  );
-                },
-                child: const Text('View Status'),
-              ),
-            ],
-          ),
-        );
-      } else if (currentDeviceState.isRevoked) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Access Denied: This hardware workstation has been revoked by administration.'),
-            backgroundColor: AppTheme.dangerRose,
-          ),
-        );
-        ref.read(authStateProvider.notifier).logout(deviceId: deviceId);
-      }
+    // Authorized staff or Super Admin -> navigate immediately to clinical console
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SecurityGatewayView()),
+        (route) => false,
+      );
     }
   }
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
-import '../auth/login_view.dart';
+import '../splash/security_gateway_view.dart';
 
 class DeviceActivationView extends ConsumerStatefulWidget {
   final String? prefillStaffName;
@@ -50,9 +50,14 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Return to Login',
           onPressed: () {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const LoginView()),
-            );
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const SecurityGatewayView()),
+                (route) => false,
+              );
+            }
           },
         ),
       ),
@@ -346,8 +351,9 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                       icon: const Icon(Icons.arrow_back),
                       label: const Text('Return to Staff Login'),
                       onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(builder: (_) => const LoginView()),
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const SecurityGatewayView()),
+                          (route) => false,
                         );
                       },
                     ),
@@ -411,8 +417,9 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         onPressed: () {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(builder: (_) => const LoginView()),
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const SecurityGatewayView()),
+                            (route) => false,
                           );
                         },
                       ),
