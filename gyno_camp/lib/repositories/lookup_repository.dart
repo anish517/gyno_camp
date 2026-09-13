@@ -8,13 +8,13 @@ import '../models/lookup_item_model.dart';
 import 'audit_repository.dart';
 
 abstract class ILookupRepository {
-  Future<List<LookupItemModel>> getAllItems();
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {bool activeOnly = false});
+  Future<List<LookupItemModel>> getAllItems({String? tenantId});
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, bool activeOnly = false});
   Future<LookupItemModel> addItem(LookupItemModel item, {required String userId, required String userName, required String deviceId});
   Future<LookupItemModel> updateItem(LookupItemModel item, {required String userId, required String userName, required String deviceId});
   Future<bool> toggleItemStatus(String id, bool isActive, {required String userId, required String userName, required String deviceId});
   Future<bool> deleteItem(String id, {required String userId, required String userName, required String deviceId});
-  Future<void> ensureDefaultsSeeded();
+  Future<void> ensureDefaultsSeeded({String? tenantId});
 }
 
 class LookupRepository implements ILookupRepository {
@@ -28,21 +28,54 @@ class LookupRepository implements ILookupRepository {
   })  : _databaseService = databaseService ?? DatabaseService(),
         _auditRepository = auditRepository ?? AuditRepository();
 
+  static String sanitizeCode(String code, String labelEn, String category) {
+    var trimmed = code.trim().toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_').replaceAll(RegExp(r'_+'), '_');
+    if (trimmed.startsWith('_')) trimmed = trimmed.substring(1);
+    if (trimmed.endsWith('_')) trimmed = trimmed.substring(0, trimmed.length - 1);
+
+    if (trimmed.length <= 1 || trimmed == 'k') {
+      var fromLabel = labelEn.trim().toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_').replaceAll(RegExp(r'_+'), '_');
+      if (fromLabel.startsWith('_')) fromLabel = fromLabel.substring(1);
+      if (fromLabel.endsWith('_')) fromLabel = fromLabel.substring(0, fromLabel.length - 1);
+      if (fromLabel.length > 1) {
+        return fromLabel;
+      }
+      final prefix = category == 'referral_hospital' ? 'hosp' : (category == 'medicine' ? 'med' : 'diag');
+      return '${prefix}_${DateTime.now().millisecondsSinceEpoch % 100000}';
+    }
+    return trimmed;
+  }
+
   @override
-  Future<List<LookupItemModel>> getAllItems() async {
+  Future<List<LookupItemModel>> getAllItems({String? tenantId}) async {
     final db = await _databaseService.database;
+    final whereClauses = <String>['is_deleted = 0'];
+    final whereArgs = <dynamic>[];
+
+    if (tenantId != null && tenantId.isNotEmpty) {
+      whereClauses.add("(tenant_id = ? OR tenant_id = 'global' OR tenant_id = 'tenant_default')");
+      whereArgs.add(tenantId);
+    }
+
     final maps = await db.query(
       DatabaseTables.tableLookupItems,
+      where: whereClauses.join(' AND '),
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
       orderBy: 'category ASC, sort_order ASC, label_en ASC',
     );
     return maps.map((m) => LookupItemModel.fromMap(m)).toList();
   }
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {bool activeOnly = false}) async {
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, bool activeOnly = false}) async {
     final db = await _databaseService.database;
-    final whereClauses = <String>['category = ?'];
+    final whereClauses = <String>['category = ?', 'is_deleted = 0'];
     final whereArgs = <dynamic>[category];
+
+    if (tenantId != null && tenantId.isNotEmpty) {
+      whereClauses.add("(tenant_id = ? OR tenant_id = 'global' OR tenant_id = 'tenant_default')");
+      whereArgs.add(tenantId);
+    }
 
     if (activeOnly) {
       whereClauses.add('is_active = 1');
@@ -66,7 +99,8 @@ class LookupRepository implements ILookupRepository {
   }) async {
     final db = await _databaseService.database;
     final id = item.id.isEmpty ? 'lookup-${_uuid.v4().substring(0, 8)}' : item.id;
-    final newItem = item.copyWith(id: id);
+    final cleanCode = sanitizeCode(item.code, item.labelEn, item.category);
+    final newItem = item.copyWith(id: id, code: cleanCode, isDeleted: false);
 
     await db.insert(
       DatabaseTables.tableLookupItems,
@@ -81,7 +115,7 @@ class LookupRepository implements ILookupRepository {
       action: AppConstants.auditActionLookupAdd,
       entityType: 'LookupItem',
       entityId: newItem.id,
-      detailsJson: '{"category":"${newItem.category}","code":"${newItem.code}","labelEn":"${newItem.labelEn}"}',
+      detailsJson: '{"category":"${newItem.category}","code":"${newItem.code}","labelEn":"${newItem.labelEn}","tenantId":"${newItem.tenantId}"}',
       deviceId: deviceId,
     );
 
@@ -96,11 +130,14 @@ class LookupRepository implements ILookupRepository {
     required String deviceId,
   }) async {
     final db = await _databaseService.database;
+    final cleanCode = sanitizeCode(item.code, item.labelEn, item.category);
+    final updatedItem = item.copyWith(code: cleanCode);
+
     await db.update(
       DatabaseTables.tableLookupItems,
-      item.toMap(),
+      updatedItem.toMap(),
       where: 'id = ?',
-      whereArgs: [item.id],
+      whereArgs: [updatedItem.id],
     );
 
     await _auditRepository.logActivity(
@@ -109,12 +146,12 @@ class LookupRepository implements ILookupRepository {
       userRole: AppConstants.roleSuperAdmin,
       action: AppConstants.auditActionLookupUpdate,
       entityType: 'LookupItem',
-      entityId: item.id,
-      detailsJson: '{"category":"${item.category}","code":"${item.code}","labelEn":"${item.labelEn}"}',
+      entityId: updatedItem.id,
+      detailsJson: '{"category":"${updatedItem.category}","code":"${updatedItem.code}","labelEn":"${updatedItem.labelEn}"}',
       deviceId: deviceId,
     );
 
-    return item;
+    return updatedItem;
   }
 
   @override
@@ -180,27 +217,60 @@ class LookupRepository implements ILookupRepository {
   }
 
   @override
-  Future<void> ensureDefaultsSeeded() async {
+  Future<void> ensureDefaultsSeeded({String? tenantId}) async {
     final db = await _databaseService.database;
-    final hospitals = await getItemsByCategory('referral_hospital');
+    final targetTenant = tenantId ?? 'tenant_default';
+    final metaKey = 'lookup_defaults_seeded_$targetTenant';
+
+    // 1. Check one-time seed gate in app_metadata
+    try {
+      final meta = await db.query(
+        DatabaseTables.tableMetadata,
+        where: 'key = ?',
+        whereArgs: [metaKey],
+      );
+      if (meta.isNotEmpty) {
+        // Defaults have already been seeded. Do not resurrect user deletions!
+        return;
+      }
+    } catch (_) {}
+
+    // 2. Check if any referral hospitals already exist for this tenant
+    final hospitals = await getItemsByCategory('referral_hospital', tenantId: targetTenant);
     if (hospitals.isEmpty) {
       int idx = 0;
       for (final h in ClinicalConstants.referralHospitals) {
         idx++;
+        final cleanCode = h.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
         await db.insert(
           DatabaseTables.tableLookupItems,
           {
-            'id': 'hosp-$idx',
+            'id': 'hosp-$targetTenant-$idx',
             'category': 'referral_hospital',
-            'code': h.toLowerCase().replaceAll(' ', '_'),
+            'code': cleanCode,
             'label_en': h,
             'label_ne': h,
             'is_active': 1,
             'sort_order': idx,
+            'tenant_id': targetTenant,
+            'is_deleted': 0,
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
       }
     }
+
+    // 3. Persist seed gate marker so deletions remain permanent
+    try {
+      await db.insert(
+        DatabaseTables.tableMetadata,
+        {
+          'key': metaKey,
+          'value': 'true',
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (_) {}
   }
 }

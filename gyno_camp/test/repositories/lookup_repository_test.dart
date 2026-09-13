@@ -136,5 +136,86 @@ void main() {
       final meds = await lookupRepo.getItemsByCategory('medicine');
       expect(meds.any((m) => m.id == 'to-delete'), isFalse);
     });
+
+    test('ensureDefaultsSeeded seeds hospitals once and does NOT resurrect them after deletion', () async {
+      // 1. Initial seeding
+      await lookupRepo.ensureDefaultsSeeded();
+      final hospitals = await lookupRepo.getItemsByCategory('referral_hospital');
+      expect(hospitals.length, greaterThanOrEqualTo(3));
+
+      // 2. Delete all referral hospitals
+      for (final h in hospitals) {
+        await lookupRepo.deleteItem(h.id, userId: 'admin-01', userName: 'Admin', deviceId: 'dev-01');
+      }
+
+      // 3. Verify they are deleted
+      final afterDelete = await lookupRepo.getItemsByCategory('referral_hospital');
+      expect(afterDelete, isEmpty);
+
+      // 4. Run ensureDefaultsSeeded again (simulating load/restart)
+      await lookupRepo.ensureDefaultsSeeded();
+
+      // 5. Verify the deletion STUCK and hospitals did NOT resurrect
+      final afterReSeed = await lookupRepo.getItemsByCategory('referral_hospital');
+      expect(afterReSeed, isEmpty, reason: 'Deleted hospitals must not automatically reappear');
+    });
+
+    test('addItem and updateItem sanitize stray single-character or "k" codes', () async {
+      final strayItem = const LookupItemModel(
+        id: 'hosp-stray-k',
+        category: 'referral_hospital',
+        code: 'k', // Stray literal "k"
+        labelEn: 'Kathmandu Model Hospital',
+        labelNe: 'काठमाडौँ मोडल',
+      );
+
+      final added = await lookupRepo.addItem(
+        strayItem,
+        userId: 'admin-01',
+        userName: 'Admin',
+        deviceId: 'dev-01',
+      );
+
+      // Verify code was sanitized from stray "k" to clean slug
+      expect(added.code, isNot('k'));
+      expect(added.code, 'kathmandu_model_hospital');
+
+      // Verify updating also sanitizes code
+      final updated = await lookupRepo.updateItem(
+        added.copyWith(code: 'K', labelEn: 'Scheer Memorial Hospital'),
+        userId: 'admin-01',
+        userName: 'Admin',
+        deviceId: 'dev-01',
+      );
+      expect(updated.code, 'scheer_memorial_hospital');
+    });
+
+    test('tenant isolation supports tenant-configurable items', () async {
+      const customTenant = 'tenant_nepal_red_cross';
+
+      final customHosp = const LookupItemModel(
+        id: 'hosp-nrc-01',
+        category: 'referral_hospital',
+        code: 'patan_hospital',
+        labelEn: 'Patan Hospital',
+        labelNe: 'पाटन अस्पताल',
+        tenantId: customTenant,
+      );
+
+      await lookupRepo.addItem(
+        customHosp,
+        userId: 'admin-01',
+        userName: 'Admin',
+        deviceId: 'dev-01',
+      );
+
+      // Custom tenant retrieves it
+      final tenantItems = await lookupRepo.getItemsByCategory('referral_hospital', tenantId: customTenant);
+      expect(tenantItems.any((h) => h.id == 'hosp-nrc-01'), isTrue);
+
+      // Another isolated tenant does not see the private custom hospital
+      final otherTenantItems = await lookupRepo.getItemsByCategory('referral_hospital', tenantId: 'tenant_other_isolated');
+      expect(otherTenantItems.any((h) => h.id == 'hosp-nrc-01'), isFalse);
+    });
   });
 }

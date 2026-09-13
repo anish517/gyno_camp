@@ -16,10 +16,10 @@ class FakeLookupRepository implements ILookupRepository {
   ];
 
   @override
-  Future<List<LookupItemModel>> getAllItems() async => items;
+  Future<List<LookupItemModel>> getAllItems({String? tenantId}) async => items;
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {bool activeOnly = false}) async {
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, bool activeOnly = false}) async {
     return items.where((i) => i.category == category && (!activeOnly || i.isActive)).toList();
   }
 
@@ -53,7 +53,7 @@ class FakeLookupRepository implements ILookupRepository {
   }
 
   @override
-  Future<void> ensureDefaultsSeeded() async {}
+  Future<void> ensureDefaultsSeeded({String? tenantId}) async {}
 }
 
 void main() {
@@ -81,7 +81,7 @@ void main() {
     expect(find.text('Clinical Master Data & Formulary'), findsOneWidget);
     expect(find.text('Diagnoses (2)'), findsOneWidget);
     expect(find.text('Medicines (1)'), findsOneWidget);
-    expect(find.text('Hospitals (1)'), findsOneWidget);
+    expect(find.text('Referral Hospitals (1)'), findsOneWidget);
 
     expect(find.text('Candid Infection'), findsOneWidget);
     expect(find.text('Pelvic Inflammatory Disease'), findsOneWidget);
@@ -101,6 +101,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Metronidazole 400mg'), findsOneWidget);
+  });
+
+  testWidgets('Switching to Referral Hospitals tab displays partner hospital and contextual helper', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeLookupRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Tap Referral Hospitals tab
+    await tester.tap(find.text('Referral Hospitals (1)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Scheer Memorial Hospital'), findsOneWidget);
+    expect(find.textContaining('Surgical Referral Centers: Configure tertiary surgical partner hospitals'), findsOneWidget);
+    expect(find.text('CODE: SCHEER'), findsOneWidget);
   });
 
   testWidgets('Search query filters diagnoses in real time', (tester) async {

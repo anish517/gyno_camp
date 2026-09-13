@@ -6,6 +6,8 @@ class LookupItemModel {
   final String labelNe;
   final bool isActive;
   final int sortOrder;
+  final String tenantId;
+  final bool isDeleted;
 
   const LookupItemModel({
     required this.id,
@@ -15,6 +17,8 @@ class LookupItemModel {
     required this.labelNe,
     this.isActive = true,
     this.sortOrder = 0,
+    this.tenantId = 'tenant_default',
+    this.isDeleted = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -26,6 +30,8 @@ class LookupItemModel {
       'label_ne': labelNe,
       'is_active': isActive ? 1 : 0,
       'sort_order': sortOrder,
+      'tenant_id': tenantId,
+      'is_deleted': isDeleted ? 1 : 0,
     };
   }
 
@@ -40,6 +46,10 @@ class LookupItemModel {
           ? (map['is_active'] as int) == 1
           : (map['is_active'] as bool? ?? true),
       sortOrder: map['sort_order'] as int? ?? 0,
+      tenantId: map['tenant_id'] as String? ?? 'tenant_default',
+      isDeleted: (map['is_deleted'] is int)
+          ? (map['is_deleted'] as int) == 1
+          : (map['is_deleted'] as bool? ?? false),
     );
   }
 
@@ -51,6 +61,8 @@ class LookupItemModel {
     String? labelNe,
     bool? isActive,
     int? sortOrder,
+    String? tenantId,
+    bool? isDeleted,
   }) {
     return LookupItemModel(
       id: id ?? this.id,
@@ -60,6 +72,8 @@ class LookupItemModel {
       labelNe: labelNe ?? this.labelNe,
       isActive: isActive ?? this.isActive,
       sortOrder: sortOrder ?? this.sortOrder,
+      tenantId: tenantId ?? this.tenantId,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 }

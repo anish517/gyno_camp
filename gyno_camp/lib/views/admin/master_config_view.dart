@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/lookup_item_model.dart';
+import '../../repositories/lookup_repository.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
@@ -176,7 +177,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 ),
                 Tab(
                   icon: const Icon(Icons.local_hospital_outlined, size: 18),
-                  text: 'Hospitals (${state.referralHospitals.length})',
+                  text: 'Referral Hospitals (${state.referralHospitals.length})',
                 ),
               ],
             ),
@@ -377,201 +378,236 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       return true;
     }).toList();
 
-    if (filtered.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
-            const SizedBox(height: 8),
-            Text(
-              _searchController.text.isNotEmpty
-                  ? 'No ${_getCategoryPluralTitle(categoryIndex)} match "${_searchController.text}".'
-                  : 'No items found for the selected filter.',
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-            if (_searchController.text.isNotEmpty)
-              TextButton.icon(
-                icon: const Icon(Icons.clear, size: 14),
-                label: const Text('Clear Search'),
-                onPressed: () {
-                  _searchController.clear();
-                  ref.read(masterLookupProvider.notifier).setSearchQuery('');
-                },
-              ),
-          ],
-        ),
-      );
-    }
-
     final vm = ref.read(masterLookupProvider.notifier);
     final user = ref.read(authStateProvider).currentUser;
     final categoryColor = _getCategoryThemeColor(categoryIndex);
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      itemCount: filtered.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final item = filtered[index];
-        final isActive = item.isActive;
-        final formattedTitle = _formatTitle(item.labelEn);
-
-        final hasNepali = item.labelNe.isNotEmpty && item.labelNe != item.labelEn;
-
-        return Card(
-          elevation: 0,
-          color: isActive ? Colors.white : const Color(0xFFF8FAFC),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: BorderSide(
-              color: isActive ? Colors.grey.shade200 : Colors.grey.shade300,
-              width: 1,
-            ),
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border(
-                left: BorderSide(
-                  color: isActive ? categoryColor : Colors.grey.shade400,
-                  width: 4,
-                ),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
-            child: Row(
+    final listWidget = filtered.isEmpty
+        ? Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Leading Index Number Badge
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: isActive ? categoryColor.withValues(alpha: 0.1) : Colors.grey.shade200,
-                    shape: BoxShape.circle,
+                Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                const SizedBox(height: 8),
+                Text(
+                  _searchController.text.isNotEmpty
+                      ? 'No ${_getCategoryPluralTitle(categoryIndex)} match "${_searchController.text}".'
+                      : 'No items found for the selected filter.',
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+                if (_searchController.text.isNotEmpty)
+                  TextButton.icon(
+                    icon: const Icon(Icons.clear, size: 14),
+                    label: const Text('Clear Search'),
+                    onPressed: () {
+                      _searchController.clear();
+                      ref.read(masterLookupProvider.notifier).setSearchQuery('');
+                    },
                   ),
-                  child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: isActive ? categoryColor : Colors.grey.shade600,
+              ],
+            ),
+          )
+        : ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            itemCount: filtered.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final item = filtered[index];
+              final isActive = item.isActive;
+              final formattedTitle = _formatTitle(item.labelEn);
+
+              final hasNepali = item.labelNe.isNotEmpty && item.labelNe != item.labelEn;
+
+              return Card(
+                elevation: 0,
+                color: isActive ? Colors.white : const Color(0xFFF8FAFC),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(
+                    color: isActive ? Colors.grey.shade200 : Colors.grey.shade300,
+                    width: 1,
+                  ),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border(
+                      left: BorderSide(
+                        color: isActive ? categoryColor : Colors.grey.shade400,
+                        width: 4,
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 14),
-
-                // Title, Nepali Translation & Category Tag
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+                  padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              formattedTitle,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                decoration: isActive ? null : TextDecoration.lineThrough,
-                                color: isActive ? AppTheme.primaryDark : Colors.grey.shade600,
-                              ),
-                            ),
+                      // Leading Index Number Badge
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: isActive ? categoryColor.withValues(alpha: 0.1) : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: isActive ? categoryColor : Colors.grey.shade600,
                           ),
-                          const SizedBox(width: 8),
-                          // Status Pill Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isActive ? const Color(0xFFECFDF5) : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: isActive ? const Color(0xFFA7F3D0) : Colors.grey.shade300,
-                              ),
-                            ),
-                            child: Text(
-                              isActive ? 'Active' : 'Disabled',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                color: isActive ? const Color(0xFF059669) : Colors.grey.shade600,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                      const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          if (hasNepali)
-                            Text(
-                              item.labelNe,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: isActive ? const Color(0xFF0D9488) : Colors.grey.shade500,
-                              ),
-                            )
-                          else
-                            Text(
-                              'Nepali translation pending',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontStyle: FontStyle.italic,
-                                color: Colors.grey.shade400,
-                              ),
+                      const SizedBox(width: 14),
+
+                      // Title & Subtitle
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    formattedTitle,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: isActive ? const Color(0xFF1E293B) : Colors.grey.shade500,
+                                      decoration: isActive ? null : TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isActive
+                                        ? const Color(0xFF059669).withValues(alpha: 0.1)
+                                        : Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    isActive ? 'ACTIVE' : 'INACTIVE',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: isActive ? const Color(0xFF059669) : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          const SizedBox(width: 10),
-                          Text(
-                            '•  Code: ${item.code}',
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                if (hasNepali)
+                                  Text(
+                                    item.labelNe,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: isActive ? const Color(0xFF0D9488) : Colors.grey.shade500,
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    'Nepali translation pending',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontStyle: FontStyle.italic,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                  ),
+                                const SizedBox(width: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isActive ? Colors.grey.shade100 : Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: Text(
+                                    'CODE: ${item.code.toUpperCase()}',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: isActive ? Colors.grey.shade700 : Colors.grey.shade500,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+
+                      // Trailing Controls: Switch, Edit, Delete
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Switch(
+                            value: isActive,
+                            activeTrackColor: categoryColor,
+                            onChanged: (val) {
+                              vm.toggleItemStatus(
+                                item.id,
+                                val,
+                                userId: adminUserId,
+                                userName: user?.name ?? 'Super Admin',
+                                deviceId: deviceId,
+                              );
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 19),
+                            color: AppTheme.primaryDark,
+                            tooltip: 'Edit Master Record',
+                            onPressed: () => _showAddEditDialog(context, item, item.category),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 19, color: AppTheme.dangerRose),
+                            tooltip: 'Delete Master Record',
+                            onPressed: () => _confirmDelete(context, item, adminUserId, deviceId),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 16),
+              );
+            },
+          );
 
-                // Trailing Controls: Switch, Edit, Delete
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Switch(
-                      value: isActive,
-                      activeTrackColor: categoryColor,
-                      onChanged: (val) {
-                        vm.toggleItemStatus(
-                          item.id,
-                          val,
-                          userId: adminUserId,
-                          userName: user?.name ?? 'Super Admin',
-                          deviceId: deviceId,
-                        );
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 19),
-                      color: AppTheme.primaryDark,
-                      tooltip: 'Edit Master Record',
-                      onPressed: () => _showAddEditDialog(context, item, item.category),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 19, color: AppTheme.dangerRose),
-                      tooltip: 'Delete Master Record',
-                      onPressed: () => _confirmDelete(context, item, adminUserId, deviceId),
-                    ),
-                  ],
+    return Column(
+      children: [
+        if (categoryIndex == 2)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF2FF),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFC7D2FE)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, size: 18, color: Color(0xFF4338CA)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Surgical Referral Centers: Configure tertiary surgical partner hospitals for Station 5 (Referral for Surgery). Community follow-up destinations (Local Health Post, GynaeSupport Nurse) in Station 6 follow standardized medical protocols.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF3730A3), height: 1.3),
+                  ),
                 ),
               ],
             ),
           ),
-        );
-      },
+        Expanded(child: listWidget),
+      ],
     );
   }
 
@@ -579,6 +615,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
     final isEditing = item != null;
     final enCtrl = TextEditingController(text: item?.labelEn ?? '');
     final neCtrl = TextEditingController(text: item?.labelNe ?? '');
+    final codeCtrl = TextEditingController(text: item?.code ?? '');
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
     final vm = ref.read(masterLookupProvider.notifier);
@@ -667,6 +704,16 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                   prefixIcon: Icon(Icons.translate, size: 18),
                 ),
               ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: codeCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Code / Identifier (कोड)',
+                  hintText: isEditing ? item.code : 'e.g. HOSP_MODEL_HOSPITAL',
+                  prefixIcon: const Icon(Icons.tag, size: 18),
+                  helperText: 'Standardized clinical identifier (auto-derived if blank)',
+                ),
+              ),
             ],
           ),
         ),
@@ -691,12 +738,19 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 return;
               }
 
+              var rawCode = codeCtrl.text.trim();
+              if (rawCode.isEmpty) {
+                rawCode = enText.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+              }
+              final sanitizedCode = LookupRepository.sanitizeCode(rawCode, enText, category);
+
               final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(ctx);
               if (isEditing) {
                 final updated = item.copyWith(
                   labelEn: enText,
                   labelNe: neCtrl.text.trim(),
+                  code: sanitizedCode,
                 );
                 await vm.updateItem(
                   updated,
@@ -708,10 +762,11 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 final newItem = LookupItemModel(
                   id: 'lookup-${DateTime.now().millisecondsSinceEpoch}',
                   category: category,
-                  code: enText.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'),
+                  code: sanitizedCode,
                   labelEn: enText,
                   labelNe: neCtrl.text.trim(),
                   isActive: true,
+                  tenantId: user?.tenantId ?? 'tenant_default',
                 );
                 await vm.addItem(
                   newItem,
@@ -825,7 +880,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
         return 'Medicine';
       case 2:
       default:
-        return 'Hospital';
+        return 'Referral Hospital';
     }
   }
 
@@ -849,7 +904,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
         return 'Medicine';
       case 'referral_hospital':
       default:
-        return 'Hospital';
+        return 'Referral Hospital';
     }
   }
 }

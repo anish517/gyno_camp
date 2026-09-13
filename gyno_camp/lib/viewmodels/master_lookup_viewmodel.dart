@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/lookup_item_model.dart';
 import '../repositories/lookup_repository.dart';
+import 'auth_viewmodel.dart';
 
 class MasterLookupState {
   final List<LookupItemModel> diagnoses;
@@ -72,18 +73,29 @@ class MasterLookupState {
 
 class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
   final ILookupRepository _repository;
+  String _tenantId;
 
-  MasterLookupViewModel(this._repository) : super(const MasterLookupState()) {
+  MasterLookupViewModel(this._repository, {String? tenantId})
+      : _tenantId = tenantId ?? 'tenant_default',
+        super(const MasterLookupState()) {
     loadAll();
+  }
+
+  void updateTenant(String? newTenantId) {
+    final tid = newTenantId ?? 'tenant_default';
+    if (tid != _tenantId) {
+      _tenantId = tid;
+      loadAll();
+    }
   }
 
   Future<void> loadAll() async {
     state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
     try {
-      await _repository.ensureDefaultsSeeded();
-      final diag = await _repository.getItemsByCategory('diagnosis');
-      final med = await _repository.getItemsByCategory('medicine');
-      final hosp = await _repository.getItemsByCategory('referral_hospital');
+      await _repository.ensureDefaultsSeeded(tenantId: _tenantId);
+      final diag = await _repository.getItemsByCategory('diagnosis', tenantId: _tenantId);
+      final med = await _repository.getItemsByCategory('medicine', tenantId: _tenantId);
+      final hosp = await _repository.getItemsByCategory('referral_hospital', tenantId: _tenantId);
 
       state = state.copyWith(
         diagnoses: diag,
@@ -115,7 +127,10 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
   }) async {
     state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
     try {
-      await _repository.addItem(item, userId: userId, userName: userName, deviceId: deviceId);
+      final itemToSave = (item.tenantId.isEmpty || item.tenantId == 'tenant_default') && _tenantId != 'tenant_default'
+          ? item.copyWith(tenantId: _tenantId)
+          : item;
+      await _repository.addItem(itemToSave, userId: userId, userName: userName, deviceId: deviceId);
       await loadAll();
       state = state.copyWith(successMessage: 'Added "${item.labelEn}" successfully');
       return true;
@@ -189,7 +204,7 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
       );
       if (success) {
         await loadAll();
-        state = state.copyWith(successMessage: 'Item deleted');
+        state = state.copyWith(successMessage: 'Item deleted permanently');
         return true;
       }
       state = state.copyWith(isLoading: false, errorMessage: 'Item not found');
@@ -207,7 +222,8 @@ final lookupRepositoryProvider = Provider<ILookupRepository>((ref) {
 
 final masterLookupProvider = StateNotifierProvider<MasterLookupViewModel, MasterLookupState>((ref) {
   final repo = ref.watch(lookupRepositoryProvider);
-  return MasterLookupViewModel(repo);
+  final user = ref.watch(authStateProvider).currentUser;
+  return MasterLookupViewModel(repo, tenantId: user?.tenantId);
 });
 
 final activeDiagnosesProvider = Provider<List<LookupItemModel>>((ref) {

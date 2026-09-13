@@ -38,6 +38,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
   final _pessarySizeController = TextEditingController();
   final _customMedController = TextEditingController();
   final _outtakeNotesController = TextEditingController();
+  final _customFollowUpHospitalController = TextEditingController();
 
   @override
   void initState() {
@@ -66,6 +67,12 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     if (visit.pessarySize != null && visit.pessarySize!.isNotEmpty) _pessarySizeController.text = visit.pessarySize!;
     if (visit.customMedication != null && visit.customMedication!.isNotEmpty) _customMedController.text = visit.customMedication!;
     if (visit.outtakeNotes != null && visit.outtakeNotes!.isNotEmpty) _outtakeNotesController.text = visit.outtakeNotes!;
+    if (visit.followUpDestination != null &&
+        visit.followUpDestination!.isNotEmpty &&
+        visit.followUpDestination != 'Health Post' &&
+        visit.followUpDestination != 'GynaeSupport Nurse') {
+      _customFollowUpHospitalController.text = visit.followUpDestination!;
+    }
     setState(() {});
   }
 
@@ -83,6 +90,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     _pessarySizeController.dispose();
     _customMedController.dispose();
     _outtakeNotesController.dispose();
+    _customFollowUpHospitalController.dispose();
     super.dispose();
   }
 
@@ -981,9 +989,9 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     final medicinesList = lookupState.activeMedicines.isNotEmpty
         ? lookupState.activeMedicines.map((m) => m.labelEn).toList()
         : ClinicalConstants.defaultMedications;
-    final hospitalsList = lookupState.activeReferralHospitals.isNotEmpty
-        ? lookupState.activeReferralHospitals.map((h) => h.labelEn).toList()
-        : ClinicalConstants.referralHospitals;
+    final hospitalsList = lookupState.activeReferralHospitals
+        .map((h) => h.labelEn)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1036,11 +1044,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           initialValue: hospitalsList.contains(state.surgicalReferral) ? state.surgicalReferral : null,
-          decoration: const InputDecoration(labelText: 'Referral Hospital'),
+          decoration: InputDecoration(
+            labelText: 'Surgical Referral Hospital (शल्यक्रिया सिफारिस अस्पताल)',
+            hintText: hospitalsList.isEmpty ? 'No partner hospitals configured' : 'Select referral hospital',
+          ),
           items: hospitalsList.map((h) {
             return DropdownMenuItem(value: h, child: Text(h));
           }).toList(),
-          onChanged: (val) => vm.setSurgicalReferral(val),
+          onChanged: hospitalsList.isEmpty ? null : (val) => vm.setSurgicalReferral(val),
         ),
         const SizedBox(height: 18),
 
@@ -1070,6 +1081,27 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
 
   // --- 6. Outtake & Follow-up ---
   Widget _buildStation6Outtake(ClinicalAssessmentState state, ClinicalAssessmentViewModel vm) {
+    final lookupState = ref.watch(masterLookupProvider);
+    final partnerHospitals = lookupState.activeReferralHospitals
+        .map((h) => h.labelEn)
+        .where((h) => h != 'Health Post' && h != 'GynaeSupport Nurse' && h != 'Other')
+        .toList();
+
+    final standardOptions = [
+      'Health Post',
+      'GynaeSupport Nurse',
+      ...partnerHospitals,
+    ];
+
+    final currentDest = state.followUpDestination;
+    final bool isCustom = currentDest != null &&
+        currentDest.trim().isNotEmpty &&
+        !standardOptions.contains(currentDest);
+
+    final dropdownValue = isCustom
+        ? 'Other'
+        : (standardOptions.contains(currentDest) ? currentDest : 'Health Post');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1090,14 +1122,61 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 if (state.followUpNeeded) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: DropdownButtonFormField<String>(
-                      initialValue: state.followUpDestination ?? 'Health Post',
-                      decoration: const InputDecoration(labelText: 'Follow-up Center'),
-                      items: const [
-                        DropdownMenuItem(value: 'Health Post', child: Text('Local Health Post (स्वास्थ्य चौकी)')),
-                        DropdownMenuItem(value: 'GynaeSupport Nurse', child: Text('GynaeSupport Nurse (गाइनोसपोर्ट नर्स)')),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          key: ValueKey('followup_dest_$dropdownValue'),
+                          initialValue: dropdownValue,
+                          decoration: const InputDecoration(
+                            labelText: 'Follow-up Destination / Provider (पुनः जाँच गराउने स्थान/व्यक्ति)',
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: 'Health Post',
+                              child: Text('Local Health Post (स्वास्थ्य चौकी)'),
+                            ),
+                            const DropdownMenuItem(
+                              value: 'GynaeSupport Nurse',
+                              child: Text('GynaeSupport Nurse (गाइनोसपोर्ट नर्स)'),
+                            ),
+                            if (partnerHospitals.isNotEmpty) ...[
+                              for (final h in partnerHospitals)
+                                DropdownMenuItem(
+                                  value: h,
+                                  child: Text('Hospital: $h (अस्पताल)'),
+                                ),
+                            ],
+                            const DropdownMenuItem(
+                              value: 'Other',
+                              child: Text('Other / Custom Hospital (अन्य / म्यानुअल अस्पताल)'),
+                            ),
+                          ],
+                          onChanged: (val) {
+                            if (val == null) return;
+                            if (val == 'Other') {
+                              final manual = _customFollowUpHospitalController.text.trim();
+                              vm.setOuttake(destination: manual.isNotEmpty ? manual : 'Other');
+                            } else {
+                              vm.setOuttake(destination: val);
+                            }
+                          },
+                        ),
+                        if (dropdownValue == 'Other' || isCustom) ...[
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _customFollowUpHospitalController,
+                            decoration: const InputDecoration(
+                              labelText: 'Manual Hospital / Center Name (अस्पताल वा संस्थाको नाम)',
+                              hintText: 'Enter name of hospital, clinic, or health post...',
+                              prefixIcon: Icon(Icons.local_hospital_outlined),
+                            ),
+                            onChanged: (val) {
+                              vm.setOuttake(destination: val.trim().isNotEmpty ? val.trim() : 'Other');
+                            },
+                          ),
+                        ],
                       ],
-                      onChanged: (val) => vm.setOuttake(destination: val),
                     ),
                   ),
                 ],

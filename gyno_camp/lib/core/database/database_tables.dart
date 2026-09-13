@@ -7,6 +7,7 @@ class DatabaseTables {
   static const String tableClinicalVisits = 'clinical_visits';
   static const String tableAuditLogs = 'audit_logs';
   static const String tableLookupItems = 'lookup_items';
+  static const String tableMetadata = 'app_metadata';
 
   // Users Table
   static const String createTableUsers = '''
@@ -178,7 +179,18 @@ class DatabaseTables {
       label_en TEXT NOT NULL,
       label_ne TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
-      sort_order INTEGER NOT NULL DEFAULT 0
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      tenant_id TEXT NOT NULL DEFAULT 'tenant_default',
+      is_deleted INTEGER NOT NULL DEFAULT 0
+    );
+  ''';
+
+  // App Metadata Table for Persistent Seeding Flags and App Config
+  static const String createTableMetadata = '''
+    CREATE TABLE IF NOT EXISTS $tableMetadata (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
   ''';
 
@@ -191,5 +203,6 @@ class DatabaseTables {
     'CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON $tableAuditLogs (user_id);',
     'CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON $tableAuditLogs (action);',
     'CREATE INDEX IF NOT EXISTS idx_lookup_category ON $tableLookupItems (category);',
+    'CREATE INDEX IF NOT EXISTS idx_lookup_tenant ON $tableLookupItems (tenant_id, category);',
   ];
 }

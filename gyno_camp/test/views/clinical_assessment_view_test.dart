@@ -20,10 +20,10 @@ class FakeLookupRepository implements ILookupRepository {
   ];
 
   @override
-  Future<List<LookupItemModel>> getAllItems() async => items;
+  Future<List<LookupItemModel>> getAllItems({String? tenantId}) async => items;
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {bool activeOnly = false}) async {
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, bool activeOnly = false}) async {
     return items.where((i) => i.category == category && (!activeOnly || i.isActive)).toList();
   }
 
@@ -43,7 +43,7 @@ class FakeLookupRepository implements ILookupRepository {
   Future<bool> deleteItem(String id, {required String userId, required String userName, required String deviceId}) async => true;
 
   @override
-  Future<void> ensureDefaultsSeeded() async {}
+  Future<void> ensureDefaultsSeeded({String? tenantId}) async {}
 }
 
 class FakePatientRepository implements IPatientRepository {
@@ -295,6 +295,86 @@ void main() {
       expect(fakePatientRepo.lastSavedVisit, isNotNull);
       expect(fakePatientRepo.lastSavedVisit!.id, 'vis-existing-01');
       expect(fakePatientRepo.lastSavedVisit!.outtakeNotes, 'Updated clinical notes: Patient responded well to medication.');
+
+      await tester.binding.setSurfaceSize(null);
+    });
+
+    testWidgets('Station 6 Outtake allows selecting partner hospital or entering manual custom follow-up hospital', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+            lookupRepositoryProvider.overrideWithValue(FakeLookupRepository()),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: Builder(
+              builder: (ctx) => Scaffold(
+                body: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).push(
+                      MaterialPageRoute(
+                        builder: (_) => ClinicalAssessmentView(patient: testPatient),
+                      ),
+                    );
+                  },
+                  child: const Text('Open Clinical Assessment'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Open Clinical Assessment
+      await tester.tap(find.text('Open Clinical Assessment'));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Jump directly to Station 6 (Outtake)
+      await tester.tap(find.text('6. Outtake'));
+      await tester.pumpAndSettle();
+
+      // Tap 'Follow-up Needed (थप जाँच आवश्यक)' to expand follow-up choices
+      await tester.tap(find.text('Follow-up Needed (थप जाँच आवश्यक)'));
+      await tester.pumpAndSettle();
+
+      // Verify the dropdown is present
+      expect(find.text('Local Health Post (स्वास्थ्य चौकी)'), findsOneWidget);
+
+      // Tap the dropdown to open choices
+      await tester.tap(find.text('Local Health Post (स्वास्थ्य चौकी)'));
+      await tester.pumpAndSettle();
+
+      // Verify partner hospital and Other / Custom options exist
+      expect(find.text('Hospital: Scheer Memorial Hospital (अस्पताल)'), findsOneWidget);
+      expect(find.text('Other / Custom Hospital (अन्य / म्यानुअल अस्पताल)'), findsOneWidget);
+
+      // Select 'Other / Custom Hospital'
+      await tester.tap(find.text('Other / Custom Hospital (अन्य / म्यानुअल अस्पताल)').last);
+      await tester.pumpAndSettle();
+
+      // Verify manual entry text field appears
+      expect(find.byIcon(Icons.local_hospital_outlined), findsOneWidget);
+      expect(find.text('Manual Hospital / Center Name (अस्पताल वा संस्थाको नाम)'), findsOneWidget);
+
+      // Type custom hospital name
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Manual Hospital / Center Name (अस्पताल वा संस्थाको नाम)'),
+        'Dhading District Hospital',
+      );
+      await tester.pumpAndSettle();
+
+      // Save visit
+      await tester.tap(find.text('Complete & Save Record'));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Verify saved follow-up destination
+      expect(fakePatientRepo.lastSavedVisit, isNotNull);
+      expect(fakePatientRepo.lastSavedVisit!.followUpDestination, 'Dhading District Hospital');
 
       await tester.binding.setSurfaceSize(null);
     });

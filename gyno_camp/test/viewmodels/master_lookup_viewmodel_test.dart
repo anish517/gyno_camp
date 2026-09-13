@@ -114,5 +114,44 @@ void main() {
       expect(deleted, isTrue);
       expect(vm.state.medicines.any((m) => m.id == 'item-del-test'), isFalse);
     });
+
+    test('deleting all referral hospitals persists and loadAll does NOT resurrect them', () async {
+      final initialHospitals = List<LookupItemModel>.from(vm.state.referralHospitals);
+      expect(initialHospitals.length, greaterThanOrEqualTo(3));
+
+      // Delete every hospital
+      for (final h in initialHospitals) {
+        final deleted = await vm.deleteItem(h.id, userId: 'adm', userName: 'Admin', deviceId: 'dev');
+        expect(deleted, isTrue);
+      }
+
+      // Verify ViewModel state has 0 hospitals
+      expect(vm.state.referralHospitals, isEmpty);
+      expect(vm.state.activeReferralHospitals, isEmpty);
+
+      // Trigger loadAll() to simulate reload / page change
+      await vm.loadAll();
+
+      // Deletion MUST stick
+      expect(vm.state.referralHospitals, isEmpty, reason: 'Deleted hospitals must not reappear on loadAll()');
+      expect(vm.state.activeReferralHospitals, isEmpty);
+    });
+
+    test('addItem automatically sanitizes stray single-character codes', () async {
+      final item = const LookupItemModel(
+        id: 'hosp-stray-test',
+        category: 'referral_hospital',
+        code: 'k', // Stray "k" literal
+        labelEn: 'Chitwan Medical College',
+        labelNe: 'चितवन मेडिकल कलेज',
+      );
+
+      final success = await vm.addItem(item, userId: 'adm', userName: 'Admin', deviceId: 'dev');
+      expect(success, isTrue);
+
+      final added = vm.state.referralHospitals.firstWhere((h) => h.id == 'hosp-stray-test');
+      expect(added.code, isNot('k'));
+      expect(added.code, 'chitwan_medical_college');
+    });
   });
 }

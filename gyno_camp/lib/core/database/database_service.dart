@@ -66,6 +66,8 @@ class DatabaseService {
       "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
       "ALTER TABLE ${DatabaseTables.tableAuditLogs} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
       "ALTER TABLE ${DatabaseTables.tableAuditLogs} ADD COLUMN previous_hash TEXT",
+      "ALTER TABLE ${DatabaseTables.tableLookupItems} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
+      "ALTER TABLE ${DatabaseTables.tableLookupItems} ADD COLUMN is_deleted INTEGER DEFAULT 0",
     ];
     for (final sql in migrations) {
       try {
@@ -74,6 +76,29 @@ class DatabaseService {
         // Safe to ignore if column already exists
       }
     }
+
+    // Ensure metadata table exists
+    try {
+      await db.execute(DatabaseTables.createTableMetadata);
+    } catch (_) {}
+
+    // Sanitize any legacy stray codes like single-letter "k" or placeholders
+    try {
+      final legacyItems = await db.rawQuery(
+        "SELECT id, label_en, code FROM ${DatabaseTables.tableLookupItems} WHERE LENGTH(TRIM(code)) <= 1 OR LOWER(code) = 'k'",
+      );
+      for (final item in legacyItems) {
+        final id = item['id'] as String;
+        final label = (item['label_en'] as String? ?? '').trim();
+        final cleanSlug = label.isNotEmpty
+            ? label.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_').replaceAll(RegExp(r'_+'), '_')
+            : 'item_$id';
+        await db.rawUpdate(
+          "UPDATE ${DatabaseTables.tableLookupItems} SET code = ? WHERE id = ?",
+          [cleanSlug, id],
+        );
+      }
+    } catch (_) {}
 
     // Migrate legacy hardcoded doctor name to generic SaaS Admin identity
     try {
@@ -131,6 +156,7 @@ class DatabaseService {
     await db.execute(DatabaseTables.createTableClinicalVisits);
     await db.execute(DatabaseTables.createTableAuditLogs);
     await db.execute(DatabaseTables.createTableLookupItems);
+    await db.execute(DatabaseTables.createTableMetadata);
 
     for (final indexQuery in DatabaseTables.createIndexes) {
       await db.execute(indexQuery);
@@ -244,7 +270,31 @@ class DatabaseService {
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
 
-    // 5. Seed primary administrative workstation
+    // 5. Seed default referral hospitals (Surgical Referral Centers)
+    sortIdx = 0;
+    for (final hosp in ClinicalConstants.referralHospitals) {
+      sortIdx++;
+      await db.insert(DatabaseTables.tableLookupItems, {
+        'id': 'hosp-$sortIdx',
+        'category': 'referral_hospital',
+        'code': hosp.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'),
+        'label_en': hosp,
+        'label_ne': hosp,
+        'is_active': 1,
+        'sort_order': sortIdx,
+        'tenant_id': 'tenant_default',
+        'is_deleted': 0,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+
+    // Mark default lookups as seeded for tenant_default
+    await db.insert(DatabaseTables.tableMetadata, {
+      'key': 'lookup_defaults_seeded_tenant_default',
+      'value': 'true',
+      'updated_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    // 6. Seed primary administrative workstation
     await db.insert(DatabaseTables.tableDevices, {
       'device_id': 'dev-admin-workstation',
       'device_name': 'Central Command Workstation (Admin)',
