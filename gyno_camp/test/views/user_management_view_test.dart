@@ -73,6 +73,11 @@ class FakeAuthRepository implements IAuthRepository {
   }
 
   @override
+  Future<void> deleteUser({required String userId, required String adminUserId, required String deviceId}) async {
+    users.removeWhere((u) => u.id == userId);
+  }
+
+  @override
   Future<UserModel?> login({required String email, String? password, required String deviceId}) async => users.first;
 
   @override

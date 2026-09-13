@@ -375,4 +375,11 @@ class FakeAuthRepositorySimple implements IAuthRepository {
     required String adminUserId,
     required String deviceId,
   }) async => user;
+
+  @override
+  Future<void> deleteUser({
+    required String userId,
+    required String adminUserId,
+    required String deviceId,
+  }) async {}
 }

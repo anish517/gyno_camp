@@ -22,6 +22,11 @@ abstract class IAuthRepository {
     required String adminUserId,
     required String deviceId,
   });
+  Future<void> deleteUser({
+    required String userId,
+    required String adminUserId,
+    required String deviceId,
+  });
   Future<UserModel?> login({
     required String email,
     String? password,
@@ -229,6 +234,42 @@ class AuthRepository implements IAuthRepository {
       _currentUser = user;
     }
     return user;
+  }
+
+  @override
+  Future<void> deleteUser({
+    required String userId,
+    required String adminUserId,
+    required String deviceId,
+  }) async {
+    if (userId == adminUserId) {
+      throw Exception('Cannot delete the active logged-in administrator.');
+    }
+    if (userId == 'usr-superadmin-01') {
+      throw Exception('Cannot delete the root system administrator.');
+    }
+
+    final db = await _databaseService.database;
+    final target = await getUserById(userId);
+    if (target == null) return;
+
+    await db.delete(
+      DatabaseTables.tableUsers,
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+
+    await _auditRepository.logActivity(
+      userId: adminUserId,
+      userName: _currentUser?.name ?? 'Super Admin',
+      userRole: AppConstants.roleSuperAdmin,
+      action: 'USER_DELETED',
+      entityType: 'User',
+      entityId: userId,
+      detailsJson:
+          '{"name":"${target.name}","email":"${target.email}","role":"${target.role.toDbString()}"}',
+      deviceId: deviceId,
+    );
   }
 
   @override

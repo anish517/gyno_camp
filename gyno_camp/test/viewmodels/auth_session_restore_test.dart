@@ -70,6 +70,9 @@ class MockAuthRepository implements IAuthRepository {
 
   @override
   Future<UserModel> updateUser({required UserModel user, required String adminUserId, required String deviceId}) async => user;
+
+  @override
+  Future<void> deleteUser({required String userId, required String adminUserId, required String deviceId}) async {}
 }
 
 class MockCampRepository implements ICampRepository {

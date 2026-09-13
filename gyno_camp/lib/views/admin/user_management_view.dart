@@ -13,6 +13,12 @@ final allUsersProvider = FutureProvider.autoDispose<List<UserModel>>((ref) async
   return authRepo.getAllUsers(includeInactive: true);
 });
 
+enum StaffStatusFilter {
+  all,
+  activeOnly,
+  inactiveOnly,
+}
+
 class UserManagementView extends ConsumerStatefulWidget {
   const UserManagementView({super.key});
 
@@ -21,10 +27,17 @@ class UserManagementView extends ConsumerStatefulWidget {
 }
 
 class _UserManagementViewState extends ConsumerState<UserManagementView> {
+  final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   UserRole? _filterRole;
-  final bool _showInactiveOnly = false;
+  StaffStatusFilter _statusFilter = StaffStatusFilter.all;
   bool _isDialogOpen = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _safeShowDialog(Future<void> Function() dialogLauncher) async {
     if (_isDialogOpen || !mounted) return;
@@ -47,12 +60,25 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Staff & Personnel Management', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text('Role permissions, station credentials & field camp roster', style: TextStyle(fontSize: 11, color: Colors.white70)),
-          ],
+        title: LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 460;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isCompact ? 'Staff Directory' : 'Staff & Personnel Management',
+                  style: TextStyle(fontSize: isCompact ? 16 : 18, fontWeight: FontWeight.bold),
+                ),
+                if (!isCompact)
+                  const Text(
+                    'Role permissions, station credentials & field camp roster',
+                    style: TextStyle(fontSize: 11, color: Colors.white70),
+                  ),
+              ],
+            );
+          },
         ),
         actions: [
           IconButton(
@@ -97,13 +123,15 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
         data: (users) {
           final filteredUsers = users.where((u) {
             if (_filterRole != null && u.role != _filterRole) return false;
-            if (_showInactiveOnly && u.isActive) return false;
+            if (_statusFilter == StaffStatusFilter.activeOnly && !u.isActive) return false;
+            if (_statusFilter == StaffStatusFilter.inactiveOnly && u.isActive) return false;
             if (_searchQuery.trim().isNotEmpty) {
               final q = _searchQuery.toLowerCase();
               final matchesName = u.name.toLowerCase().contains(q);
               final matchesEmail = u.email.toLowerCase().contains(q);
               final matchesPhone = u.phone.toLowerCase().contains(q);
-              if (!matchesName && !matchesEmail && !matchesPhone) return false;
+              final matchesTenant = u.tenantName.toLowerCase().contains(q);
+              if (!matchesName && !matchesEmail && !matchesPhone && !matchesTenant) return false;
             }
             return true;
           }).toList();
@@ -111,6 +139,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
           final activeNurses = users.where((u) => u.role == UserRole.dataTaker && u.isActive).length;
           final totalAdmins = users.where((u) => u.role == UserRole.superAdmin && u.isActive).length;
           final totalInactive = users.where((u) => !u.isActive).length;
+
+          final hasActiveFilters = _searchQuery.isNotEmpty || _filterRole != null || _statusFilter != StaffStatusFilter.all;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -120,12 +150,11 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Quick Stats Bar
+                    // Quick Stats Bar (Interactive Filters)
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final isDesktop = constraints.maxWidth >= 720;
-                        final isMobile = constraints.maxWidth < 440;
-                        final columns = isDesktop ? 4 : (isMobile ? 1 : 2);
+                        final columns = isDesktop ? 4 : 2;
                         const spacing = 12.0;
                         final cardWidth = (constraints.maxWidth - (spacing * (columns - 1))) / columns;
                         return Wrap(
@@ -139,6 +168,11 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                 value: '${users.length}',
                                 icon: Icons.badge_outlined,
                                 color: const Color(0xFF0F766E),
+                                isSelected: _filterRole == null && _statusFilter == StaffStatusFilter.all,
+                                onTap: () => setState(() {
+                                  _filterRole = null;
+                                  _statusFilter = StaffStatusFilter.all;
+                                }),
                               ),
                             ),
                             SizedBox(
@@ -148,6 +182,11 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                 value: '$activeNurses',
                                 icon: Icons.assignment_ind_rounded,
                                 color: const Color(0xFF0284C7),
+                                isSelected: _filterRole == UserRole.dataTaker && _statusFilter == StaffStatusFilter.activeOnly,
+                                onTap: () => setState(() {
+                                  _filterRole = UserRole.dataTaker;
+                                  _statusFilter = StaffStatusFilter.activeOnly;
+                                }),
                               ),
                             ),
                             SizedBox(
@@ -157,6 +196,10 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                 value: '$totalAdmins',
                                 icon: Icons.admin_panel_settings_rounded,
                                 color: const Color(0xFF4338CA),
+                                isSelected: _filterRole == UserRole.superAdmin,
+                                onTap: () => setState(() {
+                                  _filterRole = UserRole.superAdmin;
+                                }),
                               ),
                             ),
                             SizedBox(
@@ -166,6 +209,10 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                 value: '$totalInactive',
                                 icon: Icons.block_rounded,
                                 color: totalInactive > 0 ? AppTheme.dangerRose : const Color(0xFF64748B),
+                                isSelected: _statusFilter == StaffStatusFilter.inactiveOnly,
+                                onTap: () => setState(() {
+                                  _statusFilter = StaffStatusFilter.inactiveOnly;
+                                }),
                               ),
                             ),
                           ],
@@ -188,9 +235,20 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             TextField(
+                              controller: _searchCtrl,
                               decoration: InputDecoration(
                                 prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF64748B)),
-                                hintText: 'Search staff by name, email, or mobile number...',
+                                suffixIcon: _searchCtrl.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 18, color: Color(0xFF94A3B8)),
+                                        tooltip: 'Clear search',
+                                        onPressed: () {
+                                          _searchCtrl.clear();
+                                          setState(() => _searchQuery = '');
+                                        },
+                                      )
+                                    : null,
+                                hintText: 'Search staff by name, email, phone, or organization...',
                                 hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                                 isDense: true,
                                 border: OutlineInputBorder(
@@ -201,11 +259,16 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                               ),
                               onChanged: (val) => setState(() => _searchQuery = val),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 12),
                             Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
+                              spacing: 8,
+                              runSpacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
+                                const Text(
+                                  'Role:',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                                ),
                                 FilterChip(
                                   label: const Text('All Roles'),
                                   selected: _filterRole == null,
@@ -228,13 +291,40 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                const Text(
+                                  'Status:',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                                ),
+                                FilterChip(
+                                  label: const Text('All Status'),
+                                  selected: _statusFilter == StaffStatusFilter.all,
+                                  onSelected: (_) => setState(() => _statusFilter = StaffStatusFilter.all),
+                                ),
+                                FilterChip(
+                                  label: const Text('Active Only'),
+                                  selected: _statusFilter == StaffStatusFilter.activeOnly,
+                                  onSelected: (_) => setState(() => _statusFilter = StaffStatusFilter.activeOnly),
+                                ),
+                                FilterChip(
+                                  label: const Text('Suspended / Inactive'),
+                                  selected: _statusFilter == StaffStatusFilter.inactiveOnly,
+                                  onSelected: (_) => setState(() => _statusFilter = StaffStatusFilter.inactiveOnly),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // Results Count
+                    // Results Count & Clear
                     Wrap(
                       alignment: WrapAlignment.spaceBetween,
                       crossAxisAlignment: WrapCrossAlignment.center,
@@ -245,13 +335,16 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                           'Showing ${filteredUsers.length} of ${users.length} staff members',
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                         ),
-                        if (_searchQuery.isNotEmpty || _filterRole != null)
-                          TextButton(
+                        if (hasActiveFilters)
+                          TextButton.icon(
+                            icon: const Icon(Icons.filter_alt_off_rounded, size: 14),
+                            label: const Text('Clear Filters', style: TextStyle(fontSize: 12)),
                             onPressed: () => setState(() {
+                              _searchCtrl.clear();
                               _searchQuery = '';
                               _filterRole = null;
+                              _statusFilter = StaffStatusFilter.all;
                             }),
-                            child: const Text('Clear Filters', style: TextStyle(fontSize: 12)),
                           ),
                       ],
                     ),
@@ -272,7 +365,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                             ),
                             const SizedBox(height: 6),
                             const Text(
-                              'Try adjusting your search query or filter chip.',
+                              'Try adjusting your search query or role/status filters.',
                               style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                             ),
                           ],
@@ -310,36 +403,62 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     required String value,
     required IconData icon,
     required Color color,
+    required VoidCallback onTap,
+    bool isSelected = false,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? color : const Color(0xFFE2E8F0),
+              width: isSelected ? 2 : 1,
             ),
-            child: Icon(icon, color: color, size: 22),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
-                const SizedBox(height: 2),
-                Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
-              ],
-            ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                    const SizedBox(height: 2),
+                    Text(
+                      label,
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -367,6 +486,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
         break;
     }
 
+    final isProtectedRoot = staff.id == 'usr-superadmin-01';
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -384,7 +505,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
           children: [
             LayoutBuilder(
               builder: (context, cardConstraints) {
-                final isNarrow = cardConstraints.maxWidth < 460;
+                final isNarrow = cardConstraints.maxWidth < 500;
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -421,13 +542,40 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                   ),
                                   child: const Text('You', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal)),
                                 ),
+                              if (isProtectedRoot)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF4338CA).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF4338CA).withValues(alpha: 0.4)),
+                                  ),
+                                  child: const Text('Root Admin', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF4338CA))),
+                                ),
                             ],
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             '${staff.email} • Phone: ${staff.phone.isNotEmpty ? staff.phone : "Not provided"}',
                             style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                           ),
+                          if (staff.tenantName.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                const Icon(Icons.business_rounded, size: 12, color: Color(0xFF94A3B8)),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    staff.tenantName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                           if (isNarrow) ...[
                             const SizedBox(height: 8),
                             Wrap(
@@ -577,6 +725,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     OutlinedButton.icon(
                       icon: const Icon(Icons.edit_calendar_rounded, size: 14),
@@ -609,12 +758,210 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                       ),
                       onPressed: () => _safeShowDialog(() => _showSecurityDialog(context, staff)),
                     ),
+                    if (!isCurrent && !isProtectedRoot)
+                      PopupMenuButton<String>(
+                        tooltip: 'More actions',
+                        icon: const Icon(Icons.more_vert, size: 18, color: Color(0xFF64748B)),
+                        padding: EdgeInsets.zero,
+                        onSelected: (action) {
+                          if (action == 'toggle_status') {
+                            _toggleStaffStatus(context, staff);
+                          } else if (action == 'delete') {
+                            _safeShowDialog(() => _showDeleteStaffDialog(context, staff));
+                          }
+                        },
+                        itemBuilder: (ctx) => [
+                          PopupMenuItem(
+                            value: 'toggle_status',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  staff.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+                                  size: 16,
+                                  color: staff.isActive ? AppTheme.dangerRose : const Color(0xFF059669),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  staff.isActive ? 'Suspend Staff' : 'Reactivate Staff',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: staff.isActive ? AppTheme.dangerRose : const Color(0xFF059669),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline_rounded, size: 16, color: AppTheme.dangerRose),
+                                SizedBox(width: 8),
+                                Text('Delete Staff...', style: TextStyle(fontSize: 12, color: AppTheme.dangerRose)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _toggleStaffStatus(BuildContext context, UserModel staff) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final currentUser = ref.read(authStateProvider).currentUser;
+    final deviceState = ref.read(deviceSecurityProvider);
+    final updated = staff.copyWith(isActive: !staff.isActive);
+
+    try {
+      await ref.read(authRepositoryProvider).updateUser(
+            user: updated,
+            adminUserId: currentUser?.id ?? 'admin-root',
+            deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+          );
+      ref.invalidate(allUsersProvider);
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              updated.isActive
+                  ? 'Staff member "${staff.name}" has been reactivated.'
+                  : 'Staff member "${staff.name}" has been suspended.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            backgroundColor: AppTheme.dangerRose,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showDeleteStaffDialog(BuildContext context, UserModel staff) async {
+    final messenger = ScaffoldMessenger.of(context);
+    bool isSubmitting = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRose),
+                SizedBox(width: 10),
+                Text('Delete Staff Member', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Are you sure you want to remove staff member "${staff.name}" (${staff.email})?',
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFECACA)),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: AppTheme.dangerRose),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Notice: If this nurse or staff member recorded clinical visits or triage notes in active camps, consider Suspending their account instead of permanent deletion to preserve medical audit trails.',
+                            style: TextStyle(fontSize: 11, color: Color(0xFF991B1B)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              if (staff.isActive)
+                OutlinedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          setDialogState(() => isSubmitting = true);
+                          Navigator.pop(ctx);
+                          await _toggleStaffStatus(context, staff);
+                        },
+                  child: const Text('Suspend Instead'),
+                ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.dangerRose,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        setDialogState(() => isSubmitting = true);
+                        final currentUser = ref.read(authStateProvider).currentUser;
+                        final deviceState = ref.read(deviceSecurityProvider);
+
+                        try {
+                          await ref.read(authRepositoryProvider).deleteUser(
+                                userId: staff.id,
+                                adminUserId: currentUser?.id ?? 'admin-root',
+                                deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                              );
+                          ref.invalidate(allUsersProvider);
+                          if (ctx.mounted) {
+                            Navigator.pop(ctx);
+                          }
+                          if (mounted) {
+                            messenger.showSnackBar(
+                              SnackBar(content: Text('Staff member "${staff.name}" removed.')),
+                            );
+                          }
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            setDialogState(() => isSubmitting = false);
+                          }
+                          if (mounted) {
+                            messenger.showSnackBar(
+                              SnackBar(content: Text('Failed to delete staff: $e'), backgroundColor: AppTheme.dangerRose),
+                            );
+                          }
+                        }
+                      },
+                child: isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Delete Permanently', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -628,7 +975,12 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     final messenger = ScaffoldMessenger.of(context);
     UserRole selectedRole = UserRole.dataTaker;
     final selectedCampIds = <String>{};
+    bool obscurePassword = true;
+    bool obscurePin = true;
     bool isSubmitting = false;
+
+    final currentUser = ref.read(authStateProvider).currentUser;
+    final tenantCtrl = TextEditingController(text: currentUser?.tenantName ?? 'Community Health Outreach Mission');
 
     await showDialog(
       context: context,
@@ -681,6 +1033,16 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                         isDense: true,
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: tenantCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Organization / Tenant Name',
+                        hintText: 'e.g. Nepal Health Outreach Network',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
                     const SizedBox(height: 14),
                     const Text('Designated User Role *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 6),
@@ -700,36 +1062,88 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                             },
                     ),
                     const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: passwordCtrl,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Initial Password *',
-                              hintText: 'Min 6 characters',
-                              border: OutlineInputBorder(),
-                              isDense: true,
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 440;
+                        if (isNarrow) {
+                          return Column(
+                            children: [
+                              TextField(
+                                controller: passwordCtrl,
+                                obscureText: obscurePassword,
+                                decoration: InputDecoration(
+                                  labelText: 'Initial Password *',
+                                  hintText: 'Min 6 characters',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18),
+                                    onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: pinCtrl,
+                                keyboardType: TextInputType.number,
+                                maxLength: 6,
+                                obscureText: obscurePin,
+                                decoration: InputDecoration(
+                                  labelText: 'Station PIN (4-6 digits) *',
+                                  counterText: '',
+                                  hintText: '1234',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(obscurePin ? Icons.visibility_off : Icons.visibility, size: 18),
+                                    onPressed: () => setDialogState(() => obscurePin = !obscurePin),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: passwordCtrl,
+                                obscureText: obscurePassword,
+                                decoration: InputDecoration(
+                                  labelText: 'Initial Password *',
+                                  hintText: 'Min 6 characters',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18),
+                                    onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: pinCtrl,
-                            keyboardType: TextInputType.number,
-                            maxLength: 6,
-                            decoration: const InputDecoration(
-                              labelText: 'Station PIN (4-6 digits) *',
-                              counterText: '',
-                              hintText: '1234',
-                              border: OutlineInputBorder(),
-                              isDense: true,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: pinCtrl,
+                                keyboardType: TextInputType.number,
+                                maxLength: 6,
+                                obscureText: obscurePin,
+                                decoration: InputDecoration(
+                                  labelText: 'Station PIN (4-6 digits) *',
+                                  counterText: '',
+                                  hintText: '1234',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(obscurePin ? Icons.visibility_off : Icons.visibility, size: 18),
+                                    onPressed: () => setDialogState(() => obscurePin = !obscurePin),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 14),
                     const Text('Assign to Field Camps (Optional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -787,10 +1201,20 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                         final phone = phoneCtrl.text.trim();
                         final password = passwordCtrl.text.trim();
                         final pin = pinCtrl.text.trim();
+                        final tenant = tenantCtrl.text.trim().isNotEmpty
+                            ? tenantCtrl.text.trim()
+                            : (currentUser?.tenantName ?? 'Community Health Outreach Mission');
 
                         if (name.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty || pin.isEmpty) {
                           messenger.showSnackBar(
                             const SnackBar(content: Text('Please complete all required fields.')),
+                          );
+                          return;
+                        }
+
+                        if (password.length < 6) {
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Initial password must be at least 6 characters.')),
                           );
                           return;
                         }
@@ -804,7 +1228,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
 
                         setDialogState(() => isSubmitting = true);
 
-                        final currentUser = ref.read(authStateProvider).currentUser;
                         final deviceState = ref.read(deviceSecurityProvider);
 
                         final newStaff = UserModel(
@@ -816,7 +1239,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                           isActive: true,
                           assignedCampIds: selectedCampIds.toList(),
                           tenantId: currentUser?.tenantId ?? 'tenant_default',
-                          tenantName: currentUser?.tenantName ?? 'Community Health Outreach Mission',
+                          tenantName: tenant,
                           passwordHash: SecurityService.hashSha256(password),
                           pinHash: SecurityService.hashPin(pin),
                         );
@@ -976,6 +1399,9 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     UserRole selectedRole = staff.role;
     bool isSubmitting = false;
 
+    final currentUser = ref.read(authStateProvider).currentUser;
+    final isSelf = staff.id == currentUser?.id;
+
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -1067,12 +1493,19 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                     SwitchListTile(
                       title: const Text('Account Active Status', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                       subtitle: Text(
-                        isActive ? 'User can log in and perform clinical actions' : 'User account suspended / access blocked',
-                        style: const TextStyle(fontSize: 11),
+                        isSelf
+                            ? 'Your own administrator account cannot be deactivated'
+                            : (isActive ? 'User can log in and perform clinical actions' : 'User account suspended / access blocked'),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isSelf ? AppTheme.primaryTeal : Colors.grey.shade600,
+                        ),
                       ),
                       value: isActive,
                       activeThumbColor: const Color(0xFF059669),
-                      onChanged: isSubmitting ? null : (val) => setDialogState(() => isActive = val),
+                      onChanged: (isSubmitting || isSelf)
+                          ? null
+                          : (val) => setDialogState(() => isActive = val),
                     ),
                   ],
                 ),
@@ -1093,7 +1526,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
 
                         setDialogState(() => isSubmitting = true);
 
-                        final currentUser = ref.read(authStateProvider).currentUser;
                         final deviceState = ref.read(deviceSecurityProvider);
                         final updated = staff.copyWith(
                           name: newName,
