@@ -106,13 +106,34 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
       return true;
     }).toList();
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 900;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(currentUser?.isDataTaker == true
-            ? 'My Activity Trail (Audit Chain)'
-            : 'Tamper-Evident Audit Trail'),
-        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              currentUser?.isDataTaker == true
+                  ? 'My Activity Trail (Audit Chain)'
+                  : 'Tamper-Evident Audit Trail',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            Text(
+              currentUser?.isDataTaker == true
+                  ? 'Personal non-repudiation audit ledger'
+                  : 'SHA-256 sequential cryptographic integrity ledger',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.82),
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+        elevation: 0.5,
         actions: [
           IconButton(
             icon: const Icon(Icons.download_rounded),
@@ -124,105 +145,142 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
             tooltip: 'Refresh & Verify Logs',
             onPressed: () => vm.loadRecentLogs(),
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: Column(
-        children: [
-          // 1. Interactive SHA-256 Cryptographic Integrity Card
-          _buildIntegrityCard(context, auditState, vm),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1140),
+          child: Column(
+            children: [
+              // 1. Interactive SHA-256 Cryptographic Integrity Card (Responsive)
+              _buildIntegrityCard(context, auditState, vm, isDesktop),
 
-          // 2. Search Field
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                hintText: 'Search by actor, action, device, hash signature, or entity...',
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 18),
-                        onPressed: () {
-                          setState(() {
-                            _searchController.clear();
-                          });
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+              // 2. Search & Stats Control Bar
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        style: const TextStyle(fontSize: 13.5),
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF64748B)),
+                          hintText: isDesktop
+                              ? 'Search by actor, action, device, hash signature, or entity...'
+                              : 'Search audit ledger...',
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded, size: 18),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                    });
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.5),
+                          ),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    if (isDesktop && _searchController.text.trim().isNotEmpty) ...[
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Text(
+                          '${filteredLogs.length} matches',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
 
-          // 3. Category Filter Chips with Live Badges
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-            child: Row(
-              children: [
-                _buildFilterChip('ALL', 'All Events', _countForCategory(userLogs, 'ALL')),
-                const SizedBox(width: 8),
-                _buildFilterChip('CAMP', 'Camps', _countForCategory(userLogs, 'CAMP')),
-                const SizedBox(width: 8),
-                _buildFilterChip('DEVICE', 'Devices', _countForCategory(userLogs, 'DEVICE')),
-                const SizedBox(width: 8),
-                _buildFilterChip('PATIENT', 'Patients', _countForCategory(userLogs, 'PATIENT')),
-                const SizedBox(width: 8),
-                _buildFilterChip('USER', 'Authentication', _countForCategory(userLogs, 'USER')),
-                const SizedBox(width: 8),
-                _buildFilterChip('LOOKUP', 'Formulary', _countForCategory(userLogs, 'LOOKUP')),
-                const SizedBox(width: 8),
-                _buildFilterChip('REPORT', 'Reports', _countForCategory(userLogs, 'REPORT')),
-              ],
-            ),
-          ),
-          const Divider(height: 16, thickness: 1, color: Color(0xFFE2E8F0)),
+              // 3. Category Filter Chips with Live Badges
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
+                child: Row(
+                  children: [
+                    _buildFilterChip('ALL', 'All Events', Icons.auto_awesome_mosaic_rounded, _countForCategory(userLogs, 'ALL')),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('CAMP', 'Camps', Icons.campaign_rounded, _countForCategory(userLogs, 'CAMP')),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('DEVICE', 'Devices', Icons.devices_rounded, _countForCategory(userLogs, 'DEVICE')),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('PATIENT', 'Patients', Icons.people_alt_rounded, _countForCategory(userLogs, 'PATIENT')),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('USER', 'Authentication', Icons.badge_rounded, _countForCategory(userLogs, 'USER')),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('LOOKUP', 'Formulary', Icons.tune_rounded, _countForCategory(userLogs, 'LOOKUP')),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('REPORT', 'Reports', Icons.bar_chart_rounded, _countForCategory(userLogs, 'REPORT')),
+                  ],
+                ),
+              ),
+              const Divider(height: 14, thickness: 1, color: Color(0xFFE2E8F0)),
 
-          // 4. Activity Logs List or Contextual Empty State
-          Expanded(
-            child: auditState.isLoading
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(color: AppTheme.primaryTeal),
-                        SizedBox(height: 16),
-                        Text('Reading tamper-evident SQLite audit chain...'),
-                      ],
-                    ),
-                  )
-                : filteredLogs.isEmpty
-                    ? _buildContextualEmptyState(context, _selectedCategory)
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                        itemCount: filteredLogs.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final log = filteredLogs[index];
-                          return _buildLogCard(context, log);
-                        },
-                      ),
+              // 4. Activity Logs List or Contextual Empty State
+              Expanded(
+                child: auditState.isLoading
+                    ? const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(color: AppTheme.primaryTeal),
+                            SizedBox(height: 16),
+                            Text(
+                              'Reading tamper-evident SQLite audit chain...',
+                              style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                            ),
+                          ],
+                        ),
+                      )
+                    : filteredLogs.isEmpty
+                        ? _buildContextualEmptyState(context, _selectedCategory)
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                            itemCount: filteredLogs.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final log = filteredLogs[index];
+                              return _buildLogCard(context, log, isDesktop);
+                            },
+                          ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   // -------------------------------------------------------------
-  // SHA-256 Cryptographic Integrity Card
+  // SHA-256 Cryptographic Integrity Card (Fully Responsive)
   // -------------------------------------------------------------
-  Widget _buildIntegrityCard(BuildContext context, AuditLogState state, AuditLogViewModel vm) {
+  Widget _buildIntegrityCard(BuildContext context, AuditLogState state, AuditLogViewModel vm, bool isDesktop) {
     final isValid = state.isChainValid;
     final isVerifying = state.isVerifyingChain;
 
@@ -258,119 +316,197 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
           '${state.verifiedCount > 0 ? state.verifiedCount : state.logs.length} sequential transaction blocks mathematically verified against SHA-256 signatures.';
     }
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      padding: const EdgeInsets.all(14.0),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: 1.2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 620;
+
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+          padding: const EdgeInsets.all(14.0),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor, width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: textColor.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(color: textColor.withValues(alpha: 0.15), blurRadius: 6),
-                  ],
-                ),
-                child: isVerifying
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.2, color: textColor),
-                      )
-                    : Icon(iconData, color: textColor, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: textColor.withValues(alpha: 0.15), blurRadius: 6),
+                      ],
+                    ),
+                    child: isVerifying
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2.2, color: textColor),
+                          )
+                        : Icon(iconData, color: textColor, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
+                        if (isNarrow) ...[
+                          Text(
                             title,
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: textColor),
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: isValid == false ? AppTheme.dangerRose : const Color(0xFF059669),
-                            borderRadius: BorderRadius.circular(12),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isValid == false ? AppTheme.dangerRose : const Color(0xFF059669),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              isValid == false ? 'TAMPER ALERT' : 'CRYPTOGRAPHICALLY VERIFIED',
+                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
                           ),
-                          child: Text(
-                            isValid == false ? 'TAMPER ALERT' : 'CRYPTOGRAPHICALLY VERIFIED',
-                            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
+                        ] else ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isValid == false ? AppTheme.dangerRose : const Color(0xFF059669),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  isValid == false ? 'TAMPER ALERT' : 'CRYPTOGRAPHICALLY VERIFIED',
+                                  style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ),
+                            ],
                           ),
+                        ],
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(fontSize: 11.5, color: textColor.withValues(alpha: 0.9), height: 1.3),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(fontSize: 11.5, color: textColor.withValues(alpha: 0.85), height: 1.3),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Divider(height: 12, thickness: 0.8, color: borderColor.withValues(alpha: 0.7)),
+              if (isNarrow) ...[
+                // Mobile layout: stacked cleanly to prevent RenderFlex overflow
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    _buildMiniBadge('Tamper-Proof', textColor),
+                    _buildMiniBadge('Sequential Merkle Chain', textColor),
+                    _buildMiniBadge('Non-Repudiation', textColor),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        foregroundColor: textColor,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                      icon: const Icon(Icons.info_outline_rounded, size: 14),
+                      label: const Text('What does SHA-256 verify?', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      onPressed: () => _showSha256ExplanationDialog(context),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: textColor,
+                        elevation: 0,
+                        side: BorderSide(color: borderColor),
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                      icon: const Icon(Icons.sync_rounded, size: 14),
+                      label: const Text('Re-Verify', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      onPressed: isVerifying ? null : () => vm.verifyCryptographicChain(),
                     ),
                   ],
                 ),
-              ),
+              ] else ...[
+                // Desktop / Tablet layout: side-by-side
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        _buildMiniBadge('Tamper-Proof', textColor),
+                        _buildMiniBadge('Sequential Merkle Chain', textColor),
+                        _buildMiniBadge('Non-Repudiation', textColor),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            foregroundColor: textColor,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          icon: const Icon(Icons.info_outline_rounded, size: 15),
+                          label: const Text('What does SHA-256 verify?', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () => _showSha256ExplanationDialog(context),
+                        ),
+                        const SizedBox(width: 4),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: textColor,
+                            elevation: 0,
+                            side: BorderSide(color: borderColor),
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          ),
+                          icon: const Icon(Icons.sync_rounded, size: 14),
+                          label: const Text('Re-Verify', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: isVerifying ? null : () => vm.verifyCryptographicChain(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 10),
-          const Divider(height: 12, thickness: 0.8, color: Color(0x22000000)),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Wrap(
-                spacing: 6,
-                children: [
-                  _buildMiniBadge('Tamper-Proof', textColor),
-                  _buildMiniBadge('Sequential Merkle Chain', textColor),
-                  _buildMiniBadge('Non-Repudiation', textColor),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton.icon(
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      foregroundColor: textColor,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                    icon: const Icon(Icons.info_outline_rounded, size: 15),
-                    label: const Text('What does SHA-256 verify?', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    onPressed: () => _showSha256ExplanationDialog(context),
-                  ),
-                  const SizedBox(width: 4),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: textColor,
-                      elevation: 0,
-                      side: BorderSide(color: borderColor),
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    ),
-                    icon: const Icon(Icons.sync_rounded, size: 14),
-                    label: const Text('Re-Verify', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    onPressed: isVerifying ? null : () => vm.verifyCryptographicChain(),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -378,8 +514,8 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(4),
+        color: Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
@@ -392,10 +528,11 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
   // -------------------------------------------------------------
   // Filter Chip with Live Badges
   // -------------------------------------------------------------
-  Widget _buildFilterChip(String key, String label, int count) {
+  Widget _buildFilterChip(String key, String label, IconData icon, int count) {
     final isSelected = _selectedCategory == key;
     return ChoiceChip(
       visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       labelPadding: const EdgeInsets.symmetric(horizontal: 4),
       avatar: CircleAvatar(
         radius: 9,
@@ -409,19 +546,31 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
           ),
         ),
       ),
-      label: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11.5,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          color: isSelected ? AppTheme.primaryTeal : Colors.black87,
-        ),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 13,
+            color: isSelected ? AppTheme.primaryTeal : const Color(0xFF64748B),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected ? AppTheme.primaryTeal : Colors.black87,
+            ),
+          ),
+        ],
       ),
       selected: isSelected,
       selectedColor: AppTheme.primaryLight,
       backgroundColor: Colors.white,
       side: BorderSide(
         color: isSelected ? AppTheme.primaryTeal : const Color(0xFFCBD5E1),
+        width: isSelected ? 1.4 : 1.0,
       ),
       onSelected: (_) {
         setState(() {
@@ -432,133 +581,195 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
   }
 
   // -------------------------------------------------------------
-  // Modern Event Log Card
+  // Modern Event Log Card (Responsive)
   // -------------------------------------------------------------
-  Widget _buildLogCard(BuildContext context, AuditLogModel log) {
+  Widget _buildLogCard(BuildContext context, AuditLogModel log, bool isDesktop) {
     final formattedTime = DateFormat('yyyy-MM-dd • hh:mm:ss a').format(log.timestamp);
+    final listTime = DateFormat('yyyy-MM-dd HH:mm').format(log.timestamp);
     final actionColor = _getActionColor(log.action);
     final actionIcon = _getActionIcon(log.action);
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      color: Colors.white,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () => _showLogDetailsDialog(context, log, formattedTime),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Action Icon Box
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: actionColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(actionIcon, color: actionColor, size: 20),
-              ),
-              const SizedBox(width: 12),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 580;
 
-              // Middle Column
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            log.action,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            log.userRole,
-                            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                          ),
-                        ),
-                      ],
+        return Card(
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          color: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _showLogDetailsDialog(context, log, formattedTime),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(color: actionColor, width: 4),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Action Icon Box
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: actionColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'By: ${log.userName} • Device: ${log.deviceId}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
+                    child: Icon(actionIcon, color: actionColor, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Middle Column: Event Details
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF94A3B8)),
-                        const SizedBox(width: 4),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                log.action,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Text(
+                                log.userRole,
+                                style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
                         Text(
-                          formattedTime,
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          'By: ${log.userName} • Device: ${log.deviceId}',
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                         ),
-                        if (log.entityId != null) ...[
-                          const SizedBox(width: 8),
-                          const Text('•', style: TextStyle(color: Color(0xFF94A3B8))),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              '${log.entityType}: ${log.entityId}',
+                        const SizedBox(height: 3),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 3,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  const WidgetSpan(
+                                    alignment: PlaceholderAlignment.middle,
+                                    child: Padding(
+                                      padding: EdgeInsets.only(right: 4),
+                                      child: Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF94A3B8)),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: listTime,
+                                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryTeal),
+                            ),
+                            if (log.entityId != null)
+                              Text.rich(
+                                TextSpan(
+                                  children: [
+                                    const TextSpan(text: '•  ', style: TextStyle(color: Color(0xFF94A3B8))),
+                                    TextSpan(
+                                      text: '${log.entityType}: ${log.entityId}',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryTeal),
+                                    ),
+                                  ],
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                        if (isNarrow) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.lock_clock_outlined, size: 10, color: Color(0xFF64748B)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  log.logHash.length >= 8 ? log.logHash.substring(0, 8).toUpperCase() : log.logHash,
+                                  style: const TextStyle(fontFamily: 'monospace', fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
 
-              // Trailing Cryptographic Hash
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                  if (!isNarrow) ...[
+                    const SizedBox(width: 12),
+                    // Trailing Cryptographic Hash & Action Prompt
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Icon(Icons.lock_clock_outlined, size: 11, color: Color(0xFF64748B)),
-                        const SizedBox(width: 4),
-                        Text(
-                          log.logHash.length >= 8 ? log.logHash.substring(0, 8).toUpperCase() : log.logHash,
-                          style: const TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.lock_clock_outlined, size: 11.5, color: Color(0xFF64748B)),
+                              const SizedBox(width: 5),
+                              Text(
+                                log.logHash.length >= 8 ? log.logHash.substring(0, 8).toUpperCase() : log.logHash,
+                                style: const TextStyle(fontFamily: 'monospace', fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Inspect Block',
+                              style: TextStyle(fontSize: 10.5, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
+                            ),
+                            SizedBox(width: 2),
+                            Icon(Icons.chevron_right_rounded, size: 14, color: AppTheme.primaryTeal),
+                          ],
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Inspect Block →',
-                    style: TextStyle(fontSize: 10, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
-                  ),
+                  ],
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -768,75 +979,100 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
     final logsToExport = filteredLogs.isNotEmpty ? filteredLogs : allLogs;
     final isUsingFallback = filteredLogs.isEmpty && allLogs.isNotEmpty;
 
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.file_download_rounded, color: AppTheme.primaryTeal, size: 24),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Export Audit Trail & Security Records',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 700;
+
+    final content = Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryLight,
+                  shape: BoxShape.circle,
                 ),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isUsingFallback
-                  ? 'Current filter "$_selectedCategory" has 0 records. Exporting all ${allLogs.length} system audit logs instead.'
-                  : 'Exporting ${logsToExport.length} records (${_selectedCategory == "ALL" ? "All Categories" : _selectedCategory} filter).',
-              style: TextStyle(fontSize: 12.5, color: isUsingFallback ? Colors.amber.shade900 : const Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 20),
-
-            // Option 1: CSV Report
-            ListTile(
-              tileColor: const Color(0xFFF8FAFC),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Color(0xFFE2E8F0))),
-              leading: const CircleAvatar(
-                backgroundColor: Color(0xFFECFDF5),
-                child: Icon(Icons.table_chart_rounded, color: Color(0xFF059669)),
+                child: const Icon(Icons.file_download_rounded, color: AppTheme.primaryTeal, size: 22),
               ),
-              title: const Text('Tabular Audit Report (.CSV)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: const Text('Human-readable spreadsheet formatted with local time, actor, action, and SHA-256 signature.', style: TextStyle(fontSize: 11)),
-              trailing: const Icon(Icons.download_rounded, color: AppTheme.primaryTeal),
-              onTap: () {
-                Navigator.pop(ctx);
-                _exportCsv(logsToExport);
-              },
-            ),
-            const SizedBox(height: 12),
-
-            // Option 2: JSON Cryptographic Vault
-            ListTile(
-              tileColor: const Color(0xFFF8FAFC),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Color(0xFFE2E8F0))),
-              leading: const CircleAvatar(
-                backgroundColor: Color(0xFFEFF6FF),
-                child: Icon(Icons.data_object_rounded, color: Color(0xFF2563EB)),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Export Audit Trail & Security Records',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
               ),
-              title: const Text('Forensic Cryptographic Vault (.JSON)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: const Text('Machine-readable forensic JSON containing chained hashes and payload signatures for legal verification.', style: TextStyle(fontSize: 11)),
-              trailing: const Icon(Icons.download_rounded, color: AppTheme.primaryTeal),
-              onTap: () {
-                Navigator.pop(ctx);
-                _exportJson(logsToExport);
-              },
+              IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isUsingFallback
+                ? 'Current filter "$_selectedCategory" has 0 records. Exporting all ${allLogs.length} system audit logs instead.'
+                : 'Exporting ${logsToExport.length} records (${_selectedCategory == "ALL" ? "All Categories" : _selectedCategory} filter).',
+            style: TextStyle(fontSize: 12.5, color: isUsingFallback ? Colors.amber.shade900 : const Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 20),
+
+          // Option 1: CSV Report
+          ListTile(
+            tileColor: const Color(0xFFF8FAFC),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
+            leading: const CircleAvatar(
+              backgroundColor: Color(0xFFECFDF5),
+              child: Icon(Icons.table_chart_rounded, color: Color(0xFF059669)),
             ),
-          ],
-        ),
+            title: const Text('Tabular Audit Report (.CSV)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            subtitle: const Text('Human-readable spreadsheet formatted with local time, actor, action, and SHA-256 signature.', style: TextStyle(fontSize: 11)),
+            trailing: const Icon(Icons.download_rounded, color: AppTheme.primaryTeal),
+            onTap: () {
+              Navigator.pop(context);
+              _exportCsv(logsToExport);
+            },
+          ),
+          const SizedBox(height: 12),
+
+          // Option 2: JSON Cryptographic Vault
+          ListTile(
+            tileColor: const Color(0xFFF8FAFC),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
+            leading: const CircleAvatar(
+              backgroundColor: Color(0xFFEFF6FF),
+              child: Icon(Icons.data_object_rounded, color: Color(0xFF2563EB)),
+            ),
+            title: const Text('Forensic Cryptographic Vault (.JSON)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            subtitle: const Text('Machine-readable forensic JSON containing chained hashes and payload signatures for legal verification.', style: TextStyle(fontSize: 11)),
+            trailing: const Icon(Icons.download_rounded, color: AppTheme.primaryTeal),
+            onTap: () {
+              Navigator.pop(context);
+              _exportJson(logsToExport);
+            },
+          ),
+        ],
       ),
     );
+
+    if (isDesktop) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: content,
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (ctx) => content,
+      );
+    }
   }
 
   Future<void> _exportCsv(List<AuditLogModel> logs) async {
@@ -936,61 +1172,93 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(_getActionIcon(log.action), color: _getActionColor(log.action), size: 22),
-            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _getActionColor(log.action).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(_getActionIcon(log.action), color: _getActionColor(log.action), size: 22),
+            ),
+            const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                log.action,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    log.action,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Block ID: ${log.id}',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.normal),
+                  ),
+                ],
               ),
             ),
           ],
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _detailRow('Actor:', '${log.userName} (${log.userRole})'),
-              _detailRow('Actor ID:', log.userId),
-              _detailRow('Timestamp:', formattedTime),
-              _detailRow('Device ID:', log.deviceId),
-              _detailRow('Target Entity:', log.entityType),
-              if (log.entityId != null) _detailRow('Entity ID:', log.entityId!),
-              const Divider(height: 16),
-              const Text('Details JSON Payload:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(6),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 550),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      _detailRow('Actor:', '${log.userName} (${log.userRole})'),
+                      _detailRow('Actor ID:', log.userId),
+                      _detailRow('Timestamp:', formattedTime),
+                      _detailRow('Device ID:', log.deviceId),
+                      _detailRow('Target Entity:', log.entityType),
+                      if (log.entityId != null) _detailRow('Entity ID:', log.entityId!),
+                    ],
+                  ),
                 ),
-                child: Text(
-                  log.detailsJson,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                const SizedBox(height: 14),
+                const Text('Details JSON Payload:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SelectableText(
+                    log.detailsJson,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Color(0xFF38BDF8)),
+                  ),
                 ),
-              ),
-              const Divider(height: 16),
-              const Text('Chained SHA-256 Hash:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF5),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0xFFA7F3D0)),
+                const SizedBox(height: 14),
+                const Text('Chained SHA-256 Hash:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                  ),
+                  child: SelectableText(
+                    log.logHash,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
+                  ),
                 ),
-                child: SelectableText(
-                  log.logHash,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -1016,12 +1284,12 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
 
   Widget _detailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
+      padding: const EdgeInsets.only(bottom: 5.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 95,
+            width: 100,
             child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
           ),
           Expanded(

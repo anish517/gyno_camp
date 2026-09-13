@@ -6,7 +6,6 @@ import 'package:gyno_camp/models/audit_log_model.dart';
 import 'package:gyno_camp/repositories/audit_repository.dart';
 import 'package:gyno_camp/viewmodels/audit_log_viewmodel.dart';
 import 'package:gyno_camp/views/admin/audit_trail_view.dart';
-
 import 'package:gyno_camp/core/security/security_service.dart';
 
 class FakeAuditRepository implements IAuditRepository {
@@ -109,7 +108,7 @@ void main() {
     );
   }
 
-  testWidgets('AuditTrailView renders banner and log items', (tester) async {
+  testWidgets('AuditTrailView renders banner and log items on desktop', (tester) async {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -123,6 +122,21 @@ void main() {
     expect(find.text('CAMP_OPENED'), findsOneWidget);
     expect(find.text('PATIENT_REGISTERED'), findsOneWidget);
     expect(find.textContaining('Dr. Aruna Shrestha'), findsOneWidget);
+  });
+
+  testWidgets('AuditTrailView renders cleanly on narrow mobile viewport without overflow', (tester) async {
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeAuditRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tamper-Evident Audit Trail'), findsOneWidget);
+    expect(find.text('Cryptographic Chain Intact (SHA-256)'), findsOneWidget);
+    expect(find.text('Re-Verify'), findsOneWidget);
+    expect(find.text('CAMP_OPENED'), findsOneWidget);
   });
 
   testWidgets('Tapping audit log opens detail modal with JSON and full hash', (tester) async {
@@ -141,5 +155,62 @@ void main() {
     expect(find.text('{"campCode":"KTM01"}'), findsOneWidget);
     expect(find.text('Chained SHA-256 Hash:'), findsOneWidget);
     expect(find.text('Copy Hash'), findsOneWidget);
+  });
+
+  testWidgets('Category chips filter event log list', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeAuditRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Filter by Camps
+    await tester.tap(find.text('Camps'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CAMP_OPENED'), findsOneWidget);
+    expect(find.text('PATIENT_REGISTERED'), findsNothing);
+
+    // Filter by Patients
+    await tester.tap(find.text('Patients'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CAMP_OPENED'), findsNothing);
+    expect(find.text('PATIENT_REGISTERED'), findsOneWidget);
+  });
+
+  testWidgets('Search query filters events in real-time', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeAuditRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Sita');
+    await tester.pumpAndSettle();
+
+    expect(find.text('PATIENT_REGISTERED'), findsOneWidget);
+    expect(find.text('CAMP_OPENED'), findsNothing);
+  });
+
+  testWidgets('Export button opens responsive export dialog', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeAuditRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.download_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Export Audit Trail & Security Records'), findsOneWidget);
+    expect(find.text('Tabular Audit Report (.CSV)'), findsOneWidget);
+    expect(find.text('Forensic Cryptographic Vault (.JSON)'), findsOneWidget);
   });
 }
