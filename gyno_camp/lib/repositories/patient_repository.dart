@@ -67,12 +67,26 @@ class PatientRepository implements IPatientRepository {
         'SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} WHERE camp_id = ?',
         [patient.campId],
       ));
-      final nextSeq = (countResult ?? 0) + 1;
-      finalPatientId = PatientModel.generatePatientId(
-        campCode: patient.campCode,
-        sequenceNumber: nextSeq,
-        year: patient.intakeDate.year,
-      );
+      int nextSeq = (countResult ?? 0) + 1;
+      while (true) {
+        final candidateId = PatientModel.generatePatientId(
+          campCode: patient.campCode,
+          sequenceNumber: nextSeq,
+          year: patient.intakeDate.year,
+        );
+        final existing = await db.query(
+          DatabaseTables.tablePatients,
+          columns: ['id'],
+          where: 'patient_id = ?',
+          whereArgs: [candidateId],
+          limit: 1,
+        );
+        if (existing.isEmpty) {
+          finalPatientId = candidateId;
+          break;
+        }
+        nextSeq++;
+      }
     }
 
     final newPatient = patient.copyWith(
@@ -260,10 +274,19 @@ class PatientRepository implements IPatientRepository {
       'outtakeNotes': newVisit.outtakeNotes,
     };
 
+    final userRows = await db.query(
+      DatabaseTables.tableUsers,
+      where: 'id = ?',
+      whereArgs: [createdByUserId],
+      limit: 1,
+    );
+    final auditUserName = userRows.isNotEmpty ? userRows.first['name'] as String : 'Field Clinician';
+    final auditUserRole = userRows.isNotEmpty ? userRows.first['role'] as String : AppConstants.roleDataTaker;
+
     await _auditRepository.logActivity(
       userId: createdByUserId,
-      userName: 'Field Doctor / Nurse',
-      userRole: AppConstants.roleDataTaker,
+      userName: auditUserName,
+      userRole: auditUserRole,
       action: AppConstants.auditActionClinicalEntry,
       entityType: 'ClinicalVisit',
       entityId: newVisit.id,

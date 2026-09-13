@@ -64,6 +64,7 @@ void main() {
       // sita@gynocamp.org is seeded with role dataTaker
       final success = await authVm.login(
         email: 'sita@gynocamp.org',
+        password: 'nurse123',
         deviceId: 'dev-test',
         requiredRole: UserRole.superAdmin,
       );
@@ -78,6 +79,7 @@ void main() {
     test('login with matching requiredRole or null requiredRole authenticates successfully', () async {
       final successMatching = await authVm.login(
         email: 'sita@gynocamp.org',
+        password: 'nurse123',
         deviceId: 'dev-test',
         requiredRole: UserRole.dataTaker,
       );
@@ -89,6 +91,7 @@ void main() {
 
       final successUnified = await authVm.login(
         email: 'sita@gynocamp.org',
+        password: 'nurse123',
         deviceId: 'dev-test',
         requiredRole: null,
       );

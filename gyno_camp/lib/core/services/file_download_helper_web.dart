@@ -22,7 +22,11 @@ Future<String> saveFile({
   html.document.body?.children.add(anchor);
   anchor.click();
   html.document.body?.children.remove(anchor);
-  html.Url.revokeObjectUrl(url);
+
+  // Delay revocation so the browser download engine has time to read the blob stream
+  Future.delayed(const Duration(seconds: 2), () {
+    html.Url.revokeObjectUrl(url);
+  });
 
   return 'Downloads (Browser): $filename';
 }

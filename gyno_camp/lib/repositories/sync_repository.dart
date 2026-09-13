@@ -185,20 +185,27 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
-        // Upsert patients from central cloud
+        final pullSyncIso = DateTime.now().toIso8601String();
+
+        // Upsert patients from central cloud (marked as synced to prevent echo-push loops)
         for (final patient in response.patients) {
+          final patientMap = patient.toMap();
+          patientMap['is_synced'] = 1;
+          patientMap['synced_at'] = pullSyncIso;
           await txn.insert(
             DatabaseTables.tablePatients,
-            patient.toMap(),
+            patientMap,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
 
-        // Upsert clinical visits from central cloud
+        // Upsert clinical visits from central cloud (marked as synced to prevent echo-push loops)
         for (final visit in response.clinicalVisits) {
+          final visitMap = visit.toMap();
+          visitMap['is_synced'] = 1;
           await txn.insert(
             DatabaseTables.tableClinicalVisits,
-            visit.toMap(),
+            visitMap,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }

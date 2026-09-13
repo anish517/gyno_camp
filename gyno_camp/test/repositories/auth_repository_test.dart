@@ -34,8 +34,19 @@ void main() {
       expect(users.length, greaterThanOrEqualTo(3));
     });
 
-    test('login with valid email succeeds and updates lastLoginAt and audit trail', () async {
-      final user = await authRepo.login(email: 'sita@gynocamp.org', deviceId: 'dev-test-01');
+    test('login with valid email and password succeeds and updates lastLoginAt and audit trail', () async {
+      // Null or empty password should be rejected for users with credentials
+      final nullPassUser = await authRepo.login(email: 'sita@gynocamp.org', password: null, deviceId: 'dev-test-01');
+      expect(nullPassUser, isNull, reason: 'Null password must be rejected');
+
+      final emptyPassUser = await authRepo.login(email: 'sita@gynocamp.org', password: '', deviceId: 'dev-test-01');
+      expect(emptyPassUser, isNull, reason: 'Empty password must be rejected');
+
+      final wrongPassUser = await authRepo.login(email: 'sita@gynocamp.org', password: 'wrongpassword', deviceId: 'dev-test-01');
+      expect(wrongPassUser, isNull, reason: 'Wrong password must be rejected');
+
+      // Correct password succeeds
+      final user = await authRepo.login(email: 'sita@gynocamp.org', password: 'nurse123', deviceId: 'dev-test-01');
       expect(user, isNotNull);
       expect(user!.name, contains('Sita'));
       expect(user.role, UserRole.dataTaker);
@@ -47,7 +58,7 @@ void main() {
     });
 
     test('login with invalid email returns null', () async {
-      final user = await authRepo.login(email: 'nonexistent@gynocamp.org', deviceId: 'dev-test-01');
+      final user = await authRepo.login(email: 'nonexistent@gynocamp.org', password: 'secret', deviceId: 'dev-test-01');
       expect(user, isNull);
     });
 
@@ -62,7 +73,7 @@ void main() {
     });
 
     test('logout clears currentUser and records audit log', () async {
-      await authRepo.login(email: 'admin@gynocamp.org', deviceId: 'dev-test-01');
+      await authRepo.login(email: 'admin@gynocamp.org', password: 'admin123', deviceId: 'dev-test-01');
       expect(authRepo.currentUser, isNotNull);
 
       await authRepo.logout(deviceId: 'dev-test-01');

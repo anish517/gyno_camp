@@ -3,6 +3,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../core/services/file_download_helper.dart';
 import '../../core/services/nepali_localization_service.dart';
+import '../../core/services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/patient_model.dart';
@@ -444,13 +445,13 @@ class PatientFollowUpSlipModal extends StatelessWidget {
               children: [
                 pw.Center(
                   child: pw.Text(
-                    organizationName.toUpperCase(),
+                    PdfReportService.sanitizeText(organizationName.toUpperCase()),
                     style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.teal800),
                   ),
                 ),
                 pw.Center(
                   child: pw.Text(
-                    camp?.name ?? 'Gynecological Health Outreach Camp',
+                    PdfReportService.sanitizeText(camp?.name, fallback: 'Gynecological Health Outreach Camp'),
                     style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
                   ),
                 ),
@@ -471,12 +472,12 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('PATIENT ID: ${patient.patientId}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                        pw.Text('PATIENT ID: ${PdfReportService.sanitizeText(patient.patientId)}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
                         pw.SizedBox(height: 4),
-                        pw.Text('Name: ${patient.fullName}', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                        pw.Text('Age: ${patient.age} yrs | Ward: ${patient.ward} | ${patient.district}', style: const pw.TextStyle(fontSize: 10)),
-                        pw.Text('Guardian / Spouse: ${patient.spouseOrFatherName ?? "N/A"}', style: const pw.TextStyle(fontSize: 10)),
-                        pw.Text('Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"}', style: const pw.TextStyle(fontSize: 10)),
+                        pw.Text('Name: ${PdfReportService.sanitizeText(patient.fullName)}', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Age: ${patient.age} yrs | Ward: ${PdfReportService.sanitizeText(patient.ward)} | ${PdfReportService.sanitizeText(patient.district)}', style: const pw.TextStyle(fontSize: 10)),
+                        pw.Text('Guardian / Spouse: ${PdfReportService.sanitizeText(patient.spouseOrFatherName, fallback: "N/A")}', style: const pw.TextStyle(fontSize: 10)),
+                        pw.Text('Mobile: ${patient.mobile.isNotEmpty ? PdfReportService.sanitizeText(patient.mobile) : "N/A"}', style: const pw.TextStyle(fontSize: 10)),
                         pw.Text('Date: ${patient.intakeDate.toString().split(" ")[0]}', style: const pw.TextStyle(fontSize: 10)),
                       ],
                     ),

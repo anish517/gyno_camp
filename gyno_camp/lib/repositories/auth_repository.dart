@@ -281,7 +281,13 @@ class AuthRepository implements IAuthRepository {
     final user = await getUserByEmail(email);
     if (user == null || !user.isActive) return null;
 
-    if (password != null && password.isNotEmpty) {
+    final hasCredentials = (user.passwordHash != null && user.passwordHash!.isNotEmpty) ||
+        (user.pinHash != null && user.pinHash!.isNotEmpty);
+
+    if (hasCredentials) {
+      if (password == null || password.trim().isEmpty) {
+        return null;
+      }
       final inputHash = SecurityService.hashSha256(password);
       final isPinValid =
           user.pinHash != null &&

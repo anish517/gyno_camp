@@ -8,6 +8,34 @@ import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
 
 class PdfReportService {
+  /// Sanitizes dynamic strings for standard PDF Type-1 Helvetica font encoding.
+  /// Converts typographical quotes/dashes and strips or filters non-Latin-1 code points (such as Devanagari)
+  /// so that `doc.save()` does not throw an unhandled Helvetica Unicode encoding exception.
+  static String sanitizeText(String? input, {String fallback = ''}) {
+    if (input == null || input.trim().isEmpty) return fallback;
+    var s = input
+        .replaceAll('’', "'")
+        .replaceAll('‘', "'")
+        .replaceAll('“', '"')
+        .replaceAll('”', '"')
+        .replaceAll('—', '-')
+        .replaceAll('–', '-')
+        .replaceAll('…', '...');
+
+    if (s.runes.every((r) => r <= 255)) {
+      return s;
+    }
+
+    final buffer = StringBuffer();
+    for (final rune in s.runes) {
+      if (rune <= 255) {
+        buffer.writeCharCode(rune);
+      }
+    }
+    final cleaned = buffer.toString().trim();
+    return cleaned.isNotEmpty ? cleaned : input.replaceAll(RegExp(r'[^\x00-\x7F]'), '?');
+  }
+
   Future<Uint8List> generateCampSummaryPdf(CampReportSummaryModel summary) async {
     final pdf = pw.Document();
     final dateFormatter = DateFormat('yyyy-MM-dd');
@@ -48,7 +76,7 @@ class PdfReportService {
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      summary.campName,
+                      sanitizeText(summary.campName),
                       style: pw.TextStyle(
                         fontSize: 13,
                         fontWeight: pw.FontWeight.bold,
@@ -56,7 +84,7 @@ class PdfReportService {
                       ),
                     ),
                     pw.Text(
-                      '${summary.venue}, ${summary.municipality}, ${summary.district}',
+                      sanitizeText('${summary.venue}, ${summary.municipality}, ${summary.district}'),
                       style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
                     ),
                   ],
@@ -510,6 +538,7 @@ class PdfReportService {
   }
 
   pw.Widget _buildPdfField(String label, String value, {bool isBold = false}) {
+    final safeValue = sanitizeText(value);
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
       child: pw.Row(
@@ -518,7 +547,7 @@ class PdfReportService {
           pw.Text('$label: ', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
           pw.Expanded(
             child: pw.Text(
-              value,
+              safeValue,
               style: pw.TextStyle(
                 fontSize: 8.5,
                 fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
@@ -626,7 +655,7 @@ class PdfReportService {
                     ),
                     pw.SizedBox(height: 2),
                     pw.Text(
-                      'Outreach Camp: ${camp?.name ?? "Gynae Outreach Station"} (${camp?.campCode ?? patient.campCode})',
+                      'Outreach Camp: ${sanitizeText(camp?.name ?? "Gynae Outreach Station")} (${camp?.campCode ?? patient.campCode})',
                       style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: secondaryColor),
                     ),
                   ],
