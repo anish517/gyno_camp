@@ -84,76 +84,93 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
     final deviceState = ref.watch(deviceSecurityProvider);
 
     final totalEntities = state.diagnoses.length + state.medicines.length + state.referralHospitals.length;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 600;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        toolbarHeight: 68,
+        toolbarHeight: isCompact ? 64 : 68,
         backgroundColor: const Color(0xFF0F766E),
         elevation: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.dataset_outlined, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
-                const Text(
-                  'Clinical Master Data & Formulary',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -0.2,
+                Flexible(
+                  child: Text(
+                    isCompact ? 'Master Data & Formulary' : 'Clinical Master Data & Formulary',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isCompact ? 16 : 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.2,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '$totalEntities Entities',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 2),
-            const Text(
-              'Standardized clinical terminology, prescription formulary & hospital referral directory',
-              style: TextStyle(color: Color(0xFFCCFBF1), fontSize: 12, fontWeight: FontWeight.normal),
+            Text(
+              isCompact
+                  ? 'Clinical formulary & referral directory'
+                  : 'Standardized clinical terminology, prescription formulary & hospital referral directory',
+              style: const TextStyle(color: Color(0xFFCCFBF1), fontSize: 11, fontWeight: FontWeight.normal),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.add, size: 16),
-              label: Text('Add ${_getCategorySingularTitle(_tabController.index)}'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF042F2E),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: const BorderSide(color: Color(0xFF14B8A6)),
+          if (!isCompact)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.add, size: 16),
+                label: Text('Add ${_getCategorySingularTitle(_tabController.index)}'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF042F2E),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: const BorderSide(color: Color(0xFF14B8A6)),
+                  ),
                 ),
+                onPressed: () => _showAddEditDialog(context, null, _getCategoryForIndex(_tabController.index)),
               ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+              tooltip: 'Add ${_getCategorySingularTitle(_tabController.index)}',
               onPressed: () => _showAddEditDialog(context, null, _getCategoryForIndex(_tabController.index)),
             ),
-          ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(52),
+          preferredSize: const Size.fromHeight(50),
           child: Container(
             width: double.infinity,
             color: const Color(0xFF042F2E),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: TabBar(
               controller: _tabController,
               isScrollable: true,
@@ -168,15 +185,15 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
               labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               tabs: [
                 Tab(
-                  icon: const Icon(Icons.healing_outlined, size: 18),
+                  icon: const Icon(Icons.healing_outlined, size: 17),
                   text: 'Diagnoses (${state.diagnoses.length})',
                 ),
                 Tab(
-                  icon: const Icon(Icons.medication_outlined, size: 18),
+                  icon: const Icon(Icons.medication_outlined, size: 17),
                   text: 'Medicines (${state.medicines.length})',
                 ),
                 Tab(
-                  icon: const Icon(Icons.local_hospital_outlined, size: 18),
+                  icon: const Icon(Icons.local_hospital_outlined, size: 17),
                   text: 'Referral Hospitals (${state.referralHospitals.length})',
                 ),
               ],
@@ -184,20 +201,26 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add),
-        label: Text('Add ${_getCategorySingularTitle(_tabController.index)}'),
-        backgroundColor: AppTheme.primaryTeal,
-        onPressed: () => _showAddEditDialog(context, null, _getCategoryForIndex(_tabController.index)),
-      ),
+      floatingActionButton: isCompact
+          ? FloatingActionButton.extended(
+              icon: const Icon(Icons.add),
+              label: Text('Add ${_getCategorySingularTitle(_tabController.index)}'),
+              backgroundColor: AppTheme.primaryTeal,
+              foregroundColor: Colors.white,
+              onPressed: () => _showAddEditDialog(context, null, _getCategoryForIndex(_tabController.index)),
+            )
+          : null,
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1100),
           child: Column(
             children: [
+              // Responsive KPI Metric Cards
+              _buildCategoryKpiCards(state, _tabController.index),
+
               // Search & Filter Toolbar Card
               Container(
-                margin: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                margin: const EdgeInsets.fromLTRB(16, 6, 16, 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -252,15 +275,16 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                     ),
                     const SizedBox(height: 10),
 
-                    // Filter Chips & Category Subtitle Row
-                    Row(
+                    // Filter Chips & Category Subtitle (Responsive Wrap to prevent overflow)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         _buildStatusChip('ALL', 'All Items'),
-                        const SizedBox(width: 8),
                         _buildStatusChip('ACTIVE', 'Active Only'),
-                        const SizedBox(width: 8),
                         _buildStatusChip('INACTIVE', 'Disabled'),
-                        const Spacer(),
                         _buildCategoryContextBadge(_tabController.index),
                       ],
                     ),
@@ -302,6 +326,154 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryKpiCards(MasterLookupState state, int tabIndex) {
+    List<LookupItemModel> currentItems;
+    String categoryName;
+    Color themeColor;
+
+    switch (tabIndex) {
+      case 0:
+        currentItems = state.diagnoses;
+        categoryName = 'Diagnoses';
+        themeColor = AppTheme.primaryTeal;
+        break;
+      case 1:
+        currentItems = state.medicines;
+        categoryName = 'Medicines';
+        themeColor = const Color(0xFF059669);
+        break;
+      case 2:
+      default:
+        currentItems = state.referralHospitals;
+        categoryName = 'Referral Hospitals';
+        themeColor = const Color(0xFF4F46E5);
+        break;
+    }
+
+    final activeCount = currentItems.where((i) => i.isActive).length;
+    final inactiveCount = currentItems.length - activeCount;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 620;
+
+          final card1 = _buildKpiCard(
+            label: 'Active $categoryName',
+            count: '$activeCount',
+            icon: Icons.check_circle_outline,
+            color: const Color(0xFF059669),
+            bgColor: const Color(0xFFECFDF5),
+            borderColor: const Color(0xFFA7F3D0),
+          );
+
+          final card2 = _buildKpiCard(
+            label: 'Disabled / Inactive',
+            count: '$inactiveCount',
+            icon: Icons.pause_circle_outline,
+            color: const Color(0xFFD97706),
+            bgColor: const Color(0xFFFFFBEB),
+            borderColor: const Color(0xFFFDE68A),
+          );
+
+          final card3 = _buildKpiCard(
+            label: 'Total $categoryName',
+            count: '${currentItems.length}',
+            icon: Icons.folder_outlined,
+            color: themeColor,
+            bgColor: themeColor.withValues(alpha: 0.08),
+            borderColor: themeColor.withValues(alpha: 0.25),
+          );
+
+          if (isNarrow) {
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  SizedBox(width: 140, child: card1),
+                  const SizedBox(width: 8),
+                  SizedBox(width: 140, child: card2),
+                  const SizedBox(width: 8),
+                  SizedBox(width: 140, child: card3),
+                ],
+              ),
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: card1),
+              const SizedBox(width: 12),
+              Expanded(child: card2),
+              const SizedBox(width: 12),
+              Expanded(child: card3),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildKpiCard({
+    required String label,
+    required String count,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+    required Color borderColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor),
+            ),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  count,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    height: 1.1,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondaryLight,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -356,9 +528,13 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       children: [
         Icon(icon, size: 14, color: color),
         const SizedBox(width: 5),
-        Text(
-          text,
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 260),
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ],
     );
@@ -384,38 +560,51 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
 
     final listWidget = filtered.isEmpty
         ? Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
-                const SizedBox(height: 8),
-                Text(
-                  _searchController.text.isNotEmpty
-                      ? 'No ${_getCategoryPluralTitle(categoryIndex)} match "${_searchController.text}".'
-                      : 'No items found for the selected filter.',
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
-                ),
-                if (_searchController.text.isNotEmpty)
-                  TextButton.icon(
-                    icon: const Icon(Icons.clear, size: 14),
-                    label: const Text('Clear Search'),
-                    onPressed: () {
-                      _searchController.clear();
-                      ref.read(masterLookupProvider.notifier).setSearchQuery('');
-                    },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Icon(Icons.inventory_2_outlined, size: 40, color: Colors.blueGrey.shade400),
                   ),
-              ],
+                  const SizedBox(height: 12),
+                  Text(
+                    _searchController.text.isNotEmpty
+                        ? 'No ${_getCategoryPluralTitle(categoryIndex)} match "${_searchController.text}".'
+                        : 'No ${_getCategoryPluralTitle(categoryIndex)} found for the selected filter.',
+                    style: const TextStyle(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                  if (_searchController.text.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.clear, size: 14),
+                        label: const Text('Clear Search'),
+                        onPressed: () {
+                          _searchController.clear();
+                          ref.read(masterLookupProvider.notifier).setSearchQuery('');
+                        },
+                      ),
+                    ),
+                ],
+              ),
             ),
           )
         : ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             itemCount: filtered.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final item = filtered[index];
               final isActive = item.isActive;
               final formattedTitle = _formatTitle(item.labelEn);
-
               final hasNepali = item.labelNe.isNotEmpty && item.labelNe != item.labelEn;
 
               return Card(
@@ -424,7 +613,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                   side: BorderSide(
-                    color: isActive ? Colors.grey.shade200 : Colors.grey.shade300,
+                    color: isActive ? const Color(0xFFE2E8F0) : const Color(0xFFE2E8F0),
                     width: 1,
                   ),
                 ),
@@ -438,13 +627,13 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                       ),
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
                   child: Row(
                     children: [
                       // Leading Index Number Badge
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 34,
+                        height: 34,
                         decoration: BoxDecoration(
                           color: isActive ? categoryColor.withValues(alpha: 0.1) : Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(8),
@@ -454,14 +643,14 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                           '${index + 1}',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: 12,
                             color: isActive ? categoryColor : Colors.grey.shade600,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 12),
 
-                      // Title & Subtitle
+                      // Title, Nepali & Code Badge
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,15 +662,16 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                                     formattedTitle,
                                     style: TextStyle(
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 14,
+                                      fontSize: 13.5,
                                       color: isActive ? const Color(0xFF1E293B) : Colors.grey.shade500,
                                       decoration: isActive ? null : TextDecoration.lineThrough,
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                   decoration: BoxDecoration(
                                     color: isActive
                                         ? const Color(0xFF059669).withValues(alpha: 0.1)
@@ -500,13 +690,16 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                               ],
                             ),
                             const SizedBox(height: 3),
-                            Row(
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 if (hasNepali)
                                   Text(
                                     item.labelNe,
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11.5,
                                       fontWeight: FontWeight.w500,
                                       color: isActive ? const Color(0xFF0D9488) : Colors.grey.shade500,
                                     ),
@@ -520,20 +713,19 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                                       color: Colors.grey.shade400,
                                     ),
                                   ),
-                                const SizedBox(width: 10),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                   decoration: BoxDecoration(
-                                    color: isActive ? Colors.grey.shade100 : Colors.grey.shade200,
+                                    color: isActive ? const Color(0xFFF1F5F9) : Colors.grey.shade200,
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Colors.grey.shade300),
+                                    border: Border.all(color: const Color(0xFFCBD5E1)),
                                   ),
                                   child: Text(
                                     'CODE: ${item.code.toUpperCase()}',
                                     style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 9.5,
                                       fontWeight: FontWeight.w600,
-                                      color: isActive ? Colors.grey.shade700 : Colors.grey.shade500,
+                                      color: isActive ? const Color(0xFF334155) : Colors.grey.shade500,
                                       letterSpacing: 0.5,
                                     ),
                                   ),
@@ -543,7 +735,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                           ],
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 8),
 
                       // Trailing Controls: Switch, Edit, Delete
                       Row(
@@ -552,6 +744,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                           Switch(
                             value: isActive,
                             activeTrackColor: categoryColor,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             onChanged: (val) {
                               vm.toggleItemStatus(
                                 item.id,
@@ -563,14 +756,16 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                             },
                           ),
                           IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 19),
+                            icon: const Icon(Icons.edit_outlined, size: 18),
                             color: AppTheme.primaryDark,
                             tooltip: 'Edit Master Record',
+                            visualDensity: VisualDensity.compact,
                             onPressed: () => _showAddEditDialog(context, item, item.category),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 19, color: AppTheme.dangerRose),
+                            icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerRose),
                             tooltip: 'Delete Master Record',
+                            visualDensity: VisualDensity.compact,
                             onPressed: () => _confirmDelete(context, item, adminUserId, deviceId),
                           ),
                         ],
@@ -660,61 +855,63 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
             ),
           ],
         ),
-        content: SizedBox(
-          width: 480,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFBBF7D0)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.sync, size: 16, color: Color(0xFF16A34A)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Changes automatically synchronize with all offline tablets and outreach workstations.',
-                        style: TextStyle(fontSize: 11, color: Colors.green.shade800),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.sync, size: 16, color: Color(0xFF16A34A)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Changes automatically synchronize with all offline tablets and outreach workstations.',
+                          style: TextStyle(fontSize: 11, color: Colors.green.shade800),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: enCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'English Name / Term *',
-                  hintText: 'e.g. Polycystic Ovary Syndrome',
-                  prefixIcon: Icon(Icons.language, size: 18),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: enCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'English Name / Term *',
+                    hintText: 'e.g. Polycystic Ovary Syndrome',
+                    prefixIcon: Icon(Icons.language, size: 18),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: neCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Nepali Translation (नेपाली नाम)',
-                  hintText: 'e.g. पाठेघरको समस्या',
-                  prefixIcon: Icon(Icons.translate, size: 18),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: neCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nepali Translation (नेपाली नाम)',
+                    hintText: 'e.g. पाठेघरको समस्या',
+                    prefixIcon: Icon(Icons.translate, size: 18),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: codeCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Code / Identifier (कोड)',
-                  hintText: isEditing ? item.code : 'e.g. HOSP_MODEL_HOSPITAL',
-                  prefixIcon: const Icon(Icons.tag, size: 18),
-                  helperText: 'Standardized clinical identifier (auto-derived if blank)',
+                const SizedBox(height: 14),
+                TextField(
+                  controller: codeCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Code / Identifier (कोड)',
+                    hintText: isEditing ? item.code : 'e.g. HOSP_MODEL_HOSPITAL',
+                    prefixIcon: const Icon(Icons.tag, size: 18),
+                    helperText: 'Standardized clinical identifier (auto-derived if blank)',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -732,8 +929,12 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
             onPressed: () async {
               final enText = enCtrl.text.trim();
               if (enText.isEmpty) {
+                ScaffoldMessenger.of(context).clearSnackBars();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please provide an English label.')),
+                  const SnackBar(
+                    content: Text('Please provide an English label.'),
+                    backgroundColor: AppTheme.dangerRose,
+                  ),
                 );
                 return;
               }
@@ -777,8 +978,12 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
               }
 
               if (mounted) {
+                messenger.clearSnackBars();
                 messenger.showSnackBar(
-                  SnackBar(content: Text('Saved "$enText" successfully.')),
+                  SnackBar(
+                    content: Text('Saved "$enText" successfully.'),
+                    backgroundColor: AppTheme.successGreen,
+                  ),
                 );
               }
             },
@@ -797,11 +1002,11 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRose, size: 24),
-            const SizedBox(width: 8),
-            const Text('Delete Master Item?'),
+            Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRose, size: 24),
+            SizedBox(width: 8),
+            Text('Delete Master Item?'),
           ],
         ),
         content: Column(
@@ -841,8 +1046,12 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 deviceId: deviceId,
               );
               if (mounted) {
+                messenger.clearSnackBars();
                 messenger.showSnackBar(
-                  SnackBar(content: Text('Deactivated "${item.labelEn}" to preserve clinical history.')),
+                  SnackBar(
+                    content: Text('Deactivated "${item.labelEn}" to preserve clinical history.'),
+                    backgroundColor: const Color(0xFFD97706),
+                  ),
                 );
               }
             },
@@ -860,8 +1069,12 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 deviceId: deviceId,
               );
               if (mounted) {
+                messenger.clearSnackBars();
                 messenger.showSnackBar(
-                  SnackBar(content: Text('Deleted "${item.labelEn}".')),
+                  SnackBar(
+                    content: Text('Deleted "${item.labelEn}".'),
+                    backgroundColor: AppTheme.dangerRose,
+                  ),
                 );
               }
             },

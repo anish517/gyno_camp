@@ -11,6 +11,7 @@ class FakeLookupRepository implements ILookupRepository {
   List<LookupItemModel> items = [
     const LookupItemModel(id: 'd1', category: 'diagnosis', code: 'candid', labelEn: 'Candid Infection', labelNe: 'कन्डिडा', isActive: true),
     const LookupItemModel(id: 'd2', category: 'diagnosis', code: 'pid', labelEn: 'Pelvic Inflammatory Disease', labelNe: 'तल्लो पेटको सुजन', isActive: true),
+    const LookupItemModel(id: 'd3', category: 'diagnosis', code: 'uti', labelEn: 'Urinary Tract Infection', labelNe: 'पिसाब संक्रमण', isActive: false),
     const LookupItemModel(id: 'm1', category: 'medicine', code: 'metronidazole', labelEn: 'Metronidazole 400mg', labelNe: 'मेट्रोनिडाजोल', isActive: true),
     const LookupItemModel(id: 'h1', category: 'referral_hospital', code: 'scheer', labelEn: 'Scheer Memorial Hospital', labelNe: 'शीर मेमोरियल', isActive: true),
   ];
@@ -69,7 +70,7 @@ void main() {
     );
   }
 
-  testWidgets('MasterConfigView renders tabs and diagnosis items', (tester) async {
+  testWidgets('MasterConfigView renders tabs, KPI cards, and diagnosis items', (tester) async {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -79,15 +80,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Clinical Master Data & Formulary'), findsOneWidget);
-    expect(find.text('Diagnoses (2)'), findsOneWidget);
+    expect(find.text('Diagnoses (3)'), findsOneWidget);
     expect(find.text('Medicines (1)'), findsOneWidget);
     expect(find.text('Referral Hospitals (1)'), findsOneWidget);
 
+    // KPI cards
+    expect(find.text('Active Diagnoses'), findsOneWidget);
+    expect(find.text('Disabled / Inactive'), findsOneWidget);
+    expect(find.text('Total Diagnoses'), findsOneWidget);
+
     expect(find.text('Candid Infection'), findsOneWidget);
     expect(find.text('Pelvic Inflammatory Disease'), findsOneWidget);
+    expect(find.text('Urinary Tract Infection'), findsOneWidget);
   });
 
-  testWidgets('Switching tab displays medicines', (tester) async {
+  testWidgets('MasterConfigView renders cleanly on mobile viewport without overflow', (tester) async {
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeLookupRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Master Data & Formulary'), findsOneWidget);
+    expect(find.text('Active Diagnoses'), findsOneWidget);
+    expect(find.text('Candid Infection'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+  });
+
+  testWidgets('Switching tab displays medicines and updates KPI cards', (tester) async {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -101,6 +123,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Metronidazole 400mg'), findsOneWidget);
+    expect(find.text('Active Medicines'), findsOneWidget);
+    expect(find.text('Total Medicines'), findsOneWidget);
   });
 
   testWidgets('Switching to Referral Hospitals tab displays partner hospital and contextual helper', (tester) async {
@@ -119,9 +143,10 @@ void main() {
     expect(find.text('Scheer Memorial Hospital'), findsOneWidget);
     expect(find.textContaining('Surgical Referral Centers: Configure tertiary surgical partner hospitals'), findsOneWidget);
     expect(find.text('CODE: SCHEER'), findsOneWidget);
+    expect(find.text('Active Referral Hospitals'), findsOneWidget);
   });
 
-  testWidgets('Search query filters diagnoses in real time', (tester) async {
+  testWidgets('Search query filters diagnoses in real time and clear button resets', (tester) async {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -135,5 +160,113 @@ void main() {
 
     expect(find.text('Candid Infection'), findsOneWidget);
     expect(find.text('Pelvic Inflammatory Disease'), findsNothing);
+
+    // Tap clear button
+    await tester.tap(find.byIcon(Icons.clear));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Candid Infection'), findsOneWidget);
+    expect(find.text('Pelvic Inflammatory Disease'), findsOneWidget);
+  });
+
+  testWidgets('Status filter chips filter active, inactive, and all items', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeLookupRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // All Items shows Candid, PID, and UTI
+    expect(find.text('Candid Infection'), findsOneWidget);
+    expect(find.text('Urinary Tract Infection'), findsOneWidget);
+
+    // Tap Active Only chip
+    await tester.tap(find.text('Active Only'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Candid Infection'), findsOneWidget);
+    expect(find.text('Pelvic Inflammatory Disease'), findsOneWidget);
+    expect(find.text('Urinary Tract Infection'), findsNothing);
+
+    // Tap Disabled chip
+    await tester.tap(find.text('Disabled'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Candid Infection'), findsNothing);
+    expect(find.text('Urinary Tract Infection'), findsOneWidget);
+  });
+
+  testWidgets('Adding a new item through dialog saves and displays in list', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeLookupRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Tap Add Diagnosis button in AppBar
+    await tester.tap(find.text('Add Diagnosis'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add New Diagnosis'), findsOneWidget);
+    expect(find.text('English Name / Term *'), findsOneWidget);
+
+    // Fill form
+    await tester.enterText(find.widgetWithText(TextField, 'English Name / Term *'), 'Bacterial Vaginosis');
+    await tester.enterText(find.widgetWithText(TextField, 'Nepali Translation (नेपाली नाम)'), 'ब्याक्टेरियल संक्रमण');
+    await tester.pumpAndSettle();
+
+    // Save
+    await tester.tap(find.text('Add Item'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bacterial Vaginosis'), findsOneWidget);
+    expect(fakeRepo.items.any((i) => i.labelEn == 'Bacterial Vaginosis'), isTrue);
+  });
+
+  testWidgets('Deactivating item via delete dialog updates item status', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeLookupRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Tap delete on Candid Infection (first delete icon)
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Master Item?'), findsOneWidget);
+    expect(find.text('Deactivate Instead'), findsOneWidget);
+
+    // Tap Deactivate Instead
+    await tester.tap(find.text('Deactivate Instead'));
+    await tester.pumpAndSettle();
+
+    expect(fakeRepo.items.firstWhere((i) => i.labelEn == 'Candid Infection').isActive, isFalse);
+  });
+
+  testWidgets('Permanently deleting item removes it from repository', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeLookupRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Tap delete on Candid Infection
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pumpAndSettle();
+
+    // Tap Delete Permanently
+    await tester.tap(find.text('Delete Permanently'));
+    await tester.pumpAndSettle();
+
+    expect(fakeRepo.items.any((i) => i.labelEn == 'Candid Infection'), isFalse);
   });
 }
