@@ -12,6 +12,8 @@ class AuditLogModel {
   final String deviceId;
   final DateTime timestamp;
   final String logHash;
+  final String? rawTimestamp;
+  final String? previousHash;
 
   const AuditLogModel({
     required this.id,
@@ -25,6 +27,8 @@ class AuditLogModel {
     required this.deviceId,
     required this.timestamp,
     required this.logHash,
+    this.rawTimestamp,
+    this.previousHash,
   });
 
   /// Factory helper that automatically generates the cryptographic hash
@@ -42,11 +46,12 @@ class AuditLogModel {
     String? previousHash,
   }) {
     final ts = timestamp ?? DateTime.now();
+    final tsIso = ts.toIso8601String();
     final hash = SecurityService.generateAuditHash(
       logId: id,
       userId: userId,
       action: action,
-      timestamp: ts.toIso8601String(),
+      timestamp: tsIso,
       details: detailsJson,
       previousHash: previousHash,
     );
@@ -63,6 +68,8 @@ class AuditLogModel {
       deviceId: deviceId,
       timestamp: ts,
       logHash: hash,
+      rawTimestamp: tsIso,
+      previousHash: previousHash,
     );
   }
 
@@ -77,12 +84,14 @@ class AuditLogModel {
       'entity_id': entityId,
       'details_json': detailsJson,
       'device_id': deviceId,
-      'timestamp': timestamp.toIso8601String(),
+      'timestamp': rawTimestamp ?? timestamp.toIso8601String(),
       'log_hash': logHash,
+      'previous_hash': previousHash,
     };
   }
 
   factory AuditLogModel.fromMap(Map<String, dynamic> map) {
+    final rawTs = map['timestamp'] as String?;
     return AuditLogModel(
       id: map['id'] as String,
       userId: map['user_id'] as String,
@@ -93,8 +102,10 @@ class AuditLogModel {
       entityId: map['entity_id'] as String?,
       detailsJson: map['details_json'] as String? ?? '{}',
       deviceId: map['device_id'] as String? ?? '',
-      timestamp: DateTime.tryParse(map['timestamp'] as String? ?? '') ?? DateTime.now(),
+      timestamp: DateTime.tryParse(rawTs ?? '') ?? DateTime.now(),
       logHash: map['log_hash'] as String? ?? '',
+      rawTimestamp: rawTs,
+      previousHash: map['previous_hash'] as String?,
     );
   }
 }

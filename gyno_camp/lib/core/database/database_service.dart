@@ -65,6 +65,7 @@ class DatabaseService {
       "ALTER TABLE ${DatabaseTables.tablePatients} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
       "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
       "ALTER TABLE ${DatabaseTables.tableAuditLogs} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
+      "ALTER TABLE ${DatabaseTables.tableAuditLogs} ADD COLUMN previous_hash TEXT",
     ];
     for (final sql in migrations) {
       try {
@@ -242,6 +243,22 @@ class DatabaseService {
         'sort_order': sortIdx,
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
+
+    // 5. Seed primary administrative workstation
+    await db.insert(DatabaseTables.tableDevices, {
+      'device_id': 'dev-admin-workstation',
+      'device_name': 'Central Command Workstation (Admin)',
+      'model': 'Medical Outreach Terminal',
+      'hardware_fingerprint': SecurityService.generateDeviceFingerprint(brand: 'Admin', model: 'Console', serial: 'ADMIN-001'),
+      'status': AppConstants.deviceStatusApproved,
+      'registered_by_user_id': 'usr-superadmin-01',
+      'registered_by_name': 'System Administrator (Super Admin)',
+      'registered_at': now,
+      'approved_by_user_id': 'usr-superadmin-01',
+      'approved_at': now,
+      'tenant_id': 'tenant_default',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
   }
 
   static String _getNepaliDiagnosisName(String en) {

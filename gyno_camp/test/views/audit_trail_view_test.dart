@@ -7,7 +7,28 @@ import 'package:gyno_camp/repositories/audit_repository.dart';
 import 'package:gyno_camp/viewmodels/audit_log_viewmodel.dart';
 import 'package:gyno_camp/views/admin/audit_trail_view.dart';
 
+import 'package:gyno_camp/core/security/security_service.dart';
+
 class FakeAuditRepository implements IAuditRepository {
+  static final _time1 = DateTime(2026, 9, 6, 10, 0);
+  static final _hash1 = SecurityService.generateAuditHash(
+    logId: 'log-1',
+    userId: 'admin-01',
+    action: 'CAMP_OPENED',
+    timestamp: _time1.toIso8601String(),
+    details: '{"campCode":"KTM01"}',
+  );
+
+  static final _time2 = DateTime(2026, 9, 6, 10, 15);
+  static final _hash2 = SecurityService.generateAuditHash(
+    logId: 'log-2',
+    userId: 'usr-datataker-01',
+    action: 'PATIENT_REGISTERED',
+    timestamp: _time2.toIso8601String(),
+    details: '{"patientId":"KTM01-0001"}',
+    previousHash: _hash1,
+  );
+
   List<AuditLogModel> logs = [
     AuditLogModel(
       id: 'log-1',
@@ -19,8 +40,8 @@ class FakeAuditRepository implements IAuditRepository {
       entityId: 'camp-ktm-01',
       detailsJson: '{"campCode":"KTM01"}',
       deviceId: 'dev-01',
-      timestamp: DateTime(2026, 9, 6, 10, 0),
-      logHash: 'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0',
+      timestamp: _time1,
+      logHash: _hash1,
     ),
     AuditLogModel(
       id: 'log-2',
@@ -32,13 +53,16 @@ class FakeAuditRepository implements IAuditRepository {
       entityId: 'pat-001',
       detailsJson: '{"patientId":"KTM01-0001"}',
       deviceId: 'dev-01',
-      timestamp: DateTime(2026, 9, 6, 10, 15),
-      logHash: 'f0e1d2c3b4a5968778695a4b3c2d1e0f0123456789abcdef0123456789abcdef',
+      timestamp: _time2,
+      logHash: _hash2,
     ),
   ];
 
   @override
   Future<List<AuditLogModel>> getRecentLogs({int limit = 50}) async => logs.take(limit).toList();
+
+  @override
+  Future<List<AuditLogModel>> getAllLogs() async => logs;
 
   @override
   Future<List<AuditLogModel>> getLogsByUser(String userId, {int limit = 50}) async =>

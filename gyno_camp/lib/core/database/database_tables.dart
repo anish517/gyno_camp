@@ -41,7 +41,8 @@ class DatabaseTables {
       registered_at TEXT NOT NULL,
       approved_at TEXT,
       approved_by_user_id TEXT,
-      pin_hash TEXT
+      pin_hash TEXT,
+      tenant_id TEXT DEFAULT 'tenant_default'
     );
   ''';
 
@@ -162,7 +163,9 @@ class DatabaseTables {
       details_json TEXT NOT NULL,
       device_id TEXT NOT NULL,
       timestamp TEXT NOT NULL,
-      log_hash TEXT NOT NULL
+      log_hash TEXT NOT NULL,
+      previous_hash TEXT,
+      tenant_id TEXT DEFAULT 'tenant_default'
     );
   ''';
 

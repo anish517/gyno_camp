@@ -29,9 +29,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final activeCamp = ref.read(campStateProvider).activeCamp;
+      final campState = ref.read(campStateProvider);
+      final activeCamp = campState.activeCamp ?? (campState.camps.isNotEmpty ? campState.camps.first : null);
       final targetCampId = widget.initialCampId ?? activeCamp?.id;
       ref.read(reportingViewModelProvider.notifier).loadSummary(campId: targetCampId);
+      if (campState.camps.isEmpty) {
+        ref.read(campStateProvider.notifier).loadCamps();
+      }
     });
   }
 

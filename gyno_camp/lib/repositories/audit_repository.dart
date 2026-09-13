@@ -15,7 +15,8 @@ abstract class IAuditRepository {
     required String detailsJson,
     required String deviceId,
   });
-  Future<List<AuditLogModel>> getRecentLogs({int limit = 50});
+  Future<List<AuditLogModel>> getRecentLogs({int limit = 100});
+  Future<List<AuditLogModel>> getAllLogs();
   Future<List<AuditLogModel>> getLogsByUser(String userId, {int limit = 50});
 }
 
@@ -41,6 +42,20 @@ class AuditRepository implements IAuditRepository {
     final db = await _databaseService.database;
     final logId = _uuid.v4();
 
+    if (_lastLogHash == null) {
+      try {
+        final latest = await db.query(
+          DatabaseTables.tableAuditLogs,
+          columns: ['log_hash'],
+          orderBy: 'timestamp DESC',
+          limit: 1,
+        );
+        if (latest.isNotEmpty) {
+          _lastLogHash = latest.first['log_hash'] as String?;
+        }
+      } catch (_) {}
+    }
+
     final log = AuditLogModel.create(
       id: logId,
       userId: userId,
@@ -61,6 +76,24 @@ class AuditRepository implements IAuditRepository {
       log.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  @override
+  Future<List<AuditLogModel>> getAllLogs() async {
+    final db = await _databaseService.database;
+    try {
+      final maps = await db.query(
+        DatabaseTables.tableAuditLogs,
+        orderBy: 'rowid ASC',
+      );
+      return maps.map((m) => AuditLogModel.fromMap(m)).toList();
+    } catch (_) {
+      final maps = await db.query(
+        DatabaseTables.tableAuditLogs,
+        orderBy: 'timestamp ASC',
+      );
+      return maps.map((m) => AuditLogModel.fromMap(m)).toList();
+    }
   }
 
   @override
