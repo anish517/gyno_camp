@@ -129,12 +129,161 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Device Whitelist & Hardware Security'), findsOneWidget);
-    expect(find.text('Pending Approval'), findsOneWidget);
+    expect(find.text('Pending Approval'), findsWidgets);
     expect(find.text('Authorized'), findsOneWidget);
     expect(find.text('Revoked'), findsOneWidget);
 
     expect(find.text('Kathmandu Clinic Tablet #1'), findsOneWidget);
     expect(find.text('Dhading Mobile Tablet #2'), findsOneWidget);
     expect(find.text('Approve Device'), findsOneWidget);
+  });
+
+  testWidgets('DeviceManagementView renders cleanly on narrow mobile viewport without overflow', (tester) async {
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeDeviceSecurityRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Device Whitelist & Hardware Security'), findsOneWidget);
+    expect(find.text('Kathmandu Clinic Tablet #1'), findsOneWidget);
+    expect(find.text('Dhading Mobile Tablet #2'), findsOneWidget);
+    expect(find.text('Approve Device'), findsOneWidget);
+    expect(find.text('Details'), findsWidgets);
+  });
+
+  testWidgets('Real-time search filters devices by name, model, and fingerprint', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeDeviceSecurityRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Search for Dhading
+    await tester.enterText(find.byType(TextField), 'Dhading');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dhading Mobile Tablet #2'), findsOneWidget);
+    expect(find.text('Kathmandu Clinic Tablet #1'), findsNothing);
+
+    // Clear search
+    await tester.tap(find.byIcon(Icons.clear_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kathmandu Clinic Tablet #1'), findsOneWidget);
+    expect(find.text('Dhading Mobile Tablet #2'), findsOneWidget);
+
+    // Search with no results
+    await tester.enterText(find.byType(TextField), 'NonexistentTabletXYZ');
+    await tester.pumpAndSettle();
+
+    expect(find.text('No devices match "NonexistentTabletXYZ"'), findsOneWidget);
+    expect(find.text('Clear Search'), findsOneWidget);
+
+    // Tap Clear Search button in empty state
+    await tester.tap(find.text('Clear Search'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kathmandu Clinic Tablet #1'), findsOneWidget);
+  });
+
+  testWidgets('Status filter chips filter device list correctly', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeDeviceSecurityRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Tap Pending chip
+    await tester.tap(find.text('Pending (1)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dhading Mobile Tablet #2'), findsOneWidget);
+    expect(find.text('Kathmandu Clinic Tablet #1'), findsNothing);
+
+    // Tap Approved chip
+    await tester.tap(find.text('Approved (1)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kathmandu Clinic Tablet #1'), findsOneWidget);
+    expect(find.text('Dhading Mobile Tablet #2'), findsNothing);
+  });
+
+  testWidgets('Tapping Details opens device security specification modal', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeDeviceSecurityRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Tap first Details button
+    await tester.tap(find.text('Details').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Device Security Specification'), findsOneWidget);
+    expect(find.text('Hardware Model'), findsOneWidget);
+    expect(find.text('Galaxy Tab A8'), findsOneWidget);
+    expect(find.descendant(of: find.byType(AlertDialog), matching: find.text('hw-fp-ktm-001')), findsOneWidget);
+    expect(find.text('Close'), findsOneWidget);
+
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('Device Security Specification'), findsNothing);
+  });
+
+  testWidgets('Copy fingerprint button triggers feedback snackbar', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeDeviceSecurityRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Tap copy icon button
+    await tester.tap(find.byIcon(Icons.copy_rounded).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hardware fingerprint copied to clipboard.'), findsOneWidget);
+  });
+
+  testWidgets('Approving and revoking devices updates status and displays SnackBar', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeDeviceSecurityRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Approve Dhading tablet
+    await tester.tap(find.text('Approve Device'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Authorize Field Device?'), findsOneWidget);
+    await tester.tap(find.text('Approve & Whitelist'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Device "Dhading Mobile Tablet #2" approved successfully.'), findsOneWidget);
+    expect(fakeRepo.devices[1].status, DeviceActivationStatus.approved);
+
+    // Now revoke Kathmandu tablet
+    await tester.tap(find.text('Revoke Access').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Revoke Device Access?'), findsOneWidget);
+    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Revoke Access')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Device "Kathmandu Clinic Tablet #1" access revoked.'), findsOneWidget);
+    expect(fakeRepo.devices[0].status, DeviceActivationStatus.revoked);
   });
 }
