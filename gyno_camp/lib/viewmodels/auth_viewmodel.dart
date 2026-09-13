@@ -175,6 +175,12 @@ class AuthViewModel extends StateNotifier<AuthState> {
     }
   }
 
+  void clearError() {
+    if (state.errorMessage != null) {
+      state = state.copyWith(errorMessage: null);
+    }
+  }
+
   void updateCurrentUser(UserModel user) {
     state = state.copyWith(currentUser: user);
   }
