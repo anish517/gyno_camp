@@ -373,4 +373,41 @@ class DatabaseService {
       },
     };
   }
+
+  /// Restores SQLite database from a previously exported snapshot.
+  /// Runs inside an atomic transaction to ensure zero partial corruption.
+  Future<Map<String, int>> restoreDatabaseSnapshot(Map<String, dynamic> snapshot) async {
+    if (!snapshot.containsKey('tables') || snapshot['tables'] is! Map) {
+      throw const FormatException('Invalid backup snapshot format: missing "tables" object');
+    }
+
+    final tables = snapshot['tables'] as Map<String, dynamic>;
+    final db = await database;
+    final Map<String, int> restoredCounts = {};
+
+    await db.transaction((txn) async {
+      for (final entry in tables.entries) {
+        final tableName = entry.key;
+        final rows = entry.value;
+
+        if (rows is List) {
+          int count = 0;
+          for (final row in rows) {
+            if (row is Map) {
+              final rowMap = Map<String, dynamic>.from(row);
+              await txn.insert(
+                tableName,
+                rowMap,
+                conflictAlgorithm: ConflictAlgorithm.replace,
+              );
+              count++;
+            }
+          }
+          restoredCounts[tableName] = count;
+        }
+      }
+    });
+
+    return restoredCounts;
+  }
 }

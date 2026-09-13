@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/database_service.dart';
+import '../../core/database/database_tables.dart';
+import 'package:sqflite/sqflite.dart';
 import '../../core/services/file_download_helper.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/audit_log_model.dart';
@@ -25,7 +27,6 @@ import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
 import '../reports/camp_report_view.dart';
 import '../scanner/form_scan_view.dart';
-import '../settings/postgres_settings_view.dart';
 import '../sync/sync_status_view.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
 import '../splash/security_gateway_view.dart';
@@ -212,15 +213,25 @@ class HomeGatewayView extends ConsumerWidget {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            '${campState.activeCamp?.organizationName ?? user?.tenantName ?? "Nepal Health Outreach"} • Tenant: ${user?.tenantId ?? "tenant_default"}',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.8),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.3,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                          child: Builder(
+                            builder: (context) {
+                              final tenantName = user?.tenantName;
+                              final tenantId = user?.tenantId;
+                              final orgName = (tenantName != null && tenantName.trim().isNotEmpty)
+                                  ? tenantName
+                                  : (campState.activeCamp?.organizationName ?? "Nepal Health Outreach Network");
+                              final tenantTag = (tenantId != null && tenantId.isNotEmpty) ? tenantId : "tenant_default";
+                              return Text(
+                                '$orgName • Tenant: $tenantTag',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.3,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -661,25 +672,6 @@ class HomeGatewayView extends ConsumerWidget {
                           },
                         ),
                       ),
-                      SizedBox(
-                        width: itemWidth,
-                        child: _buildAdminModuleCard(
-                          context: context,
-                          icon: Icons.storage_rounded,
-                          title: 'PostgreSQL Database & Direct Sync',
-                          description: 'Configure enterprise PostgreSQL host, port, credentials, direct online database mode, and two-way local SQLite sync.',
-                          badgeText: 'PostgreSQL Engine',
-                          badgeColor: const Color(0xFF1E3A8A),
-                          accentColor: const Color(0xFF1E3A8A),
-                          actionPrompt: 'Database Config',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const PostgresSettingsView()),
-                            );
-                          },
-                        ),
-                      ),
                     ],
                   );
                 },
@@ -747,6 +739,17 @@ class HomeGatewayView extends ConsumerWidget {
                           icon: const Icon(Icons.backup_table_rounded, size: 16),
                           label: const Text('Database Backup', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                           onPressed: () => _exportDatabaseBackup(context),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF4338CA),
+                            side: const BorderSide(color: Color(0xFF4338CA)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.settings_backup_restore_rounded, size: 16),
+                          label: const Text('Restore Database', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          onPressed: () => _showRestoreDatabaseDialog(context, ref),
                         ),
                       ],
                     ),
@@ -1549,6 +1552,174 @@ class HomeGatewayView extends ConsumerWidget {
         );
       }
     }
+  }
+
+  void _showRestoreDatabaseDialog(BuildContext context, WidgetRef ref) {
+    final jsonCtrl = TextEditingController();
+    Map<String, dynamic>? parsedSnapshot;
+    String? validationError;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final tables = parsedSnapshot?['tables'] as Map<String, dynamic>?;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4338CA).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.settings_backup_restore_rounded, color: Color(0xFF4338CA)),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Restore Database Snapshot', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('Merge / restore offline clinical records from backup JSON', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 550,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Paste the JSON content of a previously exported "gynocamp_backup_*.json" file below:',
+                      style: TextStyle(fontSize: 12.5, color: Color(0xFF334155)),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: jsonCtrl,
+                      maxLines: 7,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                      decoration: InputDecoration(
+                        hintText: '{\n  "exported_at": "...",\n  "tables": {\n    "camps": [...],\n    "patients": [...]\n  }\n}',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        errorText: validationError,
+                      ),
+                      onChanged: (val) {
+                        setDialogState(() {
+                          try {
+                            if (val.trim().isEmpty) {
+                              parsedSnapshot = null;
+                              validationError = null;
+                              return;
+                            }
+                            final decoded = jsonDecode(val.trim());
+                            if (decoded is Map<String, dynamic> && decoded.containsKey('tables') && decoded['tables'] is Map) {
+                              parsedSnapshot = decoded;
+                              validationError = null;
+                            } else {
+                              parsedSnapshot = null;
+                              validationError = 'Invalid backup format: Missing "tables" object.';
+                            }
+                          } catch (e) {
+                            parsedSnapshot = null;
+                            validationError = 'Invalid JSON: ${e.toString().split(":").last}';
+                          }
+                        });
+                      },
+                    ),
+                    if (parsedSnapshot != null && tables != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEF2FF),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFC7D2FE)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.verified_outlined, size: 16, color: Color(0xFF4338CA)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Backup Verified • Exported: ${parsedSnapshot!['exported_at'] ?? 'Unknown'}',
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF3730A3)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Tables detected: ${tables.entries.map((e) => '${e.key} (${(e.value as List).length})').join(', ')}',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF4338CA)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF4338CA),
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.restore_rounded, size: 16),
+                label: const Text('Restore Records'),
+                onPressed: parsedSnapshot == null
+                    ? null
+                    : () async {
+                        Navigator.pop(dialogCtx);
+                        try {
+                          final results = await DatabaseService().restoreDatabaseSnapshot(parsedSnapshot!);
+                          final totalRestored = results.values.fold<int>(0, (sum, count) => sum + count);
+
+                          await ref.read(campStateProvider.notifier).loadCamps();
+                          final activeCamp = ref.read(campStateProvider).activeCamp;
+                          if (activeCamp != null) {
+                            await ref.read(patientListProvider.notifier).loadPatients(activeCamp.id);
+                          }
+                          await ref.read(auditLogProvider.notifier).loadRecentLogs();
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Database restored successfully: $totalRestored records merged across ${results.length} tables.'),
+                                backgroundColor: AppTheme.successGreen,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Restore failed: $e'),
+                                backgroundColor: AppTheme.dangerRose,
+                              ),
+                            );
+                          }
+                        }
+                      },
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _exportAuditLogs(BuildContext context, List<AuditLogModel> logs) async {
@@ -2768,6 +2939,33 @@ class HomeGatewayView extends ConsumerWidget {
               );
 
               if (success) {
+                if (newTenant.isNotEmpty) {
+                  final activeCamp = ref.read(campStateProvider).activeCamp;
+                  if (activeCamp != null) {
+                    try {
+                      final db = await DatabaseService().database;
+                      await db.update(
+                        DatabaseTables.tableCamps,
+                        {'organization_name': newTenant},
+                        where: 'id = ?',
+                        whereArgs: [activeCamp.id],
+                      );
+                      await ref.read(campStateProvider.notifier).loadCamps();
+                    } catch (_) {}
+                  }
+                  try {
+                    final db = await DatabaseService().database;
+                    await db.insert(
+                      DatabaseTables.tableMetadata,
+                      {
+                        'key': 'tenant_organization_name',
+                        'value': newTenant,
+                        'updated_at': DateTime.now().toIso8601String(),
+                      },
+                      conflictAlgorithm: ConflictAlgorithm.replace,
+                    );
+                  } catch (_) {}
+                }
                 messenger.showSnackBar(
                   SnackBar(content: Text('Updated profile to "$newName" ($newTenant).')),
                 );
@@ -3055,14 +3253,24 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            '${currentCamp?.organizationName ?? user?.tenantName ?? "Nepal Health Outreach Network"} • Tenant: ${user?.tenantId ?? "tenant_default"}',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.8),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                          child: Builder(
+                            builder: (context) {
+                              final tenantName = user?.tenantName;
+                              final tenantId = user?.tenantId;
+                              final orgName = (tenantName != null && tenantName.trim().isNotEmpty)
+                                  ? tenantName
+                                  : (currentCamp?.organizationName ?? "Nepal Health Outreach Network");
+                              final tenantTag = (tenantId != null && tenantId.isNotEmpty) ? tenantId : "tenant_default";
+                              return Text(
+                                '$orgName • Tenant: $tenantTag',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
                           ),
                         ),
                       ],
