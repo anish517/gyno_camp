@@ -163,4 +163,129 @@ void main() {
     expect(find.text('Rita Sharma (Nurse)'), findsNothing);
     expect(find.text('Dr. Aarav Admin'), findsNothing);
   });
+
+  testWidgets('Edit button opens Edit Profile modal, updates profile, and closes cleanly', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final fakeRepo = FakeAuthRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Find all Edit buttons (one per user card)
+    final editButtons = find.widgetWithText(OutlinedButton, 'Edit');
+    expect(editButtons, findsNWidgets(3));
+
+    // Tap the Edit button on Rita Sharma's card (index 1)
+    await tester.tap(editButtons.at(1));
+    await tester.pumpAndSettle();
+
+    // Verify Edit Profile modal is visible
+    expect(find.text('Edit Profile: Rita Sharma (Nurse)'), findsOneWidget);
+    expect(find.text('Full Name / Staff Title *'), findsOneWidget);
+    expect(find.text('Phone Number'), findsOneWidget);
+
+    // Edit full name
+    final nameField = find.widgetWithText(TextField, 'Rita Sharma (Nurse)');
+    await tester.enterText(nameField, 'Rita Sharma (Senior Nurse)');
+    await tester.pumpAndSettle();
+
+    // Tap 'Save Changes'
+    await tester.tap(find.text('Save Changes'));
+    await tester.pumpAndSettle();
+
+    // Dialog should be dismissed
+    expect(find.text('Edit Profile: Rita Sharma (Nurse)'), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+
+    // Verify repo updated and updated name is visible
+    expect(fakeRepo.users[1].name, 'Rita Sharma (Senior Nurse)');
+    expect(find.text('Rita Sharma (Senior Nurse)'), findsOneWidget);
+  });
+
+  testWidgets('Security button opens Security dialog, updates password and PIN, and closes cleanly', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final fakeRepo = FakeAuthRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Find all Security buttons
+    final securityButtons = find.widgetWithText(OutlinedButton, 'Security');
+    expect(securityButtons, findsNWidgets(3));
+
+    // Tap Security button on Rita Sharma's card (index 1)
+    await tester.tap(securityButtons.at(1));
+    await tester.pumpAndSettle();
+
+    // Verify Security modal is visible
+    expect(find.text('Security & Credentials: Rita Sharma (Nurse)'), findsOneWidget);
+    expect(find.text('New Master Password'), findsOneWidget);
+    expect(find.text('New Station PIN'), findsOneWidget);
+
+    // Enter new password and new PIN
+    final passwordField = find.widgetWithText(TextField, 'Min 6 characters');
+    final pinField = find.widgetWithText(TextField, 'Station PIN (4-6 digits)');
+
+    await tester.enterText(passwordField, 'NewSecretPass123');
+    await tester.enterText(pinField, '5678');
+    await tester.pumpAndSettle();
+
+    // Tap 'Update Credentials'
+    await tester.tap(find.text('Update Credentials'));
+    await tester.pumpAndSettle();
+
+    // Dialog should be dismissed
+    expect(find.text('Security & Credentials: Rita Sharma (Nurse)'), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+
+    // Verify credentials updated in repo
+    expect(fakeRepo.users[1].passwordHash, isNotNull);
+    expect(fakeRepo.users[1].pinHash, isNotNull);
+  });
+
+  testWidgets('Rapid double tap on Edit button does not open duplicate dialogs', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final fakeRepo = FakeAuthRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    final editButtons = find.widgetWithText(OutlinedButton, 'Edit');
+
+    // Rapidly tap the first Edit button twice without waiting for pumpAndSettle
+    await tester.tap(editButtons.first);
+    await tester.tap(editButtons.first, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    // Only one dialog should ever be opened
+    expect(find.byType(AlertDialog), findsOneWidget);
+
+    // Cancel should close it completely
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+  });
+
+  testWidgets('UserManagementView renders staff cards cleanly on mobile viewport without layout errors', (tester) async {
+    tester.view.physicalSize = const Size(380, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final fakeRepo = FakeAuthRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Verify view renders cards and actions on mobile
+    expect(find.text('Rita Sharma (Nurse)'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Edit'), findsNWidgets(3));
+    expect(find.widgetWithText(OutlinedButton, 'Security'), findsNWidgets(3));
+    expect(find.widgetWithText(OutlinedButton, 'Assign Camps'), findsNWidgets(3));
+  });
 }
