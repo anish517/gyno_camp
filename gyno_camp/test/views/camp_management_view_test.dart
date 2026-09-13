@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gyno_camp/core/theme/app_theme.dart';
 import 'package:gyno_camp/models/camp_model.dart';
+import 'package:gyno_camp/models/user_model.dart';
 import 'package:gyno_camp/repositories/camp_repository.dart';
 import 'package:gyno_camp/viewmodels/camp_viewmodel.dart';
 import 'package:gyno_camp/views/admin/camp_management_view.dart';
@@ -124,9 +125,27 @@ class FakeCampRepository implements ICampRepository {
 
 void main() {
   Widget createTestWidget(ICampRepository repo) {
+    const mockStaff = [
+      UserModel(
+        id: 'u1',
+        name: 'Bikash Adhikari',
+        email: 'bikash@example.com',
+        phone: '9800000001',
+        role: UserRole.dataTaker,
+      ),
+      UserModel(
+        id: 'u2',
+        name: 'Dr. Sita Sharma',
+        email: 'sita@example.com',
+        phone: '9800000002',
+        role: UserRole.dataTaker,
+      ),
+    ];
+
     return ProviderScope(
       overrides: [
         campRepositoryProvider.overrideWithValue(repo),
+        staffUsersProvider.overrideWith((ref) async => mockStaff),
       ],
       child: MaterialApp(
         theme: AppTheme.lightTheme,
@@ -183,5 +202,125 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Why are calendar dates marked?'), findsOneWidget);
+  });
+
+  testWidgets('New Camp modal opens with bilingual date fields, empty staff selection by default, and status options', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeCampRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Tap New Camp button in AppBar
+    await tester.tap(find.text('New Camp').first);
+    await tester.pumpAndSettle();
+
+    // Verify dialog header
+    expect(find.text('Schedule Community Outreach Camp'), findsOneWidget);
+    expect(find.text('नयाँ स्वास्थ्य शिविर तालिका र कर्मचारी परिचालन'), findsOneWidget);
+
+    // Verify bilingual date labels
+    expect(find.text('Start Date (सुरु मिति)'), findsOneWidget);
+    expect(find.text('End Date (समापन मिति)'), findsOneWidget);
+
+    // Verify staff assignment starts completely empty by default
+    expect(find.text('0 selected'), findsOneWidget);
+    expect(find.text('Select All'), findsOneWidget);
+    expect(find.text('Clear'), findsOneWidget);
+
+    // Verify lifecycle status options
+    expect(find.text('Scheduled'), findsWidgets);
+    expect(find.text('Draft'), findsWidgets);
+
+    // Cancel modal
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Draft tab displays rich contextual empty state with create shortcut when no draft camps exist', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeCampRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Tap Draft filter chip
+    await tester.tap(find.text('Draft'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No Draft Camps'), findsOneWidget);
+    expect(find.text('कुनै मस्यौदा शिविर फेला परेन'), findsOneWidget);
+    expect(find.text('Create Draft Camp (नयाँ मस्यौदा)'), findsOneWidget);
+
+    // Tap the shortcut button to verify it opens creation dialog
+    await tester.tap(find.text('Create Draft Camp (नयाँ मस्यौदा)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Schedule Community Outreach Camp'), findsOneWidget);
+
+    // Cancel modal
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Archived tab displays rich contextual empty state with reset shortcut when no archived camps exist', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeCampRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Tap Archived filter chip
+    await tester.tap(find.text('Archived'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No Archived Camps'), findsOneWidget);
+    expect(find.text('कुनै अभिलेखिकृत शिविर छैन'), findsOneWidget);
+    expect(find.text('View All Active Camps'), findsOneWidget);
+
+    // Tapping shortcut switches back to ALL
+    await tester.tap(find.text('View All Active Camps'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kathmandu Central Camp'), findsOneWidget);
+  });
+
+  testWidgets('Interactive Calendar tab date tap does not overflow RenderFlex on small mobile viewport', (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeCampRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Verify initial camp roster renders without overflow on mobile viewport
+    expect(tester.takeException(), isNull);
+
+    // Switch to Interactive Calendar
+    await tester.tap(find.text('Interactive Calendar'));
+    await tester.pumpAndSettle();
+
+    // Scroll to calendar grid so day 15 is within viewport on small screen
+    await tester.ensureVisible(find.text('15').first);
+    await tester.pumpAndSettle();
+
+    // Tap day 15 in the calendar grid
+    await tester.tap(find.text('15').first);
+    await tester.pumpAndSettle();
+
+    // Scroll down to verify the schedule card without overflow
+    await tester.ensureVisible(find.text('Schedule Camp').first);
+    await tester.pumpAndSettle();
+
+    // Verify that the empty/scheduled detail section renders without overflow
+    expect(find.text('Schedule Camp'), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 }
