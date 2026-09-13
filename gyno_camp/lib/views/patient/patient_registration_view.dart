@@ -137,6 +137,89 @@ class _PatientRegistrationViewState
     }
   }
 
+  Future<void> _submitRegistrationForm({
+    required BuildContext context,
+    required PatientRegistrationState state,
+    required PatientRegistrationViewModel vm,
+    required CampModel camp,
+    required dynamic user,
+    required dynamic device,
+  }) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    scaffoldMessenger.clearSnackBars();
+
+    if (!state.isValid) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  state.validationError ?? 'Please complete all required fields properly.',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red[700],
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    if (state.selectedReasons.isEmpty) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Please select at least one primary reason for visit (शिविरमा आउनुको मुख्य कारण).',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange[800],
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final registered = await vm.submitRegistration(
+      campId: camp.id,
+      campCode: camp.campCode,
+      staffUserId: user?.id ?? 'usr-field',
+      staffUserName: user?.name ?? 'Field Nurse',
+      staffUserRole: user?.role.toDbString() ?? AppConstants.roleDataTaker,
+      deviceId: device?.deviceId ?? 'dev-field',
+      tenantId: camp.tenantId.isNotEmpty ? camp.tenantId : (user?.tenantId ?? 'default_tenant'),
+    );
+
+    if (!mounted) return;
+
+    if (registered != null) {
+      ref.read(campStateProvider.notifier).loadCamps();
+      ref.read(patientListProvider.notifier).loadPatients(camp.id);
+
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Registered: ${registered.fullName} (ID: ${registered.patientId})'),
+          backgroundColor: AppTheme.successGreen,
+        ),
+      );
+
+      await _handlePostRegistrationSlip(registered, camp);
+    }
+  }
+
   void _fillSamplePatient() {
     final camp = ref.read(campStateProvider).activeCamp;
     final ward = (camp?.ward.isNotEmpty == true) ? camp!.ward : '03';
@@ -228,9 +311,13 @@ class _PatientRegistrationViewState
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Patient Registration (दर्ता)'),
+            Text(
+              'Patient Registration (दर्ता)',
+              overflow: TextOverflow.ellipsis,
+            ),
             Text(
               'Station 1: Demographics & Triage • Yellow Form',
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.normal,
@@ -241,13 +328,9 @@ class _PatientRegistrationViewState
         ),
         actions: [
           if (kDebugMode)
-            TextButton.icon(
-              style: TextButton.styleFrom(foregroundColor: Colors.white),
-              icon: const Icon(Icons.auto_fix_high_rounded, size: 16),
-              label: const Text(
-                'Demo Sample',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
+            IconButton(
+              tooltip: 'Demo Sample',
+              icon: const Icon(Icons.auto_fix_high_rounded, size: 20),
               onPressed: _fillSamplePatient,
             ),
           IconButton(
@@ -255,20 +338,24 @@ class _PatientRegistrationViewState
             icon: const Icon(Icons.refresh_rounded, size: 20),
             onPressed: _clearForm,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 880),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 0. Form Step Progress Indicator
-                _buildFormStepBar(state),
-                const SizedBox(height: 14),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 640;
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 12.0 : 16.0, vertical: 16.0),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 880),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 0. Form Step Progress Indicator
+                    _buildFormStepBar(state, isMobile: isMobile),
+                    const SizedBox(height: 14),
 
                 // No active camp warning banner (Bug #2 fix)
                 if (camp == null)
@@ -485,110 +572,206 @@ class _PatientRegistrationViewState
                           ],
                         ),
                         const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _firstNameController,
-                                decoration: const InputDecoration(
-                                  labelText: 'First Name * (नाम)',
-                                  hintText: 'e.g. Sita',
-                                  prefixIcon: Icon(Icons.badge_outlined),
-                                ),
-                                onChanged: (val) {
-                                  vm.updateField(firstName: val);
-                                  _triggerLiveDuplicateCheck();
-                                },
-                              ),
+                        if (isMobile) ...[
+                          TextField(
+                            controller: _firstNameController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'First Name * (नाम)',
+                              hintText: 'e.g. Sita',
+                              prefixIcon: Icon(Icons.badge_outlined),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _surnameController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Surname * (थर)',
-                                  hintText: 'e.g. Sharma',
-                                  prefixIcon: Icon(Icons.badge_outlined),
-                                ),
-                                onChanged: (val) {
-                                  vm.updateField(surname: val);
-                                  _triggerLiveDuplicateCheck();
-                                },
-                              ),
+                            onChanged: (val) {
+                              vm.updateField(firstName: val);
+                              _triggerLiveDuplicateCheck();
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _surnameController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Surname * (थर)',
+                              hintText: 'e.g. Sharma',
+                              prefixIcon: Icon(Icons.badge_outlined),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _ageController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Age * (उमेर)',
-                                  hintText: 'Years',
-                                  prefixIcon: Icon(Icons.cake_outlined),
-                                ),
-                                onChanged: (val) {
-                                  final parsed = int.tryParse(val);
-                                  vm.updateField(age: parsed);
-                                  setState(() {});
-                                  _triggerLiveDuplicateCheck();
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _wardController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Ward No * (वडा नं)',
-                                  hintText: '01–35',
-                                  prefixIcon: Icon(Icons.map_outlined),
-                                ),
-                                onChanged: (val) {
-                                  vm.updateField(ward: val);
-                                  _triggerLiveDuplicateCheck();
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _districtController,
-                                decoration: const InputDecoration(
-                                  labelText: 'District (जिल्ला)',
-                                  prefixIcon: Icon(
-                                    Icons.location_city_outlined,
+                            onChanged: (val) {
+                              vm.updateField(surname: val);
+                              _triggerLiveDuplicateCheck();
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _ageController,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Age * (उमेर)',
+                                    hintText: 'Years',
+                                    prefixIcon: Icon(Icons.cake_outlined),
                                   ),
+                                  onChanged: (val) {
+                                    final parsed = int.tryParse(val);
+                                    vm.updateField(age: parsed);
+                                    setState(() {});
+                                    _triggerLiveDuplicateCheck();
+                                  },
                                 ),
-                                onChanged: (val) {
-                                  vm.updateField(district: val);
-                                },
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _municipalityController,
-                                decoration: const InputDecoration(
-                                  labelText:
-                                      'Municipality / Gaunpalika (गाउँपालिका)',
-                                  prefixIcon: Icon(Icons.domain_outlined),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _wardController,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Ward No * (वडा नं)',
+                                    hintText: '01–35',
+                                    prefixIcon: Icon(Icons.map_outlined),
+                                  ),
+                                  onChanged: (val) {
+                                    vm.updateField(ward: val);
+                                    _triggerLiveDuplicateCheck();
+                                  },
                                 ),
-                                onChanged: (val) {
-                                  vm.updateField(municipality: val);
-                                },
                               ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _districtController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'District (जिल्ला)',
+                              prefixIcon: Icon(Icons.location_city_outlined),
                             ),
-                          ],
-                        ),
+                            onChanged: (val) => vm.updateField(district: val),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _municipalityController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Municipality / Gaunpalika (गाउँपालिका)',
+                              prefixIcon: Icon(Icons.domain_outlined),
+                            ),
+                            onChanged: (val) => vm.updateField(municipality: val),
+                          ),
+                        ] else ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _firstNameController,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    labelText: 'First Name * (नाम)',
+                                    hintText: 'e.g. Sita',
+                                    prefixIcon: Icon(Icons.badge_outlined),
+                                  ),
+                                  onChanged: (val) {
+                                    vm.updateField(firstName: val);
+                                    _triggerLiveDuplicateCheck();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _surnameController,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Surname * (थर)',
+                                    hintText: 'e.g. Sharma',
+                                    prefixIcon: Icon(Icons.badge_outlined),
+                                  ),
+                                  onChanged: (val) {
+                                    vm.updateField(surname: val);
+                                    _triggerLiveDuplicateCheck();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _ageController,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Age * (उमेर)',
+                                    hintText: 'Years',
+                                    prefixIcon: Icon(Icons.cake_outlined),
+                                  ),
+                                  onChanged: (val) {
+                                    final parsed = int.tryParse(val);
+                                    vm.updateField(age: parsed);
+                                    setState(() {});
+                                    _triggerLiveDuplicateCheck();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _wardController,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Ward No * (वडा नं)',
+                                    hintText: '01–35',
+                                    prefixIcon: Icon(Icons.map_outlined),
+                                  ),
+                                  onChanged: (val) {
+                                    vm.updateField(ward: val);
+                                    _triggerLiveDuplicateCheck();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _districtController,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    labelText: 'District (जिल्ला)',
+                                    prefixIcon: Icon(
+                                      Icons.location_city_outlined,
+                                    ),
+                                  ),
+                                  onChanged: (val) {
+                                    vm.updateField(district: val);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _municipalityController,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    labelText:
+                                        'Municipality / Gaunpalika (गाउँपालिका)',
+                                    prefixIcon: Icon(Icons.domain_outlined),
+                                  ),
+                                  onChanged: (val) {
+                                    vm.updateField(municipality: val);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -812,55 +995,99 @@ class _PatientRegistrationViewState
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: TextField(
-                                        controller: _spouseOrFatherController,
-                                        decoration: InputDecoration(
-                                          labelText: relativeLabel,
-                                          hintText: relativeHint,
-                                          prefixIcon: const Icon(
-                                            Icons.people_alt_outlined,
-                                          ),
-                                          helperText: relativeHelper,
-                                        ),
-                                        onChanged: (val) {
-                                          vm.updateField(
-                                            spouseOrFatherName: val,
-                                          );
-                                          _triggerLiveDuplicateCheck();
-                                        },
+                                if (isMobile) ...[
+                                  TextField(
+                                    controller: _spouseOrFatherController,
+                                    textInputAction: TextInputAction.next,
+                                    decoration: InputDecoration(
+                                      labelText: relativeLabel,
+                                      hintText: relativeHint,
+                                      prefixIcon: const Icon(
+                                        Icons.people_alt_outlined,
+                                      ),
+                                      helperText: relativeHelper,
+                                    ),
+                                    onChanged: (val) {
+                                      vm.updateField(
+                                        spouseOrFatherName: val,
+                                      );
+                                      _triggerLiveDuplicateCheck();
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+                                  DropdownButtonFormField<String>(
+                                    key: ValueKey(
+                                      'relation_$selectedRelation',
+                                    ),
+                                    isExpanded: true,
+                                    initialValue: selectedRelation,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Relation (नाता)',
+                                      prefixIcon: Icon(
+                                        Icons.group_outlined,
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      flex: 2,
-                                      child: DropdownButtonFormField<String>(
-                                        key: ValueKey(
-                                          'relation_$selectedRelation',
-                                        ),
-                                        isExpanded: true,
-                                        initialValue: selectedRelation,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Relation (नाता)',
-                                          prefixIcon: Icon(
-                                            Icons.group_outlined,
+                                    items: relationItems,
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        vm.updateField(
+                                          relationshipType: val,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ] else ...[
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 3,
+                                        child: TextField(
+                                          controller: _spouseOrFatherController,
+                                          textInputAction: TextInputAction.next,
+                                          decoration: InputDecoration(
+                                            labelText: relativeLabel,
+                                            hintText: relativeHint,
+                                            prefixIcon: const Icon(
+                                              Icons.people_alt_outlined,
+                                            ),
+                                            helperText: relativeHelper,
                                           ),
-                                        ),
-                                        items: relationItems,
-                                        onChanged: (val) {
-                                          if (val != null) {
+                                          onChanged: (val) {
                                             vm.updateField(
-                                              relationshipType: val,
+                                              spouseOrFatherName: val,
                                             );
-                                          }
-                                        },
+                                            _triggerLiveDuplicateCheck();
+                                          },
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        flex: 2,
+                                        child: DropdownButtonFormField<String>(
+                                          key: ValueKey(
+                                            'relation_$selectedRelation',
+                                          ),
+                                          isExpanded: true,
+                                          initialValue: selectedRelation,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Relation (नाता)',
+                                            prefixIcon: Icon(
+                                              Icons.group_outlined,
+                                            ),
+                                          ),
+                                          items: relationItems,
+                                          onChanged: (val) {
+                                            if (val != null) {
+                                              vm.updateField(
+                                                relationshipType: val,
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                                 const SizedBox(height: 14),
 
                                 // Marriage Age (Hidden / info note for unmarried)
@@ -982,42 +1209,77 @@ class _PatientRegistrationViewState
                           },
                         ),
                         const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _contactPersonController,
-                                decoration: const InputDecoration(
-                                  labelText:
-                                      'Secondary Contact (सम्पर्क व्यक्ति)',
-                                  hintText: 'Son / Brother / Relative',
-                                  prefixIcon: Icon(Icons.person_pin_outlined),
-                                ),
-                                onChanged: (val) {
-                                  vm.updateField(contactPerson: val);
-                                },
+                        if (isMobile) ...[
+                          TextField(
+                            controller: _contactPersonController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText:
+                                  'Secondary Contact (सम्पर्क व्यक्ति)',
+                              hintText: 'Son / Brother / Relative',
+                              prefixIcon: Icon(Icons.person_pin_outlined),
+                            ),
+                            onChanged: (val) {
+                              vm.updateField(contactPerson: val);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _contactMobileController,
+                            keyboardType: TextInputType.phone,
+                            maxLength: 10,
+                            textInputAction: TextInputAction.done,
+                            decoration: const InputDecoration(
+                              labelText: 'Contact Mobile (सम्पर्क नम्बर)',
+                              hintText: '98XXXXXXXX',
+                              prefixIcon: Icon(
+                                Icons.contact_phone_outlined,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _contactMobileController,
-                                keyboardType: TextInputType.phone,
-                                maxLength: 10,
-                                decoration: const InputDecoration(
-                                  labelText: 'Contact Mobile (सम्पर्क नम्बर)',
-                                  hintText: '98XXXXXXXX',
-                                  prefixIcon: Icon(
-                                    Icons.contact_phone_outlined,
+                            onChanged: (val) {
+                              vm.updateField(contactMobile: val);
+                            },
+                          ),
+                        ] else ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _contactPersonController,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    labelText:
+                                        'Secondary Contact (सम्पर्क व्यक्ति)',
+                                    hintText: 'Son / Brother / Relative',
+                                    prefixIcon: Icon(Icons.person_pin_outlined),
                                   ),
+                                  onChanged: (val) {
+                                    vm.updateField(contactPerson: val);
+                                  },
                                 ),
-                                onChanged: (val) {
-                                  vm.updateField(contactMobile: val);
-                                },
                               ),
-                            ),
-                          ],
-                        ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _contactMobileController,
+                                  keyboardType: TextInputType.phone,
+                                  maxLength: 10,
+                                  textInputAction: TextInputAction.done,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Contact Mobile (सम्पर्क नम्बर)',
+                                    hintText: '98XXXXXXXX',
+                                    prefixIcon: Icon(
+                                      Icons.contact_phone_outlined,
+                                    ),
+                                  ),
+                                  onChanged: (val) {
+                                    vm.updateField(contactMobile: val);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1184,165 +1446,138 @@ class _PatientRegistrationViewState
                 ],
 
                 // 8. Submit & Registration Action Bar
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                if (isMobile)
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryTeal,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: state.isSubmitting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.arrow_forward_rounded, size: 20),
+                          label: Text(
+                            state.isSubmitting ? 'Registering Patient...' : 'Register Patient & Start Clinical Form (Station 1 → 2)',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          onPressed: state.isSubmitting || camp == null
+                              ? null
+                              : () => _submitRegistrationForm(
+                                  context: context,
+                                  state: state,
+                                  vm: vm,
+                                  camp: camp,
+                                  user: user,
+                                  device: device,
+                                ),
                         ),
                       ),
-                      icon: const Icon(Icons.clear_rounded, size: 18),
-                      label: const Text('Clear'),
-                      onPressed: _clearForm,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryTeal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          label: const Text('Clear Form'),
+                          onPressed: _clearForm,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        icon: state.isSubmitting
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.arrow_forward_rounded, size: 20),
-                        label: Text(
-                          state.isSubmitting ? 'Registering Patient...' : 'Register Patient & Start Clinical Form (Station 1 → 2)',
-                          style: const TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        onPressed: state.isSubmitting || camp == null
-                            ? null
-                            : () async {
-                                final scaffoldMessenger = ScaffoldMessenger.of(
-                                  context,
-                                );
-
-                                if (!state.isValid) {
-                                  scaffoldMessenger.showSnackBar(
-                                    SnackBar(
-                                      content: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.error_outline,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: Text(
-                                              state.validationError ?? 'Please complete all required fields properly.',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      backgroundColor: Colors.red[700],
-                                      behavior: SnackBarBehavior.floating,
-                                      duration: const Duration(seconds: 4),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                if (state.selectedReasons.isEmpty) {
-                                  scaffoldMessenger.showSnackBar(
-                                    SnackBar(
-                                      content: const Row(
-                                        children: [
-                                          Icon(
-                                            Icons.warning_amber_rounded,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
-                                          SizedBox(width: 10),
-                                          Expanded(
-                                            child: Text(
-                                              'Please select at least one primary reason for visit (शिविरमा आउनुको मुख्य कारण).',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      backgroundColor: Colors.orange[800],
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                final registered = await vm.submitRegistration(
-                                  campId: camp.id,
-                                  campCode: camp.campCode,
-                                  staffUserId: user?.id ?? 'usr-field',
-                                  staffUserName: user?.name ?? 'Field Nurse',
-                                  staffUserRole: user?.role.toDbString() ?? AppConstants.roleDataTaker,
-                                  deviceId: device?.deviceId ?? 'dev-field',
-                                  tenantId: camp.tenantId.isNotEmpty
-                                      ? camp.tenantId
-                                      : (user?.tenantId ?? 'default_tenant'),
-                                );
-
-                                if (!mounted) return;
-
-                                if (registered != null) {
-                                  ref
-                                      .read(campStateProvider.notifier)
-                                      .loadCamps();
-                                  ref
-                                      .read(patientListProvider.notifier)
-                                      .loadPatients(camp.id);
-
-                                  scaffoldMessenger.showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Registered: ${registered.fullName} (ID: ${registered.patientId})',
-                                      ),
-                                      backgroundColor: AppTheme.successGreen,
-                                    ),
-                                  );
-
-                                  await _handlePostRegistrationSlip(
-                                    registered,
-                                    camp,
-                                  );
-                                }
-                              },
+                        icon: const Icon(Icons.clear_rounded, size: 18),
+                        label: const Text('Clear'),
+                        onPressed: _clearForm,
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryTeal,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: state.isSubmitting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.arrow_forward_rounded, size: 20),
+                          label: Text(
+                            state.isSubmitting ? 'Registering Patient...' : 'Register Patient & Start Clinical Form (Station 1 → 2)',
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: state.isSubmitting || camp == null
+                              ? null
+                              : () => _submitRegistrationForm(
+                                  context: context,
+                                  state: state,
+                                  vm: vm,
+                                  camp: camp,
+                                  user: user,
+                                  device: device,
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 30),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  ),
+);
+}
 
-  Widget _buildFormStepBar(PatientRegistrationState state) {
+  Widget _buildFormStepBar(PatientRegistrationState state, {bool isMobile = false}) {
     final steps = [
       _FormStep(label: 'Demographics', icon: Icons.person_outline_rounded, done: state.firstName.isNotEmpty && state.age != null),
       _FormStep(label: 'Family Profile', icon: Icons.family_restroom_outlined, done: state.spouseOrFatherName.isNotEmpty),
@@ -1374,15 +1609,18 @@ class _PatientRegistrationViewState
             children: [
               const Icon(Icons.assignment_turned_in_outlined, size: 16, color: AppTheme.primaryTeal),
               const SizedBox(width: 6),
-              Text(
-                'Form Completion ($completedCount / ${steps.length} sections)',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B),
+              Expanded(
+                child: Text(
+                  'Form Completion ($completedCount / ${steps.length} sections)',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 '${(progressFraction * 100).round()}%',
                 style: const TextStyle(
@@ -1439,8 +1677,10 @@ class _PatientRegistrationViewState
                           Text(
                             step.label,
                             textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 9,
+                              fontSize: isMobile ? 8 : 9,
                               fontWeight: step.done ? FontWeight.bold : FontWeight.normal,
                               color: step.done ? AppTheme.primaryTeal : const Color(0xFF94A3B8),
                             ),
@@ -1450,7 +1690,7 @@ class _PatientRegistrationViewState
                     ),
                     if (!isLast)
                       Container(
-                        width: 16,
+                        width: isMobile ? 8 : 16,
                         height: 1.5,
                         color: step.done ? AppTheme.primaryTeal : const Color(0xFFE2E8F0),
                       ),

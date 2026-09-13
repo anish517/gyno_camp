@@ -106,9 +106,13 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Clinical Intake • ${widget.patient.fullName}'),
+            Text(
+              'Clinical Intake • ${widget.patient.fullName}',
+              overflow: TextOverflow.ellipsis,
+            ),
             Text(
               'ID: ${widget.patient.patientId} • Age: ${widget.patient.age} • Ward: ${widget.patient.ward}',
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.normal, color: Colors.white70),
             ),
           ],
@@ -224,79 +228,100 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
               color: Colors.white,
               border: Border(top: BorderSide(color: AppTheme.borderLight)),
             ),
-            child: Row(
-              children: [
-                if (state.currentStationIndex > 0)
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('Previous'),
-                    onPressed: () => vm.previousStation(),
-                  ),
-                const Spacer(),
-                if (state.currentStationIndex < 5)
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.arrow_forward),
-                    label: const Text('Next Station'),
-                    onPressed: () => vm.nextStation(),
-                  )
-                else
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.successGreen),
-                    icon: state.isSaving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : const Icon(Icons.check_circle_outline),
-                    label: const Text('Complete & Save Record'),
-                    onPressed: state.isSaving
-                        ? null
-                        : () async {
-                            final scaffoldMessenger = ScaffoldMessenger.of(context);
-                            final navigator = Navigator.of(context);
+            child: LayoutBuilder(
+              builder: (context, toolbarConstraints) {
+                final isCompact = toolbarConstraints.maxWidth < 420;
+                return Row(
+                  children: [
+                    if (state.currentStationIndex > 0) ...[
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.arrow_back, size: 18),
+                        label: Text(isCompact ? 'Back' : 'Previous'),
+                        onPressed: () => vm.previousStation(),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    const Spacer(),
+                    if (state.currentStationIndex < 5)
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.arrow_forward, size: 18),
+                        label: Text(isCompact ? 'Next' : 'Next Station'),
+                        onPressed: () => vm.nextStation(),
+                      )
+                    else
+                      Flexible(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.successGreen,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isCompact ? 10 : 16,
+                              vertical: 12,
+                            ),
+                          ),
+                          icon: state.isSaving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                              : const Icon(Icons.check_circle_outline, size: 18),
+                          label: Text(
+                            isCompact ? 'Save Record' : 'Complete & Save Record',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onPressed: state.isSaving
+                            ? null
+                            : () async {
+                                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                final navigator = Navigator.of(context);
 
-                            final saved = await vm.submitAssessment(
-                              patientId: widget.patient.patientId,
-                              campId: widget.patient.campId,
-                              staffUserId: user?.id ?? 'usr-doc',
-                              deviceId: device?.deviceId ?? 'dev-field',
-                            );
+                                final saved = await vm.submitAssessment(
+                                  patientId: widget.patient.patientId,
+                                  campId: widget.patient.campId,
+                                  staffUserId: user?.id ?? 'usr-doc',
+                                  deviceId: device?.deviceId ?? 'dev-field',
+                                );
 
-                            if (!mounted) return;
+                                if (!mounted) return;
 
-                            if (saved != null) {
-                              scaffoldMessenger.showSnackBar(
-                                const SnackBar(
-                                  content: Text('Clinical Assessment successfully saved in local SQLite!'),
-                                  backgroundColor: AppTheme.successGreen,
-                                ),
-                              );
-                              navigator.pop(true);
-                            } else {
-                              scaffoldMessenger.showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      const Icon(Icons.error_outline, color: Colors.white, size: 20),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                          child: Text(
-                                            ref.read(clinicalAssessmentProvider).errorMessage ?? 'Failed to save clinical assessment. Please check required fields.',
-                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                if (saved != null) {
+                                  scaffoldMessenger.clearSnackBars();
+                                  scaffoldMessenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Clinical Assessment successfully saved in local SQLite!'),
+                                      backgroundColor: AppTheme.successGreen,
+                                    ),
+                                  );
+                                  navigator.pop(true);
+                                } else {
+                                  scaffoldMessenger.clearSnackBars();
+                                  scaffoldMessenger.showSnackBar(
+                                    SnackBar(
+                                      content: Row(
+                                        children: [
+                                          const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              ref.read(clinicalAssessmentProvider).errorMessage ?? 'Failed to save clinical assessment. Please check required fields.',
+                                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                            ),
                                           ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                  backgroundColor: Colors.red[700],
-                                  behavior: SnackBarBehavior.floating,
-                                  duration: const Duration(seconds: 5),
-                                ),
-                              );
-                            }
-                          },
-                  ),
-              ],
+                                      backgroundColor: Colors.red[700],
+                                      behavior: SnackBarBehavior.floating,
+                                      duration: const Duration(seconds: 5),
+                                    ),
+                                  );
+                                }
+                              },
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -385,47 +410,96 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   ],
                 ),
                 const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _deliveriesController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Deliveries (सुत्केरी संख्या)',
-                          hintText: '0–20',
-                          prefixIcon: Icon(Icons.pregnant_woman_rounded),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isMobile = constraints.maxWidth < 580;
+                    if (isMobile) {
+                      return Column(
+                        children: [
+                          TextField(
+                            controller: _deliveriesController,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Deliveries (सुत्केरी संख्या)',
+                              hintText: '0–20',
+                              prefixIcon: Icon(Icons.pregnant_woman_rounded),
+                            ),
+                            onChanged: (val) => vm.setObstetricHistory(deliveries: int.tryParse(val)),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _livingChildrenController,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Living Children (जीवित बच्चा)',
+                              hintText: 'Count',
+                              prefixIcon: Icon(Icons.family_restroom_rounded),
+                            ),
+                            onChanged: (val) => vm.setObstetricHistory(livingChildren: int.tryParse(val)),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _abortionsController,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Abortions (गर्भपतन)',
+                              hintText: 'Count',
+                              prefixIcon: Icon(Icons.remove_circle_outline_rounded),
+                            ),
+                            onChanged: (val) => vm.setObstetricHistory(abortions: int.tryParse(val)),
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _deliveriesController,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Deliveries (सुत्केरी संख्या)',
+                              hintText: '0–20',
+                              prefixIcon: Icon(Icons.pregnant_woman_rounded),
+                            ),
+                            onChanged: (val) => vm.setObstetricHistory(deliveries: int.tryParse(val)),
+                          ),
                         ),
-                        onChanged: (val) => vm.setObstetricHistory(deliveries: int.tryParse(val)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _livingChildrenController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Living Children (जीवित बच्चा)',
-                          hintText: 'Count',
-                          prefixIcon: Icon(Icons.family_restroom_rounded),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _livingChildrenController,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Living Children (जीवित बच्चा)',
+                              hintText: 'Count',
+                              prefixIcon: Icon(Icons.family_restroom_rounded),
+                            ),
+                            onChanged: (val) => vm.setObstetricHistory(livingChildren: int.tryParse(val)),
+                          ),
                         ),
-                        onChanged: (val) => vm.setObstetricHistory(livingChildren: int.tryParse(val)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _abortionsController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Abortions (गर्भपतन)',
-                          hintText: 'Count',
-                          prefixIcon: Icon(Icons.remove_circle_outline_rounded),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _abortionsController,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Abortions (गर्भपतन)',
+                              hintText: 'Count',
+                              prefixIcon: Icon(Icons.remove_circle_outline_rounded),
+                            ),
+                            onChanged: (val) => vm.setObstetricHistory(abortions: int.tryParse(val)),
+                          ),
                         ),
-                        onChanged: (val) => vm.setObstetricHistory(abortions: int.tryParse(val)),
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
                 if (state.obstetricValidation.isError)
                   Padding(
@@ -679,18 +753,20 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
 
         const Text('Pelvic Floor Muscle Tone (पेल्भिक मांसपेशीको अवस्था)', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: ['normal', 'weak', 'hypertonic'].map((tone) {
             final isSelected = state.pelvicFloorTone == tone;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                child: ChoiceChip(
-                  label: Center(child: Text('${NepaliLocalizationService.translate(tone)} ($tone)', style: const TextStyle(fontSize: 11))),
-                  selected: isSelected,
-                  onSelected: (_) => vm.updateExam(pelvicFloorTone: tone),
-                ),
+            return ChoiceChip(
+              label: Text('${NepaliLocalizationService.translate(tone)} ($tone)', style: const TextStyle(fontSize: 12)),
+              selected: isSelected,
+              selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.18),
+              labelStyle: TextStyle(
+                color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
+              onSelected: (_) => vm.updateExam(pelvicFloorTone: tone),
             );
           }).toList(),
         ),
@@ -708,25 +784,25 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'POP STAGING (Pelvic Organ Prolapse)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryDark),
-                      ),
+                    const Text(
+                      'POP STAGING (Pelvic Organ Prolapse)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryDark),
                     ),
-                    const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryTeal,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         'Highest POP: Stage ${state.highestPopStage}',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ),
                   ],
@@ -777,17 +853,21 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
       children: [
         Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        Row(
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
           children: List.generate(maxStage + 1, (index) {
             final isSelected = currentStage == index;
-            return Padding(
-              padding: const EdgeInsets.only(right: 6.0),
-              child: ChoiceChip(
-                visualDensity: VisualDensity.compact,
-                label: Text('Stage $index', style: const TextStyle(fontSize: 11)),
-                selected: isSelected,
-                onSelected: (_) => onSelect(index),
+            return ChoiceChip(
+              visualDensity: VisualDensity.compact,
+              label: Text('Stage $index', style: const TextStyle(fontSize: 11)),
+              selected: isSelected,
+              selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+              labelStyle: TextStyle(
+                color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
+              onSelected: (_) => onSelect(index),
             );
           }),
         ),
@@ -797,15 +877,18 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
 
   // --- 3. Lab Tests & Numeric Vitals (Live Validation) ---
   Widget _buildStation3VitalsAndLab(ClinicalAssessmentState state, ClinicalAssessmentViewModel vm) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Rapid Point-of-Care Tests (प्रयोगशाला जाँच)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 560;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
+            const Text('Rapid Point-of-Care Tests (प्रयोगशाला जाँच)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            if (isMobile) ...[
+              DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: state.urineTest,
                 decoration: const InputDecoration(labelText: 'Urine Test (पिसाब जाँच)'),
                 items: const [
@@ -814,10 +897,9 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 ],
                 onChanged: (val) => vm.setVitals(urineTest: val),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: DropdownButtonFormField<String>(
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: state.pregnancyTest,
                 decoration: const InputDecoration(labelText: 'Pregnancy Test (गर्भावस्था)'),
                 items: const [
@@ -826,23 +908,50 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 ],
                 onChanged: (val) => vm.setVitals(pregnancyTest: val),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: state.urineTest,
+                      decoration: const InputDecoration(labelText: 'Urine Test (पिसाब जाँच)'),
+                      items: const [
+                        DropdownMenuItem(value: 'normal', child: Text('Normal (सामान्य)')),
+                        DropdownMenuItem(value: 'pos', child: Text('Positive (संक्रमण देखियो)')),
+                      ],
+                      onChanged: (val) => vm.setVitals(urineTest: val),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: state.pregnancyTest,
+                      decoration: const InputDecoration(labelText: 'Pregnancy Test (गर्भावस्था)'),
+                      items: const [
+                        DropdownMenuItem(value: 'neg', child: Text('Negative (नेगेटिभ)')),
+                        DropdownMenuItem(value: 'pos', child: Text('Positive (पोजिटिभ)')),
+                      ],
+                      onChanged: (val) => vm.setVitals(pregnancyTest: val),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 20),
 
-        const Text('Numeric Vital Signs (महत्वपूर्ण शारीरिक सूचकहरू)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        const Text('Real-time validation checks for typos and abnormal health thresholds:', style: TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 12),
+            const Text('Numeric Vital Signs (महत्वपूर्ण शारीरिक सूचकहरू)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            const Text('Real-time validation checks for typos and abnormal health thresholds:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 12),
 
-        // Blood Pressure (Systolic / Diastolic)
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
+            // Blood Pressure (Systolic / Diastolic)
+            if (isMobile) ...[
+              TextField(
                 controller: _systolicController,
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: 'Systolic BP (सिस्टोलिक)',
                   suffixText: 'mmHg',
@@ -850,12 +959,12 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 ),
                 onChanged: (val) => vm.setVitals(systolic: int.tryParse(val)),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
+              _buildValidationMessage(state.systolicValidation),
+              const SizedBox(height: 12),
+              TextField(
                 controller: _diastolicController,
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: 'Diastolic BP (डायस्टोलिक)',
                   suffixText: 'mmHg',
@@ -863,20 +972,50 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 ),
                 onChanged: (val) => vm.setVitals(diastolic: int.tryParse(val)),
               ),
-            ),
-          ],
-        ),
-        _buildValidationMessage(state.systolicValidation),
-        _buildValidationMessage(state.diastolicValidation),
-        const SizedBox(height: 12),
+              _buildValidationMessage(state.diastolicValidation),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _systolicController,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Systolic BP (सिस्टोलिक)',
+                        suffixText: 'mmHg',
+                        prefixIcon: _getValidationIcon(state.systolicValidation),
+                      ),
+                      onChanged: (val) => vm.setVitals(systolic: int.tryParse(val)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _diastolicController,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Diastolic BP (डायस्टोलिक)',
+                        suffixText: 'mmHg',
+                        prefixIcon: _getValidationIcon(state.diastolicValidation),
+                      ),
+                      onChanged: (val) => vm.setVitals(diastolic: int.tryParse(val)),
+                    ),
+                  ),
+                ],
+              ),
+              _buildValidationMessage(state.systolicValidation),
+              _buildValidationMessage(state.diastolicValidation),
+            ],
+            const SizedBox(height: 12),
 
-        // Pulse and Oxygen Saturation
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
+            // Pulse and Oxygen Saturation
+            if (isMobile) ...[
+              TextField(
                 controller: _pulseController,
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: 'Pulse (नाडी गति)',
                   suffixText: 'bpm',
@@ -884,12 +1023,12 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 ),
                 onChanged: (val) => vm.setVitals(pulse: int.tryParse(val)),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
+              _buildValidationMessage(state.pulseValidation),
+              const SizedBox(height: 12),
+              TextField(
                 controller: _spo2Controller,
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: 'SpO2 (अक्सिजन)',
                   suffixText: '%',
@@ -897,26 +1036,60 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 ),
                 onChanged: (val) => vm.setVitals(spo2: int.tryParse(val)),
               ),
-            ),
-          ],
-        ),
-        _buildValidationMessage(state.pulseValidation),
-        _buildValidationMessage(state.spo2Validation),
-        const SizedBox(height: 12),
+              _buildValidationMessage(state.spo2Validation),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _pulseController,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Pulse (नाडी गति)',
+                        suffixText: 'bpm',
+                        prefixIcon: _getValidationIcon(state.pulseValidation),
+                      ),
+                      onChanged: (val) => vm.setVitals(pulse: int.tryParse(val)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _spo2Controller,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'SpO2 (अक्सिजन)',
+                        suffixText: '%',
+                        prefixIcon: _getValidationIcon(state.spo2Validation),
+                      ),
+                      onChanged: (val) => vm.setVitals(spo2: int.tryParse(val)),
+                    ),
+                  ),
+                ],
+              ),
+              _buildValidationMessage(state.pulseValidation),
+              _buildValidationMessage(state.spo2Validation),
+            ],
+            const SizedBox(height: 12),
 
-        // Blood Glucose
-        TextField(
-          controller: _glucoseController,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: 'Blood Glucose (रक्त ग्लुकोज)',
-            suffixText: 'mg/dL',
-            prefixIcon: _getValidationIcon(state.glucoseValidation),
-          ),
-          onChanged: (val) => vm.setVitals(glucose: int.tryParse(val)),
-        ),
-        _buildValidationMessage(state.glucoseValidation),
-      ],
+            // Blood Glucose
+            TextField(
+              controller: _glucoseController,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: 'Blood Glucose (रक्त ग्लुकोज)',
+                suffixText: 'mg/dL',
+                prefixIcon: _getValidationIcon(state.glucoseValidation),
+              ),
+              onChanged: (val) => vm.setVitals(glucose: int.tryParse(val)),
+            ),
+            _buildValidationMessage(state.glucoseValidation),
+          ],
+        );
+      },
     );
   }
 
@@ -1014,35 +1187,63 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
 
         const Text('Ring Pessary Fitting (रिङ पेसरी)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: DropdownButtonFormField<String>(
-                initialValue: state.pessaryType,
-                decoration: const InputDecoration(labelText: 'Pessary Type'),
-                items: ['ring', 'ring with support', 'ring with knob'].map((t) {
-                  return DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12)));
-                }).toList(),
-                onChanged: (val) => vm.setPessary(type: val),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: TextField(
-                controller: _pessarySizeController,
-                decoration: const InputDecoration(labelText: 'Size (साइज mm)'),
-                onChanged: (val) => vm.setPessary(size: val),
-              ),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 500;
+            if (isMobile) {
+              return Column(
+                children: [
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: state.pessaryType,
+                    decoration: const InputDecoration(labelText: 'Pessary Type'),
+                    items: ['ring', 'ring with support', 'ring with knob'].map((t) {
+                      return DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12)));
+                    }).toList(),
+                    onChanged: (val) => vm.setPessary(type: val),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _pessarySizeController,
+                    decoration: const InputDecoration(labelText: 'Size (साइज mm)'),
+                    onChanged: (val) => vm.setPessary(size: val),
+                  ),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: state.pessaryType,
+                    decoration: const InputDecoration(labelText: 'Pessary Type'),
+                    items: ['ring', 'ring with support', 'ring with knob'].map((t) {
+                      return DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12)));
+                    }).toList(),
+                    onChanged: (val) => vm.setPessary(type: val),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _pessarySizeController,
+                    decoration: const InputDecoration(labelText: 'Size (साइज mm)'),
+                    onChanged: (val) => vm.setPessary(size: val),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 18),
 
         const Text('Referral for Surgery (शल्यक्रिया सिफारिस)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
+          isExpanded: true,
           initialValue: hospitalsList.contains(state.surgicalReferral) ? state.surgicalReferral : null,
           decoration: InputDecoration(
             labelText: 'Surgical Referral Hospital (शल्यक्रिया सिफारिस अस्पताल)',
@@ -1127,6 +1328,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       children: [
                         DropdownButtonFormField<String>(
                           key: ValueKey('followup_dest_$dropdownValue'),
+                          isExpanded: true,
                           initialValue: dropdownValue,
                           decoration: const InputDecoration(
                             labelText: 'Follow-up Destination / Provider (पुनः जाँच गराउने स्थान/व्यक्ति)',

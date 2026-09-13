@@ -194,38 +194,49 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   color: AppTheme.backgroundLight,
-                  child: Row(
-                    children: [
-                      Text(
-                        'Total Registered: ${patientState.patients.length}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryLight),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryTeal.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              patientState.patients.isNotEmpty ? Icons.shield_rounded : Icons.sync_alt,
-                              size: 12,
-                              color: AppTheme.primaryTeal,
+                  child: LayoutBuilder(
+                    builder: (context, statsConstraints) {
+                      final isNarrow = statsConstraints.maxWidth < 390;
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Total: ${patientState.patients.length} Registered',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryLight),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              patientState.patients.isNotEmpty
-                                  ? 'AES-256 Encrypted • ${patientState.patients.length} Records'
-                                  : 'AES-256 Encrypted',
-                              style: const TextStyle(fontSize: 10.5, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  patientState.patients.isNotEmpty ? Icons.shield_rounded : Icons.sync_alt,
+                                  size: 12,
+                                  color: AppTheme.primaryTeal,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isNarrow
+                                      ? 'Encrypted'
+                                      : (patientState.patients.isNotEmpty
+                                          ? 'AES-256 Encrypted • ${patientState.patients.length} Records'
+                                          : 'AES-256 Encrypted'),
+                                  style: const TextStyle(fontSize: 10.5, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
 
@@ -353,19 +364,23 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     // Top Row: Patient ID + Ward
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryLight,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            patient.patientId,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11.5,
-                              color: AppTheme.primaryDark,
-                              fontFamily: 'monospace',
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryLight,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              patient.patientId,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                color: AppTheme.primaryDark,
+                                fontFamily: 'monospace',
+                              ),
                             ),
                           ),
                         ),
@@ -381,10 +396,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
                           ),
                         ),
-                        const Spacer(),
-                        Text(
-                          patient.district.isNotEmpty ? patient.district : 'Nepal',
-                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            patient.district.isNotEmpty ? patient.district : 'Nepal',
+                            textAlign: TextAlign.end,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                          ),
                         ),
                       ],
                     ),
@@ -428,9 +448,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                     color: AppTheme.textSecondaryLight,
                                   ),
                                   const SizedBox(width: 3),
-                                  Text(
-                                    '${patient.relationshipType ?? "Guardian"}: ${patient.spouseOrFatherName ?? "N/A"}  •  Age ${patient.age}y',
-                                    style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                                  Expanded(
+                                    child: Text(
+                                      '${patient.relationshipType ?? "Guardian"}: ${patient.spouseOrFatherName ?? "N/A"}  •  Age ${patient.age}y',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -440,9 +464,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                   children: [
                                     const Icon(Icons.phone, size: 12, color: AppTheme.textSecondaryLight),
                                     const SizedBox(width: 3),
-                                    Text(
-                                      patient.mobile,
-                                      style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                                    Expanded(
+                                      child: Text(
+                                        patient.mobile,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -501,7 +529,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
                     // Clinical Progress Stepper
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(8),
@@ -509,12 +537,23 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       ),
                       child: Row(
                         children: [
-                          _buildStepIndicator(label: 'S1: Intake',      done: true,         color: stationDone),
-                          _buildStepConnector(done: true),
-                          _buildStepIndicator(label: 'S2: Clinical',    done: hasClinical,  color: hasClinical ? stationDone : stationPending),
-                          _buildStepConnector(done: hasClinical),
-                          _buildStepIndicator(label: 'S3–6: Specialist', done: hasClinical, color: hasClinical ? stationDone : stationPending),
-                          const Spacer(),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildStepIndicator(label: 'S1: Intake', done: true, color: stationDone),
+                                  _buildStepConnector(done: true),
+                                  _buildStepIndicator(label: 'S2: Clinical', done: hasClinical, color: hasClinical ? stationDone : stationPending),
+                                  _buildStepConnector(done: hasClinical),
+                                  _buildStepIndicator(label: 'S3–6: Specialist', done: hasClinical, color: hasClinical ? stationDone : stationPending),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                             decoration: BoxDecoration(
@@ -552,8 +591,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     const SizedBox(height: 8),
 
                     // Action Buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 6,
                       children: [
                         IconButton(
                           icon: const Icon(Icons.picture_as_pdf_rounded, size: 20, color: AppTheme.dangerRose),
@@ -561,6 +603,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           padding: const EdgeInsets.all(6),
                           constraints: const BoxConstraints(),
                           onPressed: () async {
+                            ScaffoldMessenger.of(context).clearSnackBars();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Generating ${patient.fullName} (${patient.patientId}) clinical summary PDF...'),
@@ -581,6 +624,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               userRole: auth?.role.toDbString() ?? 'DATA_TAKER',
                             );
                             if (context.mounted && saved != null) {
+                              ScaffoldMessenger.of(context).clearSnackBars();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('Patient report downloaded: $saved'),
@@ -590,7 +634,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             }
                           },
                         ),
-                        const SizedBox(width: 4),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF334155),
@@ -625,7 +668,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             }
                           },
                         ),
-                        const SizedBox(width: 8),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryTeal,
@@ -728,7 +770,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               children: [
                 Icon(Icons.qr_code_scanner_rounded, color: AppTheme.primaryTeal, size: 26),
                 SizedBox(width: 10),
-                Text('Scan Patient QR / Barcode Token', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Expanded(
+                  child: Text(
+                    'Scan Patient QR / Barcode Token',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             content: SizedBox(
@@ -744,7 +792,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: matchedPatient != null
+                           colors: matchedPatient != null
                               ? [const Color(0xFF065F46), const Color(0xFF047857)]
                               : [const Color(0xFF0F172A), const Color(0xFF1E293B)],
                           begin: Alignment.topLeft,
@@ -767,15 +815,18 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                 size: 28,
                               ),
                               const SizedBox(width: 10),
-                              Text(
-                                matchedPatient != null
-                                    ? 'TOKEN MATCHED: ${matchedPatient!.patientId}'
-                                    : 'USB / Bluetooth Scanner Gun Ready',
-                                style: TextStyle(
-                                  color: matchedPatient != null ? Colors.greenAccent : Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
+                              Flexible(
+                                child: Text(
+                                  matchedPatient != null
+                                      ? 'TOKEN MATCHED: ${matchedPatient!.patientId}'
+                                      : 'USB / Bluetooth Scanner Gun Ready',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: matchedPatient != null ? Colors.greenAccent : Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
                               ),
                             ],
