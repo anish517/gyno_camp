@@ -6,6 +6,7 @@ import '../../viewmodels/device_security_viewmodel.dart';
 import '../auth/login_view.dart';
 import '../dashboard/home_gateway_view.dart';
 import '../security/app_lock_pin_view.dart';
+import '../security/device_activation_view.dart';
 
 class SecurityGatewayView extends ConsumerWidget {
   const SecurityGatewayView({super.key});
@@ -38,12 +39,22 @@ class SecurityGatewayView extends ConsumerWidget {
       return const LoginView();
     }
 
-    // 2. If authenticated, check if session is locked with PIN
+    final user = authState.currentUser;
+
+    // 2. Hardware security guard: Non-admin staff must be on an approved workstation
+    if (user != null && !user.isSuperAdmin && !deviceState.isApproved) {
+      return DeviceActivationView(
+        prefillStaffName: user.name,
+        prefillStaffUserId: user.id,
+      );
+    }
+
+    // 3. If authenticated, check if session is locked with PIN
     if (deviceState.isAppLocked && (deviceState.device?.hasPinSet ?? false)) {
       return const AppLockPinView();
     }
 
-    // 3. User is authenticated and unlocked -> Role-Tailored Dashboard
+    // 4. User is authenticated and unlocked -> Role-Tailored Dashboard
     return const HomeGatewayView();
   }
 }

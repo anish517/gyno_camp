@@ -28,11 +28,12 @@ class _LoginViewState extends ConsumerState<LoginView> {
   }
 
   void _onFieldChanged() {
+    if (!mounted) return;
     // Clear stale server/auth errors immediately when user modifies input
     if (ref.read(authStateProvider).errorMessage != null) {
       ref.read(authStateProvider.notifier).clearError();
     }
-    if (mounted) setState(() {});
+    setState(() {});
   }
 
   @override
@@ -95,6 +96,10 @@ class _LoginViewState extends ConsumerState<LoginView> {
     if (!user.isSuperAdmin) {
       final currentDeviceState = ref.read(deviceSecurityProvider);
       if (!currentDeviceState.isApproved) {
+        // Clear active session immediately so the user is not authenticated on unapproved hardware
+        await authVm.logout(deviceId: deviceId);
+        if (!mounted) return;
+
         if (currentDeviceState.isUnregistered) {
           showDialog(
             context: context,
@@ -105,7 +110,12 @@ class _LoginViewState extends ConsumerState<LoginView> {
                 children: [
                   Icon(Icons.devices_other_rounded, color: AppTheme.primaryTeal),
                   SizedBox(width: 10),
-                  Text('New Workstation Detected'),
+                  Expanded(
+                    child: Text(
+                      'New Workstation Detected',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
               content: Text(
@@ -114,10 +124,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    ref.read(authStateProvider.notifier).logout(deviceId: deviceId);
-                  },
+                  onPressed: () => Navigator.pop(ctx),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton.icon(
@@ -130,15 +137,17 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   label: const Text('Register This Device'),
                   onPressed: () {
                     Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => DeviceActivationView(
-                          prefillStaffName: user.name,
-                          prefillStaffUserId: user.id,
+                    if (mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DeviceActivationView(
+                            prefillStaffName: user.name,
+                            prefillStaffUserId: user.id,
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    }
                   },
                 ),
               ],
@@ -154,7 +163,12 @@ class _LoginViewState extends ConsumerState<LoginView> {
                 children: [
                   Icon(Icons.hourglass_top_rounded, color: Colors.orange),
                   SizedBox(width: 10),
-                  Text('Device Pending Approval'),
+                  Expanded(
+                    child: Text(
+                      'Device Pending Approval',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
               content: Text(
@@ -174,10 +188,12 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   ),
                   onPressed: () {
                     Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DeviceActivationView()),
-                    );
+                    if (mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DeviceActivationView()),
+                      );
+                    }
                   },
                   child: const Text('View Status'),
                 ),
@@ -194,7 +210,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );
-          ref.read(authStateProvider.notifier).logout(deviceId: deviceId);
           return;
         }
       }
@@ -202,10 +217,13 @@ class _LoginViewState extends ConsumerState<LoginView> {
 
     // Authorized staff or Super Admin -> navigate immediately to clinical console
     if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const SecurityGatewayView()),
-        (route) => false,
-      );
+      final isNestedInGateway = context.findAncestorWidgetOfExactType<SecurityGatewayView>() != null;
+      if (!isNestedInGateway) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const SecurityGatewayView()),
+          (route) => false,
+        );
+      }
     }
   }
 

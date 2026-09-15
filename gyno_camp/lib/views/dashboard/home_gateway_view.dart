@@ -65,10 +65,16 @@ class HomeGatewayView extends ConsumerWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(user.name.isNotEmpty ? user.name : 'Gynocamp System'),
+            Text(
+              user.name.isNotEmpty ? user.name : 'Gynocamp System',
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
             Text(
               '${user.role.displayNameEn} • ${deviceState.device?.deviceName ?? "Authorized Device"}',
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.normal, color: Colors.white70),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ],
         ),
@@ -185,7 +191,10 @@ class HomeGatewayView extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Top Sub-Row: Live Status Pulse + Tenant Badge
-                    Row(
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -199,106 +208,51 @@ class HomeGatewayView extends ConsumerWidget {
                             children: [
                               Icon(Icons.fiber_manual_record, color: Color(0xFF34D399), size: 10),
                               SizedBox(width: 6),
-                              Text(
-                                'SECURE ROOT SESSION ACTIVE',
-                                style: TextStyle(
-                                  color: Color(0xFF6EE7B7),
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.8,
+                              Flexible(
+                                child: Text(
+                                  'SECURE ROOT SESSION ACTIVE',
+                                  style: TextStyle(
+                                    color: Color(0xFF6EE7B7),
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.8,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Builder(
-                            builder: (context) {
-                              final tenantName = user?.tenantName;
-                              final tenantId = user?.tenantId;
-                              final orgName = (tenantName != null && tenantName.trim().isNotEmpty)
-                                  ? tenantName
-                                  : (campState.activeCamp?.organizationName ?? "Nepal Health Outreach Network");
-                              final tenantTag = (tenantId != null && tenantId.isNotEmpty) ? tenantId : "tenant_default";
-                              return Text(
-                                '$orgName • Tenant: $tenantTag',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.3,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              );
-                            },
-                          ),
+                        Builder(
+                          builder: (context) {
+                            final tenantName = user?.tenantName;
+                            final tenantId = user?.tenantId;
+                            final orgName = (tenantName != null && tenantName.trim().isNotEmpty)
+                                ? tenantName
+                                : (campState.activeCamp?.organizationName ?? "Nepal Health Outreach Network");
+                            final tenantTag = (tenantId != null && tenantId.isNotEmpty) ? tenantId : "tenant_default";
+                            return Text(
+                              '$orgName • Tenant: $tenantTag',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            );
+                          },
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
 
-                    // Middle Main Row: User Identity & Action Buttons
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
-                          ),
-                          child: const Icon(Icons.shield_outlined, color: Colors.white, size: 30),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      user?.name ?? 'System Administrator',
-                                      style: const TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w900,
-                                        color: Colors.white,
-                                        letterSpacing: -0.4,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_outlined, color: Color(0xFF5EEAD4), size: 18),
-                                    tooltip: 'Edit SaaS Profile & Organization',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () => _showEditProfileDialog(context, ref, user),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              const Text(
-                                'Super Admin Command Console • Field Operations & Clinical Governance',
-                                style: TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Wrap(
+                    // Middle Main Row: User Identity & Action Buttons (Responsive)
+                    LayoutBuilder(
+                      builder: (ctx, constraints) {
+                        final isCompact = constraints.maxWidth < 680;
+                        final actionButtons = Wrap(
                           spacing: 10,
                           runSpacing: 8,
                           children: [
@@ -331,8 +285,141 @@ class HomeGatewayView extends ConsumerWidget {
                               onPressed: () => _showQuickCampSwitchDialog(context, ref),
                             ),
                           ],
-                        ),
-                      ],
+                        );
+
+                        if (isCompact) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.2),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                      border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
+                                    ),
+                                    child: const Icon(Icons.shield_outlined, color: Colors.white, size: 26),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                user?.name ?? 'System Administrator',
+                                                style: const TextStyle(
+                                                  fontSize: 19,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: Colors.white,
+                                                  letterSpacing: -0.4,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            IconButton(
+                                              icon: const Icon(Icons.edit_outlined, color: Color(0xFF5EEAD4), size: 18),
+                                              tooltip: 'Edit SaaS Profile & Organization',
+                                              visualDensity: VisualDensity.compact,
+                                              onPressed: () => _showEditProfileDialog(context, ref, user),
+                                            ),
+                                          ],
+                                        ),
+                                        const Text(
+                                          'Super Admin Command Console',
+                                          style: TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w500),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              actionButtons,
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
+                              ),
+                              child: const Icon(Icons.shield_outlined, color: Colors.white, size: 30),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          user?.name ?? 'System Administrator',
+                                          style: const TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.white,
+                                            letterSpacing: -0.4,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit_outlined, color: Color(0xFF5EEAD4), size: 18),
+                                        tooltip: 'Edit SaaS Profile & Organization',
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () => _showEditProfileDialog(context, ref, user),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  const Text(
+                                    'Super Admin Command Console • Field Operations & Clinical Governance',
+                                    style: TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            actionButtons,
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -355,35 +442,10 @@ class HomeGatewayView extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF59E0B),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.devices_other_rounded, color: Colors.white, size: 20),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${deviceMgmt.pendingCount} Field Tablet${deviceMgmt.pendingCount > 1 ? "s" : ""} Awaiting Hardware Whitelist Approval',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF78350F)),
-                            ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'New field workstations have submitted OTP verification challenges. Review hardware signatures before intake begins.',
-                              style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton(
+                  child: LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      final isCompact = constraints.maxWidth < 580;
+                      final reviewBtn = ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFD97706),
                           foregroundColor: Colors.white,
@@ -398,8 +460,80 @@ class HomeGatewayView extends ConsumerWidget {
                           );
                         },
                         child: const Text('Review Devices', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
+                      );
+
+                      if (isCompact) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFF59E0B),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.devices_other_rounded, color: Colors.white, size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${deviceMgmt.pendingCount} Field Tablet${deviceMgmt.pendingCount > 1 ? "s" : ""} Awaiting Whitelist',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF78350F)),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      const Text(
+                                        'Review hardware signatures before intake begins.',
+                                        style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(width: double.infinity, child: reviewBtn),
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF59E0B),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.devices_other_rounded, color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${deviceMgmt.pendingCount} Field Tablet${deviceMgmt.pendingCount > 1 ? "s" : ""} Awaiting Hardware Whitelist Approval',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF78350F)),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'New field workstations have submitted OTP verification challenges. Review hardware signatures before intake begins.',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          reviewBtn,
+                        ],
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -530,8 +664,11 @@ class HomeGatewayView extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // 5. ADMINISTRATIVE CONTROL MODULES (2-COLUMN / 3-COLUMN GRID)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
                 children: [
                   const Text(
                     'Administrative Governance & Master Controls',
@@ -686,35 +823,10 @@ class HomeGatewayView extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE2E8F0),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.storage_rounded, color: Color(0xFF334155), size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Disaster Recovery & Data Export Operations',
-                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Safeguard clinical records with 1-tap local database snapshots and proof-of-work audit exports.',
-                            style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Wrap(
+                child: LayoutBuilder(
+                  builder: (ctx, constraints) {
+                    final isCompact = constraints.maxWidth < 680;
+                    final actionButtons = Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
@@ -752,8 +864,80 @@ class HomeGatewayView extends ConsumerWidget {
                           onPressed: () => _showRestoreDatabaseDialog(context, ref),
                         ),
                       ],
-                    ),
-                  ],
+                    );
+
+                    if (isCompact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE2E8F0),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.storage_rounded, color: Color(0xFF334155), size: 22),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Disaster Recovery & Data Export Operations',
+                                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Safeguard clinical records with 1-tap local snapshots and proof-of-work exports.',
+                                      style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          actionButtons,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.storage_rounded, color: Color(0xFF334155), size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Disaster Recovery & Data Export Operations',
+                                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Safeguard clinical records with 1-tap local database snapshots and proof-of-work audit exports.',
+                                style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        actionButtons,
+                      ],
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 28),
@@ -762,10 +946,14 @@ class HomeGatewayView extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Live System Activity & Cryptographic Log',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  const Expanded(
+                    child: Text(
+                      'Live System Activity & Cryptographic Log',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   TextButton.icon(
                     icon: const Icon(Icons.open_in_new, size: 14),
                     label: Text(
@@ -801,41 +989,16 @@ class HomeGatewayView extends ConsumerWidget {
   ) {
     if (!campState.hasActiveCamp) {
       return Container(
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade100,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.campaign_outlined, color: Colors.amber.shade900, size: 28),
-            ),
-            const SizedBox(width: 16),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'No Active Clinical Camp Session In Progress',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                  ),
-                  SizedBox(height: 3),
-                  Text(
-                    'Activate a scheduled camp session from your roster to begin recording patient intake and clinical exams.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton.icon(
+        child: LayoutBuilder(
+          builder: (ctx, constraints) {
+            final isCompact = constraints.maxWidth < 600;
+            final openCampBtn = ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryTeal,
                 foregroundColor: Colors.white,
@@ -844,8 +1007,80 @@ class HomeGatewayView extends ConsumerWidget {
               icon: const Icon(Icons.swap_horiz_rounded, size: 16),
               label: const Text('Open Camp Session'),
               onPressed: () => _showQuickCampSwitchDialog(context, ref),
-            ),
-          ],
+            );
+
+            if (isCompact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.campaign_outlined, color: Colors.amber.shade900, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'No Active Clinical Camp Session In Progress',
+                              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                            ),
+                            SizedBox(height: 3),
+                            Text(
+                              'Activate a scheduled camp session from your roster to begin recording patient intake and clinical exams.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(width: double.infinity, child: openCampBtn),
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.campaign_outlined, color: Colors.amber.shade900, size: 28),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'No Active Clinical Camp Session In Progress',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        'Activate a scheduled camp session from your roster to begin recording patient intake and clinical exams.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                openCampBtn,
+              ],
+            );
+          },
         ),
       );
     }
@@ -869,45 +1104,48 @@ class HomeGatewayView extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Code + Live Badge + Switch action
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Header: Code + Live Badge + Switch action (Responsive Wrap)
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF0F766E), Color(0xFF134E4A)],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0F766E), Color(0xFF134E4A)],
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  camp.campCode,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFA7F3D0)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.fiber_manual_record, color: Color(0xFF059669), size: 10),
+                    SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        'LIVE OPERATIONAL STATION',
+                        style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.w700, fontSize: 10.5, letterSpacing: 0.3),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
-                      borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(
-                      camp.campCode,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFA7F3D0)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.fiber_manual_record, color: Color(0xFF059669), size: 10),
-                        SizedBox(width: 5),
-                        Text(
-                          'LIVE OPERATIONAL STATION',
-                          style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.w700, fontSize: 10.5, letterSpacing: 0.3),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
@@ -944,9 +1182,13 @@ class HomeGatewayView extends ConsumerWidget {
                 children: [
                   const Icon(Icons.location_on_rounded, size: 15, color: Color(0xFF64748B)),
                   const SizedBox(width: 4),
-                  Text(
-                    '${camp.venue}, Ward ${camp.ward}, ${camp.municipality.isNotEmpty ? "${camp.municipality}, " : ""}${camp.district}',
-                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                  Flexible(
+                    child: Text(
+                      '${camp.venue}, Ward ${camp.ward}, ${camp.municipality.isNotEmpty ? "${camp.municipality}, " : ""}${camp.district}',
+                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
                   ),
                 ],
               ),
@@ -955,9 +1197,13 @@ class HomeGatewayView extends ConsumerWidget {
                 children: [
                   const Icon(Icons.date_range_rounded, size: 15, color: Color(0xFF64748B)),
                   const SizedBox(width: 4),
-                  Text(
-                    '${_formatDate(camp.startDate)} – ${_formatDate(camp.endDate)}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                  Flexible(
+                    child: Text(
+                      '${_formatDate(camp.startDate)} – ${_formatDate(camp.endDate)}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
                 ],
               ),
@@ -966,9 +1212,13 @@ class HomeGatewayView extends ConsumerWidget {
                 children: [
                   const Icon(Icons.badge_rounded, size: 15, color: Color(0xFF0F766E)),
                   const SizedBox(width: 4),
-                  Text(
-                    '${camp.assignedStaffIds.length} Staff Assigned',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF0F766E), fontWeight: FontWeight.bold),
+                  Flexible(
+                    child: Text(
+                      '${camp.assignedStaffIds.length} Staff Assigned',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF0F766E), fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
                 ],
               ),
@@ -983,10 +1233,14 @@ class HomeGatewayView extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Active Camp Operations & Roster Governance',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155), letterSpacing: 0.2),
+              const Expanded(
+                child: Text(
+                  'Active Camp Operations & Roster Governance',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155), letterSpacing: 0.2),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -1064,22 +1318,54 @@ class HomeGatewayView extends ConsumerWidget {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.verified_user_outlined, size: 18, color: Color(0xFF64748B)),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Clinical Intake & OCR Scanner are restricted to designated Data Taker consoles.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                  ),
-                ),
-                TextButton.icon(
+            child: LayoutBuilder(
+              builder: (ctx, constraints) {
+                final isCompact = constraints.maxWidth < 520;
+                final overrideBtn = TextButton.icon(
                   icon: const Icon(Icons.open_in_new, size: 14),
                   label: const Text('Clinical Override', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   onPressed: () => _showSupervisorClinicalOverrideDialog(context, campState),
-                ),
-              ],
+                );
+
+                if (isCompact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.verified_user_outlined, size: 18, color: Color(0xFF64748B)),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Clinical Intake & OCR Scanner are restricted to designated Data Taker consoles.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: overrideBtn,
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    const Icon(Icons.verified_user_outlined, size: 18, color: Color(0xFF64748B)),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Clinical Intake & OCR Scanner are restricted to designated Data Taker consoles.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                    ),
+                    overrideBtn,
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -1211,20 +1497,25 @@ class HomeGatewayView extends ConsumerWidget {
                         ),
                         child: Icon(icon, color: accentColor, size: 24),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: badgeColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: badgeColor.withValues(alpha: 0.28)),
-                        ),
-                        child: Text(
-                          badgeText,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: badgeColor,
-                            letterSpacing: 0.3,
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: badgeColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: badgeColor.withValues(alpha: 0.28)),
+                          ),
+                          child: Text(
+                            badgeText,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: badgeColor,
+                              letterSpacing: 0.3,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
                       ),
@@ -1254,12 +1545,16 @@ class HomeGatewayView extends ConsumerWidget {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Text(
-                    actionPrompt,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: accentColor,
+                  Flexible(
+                    child: Text(
+                      actionPrompt,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: accentColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -1305,9 +1600,11 @@ class HomeGatewayView extends ConsumerWidget {
               ),
             ],
           ),
-          content: SizedBox(
-            width: 500,
-            child: campState.camps.isEmpty
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: SizedBox(
+              width: double.maxFinite,
+              child: campState.camps.isEmpty
                 ? const Padding(
                     padding: EdgeInsets.all(16.0),
                     child: Text('No camps configured yet. Please schedule a new camp first.'),
@@ -1377,6 +1674,7 @@ class HomeGatewayView extends ConsumerWidget {
                       );
                     },
                   ),
+            ),
           ),
           actions: [
             TextButton(
@@ -1589,9 +1887,11 @@ class HomeGatewayView extends ConsumerWidget {
                 ),
               ],
             ),
-            content: SizedBox(
-              width: 550,
-              child: SingleChildScrollView(
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 550),
+              child: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1668,6 +1968,7 @@ class HomeGatewayView extends ConsumerWidget {
                 ),
               ),
             ),
+          ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogCtx),
@@ -1841,7 +2142,11 @@ class HomeGatewayView extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
 
-                    Row(
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 6,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1861,19 +2166,22 @@ class HomeGatewayView extends ConsumerWidget {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                campState.hasActiveCamp ? 'LIVE FIELD STATION ACTIVE' : 'NO ACTIVE CAMP OPEN',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.8,
+                              Flexible(
+                                child: Text(
+                                  campState.hasActiveCamp ? 'LIVE FIELD STATION ACTIVE' : 'NO ACTIVE CAMP OPEN',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.8,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const Spacer(),
                         if (campState.hasActiveCamp)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1941,42 +2249,88 @@ class HomeGatewayView extends ConsumerWidget {
                       const SizedBox(height: 16),
                       const Divider(color: Colors.white24, height: 1),
                       const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          _buildStationBadge(
-                            icon: Icons.people_outline,
-                            label: 'Total Intake',
-                            value: '${patientState.patients.length} Registered',
-                          ),
-                          const SizedBox(width: 20),
-                          _buildStationBadge(
-                            icon: syncState.hasPendingRecords ? Icons.cloud_queue : Icons.cloud_done,
-                            label: 'Sync Status',
-                            value: syncState.hasPendingRecords
-                                ? '${syncState.pendingTotalCount} Offline Pending'
-                                : '100% Synced',
-                          ),
-                          const Spacer(),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                      LayoutBuilder(
+                        builder: (ctx, constraints) {
+                          final isCompact = constraints.maxWidth < 520;
+                          if (isCompact) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 16,
+                                  runSpacing: 10,
+                                  children: [
+                                    _buildStationBadge(
+                                      icon: Icons.people_outline,
+                                      label: 'Total Intake',
+                                      value: '${patientState.patients.length} Registered',
+                                    ),
+                                    _buildStationBadge(
+                                      icon: syncState.hasPendingRecords ? Icons.cloud_queue : Icons.cloud_done,
+                                      label: 'Sync Status',
+                                      value: syncState.hasPendingRecords
+                                          ? '${syncState.pendingTotalCount} Offline Pending'
+                                          : '100% Synced',
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.person_pin_rounded, color: Colors.white70, size: 15),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Staff: ${user?.name ?? "Field Staff"} • Session: $sessionTime',
+                                        style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          }
+                          return Row(
                             children: [
-                              Text(
-                                user?.name ?? 'Field Staff',
-                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                              _buildStationBadge(
+                                icon: Icons.people_outline,
+                                label: 'Total Intake',
+                                value: '${patientState.patients.length} Registered',
                               ),
-                              Text(
-                                'Session: $sessionTime',
-                                style: const TextStyle(color: Colors.white60, fontSize: 10),
+                              const SizedBox(width: 20),
+                              _buildStationBadge(
+                                icon: syncState.hasPendingRecords ? Icons.cloud_queue : Icons.cloud_done,
+                                label: 'Sync Status',
+                                value: syncState.hasPendingRecords
+                                    ? '${syncState.pendingTotalCount} Offline Pending'
+                                    : '100% Synced',
+                              ),
+                              const Spacer(),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    user?.name ?? 'Field Staff',
+                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    'Session: $sessionTime',
+                                    style: const TextStyle(color: Colors.white60, fontSize: 10),
+                                  ),
+                                ],
                               ),
                             ],
-                          ),
-                        ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 14),
                       const Divider(color: Colors.white12, height: 1),
                       const SizedBox(height: 12),
-                      // TODAY'S SHIFT STATS ROW
-                      Row(
+                      // TODAY'S SHIFT STATS ROW (Responsive Wrap)
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 10,
                         children: [
                           _buildShiftStatChip(
                             icon: Icons.person_add_rounded,
@@ -1984,14 +2338,12 @@ class HomeGatewayView extends ConsumerWidget {
                             value: totalRegistered.toString(),
                             accent: const Color(0xFF34D399),
                           ),
-                          const SizedBox(width: 16),
                           _buildShiftStatChip(
                             icon: Icons.cloud_done_rounded,
                             label: 'Synced',
                             value: syncedCount.toString(),
                             accent: const Color(0xFF60A5FA),
                           ),
-                          const SizedBox(width: 16),
                           _buildShiftStatChip(
                             icon: Icons.cloud_queue_rounded,
                             label: 'Pending',
@@ -2090,130 +2442,157 @@ class HomeGatewayView extends ConsumerWidget {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildActionTile(
-                      icon: Icons.person_add_alt_1_rounded,
-                      title: 'Register Patient (दर्ता)',
-                      subtitle: 'Fast intake demographics, visit reasons, duplicate detection & consent',
-                      color: AppTheme.primaryTeal,
-                      stationBadge: 'Station 1: Intake',
-                      actionPrompt: 'New Patient Intake',
-                      onTap: () {
-                        if (!campState.hasActiveCamp) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please open or select an active camp first!')),
-                          );
-                          return;
-                        }
-                        if (!isCampAssigned) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Access Denied: Camp ${campState.activeCamp!.campCode} is not in your assigned camp list.'),
-                              backgroundColor: Colors.redAccent,
-                            ),
-                          );
-                          return;
-                        }
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const PatientRegistrationView()),
+              LayoutBuilder(
+                builder: (ctx, constraints) {
+                  final isCompact = constraints.maxWidth < 620;
+                  final tile1 = _buildActionTile(
+                    icon: Icons.person_add_alt_1_rounded,
+                    title: 'Register Patient (दर्ता)',
+                    subtitle: 'Fast intake demographics, visit reasons, duplicate detection & consent',
+                    color: AppTheme.primaryTeal,
+                    stationBadge: 'Station 1: Intake',
+                    actionPrompt: 'New Patient Intake',
+                    onTap: () {
+                      if (!campState.hasActiveCamp) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please open or select an active camp first!')),
                         );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _buildActionTile(
-                      icon: Icons.document_scanner_rounded,
-                      title: 'Scan Yellow Form (स्क्यान)',
-                      subtitle: 'Dual-page camera OCR, OMR checkbox detector & auto-population',
-                      color: const Color(0xFF0284C7),
-                      stationBadge: 'AI OCR Engine',
-                      actionPrompt: 'Launch Form Scanner',
-                      onTap: () {
-                        if (!campState.hasActiveCamp) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please open or select an active camp first!')),
-                          );
-                          return;
-                        }
-                        if (!isCampAssigned) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Access Denied: Camp ${campState.activeCamp!.campCode} is not in your assigned camp list.'),
-                              backgroundColor: Colors.redAccent,
-                            ),
-                          );
-                          return;
-                        }
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const FormScanView()),
+                        return;
+                      }
+                      if (!isCampAssigned) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Access Denied: Camp ${campState.activeCamp!.campCode} is not in your assigned camp list.'),
+                            backgroundColor: Colors.redAccent,
+                          ),
                         );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildActionTile(
-                      icon: Icons.people_alt_rounded,
-                      title: 'Patient Roll & Triage (सूची)',
-                      subtitle: 'Active triage queue, Station 1–6 clinical steppers & patient charts',
-                      color: const Color(0xFF4F46E5),
-                      stationBadge: 'Queue: ${patientState.patients.length}',
-                      actionPrompt: 'View All Patients',
-                      onTap: () {
-                        if (!campState.hasActiveCamp) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please open or select an active camp first!')),
-                          );
-                          return;
-                        }
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const PatientListView()),
+                        return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PatientRegistrationView()),
+                      );
+                    },
+                  );
+
+                  final tile2 = _buildActionTile(
+                    icon: Icons.document_scanner_rounded,
+                    title: 'Scan Yellow Form (स्क्यान)',
+                    subtitle: 'Dual-page camera OCR, OMR checkbox detector & auto-population',
+                    color: const Color(0xFF0284C7),
+                    stationBadge: 'AI OCR Engine',
+                    actionPrompt: 'Launch Form Scanner',
+                    onTap: () {
+                      if (!campState.hasActiveCamp) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please open or select an active camp first!')),
                         );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _buildActionTile(
-                      icon: syncState.isSyncing
-                          ? Icons.sync_rounded
-                          : (syncState.hasPendingRecords
-                              ? Icons.cloud_upload_rounded
-                              : Icons.cloud_done_rounded),
-                      title: 'Offline Sync Hub (सिंक)',
-                      subtitle: 'Local AES-256 encrypted database & central server replication',
-                      color: syncState.hasPendingRecords ? const Color(0xFFD97706) : const Color(0xFF059669),
-                      stationBadge: syncState.hasPendingRecords
-                          ? '${syncState.pendingTotalCount} Pending'
-                          : '100% Synced',
-                      actionPrompt: 'Check Sync Console',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const SyncStatusView()),
+                        return;
+                      }
+                      if (!isCampAssigned) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Access Denied: Camp ${campState.activeCamp!.campCode} is not in your assigned camp list.'),
+                            backgroundColor: Colors.redAccent,
+                          ),
                         );
-                      },
-                    ),
-                  ),
-                ],
+                        return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const FormScanView()),
+                      );
+                    },
+                  );
+
+                  final tile3 = _buildActionTile(
+                    icon: Icons.people_alt_rounded,
+                    title: 'Patient Roll & Triage (सूची)',
+                    subtitle: 'Active triage queue, Station 1–6 clinical steppers & patient charts',
+                    color: const Color(0xFF4F46E5),
+                    stationBadge: 'Queue: ${patientState.patients.length}',
+                    actionPrompt: 'View All Patients',
+                    onTap: () {
+                      if (!campState.hasActiveCamp) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please open or select an active camp first!')),
+                        );
+                        return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PatientListView()),
+                      );
+                    },
+                  );
+
+                  final tile4 = _buildActionTile(
+                    icon: syncState.isSyncing
+                        ? Icons.sync_rounded
+                        : (syncState.hasPendingRecords
+                            ? Icons.cloud_upload_rounded
+                            : Icons.cloud_done_rounded),
+                    title: 'Offline Sync Hub (सिंक)',
+                    subtitle: 'Local AES-256 encrypted database & central server replication',
+                    color: syncState.hasPendingRecords ? const Color(0xFFD97706) : const Color(0xFF059669),
+                    stationBadge: syncState.hasPendingRecords
+                        ? '${syncState.pendingTotalCount} Pending'
+                        : '100% Synced',
+                    actionPrompt: 'Check Sync Console',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SyncStatusView()),
+                      );
+                    },
+                  );
+
+                  if (isCompact) {
+                    return Column(
+                      children: [
+                        tile1,
+                        const SizedBox(height: 12),
+                        tile2,
+                        const SizedBox(height: 12),
+                        tile3,
+                        const SizedBox(height: 12),
+                        tile4,
+                      ],
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: tile1),
+                          const SizedBox(width: 14),
+                          Expanded(child: tile2),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(child: tile3),
+                          const SizedBox(width: 14),
+                          Expanded(child: tile4),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 24),
 
               // 4. Recent Station Intakes / Live Queue Section
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
                 children: [
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
                         'Recent Station Intakes',
@@ -2303,66 +2682,167 @@ class HomeGatewayView extends ConsumerWidget {
                         side: const BorderSide(color: Color(0xFFE2E8F0)),
                       ),
                       color: Colors.white,
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        leading: CircleAvatar(
-                          backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                          child: Text(
-                            p.firstName.isNotEmpty ? p.firstName[0].toUpperCase() : 'P',
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
-                          ),
-                        ),
-                        title: Row(
-                          children: [
-                            Text(
-                              '${p.firstName} ${p.surname}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.blueGrey.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                p.patientId,
-                                style: const TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
-                        subtitle: Text(
-                          'Age: ${p.age} • Ward ${p.ward} • ${p.reasonsForVisit.isNotEmpty ? p.reasonsForVisit.first : "General Checkup"}',
-                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                        ),
-                        trailing: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryTeal,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: const Icon(Icons.assignment_outlined, size: 14),
-                          label: const Text('Clinical Chart', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ClinicalAssessmentView(patient: p),
+                      child: LayoutBuilder(
+                        builder: (ctx, itemConstraints) {
+                          final isNarrowItem = itemConstraints.maxWidth < 480;
+                          if (isNarrowItem) {
+                            return InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ClinicalAssessmentView(patient: p),
+                                  ),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        CircleAvatar(
+                                          backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                                          child: Text(
+                                            p.firstName.isNotEmpty ? p.firstName[0].toUpperCase() : 'P',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Flexible(
+                                                    child: Text(
+                                                      '${p.firstName} ${p.surname}',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.blueGrey.withValues(alpha: 0.1),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: Text(
+                                                      p.patientId,
+                                                      style: const TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                'Age: ${p.age} • Ward ${p.ward} • ${p.reasonsForVisit.isNotEmpty ? p.reasonsForVisit.first : "General Checkup"}',
+                                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.primaryTeal,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 8),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        icon: const Icon(Icons.assignment_outlined, size: 14),
+                                        label: const Text('Clinical Chart', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => ClinicalAssessmentView(patient: p),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
-                          },
-                        ),
+                          }
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            leading: CircleAvatar(
+                              backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                              child: Text(
+                                p.firstName.isNotEmpty ? p.firstName[0].toUpperCase() : 'P',
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                              ),
+                            ),
+                            title: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    '${p.firstName} ${p.surname}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueGrey.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    p.patientId,
+                                    style: const TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            subtitle: Text(
+                              'Age: ${p.age} • Ward ${p.ward} • ${p.reasonsForVisit.isNotEmpty ? p.reasonsForVisit.first : "General Checkup"}',
+                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryTeal,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.assignment_outlined, size: 14),
+                              label: const Text('Clinical Chart', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ClinicalAssessmentView(patient: p),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
                       ),
                     );
                   },
                 ),
               const SizedBox(height: 24),
 
-              // 5. Shift Summary & Lead Handover Card
+              // 5. Shift Summary & Lead Handover Card (Responsive)
               Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -2372,74 +2852,126 @@ class HomeGatewayView extends ConsumerWidget {
                 color: Colors.white,
                 child: Padding(
                   padding: const EdgeInsets.all(18.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.teal.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(Icons.picture_as_pdf_rounded, color: Colors.teal.shade700, size: 28),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
+                  child: LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      final isCompact = constraints.maxWidth < 650;
+                      final actionButtons = Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.teal.shade800,
+                              side: BorderSide(color: Colors.teal.shade200),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.history_edu_rounded, size: 18),
+                            label: const Text('My Activity', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const AuditTrailView(),
+                                ),
+                              );
+                            },
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.teal.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.summarize_rounded, size: 18),
+                            label: const Text('Camp Summary', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CampReportView(
+                                    initialCampId: campState.activeCamp?.id,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      );
+
+                      if (isCompact) {
+                        return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Camp Clinical Summary & Lead Handover',
-                              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.teal.shade50,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(Icons.picture_as_pdf_rounded, color: Colors.teal.shade700, size: 28),
+                                ),
+                                const SizedBox(width: 14),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Camp Clinical Summary & Lead Handover',
+                                        style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Generate instant PDF summary for the camp lead before leaving the venue.',
+                                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Generate instant PDF summary for the camp lead before leaving the venue.',
-                              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                            ),
+                            const SizedBox(height: 14),
+                            actionButtons,
                           ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.teal.shade800,
-                          side: BorderSide(color: Colors.teal.shade200),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: const Icon(Icons.history_edu_rounded, size: 18),
-                        label: const Text('My Activity', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const AuditTrailView(),
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal.shade700,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: const Icon(Icons.summarize_rounded, size: 18),
-                        label: const Text('Camp Summary', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => CampReportView(
-                                initialCampId: campState.activeCamp?.id,
-                              ),
+                            child: Icon(Icons.picture_as_pdf_rounded, color: Colors.teal.shade700, size: 28),
+                          ),
+                          const SizedBox(width: 16),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Camp Clinical Summary & Lead Handover',
+                                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Generate instant PDF summary for the camp lead before leaving the venue.',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                ),
+                              ],
                             ),
-                          );
-                        },
-                      ),
-                    ],
+                          ),
+                          const SizedBox(width: 8),
+                          actionButtons,
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -2561,20 +3093,24 @@ class HomeGatewayView extends ConsumerWidget {
                     child: Icon(icon, color: color, size: 24),
                   ),
                   if (stationBadge != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: color.withValues(alpha: 0.2)),
-                      ),
-                      child: Text(
-                        stationBadge,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                          letterSpacing: 0.3,
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: color.withValues(alpha: 0.2)),
+                        ),
+                        child: Text(
+                          stationBadge,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                            letterSpacing: 0.3,
+                          ),
                         ),
                       ),
                     ),
@@ -2594,12 +3130,16 @@ class HomeGatewayView extends ConsumerWidget {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    Text(
-                      actionPrompt,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: color,
+                    Flexible(
+                      child: Text(
+                        actionPrompt,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -2663,20 +3203,25 @@ class HomeGatewayView extends ConsumerWidget {
                       ),
                       child: Icon(icon, color: iconColor, size: 22),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: badgeColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 0.8),
-                      ),
-                      child: Text(
-                        badgeText,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
-                          color: badgeColor,
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 0.8),
+                        ),
+                        child: Text(
+                          badgeText,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                            color: badgeColor,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
                     ),
@@ -2764,11 +3309,19 @@ class HomeGatewayView extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actionsOverflowButtonSpacing: 8,
+        actionsOverflowDirection: VerticalDirection.down,
         title: const Row(
           children: [
             Icon(Icons.medical_services_rounded, color: AppTheme.primaryTeal),
             SizedBox(width: 10),
-            Text('Supervisor Clinical Override', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text(
+                'Supervisor Clinical Override',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: const Text(
@@ -2846,61 +3399,64 @@ class HomeGatewayView extends ConsumerWidget {
             ),
           ],
         ),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Administrator / User Name *',
-                    hintText: 'e.g. System Administrator or Dr. Jane Doe',
-                    prefixIcon: Icon(Icons.person_outline, size: 18),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Administrator / User Name *',
+                      hintText: 'e.g. System Administrator or Dr. Jane Doe',
+                      prefixIcon: Icon(Icons.person_outline, size: 18),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: tenantCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Organization / Tenant Name *',
-                    hintText: 'e.g. Nepal Health Outreach Network',
-                    prefixIcon: Icon(Icons.corporate_fare_outlined, size: 18),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: tenantCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Organization / Tenant Name *',
+                      hintText: 'e.g. Nepal Health Outreach Network',
+                      prefixIcon: Icon(Icons.corporate_fare_outlined, size: 18),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: phoneCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Contact Phone Number',
-                    hintText: 'e.g. 9851000001',
-                    prefixIcon: Icon(Icons.phone_outlined, size: 18),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: phoneCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Contact Phone Number',
+                      hintText: 'e.g. 9851000001',
+                      prefixIcon: Icon(Icons.phone_outlined, size: 18),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFBBF7D0)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, size: 16, color: Color(0xFF16A34A)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Tenant ID: ${user.tenantId} • Role: ${user.role.displayNameEn}',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, size: 16, color: Color(0xFF16A34A)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Tenant ID: ${user.tenantId} • Role: ${user.role.displayNameEn}',
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -3226,7 +3782,10 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Role Badge & Tenant
-                    Row(
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -3239,39 +3798,41 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                             children: [
                               Icon(Icons.analytics_rounded, color: Colors.white, size: 14),
                               SizedBox(width: 5),
-                              Text(
-                                'CLINICAL DATA ANALYST WORKSTATION',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.8,
+                              Flexible(
+                                child: Text(
+                                  'CLINICAL DATA ANALYST WORKSTATION',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.8,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Builder(
-                            builder: (context) {
-                              final tenantName = user?.tenantName;
-                              final tenantId = user?.tenantId;
-                              final orgName = (tenantName != null && tenantName.trim().isNotEmpty)
-                                  ? tenantName
-                                  : (currentCamp?.organizationName ?? "Nepal Health Outreach Network");
-                              final tenantTag = (tenantId != null && tenantId.isNotEmpty) ? tenantId : "tenant_default";
-                              return Text(
-                                '$orgName • Tenant: $tenantTag',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              );
-                            },
-                          ),
+                        Builder(
+                          builder: (context) {
+                            final tenantName = user?.tenantName;
+                            final tenantId = user?.tenantId;
+                            final orgName = (tenantName != null && tenantName.trim().isNotEmpty)
+                                ? tenantName
+                                : (currentCamp?.organizationName ?? "Nepal Health Outreach Network");
+                            final tenantTag = (tenantId != null && tenantId.isNotEmpty) ? tenantId : "tenant_default";
+                            return Text(
+                              '$orgName • Tenant: $tenantTag',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -3333,6 +3894,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
+                              isExpanded: true,
                               dropdownColor: const Color(0xFF1E293B),
                               value: currentCamp?.id,
                               hint: const Text('Select Camp', style: TextStyle(color: Colors.white70)),
@@ -3343,6 +3905,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                                   child: Text(
                                     '${c.campCode} - ${c.name}',
                                     style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
                                   ),
                                 );
                               }).toList(),
@@ -3373,7 +3937,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           children: [
                             Expanded(child: userProfile),
                             const SizedBox(width: 16),
-                            campSwitcher,
+                            SizedBox(width: 280, child: campSwitcher),
                           ],
                         );
                       },
@@ -3490,7 +4054,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     physics: const NeverScrollableScrollPhysics(),
                     mainAxisSpacing: 10,
                     crossAxisSpacing: 10,
-                    childAspectRatio: 1.6,
+                    childAspectRatio: constraints.maxWidth < 420 ? 1.25 : 1.5,
                     children: cards,
                   );
                 },
@@ -3512,43 +4076,78 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           children: [
                             const Icon(Icons.bar_chart_rounded, color: Color(0xFF0F766E), size: 22),
                             const SizedBox(width: 8),
-                            const Text(
-                              'Pelvic Organ Prolapse Severity Spectrum (Baden-Walker / POP-Q)',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                            const Expanded(
+                              child: Text(
+                                'Pelvic Organ Prolapse Severity Spectrum (Baden-Walker / POP-Q)',
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            _buildPopSpectrumSegment(
+                        LayoutBuilder(
+                          builder: (ctx, constraints) {
+                            final isCompact = constraints.maxWidth < 580;
+                            final seg0 = _buildPopSpectrumSegment(
                               label: 'Stage 0 (Normal)',
                               count: summary.highestPopStages[0] ?? 0,
                               total: summary.totalVisitsRecorded,
                               color: const Color(0xFF10B981),
-                            ),
-                            const SizedBox(width: 10),
-                            _buildPopSpectrumSegment(
+                            );
+                            final seg1 = _buildPopSpectrumSegment(
                               label: 'Stage I (Mild)',
                               count: summary.highestPopStages[1] ?? 0,
                               total: summary.totalVisitsRecorded,
                               color: const Color(0xFF06B6D4),
-                            ),
-                            const SizedBox(width: 10),
-                            _buildPopSpectrumSegment(
+                            );
+                            final seg2 = _buildPopSpectrumSegment(
                               label: 'Stage II (Moderate)',
                               count: summary.highestPopStages[2] ?? 0,
                               total: summary.totalVisitsRecorded,
                               color: const Color(0xFFF59E0B),
-                            ),
-                            const SizedBox(width: 10),
-                            _buildPopSpectrumSegment(
+                            );
+                            final seg3 = _buildPopSpectrumSegment(
                               label: 'Stage III-IV (Severe)',
                               count: (summary.highestPopStages[3] ?? 0) + (summary.highestPopStages[4] ?? 0),
                               total: summary.totalVisitsRecorded,
                               color: const Color(0xFFEF4444),
-                            ),
-                          ],
+                            );
+
+                            if (isCompact) {
+                              return Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      seg0,
+                                      const SizedBox(width: 10),
+                                      seg1,
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      seg2,
+                                      const SizedBox(width: 10),
+                                      seg3,
+                                    ],
+                                  ),
+                                ],
+                              );
+                            }
+
+                            return Row(
+                              children: [
+                                seg0,
+                                const SizedBox(width: 10),
+                                seg1,
+                                const SizedBox(width: 10),
+                                seg2,
+                                const SizedBox(width: 10),
+                                seg3,
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -3669,83 +4268,79 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  // Avatar
-                                  CircleAvatar(
+                              child: LayoutBuilder(
+                                builder: (ctx, constraints) {
+                                  final isCompact = constraints.maxWidth < 640;
+
+                                  final avatar = CircleAvatar(
                                     radius: 22,
                                     backgroundColor: const Color(0xFF0F766E).withValues(alpha: 0.12),
                                     child: Text(
                                       patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
                                       style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F766E), fontSize: 16),
                                     ),
-                                  ),
-                                  const SizedBox(width: 14),
+                                  );
 
-                                  // Bio & Medical Tags
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Text(
+                                  final bioColumn = Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
                                               patient.fullName,
                                               style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFF1F5F9),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                patient.patientId,
-                                                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                                              ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF1F5F9),
+                                              borderRadius: BorderRadius.circular(6),
                                             ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          'Age: ${patient.age}y • Ward: ${patient.ward} • Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"}',
-                                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                                        ),
-                                        if (visit != null) ...[
-                                          const SizedBox(height: 4),
-                                          Wrap(
-                                            spacing: 6,
-                                            runSpacing: 4,
-                                            children: [
-                                              _buildMiniBadge(
-                                                text: 'POP Stage ${visit.highestPopStage}',
-                                                color: visit.highestPopStage >= 2 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
-                                              ),
-                                              if (visit.systolicBp != null && visit.diastolicBp != null)
-                                                _buildMiniBadge(
-                                                  text: 'BP ${visit.systolicBp}/${visit.diastolicBp}',
-                                                  color: (visit.systolicBp! >= 140 || visit.diastolicBp! >= 90)
-                                                      ? const Color(0xFFEF4444)
-                                                      : const Color(0xFF3B82F6),
-                                                ),
-                                              if (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty)
-                                                _buildMiniBadge(
-                                                  text: 'Ref: ${visit.surgicalReferral}',
-                                                  color: const Color(0xFFDC2626),
-                                                ),
-                                            ],
+                                            child: Text(
+                                              patient.patientId,
+                                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                            ),
                                           ),
                                         ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Age: ${patient.age}y • Ward: ${patient.ward} • Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"}',
+                                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                      ),
+                                      if (visit != null) ...[
+                                        const SizedBox(height: 4),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 4,
+                                          children: [
+                                            _buildMiniBadge(
+                                              text: 'POP Stage ${visit.highestPopStage}',
+                                              color: visit.highestPopStage >= 2 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                                            ),
+                                            if (visit.systolicBp != null && visit.diastolicBp != null)
+                                              _buildMiniBadge(
+                                                text: 'BP ${visit.systolicBp}/${visit.diastolicBp}',
+                                                color: (visit.systolicBp! >= 140 || visit.diastolicBp! >= 90)
+                                                    ? const Color(0xFFEF4444)
+                                                    : const Color(0xFF3B82F6),
+                                              ),
+                                            if (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty)
+                                              _buildMiniBadge(
+                                                text: 'Ref: ${visit.surgicalReferral}',
+                                                color: const Color(0xFFDC2626),
+                                              ),
+                                          ],
+                                        ),
                                       ],
-                                    ),
-                                  ),
+                                    ],
+                                  );
 
-                                  const SizedBox(width: 10),
-
-                                  // Actions
-                                  OutlinedButton.icon(
+                                  final inspectBtn = OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: const Color(0xFF0F766E),
                                       side: BorderSide(color: Colors.teal.shade200),
@@ -3755,9 +4350,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                                     icon: const Icon(Icons.visibility_outlined, size: 15),
                                     label: const Text('Inspect', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                     onPressed: () => _inspectPatientDossier(patient),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  ElevatedButton.icon(
+                                  );
+
+                                  final dossierBtn = ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF0F766E),
                                       foregroundColor: Colors.white,
@@ -3776,8 +4371,45 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                     ),
                                     onPressed: isExporting ? null : () => _exportPatientDossier(patient),
-                                  ),
-                                ],
+                                  );
+
+                                  if (isCompact) {
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            avatar,
+                                            const SizedBox(width: 12),
+                                            Expanded(child: bioColumn),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Row(
+                                          children: [
+                                            Expanded(child: inspectBtn),
+                                            const SizedBox(width: 8),
+                                            Expanded(child: dossierBtn),
+                                          ],
+                                        ),
+                                      ],
+                                    );
+                                  }
+
+                                  return Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      avatar,
+                                      const SizedBox(width: 14),
+                                      Expanded(child: bioColumn),
+                                      const SizedBox(width: 10),
+                                      inspectBtn,
+                                      const SizedBox(width: 8),
+                                      dossierBtn,
+                                    ],
+                                  );
+                                },
                               ),
                             );
                           },
@@ -3837,7 +4469,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -3853,30 +4485,35 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   value,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                  style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -4011,9 +4648,12 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
                     children: [
                       Row(
                         children: [
-                          Text(
-                            p.fullName,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          Flexible(
+                            child: Text(
+                              p.fullName,
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Container(
