@@ -271,7 +271,7 @@ void main() {
       expect(capturedDetails2, isNull);
       expect(find.text('Patient Registration (दर्ता)'), findsOneWidget);
       expect(find.text('Demographics'), findsOneWidget);
-      expect(find.textContaining('First Name * (नाम)'), findsOneWidget);
+      expect(find.textContaining('First Name * (पहिलो नाम)'), findsOneWidget);
 
       // Verify Desktop layout transition
       tester.view.physicalSize = const Size(1024, 768);
