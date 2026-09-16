@@ -132,31 +132,51 @@ class OcrFormService {
 
     if (!isPage2Only) {
       // ── First & Last Name ──
-      String? rawName = findValueForLabel([
-        'patient name', 'Patient Name', 'बिरामीको नाम', 'नाम',
-        'patient narne', 'patient nane',
-      ]);
+      // Check for distinct First Name / Surname fields first (from block-letter forms)
+      final extractedFirstName = findValueForLabel(['first name', 'पहिलो नाम', 'given name']);
+      final extractedSurname = findValueForLabel(['surname', 'last name', 'थर', 'family name']);
 
-      if (rawName == null || rawName.isEmpty) {
-        final nameMatch = RegExp(
-          r'(?<!husband[^\n]{0,10})(?<!spouse[^\n]{0,10})(?<!father[^\n]{0,10})(?<!relative[^\n]{0,10})'
-          r'(?:patient\s*name|patient|नाम)[:\s]+([A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F\s]{1,35})',
-          caseSensitive: false,
-        ).firstMatch(text);
-        rawName = nameMatch?.group(1)?.trim().split(RegExp(r'[\r\n]+')).first.trim();
+      if ((extractedFirstName != null && extractedFirstName.isNotEmpty) ||
+          (extractedSurname != null && extractedSurname.isNotEmpty)) {
+        if (extractedFirstName != null && extractedFirstName.isNotEmpty) {
+          final cleanFirst = extractedFirstName.replaceAll(RegExp(r'\s*(surname|last name|थर|age|mobile).*$', caseSensitive: false), '').trim();
+          demographics['firstName'] = _capitalizeFirst(cleanFirst.split(RegExp(r'\s+')).first);
+        }
+        if (extractedSurname != null && extractedSurname.isNotEmpty) {
+          final cleanSurname = extractedSurname.replaceAll(RegExp(r'\s*(age|mobile|district|ward|उमेर).*$', caseSensitive: false), '').trim();
+          demographics['surname'] = _capitalizeFirst(cleanSurname.split(RegExp(r'\s+')).first);
+        }
+        confidences['name'] = (demographics['firstName'] != null && demographics['surname'] != null) ? 0.96 : 0.80;
       }
 
-      if (rawName != null && rawName.isNotEmpty) {
-        rawName = rawName.replaceAll(RegExp(r'\s*(age|mobile|district|ward|उमेर|husband|spouse).*$', caseSensitive: false), '').trim();
-        final parts = rawName.split(RegExp(r'\s+')).where((p) => p.trim().isNotEmpty).toList();
-        if (parts.length >= 2) {
-          demographics['firstName'] = _capitalizeFirst(parts.first);
-          demographics['surname'] = parts.sublist(1).map(_capitalizeFirst).join(' ');
-          confidences['name'] = 0.95;
-        } else if (parts.isNotEmpty) {
-          demographics['firstName'] = _capitalizeFirst(parts.first);
-          demographics['surname'] = null;
-          confidences['name'] = 0.70;
+      String? rawName;
+      if (demographics['firstName'] == null) {
+        rawName = findValueForLabel([
+          'patient name', 'Patient Name', 'बिरामीको नाम', 'नाम',
+          'patient narne', 'patient nane',
+        ]);
+
+        if (rawName == null || rawName.isEmpty) {
+          final nameMatch = RegExp(
+            r'(?<!husband[^\n]{0,10})(?<!spouse[^\n]{0,10})(?<!father[^\n]{0,10})(?<!relative[^\n]{0,10})'
+            r'(?:patient\s*name|patient|नाम)[:\s]+([A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F\s]{1,35})',
+            caseSensitive: false,
+          ).firstMatch(text);
+          rawName = nameMatch?.group(1)?.trim().split(RegExp(r'[\r\n]+')).first.trim();
+        }
+
+        if (rawName != null && rawName.isNotEmpty) {
+          rawName = rawName.replaceAll(RegExp(r'\s*(age|mobile|district|ward|उमेर|husband|spouse).*$', caseSensitive: false), '').trim();
+          final parts = rawName.split(RegExp(r'\s+')).where((p) => p.trim().isNotEmpty).toList();
+          if (parts.length >= 2) {
+            demographics['firstName'] = _capitalizeFirst(parts.first);
+            demographics['surname'] = parts.sublist(1).map(_capitalizeFirst).join(' ');
+            confidences['name'] = 0.95;
+          } else if (parts.isNotEmpty) {
+            demographics['firstName'] = _capitalizeFirst(parts.first);
+            demographics['surname'] = null;
+            confidences['name'] = 0.70;
+          }
         }
       }
       demographics.putIfAbsent('firstName', () => null);

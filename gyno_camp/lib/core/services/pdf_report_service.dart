@@ -1627,7 +1627,9 @@ class PdfReportService {
 
           // ── SECTION A: DEMOGRAPHICS ────────────────────────────────────
           _buildPdfSectionHeader('SECTION A: PATIENT DEMOGRAPHICS / बिरामी विवरण', primary),
-          pw.SizedBox(height: 6),
+          pw.SizedBox(height: 5),
+          pw.Text('PATIENT NAME (बिरामीको नाम):', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: dark)),
+          pw.SizedBox(height: 3),
 
           // First Name + Surname on one row
           pw.Row(

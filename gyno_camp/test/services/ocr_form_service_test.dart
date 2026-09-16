@@ -65,6 +65,22 @@ void main() {
     test('relative type from bracket', () => expect(d['relativeType'], 'Husband'));
     test('null firstName on blank (no fake Sita)', () => expect(service.parseFormText(_blank).demographics['firstName'], isNull));
     test('null relativeName on blank (no fake Ram Bahadur)', () => expect(service.parseFormText(_blank).demographics['relativeName'], isNull));
+    test('extracts First Name and Surname from block form layout', () {
+      const blockFormText = """
+SECTION A: PATIENT DEMOGRAPHICS
+First Name: Suntali
+Surname: Tamang
+Age: 48
+Mobile: 9841555666
+District: Kathmandu
+Ward: 03
+""";
+      final res = service.parseFormText(blockFormText, pageNumber: 1).demographics;
+      expect(res['firstName'], 'Suntali');
+      expect(res['surname'], 'Tamang');
+      expect(res['age'], 48);
+      expect(res['mobile'], '9841555666');
+    });
   });
 
   group('Visit Reasons — exact model keys', () {
