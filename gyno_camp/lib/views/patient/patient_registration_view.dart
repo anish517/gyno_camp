@@ -41,6 +41,7 @@ class _PatientRegistrationViewState
   final _maritalAgeController = TextEditingController();
   final _contactPersonController = TextEditingController();
   final _contactMobileController = TextEditingController();
+  bool _showBlockGrid = true;
 
   // Reason options with proper clinical display labels (matching Yellow Form page 1)
   // Keys are the stored values, Values are clinical display names for staff
@@ -185,6 +186,64 @@ class _PatientRegistrationViewState
         );
       }
     }
+  }
+
+  Widget _buildBlockGrid(String value, int minBoxes, {String? label}) {
+    if (!_showBlockGrid) return const SizedBox.shrink();
+    final chars = value.toUpperCase().split('');
+    final total = chars.length > minBoxes ? chars.length : minBoxes;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (label != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF64748B),
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(total, (i) {
+                final hasChar = i < chars.length && chars[i].isNotEmpty;
+                return Container(
+                  width: 21,
+                  height: 23,
+                  margin: const EdgeInsets.only(right: 2.5),
+                  decoration: BoxDecoration(
+                    color: hasChar ? const Color(0xFFF0FDFA) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: hasChar ? AppTheme.primaryTeal : const Color(0xFFCBD5E1),
+                      width: hasChar ? 1.2 : 0.7,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      hasChar ? chars[i] : '',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: hasChar ? AppTheme.primaryDark : const Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _submitRegistrationForm({
@@ -387,6 +446,11 @@ class _PatientRegistrationViewState
               onPressed: _fillSamplePatient,
             ),
           IconButton(
+            tooltip: 'Print Blank Grid Form (खाली फाराम)',
+            icon: const Icon(Icons.print_outlined, size: 20),
+            onPressed: () => _printBlankRegistrationForm(camp),
+          ),
+          IconButton(
             tooltip: 'Clear Form',
             icon: const Icon(Icons.refresh_rounded, size: 20),
             onPressed: _clearForm,
@@ -419,39 +483,62 @@ class _PatientRegistrationViewState
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: const Color(0xFF93C5FD), width: 1.2),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.edit_note_rounded, color: Color(0xFF1D4ED8), size: 22),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: RichText(
-                              text: const TextSpan(
-                                style: TextStyle(fontSize: 12.5, color: Color(0xFF1E3A8A)),
-                                children: [
-                                  TextSpan(
-                                    text: 'INSTRUCTION: PLEASE FILL IN BLOCK LETTERS ',
-                                    style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          Row(
+                            children: [
+                              const Icon(Icons.edit_note_rounded, color: Color(0xFF1D4ED8), size: 22),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: RichText(
+                                  text: const TextSpan(
+                                    style: TextStyle(fontSize: 12.5, color: Color(0xFF1E3A8A)),
+                                    children: [
+                                      TextSpan(
+                                        text: 'INSTRUCTION: PLEASE FILL IN BLOCK LETTERS ',
+                                        style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                      ),
+                                      TextSpan(
+                                        text: '(कृपया सबै विवरण सफा ठूला अक्षरमा भर्नुहोस्)',
+                                        style: TextStyle(fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
                                   ),
-                                  TextSpan(
-                                    text: '(कृपया सबै विवरण सफा ठूला अक्षरमा भर्नुहोस्)',
-                                    style: TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: 10),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF1D4ED8),
-                              side: const BorderSide(color: Color(0xFF93C5FD)),
-                              backgroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: const Icon(Icons.print_outlined, size: 15),
-                            label: const Text('Print Blank Form', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                            onPressed: () => _printBlankRegistrationForm(camp),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF1D4ED8),
+                                  side: const BorderSide(color: Color(0xFF93C5FD)),
+                                  backgroundColor: _showBlockGrid ? const Color(0xFFDBEAFE) : Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: Icon(_showBlockGrid ? Icons.grid_view_rounded : Icons.grid_off_rounded, size: 15),
+                                label: Text(_showBlockGrid ? 'Block Grid: ON' : 'Block Grid: OFF', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                onPressed: () => setState(() => _showBlockGrid = !_showBlockGrid),
+                              ),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF1D4ED8),
+                                  side: const BorderSide(color: Color(0xFF93C5FD)),
+                                  backgroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.print_outlined, size: 15),
+                                label: const Text('Print Blank Form', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                onPressed: () => _printBlankRegistrationForm(camp),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -685,9 +772,11 @@ class _PatientRegistrationViewState
                             ),
                             onChanged: (val) {
                               vm.updateField(firstName: val.toUpperCase());
+                              setState(() {});
                               _triggerLiveDuplicateCheck();
                             },
                           ),
+                          _buildBlockGrid(_firstNameController.text, 14, label: 'First Name Square Blocks (पहिलो नाम):'),
                           const SizedBox(height: 12),
                           TextField(
                             controller: _surnameController,
@@ -701,9 +790,11 @@ class _PatientRegistrationViewState
                             ),
                             onChanged: (val) {
                               vm.updateField(surname: val.toUpperCase());
+                              setState(() {});
                               _triggerLiveDuplicateCheck();
                             },
                           ),
+                          _buildBlockGrid(_surnameController.text, 14, label: 'Surname Square Blocks (थर):'),
                           const SizedBox(height: 12),
                           Row(
                             children: [
@@ -738,6 +829,7 @@ class _PatientRegistrationViewState
                                   ),
                                   onChanged: (val) {
                                     vm.updateField(ward: val);
+                                    setState(() {});
                                     _triggerLiveDuplicateCheck();
                                   },
                                 ),
@@ -777,8 +869,12 @@ class _PatientRegistrationViewState
                               hintText: 'e.g. KATHMANDU',
                               prefixIcon: Icon(Icons.location_city_outlined),
                             ),
-                            onChanged: (val) => vm.updateField(district: val.toUpperCase()),
+                            onChanged: (val) {
+                              vm.updateField(district: val.toUpperCase());
+                              setState(() {});
+                            },
                           ),
+                          _buildBlockGrid(_districtController.text, 14, label: 'District Square Blocks (जिल्ला):'),
                           const SizedBox(height: 12),
                           TextField(
                             controller: _municipalityController,
@@ -790,8 +886,12 @@ class _PatientRegistrationViewState
                               hintText: 'e.g. BUDHANILKANTHA',
                               prefixIcon: Icon(Icons.domain_outlined),
                             ),
-                            onChanged: (val) => vm.updateField(municipality: val.toUpperCase()),
+                            onChanged: (val) {
+                              vm.updateField(municipality: val.toUpperCase());
+                              setState(() {});
+                            },
                           ),
+                          _buildBlockGrid(_municipalityController.text, 14, label: 'Municipality Square Blocks (पालिका):'),
                         ] else ...[
                           Row(
                             children: [
@@ -808,6 +908,7 @@ class _PatientRegistrationViewState
                                   ),
                                   onChanged: (val) {
                                     vm.updateField(firstName: val.toUpperCase());
+                                    setState(() {});
                                     _triggerLiveDuplicateCheck();
                                   },
                                 ),
@@ -826,12 +927,29 @@ class _PatientRegistrationViewState
                                   ),
                                   onChanged: (val) {
                                     vm.updateField(surname: val.toUpperCase());
+                                    setState(() {});
                                     _triggerLiveDuplicateCheck();
                                   },
                                 ),
                               ),
                             ],
                           ),
+                          if (_showBlockGrid)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: _buildBlockGrid(_firstNameController.text, 14, label: 'First Name Square Blocks (पहिलो नाम):'),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildBlockGrid(_surnameController.text, 14, label: 'Surname Square Blocks (थर):'),
+                                  ),
+                                ],
+                              ),
+                            ),
                           const SizedBox(height: 14),
                           Row(
                             children: [
@@ -866,6 +984,7 @@ class _PatientRegistrationViewState
                                   ),
                                   onChanged: (val) {
                                     vm.updateField(ward: val);
+                                    setState(() {});
                                     _triggerLiveDuplicateCheck();
                                   },
                                 ),
@@ -917,6 +1036,7 @@ class _PatientRegistrationViewState
                                   ),
                                   onChanged: (val) {
                                     vm.updateField(district: val.toUpperCase());
+                                    setState(() {});
                                   },
                                 ),
                               ),
@@ -936,11 +1056,32 @@ class _PatientRegistrationViewState
                                   ),
                                   onChanged: (val) {
                                     vm.updateField(municipality: val.toUpperCase());
+                                    setState(() {});
                                   },
                                 ),
                               ),
                             ],
                           ),
+                          if (_showBlockGrid)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Spacer(flex: 2),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    flex: 3,
+                                    child: _buildBlockGrid(_districtController.text, 14, label: 'District Square Blocks (जिल्ला):'),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    flex: 3,
+                                    child: _buildBlockGrid(_municipalityController.text, 14, label: 'Municipality Square Blocks (पालिका):'),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       ],
                     ),
@@ -1183,8 +1324,15 @@ class _PatientRegistrationViewState
                                       vm.updateField(
                                         spouseOrFatherName: val.toUpperCase(),
                                       );
+                                      setState(() {});
                                       _triggerLiveDuplicateCheck();
                                     },
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildBlockGrid(
+                                    _spouseOrFatherController.text,
+                                    20,
+                                    label: 'Relative / Spouse Square Blocks (नाता/नाम):',
                                   ),
                                   const SizedBox(height: 12),
                                   DropdownButtonFormField<String>(
@@ -1230,6 +1378,7 @@ class _PatientRegistrationViewState
                                             vm.updateField(
                                               spouseOrFatherName: val.toUpperCase(),
                                             );
+                                            setState(() {});
                                             _triggerLiveDuplicateCheck();
                                           },
                                         ),
@@ -1261,6 +1410,24 @@ class _PatientRegistrationViewState
                                       ),
                                     ],
                                   ),
+                                    if (_showBlockGrid)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              flex: 3,
+                                              child: _buildBlockGrid(
+                                                _spouseOrFatherController.text,
+                                                20,
+                                                label: 'Relative / Spouse Square Blocks (नाता/नाम):',
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            const Spacer(flex: 2),
+                                          ],
+                                        ),
+                                      ),
                                 ],
                                 const SizedBox(height: 14),
 
@@ -1379,9 +1546,16 @@ class _PatientRegistrationViewState
                           ),
                           onChanged: (val) {
                             vm.updateField(mobile: val);
+                            setState(() {});
                             _triggerLiveDuplicateCheck();
                           },
                         ),
+                        if (_showBlockGrid)
+                          _buildBlockGrid(
+                            _mobileController.text,
+                            10,
+                            label: "Woman's Mobile Number Blocks (१० बक्स):",
+                          ),
                         const SizedBox(height: 10),
                         if (isMobile) ...[
                           TextField(
@@ -1397,8 +1571,15 @@ class _PatientRegistrationViewState
                             ),
                             onChanged: (val) {
                               vm.updateField(contactPerson: val.toUpperCase());
+                              setState(() {});
                             },
                           ),
+                          if (_showBlockGrid)
+                            _buildBlockGrid(
+                              _contactPersonController.text,
+                              14,
+                              label: 'Secondary Contact Person Blocks (सम्पर्क व्यक्ति):',
+                            ),
                           const SizedBox(height: 12),
                           TextField(
                             controller: _contactMobileController,
@@ -1414,8 +1595,15 @@ class _PatientRegistrationViewState
                             ),
                             onChanged: (val) {
                               vm.updateField(contactMobile: val);
+                              setState(() {});
                             },
                           ),
+                          if (_showBlockGrid)
+                            _buildBlockGrid(
+                              _contactMobileController.text,
+                              10,
+                              label: 'Contact Mobile Number Blocks (१० बक्स):',
+                            ),
                         ] else ...[
                           Row(
                             children: [
@@ -1433,6 +1621,7 @@ class _PatientRegistrationViewState
                                   ),
                                   onChanged: (val) {
                                     vm.updateField(contactPerson: val.toUpperCase());
+                                    setState(() {});
                                   },
                                 ),
                               ),
@@ -1452,11 +1641,36 @@ class _PatientRegistrationViewState
                                   ),
                                   onChanged: (val) {
                                     vm.updateField(contactMobile: val);
+                                    setState(() {});
                                   },
                                 ),
                               ),
                             ],
                           ),
+                          if (_showBlockGrid)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: _buildBlockGrid(
+                                      _contactPersonController.text,
+                                      14,
+                                      label: 'Secondary Contact Person Blocks (सम्पर्क व्यक्ति):',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildBlockGrid(
+                                      _contactMobileController.text,
+                                      10,
+                                      label: 'Contact Mobile Number Blocks (१० बक्स):',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       ],
                     ),
