@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+
 import '../../core/constants/clinical_constants.dart';
 import '../../core/services/document_capture_service.dart';
+import '../../core/services/file_download_helper.dart';
+import '../../core/services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
-import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
@@ -15,6 +16,7 @@ import '../../viewmodels/patient_registration_viewmodel.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
 import '../scanner/form_scan_view.dart';
 import 'clinical_assessment_view.dart';
+import 'clinical_history_panel.dart';
 import 'patient_follow_up_form_view.dart';
 import 'patient_follow_up_slip_modal.dart';
 import 'patient_registration_view.dart';
@@ -29,9 +31,12 @@ class PatientListView extends ConsumerStatefulWidget {
 
 class _PatientListViewState extends ConsumerState<PatientListView> {
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _districtFilterController = TextEditingController();
-  final TextEditingController _municipalityFilterController = TextEditingController();
-  final TextEditingController _diseaseFilterController = TextEditingController();
+  final TextEditingController _districtFilterController =
+      TextEditingController();
+  final TextEditingController _municipalityFilterController =
+      TextEditingController();
+  final TextEditingController _diseaseFilterController =
+      TextEditingController();
   final TextEditingController _minAgeController = TextEditingController();
   final TextEditingController _maxAgeController = TextEditingController();
 
@@ -43,9 +48,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final activeCamp = ref.read(campStateProvider).activeCamp;
       if (activeCamp != null) {
-        if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
+        if (widget.initialQuery != null &&
+            widget.initialQuery!.trim().isNotEmpty) {
           _searchController.text = widget.initialQuery!.trim();
-          ref.read(patientListProvider.notifier).search(activeCamp.id, widget.initialQuery!.trim());
+          ref
+              .read(patientListProvider.notifier)
+              .search(activeCamp.id, widget.initialQuery!.trim());
         } else {
           ref.read(patientListProvider.notifier).loadPatients(activeCamp.id);
         }
@@ -73,9 +81,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
     ref.listen<CampState>(campStateProvider, (previous, next) {
       final active = next.activeCamp;
-      if (active != null && (previous?.activeCamp?.id != active.id || !patientState.hasLoaded)) {
+      if (active != null &&
+          (previous?.activeCamp?.id != active.id || !patientState.hasLoaded)) {
         if (_searchController.text.trim().isNotEmpty) {
-          ref.read(patientListProvider.notifier).search(active.id, _searchController.text.trim());
+          ref
+              .read(patientListProvider.notifier)
+              .search(active.id, _searchController.text.trim());
         } else {
           ref.read(patientListProvider.notifier).loadPatients(active.id);
         }
@@ -84,7 +95,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
     if (activeCamp != null &&
         !patientState.isLoading &&
-        (!patientState.hasLoaded || patientState.loadedCampId != activeCamp.id)) {
+        (!patientState.hasLoaded ||
+            patientState.loadedCampId != activeCamp.id)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           if (_searchController.text.trim().isNotEmpty) {
@@ -105,7 +117,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             if (activeCamp != null)
               Text(
                 '${activeCamp.name} (${activeCamp.campCode})',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal, color: Colors.white70),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.white70,
+                ),
               ),
           ],
         ),
@@ -120,20 +136,26 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: activeCamp == null ? Colors.grey : AppTheme.primaryTeal,
+        backgroundColor: activeCamp == null
+            ? Colors.grey
+            : AppTheme.primaryTeal,
         icon: const Icon(Icons.person_add, color: Colors.white),
         label: const Text('New Patient', style: TextStyle(color: Colors.white)),
         onPressed: activeCamp == null
             ? () => ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('No active camp. Please activate a camp from the dashboard first.'),
+                  content: Text(
+                    'No active camp. Please activate a camp from the dashboard first.',
+                  ),
                   behavior: SnackBarBehavior.floating,
                 ),
               )
             : () async {
                 await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const PatientRegistrationView()),
+                  MaterialPageRoute(
+                    builder: (_) => const PatientRegistrationView(),
+                  ),
                 );
                 if (mounted) {
                   vm.loadPatients(activeCamp.id);
@@ -142,14 +164,19 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       ),
       body: activeCamp == null
           ? const Center(
-              child: Text('No active camp selected. Please activate a camp first.'),
+              child: Text(
+                'No active camp selected. Please activate a camp first.',
+              ),
             )
           : Column(
               children: [
                 // Search & Filter Header with Prominent Scan Token Action
                 Container(
                   color: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 12.0,
+                  ),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final isWide = constraints.maxWidth >= 700;
@@ -157,7 +184,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         controller: _searchController,
                         decoration: InputDecoration(
                           hintText: 'Search by Patient ID, Name, Phone, Ward, District...',
-                          prefixIcon: const Icon(Icons.search, color: AppTheme.primaryTeal),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: AppTheme.primaryTeal,
+                          ),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
                                   icon: const Icon(Icons.clear, size: 20),
@@ -168,28 +198,45 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                   },
                                 )
                               : null,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 0,
+                            horizontal: 16,
+                          ),
                         ),
                         onChanged: (val) => vm.search(activeCamp.id, val),
                       );
 
                       final filterButton = OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: patientState.filters.hasActiveFilters ? Colors.white : AppTheme.primaryTeal,
-                          backgroundColor: patientState.filters.hasActiveFilters ? AppTheme.primaryTeal : Colors.transparent,
+                          foregroundColor: patientState.filters.hasActiveFilters
+                              ? Colors.white
+                              : AppTheme.primaryTeal,
+                          backgroundColor: patientState.filters.hasActiveFilters
+                              ? AppTheme.primaryTeal
+                              : Colors.transparent,
                           side: const BorderSide(color: AppTheme.primaryTeal),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         icon: Icon(
-                          _showFilterPanel ? Icons.filter_alt_off : Icons.filter_alt_outlined,
+                          _showFilterPanel
+                              ? Icons.filter_alt_off
+                              : Icons.filter_alt_outlined,
                           size: 18,
                         ),
                         label: Text(
                           patientState.filters.hasActiveFilters
                               ? 'Filters (${patientState.filters.activeFilterCount})'
                               : 'Filters',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                         onPressed: () {
                           setState(() => _showFilterPanel = !_showFilterPanel);
@@ -198,14 +245,35 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
                       final scanButton = FilledButton.tonalIcon(
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                          backgroundColor: AppTheme.primaryTeal.withValues(
+                            alpha: 0.12,
+                          ),
                           foregroundColor: AppTheme.primaryTeal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                        icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                        label: const Text('Scan QR / Barcode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        onPressed: () => _showScanTokenDialog(context, activeCamp.id, vm, patientState.rawPatients),
+                        icon: const Icon(
+                          Icons.qr_code_scanner_rounded,
+                          size: 20,
+                        ),
+                        label: const Text(
+                          'Scan QR / Barcode',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        onPressed: () => _showScanTokenDialog(
+                          context,
+                          activeCamp.id,
+                          vm,
+                          patientState.rawPatients,
+                        ),
                       );
 
                       if (isWide) {
@@ -240,18 +308,27 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
                 // Dedicated Filter Section (Collapsible)
                 if (_showFilterPanel) ...[
-                  _buildDedicatedFilterSection(context, campState, patientState, vm),
+                  _buildDedicatedFilterSection(
+                    context,
+                    campState,
+                    patientState,
+                    vm,
+                  ),
                   const Divider(height: 1),
                 ],
 
                 // Patient Roll Statistics Bar
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   color: AppTheme.backgroundLight,
                   child: LayoutBuilder(
                     builder: (context, statsConstraints) {
                       final isNarrow = statsConstraints.maxWidth < 450;
-                      final hasActiveFilters = patientState.filters.hasActiveFilters;
+                      final hasActiveFilters =
+                          patientState.filters.hasActiveFilters;
 
                       return Row(
                         children: [
@@ -277,20 +354,37 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                   InkWell(
                                     onTap: () => _clearAllFilters(vm),
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.dangerRose.withValues(alpha: 0.12),
+                                        color: AppTheme.dangerRose.withValues(
+                                          alpha: 0.12,
+                                        ),
                                         borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.3)),
+                                        border: Border.all(
+                                          color: AppTheme.dangerRose.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                        ),
                                       ),
                                       child: const Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.clear, size: 12, color: AppTheme.dangerRose),
+                                          Icon(
+                                            Icons.clear,
+                                            size: 12,
+                                            color: AppTheme.dangerRose,
+                                          ),
                                           SizedBox(width: 2),
                                           Text(
                                             'Reset',
-                                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.dangerRose),
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.dangerRose,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -302,16 +396,23 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                              color: AppTheme.primaryTeal.withValues(
+                                alpha: 0.1,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  patientState.patients.isNotEmpty ? Icons.shield_rounded : Icons.sync_alt,
+                                  patientState.patients.isNotEmpty
+                                      ? Icons.shield_rounded
+                                      : Icons.sync_alt,
                                   size: 12,
                                   color: AppTheme.primaryTeal,
                                 ),
@@ -320,9 +421,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                   isNarrow
                                       ? 'Encrypted'
                                       : (patientState.patients.isNotEmpty
-                                          ? 'AES-256 Encrypted • ${patientState.patients.length} Records'
-                                          : 'AES-256 Encrypted'),
-                                  style: const TextStyle(fontSize: 10.5, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
+                                            ? 'AES-256 Encrypted • ${patientState.patients.length} Records'
+                                            : 'AES-256 Encrypted'),
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    color: AppTheme.primaryTeal,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ],
                             ),
@@ -338,19 +443,25 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   child: patientState.isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : patientState.patients.isEmpty
-                          ? _buildEmptyState(context, activeCamp.id, vm)
-                          : RefreshIndicator(
-                              onRefresh: () => vm.loadPatients(activeCamp.id),
-                              child: ListView.separated(
-                                padding: const EdgeInsets.all(16),
-                                itemCount: patientState.patients.length,
-                                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                                itemBuilder: (context, index) {
-                                  final patient = patientState.patients[index];
-                                  return _buildPatientCard(context, patient, activeCamp, vm);
-                                },
-                              ),
-                            ),
+                      ? _buildEmptyState(context, activeCamp.id, vm)
+                      : RefreshIndicator(
+                          onRefresh: () => vm.loadPatients(activeCamp.id),
+                          child: ListView.separated(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: patientState.patients.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final patient = patientState.patients[index];
+                              return _buildPatientCard(
+                                context,
+                                patient,
+                                activeCamp,
+                                vm,
+                              );
+                            },
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -392,26 +503,41 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.tune, size: 18, color: AppTheme.primaryTeal),
+                      const Icon(
+                        Icons.tune,
+                        size: 18,
+                        color: AppTheme.primaryTeal,
+                      ),
                       const SizedBox(width: 8),
                       const Flexible(
                         child: Text(
                           'Dedicated Patient Filters (बिरामी फिल्टर)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryLight),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                            color: AppTheme.textPrimaryLight,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (filters.hasActiveFilters) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: AppTheme.primaryTeal,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             '${filters.activeFilterCount} Active',
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ],
@@ -425,15 +551,28 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       TextButton.icon(
                         style: TextButton.styleFrom(
                           foregroundColor: AppTheme.dangerRose,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           visualDensity: VisualDensity.compact,
                         ),
                         icon: const Icon(Icons.refresh, size: 14),
-                        label: const Text('Reset All', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        label: const Text(
+                          'Reset All',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         onPressed: () => _clearAllFilters(vm),
                       ),
                     IconButton(
-                      icon: const Icon(Icons.close, size: 18, color: AppTheme.textSecondaryLight),
+                      icon: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: AppTheme.textSecondaryLight,
+                      ),
                       tooltip: 'Close Filter Panel',
                       visualDensity: VisualDensity.compact,
                       onPressed: () => setState(() => _showFilterPanel = false),
@@ -458,12 +597,20 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.badge_outlined, size: 16, color: AppTheme.primaryTeal),
+                        Icon(
+                          Icons.badge_outlined,
+                          size: 16,
+                          color: AppTheme.primaryTeal,
+                        ),
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             'Demographic & Patient Filters (जनसांख्यिकी तथा बिरामी विवरण)',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.primaryDark),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                              color: AppTheme.primaryDark,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -481,15 +628,24 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           decoration: const InputDecoration(
                             labelText: 'Camp (स्वास्थ्य शिविर)',
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             isDense: true,
                           ),
                           items: [
-                            const DropdownMenuItem(value: 'all', child: Text('All Camps (सबै क्याम्पहरू)')),
+                            const DropdownMenuItem(
+                              value: 'all',
+                              child: Text('All Camps (सबै क्याम्पहरू)'),
+                            ),
                             ...campState.camps.map(
                               (c) => DropdownMenuItem(
                                 value: c.id,
-                                child: Text('${c.name} (${c.campCode})', overflow: TextOverflow.ellipsis),
+                                child: Text(
+                                  '${c.name} (${c.campCode})',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
                           ],
@@ -503,24 +659,38 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           },
                         );
 
-                        final provinceDropdown = DropdownButtonFormField<String>(
-                          key: ValueKey('province_dropdown_${filters.province}'),
-                          initialValue: filters.province ?? 'all',
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Province (प्रदेश)',
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            isDense: true,
-                          ),
-                          items: [
-                            const DropdownMenuItem(value: 'all', child: Text('All Provinces (सबै)')),
-                            ...ClinicalConstants.nepalProvinces.map(
-                              (p) => DropdownMenuItem(value: p, child: Text(p)),
-                            ),
-                          ],
-                          onChanged: (val) => vm.updateFilters(filters.copyWith(province: val)),
-                        );
+                        final provinceDropdown =
+                            DropdownButtonFormField<String>(
+                              key: ValueKey(
+                                'province_dropdown_${filters.province}',
+                              ),
+                              initialValue: filters.province ?? 'all',
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Province (प्रदेश)',
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                isDense: true,
+                              ),
+                              items: [
+                                const DropdownMenuItem(
+                                  value: 'all',
+                                  child: Text('All Provinces (सबै)'),
+                                ),
+                                ...ClinicalConstants.nepalProvinces.map(
+                                  (p) => DropdownMenuItem(
+                                    value: p,
+                                    child: Text(p),
+                                  ),
+                                ),
+                              ],
+                              onChanged: (val) => vm.updateFilters(
+                                filters.copyWith(province: val),
+                              ),
+                            );
 
                         if (isWide) {
                           return Row(
@@ -553,10 +723,14 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             labelText: 'District (जिल्ला)',
                             hintText: 'e.g. Kathmandu',
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             isDense: true,
                           ),
-                          onChanged: (val) => vm.updateFilters(filters.copyWith(district: val)),
+                          onChanged: (val) =>
+                              vm.updateFilters(filters.copyWith(district: val)),
                         );
                         final muniField = TextField(
                           controller: _municipalityFilterController,
@@ -564,10 +738,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             labelText: 'Municipality (पालिका)',
                             hintText: 'e.g. Ward / Nagarpalika',
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             isDense: true,
                           ),
-                          onChanged: (val) => vm.updateFilters(filters.copyWith(municipality: val)),
+                          onChanged: (val) => vm.updateFilters(
+                            filters.copyWith(municipality: val),
+                          ),
                         );
 
                         if (isNarrow) {
@@ -601,12 +780,20 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             labelText: 'Min Age (उमेर देखि)',
                             hintText: 'e.g. 20',
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             isDense: true,
                           ),
                           onChanged: (val) {
                             final age = int.tryParse(val.trim());
-                            vm.updateFilters(filters.copyWith(minAge: age, clearMinAge: age == null));
+                            vm.updateFilters(
+                              filters.copyWith(
+                                minAge: age,
+                                clearMinAge: age == null,
+                              ),
+                            );
                           },
                         );
                         final maxAgeField = TextField(
@@ -616,12 +803,20 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             labelText: 'Max Age (उमेर सम्म)',
                             hintText: 'e.g. 65',
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             isDense: true,
                           ),
                           onChanged: (val) {
                             final age = int.tryParse(val.trim());
-                            vm.updateFilters(filters.copyWith(maxAge: age, clearMaxAge: age == null));
+                            vm.updateFilters(
+                              filters.copyWith(
+                                maxAge: age,
+                                clearMaxAge: age == null,
+                              ),
+                            );
                           },
                         );
 
@@ -646,36 +841,56 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     const SizedBox(height: 8),
 
                     // Marital Status Filter Chips
-                    const Text('Marital Status (वैवाहिक स्थिति):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Marital Status (वैवाहिक स्थिति):',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
-                      children: [
-                        {'key': 'all', 'label': 'All (सबै)'},
-                        {'key': 'married', 'label': 'Married (विवाहित)'},
-                        {'key': 'unmarried', 'label': 'Unmarried (अविवाहित)'},
-                        {'key': 'widow', 'label': 'Widow (एकल/विधवा)'},
-                        {'key': 'divorced', 'label': 'Divorced (सम्बन्धविच्छेद)'},
-                      ].map((m) {
-                        final isSelected = (filters.maritalStatus ?? 'all') == m['key'];
-                        return ChoiceChip(
-                          label: Text(m['label']!),
-                          selected: isSelected,
-                          selectedColor: AppTheme.primaryTeal,
-                          labelStyle: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.white : Colors.black87,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          onSelected: (selected) {
-                            if (selected) {
-                              vm.updateFilters(filters.copyWith(maritalStatus: m['key']));
-                            }
-                          },
-                        );
-                      }).toList(),
+                      children:
+                          [
+                            {'key': 'all', 'label': 'All (सबै)'},
+                            {'key': 'married', 'label': 'Married (विवाहित)'},
+                            {
+                              'key': 'unmarried',
+                              'label': 'Unmarried (अविवाहित)',
+                            },
+                            {'key': 'widow', 'label': 'Widow (एकल/विधवा)'},
+                            {
+                              'key': 'divorced',
+                              'label': 'Divorced (सम्बन्धविच्छेद)',
+                            },
+                          ].map((m) {
+                            final isSelected =
+                                (filters.maritalStatus ?? 'all') == m['key'];
+                            return ChoiceChip(
+                              label: Text(m['label']!),
+                              selected: isSelected,
+                              selectedColor: AppTheme.primaryTeal,
+                              labelStyle: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.black87,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              onSelected: (selected) {
+                                if (selected) {
+                                  vm.updateFilters(
+                                    filters.copyWith(maritalStatus: m['key']),
+                                  );
+                                }
+                              },
+                            );
+                          }).toList(),
                     ),
                     const SizedBox(height: 8),
 
@@ -687,51 +902,75 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         hintText: 'e.g. Prolapse, Cervicitis, UTI, Fibroid...',
                         prefixIcon: Icon(Icons.healing, size: 18),
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                         isDense: true,
                       ),
-                      onChanged: (val) => vm.updateFilters(filters.copyWith(disease: val)),
+                      onChanged: (val) =>
+                          vm.updateFilters(filters.copyWith(disease: val)),
                     ),
                     const SizedBox(height: 8),
 
                     // Surgery Done or Not Filter
-                    const Text('Surgery Performed (शल्यक्रिया भएको):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Surgery Performed (शल्यक्रिया भएको):',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
-                      children: [
-                        {'key': 'all', 'label': 'All'},
-                        {'key': 'yes', 'label': 'Surgery Done (भएको)'},
-                        {'key': 'no', 'label': 'No Surgery (नभएको)'},
-                      ].map((s) {
-                        final isSelected = (filters.surgeryDone ?? 'all') == s['key'];
-                        return ChoiceChip(
-                          label: Text(s['label']!),
-                          selected: isSelected,
-                          selectedColor: AppTheme.primaryTeal,
-                          labelStyle: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.white : Colors.black87,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          onSelected: (selected) {
-                            if (selected) {
-                              vm.updateFilters(filters.copyWith(
-                                surgeryDone: s['key'],
-                                clearSurgeryType: s['key'] != 'yes',
-                              ));
-                            }
-                          },
-                        );
-                      }).toList(),
+                      children:
+                          [
+                            {'key': 'all', 'label': 'All'},
+                            {'key': 'yes', 'label': 'Surgery Done (भएको)'},
+                            {'key': 'no', 'label': 'No Surgery (नभएको)'},
+                          ].map((s) {
+                            final isSelected =
+                                (filters.surgeryDone ?? 'all') == s['key'];
+                            return ChoiceChip(
+                              label: Text(s['label']!),
+                              selected: isSelected,
+                              selectedColor: AppTheme.primaryTeal,
+                              labelStyle: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.black87,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              onSelected: (selected) {
+                                if (selected) {
+                                  vm.updateFilters(
+                                    filters.copyWith(
+                                      surgeryDone: s['key'],
+                                      clearSurgeryType: s['key'] != 'yes',
+                                    ),
+                                  );
+                                }
+                              },
+                            );
+                          }).toList(),
                     ),
 
                     // If Surgery Done is Yes, show 3 Route Types
                     if (filters.surgeryDone == 'yes') ...[
                       const SizedBox(height: 6),
-                      const Text('Surgical Route (शल्यक्रियाको प्रकार):', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                      const Text(
+                        'Surgical Route (शल्यक्रियाको प्रकार):',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.textSecondaryLight,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Wrap(
                         spacing: 6,
@@ -749,10 +988,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             onSelected: (selected) {
-                              vm.updateFilters(filters.copyWith(
-                                surgeryType: selected ? type : null,
-                                clearSurgeryType: !selected,
-                              ));
+                              vm.updateFilters(
+                                filters.copyWith(
+                                  surgeryType: selected ? type : null,
+                                  clearSurgeryType: !selected,
+                                ),
+                              );
                             },
                           );
                         }).toList(),
@@ -778,12 +1019,20 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.medical_information_outlined, size: 16, color: AppTheme.primaryTeal),
+                        Icon(
+                          Icons.medical_information_outlined,
+                          size: 16,
+                          color: AppTheme.primaryTeal,
+                        ),
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             'Clinical Intake & POP Staging Filters (क्लिनिकल तथा प्रोल्याप्स स्टेज)',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.primaryDark),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                              color: AppTheme.primaryDark,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -792,78 +1041,121 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     const SizedBox(height: 10),
 
                     // POP Stage Filter
-                    const Text('Pelvic Organ Prolapse Stage (आङ खस्ने अवस्था):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Pelvic Organ Prolapse Stage (आङ खस्ने अवस्था):',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
-                      children: [
-                        {'key': 'all', 'label': 'All Stages'},
-                        {'key': '0', 'label': 'Stage 0'},
-                        {'key': '1', 'label': 'Stage I'},
-                        {'key': '2', 'label': 'Stage II'},
-                        {'key': '3', 'label': 'Stage III'},
-                        {'key': '4', 'label': 'Stage IV'},
-                      ].map((st) {
-                        final isSelected = (filters.popStage ?? 'all') == st['key'];
-                        return ChoiceChip(
-                          label: Text(st['label']!),
-                          selected: isSelected,
-                          selectedColor: AppTheme.warningAmber,
-                          labelStyle: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.brown.shade900 : Colors.black87,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          onSelected: (selected) {
-                            if (selected) {
-                              vm.updateFilters(filters.copyWith(popStage: st['key']));
-                            }
-                          },
-                        );
-                      }).toList(),
+                      children:
+                          [
+                            {'key': 'all', 'label': 'All Stages'},
+                            {'key': '0', 'label': 'Stage 0'},
+                            {'key': '1', 'label': 'Stage I'},
+                            {'key': '2', 'label': 'Stage II'},
+                            {'key': '3', 'label': 'Stage III'},
+                            {'key': '4', 'label': 'Stage IV'},
+                          ].map((st) {
+                            final isSelected =
+                                (filters.popStage ?? 'all') == st['key'];
+                            return ChoiceChip(
+                              label: Text(st['label']!),
+                              selected: isSelected,
+                              selectedColor: AppTheme.warningAmber,
+                              labelStyle: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected
+                                    ? Colors.brown.shade900
+                                    : Colors.black87,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              onSelected: (selected) {
+                                if (selected) {
+                                  vm.updateFilters(
+                                    filters.copyWith(popStage: st['key']),
+                                  );
+                                }
+                              },
+                            );
+                          }).toList(),
                     ),
                     const SizedBox(height: 10),
 
                     // Chief Complaint Filter
-                    const Text('Chief Clinical Complaint (मुख्य समस्या):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Chief Clinical Complaint (मुख्य समस्या):',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
-                      children: [
-                        {'key': '', 'label': 'All Complaints'},
-                        {'key': 'something hanging out', 'label': 'Prolapse (आङ खस्ने)'},
-                        {'key': 'discharge and or itching', 'label': 'Discharge / Itching'},
-                        {'key': 'problems passing urine', 'label': 'Urinary complaint'},
-                        {'key': 'problems passing stool', 'label': 'Stool complaint'},
-                        {'key': 'menstrual problem', 'label': 'Menstrual issue'},
-                        {'key': 'infertility', 'label': 'Infertility'},
-                        {'key': 'pain', 'label': 'Pelvic / Abdominal pain'},
-                        {'key': 'checkup', 'label': 'Routine checkup'},
-                      ].map((c) {
-                        final isSelected = (filters.chiefComplaint ?? '') == c['key'];
-                        return ChoiceChip(
-                          label: Text(c['label']!),
-                          selected: isSelected,
-                          selectedColor: AppTheme.primaryTeal,
-                          labelStyle: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.white : Colors.black87,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          onSelected: (selected) {
-                            if (selected) {
-                              vm.updateFilters(filters.copyWith(
-                                chiefComplaint: c['key'],
-                                clearChiefComplaint: c['key']!.isEmpty,
-                              ));
-                            }
-                          },
-                        );
-                      }).toList(),
+                      children:
+                          [
+                            {'key': '', 'label': 'All Complaints'},
+                            {
+                              'key': 'something hanging out',
+                              'label': 'Prolapse (आङ खस्ने)',
+                            },
+                            {
+                              'key': 'discharge and or itching',
+                              'label': 'Discharge / Itching',
+                            },
+                            {
+                              'key': 'problems passing urine',
+                              'label': 'Urinary complaint',
+                            },
+                            {
+                              'key': 'problems passing stool',
+                              'label': 'Stool complaint',
+                            },
+                            {
+                              'key': 'menstrual problem',
+                              'label': 'Menstrual issue',
+                            },
+                            {'key': 'infertility', 'label': 'Infertility'},
+                            {'key': 'pain', 'label': 'Pelvic / Abdominal pain'},
+                            {'key': 'checkup', 'label': 'Routine checkup'},
+                          ].map((c) {
+                            final isSelected =
+                                (filters.chiefComplaint ?? '') == c['key'];
+                            return ChoiceChip(
+                              label: Text(c['label']!),
+                              selected: isSelected,
+                              selectedColor: AppTheme.primaryTeal,
+                              labelStyle: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.black87,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              onSelected: (selected) {
+                                if (selected) {
+                                  vm.updateFilters(
+                                    filters.copyWith(
+                                      chiefComplaint: c['key'],
+                                      clearChiefComplaint: c['key']!.isEmpty,
+                                    ),
+                                  );
+                                }
+                              },
+                            );
+                          }).toList(),
                     ),
                   ],
                 ),
@@ -875,7 +1167,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, String campId, PatientListViewModel vm) {
+  Widget _buildEmptyState(
+    BuildContext context,
+    String campId,
+    PatientListViewModel vm,
+  ) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -886,7 +1182,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             const SizedBox(height: 16),
             const Text(
               'No Patients Found',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryLight),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryLight,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -903,7 +1203,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               onPressed: () async {
                 await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const PatientRegistrationView()),
+                  MaterialPageRoute(
+                    builder: (_) => const PatientRegistrationView(),
+                  ),
                 );
                 if (mounted) {
                   vm.loadPatients(campId);
@@ -932,7 +1234,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     const Color stationPending = Color(0xFFE2E8F0);
 
     // Colour-code visit reasons: urgent = rose, normal = teal
-    final urgentReasons = {'something hanging out', 'problems passing urine', 'problems passing stool', 'pain'};
+    final urgentReasons = {
+      'something hanging out',
+      'problems passing urine',
+      'problems passing stool',
+      'pain',
+    };
     final clinicalLabelMap = {
       'something hanging out': 'Uterine Prolapse (PV)',
       'discharge and or itching': 'Discharge / Pruritus',
@@ -977,7 +1284,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       children: [
                         Flexible(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.primaryLight,
                               borderRadius: BorderRadius.circular(6),
@@ -997,24 +1307,36 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
                             'Ward ${patient.ward}',
-                            style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: Color(0xFF475569),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            patient.district.isNotEmpty ? patient.district : 'Nepal',
+                            patient.district.isNotEmpty
+                                ? patient.district
+                                : 'Nepal',
                             textAlign: TextAlign.end,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondaryLight,
+                            ),
                           ),
                         ),
                       ],
@@ -1027,9 +1349,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       children: [
                         CircleAvatar(
                           radius: 20,
-                          backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                          backgroundColor: AppTheme.primaryTeal.withValues(
+                            alpha: 0.1,
+                          ),
                           child: Text(
-                            patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
+                            patient.firstName.isNotEmpty
+                                ? patient.firstName[0].toUpperCase()
+                                : 'P',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -1054,7 +1380,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               Row(
                                 children: [
                                   Icon(
-                                    patient.isBelowAdultAge ? Icons.escalator_warning : Icons.favorite_border,
+                                    patient.isBelowAdultAge
+                                        ? Icons.escalator_warning
+                                        : Icons.favorite_border,
                                     size: 12,
                                     color: AppTheme.textSecondaryLight,
                                   ),
@@ -1064,7 +1392,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                       '${patient.relationshipType ?? "Guardian"}: ${patient.spouseOrFatherName ?? "N/A"}  •  Age ${patient.age}y',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                                      style: const TextStyle(
+                                        fontSize: 11.5,
+                                        color: AppTheme.textSecondaryLight,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -1073,14 +1404,21 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                 const SizedBox(height: 2),
                                 Row(
                                   children: [
-                                    const Icon(Icons.phone, size: 12, color: AppTheme.textSecondaryLight),
+                                    const Icon(
+                                      Icons.phone,
+                                      size: 12,
+                                      color: AppTheme.textSecondaryLight,
+                                    ),
                                     const SizedBox(width: 3),
                                     Expanded(
                                       child: Text(
                                         patient.mobile,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: AppTheme.textSecondaryLight,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1102,23 +1440,34 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           final isUrgent = urgentReasons.contains(reason);
                           final label = clinicalLabelMap[reason] ?? reason;
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: isUrgent
                                   ? const Color(0xFFFFF1F2)
-                                  : AppTheme.primaryTeal.withValues(alpha: 0.08),
+                                  : AppTheme.primaryTeal.withValues(
+                                      alpha: 0.08,
+                                    ),
                               borderRadius: BorderRadius.circular(5),
                               border: Border.all(
                                 color: isUrgent
                                     ? const Color(0xFFFDA4AF)
-                                    : AppTheme.primaryTeal.withValues(alpha: 0.25),
+                                    : AppTheme.primaryTeal.withValues(
+                                        alpha: 0.25,
+                                      ),
                               ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (isUrgent) ...[
-                                  const Icon(Icons.priority_high_rounded, size: 10, color: Color(0xFFE11D48)),
+                                  const Icon(
+                                    Icons.priority_high_rounded,
+                                    size: 10,
+                                    color: Color(0xFFE11D48),
+                                  ),
                                   const SizedBox(width: 2),
                                 ],
                                 Text(
@@ -1126,7 +1475,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
-                                    color: isUrgent ? const Color(0xFFBE123C) : AppTheme.primaryTeal,
+                                    color: isUrgent
+                                        ? const Color(0xFFBE123C)
+                                        : AppTheme.primaryTeal,
                                   ),
                                 ),
                               ],
@@ -1137,7 +1488,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     ],
 
                     // Clinical badges: POP Stage, Diagnoses, Surgery Status
-                    if (patient.highestPopStage != null || patient.surgeryDone == true || patient.diagnoses.isNotEmpty) ...[
+                    if (patient.highestPopStage != null ||
+                        patient.surgeryDone == true ||
+                        patient.diagnoses.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 6,
@@ -1145,16 +1498,23 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         children: [
                           if (patient.highestPopStage != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: patient.highestPopStage! >= 2
-                                    ? AppTheme.warningAmber.withValues(alpha: 0.18)
+                                    ? AppTheme.warningAmber.withValues(
+                                        alpha: 0.18,
+                                      )
                                     : AppTheme.primaryLight,
                                 borderRadius: BorderRadius.circular(5),
                                 border: Border.all(
                                   color: patient.highestPopStage! >= 2
                                       ? AppTheme.warningAmber
-                                      : AppTheme.primaryTeal.withValues(alpha: 0.3),
+                                      : AppTheme.primaryTeal.withValues(
+                                          alpha: 0.3,
+                                        ),
                                 ),
                               ),
                               child: Row(
@@ -1163,7 +1523,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                   Icon(
                                     Icons.healing,
                                     size: 11,
-                                    color: patient.highestPopStage! >= 2 ? Colors.brown : AppTheme.primaryTeal,
+                                    color: patient.highestPopStage! >= 2
+                                        ? Colors.brown
+                                        : AppTheme.primaryTeal,
                                   ),
                                   const SizedBox(width: 3),
                                   Text(
@@ -1171,7 +1533,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
-                                      color: patient.highestPopStage! >= 2 ? Colors.brown : AppTheme.primaryDark,
+                                      color: patient.highestPopStage! >= 2
+                                          ? Colors.brown
+                                          : AppTheme.primaryDark,
                                     ),
                                   ),
                                 ],
@@ -1179,16 +1543,29 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             ),
                           if (patient.surgeryDone == true)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
-                                color: AppTheme.successGreen.withValues(alpha: 0.12),
+                                color: AppTheme.successGreen.withValues(
+                                  alpha: 0.12,
+                                ),
                                 borderRadius: BorderRadius.circular(5),
-                                border: Border.all(color: AppTheme.successGreen.withValues(alpha: 0.4)),
+                                border: Border.all(
+                                  color: AppTheme.successGreen.withValues(
+                                    alpha: 0.4,
+                                  ),
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.check_circle_outline, size: 11, color: AppTheme.successGreen),
+                                  const Icon(
+                                    Icons.check_circle_outline,
+                                    size: 11,
+                                    color: AppTheme.successGreen,
+                                  ),
                                   const SizedBox(width: 3),
                                   Text(
                                     'Surgery: ${patient.surgeryType ?? "Done"}',
@@ -1201,17 +1578,28 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                 ],
                               ),
                             ),
-                          ...patient.diagnoses.take(2).map((dx) => Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF1F5F9),
-                                  borderRadius: BorderRadius.circular(5),
+                          ...patient.diagnoses
+                              .take(2)
+                              .map(
+                                (dx) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(
+                                    dx,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF334155),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
-                                child: Text(
-                                  dx,
-                                  style: const TextStyle(fontSize: 10, color: Color(0xFF334155), fontWeight: FontWeight.w600),
-                                ),
-                              )),
+                              ),
                         ],
                       ),
                     ],
@@ -1220,7 +1608,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
                     // Clinical Progress Stepper
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(8),
@@ -1235,32 +1626,51 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  _buildStepIndicator(label: 'S1: Intake', done: true, color: stationDone),
+                                  _buildStepIndicator(
+                                    label: 'S1: Intake',
+                                    done: true,
+                                    color: stationDone,
+                                  ),
                                   _buildStepConnector(done: true),
-                                  _buildStepIndicator(label: 'S2: Clinical', done: hasClinical, color: hasClinical ? stationDone : stationPending),
+                                  _buildStepIndicator(
+                                    label: 'S2: Clinical',
+                                    done: hasClinical,
+                                    color: hasClinical
+                                        ? stationDone
+                                        : stationPending,
+                                  ),
                                   _buildStepConnector(done: hasClinical),
-                                  _buildStepIndicator(label: 'S3–6: Specialist', done: hasClinical, color: hasClinical ? stationDone : stationPending),
+                                  _buildStepIndicator(
+                                    label: 'S3–6: Specialist',
+                                    done: hasClinical,
+                                    color: hasClinical
+                                        ? stationDone
+                                        : stationPending,
+                                  ),
                                 ],
                               ),
                             ),
                           ),
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: hasClinical
                                   ? stationDone.withValues(alpha: 0.12)
                                   : hasReasons
-                                      ? const Color(0xFFEFF6FF)
-                                      : const Color(0xFFFFF3CD),
+                                  ? const Color(0xFFEFF6FF)
+                                  : const Color(0xFFFFF3CD),
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
                               hasClinical
                                   ? 'CLINICAL DONE'
                                   : hasReasons
-                                      ? 'REGISTERED'
-                                      : 'INCOMPLETE',
+                                  ? 'REGISTERED'
+                                  : 'INCOMPLETE',
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
@@ -1268,8 +1678,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                 color: hasClinical
                                     ? stationDone
                                     : hasReasons
-                                        ? const Color(0xFF1D4ED8)
-                                        : const Color(0xFF92400E),
+                                    ? const Color(0xFF1D4ED8)
+                                    : const Color(0xFF92400E),
                               ),
                             ),
                           ),
@@ -1289,7 +1699,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       runSpacing: 6,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.picture_as_pdf_rounded, size: 20, color: AppTheme.dangerRose),
+                          icon: const Icon(
+                            Icons.picture_as_pdf_rounded,
+                            size: 20,
+                            color: AppTheme.dangerRose,
+                          ),
                           tooltip: 'Download Patient Health Summary (PDF)',
                           padding: const EdgeInsets.all(6),
                           constraints: const BoxConstraints(),
@@ -1297,28 +1711,39 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             ScaffoldMessenger.of(context).clearSnackBars();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Generating ${patient.fullName} (${patient.patientId}) clinical summary PDF...'),
+                                content: Text(
+                                  'Generating ${patient.fullName} (${patient.patientId}) clinical summary PDF...',
+                                ),
                                 duration: const Duration(seconds: 1),
                               ),
                             );
-                            final visit = await ref.read(clinicalAssessmentProvider.notifier).loadPatientAssessment(
-                              patient.patientId,
-                              patientUuid: patient.id,
-                            );
-                            final auth = ref.read(authStateProvider).currentUser;
-                            final saved = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(
-                              patient: patient,
-                              visit: visit,
-                              camp: activeCamp,
-                              userId: auth?.id ?? 'usr-data-taker',
-                              userName: auth?.name ?? 'Health Worker',
-                              userRole: auth?.role.toDbString() ?? 'DATA_TAKER',
-                            );
+                            final visit = await ref
+                                .read(clinicalAssessmentProvider.notifier)
+                                .loadPatientAssessment(
+                                  patient.patientId,
+                                  patientUuid: patient.id,
+                                );
+                            final auth = ref
+                                .read(authStateProvider)
+                                .currentUser;
+                            final saved = await ref
+                                .read(reportingViewModelProvider.notifier)
+                                .exportIndividualPatientPdf(
+                                  patient: patient,
+                                  visit: visit,
+                                  camp: activeCamp,
+                                  userId: auth?.id ?? 'usr-data-taker',
+                                  userName: auth?.name ?? 'Health Worker',
+                                  userRole:
+                                      auth?.role.toDbString() ?? 'DATA_TAKER',
+                                );
                             if (context.mounted && saved != null) {
                               ScaffoldMessenger.of(context).clearSnackBars();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Patient report downloaded: $saved'),
+                                  content: Text(
+                                    'Patient report downloaded: $saved',
+                                  ),
                                   backgroundColor: AppTheme.successGreen,
                                 ),
                               );
@@ -1329,17 +1754,34 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF334155),
                             side: const BorderSide(color: Color(0xFFCBD5E1)),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                          icon: const Icon(Icons.qr_code_2_rounded, size: 16, color: AppTheme.primaryTeal),
-                          label: const Text('Slip / QR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          icon: const Icon(
+                            Icons.qr_code_2_rounded,
+                            size: 16,
+                            color: AppTheme.primaryTeal,
+                          ),
+                          label: const Text(
+                            'Slip / QR',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           onPressed: () async {
                             final proceed = await PatientFollowUpSlipModal.show(
                               context,
                               patient: patient,
                               camp: activeCamp,
-                              organizationName: activeCamp?.organizationName.isNotEmpty == true
+                              organizationName:
+                                  activeCamp?.organizationName.isNotEmpty ==
+                                      true
                                   ? activeCamp!.organizationName
                                   : 'Nepal Gyno Health Outreach Network',
                               showProceedButton: true,
@@ -1349,7 +1791,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => ClinicalAssessmentView(patient: patient),
+                                  builder: (_) =>
+                                      ClinicalAssessmentView(patient: patient),
                                 ),
                               );
                               if (!context.mounted) return;
@@ -1361,32 +1804,97 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         ),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF0F766E),
+                            side: const BorderSide(color: Color(0xFF0F766E)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.print_outlined,
+                            size: 16,
+                            color: AppTheme.primaryTeal,
+                          ),
+                          label: const Text(
+                            'Print Form',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: () => _printRegistrationForm(
+                            context,
+                            patient,
+                            activeCamp,
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF334155),
                             side: const BorderSide(color: Color(0xFFCBD5E1)),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                          icon: const Icon(Icons.history_rounded, size: 16, color: AppTheme.accentCyan),
-                          label: const Text('History', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          onPressed: () => _showVisitHistoryDialog(context, patient),
+                          icon: const Icon(
+                            Icons.history_rounded,
+                            size: 16,
+                            color: AppTheme.accentCyan,
+                          ),
+                          label: const Text(
+                            'History',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: () => _showClinicalHistoryPanel(
+                            context,
+                            patient,
+                            activeCamp,
+                          ),
                         ),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0D9488),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                           icon: const Icon(Icons.replay_rounded, size: 15),
-                          label: const Text('Follow-Up', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: const Text(
+                            'Follow-Up',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           onPressed: () async {
                             final updated = await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => PatientFollowUpFormView(patient: patient, camp: activeCamp),
+                                builder: (_) => PatientFollowUpFormView(
+                                  patient: patient,
+                                  camp: activeCamp,
+                                ),
                               ),
                             );
-                            if (updated == true && mounted && activeCamp != null) {
+                            if (updated == true &&
+                                mounted &&
+                                activeCamp != null) {
                               vm.loadPatients(activeCamp.id);
                             }
                           },
@@ -1395,16 +1903,28 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryTeal,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 9,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                           icon: const Icon(Icons.assignment, size: 16),
-                          label: const Text('Clinical Intake', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: const Text(
+                            'Clinical Intake',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           onPressed: () async {
                             await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => ClinicalAssessmentView(patient: patient),
+                                builder: (_) =>
+                                    ClinicalAssessmentView(patient: patient),
                               ),
                             );
                             if (mounted && activeCamp != null) {
@@ -1424,7 +1944,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     );
   }
 
-  Widget _buildStepIndicator({required String label, required bool done, required Color color}) {
+  Widget _buildStepIndicator({
+    required String label,
+    required bool done,
+    required Color color,
+  }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1479,7 +2003,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             }
             try {
               final found = existingPatients.firstWhere(
-                (p) => p.patientId.toUpperCase() == trimmed || p.id == trimmed || p.mobile == trimmed,
+                (p) =>
+                    p.patientId.toUpperCase() == trimmed ||
+                    p.id == trimmed ||
+                    p.mobile == trimmed,
               );
               setDialogState(() => matchedPatient = found);
             } catch (_) {
@@ -1488,10 +2015,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           }
 
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             title: const Row(
               children: [
-                Icon(Icons.qr_code_scanner_rounded, color: AppTheme.primaryTeal, size: 26),
+                Icon(
+                  Icons.qr_code_scanner_rounded,
+                  color: AppTheme.primaryTeal,
+                  size: 26,
+                ),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -1515,15 +2048,23 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                           colors: matchedPatient != null
-                              ? [const Color(0xFF065F46), const Color(0xFF047857)]
-                              : [const Color(0xFF0F172A), const Color(0xFF1E293B)],
+                          colors: matchedPatient != null
+                              ? [
+                                  const Color(0xFF065F46),
+                                  const Color(0xFF047857),
+                                ]
+                              : [
+                                  const Color(0xFF0F172A),
+                                  const Color(0xFF1E293B),
+                                ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: matchedPatient != null ? Colors.greenAccent : AppTheme.primaryTeal.withValues(alpha: 0.5),
+                          color: matchedPatient != null
+                              ? Colors.greenAccent
+                              : AppTheme.primaryTeal.withValues(alpha: 0.5),
                           width: 1.5,
                         ),
                       ),
@@ -1533,8 +2074,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                matchedPatient != null ? Icons.check_circle_rounded : Icons.qr_code_scanner_rounded,
-                                color: matchedPatient != null ? Colors.greenAccent : AppTheme.primaryTeal,
+                                matchedPatient != null
+                                    ? Icons.check_circle_rounded
+                                    : Icons.qr_code_scanner_rounded,
+                                color: matchedPatient != null
+                                    ? Colors.greenAccent
+                                    : AppTheme.primaryTeal,
                                 size: 28,
                               ),
                               const SizedBox(width: 10),
@@ -1545,7 +2090,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                       : 'USB / Bluetooth Scanner Gun Ready',
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: matchedPatient != null ? Colors.greenAccent : Colors.white,
+                                    color: matchedPatient != null
+                                        ? Colors.greenAccent
+                                        : Colors.white,
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 0.5,
@@ -1561,7 +2108,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                 : 'Trigger your physical handheld scanner gun at the patient slip, or tap a token below',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: matchedPatient != null ? Colors.white : Colors.white70,
+                              color: matchedPatient != null
+                                  ? Colors.white
+                                  : Colors.white70,
                               fontSize: 11.5,
                             ),
                           ),
@@ -1578,20 +2127,37 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               foregroundColor: AppTheme.primaryTeal,
-                              side: const BorderSide(color: AppTheme.primaryTeal),
+                              side: const BorderSide(
+                                color: AppTheme.primaryTeal,
+                              ),
                             ),
                             icon: const Icon(Icons.camera_alt, size: 16),
-                            label: const Text('Open Camera / File', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            label: const Text(
+                              'Open Camera / File',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             onPressed: () async {
                               final docService = DocumentCaptureService();
-                              final image = await docService.captureFromCamera();
+                              final image = await docService
+                                  .captureFromCamera();
                               if (image != null) {
                                 final filename = image.name.toLowerCase();
                                 PatientModel? matched;
                                 for (final p in existingPatients) {
-                                  if (filename.contains(p.patientId.toLowerCase()) ||
-                                      filename.contains(p.patientId.replaceAll('-', '').toLowerCase()) ||
-                                      filename.contains(p.fullName.toLowerCase())) {
+                                  if (filename.contains(
+                                        p.patientId.toLowerCase(),
+                                      ) ||
+                                      filename.contains(
+                                        p.patientId
+                                            .replaceAll('-', '')
+                                            .toLowerCase(),
+                                      ) ||
+                                      filename.contains(
+                                        p.fullName.toLowerCase(),
+                                      )) {
                                     matched = p;
                                     break;
                                   }
@@ -1603,7 +2169,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                   if (ctx.mounted) {
                                     ScaffoldMessenger.of(ctx).showSnackBar(
                                       SnackBar(
-                                        content: Text('✓ Recognized Token from ${image.name}: ${matched.patientId}'),
+                                        content: Text(
+                                          '✓ Recognized Token from ${image.name}: ${matched.patientId}',
+                                        ),
                                         backgroundColor: AppTheme.primaryTeal,
                                         duration: const Duration(seconds: 2),
                                       ),
@@ -1613,7 +2181,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                   if (ctx.mounted) {
                                     ScaffoldMessenger.of(ctx).showSnackBar(
                                       SnackBar(
-                                        content: Text('Uploaded "${image.name}". No valid QR/Barcode token found in image. Aim your barcode gun at a printed slip or click a token below.'),
+                                        content: Text(
+                                          'Uploaded "${image.name}". No valid QR/Barcode token found in image. Aim your barcode gun at a printed slip or click a token below.',
+                                        ),
                                         backgroundColor: Colors.orange.shade800,
                                         duration: const Duration(seconds: 3),
                                       ),
@@ -1633,12 +2203,20 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                             icon: const Icon(Icons.document_scanner, size: 16),
-                            label: const Text('Yellow Form OCR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            label: const Text(
+                              'Yellow Form OCR',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             onPressed: () {
                               Navigator.of(ctx).pop();
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const FormScanView()),
+                                MaterialPageRoute(
+                                  builder: (_) => const FormScanView(),
+                                ),
                               );
                             },
                           ),
@@ -1654,7 +2232,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       decoration: InputDecoration(
                         labelText: 'Scanned Token / Barcode (हार्डवेयर वा क्यामेरा टोकन)',
                         hintText: 'e.g. GC-KTM01-2026-00001',
-                        prefixIcon: const Icon(Icons.qr_code, color: AppTheme.primaryTeal),
+                        prefixIcon: const Icon(
+                          Icons.qr_code,
+                          color: AppTheme.primaryTeal,
+                        ),
                         suffixIcon: scanInputController.text.isNotEmpty
                             ? IconButton(
                                 icon: const Icon(Icons.clear, size: 18),
@@ -1695,22 +2276,35 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                   radius: 16,
                                   backgroundColor: AppTheme.primaryTeal,
                                   child: Text(
-                                    matchedPatient!.fullName.isNotEmpty ? matchedPatient!.fullName[0] : 'P',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                    matchedPatient!.fullName.isNotEmpty
+                                        ? matchedPatient!.fullName[0]
+                                        : 'P',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         matchedPatient!.fullName,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
                                       ),
                                       Text(
                                         'Age: ${matchedPatient!.age}y • Ward ${matchedPatient!.ward} • ${matchedPatient!.mobile.isNotEmpty ? matchedPatient!.mobile : "No Phone"}',
-                                        style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: AppTheme.textSecondaryLight,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -1725,17 +2319,31 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppTheme.primaryTeal,
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
                                       minimumSize: Size.zero,
                                     ),
-                                    icon: const Icon(Icons.medical_services, size: 15),
-                                    label: const Text('Start Clinical Intake', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    icon: const Icon(
+                                      Icons.medical_services,
+                                      size: 15,
+                                    ),
+                                    label: const Text(
+                                      'Start Clinical Intake',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                     onPressed: () {
                                       Navigator.of(ctx).pop();
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => ClinicalAssessmentView(patient: matchedPatient!),
+                                          builder: (_) =>
+                                              ClinicalAssessmentView(
+                                                patient: matchedPatient!,
+                                              ),
                                         ),
                                       );
                                     },
@@ -1744,18 +2352,30 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                 const SizedBox(width: 8),
                                 OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
                                     minimumSize: Size.zero,
                                   ),
-                                  icon: const Icon(Icons.print_outlined, size: 15),
-                                  label: const Text('Slip', style: TextStyle(fontSize: 12)),
+                                  icon: const Icon(
+                                    Icons.print_outlined,
+                                    size: 15,
+                                  ),
+                                  label: const Text(
+                                    'Slip',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
                                   onPressed: () {
                                     Navigator.of(ctx).pop();
                                     PatientFollowUpSlipModal.show(
                                       context,
                                       patient: matchedPatient!,
-                                      camp: ref.read(campStateProvider).activeCamp,
-                                      organizationName: 'Nepal Gyno Health Outreach Network',
+                                      camp: ref
+                                          .read(campStateProvider)
+                                          .activeCamp,
+                                      organizationName:
+                                          'Nepal Gyno Health Outreach Network',
                                       showProceedButton: false,
                                     );
                                   },
@@ -1773,23 +2393,44 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       const SizedBox(height: 4),
                       const Text(
                         'Registered Tokens in Active Camp:',
-                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: existingPatients.take(5).map((p) => ActionChip(
-                          avatar: const Icon(Icons.qr_code_2, size: 14, color: AppTheme.primaryTeal),
-                          label: Text('${p.fullName} (${p.patientId})', style: const TextStyle(fontSize: 11)),
-                          backgroundColor: scanInputController.text == p.patientId
-                              ? AppTheme.primaryTeal.withValues(alpha: 0.2)
-                              : AppTheme.primaryTeal.withValues(alpha: 0.08),
-                          onPressed: () {
-                            scanInputController.text = p.patientId;
-                            checkMatch(p.patientId);
-                          },
-                        )).toList(),
+                        children: existingPatients
+                            .take(5)
+                            .map(
+                              (p) => ActionChip(
+                                avatar: const Icon(
+                                  Icons.qr_code_2,
+                                  size: 14,
+                                  color: AppTheme.primaryTeal,
+                                ),
+                                label: Text(
+                                  '${p.fullName} (${p.patientId})',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                                backgroundColor:
+                                    scanInputController.text == p.patientId
+                                    ? AppTheme.primaryTeal.withValues(
+                                        alpha: 0.2,
+                                      )
+                                    : AppTheme.primaryTeal.withValues(
+                                        alpha: 0.08,
+                                      ),
+                                onPressed: () {
+                                  scanInputController.text = p.patientId;
+                                  checkMatch(p.patientId);
+                                },
+                              ),
+                            )
+                            .toList(),
                       ),
                     ] else ...[
                       const SizedBox(height: 6),
@@ -1802,12 +2443,19 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.info_outline, size: 16, color: Colors.amber),
+                            Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: Colors.amber,
+                            ),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'No patients registered yet. Tap "+ New Patient" to register and generate a QR token first.',
-                                style: TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF92400E),
+                                ),
                               ),
                             ),
                           ],
@@ -1846,391 +2494,116 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     );
   }
 
-  void _showVisitHistoryDialog(BuildContext context, PatientModel patient) {
-    showDialog(
+  // ─── Print Block-Letter Registration Form ─────────────────────────────────
+  Future<void> _printRegistrationForm(
+    BuildContext context,
+    PatientModel patient,
+    CampModel? camp,
+  ) async {
+    final orgName = camp?.organizationName.isNotEmpty == true
+        ? camp!.organizationName
+        : 'Nepal Gyno Health Outreach Network';
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Generating registration form PDF...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
+        patient: patient,
+        camp: camp,
+        organizationName: orgName,
+      );
+      await FileDownloadHelper.saveAndDownloadFile(
+        bytes: bytes,
+        filename: 'RegistrationForm_${patient.patientId}.pdf',
+        mimeType: 'application/pdf',
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Registration form downloaded: RegistrationForm_${patient.patientId}.pdf',
+            ),
+            backgroundColor: AppTheme.successGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating form: $e'),
+            backgroundColor: AppTheme.dangerRose,
+          ),
+        );
+      }
+    }
+  }
+
+  // ─── Professional Clinical History Full-Screen Panel ────────────────────────
+  void _showClinicalHistoryPanel(
+    BuildContext context,
+    PatientModel patient,
+    CampModel? camp,
+  ) {
+    final repo = ref.read(patientRepositoryProvider);
+    final orgName = camp?.organizationName.isNotEmpty == true
+        ? camp!.organizationName
+        : 'Nepal Gyno Health Outreach Network';
+
+    showGeneralDialog(
       context: context,
-      builder: (ctx) {
-        final repo = ref.read(patientRepositoryProvider);
-        final activeCamp = ref.read(campStateProvider).activeCamp;
-        final authState = ref.read(authStateProvider);
-        bool isDownloading = false;
-
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            return FutureBuilder<List<ClinicalVisitModel>>(
-              future: repo.getClinicalVisits(patient.patientId, patientUuid: patient.id),
-              builder: (context, snapshot) {
-                final isLoading = snapshot.connectionState == ConnectionState.waiting;
-                final visits = snapshot.data ?? [];
-
-                return AlertDialog(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  title: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.history_edu_rounded, color: AppTheme.primaryTeal, size: 24),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Patient Clinical History: ${patient.fullName}',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              'Patient ID: ${patient.patientId} • ${patient.district} (Ward ${patient.ward}) • ${visits.length} Encounters Recorded',
-                              style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight, fontWeight: FontWeight.normal),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+      barrierDismissible: true,
+      barrierLabel: 'Close History',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 320),
+      transitionBuilder: (ctx, anim, secondAnim, child) {
+        final curve = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(curve),
+          child: child,
+        );
+      },
+      pageBuilder: (ctx, animation, secondaryAnimation) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.88,
+              height: MediaQuery.of(context).size.height,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.horizontal(
+                  left: Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 24,
+                    offset: Offset(-4, 0),
                   ),
-                  content: SizedBox(
-                    width: 640,
-                    child: isLoading
-                        ? const SizedBox(
-                            height: 140,
-                            child: Center(child: CircularProgressIndicator()),
-                          )
-                        : visits.isEmpty
-                            ? const Padding(
-                                padding: EdgeInsets.all(24.0),
-                                child: Text(
-                                  'No clinical examinations recorded yet for this patient.\nComplete Station 1-6 or a Follow-Up Form to log encounters.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: AppTheme.textSecondaryLight, height: 1.5),
-                                ),
-                              )
-                            : ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxHeight: MediaQuery.of(context).size.height * 0.65,
-                                ),
-                                child: SingleChildScrollView(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: visits.asMap().entries.map((entry) {
-                                      final visit = entry.value;
-                                      final isFollowUp = visit.isFollowUp;
-                                      final dateStr = DateFormat('yyyy-MM-dd HH:mm').format(visit.visitDate);
-
-                                      return Container(
-                                        margin: const EdgeInsets.only(bottom: 12),
-                                        padding: const EdgeInsets.all(14),
-                                        decoration: BoxDecoration(
-                                          color: isFollowUp
-                                              ? const Color(0xFFF0FDFA)
-                                              : Colors.white,
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: isFollowUp
-                                                ? AppTheme.accentCyan.withValues(alpha: 0.6)
-                                                : const Color(0xFFCBD5E1),
-                                            width: 1.2,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.03),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            // Encounter Header Row
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Icon(
-                                                      isFollowUp ? Icons.replay_circle_filled_rounded : Icons.local_hospital_rounded,
-                                                      size: 18,
-                                                      color: isFollowUp ? AppTheme.accentCyan : AppTheme.primaryTeal,
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Text(
-                                                      isFollowUp ? 'Follow-Up Review (पुनः जाँच)' : 'Primary Camp Examination (पहिलो जाँच)',
-                                                      style: TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 13.5,
-                                                        color: isFollowUp ? const Color(0xFF0F766E) : AppTheme.primaryDark,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(0xFFF1F5F9),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                                                  ),
-                                                  child: Text(
-                                                    dateStr,
-                                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 10),
-
-                                            // Vitals Strip
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFF8FAFC),
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                                              ),
-                                              child: Wrap(
-                                                spacing: 12,
-                                                runSpacing: 4,
-                                                children: [
-                                                  _buildHistoryMetric('BP', '${visit.systolicBp ?? "-"}/${visit.diastolicBp ?? "-"} mmHg'),
-                                                  if (visit.pulse != null)
-                                                    _buildHistoryMetric('Pulse', '${visit.pulse} bpm'),
-                                                  if (visit.spo2 != null)
-                                                    _buildHistoryMetric('SpO2', '${visit.spo2}%'),
-                                                  if (visit.glucose != null)
-                                                    _buildHistoryMetric('Glucose', '${visit.glucose} mg/dL'),
-                                                  if (visit.urineTest != null && visit.urineTest!.isNotEmpty)
-                                                    _buildHistoryMetric('Urine', visit.urineTest!),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(height: 10),
-
-                                            // Baden-Walker POP Staging Badges
-                                            Row(
-                                              children: [
-                                                const Text('POP Staging:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                                                const SizedBox(width: 8),
-                                                _buildPopStageChip('Highest', 'Stage ${visit.highestPopStage}', isPrimary: true),
-                                                const SizedBox(width: 6),
-                                                _buildPopStageChip('Ant', 'St ${visit.popAnteriorStage}'),
-                                                const SizedBox(width: 6),
-                                                _buildPopStageChip('Mid', 'St ${visit.popMiddleStage}'),
-                                                const SizedBox(width: 6),
-                                                _buildPopStageChip('Post', 'St ${visit.popPosteriorStage}'),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 8),
-
-                                            // Diagnoses
-                                            if (visit.diagnoses.isNotEmpty) ...[
-                                              Row(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  const Text('Diagnoses: ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                                                  Expanded(
-                                                    child: Wrap(
-                                                      spacing: 4,
-                                                      runSpacing: 4,
-                                                      children: visit.diagnoses.map((d) {
-                                                        return Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                          decoration: BoxDecoration(
-                                                            color: AppTheme.primaryLight.withValues(alpha: 0.5),
-                                                            borderRadius: BorderRadius.circular(4),
-                                                            border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
-                                                          ),
-                                                          child: Text(d, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryDark)),
-                                                        );
-                                                      }).toList(),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 6),
-                                            ],
-
-                                            // Prescribed Medications & Pessary
-                                            if (visit.medications.isNotEmpty || (visit.pessarySize != null && visit.pessarySize!.isNotEmpty)) ...[
-                                              Row(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  const Text('Treatment: ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        if (visit.medications.isNotEmpty)
-                                                          Text('Medications: ${visit.medications.join(", ")}', style: const TextStyle(fontSize: 11.5, color: Color(0xFF1E293B))),
-                                                        if (visit.pessarySize != null && visit.pessarySize!.isNotEmpty)
-                                                          Text('Ring Pessary Fitted: ${visit.pessaryType ?? "Standard"} (Size: ${visit.pessarySize})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal)),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 6),
-                                            ],
-
-                                            // Surgery & Referral
-                                            if (visit.surgeryDone || (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty) || (visit.followUpDestination != null && visit.followUpDestination!.isNotEmpty)) ...[
-                                              Row(
-                                                children: [
-                                                  if (visit.surgeryDone) ...[
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: AppTheme.successGreen.withValues(alpha: 0.12),
-                                                        borderRadius: BorderRadius.circular(4),
-                                                        border: Border.all(color: AppTheme.successGreen),
-                                                      ),
-                                                      child: Text(
-                                                        'Surgery: ${visit.surgeryType ?? "Done"}',
-                                                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.successGreen),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                  ],
-                                                  if (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty) ...[
-                                                    Text('Referral: ${visit.surgicalReferral}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.dangerRose)),
-                                                    const SizedBox(width: 8),
-                                                  ],
-                                                  if (visit.followUpDestination != null && visit.followUpDestination!.isNotEmpty)
-                                                    Text('Follow-up at: ${visit.followUpDestination}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 6),
-                                            ],
-
-                                            // Clinical Outtake / Follow-up Notes
-                                            if ((visit.followUpNotes != null && visit.followUpNotes!.isNotEmpty) || (visit.outtakeNotes != null && visit.outtakeNotes!.isNotEmpty)) ...[
-                                              Container(
-                                                width: double.infinity,
-                                                padding: const EdgeInsets.all(8),
-                                                decoration: BoxDecoration(
-                                                  color: const Color(0xFFF1F5F9),
-                                                  borderRadius: BorderRadius.circular(6),
-                                                ),
-                                                child: Text(
-                                                  'Notes: ${visit.followUpNotes?.isNotEmpty == true ? visit.followUpNotes : visit.outtakeNotes}',
-                                                  style: const TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: Color(0xFF334155)),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                              ),
-                  ),
-                  actions: [
-                    if (visits.isNotEmpty)
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryTeal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        ),
-                        icon: isDownloading
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.picture_as_pdf_rounded, size: 16),
-                        label: Text(isDownloading ? 'Generating PDF...' : 'Download Dossier (PDF)'),
-                        onPressed: isDownloading
-                            ? null
-                            : () async {
-                                setDialogState(() => isDownloading = true);
-                                try {
-                                  final reportingVM = ref.read(reportingViewModelProvider.notifier);
-                                  final savedPath = await reportingVM.exportIndividualPatientPdf(
-                                    patient: patient,
-                                    visit: visits.first,
-                                    allVisits: visits,
-                                    camp: activeCamp,
-                                    userId: authState.currentUser?.id ?? 'usr-analyst',
-                                    userName: authState.currentUser?.name ?? 'Staff',
-                                    userRole: authState.currentUser?.role.name ?? 'DataAnalyst',
-                                    deviceId: 'outreach-client',
-                                  );
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(savedPath != null
-                                            ? 'Patient history dossier downloaded successfully!'
-                                            : 'PDF generation completed.'),
-                                        backgroundColor: AppTheme.successGreen,
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Failed to download dossier: $e'),
-                                        backgroundColor: AppTheme.dangerRose,
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
-                                  }
-                                } finally {
-                                  setDialogState(() => isDownloading = false);
-                                }
-                              },
-                      ),
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text('Close'),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
+                ],
+              ),
+              child: ClinicalHistoryPanel(
+                patient: patient,
+                camp: camp,
+                orgName: orgName,
+                repo: repo,
+              ),
+            ),
+          ),
         );
       },
     );
   }
-
-  Widget _buildHistoryMetric(String label, String val) {
-    return RichText(
-      text: TextSpan(
-        style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-        children: [
-          TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-          TextSpan(text: val, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPopStageChip(String label, String value, {bool isPrimary = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-      decoration: BoxDecoration(
-        color: isPrimary ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: isPrimary ? const Color(0xFFF59E0B) : const Color(0xFFCBD5E1),
-          width: 0.8,
-        ),
-      ),
-      child: Text(
-        '$label: $value',
-        style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: isPrimary ? FontWeight.bold : FontWeight.w600,
-          color: isPrimary ? const Color(0xFF92400E) : const Color(0xFF334155),
-        ),
-      ),
-    );
-  }
 }
+
 

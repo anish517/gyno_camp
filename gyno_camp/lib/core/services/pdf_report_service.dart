@@ -1161,4 +1161,614 @@ class PdfReportService {
       ),
     );
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // INDIVIDUAL FOLLOW-UP ENCOUNTER SLIP (per-visit detailed clinical slip)
+  // ─────────────────────────────────────────────────────────────────────────
+  Future<Uint8List> generateFollowUpEncounterSlipPdf({
+    required PatientModel patient,
+    required ClinicalVisitModel visit,
+    CampModel? camp,
+    String organizationName = 'Nepal Gyno Health Outreach Network',
+  }) async {
+    final pdf = pw.Document();
+    final dateFormatter = DateFormat('yyyy-MM-dd');
+    final timeFormatter = DateFormat('yyyy-MM-dd HH:mm');
+
+    final primary = PdfColor.fromHex('0F766E');
+    final secondary = PdfColor.fromHex('0D9488');
+    final lightBg = PdfColor.fromHex('F0FDFA');
+    final dark = PdfColor.fromHex('1E293B');
+    final gray = PdfColor.fromHex('CBD5E1');
+    final cyanBg = PdfColor.fromHex('ECFEFF');
+    final cyan = PdfColor.fromHex('0891B2');
+
+    final isFollowUp = visit.isFollowUp;
+    final encounterColor = isFollowUp ? cyan : primary;
+    final encounterBg = isFollowUp ? cyanBg : lightBg;
+    final encounterLabel = isFollowUp ? 'FOLLOW-UP CLINICAL ENCOUNTER' : 'PRIMARY CAMP EXAMINATION';
+    final visitDate = dateFormatter.format(visit.visitDate);
+    final visitTime = timeFormatter.format(visit.visitDate);
+
+    // BP classification
+    String bpStatus = 'N/A';
+    PdfColor bpColor = dark;
+    if (visit.systolicBp != null && visit.diastolicBp != null) {
+      final s = visit.systolicBp!;
+      final d = visit.diastolicBp!;
+      if (s >= 160 || d >= 100) { bpStatus = 'HTN Stage 2 (Critical)'; bpColor = PdfColor.fromHex('BE123C'); }
+      else if (s >= 140 || d >= 90) { bpStatus = 'HTN Stage 1 (Elevated)'; bpColor = PdfColor.fromHex('B45309'); }
+      else if (s >= 120) { bpStatus = 'Pre-Hypertension'; bpColor = PdfColor.fromHex('B45309'); }
+      else { bpStatus = 'Normal Range'; bpColor = primary; }
+    }
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        build: (ctx) => [
+          // ── Header ───────────────────────────────────────────────────────
+          pw.Container(
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              color: encounterBg,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+              border: pw.Border.all(color: encounterColor, width: 1.2),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(sanitizeText(organizationName.toUpperCase()),
+                          style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: encounterColor)),
+                      pw.SizedBox(height: 2),
+                      pw.Text(encounterLabel,
+                          style: pw.TextStyle(fontSize: 13.5, fontWeight: pw.FontWeight.bold, color: dark)),
+                      pw.Text('Clinical Encounter Record | Individual Visit Slip',
+                          style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700)),
+                      pw.SizedBox(height: 3),
+                      pw.Text(
+                        'Camp: ${sanitizeText(camp?.name ?? "Gynae Outreach Station")} (${camp?.campCode ?? patient.campCode})',
+                        style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: secondary),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.BarcodeWidget(
+                      barcode: pw.Barcode.qrCode(),
+                      data: '${patient.patientId}|$visitDate',
+                      width: 62,
+                      height: 62,
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text('ENCOUNTER-${patient.patientId}',
+                        style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: encounterColor)),
+                    pw.Text(visitTime, style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 8),
+
+          // ── Patient Demographics ─────────────────────────────────────────
+          _buildPdfSectionHeader('1. PATIENT IDENTITY', encounterColor),
+          pw.SizedBox(height: 3),
+          pw.Container(
+            padding: const pw.EdgeInsets.all(7),
+            decoration: pw.BoxDecoration(border: pw.Border.all(color: gray, width: 0.8), borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4))),
+            child: pw.Column(
+              children: [
+                pw.Row(children: [
+                  pw.Expanded(child: _buildPdfField('Patient ID', patient.patientId, isBold: true)),
+                  pw.Expanded(child: _buildPdfField('Full Name', patient.fullName, isBold: true)),
+                  pw.Expanded(child: _buildPdfField('Age', '${patient.age} yrs (${patient.maritalStatus})')),
+                ]),
+                pw.SizedBox(height: 3),
+                pw.Row(children: [
+                  pw.Expanded(child: _buildPdfField('Address', 'Ward ${patient.ward}, ${patient.municipality}, ${patient.district}')),
+                  pw.Expanded(child: _buildPdfField('Guardian / Spouse', patient.spouseOrFatherName ?? 'N/A')),
+                  pw.Expanded(child: _buildPdfField('Mobile', patient.mobile.isNotEmpty ? patient.mobile : 'N/A')),
+                ]),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 7),
+
+          // ── Obstetric History ────────────────────────────────────────────
+          if (visit.deliveries != null || visit.anamnesisComplaints.isNotEmpty) ...[
+            _buildPdfSectionHeader('2. OBSTETRIC HISTORY & EXAMINATION', encounterColor),
+            pw.SizedBox(height: 3),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(7),
+              decoration: pw.BoxDecoration(border: pw.Border.all(color: gray, width: 0.8), borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4))),
+              child: pw.Column(
+                children: [
+                  pw.Row(children: [
+                    pw.Expanded(child: _buildPdfField('Deliveries (Parity)', visit.deliveries?.toString() ?? 'N/A')),
+                    pw.Expanded(child: _buildPdfField('Living Children', visit.livingChildren?.toString() ?? 'N/A')),
+                    pw.Expanded(child: _buildPdfField('Abortions', visit.abortions?.toString() ?? 'N/A')),
+                    pw.Expanded(child: _buildPdfField('Pelvic Floor Tone', visit.pelvicFloorTone.toUpperCase())),
+                  ]),
+                  pw.SizedBox(height: 3),
+                  pw.Row(children: [
+                    pw.Expanded(child: _buildPdfField('Uterus', visit.uterusInside ? 'Normal / Inside' : 'Prolapsed / Outside', isBold: !visit.uterusInside)),
+                    pw.Expanded(child: _buildPdfField('Cervix', sanitizeText(visit.cervixRemarks ?? 'Normal'))),
+                    pw.Expanded(child: _buildPdfField('Vulva / Vagina', sanitizeText(visit.vaginaRemarks ?? 'Normal'))),
+                  ]),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 7),
+          ],
+
+          // ── Clinical Vitals ──────────────────────────────────────────────
+          _buildPdfSectionHeader('3. CLINICAL VITALS & SCREENING LABS', encounterColor),
+          pw.SizedBox(height: 3),
+          pw.Container(
+            padding: const pw.EdgeInsets.all(7),
+            decoration: pw.BoxDecoration(border: pw.Border.all(color: gray, width: 0.8), borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4))),
+            child: pw.Column(
+              children: [
+                pw.Row(children: [
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        _buildPdfField('Blood Pressure', visit.systolicBp != null ? '${visit.systolicBp}/${visit.diastolicBp} mmHg' : 'N/A', isBold: true),
+                        pw.Text('Status: $bpStatus', style: pw.TextStyle(fontSize: 7.5, color: bpColor, fontWeight: pw.FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  pw.Expanded(child: _buildPdfField('Pulse Rate', visit.pulse != null ? '${visit.pulse} bpm' : 'N/A')),
+                  pw.Expanded(child: _buildPdfField('SpO2', visit.spo2 != null ? '${visit.spo2}%' : 'N/A')),
+                  pw.Expanded(child: _buildPdfField('Blood Glucose', visit.glucose != null ? '${visit.glucose} mg/dL' : 'N/A')),
+                ]),
+                pw.SizedBox(height: 3),
+                pw.Row(children: [
+                  pw.Expanded(child: _buildPdfField('Urine Dipstick', (visit.urineTest ?? 'Normal').toUpperCase())),
+                  pw.Expanded(child: _buildPdfField('Pregnancy Test', (visit.pregnancyTest ?? 'Neg / N/A').toUpperCase())),
+                  pw.Expanded(child: _buildPdfField('ECG / Cardiac', sanitizeText(visit.ecgNotes ?? 'Not indicated'))),
+                ]),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 7),
+
+          // ── POP Staging ──────────────────────────────────────────────────
+          _buildPdfSectionHeader('4. BADEN-WALKER POP STAGING', encounterColor),
+          pw.SizedBox(height: 3),
+          pw.Container(
+            padding: const pw.EdgeInsets.all(7),
+            decoration: pw.BoxDecoration(
+              color: visit.highestPopStage >= 2 ? lightBg : PdfColors.white,
+              border: pw.Border.all(color: visit.highestPopStage >= 2 ? secondary : gray, width: 0.8),
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+              children: [
+                _buildPopBadge('HIGHEST POP STAGE', 'Stage ${visit.highestPopStage}', isHighlight: true, isCritical: visit.highestPopStage >= 3),
+                _buildPopBadge('ANTERIOR (Cystocele)', 'Stage ${visit.popAnteriorStage}'),
+                _buildPopBadge('MIDDLE (Uterine)', 'Stage ${visit.popMiddleStage}'),
+                _buildPopBadge('POSTERIOR (Rectocele)', 'Stage ${visit.popPosteriorStage}'),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 7),
+
+          // ── Diagnoses & Treatment ────────────────────────────────────────
+          _buildPdfSectionHeader('5. CONFIRMED DIAGNOSES & TREATMENT', encounterColor),
+          pw.SizedBox(height: 3),
+          pw.Container(
+            padding: const pw.EdgeInsets.all(7),
+            decoration: pw.BoxDecoration(border: pw.Border.all(color: gray, width: 0.8), borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4))),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _buildPdfField('Confirmed Diagnoses',
+                    visit.diagnoses.isNotEmpty ? visit.diagnoses.join(' | ') : 'No acute pathology diagnosed', isBold: visit.diagnoses.isNotEmpty),
+                pw.SizedBox(height: 3),
+                _buildPdfField('Prescribed Medications', visit.medications.isNotEmpty ? visit.medications.join(' | ') : 'None dispensed'),
+                if (visit.customMedication?.isNotEmpty == true) ...[
+                  pw.SizedBox(height: 2),
+                  _buildPdfField('Special Prescriptions', sanitizeText(visit.customMedication!)),
+                ],
+                if (visit.pessarySize?.isNotEmpty == true) ...[
+                  pw.SizedBox(height: 2),
+                  _buildPdfField('Ring Pessary Fitted', '${visit.pessaryType ?? "Ring Pessary"} — Size: ${visit.pessarySize}', isBold: true),
+                ],
+                if (visit.surgeryDone) ...[
+                  pw.SizedBox(height: 2),
+                  _buildPdfField('Surgery Performed', sanitizeText(visit.surgeryType ?? 'Done'), isBold: true),
+                ],
+                if (visit.counseling.isNotEmpty) ...[
+                  pw.SizedBox(height: 2),
+                  _buildPdfField('Patient Counseling', visit.counseling.join(', ')),
+                ],
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 7),
+
+          // ── Continuity of Care ────────────────────────────────────────────
+          _buildPdfSectionHeader('6. CONTINUITY OF CARE & REFERRAL', encounterColor),
+          pw.SizedBox(height: 3),
+          pw.Container(
+            padding: const pw.EdgeInsets.all(7),
+            decoration: pw.BoxDecoration(border: pw.Border.all(color: gray, width: 0.8), borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4))),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Row(children: [
+                  pw.Expanded(child: _buildPdfField('Follow-up Required', visit.followUpNeeded ? 'YES — Indicated' : 'No (Routine)', isBold: visit.followUpNeeded)),
+                  pw.Expanded(child: _buildPdfField('Follow-up Center', sanitizeText(visit.followUpDestination ?? 'Local Health Post'))),
+                  pw.Expanded(child: _buildPdfField('Surgical Referral', sanitizeText(visit.surgicalReferral?.isNotEmpty == true ? visit.surgicalReferral! : 'None Indicated'), isBold: visit.surgicalReferral?.isNotEmpty == true)),
+                ]),
+                if (visit.followUpNotes?.isNotEmpty == true) ...[
+                  pw.SizedBox(height: 3),
+                  _buildPdfField('Follow-Up Clinical Notes', sanitizeText(visit.followUpNotes!)),
+                ],
+                if (visit.outtakeNotes?.isNotEmpty == true) ...[
+                  pw.SizedBox(height: 3),
+                  _buildPdfField('Attending Physician Notes', sanitizeText(visit.outtakeNotes!)),
+                ],
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 14),
+
+          // ── Attestation Footer ────────────────────────────────────────────
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('Doc Ref: ENCOUNTER-${patient.patientId}-$visitDate', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
+                  pw.Text('Generated: ${timeFormatter.format(DateTime.now())}', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600)),
+                  pw.Text('Nepal Gyno Health Outreach Network — Attested Clinical Record',
+                      style: pw.TextStyle(fontSize: 7.5, color: secondary)),
+                ],
+              ),
+              pw.Column(
+                children: [
+                  pw.Container(width: 150, height: 0.8, color: PdfColors.black),
+                  pw.SizedBox(height: 3),
+                  pw.Text('Medical Officer / Attending Gynecologist', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('NMC Certified — Date: $visitDate', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOCK-LETTER REGISTRATION FORM PDF (printable grid with squares per char)
+  // ─────────────────────────────────────────────────────────────────────────
+  Future<Uint8List> generatePatientRegistrationFormPdf({
+    required PatientModel patient,
+    CampModel? camp,
+    String organizationName = 'Nepal Gyno Health Outreach Network',
+  }) async {
+    final pdf = pw.Document();
+    final dateFormatter = DateFormat('yyyy-MM-dd');
+
+    final primary = PdfColor.fromHex('0F766E');
+    final secondary = PdfColor.fromHex('0D9488');
+    final lightBg = PdfColor.fromHex('F0FDFA');
+    final dark = PdfColor.fromHex('1E293B');
+    final gray = PdfColor.fromHex('CBD5E1');
+    final boxBg = PdfColor.fromHex('FAFAFA');
+
+    // Helper: row of individual character boxes for a given value
+    pw.Widget buildCharBoxes(String value, {int minBoxes = 20, double boxSize = 16}) {
+      final chars = value.toUpperCase().split('');
+      final total = chars.length > minBoxes ? chars.length : minBoxes;
+      return pw.Row(
+        children: List.generate(total, (i) {
+          final char = i < chars.length ? chars[i] : '';
+          return pw.Container(
+            width: boxSize,
+            height: boxSize + 2,
+            margin: const pw.EdgeInsets.only(right: 2),
+            decoration: pw.BoxDecoration(
+              color: char.isNotEmpty ? PdfColor.fromHex('F0FDFA') : boxBg,
+              border: pw.Border.all(color: gray, width: 0.8),
+            ),
+            child: pw.Center(
+              child: pw.Text(
+                char,
+                style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: dark),
+              ),
+            ),
+          );
+        }),
+      );
+    }
+
+    // Helper: labelled block-letter field
+    pw.Widget buildField(String labelEn, String labelNe, String value, {int minBoxes = 20, double boxSize = 16}) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 8),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Row(children: [
+              pw.Text('$labelEn / ', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: dark)),
+              pw.Text(labelNe, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+            ]),
+            pw.SizedBox(height: 3),
+            buildCharBoxes(value, minBoxes: minBoxes, boxSize: boxSize),
+          ],
+        ),
+      );
+    }
+
+    // Helper: checkbox row
+    pw.Widget buildCheckbox(String label, bool checked) {
+      return pw.Row(
+        children: [
+          pw.Container(
+            width: 12,
+            height: 12,
+            margin: const pw.EdgeInsets.only(right: 4),
+            decoration: pw.BoxDecoration(
+              color: checked ? primary : PdfColors.white,
+              border: pw.Border.all(color: checked ? primary : gray, width: 0.9),
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+            ),
+            child: checked
+                ? pw.Center(child: pw.Text('X', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.white)))
+                : pw.SizedBox(),
+          ),
+          pw.Text(sanitizeText(label), style: const pw.TextStyle(fontSize: 8.5)),
+        ],
+      );
+    }
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+        build: (ctx) => [
+          // ── Official Header ────────────────────────────────────────────
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: pw.BoxDecoration(
+              color: lightBg,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+              border: pw.Border.all(color: primary, width: 1.5),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(sanitizeText(organizationName.toUpperCase()),
+                          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: primary)),
+                      pw.SizedBox(height: 2),
+                      pw.Text('PATIENT REGISTRATION FORM (YELLOW FORM) / बिरामी दर्ता फारम',
+                          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: dark)),
+                      pw.Text('PLEASE FILL IN BLOCK LETTERS — ठूला अक्षरमा भर्नुहोस्',
+                          style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: secondary)),
+                      pw.SizedBox(height: 3),
+                      pw.Text(
+                        'Camp: ${sanitizeText(camp?.name ?? "Gynecological Health Outreach Camp")} | Date: ${dateFormatter.format(patient.intakeDate)}',
+                        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.BarcodeWidget(
+                      barcode: pw.Barcode.qrCode(),
+                      data: patient.patientId,
+                      width: 58,
+                      height: 58,
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Text(patient.patientId,
+                        style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: primary)),
+                    pw.BarcodeWidget(
+                      barcode: pw.Barcode.code128(),
+                      data: patient.patientId,
+                      width: 90,
+                      height: 20,
+                      drawText: false,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 10),
+
+          // ── SECTION A: DEMOGRAPHICS ────────────────────────────────────
+          _buildPdfSectionHeader('SECTION A: PATIENT DEMOGRAPHICS / बिरामी विवरण', primary),
+          pw.SizedBox(height: 6),
+
+          // First Name + Surname on one row
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(child: buildField('First Name', 'पहिलो नाम', patient.firstName, minBoxes: 14)),
+              pw.SizedBox(width: 10),
+              pw.Expanded(child: buildField('Surname', 'थर', patient.surname, minBoxes: 14)),
+            ],
+          ),
+
+          // Age + Marital Status
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.SizedBox(
+                width: 80,
+                child: buildField('Age', 'उमेर', patient.age.toString(), minBoxes: 3, boxSize: 18),
+              ),
+              pw.SizedBox(width: 10),
+              pw.Expanded(
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 8),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Marital Status / वैवाहिक स्थिति',
+                          style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: dark)),
+                      pw.SizedBox(height: 4),
+                      pw.Row(
+                        children: [
+                          buildCheckbox('Married / विवाहित', patient.maritalStatus == 'married'),
+                          pw.SizedBox(width: 12),
+                          buildCheckbox('Widow / विधवा', patient.maritalStatus == 'widow'),
+                          pw.SizedBox(width: 12),
+                          buildCheckbox('Unmarried / अविवाहित', patient.maritalStatus == 'unmarried'),
+                          pw.SizedBox(width: 12),
+                          buildCheckbox('Divorced / सम्बन्ध विच्छेद', patient.maritalStatus == 'divorced'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Spouse/Father Name
+          buildField(
+            patient.maritalStatus == 'unmarried' || patient.age < 20 ? "Father's Name" : "Husband's Name",
+            patient.maritalStatus == 'unmarried' || patient.age < 20 ? 'बुबाको नाम' : 'श्रीमानको नाम',
+            patient.spouseOrFatherName ?? '',
+            minBoxes: 24,
+          ),
+
+          // Mobile
+          buildField('Mobile No.', 'मोबाइल नम्बर', patient.mobile, minBoxes: 10, boxSize: 18),
+
+          // District + Municipality + Ward
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(child: buildField('District', 'जिल्ला', patient.district, minBoxes: 14)),
+              pw.SizedBox(width: 10),
+              pw.Expanded(child: buildField('Municipality / VDC', 'नगर / गाउँपालिका', patient.municipality, minBoxes: 14)),
+              pw.SizedBox(width: 10),
+              pw.SizedBox(width: 70, child: buildField('Ward No.', 'वडा नं.', patient.ward, minBoxes: 3, boxSize: 18)),
+            ],
+          ),
+
+          // Province
+          buildField('Province', 'प्रदेश', patient.province, minBoxes: 16),
+
+          pw.SizedBox(height: 4),
+          pw.Divider(color: gray),
+          pw.SizedBox(height: 6),
+
+          // ── SECTION B: REASONS FOR VISIT ───────────────────────────────
+          _buildPdfSectionHeader('SECTION B: REASONS FOR VISIT / जाँचको कारण', primary),
+          pw.SizedBox(height: 6),
+          pw.Wrap(
+            spacing: 20,
+            runSpacing: 6,
+            children: [
+              buildCheckbox('Something Hanging Out / बाहिर आएको महसुस', patient.reasonsForVisit.any((r) => r.contains('hanging'))),
+              buildCheckbox('Vaginal Discharge / Itching / स्राव खटिरो', patient.reasonsForVisit.any((r) => r.contains('discharge'))),
+              buildCheckbox('Problems Passing Urine / पेसाब समस्या', patient.reasonsForVisit.any((r) => r.contains('urine'))),
+              buildCheckbox('Problems Passing Stool / दिसा समस्या', patient.reasonsForVisit.any((r) => r.contains('stool'))),
+              buildCheckbox('Menstrual Problem / महिनावारी समस्या', patient.reasonsForVisit.any((r) => r.contains('menstrual'))),
+              buildCheckbox('Infertility / बाँझोपन', patient.reasonsForVisit.any((r) => r.contains('infertility'))),
+              buildCheckbox('Pelvic / Abdominal Pain / दुखाई', patient.reasonsForVisit.any((r) => r.contains('pain'))),
+              buildCheckbox('General Checkup / सामान्य जाँच', patient.reasonsForVisit.any((r) => r.contains('checkup'))),
+            ],
+          ),
+
+          pw.SizedBox(height: 8),
+          pw.Divider(color: gray),
+          pw.SizedBox(height: 6),
+
+          // ── SECTION C: CONSENT ──────────────────────────────────────────
+          _buildPdfSectionHeader('SECTION C: PATIENT CONSENT / सहमति', primary),
+          pw.SizedBox(height: 6),
+          pw.Row(children: [
+            buildCheckbox('I consent to examination and treatment / जाँच र उपचार गर्न सहमति छ', patient.consentTreatment),
+            pw.SizedBox(width: 20),
+            buildCheckbox('I consent to storage of my medical information / स्वास्थ्य विवरण भण्डारण गर्न सहमति छ', patient.consentStoreMedicalInfo),
+          ]),
+
+          pw.SizedBox(height: 16),
+
+          // ── Signature Footer ────────────────────────────────────────────
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(width: 160, height: 0.8, color: PdfColors.black),
+                  pw.SizedBox(height: 3),
+                  pw.Text('Patient Signature / Thumbprint', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('(Required for consent)', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+                ],
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Container(width: 60, height: 40, decoration: pw.BoxDecoration(border: pw.Border.all(color: gray), borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)))),
+                  pw.SizedBox(height: 3),
+                  pw.Text('Thumbprint Box', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+                ],
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Container(width: 140, height: 0.8, color: PdfColors.black),
+                  pw.SizedBox(height: 3),
+                  pw.Text('Data Entry Operator', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('Verified by / Date: ${dateFormatter.format(DateTime.now())}', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+                ],
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 10),
+          pw.Container(
+            padding: const pw.EdgeInsets.all(6),
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromHex('F8FAFC'),
+              border: pw.Border.all(color: gray),
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              children: [
+                pw.Text('FOR OFFICIAL USE ONLY — ', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: primary)),
+                pw.Text('Patient ID: ${patient.patientId} | Camp: ${camp?.campCode ?? patient.campCode} | Registered: ${dateFormatter.format(patient.intakeDate)}',
+                    style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return pdf.save();
+  }
 }
+

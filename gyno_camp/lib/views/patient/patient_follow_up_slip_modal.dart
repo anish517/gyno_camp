@@ -474,6 +474,21 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0F766E),
+                          side: const BorderSide(color: Color(0xFF0F766E)),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.grid_view_rounded, size: 18, color: Color(0xFF0F766E)),
+                        label: const Text('Print Reg Form (Grid)', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: () => _printRegistrationFormPdf(context),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF1E293B),
                           padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -505,6 +520,21 @@ class PatientFollowUpSlipModal extends StatelessWidget {
               else
                 Row(
                   children: [
+                    // Print Block Registration Form Button
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0F766E),
+                          side: const BorderSide(color: Color(0xFF0F766E)),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.grid_view_rounded, size: 18, color: Color(0xFF0F766E)),
+                        label: const Text('Print Reg Form', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: () => _printRegistrationFormPdf(context),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     // Print PDF Slip Button
                     Expanded(
                       child: OutlinedButton.icon(
@@ -519,7 +549,7 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                       ),
                     ),
                     if (showProceedButton) ...[
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
@@ -610,6 +640,48 @@ class PatientFollowUpSlipModal extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _printRegistrationFormPdf(BuildContext context) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Generating block-letter registration form PDF...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
+        patient: patient,
+        camp: camp,
+        organizationName: organizationName,
+      );
+      await FileDownloadHelper.saveAndDownloadFile(
+        bytes: bytes,
+        filename: 'RegistrationForm_${patient.patientId}.pdf',
+        mimeType: 'application/pdf',
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Registration form downloaded: RegistrationForm_${patient.patientId}.pdf',
+            ),
+            backgroundColor: AppTheme.successGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating form: $e'),
+            backgroundColor: AppTheme.dangerRose,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _printPdfSlip(BuildContext context) async {
