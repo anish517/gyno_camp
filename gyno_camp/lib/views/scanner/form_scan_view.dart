@@ -22,11 +22,13 @@ class FormScanView extends ConsumerStatefulWidget {
 
 class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  // Tracks per-field verification: true=correct, false=incorrect, null=not yet reviewed
+  final Map<String, bool?> _verifyMap = {};
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -843,6 +845,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             Tab(text: '2. Obstetric History'),
             Tab(text: '3. POP Staging'),
             Tab(text: '4. Vitals & Diagnoses'),
+            Tab(text: '✅ Verify Accuracy'),
           ],
         ),
 
@@ -855,6 +858,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               _buildObstetricsTab(result, ocrVm),
               _buildPopStagingTab(result, ocrVm),
               _buildVitalsAndDiagnosesTab(result, ocrVm),
+              _buildVerifyAccuracyTab(result),
             ],
           ),
         ),
@@ -1490,6 +1494,293 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // TAB 5: VERIFY OCR ACCURACY
+  // ==========================================
+  Widget _buildVerifyAccuracyTab(OcrScanResultModel result) {
+    final demo = result.demographics;
+    final obs = result.obstetrics;
+    final vitals = result.vitals;
+    final pop = result.popStaging;
+    final conf = result.fieldConfidences;
+
+    // Build the master list of all detected fields to verify
+    final List<Map<String, dynamic>> fields = [
+      // ── Demographics ──────────────────────────────────────
+      {'key': 'firstName',     'label': 'First Name',        'section': 'Demographics', 'value': demo['firstName']?.toString() ?? '—', 'confKey': 'name'},
+      {'key': 'surname',       'label': 'Surname',           'section': 'Demographics', 'value': demo['surname']?.toString() ?? '—',    'confKey': 'name'},
+      {'key': 'age',           'label': 'Patient Age',       'section': 'Demographics', 'value': demo['age']?.toString() ?? '—',        'confKey': 'age'},
+      {'key': 'maritalStatus', 'label': 'Marital Status',    'section': 'Demographics', 'value': demo['maritalStatus']?.toString() ?? '—', 'confKey': 'maritalStatus'},
+      {'key': 'relativeName',  'label': 'Husband / Father',  'section': 'Demographics', 'value': demo['relativeName']?.toString() ?? '—', 'confKey': 'relative'},
+      {'key': 'mobile',        'label': 'Mobile No.',        'section': 'Demographics', 'value': demo['mobile']?.toString() ?? '—',     'confKey': 'mobile'},
+      {'key': 'contactPerson', 'label': 'Contact Person',    'section': 'Demographics', 'value': demo['contactPerson']?.toString() ?? '—', 'confKey': 'contactPerson'},
+      {'key': 'contactMobile', 'label': 'Contact Mobile',    'section': 'Demographics', 'value': demo['contactMobile']?.toString() ?? '—', 'confKey': 'contactMobile'},
+      {'key': 'maritalAge',    'label': 'Age at Marriage',   'section': 'Demographics', 'value': demo['maritalAge']?.toString() ?? '—', 'confKey': 'maritalAge'},
+      {'key': 'district',      'label': 'District',          'section': 'Demographics', 'value': demo['district']?.toString() ?? '—',   'confKey': 'location'},
+      {'key': 'municipality',  'label': 'Municipality',      'section': 'Demographics', 'value': demo['municipality']?.toString() ?? '—', 'confKey': 'location'},
+      {'key': 'ward',          'label': 'Ward No.',          'section': 'Demographics', 'value': demo['ward']?.toString() ?? '—',       'confKey': 'ward'},
+      // ── Obstetrics ────────────────────────────────────────
+      {'key': 'deliveries',     'label': 'Deliveries (P)',   'section': 'Obstetrics',   'value': obs['deliveries']?.toString() ?? '—',     'confKey': 'obstetrics'},
+      {'key': 'livingChildren', 'label': 'Living Children',  'section': 'Obstetrics',   'value': obs['livingChildren']?.toString() ?? '—', 'confKey': 'obstetrics'},
+      {'key': 'abortions',      'label': 'Abortions',        'section': 'Obstetrics',   'value': obs['abortions']?.toString() ?? '—',      'confKey': 'obstetrics'},
+      // ── Visit Reasons ─────────────────────────────────────
+      {'key': 'reasonsForVisit','label': 'Reasons for Visit','section': 'Visit Reasons','value': (demo['reasonsForVisit'] as List?)?.join(', ') ?? '—', 'confKey': 'reasonsForVisit'},
+      // ── POP Staging ───────────────────────────────────────
+      {'key': 'anteriorStage',  'label': 'Anterior Stage',   'section': 'POP Staging',  'value': pop['anteriorStage']?.toString() ?? '—',   'confKey': 'popStaging'},
+      {'key': 'middleStage',    'label': 'Middle Stage',     'section': 'POP Staging',  'value': pop['middleStage']?.toString() ?? '—',     'confKey': 'popStaging'},
+      {'key': 'posteriorStage', 'label': 'Posterior Stage',  'section': 'POP Staging',  'value': pop['posteriorStage']?.toString() ?? '—',  'confKey': 'popStaging'},
+      {'key': 'highestStage',   'label': 'Highest POP Stage','section': 'POP Staging',  'value': pop['highestPopStage']?.toString() ?? '—', 'confKey': 'popStaging'},
+      {'key': 'uterusInside',   'label': 'Uterus Inside',    'section': 'POP Staging',  'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No (Prolapsed)', 'confKey': 'popStaging'},
+      {'key': 'pelvicTone',     'label': 'Pelvic Floor Tone','section': 'POP Staging',  'value': pop['pelvicFloorTone']?.toString() ?? '—', 'confKey': 'popStaging'},
+      // ── Vitals ────────────────────────────────────────────
+      {'key': 'bp',             'label': 'Blood Pressure',   'section': 'Vitals',       'value': '${vitals['systolicBp'] ?? '—'}/${vitals['diastolicBp'] ?? '—'} mmHg', 'confKey': 'bp'},
+      {'key': 'pulse',          'label': 'Pulse Rate',       'section': 'Vitals',       'value': '${vitals['pulseRate'] ?? '—'} bpm', 'confKey': 'pulse'},
+      {'key': 'spo2',           'label': 'SpO2',             'section': 'Vitals',       'value': '${vitals['spo2'] ?? '—'}%',         'confKey': 'spo2'},
+      {'key': 'glucose',        'label': 'Blood Glucose',    'section': 'Vitals',       'value': '${vitals['bloodGlucose'] ?? '—'} mg/dL', 'confKey': 'glucose'},
+      {'key': 'urineTest',      'label': 'Urine Test',       'section': 'Vitals',       'value': vitals['urineTest']?.toString() ?? '—',   'confKey': 'labs'},
+      {'key': 'pregnancyTest',  'label': 'Pregnancy Test',   'section': 'Vitals',       'value': vitals['pregnancyTest']?.toString() ?? '—','confKey': 'labs'},
+      // ── Diagnoses & Medications ───────────────────────────
+      {'key': 'diagnoses',      'label': 'Diagnoses',        'section': 'Clinical',     'value': result.diagnoses.isEmpty ? '—' : result.diagnoses.join(', '), 'confKey': 'diagnoses'},
+      {'key': 'medications',    'label': 'Medications',      'section': 'Clinical',     'value': result.medications.isEmpty ? '—' : result.medications.join(', '), 'confKey': 'medications'},
+      {'key': 'referral',       'label': 'Surgical Referral','section': 'Clinical',     'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
+      {'key': 'followUp',       'label': 'Follow-up',        'section': 'Clinical',     'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
+    ];
+
+    final total = fields.length;
+    final reviewed = _verifyMap.values.where((v) => v != null).length;
+    final correct = _verifyMap.values.where((v) => v == true).length;
+    final incorrect = _verifyMap.values.where((v) => v == false).length;
+
+    // Group by section
+    final sections = <String, List<Map<String, dynamic>>>{};
+    for (final f in fields) {
+      sections.putIfAbsent(f['section'] as String, () => []).add(f);
+    }
+
+    Color confColor(String? ck) {
+      final c = conf[ck ?? ''] ?? 0.5;
+      if (c >= 0.88) return Colors.green.shade700;
+      if (c >= 0.70) return Colors.orange.shade700;
+      return Colors.red.shade700;
+    }
+
+    Color confBg(String? ck) {
+      final c = conf[ck ?? ''] ?? 0.5;
+      if (c >= 0.88) return Colors.green.shade50;
+      if (c >= 0.70) return Colors.orange.shade50;
+      return Colors.red.shade50;
+    }
+
+    String confLabel(String? ck) {
+      final c = conf[ck ?? ''] ?? 0.5;
+      if (c >= 0.88) return 'HIGH ${(c * 100).toInt()}%';
+      if (c >= 0.70) return 'MED ${(c * 100).toInt()}%';
+      return 'LOW ${(c * 100).toInt()}%';
+    }
+
+    return Column(
+      children: [
+        // ── Score header ──────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: reviewed == 0
+                ? Colors.grey.shade50
+                : correct == reviewed
+                    ? Colors.green.shade50
+                    : Colors.blue.shade50,
+            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      reviewed == 0
+                          ? 'Tap ✅ or ❌ next to each field to verify OCR accuracy'
+                          : '$correct / $reviewed reviewed — $correct correct, $incorrect incorrect  (${total - reviewed} remaining)',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: reviewed == 0 ? Colors.grey.shade700 : AppTheme.primaryDark,
+                      ),
+                    ),
+                    if (reviewed > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: LinearProgressIndicator(
+                          value: reviewed / total,
+                          backgroundColor: Colors.grey.shade200,
+                          color: AppTheme.primaryTeal,
+                          minHeight: 4,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (reviewed > 0)
+                TextButton.icon(
+                  onPressed: () => setState(() => _verifyMap.clear()),
+                  icon: const Icon(Icons.refresh, size: 14),
+                  label: const Text('Reset All', style: TextStyle(fontSize: 11)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.grey.shade600,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        // ── Field list ────────────────────────────────────────────────────
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(12),
+            children: [
+              for (final section in sections.keys) ...[
+                // Section divider
+                Padding(
+                  padding: const EdgeInsets.only(top: 12, bottom: 6),
+                  child: Row(children: [
+                    Container(width: 3, height: 14, color: AppTheme.primaryTeal,
+                        margin: const EdgeInsets.only(right: 8)),
+                    Text(section.toUpperCase(),
+                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryTeal, letterSpacing: 1.1)),
+                  ]),
+                ),
+                for (final f in sections[section]!) ...[
+                  Builder(builder: (context) {
+                    final key = f['key'] as String;
+                    final verified = _verifyMap[key];
+                    final confKey = f['confKey'] as String?;
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: verified == null
+                              ? Colors.grey.shade200
+                              : verified
+                                  ? Colors.green.shade300
+                                  : Colors.red.shade300,
+                          width: verified != null ? 1.5 : 0.8,
+                        ),
+                      ),
+                      color: verified == null
+                          ? Colors.white
+                          : verified
+                              ? Colors.green.shade50
+                              : Colors.red.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        child: Row(
+                          children: [
+                            // Label + value
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    Text(f['label'] as String,
+                                        style: const TextStyle(
+                                            fontSize: 11, fontWeight: FontWeight.w600,
+                                            color: AppTheme.primaryDark)),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: confBg(confKey),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(confLabel(confKey),
+                                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
+                                              color: confColor(confKey))),
+                                    ),
+                                  ]),
+                                  const SizedBox(height: 2),
+                                  Text(f['value'] as String,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: (f['value'] as String) == '—'
+                                            ? Colors.grey.shade400
+                                            : AppTheme.primaryDark,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis),
+                                ],
+                              ),
+                            ),
+
+                            // ✅ / ❌ buttons
+                            const SizedBox(width: 8),
+                            _verifyButton(
+                              icon: Icons.check_circle_outline,
+                              color: Colors.green.shade600,
+                              activeColor: Colors.green,
+                              isActive: verified == true,
+                              tooltip: 'Correct — OCR matched',
+                              onTap: () => setState(() =>
+                                  _verifyMap[key] = _verifyMap[key] == true ? null : true),
+                            ),
+                            const SizedBox(width: 4),
+                            _verifyButton(
+                              icon: Icons.cancel_outlined,
+                              color: Colors.red.shade400,
+                              activeColor: Colors.red,
+                              isActive: verified == false,
+                              tooltip: 'Wrong — OCR missed or incorrect',
+                              onTap: () => setState(() =>
+                                  _verifyMap[key] = _verifyMap[key] == false ? null : false),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _verifyButton({
+    required IconData icon,
+    required Color color,
+    required Color activeColor,
+    required bool isActive,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            color: isActive ? activeColor.withValues(alpha: 0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isActive ? activeColor : color.withValues(alpha: 0.4),
+              width: isActive ? 1.5 : 1,
+            ),
+          ),
+          child: Icon(icon, color: isActive ? activeColor : color, size: 20),
+        ),
       ),
     );
   }
