@@ -7,6 +7,7 @@ import '../../models/camp_model.dart';
 import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
 
+
 class ClinicalHistoryPanel extends StatefulWidget {
   final PatientModel patient;
   final CampModel? camp;
@@ -23,6 +24,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
   late Future<List<ClinicalVisitModel>> _visitsFuture;
   final Set<int> _dlIdx = {};
   bool _dlDossier = false;
+  bool _dlForm = false; // loading state for registration form download
 
   @override
   void initState() {
@@ -50,6 +52,35 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerRose));
     } finally {
       if (mounted) setState(() => _dlIdx.remove(i));
+    }
+  }
+
+  /// Downloads the block-letter registration form (Yellow Form) with patient data.
+  /// Same form as generated after manual registration — for re-printing from history.
+  Future<void> _dlRegistrationForm() async {
+    setState(() => _dlForm = true);
+    try {
+      final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
+        patient: widget.patient,
+        camp: widget.camp,
+        organizationName: widget.orgName,
+      );
+      await FileDownloadHelper.saveAndDownloadFile(
+        bytes: bytes,
+        filename: 'RegistrationForm_${widget.patient.patientId}.pdf',
+        mimeType: 'application/pdf',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Registration form downloaded: RegistrationForm_${widget.patient.patientId}.pdf'),
+          backgroundColor: AppTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerRose));
+    } finally {
+      if (mounted) setState(() => _dlForm = false);
     }
   }
 
@@ -233,37 +264,56 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     );
   }
 
-  Widget _bottomBar() => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-    decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Color(0x0F000000), blurRadius: 6, offset: Offset(0, -2))]),
-    child: FutureBuilder<List<ClinicalVisitModel>>(
-      future: _visitsFuture,
-      builder: (ctx, snap) {
-        final visits = snap.data ?? [];
-        return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          if (visits.isNotEmpty) ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryTeal, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            icon: _dlDossier ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.picture_as_pdf_rounded, size: 16),
-            label: Text(_dlDossier ? 'Generating...' : 'Download Full Dossier (PDF)'),
-            onPressed: _dlDossier ? null : () async {
-              setState(() => _dlDossier = true);
-              try {
-                final bytes = await PdfReportService().generateIndividualPatientPdf(patient: widget.patient, visit: visits.first, allVisits: visits, camp: widget.camp, organizationName: widget.orgName);
-                await FileDownloadHelper.saveAndDownloadFile(bytes: bytes, filename: 'Dossier_${widget.patient.patientId}.pdf', mimeType: 'application/pdf');
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Full dossier downloaded!'), backgroundColor: AppTheme.successGreen, behavior: SnackBarBehavior.floating));
-              } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerRose));
-              } finally {
-                if (mounted) setState(() => _dlDossier = false);
-              }
-            },
-          ),
-          const SizedBox(width: 10),
-          OutlinedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
-        ]);
-      },
-    ),
-  );
+  Widget _bottomBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Color(0x0F000000), blurRadius: 6, offset: Offset(0, -2))]),
+      child: FutureBuilder<List<ClinicalVisitModel>>(
+        future: _visitsFuture,
+        builder: (ctx, snap) {
+          final visits = snap.data ?? [];
+          return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            // Download filled block-letter Registration Form (Yellow Form)
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryTeal,
+                side: const BorderSide(color: AppTheme.primaryTeal),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: _dlForm
+                  ? const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryTeal))
+                  : const Icon(Icons.article_outlined, size: 16),
+              label: Text(_dlForm ? 'Downloading...' : 'Registration Form', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              onPressed: _dlForm || _dlDossier ? null : _dlRegistrationForm,
+            ),
+            const SizedBox(width: 8),
+            // Download Full Clinical Dossier (most recent visit)
+            if (visits.isNotEmpty) ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryTeal, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+              icon: _dlDossier ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.picture_as_pdf_rounded, size: 16),
+              label: Text(_dlDossier ? 'Generating...' : 'Full Clinical Dossier (PDF)'),
+              onPressed: _dlDossier ? null : () async {
+                setState(() => _dlDossier = true);
+                try {
+                  // Use visits.last for most recent encounter data
+                  final bytes = await PdfReportService().generateIndividualPatientPdf(patient: widget.patient, visit: visits.last, allVisits: visits, camp: widget.camp, organizationName: widget.orgName);
+                  await FileDownloadHelper.saveAndDownloadFile(bytes: bytes, filename: 'Dossier_${widget.patient.patientId}.pdf', mimeType: 'application/pdf');
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Full dossier downloaded!'), backgroundColor: AppTheme.successGreen, behavior: SnackBarBehavior.floating));
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerRose));
+                } finally {
+                  if (mounted) setState(() => _dlDossier = false);
+                }
+              },
+            ),
+            const SizedBox(width: 10),
+            OutlinedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+          ]);
+        },
+      ),
+    );
+  }
 
   Widget _infoRow(IconData icon, String lbl, String val) => Padding(
     padding: const EdgeInsets.only(bottom: 5),

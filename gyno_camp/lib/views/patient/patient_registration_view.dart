@@ -43,18 +43,10 @@ class _PatientRegistrationViewState
   final _contactMobileController = TextEditingController();
   bool _showBlockGrid = true;
 
-  // Reason options with proper clinical display labels (matching Yellow Form page 1)
-  // Keys are the stored values, Values are clinical display names for staff
-  final Map<String, String> _reasonOptions = {
-    'something hanging out': 'Something Hanging Out (Uterine / Vaginal Prolapse)',
-    'discharge and or itching': 'Vaginal Discharge &/or Itching (स्राव / खटिरो)',
-    'problems passing urine': 'Problems Passing Urine (पेसाब सम्बन्धी समस्या)',
-    'problems passing stool': 'Problems Passing Stool (दिसा सम्बन्धी समस्या)',
-    'menstrual problem': 'Menstrual Problem (महिनावारी सम्बन्धी समस्या)',
-    'infertility': 'Infertility (बाँझोपन)',
-    'pain': 'Pelvic / Abdominal Pain (दुखाई)',
-    'checkup': 'General Gynaecological Checkup (सामान्य जाँच)',
-  };
+  // Reason options — delegates to shared constant so UI, PDF, and OCR always match.
+  // See ClinicalConstants.visitReasonOptions for keys and display labels.
+  Map<String, String> get _reasonOptions => ClinicalConstants.visitReasonOptions;
+
 
   @override
   void initState() {

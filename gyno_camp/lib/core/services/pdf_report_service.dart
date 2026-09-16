@@ -6,6 +6,7 @@ import '../../models/camp_model.dart';
 import '../../models/camp_report_summary_model.dart';
 import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
+import '../constants/clinical_constants.dart';
 
 class PdfReportService {
   /// Sanitizes dynamic strings for standard PDF Type-1 Helvetica font encoding.
@@ -1685,8 +1686,24 @@ class PdfReportService {
             minBoxes: 24,
           ),
 
-          // Mobile
+          // Mobile (Patient)
           buildField('Mobile No.', 'मोबाइल नम्बर', patient?.mobile ?? '', minBoxes: 10, boxSize: 18),
+
+          // Contact Person (Secondary) — matches UI field
+          buildField('Contact Person (Secondary)', 'सम्पर्क व्यक्ति', patient?.contactPerson ?? '', minBoxes: 18),
+
+          // Contact Mobile (Secondary) — matches UI field
+          buildField('Contact Mobile No.', 'सम्पर्क नम्बर', patient?.contactMobile ?? '', minBoxes: 10, boxSize: 18),
+
+          // Marriage Age — shown for all except unmarried patients
+          if (patient == null || patient.maritalStatus != 'unmarried')
+            buildField(
+              'Age at Marriage',
+              'विवाह उमेर',
+              patient?.maritalAge != null ? patient!.maritalAge.toString() : '',
+              minBoxes: 3,
+              boxSize: 18,
+            ),
 
           // District + Municipality + Ward
           pw.Row(
@@ -1708,21 +1725,18 @@ class PdfReportService {
           pw.SizedBox(height: 6),
 
           // ── SECTION B: REASONS FOR VISIT ───────────────────────────────
+          // Dynamic — driven by ClinicalConstants.visitReasonOptions (single source of truth)
           _buildPdfSectionHeader('SECTION B: REASONS FOR VISIT / जाँचको कारण', primary),
           pw.SizedBox(height: 6),
           pw.Wrap(
             spacing: 20,
             runSpacing: 6,
-            children: [
-              buildCheckbox('Something Hanging Out / बाहिर आएको महसुस', patient?.reasonsForVisit.any((r) => r.contains('hanging')) ?? false),
-              buildCheckbox('Vaginal Discharge / Itching / स्राव खटिरो', patient?.reasonsForVisit.any((r) => r.contains('discharge')) ?? false),
-              buildCheckbox('Problems Passing Urine / पेसाब समस्या', patient?.reasonsForVisit.any((r) => r.contains('urine')) ?? false),
-              buildCheckbox('Problems Passing Stool / दिसा समस्या', patient?.reasonsForVisit.any((r) => r.contains('stool')) ?? false),
-              buildCheckbox('Menstrual Problem / महिनावारी समस्या', patient?.reasonsForVisit.any((r) => r.contains('menstrual')) ?? false),
-              buildCheckbox('Infertility / बाँझोपन', patient?.reasonsForVisit.any((r) => r.contains('infertility')) ?? false),
-              buildCheckbox('Pelvic / Abdominal Pain / दुखाई', patient?.reasonsForVisit.any((r) => r.contains('pain')) ?? false),
-              buildCheckbox('General Checkup / सामान्य जाँच', patient?.reasonsForVisit.any((r) => r.contains('checkup')) ?? false),
-            ],
+            children: ClinicalConstants.visitReasonOptions.entries.map((entry) =>
+              buildCheckbox(
+                entry.value,
+                patient?.reasonsForVisit.contains(entry.key) ?? false,
+              ),
+            ).toList(),
           ),
 
           pw.SizedBox(height: 8),

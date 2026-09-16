@@ -271,6 +271,51 @@ class OcrFormService {
         confidences['mobile'] = 0.50;
       }
 
+      // ── Contact Person (Secondary / Emergency Contact) ──
+      final contactPersonValue = findValueForLabel([
+        'contact person', 'secondary contact', 'emergency contact',
+        'सम्पर्क व्यक्ति', 'सम्पर्क',
+      ]);
+      if (contactPersonValue != null && contactPersonValue.isNotEmpty) {
+        var cleanContact = contactPersonValue
+            .replaceAll(RegExp(r'\s*(mobile|phone|नम्बर|contact mobile).*$', caseSensitive: false), '')
+            .trim();
+        if (cleanContact.isNotEmpty) {
+          demographics['contactPerson'] = cleanContact;
+          confidences['contactPerson'] = 0.85;
+        }
+      }
+
+      // ── Contact Mobile (Secondary — second distinct 10-digit number in text) ──
+      {
+        final allMobileMatches = RegExp(r'\b(9\d{9})\b').allMatches(text).toList();
+        if (allMobileMatches.length >= 2) {
+          for (final match in allMobileMatches) {
+            final candidate = match.group(1);
+            if (candidate != null && candidate != extractedMobile) {
+              demographics['contactMobile'] = candidate;
+              confidences['contactMobile'] = 0.80;
+              break;
+            }
+          }
+        }
+      }
+
+      // ── Marriage Age / विवाह उमेर ──
+      final maritalAgeValue = findValueForLabel([
+        'age at marriage', 'marriage age', 'age of marriage',
+        'विवाह उमेर', 'विवाह को उमेर',
+      ]);
+      if (maritalAgeValue != null) {
+        final ageDigits = RegExp(r'(\d{1,2})').firstMatch(maritalAgeValue);
+        final parsedMaritalAge = ageDigits != null ? int.tryParse(ageDigits.group(1)!) : null;
+        if (parsedMaritalAge != null && parsedMaritalAge >= 10 && parsedMaritalAge <= 60) {
+          demographics['maritalAge'] = parsedMaritalAge;
+          confidences['maritalAge'] = 0.88;
+        }
+      }
+
+
       // ── Ward Number ──
       final wardValue = findValueForLabel(['ward no', 'ward', 'वडा नं', 'वडा']);
       if (wardValue != null) {

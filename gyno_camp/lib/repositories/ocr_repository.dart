@@ -158,11 +158,17 @@ class OcrRepository implements IOcrRepository {
       spouseOrFatherName: demo['relativeName'] as String?,
       relationshipType: demo['relativeType'] as String? ?? 'Husband',
       mobile: (demo['mobile'] as String? ?? ''),
+      // Contact fields — now parsed by OCR service and carried through to DB
+      contactPerson: demo['contactPerson'] as String?,
+      contactMobile: demo['contactMobile'] as String?,
+      // Marriage age — parsed from 'Age at Marriage' field on form
+      maritalAge: demo['maritalAge'] as int?,
+      province: (demo['province'] as String?)?.trim() ?? 'Bagmati',
       district: (demo['district'] as String? ?? 'Kathmandu'),
       municipality: (demo['municipality'] as String? ?? 'Ward 03'),
       ward: (demo['ward'] as String? ?? '03').padLeft(2, '0'),
       maritalStatus: (demo['maritalStatus'] as String? ?? 'married'),
-      reasonsForVisit: List<String>.from(demo['reasonsForVisit'] as List? ?? ['Something hanging out / Prolapse']),
+      reasonsForVisit: List<String>.from(demo['reasonsForVisit'] as List? ?? ['something hanging out']),
       consentTreatment: true,
       consentStoreMedicalInfo: true,
       createdAt: DateTime.now(),

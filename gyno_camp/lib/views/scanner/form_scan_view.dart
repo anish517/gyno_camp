@@ -1113,6 +1113,43 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             result: result,
             onChanged: (val) => vm.updateDemographic('relativeName', val, campId: campId),
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: _buildFieldWithConfidence(
+                  label: 'Contact Person / सम्पर्क व्यक्ति',
+                  value: demo['contactPerson']?.toString() ?? '',
+                  fieldKey: 'contactPerson',
+                  result: result,
+                  onChanged: (val) => vm.updateDemographic('contactPerson', val),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildFieldWithConfidence(
+                  label: 'Contact Mobile / सम्पर्क नम्बर',
+                  value: demo['contactMobile']?.toString() ?? '',
+                  fieldKey: 'contactMobile',
+                  result: result,
+                  keyboardType: TextInputType.phone,
+                  onChanged: (val) => vm.updateDemographic('contactMobile', val),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildFieldWithConfidence(
+                  label: 'Marriage Age / विवाह उमेर',
+                  value: demo['maritalAge']?.toString() ?? '',
+                  fieldKey: 'maritalAge',
+                  result: result,
+                  keyboardType: TextInputType.number,
+                  onChanged: (val) => vm.updateDemographic('maritalAge', int.tryParse(val)),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           const Text('Primary Reasons for Visit (शिविरमा आउनुको कारण):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 8),
@@ -1131,6 +1168,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       ),
     );
   }
+
 
   // Tab 2: Obstetrics
   Widget _buildObstetricsTab(OcrScanResultModel result, OcrScanViewModel vm) {
