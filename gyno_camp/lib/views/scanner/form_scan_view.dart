@@ -1511,43 +1511,43 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     // Build the master list of all detected fields to verify
     final List<Map<String, dynamic>> fields = [
       // ── Demographics ──────────────────────────────────────
-      {'key': 'firstName',     'label': 'First Name',        'section': 'Demographics', 'value': demo['firstName']?.toString() ?? '—', 'confKey': 'name'},
-      {'key': 'surname',       'label': 'Surname',           'section': 'Demographics', 'value': demo['surname']?.toString() ?? '—',    'confKey': 'name'},
-      {'key': 'age',           'label': 'Patient Age',       'section': 'Demographics', 'value': demo['age']?.toString() ?? '—',        'confKey': 'age'},
-      {'key': 'maritalStatus', 'label': 'Marital Status',    'section': 'Demographics', 'value': demo['maritalStatus']?.toString() ?? '—', 'confKey': 'maritalStatus'},
-      {'key': 'relativeName',  'label': 'Husband / Father',  'section': 'Demographics', 'value': demo['relativeName']?.toString() ?? '—', 'confKey': 'relative'},
-      {'key': 'mobile',        'label': 'Mobile No.',        'section': 'Demographics', 'value': demo['mobile']?.toString() ?? '—',     'confKey': 'mobile'},
-      {'key': 'contactPerson', 'label': 'Contact Person',    'section': 'Demographics', 'value': demo['contactPerson']?.toString() ?? '—', 'confKey': 'contactPerson'},
-      {'key': 'contactMobile', 'label': 'Contact Mobile',    'section': 'Demographics', 'value': demo['contactMobile']?.toString() ?? '—', 'confKey': 'contactMobile'},
-      {'key': 'maritalAge',    'label': 'Age at Marriage',   'section': 'Demographics', 'value': demo['maritalAge']?.toString() ?? '—', 'confKey': 'maritalAge'},
-      {'key': 'district',      'label': 'District',          'section': 'Demographics', 'value': demo['district']?.toString() ?? '—',   'confKey': 'location'},
-      {'key': 'municipality',  'label': 'Municipality',      'section': 'Demographics', 'value': demo['municipality']?.toString() ?? '—', 'confKey': 'location'},
-      {'key': 'ward',          'label': 'Ward No.',          'section': 'Demographics', 'value': demo['ward']?.toString() ?? '—',       'confKey': 'ward'},
+      {'key': 'firstName',     'label': 'First Name',        'section': 'Demographics', 'tabIndex': 0, 'value': demo['firstName']?.toString() ?? '—', 'confKey': 'name'},
+      {'key': 'surname',       'label': 'Surname',           'section': 'Demographics', 'tabIndex': 0, 'value': demo['surname']?.toString() ?? '—',    'confKey': 'name'},
+      {'key': 'age',           'label': 'Patient Age',       'section': 'Demographics', 'tabIndex': 0, 'value': demo['age']?.toString() ?? '—',        'confKey': 'age'},
+      {'key': 'maritalStatus', 'label': 'Marital Status',    'section': 'Demographics', 'tabIndex': 0, 'value': demo['maritalStatus']?.toString() ?? '—', 'confKey': 'maritalStatus'},
+      {'key': 'relativeName',  'label': 'Husband / Father',  'section': 'Demographics', 'tabIndex': 0, 'value': demo['relativeName']?.toString() ?? '—', 'confKey': 'relative'},
+      {'key': 'mobile',        'label': 'Mobile No.',        'section': 'Demographics', 'tabIndex': 0, 'value': demo['mobile']?.toString() ?? '—',     'confKey': 'mobile'},
+      {'key': 'contactPerson', 'label': 'Contact Person',    'section': 'Demographics', 'tabIndex': 0, 'value': demo['contactPerson']?.toString() ?? '—', 'confKey': 'contactPerson'},
+      {'key': 'contactMobile', 'label': 'Contact Mobile',    'section': 'Demographics', 'tabIndex': 0, 'value': demo['contactMobile']?.toString() ?? '—', 'confKey': 'contactMobile'},
+      {'key': 'maritalAge',    'label': 'Age at Marriage',   'section': 'Demographics', 'tabIndex': 0, 'value': demo['maritalAge']?.toString() ?? '—', 'confKey': 'maritalAge'},
+      {'key': 'district',      'label': 'District',          'section': 'Demographics', 'tabIndex': 0, 'value': demo['district']?.toString() ?? '—',   'confKey': 'location'},
+      {'key': 'municipality',  'label': 'Municipality',      'section': 'Demographics', 'tabIndex': 0, 'value': demo['municipality']?.toString() ?? '—', 'confKey': 'location'},
+      {'key': 'ward',          'label': 'Ward No.',          'section': 'Demographics', 'tabIndex': 0, 'value': demo['ward']?.toString() ?? '—',       'confKey': 'ward'},
       // ── Obstetrics ────────────────────────────────────────
-      {'key': 'deliveries',     'label': 'Deliveries (P)',   'section': 'Obstetrics',   'value': obs['deliveries']?.toString() ?? '—',     'confKey': 'obstetrics'},
-      {'key': 'livingChildren', 'label': 'Living Children',  'section': 'Obstetrics',   'value': obs['livingChildren']?.toString() ?? '—', 'confKey': 'obstetrics'},
-      {'key': 'abortions',      'label': 'Abortions',        'section': 'Obstetrics',   'value': obs['abortions']?.toString() ?? '—',      'confKey': 'obstetrics'},
+      {'key': 'deliveries',     'label': 'Deliveries (P)',   'section': 'Obstetrics',   'tabIndex': 1, 'value': obs['deliveries']?.toString() ?? '—',     'confKey': 'obstetrics'},
+      {'key': 'livingChildren', 'label': 'Living Children',  'section': 'Obstetrics',   'tabIndex': 1, 'value': obs['livingChildren']?.toString() ?? '—', 'confKey': 'obstetrics'},
+      {'key': 'abortions',      'label': 'Abortions',        'section': 'Obstetrics',   'tabIndex': 1, 'value': obs['abortions']?.toString() ?? '—',      'confKey': 'obstetrics'},
       // ── Visit Reasons ─────────────────────────────────────
-      {'key': 'reasonsForVisit','label': 'Reasons for Visit','section': 'Visit Reasons','value': (demo['reasonsForVisit'] as List?)?.join(', ') ?? '—', 'confKey': 'reasonsForVisit'},
+      {'key': 'reasonsForVisit','label': 'Reasons for Visit','section': 'Visit Reasons','tabIndex': 1, 'value': (demo['reasonsForVisit'] as List?)?.join(', ') ?? '—', 'confKey': 'reasonsForVisit'},
       // ── POP Staging ───────────────────────────────────────
-      {'key': 'anteriorStage',  'label': 'Anterior Stage',   'section': 'POP Staging',  'value': pop['anteriorStage']?.toString() ?? '—',   'confKey': 'popStaging'},
-      {'key': 'middleStage',    'label': 'Middle Stage',     'section': 'POP Staging',  'value': pop['middleStage']?.toString() ?? '—',     'confKey': 'popStaging'},
-      {'key': 'posteriorStage', 'label': 'Posterior Stage',  'section': 'POP Staging',  'value': pop['posteriorStage']?.toString() ?? '—',  'confKey': 'popStaging'},
-      {'key': 'highestStage',   'label': 'Highest POP Stage','section': 'POP Staging',  'value': pop['highestPopStage']?.toString() ?? '—', 'confKey': 'popStaging'},
-      {'key': 'uterusInside',   'label': 'Uterus Inside',    'section': 'POP Staging',  'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No (Prolapsed)', 'confKey': 'popStaging'},
-      {'key': 'pelvicTone',     'label': 'Pelvic Floor Tone','section': 'POP Staging',  'value': pop['pelvicFloorTone']?.toString() ?? '—', 'confKey': 'popStaging'},
+      {'key': 'anteriorStage',  'label': 'Anterior Stage',   'section': 'POP Staging',  'tabIndex': 2, 'value': pop['anteriorStage']?.toString() ?? '—',   'confKey': 'popStaging'},
+      {'key': 'middleStage',    'label': 'Middle Stage',     'section': 'POP Staging',  'tabIndex': 2, 'value': pop['middleStage']?.toString() ?? '—',     'confKey': 'popStaging'},
+      {'key': 'posteriorStage', 'label': 'Posterior Stage',  'section': 'POP Staging',  'tabIndex': 2, 'value': pop['posteriorStage']?.toString() ?? '—',  'confKey': 'popStaging'},
+      {'key': 'highestStage',   'label': 'Highest POP Stage','section': 'POP Staging',  'tabIndex': 2, 'value': pop['highestPopStage']?.toString() ?? '—', 'confKey': 'popStaging'},
+      {'key': 'uterusInside',   'label': 'Uterus Inside',    'section': 'POP Staging',  'tabIndex': 2, 'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No (Prolapsed)', 'confKey': 'popStaging'},
+      {'key': 'pelvicTone',     'label': 'Pelvic Floor Tone','section': 'POP Staging',  'tabIndex': 2, 'value': pop['pelvicFloorTone']?.toString() ?? '—', 'confKey': 'popStaging'},
       // ── Vitals ────────────────────────────────────────────
-      {'key': 'bp',             'label': 'Blood Pressure',   'section': 'Vitals',       'value': '${vitals['systolicBp'] ?? '—'}/${vitals['diastolicBp'] ?? '—'} mmHg', 'confKey': 'bp'},
-      {'key': 'pulse',          'label': 'Pulse Rate',       'section': 'Vitals',       'value': '${vitals['pulseRate'] ?? '—'} bpm', 'confKey': 'pulse'},
-      {'key': 'spo2',           'label': 'SpO2',             'section': 'Vitals',       'value': '${vitals['spo2'] ?? '—'}%',         'confKey': 'spo2'},
-      {'key': 'glucose',        'label': 'Blood Glucose',    'section': 'Vitals',       'value': '${vitals['bloodGlucose'] ?? '—'} mg/dL', 'confKey': 'glucose'},
-      {'key': 'urineTest',      'label': 'Urine Test',       'section': 'Vitals',       'value': vitals['urineTest']?.toString() ?? '—',   'confKey': 'labs'},
-      {'key': 'pregnancyTest',  'label': 'Pregnancy Test',   'section': 'Vitals',       'value': vitals['pregnancyTest']?.toString() ?? '—','confKey': 'labs'},
+      {'key': 'bp',             'label': 'Blood Pressure',   'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['systolicBp'] ?? '—'}/${vitals['diastolicBp'] ?? '—'} mmHg', 'confKey': 'bp'},
+      {'key': 'pulse',          'label': 'Pulse Rate',       'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['pulseRate'] ?? '—'} bpm', 'confKey': 'pulse'},
+      {'key': 'spo2',           'label': 'SpO2',             'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['spo2'] ?? '—'}%',         'confKey': 'spo2'},
+      {'key': 'glucose',        'label': 'Blood Glucose',    'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['bloodGlucose'] ?? '—'} mg/dL', 'confKey': 'glucose'},
+      {'key': 'urineTest',      'label': 'Urine Test',       'section': 'Vitals',       'tabIndex': 3, 'value': vitals['urineTest']?.toString() ?? '—',   'confKey': 'labs'},
+      {'key': 'pregnancyTest',  'label': 'Pregnancy Test',   'section': 'Vitals',       'tabIndex': 3, 'value': vitals['pregnancyTest']?.toString() ?? '—','confKey': 'labs'},
       // ── Diagnoses & Medications ───────────────────────────
-      {'key': 'diagnoses',      'label': 'Diagnoses',        'section': 'Clinical',     'value': result.diagnoses.isEmpty ? '—' : result.diagnoses.join(', '), 'confKey': 'diagnoses'},
-      {'key': 'medications',    'label': 'Medications',      'section': 'Clinical',     'value': result.medications.isEmpty ? '—' : result.medications.join(', '), 'confKey': 'medications'},
-      {'key': 'referral',       'label': 'Surgical Referral','section': 'Clinical',     'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
-      {'key': 'followUp',       'label': 'Follow-up',        'section': 'Clinical',     'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
+      {'key': 'diagnoses',      'label': 'Diagnoses',        'section': 'Clinical',     'tabIndex': 3, 'value': result.diagnoses.isEmpty ? '—' : result.diagnoses.join(', '), 'confKey': 'diagnoses'},
+      {'key': 'medications',    'label': 'Medications',      'section': 'Clinical',     'tabIndex': 3, 'value': result.medications.isEmpty ? '—' : result.medications.join(', '), 'confKey': 'medications'},
+      {'key': 'referral',       'label': 'Surgical Referral','section': 'Clinical',     'tabIndex': 3, 'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
+      {'key': 'followUp',       'label': 'Follow-up',        'section': 'Clinical',     'tabIndex': 3, 'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
     ];
 
     final total = fields.length;
@@ -1661,6 +1661,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     final key = f['key'] as String;
                     final verified = _verifyMap[key];
                     final confKey = f['confKey'] as String?;
+                    final tabIdx = f['tabIndex'] as int? ?? 0;
                     return Card(
                       margin: const EdgeInsets.only(bottom: 6),
                       elevation: 0,
@@ -1721,8 +1722,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                               ),
                             ),
 
-                            // ✅ / ❌ buttons
+                            // ✅ / ❌ buttons + Edit link
                             const SizedBox(width: 8),
+                            if (verified == false)
+                              TextButton.icon(
+                                onPressed: () => _tabController.animateTo(tabIdx),
+                                icon: const Icon(Icons.edit_outlined, size: 13),
+                                label: const Text('Edit', style: TextStyle(fontSize: 11)),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red.shade700,
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
                             _verifyButton(
                               icon: Icons.check_circle_outline,
                               color: Colors.green.shade600,

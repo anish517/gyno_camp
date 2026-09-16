@@ -136,8 +136,40 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
       _infoRow(Icons.favorite_rounded, 'Marital', p.maritalStatus),
       _infoRow(Icons.location_on_rounded, 'Address', 'Ward ${p.ward}, ${p.municipality}'),
       _infoRow(Icons.map_rounded, 'District', p.district),
+      if (p.province.isNotEmpty) _infoRow(Icons.flag_outlined, 'Province', p.province),
       _infoRow(Icons.phone_rounded, 'Mobile', p.mobile.isNotEmpty ? p.mobile : 'N/A'),
-      if (p.spouseOrFatherName?.isNotEmpty == true) _infoRow(Icons.person_rounded, p.age < 20 ? 'Father' : 'Husband', p.spouseOrFatherName!),
+      if (p.spouseOrFatherName?.isNotEmpty == true)
+        _infoRow(Icons.person_rounded, p.age < 20 ? 'Father' : 'Husband', p.spouseOrFatherName!),
+      if (p.contactPerson?.isNotEmpty == true)
+        _infoRow(Icons.contact_phone_outlined, 'Contact', p.contactPerson!),
+      if (p.contactMobile?.isNotEmpty == true)
+        _infoRow(Icons.phone_iphone_rounded, 'Contact No.', p.contactMobile!),
+      if (p.maritalAge != null)
+        _infoRow(Icons.event_outlined, 'Age at Marriage', '${p.maritalAge} yrs'),
+      const SizedBox(height: 10), const Divider(color: Color(0xFFE2E8F0)), const SizedBox(height: 6),
+      const Text('Obstetric History (P/L/A)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+      const SizedBox(height: 4),
+      // Obstetrics from most recent visit if available
+      FutureBuilder<List<ClinicalVisitModel>>(
+        future: _visitsFuture,
+        builder: (ctx, snap) {
+          if (!snap.hasData || snap.data!.isEmpty) {
+            return const Text('No obstetric data', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)));
+          }
+          // Use initial visit (first) for obstetric history
+          final v = snap.data!.first;
+          if (v.deliveries == null && v.livingChildren == null && v.abortions == null) {
+            return const Text('Not recorded', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)));
+          }
+          return Row(children: [
+            _obsBadge('P', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal),
+            const SizedBox(width: 4),
+            _obsBadge('L', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
+            const SizedBox(width: 4),
+            _obsBadge('A', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
+          ]);
+        },
+      ),
       const SizedBox(height: 10), const Divider(color: Color(0xFFE2E8F0)), const SizedBox(height: 6),
       const Text('Reasons for Visit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
       const SizedBox(height: 4),
@@ -227,6 +259,20 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
             const SizedBox(width: 4), _pb('Post', 'St ${v.popPosteriorStage}'),
           ]),
           if (v.diagnoses.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            // Obstetric summary inline in visit card
+            if (v.deliveries != null || v.livingChildren != null || v.abortions != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(children: [
+                  const Text('Obstetrics: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  _obsBadge('P', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal),
+                  const SizedBox(width: 3),
+                  _obsBadge('L', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
+                  const SizedBox(width: 3),
+                  _obsBadge('A', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
+                ]),
+              ),
             const SizedBox(height: 8),
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Diagnoses: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
@@ -352,5 +398,15 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
     decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6), border: Border.all(color: color.withValues(alpha: 0.4))),
     child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+  );
+
+  Widget _obsBadge(String label, String value, Color bg, Color fg) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(5), border: Border.all(color: fg.withValues(alpha: 0.3))),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: fg.withValues(alpha: 0.7))),
+      const SizedBox(width: 3),
+      Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: fg)),
+    ]),
   );
 }
