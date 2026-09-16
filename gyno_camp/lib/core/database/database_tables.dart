@@ -53,6 +53,7 @@ class DatabaseTables {
       id TEXT PRIMARY KEY,
       camp_code TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
+      province TEXT DEFAULT 'Bagmati',
       district TEXT NOT NULL,
       municipality TEXT,
       ward TEXT,
@@ -83,6 +84,7 @@ class DatabaseTables {
       spouse_or_father_name TEXT,
       relationship_type TEXT,
       mobile TEXT,
+      province TEXT DEFAULT 'Bagmati',
       district TEXT,
       municipality TEXT,
       ward TEXT NOT NULL,
@@ -142,6 +144,10 @@ class DatabaseTables {
       follow_up_needed INTEGER,
       follow_up_destination TEXT,
       outtake_notes TEXT,
+      is_follow_up INTEGER DEFAULT 0,
+      follow_up_notes TEXT,
+      surgery_done INTEGER DEFAULT 0,
+      surgery_type TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT,
       created_by_user_id TEXT NOT NULL,
@@ -175,6 +181,7 @@ class DatabaseTables {
     CREATE TABLE IF NOT EXISTS $tableLookupItems (
       id TEXT PRIMARY KEY,
       category TEXT NOT NULL,
+      sub_category TEXT,
       code TEXT NOT NULL,
       label_en TEXT NOT NULL,
       label_ne TEXT,
@@ -184,6 +191,7 @@ class DatabaseTables {
       is_deleted INTEGER NOT NULL DEFAULT 0
     );
   ''';
+
 
   // App Metadata Table for Persistent Seeding Flags and App Config
   static const String createTableMetadata = '''

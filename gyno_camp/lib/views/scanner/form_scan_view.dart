@@ -174,7 +174,36 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondaryLight, height: 1.45),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 16),
+
+              // Instruction Banner: Block Letters for Scan Accuracy
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF93C5FD), width: 1.2),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.edit_note_rounded, color: Color(0xFF1D4ED8), size: 22),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'CRITICAL INSTRUCTION: PLEASE ENSURE THE FORM IS FILLED IN BLOCK LETTERS (सफा ठूला अक्षरमा लेख्नुहोस्) FOR ACCURATE SCANNING.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E3A8A),
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
 
               // Dual-Slot Cards (Side-by-Side or Column)
               LayoutBuilder(

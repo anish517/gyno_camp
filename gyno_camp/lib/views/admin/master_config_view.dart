@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/constants/clinical_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/lookup_item_model.dart';
 import '../../repositories/lookup_repository.dart';
@@ -18,6 +19,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
   late TabController _tabController;
   final _searchController = TextEditingController();
   String _statusFilter = 'ALL'; // 'ALL', 'ACTIVE', 'INACTIVE'
+  bool _groupByCategory = true;
 
   @override
   void initState() {
@@ -285,6 +287,22 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                         _buildStatusChip('ALL', 'All Items'),
                         _buildStatusChip('ACTIVE', 'Active Only'),
                         _buildStatusChip('INACTIVE', 'Disabled'),
+                        if (_tabController.index != 2)
+                          ActionChip(
+                            avatar: Icon(
+                              _groupByCategory ? Icons.category_rounded : Icons.view_list_rounded,
+                              size: 14,
+                              color: AppTheme.primaryTeal,
+                            ),
+                            label: Text(
+                              _groupByCategory ? 'Grouped by Category' : 'Flat List',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                            ),
+                            backgroundColor: AppTheme.primaryLight,
+                            side: const BorderSide(color: AppTheme.primaryTeal),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => setState(() => _groupByCategory = !_groupByCategory),
+                          ),
                         _buildCategoryContextBadge(_tabController.index),
                       ],
                     ),
@@ -558,224 +576,167 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
     final user = ref.read(authStateProvider).currentUser;
     final categoryColor = _getCategoryThemeColor(categoryIndex);
 
-    final listWidget = filtered.isEmpty
-        ? Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 40.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+    Widget listWidget;
+
+    if (filtered.isEmpty) {
+      listWidget = Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Icon(Icons.inventory_2_outlined, size: 40, color: Colors.blueGrey.shade400),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _searchController.text.isNotEmpty
+                    ? 'No ${_getCategoryPluralTitle(categoryIndex)} match "${_searchController.text}".'
+                    : 'No ${_getCategoryPluralTitle(categoryIndex)} found for the selected filter.',
+                style: const TextStyle(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+              if (_searchController.text.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.clear, size: 14),
+                    label: const Text('Clear Search'),
+                    onPressed: () {
+                      _searchController.clear();
+                      ref.read(masterLookupProvider.notifier).setSearchQuery('');
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    } else if (_groupByCategory && (categoryIndex == 0 || categoryIndex == 1)) {
+      // Categorized Accordion View
+      final definedCategories = categoryIndex == 0
+          ? ClinicalConstants.diagnosisCategories
+          : ClinicalConstants.medicationCategories;
+
+      final Map<String, List<LookupItemModel>> grouped = {};
+      for (final cat in definedCategories) {
+        grouped[cat] = [];
+      }
+
+      for (final item in filtered) {
+        final fallback = categoryIndex == 0
+            ? (ClinicalConstants.diagnosisCategoryMap[item.labelEn] ?? 'General / Other')
+            : (ClinicalConstants.medicationCategoryMap[item.labelEn] ?? 'Other / Custom');
+        final cat = (item.subCategory != null && item.subCategory!.isNotEmpty)
+            ? item.subCategory!
+            : fallback;
+        grouped.putIfAbsent(cat, () => []).add(item);
+      }
+
+      final activeGroups = grouped.entries.where((e) => e.value.isNotEmpty).toList();
+
+      listWidget = ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        itemCount: activeGroups.length,
+        itemBuilder: (context, gIdx) {
+          final groupName = activeGroups[gIdx].key;
+          final groupItems = activeGroups[gIdx].value;
+          final activeCount = groupItems.where((i) => i.isActive).length;
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: activeCount > 0 ? categoryColor.withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
+                width: 1.2,
+              ),
+            ),
+            child: Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                initiallyExpanded: true,
+                leading: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: categoryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    categoryIndex == 0 ? Icons.medical_services_outlined : Icons.medication_outlined,
+                    size: 18,
+                    color: categoryColor,
+                  ),
+                ),
+                title: Text(
+                  groupName,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryLight),
+                ),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: categoryColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$activeCount / ${groupItems.length} Active',
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: categoryColor),
+                  ),
+                ),
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    child: Column(
+                      children: List.generate(groupItems.length, (idx) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: _buildItemCard(
+                            context,
+                            groupItems[idx],
+                            idx,
+                            categoryColor,
+                            adminUserId,
+                            deviceId,
+                            vm,
+                            user,
+                          ),
+                        );
+                      }),
                     ),
-                    child: Icon(Icons.inventory_2_outlined, size: 40, color: Colors.blueGrey.shade400),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _searchController.text.isNotEmpty
-                        ? 'No ${_getCategoryPluralTitle(categoryIndex)} match "${_searchController.text}".'
-                        : 'No ${_getCategoryPluralTitle(categoryIndex)} found for the selected filter.',
-                    style: const TextStyle(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
-                  if (_searchController.text.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: TextButton.icon(
-                        icon: const Icon(Icons.clear, size: 14),
-                        label: const Text('Clear Search'),
-                        onPressed: () {
-                          _searchController.clear();
-                          ref.read(masterLookupProvider.notifier).setSearchQuery('');
-                        },
-                      ),
-                    ),
                 ],
               ),
             ),
-          )
-        : ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            itemCount: filtered.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final item = filtered[index];
-              final isActive = item.isActive;
-              final formattedTitle = _formatTitle(item.labelEn);
-              final hasNepali = item.labelNe.isNotEmpty && item.labelNe != item.labelEn;
-
-              return Card(
-                elevation: 0,
-                color: isActive ? Colors.white : const Color(0xFFF8FAFC),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(
-                    color: isActive ? const Color(0xFFE2E8F0) : const Color(0xFFE2E8F0),
-                    width: 1,
-                  ),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border(
-                      left: BorderSide(
-                        color: isActive ? categoryColor : Colors.grey.shade400,
-                        width: 4,
-                      ),
-                    ),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
-                  child: Row(
-                    children: [
-                      // Leading Index Number Badge
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: isActive ? categoryColor.withValues(alpha: 0.1) : Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '${index + 1}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            color: isActive ? categoryColor : Colors.grey.shade600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-
-                      // Title, Nepali & Code Badge
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    formattedTitle,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13.5,
-                                      color: isActive ? const Color(0xFF1E293B) : Colors.grey.shade500,
-                                      decoration: isActive ? null : TextDecoration.lineThrough,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: isActive
-                                        ? const Color(0xFF059669).withValues(alpha: 0.1)
-                                        : Colors.grey.shade200,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    isActive ? 'ACTIVE' : 'INACTIVE',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      color: isActive ? const Color(0xFF059669) : Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                if (hasNepali)
-                                  Text(
-                                    item.labelNe,
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w500,
-                                      color: isActive ? const Color(0xFF0D9488) : Colors.grey.shade500,
-                                    ),
-                                  )
-                                else
-                                  Text(
-                                    'Nepali translation pending',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontStyle: FontStyle.italic,
-                                      color: Colors.grey.shade400,
-                                    ),
-                                  ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: isActive ? const Color(0xFFF1F5F9) : Colors.grey.shade200,
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: const Color(0xFFCBD5E1)),
-                                  ),
-                                  child: Text(
-                                    'CODE: ${item.code.toUpperCase()}',
-                                    style: TextStyle(
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: isActive ? const Color(0xFF334155) : Colors.grey.shade500,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // Trailing Controls: Switch, Edit, Delete
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Switch(
-                            value: isActive,
-                            activeTrackColor: categoryColor,
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            onChanged: (val) {
-                              vm.toggleItemStatus(
-                                item.id,
-                                val,
-                                userId: adminUserId,
-                                userName: user?.name ?? 'Super Admin',
-                                deviceId: deviceId,
-                              );
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 18),
-                            color: AppTheme.primaryDark,
-                            tooltip: 'Edit Master Record',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => _showAddEditDialog(context, item, item.category),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerRose),
-                            tooltip: 'Delete Master Record',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => _confirmDelete(context, item, adminUserId, deviceId),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
           );
+        },
+      );
+    } else {
+      // Flat List View
+      listWidget = ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        itemCount: filtered.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          final item = filtered[index];
+          return _buildItemCard(
+            context,
+            item,
+            index,
+            categoryColor,
+            adminUserId,
+            deviceId,
+            vm,
+            user,
+          );
+        },
+      );
+    }
 
     return Column(
       children: [
@@ -806,11 +767,211 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
     );
   }
 
+  Widget _buildItemCard(
+    BuildContext context,
+    LookupItemModel item,
+    int index,
+    Color categoryColor,
+    String adminUserId,
+    String deviceId,
+    MasterLookupViewModel vm,
+    dynamic user,
+  ) {
+    final isActive = item.isActive;
+    final formattedTitle = _formatTitle(item.labelEn);
+    final hasNepali = item.labelNe.isNotEmpty && item.labelNe != item.labelEn;
+
+    return Card(
+      elevation: 0,
+      color: isActive ? Colors.white : const Color(0xFFF8FAFC),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border(
+            left: BorderSide(
+              color: isActive ? categoryColor : Colors.grey.shade400,
+              width: 4,
+            ),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+        child: Row(
+          children: [
+            // Leading Index Number Badge
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: isActive ? categoryColor.withValues(alpha: 0.1) : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${index + 1}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: isActive ? categoryColor : Colors.grey.shade600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Title, Nepali, Sub-Category & Code Badge
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    formattedTitle,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                      color: isActive ? const Color(0xFF1E293B) : Colors.grey.shade500,
+                      decoration: isActive ? null : TextDecoration.lineThrough,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? const Color(0xFF059669).withValues(alpha: 0.1)
+                              : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          isActive ? 'ACTIVE' : 'INACTIVE',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: isActive ? const Color(0xFF059669) : Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                      if (hasNepali)
+                        Text(
+                          item.labelNe,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: isActive ? const Color(0xFF0D9488) : Colors.grey.shade500,
+                          ),
+                        )
+                      else
+                        Text(
+                          'Nepali translation pending',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                      if (item.subCategory != null && item.subCategory!.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: categoryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: categoryColor.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            item.subCategory!,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: categoryColor,
+                            ),
+                          ),
+                        ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: isActive ? const Color(0xFFF1F5F9) : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: Text(
+                          'CODE: ${item.code.toUpperCase()}',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w600,
+                            color: isActive ? const Color(0xFF334155) : Colors.grey.shade500,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Trailing Controls: Switch, Edit, Delete
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Switch(
+                  value: isActive,
+                  activeTrackColor: categoryColor,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  onChanged: (val) {
+                    vm.toggleItemStatus(
+                      item.id,
+                      val,
+                      userId: adminUserId,
+                      userName: user?.name ?? 'Super Admin',
+                      deviceId: deviceId,
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  color: AppTheme.primaryDark,
+                  tooltip: 'Edit Master Record',
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => _showAddEditDialog(context, item, item.category),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerRose),
+                  tooltip: 'Delete Master Record',
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => _confirmDelete(context, item, adminUserId, deviceId),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showAddEditDialog(BuildContext context, LookupItemModel? item, String category) {
     final isEditing = item != null;
     final enCtrl = TextEditingController(text: item?.labelEn ?? '');
     final neCtrl = TextEditingController(text: item?.labelNe ?? '');
     final codeCtrl = TextEditingController(text: item?.code ?? '');
+    String selectedSubCategory = item?.subCategory ??
+        (category == 'diagnosis'
+            ? ClinicalConstants.diagnosisCategories.first
+            : (category == 'medicine' ? ClinicalConstants.medicationCategories.first : 'Referral Centers'));
+
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
     final vm = ref.read(masterLookupProvider.notifier);
@@ -818,178 +979,205 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                category == 'diagnosis'
-                    ? Icons.healing_outlined
-                    : (category == 'medicine' ? Icons.medication_outlined : Icons.local_hospital_outlined),
-                size: 22,
-                color: AppTheme.primaryTeal,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    isEditing ? 'Edit $singular Record' : 'Add New $singular',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  Text(
-                    'Standard Clinical Master Entity',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
+                    color: AppTheme.primaryLight,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFBBF7D0)),
                   ),
-                  child: Row(
+                  child: Icon(
+                    category == 'diagnosis'
+                        ? Icons.healing_outlined
+                        : (category == 'medicine' ? Icons.medication_outlined : Icons.local_hospital_outlined),
+                    size: 22,
+                    color: AppTheme.primaryTeal,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.sync, size: 16, color: Color(0xFF16A34A)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Changes automatically synchronize with all offline tablets and outreach workstations.',
-                          style: TextStyle(fontSize: 11, color: Colors.green.shade800),
-                        ),
+                      Text(
+                        isEditing ? 'Edit $singular Record' : 'Add New $singular',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      Text(
+                        'Standard Clinical Master Entity',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: enCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'English Name / Term *',
-                    hintText: 'e.g. Polycystic Ovary Syndrome',
-                    prefixIcon: Icon(Icons.language, size: 18),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: neCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nepali Translation (नेपाली नाम)',
-                    hintText: 'e.g. पाठेघरको समस्या',
-                    prefixIcon: Icon(Icons.translate, size: 18),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: codeCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'Code / Identifier (कोड)',
-                    hintText: isEditing ? item.code : 'e.g. HOSP_MODEL_HOSPITAL',
-                    prefixIcon: const Icon(Icons.tag, size: 18),
-                    helperText: 'Standardized clinical identifier (auto-derived if blank)',
-                  ),
-                ),
               ],
             ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryTeal,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.sync, size: 16, color: Color(0xFF16A34A)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Changes automatically synchronize with all offline tablets and outreach workstations.',
+                              style: TextStyle(fontSize: 11, color: Colors.green.shade800),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: enCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'English Name / Term *',
+                        hintText: 'e.g. Polycystic Ovary Syndrome',
+                        prefixIcon: Icon(Icons.language, size: 18),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: neCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Nepali Translation (नेपाली नाम)',
+                        hintText: 'e.g. पाठेघरको समस्या',
+                        prefixIcon: Icon(Icons.translate, size: 18),
+                      ),
+                    ),
+                    if (category == 'diagnosis' || category == 'medicine') ...[
+                      const SizedBox(height: 14),
+                      DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        initialValue: selectedSubCategory,
+                        decoration: const InputDecoration(
+                          labelText: 'Clinical Sub-Category / Group *',
+                          prefixIcon: Icon(Icons.category_outlined, size: 18),
+                        ),
+                        items: (category == 'diagnosis'
+                                ? ClinicalConstants.diagnosisCategories
+                                : ClinicalConstants.medicationCategories)
+                            .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedSubCategory = val);
+                          }
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: codeCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Code / Identifier (कोड)',
+                        hintText: isEditing ? item.code : 'e.g. HOSP_MODEL_HOSPITAL',
+                        prefixIcon: const Icon(Icons.tag, size: 18),
+                        helperText: 'Standardized clinical identifier (auto-derived if blank)',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            onPressed: () async {
-              final enText = enCtrl.text.trim();
-              if (enText.isEmpty) {
-                ScaffoldMessenger.of(context).clearSnackBars();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please provide an English label.'),
-                    backgroundColor: AppTheme.dangerRose,
-                  ),
-                );
-                return;
-              }
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryTeal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () async {
+                  final enText = enCtrl.text.trim();
+                  if (enText.isEmpty) {
+                    ScaffoldMessenger.of(context).clearSnackBars();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please provide an English label.'),
+                        backgroundColor: AppTheme.dangerRose,
+                      ),
+                    );
+                    return;
+                  }
 
-              var rawCode = codeCtrl.text.trim();
-              if (rawCode.isEmpty) {
-                rawCode = enText.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
-              }
-              final sanitizedCode = LookupRepository.sanitizeCode(rawCode, enText, category);
+                  var rawCode = codeCtrl.text.trim();
+                  if (rawCode.isEmpty) {
+                    rawCode = enText.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+                  }
+                  final sanitizedCode = LookupRepository.sanitizeCode(rawCode, enText, category);
 
-              final messenger = ScaffoldMessenger.of(context);
-              Navigator.pop(ctx);
-              if (isEditing) {
-                final updated = item.copyWith(
-                  labelEn: enText,
-                  labelNe: neCtrl.text.trim(),
-                  code: sanitizedCode,
-                );
-                await vm.updateItem(
-                  updated,
-                  userId: user?.id ?? 'admin-user',
-                  userName: user?.name ?? 'Super Admin',
-                  deviceId: deviceState.device?.deviceId ?? 'dev-admin',
-                );
-              } else {
-                final newItem = LookupItemModel(
-                  id: 'lookup-${DateTime.now().millisecondsSinceEpoch}',
-                  category: category,
-                  code: sanitizedCode,
-                  labelEn: enText,
-                  labelNe: neCtrl.text.trim(),
-                  isActive: true,
-                  tenantId: user?.tenantId ?? 'tenant_default',
-                );
-                await vm.addItem(
-                  newItem,
-                  userId: user?.id ?? 'admin-user',
-                  userName: user?.name ?? 'Super Admin',
-                  deviceId: deviceState.device?.deviceId ?? 'dev-admin',
-                );
-              }
+                  final messenger = ScaffoldMessenger.of(context);
+                  Navigator.pop(ctx);
+                  if (isEditing) {
+                    final updated = item.copyWith(
+                      labelEn: enText,
+                      labelNe: neCtrl.text.trim(),
+                      code: sanitizedCode,
+                      subCategory: selectedSubCategory,
+                    );
+                    await vm.updateItem(
+                      updated,
+                      userId: user?.id ?? 'admin-user',
+                      userName: user?.name ?? 'Super Admin',
+                      deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                    );
+                  } else {
+                    final newItem = LookupItemModel(
+                      id: 'lookup-${DateTime.now().millisecondsSinceEpoch}',
+                      category: category,
+                      subCategory: selectedSubCategory,
+                      code: sanitizedCode,
+                      labelEn: enText,
+                      labelNe: neCtrl.text.trim(),
+                      isActive: true,
+                      tenantId: user?.tenantId ?? 'tenant_default',
+                    );
+                    await vm.addItem(
+                      newItem,
+                      userId: user?.id ?? 'admin-user',
+                      userName: user?.name ?? 'Super Admin',
+                      deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                    );
+                  }
 
-              if (mounted) {
-                messenger.clearSnackBars();
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('Saved "$enText" successfully.'),
-                    backgroundColor: AppTheme.successGreen,
-                  ),
-                );
-              }
-            },
-            child: Text(isEditing ? 'Save Changes' : 'Add Item'),
-          ),
-        ],
+                  if (mounted) {
+                    messenger.clearSnackBars();
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Saved "$enText" successfully.'),
+                        backgroundColor: AppTheme.successGreen,
+                      ),
+                    );
+                  }
+                },
+                child: Text(isEditing ? 'Save Changes' : 'Add Item'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

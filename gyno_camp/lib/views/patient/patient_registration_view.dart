@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/clinical_constants.dart';
 
 import '../../core/services/nepali_localization_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
@@ -65,6 +67,7 @@ class _PatientRegistrationViewState
       ref
           .read(patientRegistrationProvider.notifier)
           .updateField(
+            province: camp.province.isNotEmpty ? camp.province : 'Bagmati',
             district: camp.district,
             municipality: camp.municipality,
             ward: camp.ward,
@@ -222,6 +225,7 @@ class _PatientRegistrationViewState
 
   void _fillSamplePatient() {
     final camp = ref.read(campStateProvider).activeCamp;
+    final province = (camp?.province.isNotEmpty == true) ? camp!.province : 'Bagmati';
     final ward = (camp?.ward.isNotEmpty == true) ? camp!.ward : '03';
     final district = (camp?.district.isNotEmpty == true)
         ? camp!.district
@@ -230,32 +234,33 @@ class _PatientRegistrationViewState
         ? camp!.municipality
         : 'Budhanilkantha Municipality';
 
-    _firstNameController.text = 'Suntali';
-    _surnameController.text = 'Tamang';
+    _firstNameController.text = 'SUNTALI';
+    _surnameController.text = 'TAMANG';
     _ageController.text = '48';
     _wardController.text = ward;
-    _districtController.text = district;
-    _municipalityController.text = municipality;
-    _spouseOrFatherController.text = 'Dorje Tamang';
+    _districtController.text = district.toUpperCase();
+    _municipalityController.text = municipality.toUpperCase();
+    _spouseOrFatherController.text = 'DORJE TAMANG';
     _maritalAgeController.text = '18';
     _mobileController.text = '9841555666';
-    _contactPersonController.text = 'Pasang Tamang (Son)';
+    _contactPersonController.text = 'PASANG TAMANG (SON)';
     _contactMobileController.text = '9811223344';
 
     final vm = ref.read(patientRegistrationProvider.notifier);
     vm.updateField(
-      firstName: 'Suntali',
-      surname: 'Tamang',
+      firstName: 'SUNTALI',
+      surname: 'TAMANG',
       age: 48,
+      province: province,
       ward: ward,
-      district: district,
-      municipality: municipality,
-      spouseOrFatherName: 'Dorje Tamang',
+      district: district.toUpperCase(),
+      municipality: municipality.toUpperCase(),
+      spouseOrFatherName: 'DORJE TAMANG',
       relationshipType: 'Husband',
       maritalStatus: 'married',
       maritalAge: 18,
       mobile: '9841555666',
-      contactPerson: 'Pasang Tamang (Son)',
+      contactPerson: 'PASANG TAMANG (SON)',
       contactMobile: '9811223344',
       consentTreatment: true,
       consentStoreMedicalInfo: true,
@@ -282,12 +287,13 @@ class _PatientRegistrationViewState
 
     final camp = ref.read(campStateProvider).activeCamp;
     _wardController.text = camp?.ward ?? '';
-    _districtController.text = camp?.district ?? '';
-    _municipalityController.text = camp?.municipality ?? '';
+    _districtController.text = camp?.district.toUpperCase() ?? '';
+    _municipalityController.text = camp?.municipality.toUpperCase() ?? '';
 
     ref
         .read(patientRegistrationProvider.notifier)
         .reset(
+          province: camp?.province.isNotEmpty == true ? camp!.province : 'Bagmati',
           ward: camp?.ward ?? '',
           district: camp?.district ?? '',
           municipality: camp?.municipality ?? '',
@@ -356,6 +362,40 @@ class _PatientRegistrationViewState
                     // 0. Form Step Progress Indicator
                     _buildFormStepBar(state, isMobile: isMobile),
                     const SizedBox(height: 14),
+
+                    // Instruction Banner: Block Letters
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF93C5FD), width: 1.2),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.edit_note_rounded, color: Color(0xFF1D4ED8), size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: RichText(
+                              text: const TextSpan(
+                                style: TextStyle(fontSize: 12.5, color: Color(0xFF1E3A8A)),
+                                children: [
+                                  TextSpan(
+                                    text: 'INSTRUCTION: PLEASE FILL IN BLOCK LETTERS ',
+                                    style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                  ),
+                                  TextSpan(
+                                    text: '(कृपया सबै विवरण सफा ठूला अक्षरमा भर्नुहोस्)',
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                 // No active camp warning banner (Bug #2 fix)
                 if (camp == null)
@@ -575,28 +615,32 @@ class _PatientRegistrationViewState
                         if (isMobile) ...[
                           TextField(
                             controller: _firstNameController,
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [const UpperCaseTextFormatter()],
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
-                              labelText: 'First Name * (नाम)',
-                              hintText: 'e.g. Sita',
+                              labelText: 'First Name * (नाम) [BLOCK LETTERS]',
+                              hintText: 'e.g. SITA',
                               prefixIcon: Icon(Icons.badge_outlined),
                             ),
                             onChanged: (val) {
-                              vm.updateField(firstName: val);
+                              vm.updateField(firstName: val.toUpperCase());
                               _triggerLiveDuplicateCheck();
                             },
                           ),
                           const SizedBox(height: 12),
                           TextField(
                             controller: _surnameController,
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [const UpperCaseTextFormatter()],
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
-                              labelText: 'Surname * (थर)',
-                              hintText: 'e.g. Sharma',
+                              labelText: 'Surname * (थर) [BLOCK LETTERS]',
+                              hintText: 'e.g. SHARMA',
                               prefixIcon: Icon(Icons.badge_outlined),
                             ),
                             onChanged: (val) {
-                              vm.updateField(surname: val);
+                              vm.updateField(surname: val.toUpperCase());
                               _triggerLiveDuplicateCheck();
                             },
                           ),
@@ -641,24 +685,52 @@ class _PatientRegistrationViewState
                             ],
                           ),
                           const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            key: ValueKey('province_${state.province}'),
+                            initialValue: ClinicalConstants.nepalProvinces.contains(state.province)
+                                ? state.province
+                                : 'Bagmati',
+                            decoration: const InputDecoration(
+                              labelText: 'Province * (प्रदेश)',
+                              prefixIcon: Icon(Icons.account_balance_outlined),
+                            ),
+                            items: ClinicalConstants.nepalProvinces.map((prov) {
+                              return DropdownMenuItem(
+                                value: prov,
+                                child: Text(prov),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                vm.updateField(province: val);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 12),
                           TextField(
                             controller: _districtController,
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [const UpperCaseTextFormatter()],
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
-                              labelText: 'District (जिल्ला)',
+                              labelText: 'District (जिल्ला) [BLOCK LETTERS]',
+                              hintText: 'e.g. KATHMANDU',
                               prefixIcon: Icon(Icons.location_city_outlined),
                             ),
-                            onChanged: (val) => vm.updateField(district: val),
+                            onChanged: (val) => vm.updateField(district: val.toUpperCase()),
                           ),
                           const SizedBox(height: 12),
                           TextField(
                             controller: _municipalityController,
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [const UpperCaseTextFormatter()],
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
                               labelText: 'Municipality / Gaunpalika (गाउँपालिका)',
+                              hintText: 'e.g. BUDHANILKANTHA',
                               prefixIcon: Icon(Icons.domain_outlined),
                             ),
-                            onChanged: (val) => vm.updateField(municipality: val),
+                            onChanged: (val) => vm.updateField(municipality: val.toUpperCase()),
                           ),
                         ] else ...[
                           Row(
@@ -666,14 +738,16 @@ class _PatientRegistrationViewState
                               Expanded(
                                 child: TextField(
                                   controller: _firstNameController,
+                                  textCapitalization: TextCapitalization.characters,
+                                  inputFormatters: [const UpperCaseTextFormatter()],
                                   textInputAction: TextInputAction.next,
                                   decoration: const InputDecoration(
-                                    labelText: 'First Name * (नाम)',
-                                    hintText: 'e.g. Sita',
+                                    labelText: 'First Name * (नाम) [BLOCK LETTERS]',
+                                    hintText: 'e.g. SITA',
                                     prefixIcon: Icon(Icons.badge_outlined),
                                   ),
                                   onChanged: (val) {
-                                    vm.updateField(firstName: val);
+                                    vm.updateField(firstName: val.toUpperCase());
                                     _triggerLiveDuplicateCheck();
                                   },
                                 ),
@@ -682,14 +756,16 @@ class _PatientRegistrationViewState
                               Expanded(
                                 child: TextField(
                                   controller: _surnameController,
+                                  textCapitalization: TextCapitalization.characters,
+                                  inputFormatters: [const UpperCaseTextFormatter()],
                                   textInputAction: TextInputAction.next,
                                   decoration: const InputDecoration(
-                                    labelText: 'Surname * (थर)',
-                                    hintText: 'e.g. Sharma',
+                                    labelText: 'Surname * (थर) [BLOCK LETTERS]',
+                                    hintText: 'e.g. SHARMA',
                                     prefixIcon: Icon(Icons.badge_outlined),
                                   ),
                                   onChanged: (val) {
-                                    vm.updateField(surname: val);
+                                    vm.updateField(surname: val.toUpperCase());
                                     _triggerLiveDuplicateCheck();
                                   },
                                 ),
@@ -740,32 +816,66 @@ class _PatientRegistrationViewState
                           Row(
                             children: [
                               Expanded(
-                                child: TextField(
-                                  controller: _districtController,
-                                  textInputAction: TextInputAction.next,
+                                flex: 2,
+                                child: DropdownButtonFormField<String>(
+                                  isExpanded: true,
+                                  key: ValueKey('province_desktop_${state.province}'),
+                                  initialValue: ClinicalConstants.nepalProvinces.contains(state.province)
+                                      ? state.province
+                                      : 'Bagmati',
                                   decoration: const InputDecoration(
-                                    labelText: 'District (जिल्ला)',
-                                    prefixIcon: Icon(
-                                      Icons.location_city_outlined,
-                                    ),
+                                    labelText: 'Province * (प्रदेश)',
+                                    prefixIcon: Icon(Icons.account_balance_outlined),
                                   ),
+                                  items: ClinicalConstants.nepalProvinces.map((prov) {
+                                    return DropdownMenuItem(
+                                      value: prov,
+                                      child: Text(prov),
+                                    );
+                                  }).toList(),
                                   onChanged: (val) {
-                                    vm.updateField(district: val);
+                                    if (val != null) {
+                                      vm.updateField(province: val);
+                                    }
                                   },
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
+                                flex: 3,
+                                child: TextField(
+                                  controller: _districtController,
+                                  textCapitalization: TextCapitalization.characters,
+                                  inputFormatters: [const UpperCaseTextFormatter()],
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    labelText: 'District (जिल्ला) [BLOCK LETTERS]',
+                                    hintText: 'e.g. KATHMANDU',
+                                    prefixIcon: Icon(
+                                      Icons.location_city_outlined,
+                                    ),
+                                  ),
+                                  onChanged: (val) {
+                                    vm.updateField(district: val.toUpperCase());
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 3,
                                 child: TextField(
                                   controller: _municipalityController,
+                                  textCapitalization: TextCapitalization.characters,
+                                  inputFormatters: [const UpperCaseTextFormatter()],
                                   textInputAction: TextInputAction.next,
                                   decoration: const InputDecoration(
                                     labelText:
                                         'Municipality / Gaunpalika (गाउँपालिका)',
+                                    hintText: 'e.g. BUDHANILKANTHA',
                                     prefixIcon: Icon(Icons.domain_outlined),
                                   ),
                                   onChanged: (val) {
-                                    vm.updateField(municipality: val);
+                                    vm.updateField(municipality: val.toUpperCase());
                                   },
                                 ),
                               ),
@@ -998,10 +1108,12 @@ class _PatientRegistrationViewState
                                 if (isMobile) ...[
                                   TextField(
                                     controller: _spouseOrFatherController,
+                                    textCapitalization: TextCapitalization.characters,
+                                    inputFormatters: [const UpperCaseTextFormatter()],
                                     textInputAction: TextInputAction.next,
                                     decoration: InputDecoration(
-                                      labelText: relativeLabel,
-                                      hintText: relativeHint,
+                                      labelText: '$relativeLabel [BLOCK LETTERS]',
+                                      hintText: relativeHint.toUpperCase(),
                                       prefixIcon: const Icon(
                                         Icons.people_alt_outlined,
                                       ),
@@ -1009,7 +1121,7 @@ class _PatientRegistrationViewState
                                     ),
                                     onChanged: (val) {
                                       vm.updateField(
-                                        spouseOrFatherName: val,
+                                        spouseOrFatherName: val.toUpperCase(),
                                       );
                                       _triggerLiveDuplicateCheck();
                                     },
@@ -1043,10 +1155,12 @@ class _PatientRegistrationViewState
                                         flex: 3,
                                         child: TextField(
                                           controller: _spouseOrFatherController,
+                                          textCapitalization: TextCapitalization.characters,
+                                          inputFormatters: [const UpperCaseTextFormatter()],
                                           textInputAction: TextInputAction.next,
                                           decoration: InputDecoration(
-                                            labelText: relativeLabel,
-                                            hintText: relativeHint,
+                                            labelText: '$relativeLabel [BLOCK LETTERS]',
+                                            hintText: relativeHint.toUpperCase(),
                                             prefixIcon: const Icon(
                                               Icons.people_alt_outlined,
                                             ),
@@ -1054,7 +1168,7 @@ class _PatientRegistrationViewState
                                           ),
                                           onChanged: (val) {
                                             vm.updateField(
-                                              spouseOrFatherName: val,
+                                              spouseOrFatherName: val.toUpperCase(),
                                             );
                                             _triggerLiveDuplicateCheck();
                                           },
@@ -1212,15 +1326,17 @@ class _PatientRegistrationViewState
                         if (isMobile) ...[
                           TextField(
                             controller: _contactPersonController,
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [const UpperCaseTextFormatter()],
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
                               labelText:
-                                  'Secondary Contact (सम्पर्क व्यक्ति)',
-                              hintText: 'Son / Brother / Relative',
+                                  'Secondary Contact (सम्पर्क व्यक्ति) [BLOCK LETTERS]',
+                              hintText: 'SON / BROTHER / RELATIVE',
                               prefixIcon: Icon(Icons.person_pin_outlined),
                             ),
                             onChanged: (val) {
-                              vm.updateField(contactPerson: val);
+                              vm.updateField(contactPerson: val.toUpperCase());
                             },
                           ),
                           const SizedBox(height: 12),
@@ -1246,15 +1362,17 @@ class _PatientRegistrationViewState
                               Expanded(
                                 child: TextField(
                                   controller: _contactPersonController,
+                                  textCapitalization: TextCapitalization.characters,
+                                  inputFormatters: [const UpperCaseTextFormatter()],
                                   textInputAction: TextInputAction.next,
                                   decoration: const InputDecoration(
                                     labelText:
-                                        'Secondary Contact (सम्पर्क व्यक्ति)',
-                                    hintText: 'Son / Brother / Relative',
+                                        'Secondary Contact (सम्पर्क व्यक्ति) [BLOCK LETTERS]',
+                                    hintText: 'SON / BROTHER / RELATIVE',
                                     prefixIcon: Icon(Icons.person_pin_outlined),
                                   ),
                                   onChanged: (val) {
-                                    vm.updateField(contactPerson: val);
+                                    vm.updateField(contactPerson: val.toUpperCase());
                                   },
                                 ),
                               ),

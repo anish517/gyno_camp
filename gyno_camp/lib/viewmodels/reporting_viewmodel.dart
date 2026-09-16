@@ -202,6 +202,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
   Future<String?> exportIndividualPatientPdf({
     required PatientModel patient,
     ClinicalVisitModel? visit,
+    List<ClinicalVisitModel>? allVisits,
     CampModel? camp,
     String userId = 'usr-analyst',
     String userName = 'Data Analyst',
@@ -214,6 +215,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
       final bytes = await reportingRepository.generateIndividualPatientPdf(
         patient: patient,
         visit: visit,
+        allVisits: allVisits,
         camp: camp,
       );
 

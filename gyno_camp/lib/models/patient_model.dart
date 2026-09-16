@@ -1,3 +1,4 @@
+import 'dart:convert';
 import '../core/constants/clinical_constants.dart';
 
 class PatientModel {
@@ -14,6 +15,7 @@ class PatientModel {
   final String? spouseOrFatherName; // Father if age < 20, Husband if age >= 20
   final String? relationshipType; // 'Father', 'Husband', 'Guardian', 'M/SM/GP'
   final String mobile;
+  final String province;
   final String district;
   final String municipality;
   final String ward;
@@ -38,9 +40,12 @@ class PatientModel {
   final bool isSynced;
   final DateTime? syncedAt;
 
-  /// Transient field — populated by repository JOIN, not stored in DB.
-  /// true = at least one clinical visit row exists for this patient.
+  /// Transient fields — populated by repository JOIN, not stored in DB.
   final bool hasClinicalVisit;
+  final int? highestPopStage;
+  final List<String> diagnoses;
+  final bool? surgeryDone;
+  final String? surgeryType;
 
   const PatientModel({
     required this.id,
@@ -54,6 +59,7 @@ class PatientModel {
     this.spouseOrFatherName,
     this.relationshipType,
     required this.mobile,
+    this.province = 'Bagmati',
     this.district = '',
     this.municipality = '',
     required this.ward,
@@ -72,6 +78,10 @@ class PatientModel {
     this.isSynced = false,
     this.syncedAt,
     this.hasClinicalVisit = false,
+    this.highestPopStage,
+    this.diagnoses = const [],
+    this.surgeryDone,
+    this.surgeryType,
   });
 
   String get fullName => '$firstName $surname'.trim();
@@ -123,6 +133,7 @@ class PatientModel {
     String? spouseOrFatherName,
     String? relationshipType,
     String? mobile,
+    String? province,
     String? district,
     String? municipality,
     String? ward,
@@ -141,6 +152,10 @@ class PatientModel {
     bool? isSynced,
     DateTime? syncedAt,
     bool? hasClinicalVisit,
+    int? highestPopStage,
+    List<String>? diagnoses,
+    bool? surgeryDone,
+    String? surgeryType,
   }) {
     return PatientModel(
       id: id ?? this.id,
@@ -154,6 +169,7 @@ class PatientModel {
       spouseOrFatherName: spouseOrFatherName ?? this.spouseOrFatherName,
       relationshipType: relationshipType ?? this.relationshipType,
       mobile: mobile ?? this.mobile,
+      province: province ?? this.province,
       district: district ?? this.district,
       municipality: municipality ?? this.municipality,
       ward: ward ?? this.ward,
@@ -172,6 +188,10 @@ class PatientModel {
       isSynced: isSynced ?? this.isSynced,
       syncedAt: syncedAt ?? this.syncedAt,
       hasClinicalVisit: hasClinicalVisit ?? this.hasClinicalVisit,
+      highestPopStage: highestPopStage ?? this.highestPopStage,
+      diagnoses: diagnoses ?? this.diagnoses,
+      surgeryDone: surgeryDone ?? this.surgeryDone,
+      surgeryType: surgeryType ?? this.surgeryType,
     );
   }
 
@@ -199,6 +219,7 @@ class PatientModel {
       'spouse_or_father_name': spouseOrFatherName,
       'relationship_type': relationshipType,
       'mobile': mobile,
+      'province': province,
       'district': district,
       'municipality': municipality,
       'ward': ward,
@@ -232,6 +253,7 @@ class PatientModel {
       spouseOrFatherName: map['spouse_or_father_name'] as String?,
       relationshipType: map['relationship_type'] as String?,
       mobile: map['mobile'] as String? ?? '',
+      province: map['province'] as String? ?? 'Bagmati',
       district: map['district'] as String? ?? '',
       municipality: map['municipality'] as String? ?? '',
       ward: map['ward'] as String? ?? '',
@@ -257,8 +279,22 @@ class PatientModel {
           ? (map['is_synced'] as int) == 1
           : (map['is_synced'] as bool? ?? false),
       syncedAt: map['synced_at'] != null ? DateTime.tryParse(map['synced_at'] as String) : null,
-      // Transient JOIN column — present only when loaded via getPatientsByCamp
+      // Transient JOIN columns — present when loaded via getPatientsByCamp
       hasClinicalVisit: (map['has_clinical_visit'] as int? ?? 0) == 1,
+      highestPopStage: map['highest_pop_stage'] as int?,
+      diagnoses: map['diagnoses'] != null
+          ? (map['diagnoses'] is String
+              ? (() {
+                  try {
+                    final decoded = jsonDecode(map['diagnoses'] as String);
+                    if (decoded is List) return decoded.map((e) => e.toString()).toList();
+                  } catch (_) {}
+                  return (map['diagnoses'] as String).split(',').where((s) => s.isNotEmpty).toList();
+                })()
+              : (map['diagnoses'] as List).map((e) => e.toString()).toList())
+          : const [],
+      surgeryDone: map['surgery_done'] != null ? (map['surgery_done'] == 1 || map['surgery_done'] == true) : null,
+      surgeryType: map['surgery_type'] as String?,
     );
   }
 }

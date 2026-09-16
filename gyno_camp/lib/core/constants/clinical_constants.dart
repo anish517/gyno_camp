@@ -87,4 +87,77 @@ class ClinicalConstants {
     'Model Hospital',
     'Local Government Hospital',
   ];
+
+  // Nepal Administrative Divisions
+  static const List<String> nepalProvinces = [
+    'Koshi',
+    'Madhesh',
+    'Bagmati',
+    'Gandaki',
+    'Lumbini',
+    'Karnali',
+    'Sudurpashchim',
+  ];
+
+  // Surgery Types (Station 6 / Outtake / Follow-up)
+  static const List<String> surgeryTypes = [
+    'Open surgery',
+    'Laparoscopy',
+    'Vaginal route',
+  ];
+
+  // Diagnosis Categories
+  static const Map<String, String> diagnosisCategoryMap = {
+    'atrophy vagina': 'Neoplasms & Structural',
+    'bacterial vaginosis': 'Infections & STIs',
+    'candid infection': 'Infections & STIs',
+    'trichomonas': 'Infections & STIs',
+    'PID': 'Infections & STIs',
+    'cervicitis': 'Infections & STIs',
+    'cervical polyp': 'Neoplasms & Structural',
+    'cervical carcinoma': 'Neoplasms & Structural',
+    'condylomata': 'Infections & STIs',
+    'fistula': 'Pelvic Floor & Incontinence',
+    'infertility': 'Endocrine & Reproductive',
+    'myoma': 'Neoplasms & Structural',
+    'cystitis': 'Infections & STIs',
+    'lichen sclerosis': 'Neoplasms & Structural',
+    'stress incontinence': 'Pelvic Floor & Incontinence',
+    'ovarian tumor': 'Neoplasms & Structural',
+    'urge incontinence': 'Pelvic Floor & Incontinence',
+    'menstrual disorder': 'Endocrine & Reproductive',
+    'weak pelvic floor muscle': 'Pelvic Floor & Incontinence',
+    'pregnancy': 'Endocrine & Reproductive',
+    'hypertonic pelvic floor muscle': 'Pelvic Floor & Incontinence',
+  };
+
+  static const List<String> diagnosisCategories = [
+    'Pelvic Floor & Incontinence',
+    'Infections & STIs',
+    'Neoplasms & Structural',
+    'Endocrine & Reproductive',
+    'General / Other',
+  ];
+
+  // Medication Categories
+  static const Map<String, String> medicationCategoryMap = {
+    'clotrimazol (canesten)': 'Antibiotics & Antifungals',
+    'estradiol crème': 'Hormonal & Steroids',
+    'metronidazol': 'Antibiotics & Antifungals',
+    'doxycycline': 'Antibiotics & Antifungals',
+    'azithromycin': 'Antibiotics & Antifungals',
+    'nitrofurantoine': 'Antibiotics & Antifungals',
+    'medroxyprogesterone': 'Hormonal & Steroids',
+    'ciproflox': 'Antibiotics & Antifungals',
+    'mirasin': 'Urinary & General',
+    'clobetasol': 'Hormonal & Steroids',
+  };
+
+  static const List<String> medicationCategories = [
+    'Antibiotics & Antifungals',
+    'Hormonal & Steroids',
+    'Urinary & General',
+    'Other / Custom',
+  ];
 }
+

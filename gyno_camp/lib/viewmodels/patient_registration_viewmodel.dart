@@ -8,6 +8,7 @@ class PatientRegistrationState {
   final String surname;
   final int? age;
   final String mobile;
+  final String province;
   final String district;
   final String municipality;
   final String ward;
@@ -31,6 +32,7 @@ class PatientRegistrationState {
     this.surname = '',
     this.age,
     this.mobile = '',
+    this.province = 'Bagmati',
     this.district = '',
     this.municipality = '',
     this.ward = '',
@@ -48,6 +50,7 @@ class PatientRegistrationState {
     this.errorMessage,
     this.registeredPatient,
   });
+
 
   String? get validationError {
     if (firstName.trim().isEmpty) return 'First name is required (पहिलो नाम अनिवार्य छ).';
@@ -79,6 +82,7 @@ class PatientRegistrationState {
     String? surname,
     int? age,
     String? mobile,
+    String? province,
     String? district,
     String? municipality,
     String? ward,
@@ -103,6 +107,7 @@ class PatientRegistrationState {
       surname: surname ?? this.surname,
       age: age ?? this.age,
       mobile: mobile ?? this.mobile,
+      province: province ?? this.province,
       district: district ?? this.district,
       municipality: municipality ?? this.municipality,
       ward: ward ?? this.ward,
@@ -134,6 +139,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     String? surname,
     int? age,
     String? mobile,
+    String? province,
     String? district,
     String? municipality,
     String? ward,
@@ -163,6 +169,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
       surname: surname,
       age: age,
       mobile: mobile,
+      province: province,
       district: district,
       municipality: municipality,
       ward: ward,
@@ -240,6 +247,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         spouseOrFatherName: state.spouseOrFatherName.trim(),
         relationshipType: state.relationshipType,
         mobile: state.mobile.trim(),
+        province: state.province.trim(),
         district: state.district.trim(),
         municipality: state.municipality.trim(),
         ward: state.ward.trim(),
@@ -278,8 +286,9 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     }
   }
 
-  void reset({String district = '', String municipality = '', String ward = ''}) {
+  void reset({String province = 'Bagmati', String district = '', String municipality = '', String ward = ''}) {
     state = PatientRegistrationState(
+      province: province,
       district: district,
       municipality: municipality,
       ward: ward,

@@ -222,7 +222,27 @@ class LookupRepository implements ILookupRepository {
     final targetTenant = tenantId ?? 'tenant_default';
     final metaKey = 'lookup_defaults_seeded_$targetTenant';
 
-    // 1. Check one-time seed gate in app_metadata
+    // 1. Backfill any existing items missing sub_category first
+    try {
+      for (final entry in ClinicalConstants.diagnosisCategoryMap.entries) {
+        await db.update(
+          DatabaseTables.tableLookupItems,
+          {'sub_category': entry.value},
+          where: 'category = ? AND label_en = ? AND (sub_category IS NULL OR sub_category = "")',
+          whereArgs: ['diagnosis', entry.key],
+        );
+      }
+      for (final entry in ClinicalConstants.medicationCategoryMap.entries) {
+        await db.update(
+          DatabaseTables.tableLookupItems,
+          {'sub_category': entry.value},
+          where: 'category = ? AND label_en = ? AND (sub_category IS NULL OR sub_category = "")',
+          whereArgs: ['medicine', entry.key],
+        );
+      }
+    } catch (_) {}
+
+    // 2. Check one-time seed gate in app_metadata
     try {
       final meta = await db.query(
         DatabaseTables.tableMetadata,
@@ -235,7 +255,7 @@ class LookupRepository implements ILookupRepository {
       }
     } catch (_) {}
 
-    // 2. Check if any referral hospitals already exist for this tenant
+    // 3. Check & seed referral hospitals if empty
     final hospitals = await getItemsByCategory('referral_hospital', tenantId: targetTenant);
     if (hospitals.isEmpty) {
       int idx = 0;
@@ -247,6 +267,7 @@ class LookupRepository implements ILookupRepository {
           {
             'id': 'hosp-$targetTenant-$idx',
             'category': 'referral_hospital',
+            'sub_category': 'Referral Centers',
             'code': cleanCode,
             'label_en': h,
             'label_ne': h,
@@ -260,7 +281,61 @@ class LookupRepository implements ILookupRepository {
       }
     }
 
-    // 3. Persist seed gate marker so deletions remain permanent
+    // 2. Check & seed 21 clinical diagnoses with sub_categories if empty
+    final diagnoses = await getItemsByCategory('diagnosis', tenantId: targetTenant);
+    if (diagnoses.isEmpty) {
+      int idx = 0;
+      for (final d in ClinicalConstants.defaultDiagnoses) {
+        idx++;
+        final cleanCode = d.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+        final subCat = ClinicalConstants.diagnosisCategoryMap[d] ?? 'General / Other';
+        await db.insert(
+          DatabaseTables.tableLookupItems,
+          {
+            'id': 'diag-$targetTenant-$idx',
+            'category': 'diagnosis',
+            'sub_category': subCat,
+            'code': cleanCode,
+            'label_en': d,
+            'label_ne': d,
+            'is_active': 1,
+            'sort_order': idx,
+            'tenant_id': targetTenant,
+            'is_deleted': 0,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
+
+    // 3. Check & seed 10 medications with sub_categories if empty
+    final medicines = await getItemsByCategory('medicine', tenantId: targetTenant);
+    if (medicines.isEmpty) {
+      int idx = 0;
+      for (final m in ClinicalConstants.defaultMedications) {
+        idx++;
+        final cleanCode = m.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+        final subCat = ClinicalConstants.medicationCategoryMap[m] ?? 'Other / Custom';
+        await db.insert(
+          DatabaseTables.tableLookupItems,
+          {
+            'id': 'med-$targetTenant-$idx',
+            'category': 'medicine',
+            'sub_category': subCat,
+            'code': cleanCode,
+            'label_en': m,
+            'label_ne': m,
+            'is_active': 1,
+            'sort_order': idx,
+            'tenant_id': targetTenant,
+            'is_deleted': 0,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
+
+    // 4. Persist seed gate marker so deletions remain permanent
     try {
       await db.insert(
         DatabaseTables.tableMetadata,

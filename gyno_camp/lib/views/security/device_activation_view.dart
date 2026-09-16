@@ -165,6 +165,11 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                 'Step 1: Request Device Activation',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
+              const SizedBox(height: 4),
+              const Text(
+                'New Device Request • नयाँ उपकरण अनुरोध',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: _deviceNameController,
@@ -178,9 +183,10 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
               TextField(
                 controller: _staffNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Requesting Field Staff Name',
+                  labelText: "Requesting Person's Name",
                   hintText: 'e.g. Sita Sharma (Field Nurse)',
-                  prefixIcon: Icon(Icons.person),
+                  helperText: 'Name of the field staff or clinician requesting hardware authorization',
+                  prefixIcon: Icon(Icons.person_outline),
                 ),
               ),
               const SizedBox(height: 16),
@@ -195,7 +201,7 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                         if (deviceName.isEmpty || staffName.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Please enter both a Device Label and your Staff Name'),
+                              content: Text('Please enter both a Device Label and the Requesting Person\'s Name'),
                               backgroundColor: AppTheme.dangerRose,
                             ),
                           );
@@ -340,6 +346,28 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13, color: Colors.black87),
                     ),
+                    const SizedBox(height: 14),
+
+                    // Requester Summary Card
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.orange.shade300),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildSummaryRow('Requesting Person', state.device?.registeredByName ?? 'Field Staff', icon: Icons.person_rounded),
+                          const Divider(height: 12),
+                          _buildSummaryRow('Device Label', state.device?.deviceName ?? 'Workstation', icon: Icons.tablet_mac_rounded),
+                          const Divider(height: 12),
+                          _buildSummaryRow('Hardware Fingerprint', state.hardwareFingerprint, icon: Icons.fingerprint_rounded, isMonospace: true),
+                          const Divider(height: 12),
+                          _buildSummaryRow('Request Submitted', state.device != null ? '${state.device!.registeredAt.year}-${state.device!.registeredAt.month.toString().padLeft(2, '0')}-${state.device!.registeredAt.day.toString().padLeft(2, '0')} ${state.device!.registeredAt.hour.toString().padLeft(2, '0')}:${state.device!.registeredAt.minute.toString().padLeft(2, '0')}' : 'Just now', icon: Icons.access_time_rounded),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.refresh),
@@ -401,6 +429,30 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 13, color: Color(0xFF047857), height: 1.4),
                     ),
+                    const SizedBox(height: 14),
+
+                    // Approved Device Provenance Card
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFA7F3D0)),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildSummaryRow('Requesting Person', state.device?.registeredByName ?? 'Field Staff', icon: Icons.person_rounded, iconColor: const Color(0xFF059669)),
+                          const Divider(height: 12),
+                          _buildSummaryRow('Authorized Workstation', state.device?.deviceName ?? 'Workstation', icon: Icons.verified_user_rounded, iconColor: const Color(0xFF059669)),
+                          const Divider(height: 12),
+                          _buildSummaryRow('Approved By Admin', state.device?.approvedByUserId ?? 'Central Super Admin', icon: Icons.admin_panel_settings_rounded, iconColor: const Color(0xFF059669)),
+                          if (state.device?.approvedAt != null) ...[
+                            const Divider(height: 12),
+                            _buildSummaryRow('Approval Timestamp', '${state.device!.approvedAt!.year}-${state.device!.approvedAt!.month.toString().padLeft(2, '0')}-${state.device!.approvedAt!.day.toString().padLeft(2, '0')} ${state.device!.approvedAt!.hour.toString().padLeft(2, '0')}:${state.device!.approvedAt!.minute.toString().padLeft(2, '0')}', icon: Icons.event_available_rounded, iconColor: const Color(0xFF059669)),
+                          ],
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
@@ -431,6 +483,34 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value, {required IconData icon, Color? iconColor, bool isMonospace = false}) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: iconColor ?? Colors.blueGrey),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 130,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              fontFamily: isMonospace ? 'monospace' : null,
+              color: const Color(0xFF0F172A),
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

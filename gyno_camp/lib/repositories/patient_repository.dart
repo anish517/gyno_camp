@@ -17,7 +17,7 @@ abstract class IPatientRepository {
     required String createdByUserRole,
     required String deviceId,
   });
-  Future<List<PatientModel>> getPatientsByCamp(String campId);
+  Future<List<PatientModel>> getPatientsByCamp([String? campId]);
   Future<PatientModel?> getPatientByPatientId(String patientId);
   Future<List<PatientModel>> searchPatients({required String campId, required String query});
   Future<DuplicateCheckResult> checkDuplicate({
@@ -125,23 +125,30 @@ class PatientRepository implements IPatientRepository {
   }
 
   @override
-  Future<List<PatientModel>> getPatientsByCamp(String campId) async {
+  Future<List<PatientModel>> getPatientsByCamp([String? campId]) async {
     final db = await _databaseService.database;
-    // LEFT JOIN clinical_visits to annotate each patient with whether they
-    // have at least one clinical visit recorded (has_clinical_visit = 1/0).
-    // This transient column is read by PatientModel.fromMap and drives the
-    // station progress stepper and badge in patient_list_view.dart.
-    final maps = await db.rawQuery('''
+    final bool filterCamp = campId != null && campId.isNotEmpty && campId != 'all';
+    final query = '''
       SELECT p.*,
-             CASE WHEN cv.patient_id IS NOT NULL THEN 1 ELSE 0 END AS has_clinical_visit
+             CASE WHEN cv.patient_id IS NOT NULL THEN 1 ELSE 0 END AS has_clinical_visit,
+             cv.highest_pop_stage,
+             cv.diagnoses,
+             cv.surgery_done,
+             cv.surgery_type
       FROM ${DatabaseTables.tablePatients} p
       LEFT JOIN (
-        SELECT DISTINCT patient_id
-        FROM   ${DatabaseTables.tableClinicalVisits}
+        SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type
+        FROM ${DatabaseTables.tableClinicalVisits} cv1
+        WHERE cv1.visit_date = (
+          SELECT MAX(cv2.visit_date)
+          FROM ${DatabaseTables.tableClinicalVisits} cv2
+          WHERE cv2.patient_id = cv1.patient_id
+        )
       ) cv ON cv.patient_id = p.patient_id OR cv.patient_id = p.id
-      WHERE p.camp_id = ?
+      ${filterCamp ? 'WHERE p.camp_id = ?' : ''}
       ORDER BY p.created_at DESC
-    ''', [campId]);
+    ''';
+    final maps = await db.rawQuery(query, filterCamp ? [campId] : []);
     return maps.map((m) => PatientModel.fromMap(m)).toList();
   }
 
@@ -248,6 +255,10 @@ class PatientRepository implements IPatientRepository {
       followUpNeeded: visit.followUpNeeded,
       followUpDestination: visit.followUpDestination,
       outtakeNotes: visit.outtakeNotes,
+      isFollowUp: visit.isFollowUp,
+      followUpNotes: visit.followUpNotes,
+      surgeryDone: visit.surgeryDone,
+      surgeryType: visit.surgeryType,
       createdAt: DateTime.now(),
       createdByUserId: createdByUserId,
       isSynced: false,

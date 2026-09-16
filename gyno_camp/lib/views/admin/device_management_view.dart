@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/device_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/device_management_viewmodel.dart';
+import '../../viewmodels/device_security_viewmodel.dart';
 
 class DeviceManagementView extends ConsumerStatefulWidget {
   const DeviceManagementView({super.key});
@@ -53,6 +54,11 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add_to_queue_rounded),
+            tooltip: 'New Device Request',
+            onPressed: () => _showNewDeviceRequestDialog(context, vm, user?.id ?? 'admin-user'),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh Devices',
@@ -462,15 +468,15 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
               ),
               const SizedBox(height: 10),
 
-              // Registered Info Row
+              // Requester & Registration Info Row
               Row(
                 children: [
-                  const Icon(Icons.person_outline_rounded, size: 14, color: Colors.blueGrey),
+                  const Icon(Icons.person_outline_rounded, size: 14, color: AppTheme.primaryTeal),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      'Registered by: ${(dev.registeredByName != null && dev.registeredByName!.isNotEmpty) ? dev.registeredByName! : "Field Staff"}',
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                      'Requested by: ${(dev.registeredByName != null && dev.registeredByName!.isNotEmpty) ? dev.registeredByName! : "Field Staff"}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -484,6 +490,23 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
                   ),
                 ],
               ),
+              if (dev.isApproved && dev.approvedByUserId != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.verified_user_rounded, size: 13, color: Color(0xFF059669)),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Approved by: ${dev.approvedByUserId} • ${dev.approvedAt != null ? "${dev.approvedAt!.year}-${dev.approvedAt!.month.toString().padLeft(2, '0')}-${dev.approvedAt!.day.toString().padLeft(2, '0')}" : ""}',
+                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF059669)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const Divider(height: 20),
 
               // Actions (using Wrap to completely eliminate RenderFlex overflow on narrow mobile screens)
@@ -599,11 +622,13 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
               _buildDetailRow('Activation Status', dev.status.displayNameEn, valueColor: statusColor),
               _buildDetailRow('Hardware Fingerprint', dev.hardwareFingerprint, isMonospace: true),
               _buildDetailRow(
-                'Registered By',
+                'Requesting Person',
                 (dev.registeredByName != null && dev.registeredByName!.isNotEmpty)
                     ? dev.registeredByName!
                     : 'Field Staff (${dev.registeredByUserId ?? "Unknown"})',
+                valueColor: const Color(0xFF0F172A),
               ),
+              _buildDetailRow('Staff User ID', dev.registeredByUserId ?? 'N/A'),
               _buildDetailRow(
                 'Registration Timestamp',
                 dev.registeredAt.toLocal().toString().split('.')[0],
@@ -612,6 +637,7 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
                 _buildDetailRow(
                   'Approval Timestamp',
                   '${dev.approvedAt!.toLocal().toString().split('.')[0]} (${dev.approvedByUserId ?? "Admin"})',
+                  valueColor: const Color(0xFF059669),
                 ),
               _buildDetailRow(
                 'App Lock Security',
@@ -682,14 +708,70 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Authorize Field Device?'),
-        content: Text(
-          'Allowing "${dev.deviceName}" (${dev.model}) will cryptographically bind it to the Gynocamp cluster and permit offline clinical intake.',
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Allowing "${dev.deviceName}" (${dev.model}) will cryptographically bind it to the Gynocamp cluster and permit offline clinical intake.',
+                  style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF334155)),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildApprovalInfoRow(
+                        Icons.person_pin_rounded,
+                        'Requesting Person',
+                        (dev.registeredByName != null && dev.registeredByName!.isNotEmpty)
+                            ? dev.registeredByName!
+                            : 'Field Staff (${dev.registeredByUserId ?? "Unknown"})',
+                        isBold: true,
+                      ),
+                      const Divider(height: 12),
+                      _buildApprovalInfoRow(
+                        Icons.tablet_mac_rounded,
+                        'Device Label & Model',
+                        '${dev.deviceName} (${dev.model})',
+                      ),
+                      const Divider(height: 12),
+                      _buildApprovalInfoRow(
+                        Icons.fingerprint_rounded,
+                        'Hardware Fingerprint',
+                        dev.hardwareFingerprint,
+                        isMonospace: true,
+                      ),
+                      const Divider(height: 12),
+                      _buildApprovalInfoRow(
+                        Icons.calendar_today_rounded,
+                        'Requested Timestamp',
+                        dev.registeredAt.toLocal().toString().split('.')[0],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.successGreen),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.successGreen,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
               Navigator.pop(ctx);
               final success = await vm.approveDevice(dev.deviceId, adminUserId: adminUserId);
@@ -704,6 +786,155 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
               }
             },
             child: const Text('Approve & Whitelist'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApprovalInfoRow(IconData icon, String label, String value, {bool isBold = false, bool isMonospace = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: AppTheme.primaryTeal),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 140,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+              fontFamily: isMonospace ? 'monospace' : null,
+              color: isBold ? const Color(0xFF0F172A) : const Color(0xFF334155),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showNewDeviceRequestDialog(BuildContext context, DeviceManagementViewModel vm, String adminUserId) {
+    final nameController = TextEditingController();
+    final staffController = TextEditingController();
+    final modelController = TextEditingController(text: 'Android Field Tablet');
+    final fpController = TextEditingController(text: 'hw-fp-${DateTime.now().millisecondsSinceEpoch.toRadixString(16)}');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.add_to_queue_rounded, color: AppTheme.primaryTeal),
+            SizedBox(width: 10),
+            Expanded(child: Text('New Device Request', overflow: TextOverflow.ellipsis)),
+          ],
+        ),
+        content: SizedBox(
+          width: 460,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Pre-register or request hardware authorization for a field outreach workstation.',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Device Nickname / Label *',
+                    hintText: 'e.g. Kathmandu Intake Tab #3',
+                    prefixIcon: Icon(Icons.tablet_mac_rounded),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: staffController,
+                  decoration: const InputDecoration(
+                    labelText: "Requesting Person's Name *",
+                    hintText: 'e.g. Sita Sharma (Field Nurse)',
+                    helperText: 'Field staff member requesting hardware access',
+                    prefixIcon: Icon(Icons.person_outline_rounded),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: modelController,
+                  decoration: const InputDecoration(
+                    labelText: 'Device Hardware Model',
+                    hintText: 'e.g. Samsung Galaxy Tab A9',
+                    prefixIcon: Icon(Icons.devices_other_rounded),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: fpController,
+                  decoration: const InputDecoration(
+                    labelText: 'Hardware Fingerprint',
+                    prefixIcon: Icon(Icons.fingerprint_rounded),
+                    isDense: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryTeal,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.send_rounded, size: 16),
+            label: const Text('Submit Device Request'),
+            onPressed: () async {
+              final dName = nameController.text.trim();
+              final sName = staffController.text.trim();
+              if (dName.isEmpty || sName.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please provide both Device Label and Requesting Person\'s Name'),
+                    backgroundColor: AppTheme.dangerRose,
+                  ),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              final repo = ref.read(deviceSecurityRepositoryProvider);
+              await repo.requestDeviceRegistration(
+                deviceName: dName,
+                model: modelController.text.trim().isNotEmpty ? modelController.text.trim() : 'Android Tablet',
+                hardwareFingerprint: fpController.text.trim().isNotEmpty ? fpController.text.trim() : 'hw-fp-${DateTime.now().millisecondsSinceEpoch}',
+                staffUserId: 'usr-staff-${DateTime.now().millisecondsSinceEpoch}',
+                staffName: sName,
+              );
+              await vm.loadDevices();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Device request for "$dName" by "$sName" submitted successfully.'),
+                    backgroundColor: AppTheme.successGreen,
+                  ),
+                );
+              }
+            },
           ),
         ],
       ),

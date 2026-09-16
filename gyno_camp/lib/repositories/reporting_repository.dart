@@ -18,6 +18,7 @@ abstract class IReportingRepository {
   Future<Uint8List> generateIndividualPatientPdf({
     required PatientModel patient,
     ClinicalVisitModel? visit,
+    List<ClinicalVisitModel>? allVisits,
     CampModel? camp,
     String organizationName = 'Nepal Gyno Health Outreach Network',
   });
@@ -128,12 +129,14 @@ class ReportingRepository implements IReportingRepository {
   Future<Uint8List> generateIndividualPatientPdf({
     required PatientModel patient,
     ClinicalVisitModel? visit,
+    List<ClinicalVisitModel>? allVisits,
     CampModel? camp,
     String organizationName = 'Nepal Gyno Health Outreach Network',
   }) async {
     return _pdfReportService.generateIndividualPatientPdf(
       patient: patient,
       visit: visit,
+      allVisits: allVisits,
       camp: camp,
       organizationName: organizationName,
     );

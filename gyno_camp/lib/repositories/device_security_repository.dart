@@ -211,7 +211,7 @@ class DeviceSecurityRepository implements IDeviceSecurityRepository {
       action: AppConstants.auditActionDeviceApprove,
       entityType: 'Device',
       entityId: deviceId,
-      detailsJson: '{"approvedAt":"${now.toIso8601String()}"}',
+      detailsJson: '{"approvedAt":"${now.toIso8601String()}","deviceName":"${device.deviceName}","requestedBy":"${device.registeredByName ?? "Field Staff"}","requestedByUserId":"${device.registeredByUserId ?? ""}"}',
       deviceId: deviceId,
     );
 

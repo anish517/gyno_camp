@@ -69,7 +69,7 @@ class _FakePatientRepository implements IPatientRepository {
   }
 
   @override
-  Future<List<PatientModel>> getPatientsByCamp(String campId) async => storedPatients;
+  Future<List<PatientModel>> getPatientsByCamp([String? campId]) async => storedPatients;
 
   @override
   Future<PatientModel?> getPatientByPatientId(String patientId) async {
@@ -271,7 +271,7 @@ void main() {
       expect(capturedDetails2, isNull);
       expect(find.text('Patient Registration (दर्ता)'), findsOneWidget);
       expect(find.text('Demographics'), findsOneWidget);
-      expect(find.text('First Name * (नाम)'), findsOneWidget);
+      expect(find.textContaining('First Name * (नाम)'), findsOneWidget);
 
       // Verify Desktop layout transition
       tester.view.physicalSize = const Size(1024, 768);
@@ -389,7 +389,14 @@ void main() {
       await tester.ensureVisible(find.text('6. Outtake'));
       await tester.tap(find.text('6. Outtake'));
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      final err6 = tester.takeException();
+      if (err6 != null) {
+        debugPrint('STATION 6 ERROR: $err6');
+        if (err6 is FlutterError) {
+          debugPrint('STATION 6 DETAILS: ${err6.diagnostics}');
+        }
+      }
+      expect(err6, isNull);
       expect(find.text('Follow-Up Plan (पुनः जाँच योजना)'), findsOneWidget);
       expect(find.textContaining('Save Record'), findsOneWidget);
     });

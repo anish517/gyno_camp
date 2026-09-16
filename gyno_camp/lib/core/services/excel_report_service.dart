@@ -138,6 +138,27 @@ class ExcelReportService {
         DoubleCellValue(pct),
       ]);
     }
+    summarySheet.appendRow([TextCellValue('')]);
+
+    // District Breakdown
+    summarySheet.appendRow([TextCellValue('DISTRICT-WISE DISTRIBUTION (जिल्लागत विवरण)')]);
+    summarySheet.appendRow([
+      TextCellValue('District Name'),
+      TextCellValue('Patient Count'),
+      TextCellValue('Percentage'),
+    ]);
+    final sortedDistricts = summary.districtCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    for (final e in sortedDistricts) {
+      final pct = summary.totalPatientsRegistered > 0
+          ? double.parse(((e.value / summary.totalPatientsRegistered) * 100).toStringAsFixed(1))
+          : 0.0;
+      summarySheet.appendRow([
+        TextCellValue(e.key),
+        IntCellValue(e.value),
+        DoubleCellValue(pct),
+      ]);
+    }
 
     // 2. Sheet: Patient_Register
     final registerSheet = excel['Patient_Register'];

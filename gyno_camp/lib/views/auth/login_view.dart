@@ -101,9 +101,9 @@ class _LoginViewState extends ConsumerState<LoginView> {
         if (!mounted) return;
 
         if (currentDeviceState.isUnregistered) {
+          final staffNameController = TextEditingController(text: user.name);
           showDialog(
             context: context,
-            barrierDismissible: false,
             builder: (ctx) => AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Row(
@@ -118,9 +118,28 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   ),
                 ],
               ),
-              content: Text(
-                'Welcome, ${user.name}. This workstation is not yet recognized on the clinical outreach network. For medical record security, new hardware must be registered and authorized by the Super Admin before clinical intake begins.',
-                style: const TextStyle(fontSize: 13.5, height: 1.4, color: Color(0xFF334155)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'This workstation is not yet recognized on the clinical outreach network. For medical record security, new hardware must be registered with the requesting person\'s details before Super Admin authorization.',
+                      style: TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF334155)),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: staffNameController,
+                      decoration: const InputDecoration(
+                        labelText: "Requesting Person's Name",
+                        hintText: "e.g. Sita Sharma (Field Nurse)",
+                        helperText: "Person requesting hardware whitelist",
+                        prefixIcon: Icon(Icons.person_outline, size: 20),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -136,13 +155,16 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   icon: const Icon(Icons.security, size: 16),
                   label: const Text('Register This Device'),
                   onPressed: () {
+                    final requestedName = staffNameController.text.trim().isNotEmpty
+                        ? staffNameController.text.trim()
+                        : user.name;
                     Navigator.pop(ctx);
                     if (mounted) {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => DeviceActivationView(
-                            prefillStaffName: user.name,
+                            prefillStaffName: requestedName,
                             prefillStaffUserId: user.id,
                           ),
                         ),

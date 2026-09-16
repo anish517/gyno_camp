@@ -116,7 +116,7 @@ class FakePatientRepoForResponsive implements IPatientRepository {
   Future<PatientModel> registerPatient(PatientModel patient, {required String createdByUserId, required String createdByUserName, required String createdByUserRole, required String deviceId}) async => patient;
 
   @override
-  Future<List<PatientModel>> getPatientsByCamp(String campId) async => patients;
+  Future<List<PatientModel>> getPatientsByCamp([String? campId]) async => patients;
 
   @override
   Future<PatientModel?> getPatientByPatientId(String patientId) async =>
@@ -152,6 +152,7 @@ class FakeReportingRepoForResponsive implements IReportingRepository {
   Future<Uint8List> generateIndividualPatientPdf({
     required PatientModel patient,
     ClinicalVisitModel? visit,
+    List<ClinicalVisitModel>? allVisits,
     CampModel? camp,
     String organizationName = 'Nepal Gyno Health Outreach Network',
   }) async => Uint8List(0);

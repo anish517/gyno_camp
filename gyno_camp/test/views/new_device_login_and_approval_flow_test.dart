@@ -298,7 +298,7 @@ void main() {
       // Find step 1 fields
       expect(find.text('Step 1: Request Device Activation'), findsOneWidget);
       final nicknameField = find.widgetWithText(TextField, 'Device Nickname / Label');
-      final staffField = find.widgetWithText(TextField, 'Requesting Field Staff Name');
+      final staffField = find.widgetWithText(TextField, "Requesting Person's Name");
 
       await tester.enterText(nicknameField, 'Pokhara Outreach Tablet #1');
       await tester.enterText(staffField, 'Anita Tamang');
@@ -317,6 +317,7 @@ void main() {
 
       // Step 3: Now device is Awaiting Super Admin Approval
       expect(find.text('Awaiting Central Administrator Approval'), findsOneWidget);
+      expect(find.text('Anita Tamang'), findsOneWidget); // Requester name displayed on pending screen
       expect(store.devices.length, 1);
       expect(store.devices.first.status, DeviceActivationStatus.pendingApproval);
 
@@ -340,16 +341,18 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Super Admin sees the pending device
+      // Super Admin sees the pending device and requester
       expect(find.text('Pokhara Outreach Tablet #1'), findsOneWidget);
+      expect(find.textContaining('Anita Tamang'), findsOneWidget); // Displayed on device card
       expect(find.text('Approve Device'), findsOneWidget);
 
       // Super Admin clicks Approve Device
       await tester.tap(find.text('Approve Device'));
       await tester.pumpAndSettle();
 
-      // Dialog pops up -> Admin confirms "Approve & Whitelist"
+      // Dialog pops up -> Admin confirms "Approve & Whitelist" with requester details visible
       expect(find.text('Authorize Field Device?'), findsOneWidget);
+      expect(find.text('Anita Tamang'), findsOneWidget); // Displayed in approval dialog
       await tester.tap(find.text('Approve & Whitelist'));
       await tester.pumpAndSettle();
 

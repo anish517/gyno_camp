@@ -60,6 +60,7 @@ class CampModel {
   final String id;
   final String campCode; // e.g., 'KTM01', 'DHN02'
   final String name;
+  final String province; // Nepal Province (Koshi, Madhesh, Bagmati, Gandaki, Lumbini, Karnali, Sudurpashchim)
   final String district;
   final String municipality;
   final String ward;
@@ -78,6 +79,7 @@ class CampModel {
     required this.id,
     required this.campCode,
     required this.name,
+    this.province = 'Bagmati',
     required this.district,
     required this.municipality,
     required this.ward,
@@ -101,6 +103,7 @@ class CampModel {
       'id': id,
       'camp_code': campCode,
       'name': name,
+      'province': province,
       'district': district,
       'municipality': municipality,
       'ward': ward,
@@ -122,6 +125,7 @@ class CampModel {
       id: map['id'] as String,
       campCode: map['camp_code'] as String,
       name: map['name'] as String,
+      province: map['province'] as String? ?? 'Bagmati',
       district: map['district'] as String,
       municipality: map['municipality'] as String? ?? '',
       ward: map['ward'] as String? ?? '',
@@ -144,6 +148,7 @@ class CampModel {
     String? id,
     String? campCode,
     String? name,
+    String? province,
     String? district,
     String? municipality,
     String? ward,
@@ -162,6 +167,7 @@ class CampModel {
       id: id ?? this.id,
       campCode: campCode ?? this.campCode,
       name: name ?? this.name,
+      province: province ?? this.province,
       district: district ?? this.district,
       municipality: municipality ?? this.municipality,
       ward: ward ?? this.ward,

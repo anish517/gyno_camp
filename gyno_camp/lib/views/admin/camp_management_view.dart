@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nepali_utils/nepali_utils.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/clinical_constants.dart';
 import '../../core/security/security_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/nepali_date_helper.dart';
@@ -10,6 +11,7 @@ import '../../models/user_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
+import '../../viewmodels/patient_list_viewmodel.dart';
 import '../patient/patient_registration_view.dart';
 import '../scanner/form_scan_view.dart';
 import '../patient/patient_list_view.dart';
@@ -670,7 +672,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '${camp.venue}, Ward ${camp.ward}, ${camp.municipality.isNotEmpty ? "${camp.municipality}, " : ""}${camp.district}',
+                      '${camp.venue}, Ward ${camp.ward}, ${camp.municipality.isNotEmpty ? "${camp.municipality}, " : ""}${camp.district}${camp.province.isNotEmpty ? ", Province: ${camp.province}" : ""}',
                       style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryLight),
                     ),
                   ),
@@ -797,6 +799,26 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
+                      // Bulk Patient Details (Exclusively accessible within Camp section)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.people_alt_outlined, size: 15),
+                        label: const Text('Bulk Patient Details', style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          foregroundColor: const Color(0xFF4F46E5),
+                          side: const BorderSide(color: Color(0xFFC7D2FE)),
+                        ),
+                        onPressed: () {
+                          ref.read(patientListProvider.notifier).loadPatients(camp.id);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PatientListView(initialQuery: camp.campCode),
+                            ),
+                          );
+                        },
+                      ),
                       // Edit Camp Details
                       IconButton(
                         icon: const Icon(Icons.edit_outlined, size: 18),
@@ -1847,12 +1869,18 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       backgroundColor: Color(0xFFE0E7FF),
                       child: Icon(Icons.people_alt, color: Color(0xFF4F46E5)),
                     ),
-                    title: const Text('Station 3: Patient Roll & Medical Records'),
-                    subtitle: const Text('Browse all screened patients and charts'),
+                    title: const Text('Station 3: Bulk Patient Details (बिरामी विवरण)'),
+                    subtitle: const Text('Browse all screened patients, records and export bulk details'),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                     onTap: () {
+                      ref.read(patientListProvider.notifier).loadPatients(camp.id);
                       Navigator.pop(ctx);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientListView()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PatientListView(initialQuery: camp.campCode),
+                        ),
+                      );
                     },
                   ),
                 ],
@@ -2364,6 +2392,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     final munCtrl = TextEditingController();
     final wardCtrl = TextEditingController();
     final venueCtrl = TextEditingController();
+    String selectedProvince = 'Bagmati';
     DateTime startDate = DateTime.now();
     DateTime endDate = DateTime.now().add(const Duration(days: 2));
     CampStatus selectedStatus = initialStatus;
@@ -2491,6 +2520,24 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 // SECTION 2: Geographic Location
                                 _buildSectionHeader(Icons.place_outlined, 'Geographic Location (नेपाल स्थान विवरण)'),
                                 const SizedBox(height: 8),
+                                DropdownButtonFormField<String>(
+                                  key: ValueKey('create_prov_$selectedProvince'),
+                                  initialValue: selectedProvince,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Province * (प्रदेश)',
+                                    isDense: true,
+                                    prefixIcon: Icon(Icons.account_balance_outlined, size: 18),
+                                  ),
+                                  items: ClinicalConstants.nepalProvinces.map((prov) {
+                                    return DropdownMenuItem(value: prov, child: Text(prov));
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setDialogState(() => selectedProvince = val);
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 10),
                                 TextField(
                                   controller: districtCtrl,
                                   decoration: const InputDecoration(
@@ -2881,6 +2928,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   ctx: ctx,
                                   code: codeCtrl.text.trim(),
                                   name: nameCtrl.text.trim(),
+                                  province: selectedProvince,
                                   district: districtCtrl.text.trim(),
                                   municipality: munCtrl.text.trim(),
                                   ward: wardCtrl.text.trim(),
@@ -2904,6 +2952,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   ctx: ctx,
                                   code: codeCtrl.text.trim(),
                                   name: nameCtrl.text.trim(),
+                                  province: selectedProvince,
                                   district: districtCtrl.text.trim(),
                                   municipality: munCtrl.text.trim(),
                                   ward: wardCtrl.text.trim(),
@@ -2935,6 +2984,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     required BuildContext ctx,
     required String code,
     required String name,
+    required String province,
     required String district,
     required String municipality,
     required String ward,
@@ -2964,6 +3014,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       id: 'camp-${DateTime.now().millisecondsSinceEpoch}',
       campCode: code.toUpperCase(),
       name: name,
+      province: province,
       district: district.isNotEmpty ? district : 'Bagmati',
       municipality: municipality,
       ward: ward.isNotEmpty ? ward : '01',
@@ -3010,6 +3061,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
   void _showEditCampDialog(BuildContext context, CampModel camp) {
     final nameCtrl = TextEditingController(text: camp.name);
+    String selectedProvince = camp.province.isNotEmpty ? camp.province : 'Bagmati';
     final districtCtrl = TextEditingController(text: camp.district);
     final munCtrl = TextEditingController(text: camp.municipality);
     final wardCtrl = TextEditingController(text: camp.ward);
@@ -3071,6 +3123,24 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             TextField(
                               controller: nameCtrl,
                               decoration: const InputDecoration(labelText: 'Camp Name *', isDense: true),
+                            ),
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<String>(
+                              key: ValueKey('edit_prov_$selectedProvince'),
+                              initialValue: selectedProvince,
+                              decoration: const InputDecoration(
+                                labelText: 'Province * (प्रदेश)',
+                                isDense: true,
+                                prefixIcon: Icon(Icons.account_balance_outlined, size: 18),
+                              ),
+                              items: ClinicalConstants.nepalProvinces.map((prov) {
+                                return DropdownMenuItem(value: prov, child: Text(prov));
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setDialogState(() => selectedProvince = val);
+                                }
+                              },
                             ),
                             const SizedBox(height: 12),
                             TextField(
@@ -3224,6 +3294,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
                               final updated = camp.copyWith(
                                 name: nameCtrl.text.trim(),
+                                province: selectedProvince,
                                 district: districtCtrl.text.trim(),
                                 municipality: munCtrl.text.trim(),
                                 ward: wardCtrl.text.trim(),

@@ -59,6 +59,10 @@ class ClinicalAssessmentState {
   final bool followUpNeeded;
   final String? followUpDestination;
   final String? outtakeNotes;
+  final bool isFollowUp;
+  final String? followUpNotes;
+  final bool surgeryDone;
+  final String? surgeryType;
 
   final bool isSaving;
   final String? errorMessage;
@@ -105,11 +109,16 @@ class ClinicalAssessmentState {
     this.followUpNeeded = false,
     this.followUpDestination,
     this.outtakeNotes,
+    this.isFollowUp = false,
+    this.followUpNotes,
+    this.surgeryDone = false,
+    this.surgeryType,
     this.isSaving = false,
     this.errorMessage,
     this.savedVisit,
     this.existingVisitId,
   });
+
 
   bool get areVitalsValid =>
       systolicValidation.isValid &&
@@ -158,6 +167,11 @@ class ClinicalAssessmentState {
     bool? followUpNeeded,
     String? followUpDestination,
     String? outtakeNotes,
+    bool? isFollowUp,
+    String? followUpNotes,
+    bool? surgeryDone,
+    String? surgeryType,
+    bool clearSurgeryType = false,
     bool? isSaving,
     String? errorMessage,
     ClinicalVisitModel? savedVisit,
@@ -205,6 +219,10 @@ class ClinicalAssessmentState {
       followUpNeeded: followUpNeeded ?? this.followUpNeeded,
       followUpDestination: followUpDestination ?? this.followUpDestination,
       outtakeNotes: outtakeNotes ?? this.outtakeNotes,
+      isFollowUp: isFollowUp ?? this.isFollowUp,
+      followUpNotes: followUpNotes ?? this.followUpNotes,
+      surgeryDone: surgeryDone ?? this.surgeryDone,
+      surgeryType: clearSurgeryType ? null : (surgeryType ?? this.surgeryType),
       isSaving: isSaving ?? this.isSaving,
       errorMessage: errorMessage,
       savedVisit: clearSaved ? null : (savedVisit ?? this.savedVisit),
@@ -432,11 +450,31 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
   }
 
   // --- Station 6: Outtake & Follow-up ---
-  void setOuttake({bool? followUpNeeded, String? destination, String? notes}) {
+  void setOuttake({
+    bool? followUpNeeded,
+    String? destination,
+    String? notes,
+    bool? isFollowUp,
+    String? followUpNotes,
+    bool? surgeryDone,
+    String? surgeryType,
+  }) {
     state = state.copyWith(
       followUpNeeded: followUpNeeded,
       followUpDestination: destination,
       outtakeNotes: notes,
+      isFollowUp: isFollowUp,
+      followUpNotes: followUpNotes,
+      surgeryDone: surgeryDone,
+      surgeryType: surgeryType,
+    );
+  }
+
+  void setSurgery({required bool surgeryDone, String? surgeryType}) {
+    state = state.copyWith(
+      surgeryDone: surgeryDone,
+      surgeryType: surgeryType,
+      clearSurgeryType: !surgeryDone,
     );
   }
 
@@ -480,6 +518,10 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
           followUpNeeded: visit.followUpNeeded,
           followUpDestination: visit.followUpDestination,
           outtakeNotes: visit.outtakeNotes,
+          isFollowUp: visit.isFollowUp,
+          followUpNotes: visit.followUpNotes,
+          surgeryDone: visit.surgeryDone,
+          surgeryType: visit.surgeryType,
           isSaving: false,
           savedVisit: visit,
           systolicValidation: visit.systolicBp != null
@@ -572,6 +614,10 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         followUpNeeded: state.followUpNeeded,
         followUpDestination: state.followUpDestination,
         outtakeNotes: state.outtakeNotes,
+        isFollowUp: state.isFollowUp,
+        followUpNotes: state.followUpNotes,
+        surgeryDone: state.surgeryDone,
+        surgeryType: state.surgeryDone ? state.surgeryType : null,
         createdAt: DateTime.now(),
         createdByUserId: staffUserId,
       );

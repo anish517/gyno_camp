@@ -16,6 +16,7 @@ class ReportAggregationService {
     final ageGroups = {'<20': 0, '20-35': 0, '36-50': 0, '51-65': 0, '>65': 0};
     final maritalStatusCounts = <String, int>{};
     final wardCounts = <String, int>{};
+    final districtCounts = <String, int>{};
 
     for (final p in patients) {
       // Age group
@@ -41,7 +42,16 @@ class ReportAggregationService {
       if (ward.isNotEmpty) {
         wardCounts[ward] = (wardCounts[ward] ?? 0) + 1;
       }
+
+      // District
+      final district = p.district.trim();
+      if (district.isNotEmpty) {
+        districtCounts[district] = (districtCounts[district] ?? 0) + 1;
+      } else {
+        districtCounts['Unspecified'] = (districtCounts['Unspecified'] ?? 0) + 1;
+      }
     }
+
 
     // 2. POP Staging & Clinical Visits
     final anteriorStages = {0: 0, 1: 0, 2: 0, 3: 0};
@@ -179,6 +189,7 @@ class ReportAggregationService {
       ageGroups: ageGroups,
       maritalStatusCounts: maritalStatusCounts,
       wardCounts: wardCounts,
+      districtCounts: districtCounts,
       anteriorStages: anteriorStages,
       middleStages: middleStages,
       posteriorStages: posteriorStages,

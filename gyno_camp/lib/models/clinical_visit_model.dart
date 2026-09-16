@@ -53,6 +53,10 @@ class ClinicalVisitModel {
   final bool followUpNeeded;
   final String? followUpDestination; // 'Health Post', 'GynaeSupport Nurse'
   final String? outtakeNotes;
+  final bool isFollowUp;
+  final String? followUpNotes;
+  final bool surgeryDone;
+  final String? surgeryType; // 'Open surgery', 'Laparoscopy', 'Vaginal route'
 
   // Metadata
   final DateTime createdAt;
@@ -98,6 +102,10 @@ class ClinicalVisitModel {
     this.followUpNeeded = false,
     this.followUpDestination,
     this.outtakeNotes,
+    this.isFollowUp = false,
+    this.followUpNotes,
+    this.surgeryDone = false,
+    this.surgeryType,
     required this.createdAt,
     this.updatedAt,
     required this.createdByUserId,
@@ -152,6 +160,10 @@ class ClinicalVisitModel {
       'follow_up_needed': followUpNeeded ? 1 : 0,
       'follow_up_destination': followUpDestination,
       'outtake_notes': outtakeNotes,
+      'is_follow_up': isFollowUp ? 1 : 0,
+      'follow_up_notes': followUpNotes,
+      'surgery_done': surgeryDone ? 1 : 0,
+      'surgery_type': surgeryType,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'created_by_user_id': createdByUserId,
@@ -215,6 +227,14 @@ class ClinicalVisitModel {
           : (map['follow_up_needed'] as bool? ?? false),
       followUpDestination: map['follow_up_destination'] as String?,
       outtakeNotes: map['outtake_notes'] as String?,
+      isFollowUp: (map['is_follow_up'] is int)
+          ? (map['is_follow_up'] as int) == 1
+          : (map['is_follow_up'] as bool? ?? false),
+      followUpNotes: map['follow_up_notes'] as String?,
+      surgeryDone: (map['surgery_done'] is int)
+          ? (map['surgery_done'] as int) == 1
+          : (map['surgery_done'] as bool? ?? false),
+      surgeryType: map['surgery_type'] as String?,
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
       createdByUserId: map['created_by_user_id'] as String? ?? '',

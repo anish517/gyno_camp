@@ -63,6 +63,7 @@ class FakeReportingRepository implements IReportingRepository {
   Future<Uint8List> generateIndividualPatientPdf({
     required PatientModel patient,
     ClinicalVisitModel? visit,
+    List<ClinicalVisitModel>? allVisits,
     CampModel? camp,
     String organizationName = 'Nepal Gyno Health Outreach Network',
   }) async {

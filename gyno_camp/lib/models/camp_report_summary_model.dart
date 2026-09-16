@@ -22,6 +22,7 @@ class CampReportSummaryModel {
   final Map<String, int> ageGroups; // '<20', '20-35', '36-50', '51-65', '>65'
   final Map<String, int> maritalStatusCounts; // 'married', 'widow', 'unmarried', 'divorced'
   final Map<String, int> wardCounts; // '01', '02', etc.
+  final Map<String, int> districtCounts; // 'Kathmandu', 'Dhading', etc.
 
   // POP Staging (Pelvic Organ Prolapse)
   final Map<int, int> anteriorStages; // 0..3
@@ -72,6 +73,7 @@ class CampReportSummaryModel {
     required this.ageGroups,
     required this.maritalStatusCounts,
     required this.wardCounts,
+    this.districtCounts = const {},
     required this.anteriorStages,
     required this.middleStages,
     required this.posteriorStages,
@@ -116,6 +118,7 @@ class CampReportSummaryModel {
       ageGroups: {'<20': 0, '20-35': 0, '36-50': 0, '51-65': 0, '>65': 0},
       maritalStatusCounts: {},
       wardCounts: {},
+      districtCounts: {},
       anteriorStages: {0: 0, 1: 0, 2: 0, 3: 0},
       middleStages: {0: 0, 1: 0, 2: 0, 3: 0, 4: 0},
       posteriorStages: {0: 0, 1: 0, 2: 0, 3: 0},
@@ -140,3 +143,4 @@ class CampReportSummaryModel {
     );
   }
 }
+

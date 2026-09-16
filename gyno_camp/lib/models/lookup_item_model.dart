@@ -1,6 +1,7 @@
 class LookupItemModel {
   final String id;
   final String category; // 'diagnosis', 'medicine', 'referral_hospital', 'district', 'ward'
+  final String? subCategory; // e.g. 'Pelvic Floor & Incontinence', 'Antibiotics & Antifungals'
   final String code;
   final String labelEn;
   final String labelNe;
@@ -12,6 +13,7 @@ class LookupItemModel {
   const LookupItemModel({
     required this.id,
     required this.category,
+    this.subCategory,
     required this.code,
     required this.labelEn,
     required this.labelNe,
@@ -25,6 +27,7 @@ class LookupItemModel {
     return {
       'id': id,
       'category': category,
+      'sub_category': subCategory,
       'code': code,
       'label_en': labelEn,
       'label_ne': labelNe,
@@ -39,6 +42,7 @@ class LookupItemModel {
     return LookupItemModel(
       id: map['id'] as String,
       category: map['category'] as String,
+      subCategory: map['sub_category'] as String?,
       code: map['code'] as String,
       labelEn: map['label_en'] as String,
       labelNe: map['label_ne'] as String? ?? '',
@@ -56,6 +60,7 @@ class LookupItemModel {
   LookupItemModel copyWith({
     String? id,
     String? category,
+    String? subCategory,
     String? code,
     String? labelEn,
     String? labelNe,
@@ -67,6 +72,7 @@ class LookupItemModel {
     return LookupItemModel(
       id: id ?? this.id,
       category: category ?? this.category,
+      subCategory: subCategory ?? this.subCategory,
       code: code ?? this.code,
       labelEn: labelEn ?? this.labelEn,
       labelNe: labelNe ?? this.labelNe,
@@ -77,3 +83,4 @@ class LookupItemModel {
     );
   }
 }
+

@@ -777,6 +777,102 @@ class _CampReportViewState extends ConsumerState<CampReportView>
           );
         }),
         const Divider(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Expanded(
+              child: Text(
+                'District-wise Breakdown (जिल्लागत विवरण)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (summary.districtCounts.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${summary.districtCounts.length} Districts',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryTeal,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (summary.districtCounts.isEmpty)
+          const Text(
+            'No district distribution data available.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+          )
+        else ...[
+          ...(() {
+            final sortedEntries = summary.districtCounts.entries.toList()
+              ..sort((a, b) => b.value.compareTo(a.value));
+            return sortedEntries.map((e) {
+              final pct = summary.totalPatientsRegistered > 0
+                  ? (e.value / summary.totalPatientsRegistered)
+                  : 0.0;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(Icons.location_on, size: 14, color: AppTheme.accentCyan),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  e.key,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '(${e.value} patients)',
+                                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${(pct * 100).toStringAsFixed(1)}%',
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: pct,
+                        backgroundColor: AppTheme.borderLight,
+                        color: AppTheme.accentCyan,
+                        minHeight: 6,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            });
+          })(),
+        ],
+        const Divider(height: 24),
         const Text(
           'Marital Status Distribution',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),

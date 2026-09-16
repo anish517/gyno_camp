@@ -228,6 +228,38 @@ class PdfReportService {
               ),
             ],
           ),
+          if (summary.districtCounts.isNotEmpty) ...[
+            pw.SizedBox(height: 10),
+            pw.Table(
+              border: pw.TableBorder.all(color: borderGray, width: 0.5),
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                  children: [
+                    _buildTableHeader('District Distribution (जिल्लागत विवरण)'),
+                    _buildTableHeader('Patient Count'),
+                    _buildTableHeader('%'),
+                  ],
+                ),
+                ...(() {
+                  final sorted = summary.districtCounts.entries.toList()
+                    ..sort((a, b) => b.value.compareTo(a.value));
+                  return sorted.map((e) {
+                    final pct = summary.totalPatientsRegistered > 0
+                        ? ((e.value / summary.totalPatientsRegistered) * 100).toStringAsFixed(1)
+                        : '0.0';
+                    return pw.TableRow(
+                      children: [
+                        _buildTableCell(sanitizeText(e.key)),
+                        _buildTableCell('${e.value}', align: pw.TextAlign.center),
+                        _buildTableCell('$pct%', align: pw.TextAlign.right),
+                      ],
+                    );
+                  });
+                })(),
+              ],
+            ),
+          ],
           pw.SizedBox(height: 18),
 
           // 2. POP Staging Matrix
@@ -563,6 +595,7 @@ class PdfReportService {
   Future<Uint8List> generateIndividualPatientPdf({
     required PatientModel patient,
     ClinicalVisitModel? visit,
+    List<ClinicalVisitModel>? allVisits,
     CampModel? camp,
     String organizationName = 'Nepal Gyno Health Outreach Network',
   }) async {
@@ -968,6 +1001,91 @@ class PdfReportService {
               ],
             ),
           ),
+          if (allVisits != null && allVisits.isNotEmpty) ...[
+            pw.SizedBox(height: 10),
+            _buildPdfSectionHeader('8. LONGITUDINAL CLINICAL ENCOUNTERS & FOLLOW-UP TIMELINE (${allVisits.length} RECORDED)', primaryColor),
+            pw.SizedBox(height: 4),
+            ...allVisits.map((v) {
+              final isFollowUp = v.isFollowUp;
+              final dateFormatted = dateFormatter.format(v.visitDate);
+              return pw.Container(
+                margin: const pw.EdgeInsets.only(bottom: 5),
+                padding: const pw.EdgeInsets.all(6),
+                decoration: pw.BoxDecoration(
+                  color: isFollowUp ? PdfColor.fromHex('F8FAFC') : lightBgColor,
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  border: pw.Border.all(
+                    color: isFollowUp ? PdfColor.fromHex('94A3B8') : primaryColor,
+                    width: 0.6,
+                  ),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          sanitizeText(isFollowUp ? 'Follow-Up Review ($dateFormatted)' : 'Initial Camp Examination ($dateFormatted)'),
+                          style: pw.TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: pw.FontWeight.bold,
+                            color: isFollowUp ? PdfColors.blueGrey800 : primaryColor,
+                          ),
+                        ),
+                        pw.Text(
+                          'BP: ${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"} | Pulse: ${v.pulse ?? "-"} bpm | SpO2: ${v.spo2 ?? "-"}%',
+                          style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700),
+                        ),
+                      ],
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Row(
+                      children: [
+                        pw.Expanded(
+                          child: pw.Text(
+                            'POP: Stage ${v.highestPopStage} (Ant: ${v.popAnteriorStage}, Mid: ${v.popMiddleStage}, Post: ${v.popPosteriorStage})',
+                            style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: darkTextColor),
+                          ),
+                        ),
+                        if (v.pessarySize != null && v.pessarySize!.isNotEmpty)
+                          pw.Text(
+                            sanitizeText('Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.pessarySize}'),
+                            style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.teal900),
+                          ),
+                        if (v.surgeryDone)
+                          pw.Text(
+                            sanitizeText(' | Surgery: ${v.surgeryType ?? "Done"}'),
+                            style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.green900),
+                          ),
+                      ],
+                    ),
+                    if (v.diagnoses.isNotEmpty) ...[
+                      pw.SizedBox(height: 1.5),
+                      pw.Text(
+                        sanitizeText('Diagnoses: ${v.diagnoses.join(", ")}'),
+                        style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey800),
+                      ),
+                    ],
+                    if (v.medications.isNotEmpty) ...[
+                      pw.SizedBox(height: 1.5),
+                      pw.Text(
+                        sanitizeText('Medications: ${v.medications.join(", ")}'),
+                        style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey800),
+                      ),
+                    ],
+                    if (v.followUpNotes != null && v.followUpNotes!.isNotEmpty) ...[
+                      pw.SizedBox(height: 1.5),
+                      pw.Text(
+                        sanitizeText('Follow-up / Encounter Notes: ${v.followUpNotes}'),
+                        style: pw.TextStyle(fontSize: 7.5, fontStyle: pw.FontStyle.italic, color: PdfColors.grey700),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }),
+          ],
           pw.SizedBox(height: 14),
 
           // 9. CRYPTOGRAPHIC VERIFICATION & PHYSICIAN ATTESTATION FOOTER

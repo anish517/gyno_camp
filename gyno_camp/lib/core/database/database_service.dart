@@ -62,12 +62,19 @@ class DatabaseService {
       "ALTER TABLE ${DatabaseTables.tableUsers} ADD COLUMN pin_hash TEXT",
       "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
       "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN organization_name TEXT DEFAULT 'Outreach Health Center'",
+      "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN province TEXT DEFAULT 'Bagmati'",
       "ALTER TABLE ${DatabaseTables.tablePatients} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
+      "ALTER TABLE ${DatabaseTables.tablePatients} ADD COLUMN province TEXT DEFAULT 'Bagmati'",
       "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
+      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN is_follow_up INTEGER DEFAULT 0",
+      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN follow_up_notes TEXT",
+      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN surgery_done INTEGER DEFAULT 0",
+      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN surgery_type TEXT",
       "ALTER TABLE ${DatabaseTables.tableAuditLogs} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
       "ALTER TABLE ${DatabaseTables.tableAuditLogs} ADD COLUMN previous_hash TEXT",
       "ALTER TABLE ${DatabaseTables.tableLookupItems} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
       "ALTER TABLE ${DatabaseTables.tableLookupItems} ADD COLUMN is_deleted INTEGER DEFAULT 0",
+      "ALTER TABLE ${DatabaseTables.tableLookupItems} ADD COLUMN sub_category TEXT",
     ];
     for (final sql in migrations) {
       try {
@@ -146,7 +153,24 @@ class DatabaseService {
         );
       }
     } catch (_) {}
+
+    // Backfill sub_category for diagnoses and medicines
+    try {
+      for (final entry in ClinicalConstants.diagnosisCategoryMap.entries) {
+        await db.rawUpdate(
+          "UPDATE ${DatabaseTables.tableLookupItems} SET sub_category = ? WHERE category = 'diagnosis' AND LOWER(label_en) = LOWER(?) AND (sub_category IS NULL OR sub_category = '')",
+          [entry.value, entry.key],
+        );
+      }
+      for (final entry in ClinicalConstants.medicationCategoryMap.entries) {
+        await db.rawUpdate(
+          "UPDATE ${DatabaseTables.tableLookupItems} SET sub_category = ? WHERE category = 'medicine' AND LOWER(label_en) = LOWER(?) AND (sub_category IS NULL OR sub_category = '')",
+          [entry.value, entry.key],
+        );
+      }
+    } catch (_) {}
   }
+
 
   Future<void> _createDb(Database db) async {
     await db.execute(DatabaseTables.createTableUsers);
@@ -224,6 +248,7 @@ class DatabaseService {
       'id': 'camp-ktm-01',
       'camp_code': 'KTM01',
       'name': 'Outreach Gyno Health Camp',
+      'province': 'Bagmati',
       'district': 'Kathmandu',
       'municipality': 'Budhanilkantha Municipality',
       'ward': '03',
@@ -247,6 +272,7 @@ class DatabaseService {
       await db.insert(DatabaseTables.tableLookupItems, {
         'id': 'diag-$sortIdx',
         'category': 'diagnosis',
+        'sub_category': ClinicalConstants.diagnosisCategoryMap[diag] ?? 'General / Other',
         'code': diag.toLowerCase().replaceAll(' ', '_'),
         'label_en': diag,
         'label_ne': _getNepaliDiagnosisName(diag),
@@ -262,6 +288,7 @@ class DatabaseService {
       await db.insert(DatabaseTables.tableLookupItems, {
         'id': 'med-$sortIdx',
         'category': 'medicine',
+        'sub_category': ClinicalConstants.medicationCategoryMap[med] ?? 'Other / Custom',
         'code': med.toLowerCase().replaceAll(' ', '_'),
         'label_en': med,
         'label_ne': med,
