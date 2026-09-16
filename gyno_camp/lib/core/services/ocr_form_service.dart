@@ -754,21 +754,29 @@ class OcrFormService {
   // ==========================================
 
   /// Sample 1: Front Page (Intake & Obstetric History)
+  /// Labels MUST match what ocr_form_service.dart parsers search for.
   static const String samplePage1Text = '''
 GYNOCAMP RURAL HEALTH CLINICAL INTAKE FORM (YELLOW FORM - PAGE 1)
 Camp Code: KTM01    Date: 2026-09-06
-Patient Name: Maya Tamang
-Age: 44 Years
-Relative: Som Bahadur Tamang (Husband)
-Mobile: 9841987654
-District: Kathmandu
-Municipality: Ward 04 Community Center
-Ward: 04
+First Name: MAYA
+Surname: TAMANG
+Age: 44
 Marital Status: [x] Married
+Husband's Name: SOM BAHADUR TAMANG
+Mobile: 9841987654
+Contact Person: BISHAL TAMANG (SON)
+Contact Mobile: 9851234567
+Age at Marriage: 18
+District: KATHMANDU
+Municipality: BUDHANILKANTHA
+Ward: 04
+Province: Bagmati
+
 Reasons for Visit:
-[x] Something hanging out / Prolapse (पाठेघर खस्ने समस्या)
-[x] Discharge and/or itching (चिलाउने समस्या)
-[x] Abdominal / Back pain (ढाड दुख्ने)
+[x] something hanging out
+[x] discharge and or itching
+[x] problems passing urine
+[x] menstrual problem
 
 OBSTETRIC HISTORY:
 Deliveries: 3
@@ -776,7 +784,9 @@ Living Children: 3
 Abortions: 0
 Complaints Duration: >1 Year
 Consent: [x] Treatment Informed Consent Granted
+[x] Medical information storage consent granted
 ''';
+
 
   /// Sample 2: Back Page (Vitals, POP Examination, Diagnoses & Treatment)
   static const String samplePage2Text = '''

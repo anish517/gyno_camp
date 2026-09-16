@@ -1811,8 +1811,355 @@ class PdfReportService {
       ),
     );
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // PAGE 2 — CLINICAL ASSESSMENT (Yellow Form Back Page — Single A4 Page)
+    // Compact 2-column layout: all 6 stations fit on one physical page.
+    // Labels match OCR parser labels in ocr_form_service.dart EXACTLY.
+    // ═══════════════════════════════════════════════════════════════════════
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+        build: (ctx) {
+          // ── Local helpers (compact sizing) ──
+          const fs = 7.5; // base font size
+          const fsSmall = 7.0;
+
+          pw.TextStyle bold({double size = fs}) =>
+              pw.TextStyle(fontSize: size, fontWeight: pw.FontWeight.bold, color: dark);
+          pw.TextStyle normal({double size = fs}) =>
+              pw.TextStyle(fontSize: size, color: dark);
+
+          pw.Widget sectionHeader(String title) => pw.Container(
+                margin: const pw.EdgeInsets.only(bottom: 3),
+                padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: pw.BoxDecoration(
+                  color: PdfColor.fromHex('F0FDFA'),
+                  border: pw.Border(left: pw.BorderSide(color: primary, width: 2.5)),
+                ),
+                child: pw.Text(sanitizeText(title),
+                    style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: primary)),
+              );
+
+          pw.Widget numBox(String v, {double w = 22, double h = 17}) => pw.Container(
+                width: w, height: h,
+                margin: const pw.EdgeInsets.only(right: 3),
+                decoration: pw.BoxDecoration(
+                  color: v.isNotEmpty ? PdfColor.fromHex('F0FDFA') : boxBg,
+                  border: pw.Border.all(color: gray, width: 0.7),
+                ),
+                child: pw.Center(
+                  child: pw.Text(v, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: dark)),
+                ),
+              );
+
+          pw.Widget cb(String label, bool checked) => pw.Padding(
+                padding: const pw.EdgeInsets.only(right: 10, bottom: 2),
+                child: pw.Row(children: [
+                  pw.Container(
+                    width: 9, height: 9,
+                    margin: const pw.EdgeInsets.only(right: 3, top: 1),
+                    decoration: pw.BoxDecoration(
+                      color: checked ? primary : PdfColors.white,
+                      border: pw.Border.all(color: checked ? primary : gray, width: 0.7),
+                    ),
+                    child: checked
+                        ? pw.Center(child: pw.Text('X', style: pw.TextStyle(fontSize: 6, fontWeight: pw.FontWeight.bold, color: PdfColors.white)))
+                        : pw.SizedBox(),
+                  ),
+                  pw.Text(sanitizeText(label), style: pw.TextStyle(fontSize: fsSmall)),
+                ]),
+              );
+
+          pw.Widget line({double h = 13}) => pw.Container(
+                height: h,
+                margin: const pw.EdgeInsets.only(top: 2, bottom: 3),
+                decoration: pw.BoxDecoration(
+                  color: boxBg,
+                  border: pw.Border(bottom: pw.BorderSide(color: gray, width: 0.7)),
+                ),
+              );
+
+          // Build columns
+          // LEFT COLUMN: Stations 1-3 (Anamnesis, POP, Vitals)
+          final leftCol = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // ── STATION 1: ANAMNESIS ─────────────────────────────────────
+              sectionHeader('STATION 1: ANAMNESIS & OBSTETRIC HISTORY'),
+              pw.Row(children: [
+                pw.Text('Deliveries (P): ', style: bold()),
+                numBox(''),
+                pw.SizedBox(width: 8),
+                pw.Text('Living Children: ', style: bold()),
+                numBox(''),
+                pw.SizedBox(width: 8),
+                pw.Text('Abortions: ', style: bold()),
+                numBox(''),
+              ]),
+              pw.SizedBox(height: 3),
+              pw.Text('Complaints Duration:', style: bold()),
+              pw.SizedBox(height: 2),
+              pw.Row(children: [
+                cb('< 3 months', false),
+                cb('3-12 months', false),
+                cb('> 1 year', false),
+              ]),
+              pw.SizedBox(height: 2),
+              pw.Text('Clinical Complaints:', style: bold()),
+              pw.SizedBox(height: 2),
+              pw.Wrap(spacing: 0, runSpacing: 1, children: [
+                cb('Lower Abdominal Pain', false),
+                cb('White / Foul Discharge', false),
+                cb('Pelvic Heaviness', false),
+                cb('Burning Micturition', false),
+                cb('Urinary Incontinence', false),
+                cb('Dyspareunia', false),
+                cb('Coital Bleeding', false),
+                cb('Mass Per Vagina', false),
+                cb('Severe Backache', false),
+              ]),
+              pw.SizedBox(height: 5),
+
+              // ── STATION 2: POP EXAMINATION ───────────────────────────────
+              sectionHeader('STATION 2: POP EXAMINATION (BADEN-WALKER)'),
+              pw.Row(children: [
+                pw.Text('Uterus Inside: ', style: bold()),
+                cb('Yes', false), cb('No (Prolapsed)', false),
+              ]),
+              pw.SizedBox(height: 2),
+              pw.Row(children: [
+                pw.Text('Pelvic Tone: ', style: bold()),
+                cb('Normal', false), cb('Weak', false), cb('Torn', false),
+              ]),
+              pw.SizedBox(height: 3),
+              pw.Text('Baden-Walker Staging:', style: bold()),
+              pw.SizedBox(height: 3),
+              pw.Row(children: [
+                pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+                  pw.Text('Anterior', style: pw.TextStyle(fontSize: fsSmall)),
+                  pw.Text('(Cystocele)', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                  pw.SizedBox(height: 2),
+                  numBox('', w: 26, h: 20),
+                ]),
+                pw.SizedBox(width: 10),
+                pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+                  pw.Text('Middle', style: pw.TextStyle(fontSize: fsSmall)),
+                  pw.Text('(Uterine)', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                  pw.SizedBox(height: 2),
+                  numBox('', w: 26, h: 20),
+                ]),
+                pw.SizedBox(width: 10),
+                pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+                  pw.Text('Posterior', style: pw.TextStyle(fontSize: fsSmall)),
+                  pw.Text('(Rectocele)', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                  pw.SizedBox(height: 2),
+                  numBox('', w: 26, h: 20),
+                ]),
+                pw.SizedBox(width: 10),
+                pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+                  pw.Text('Highest Stage', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold, color: primary)),
+                  pw.SizedBox(height: 8),
+                  numBox('', w: 26, h: 20),
+                ]),
+              ]),
+              pw.SizedBox(height: 3),
+              pw.Row(children: [
+                pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                  pw.Text('Cervix Appearance:', style: bold(size: fsSmall)),
+                  line(),
+                ])),
+                pw.SizedBox(width: 8),
+                pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                  pw.Text('Vagina / Vulva:', style: bold(size: fsSmall)),
+                  line(),
+                ])),
+              ]),
+              pw.SizedBox(height: 5),
+
+              // ── STATION 3: VITALS & LABS ─────────────────────────────────
+              sectionHeader('STATION 3: VITALS & POINT-OF-CARE LABS'),
+              pw.Row(children: [
+                pw.Text('Blood Pressure: ', style: bold()),
+                buildCharBoxes('', minBoxes: 3, boxSize: 13),
+                pw.Text(' / ', style: normal()),
+                buildCharBoxes('', minBoxes: 3, boxSize: 13),
+                pw.Text(' mmHg  ', style: normal(size: fsSmall)),
+                pw.Text('Pulse: ', style: bold()),
+                buildCharBoxes('', minBoxes: 3, boxSize: 13),
+                pw.Text(' bpm', style: normal(size: fsSmall)),
+              ]),
+              pw.SizedBox(height: 3),
+              pw.Row(children: [
+                pw.Text('SpO2: ', style: bold()),
+                buildCharBoxes('', minBoxes: 3, boxSize: 13),
+                pw.Text(' %  ', style: normal(size: fsSmall)),
+                pw.Text('Blood Glucose: ', style: bold()),
+                buildCharBoxes('', minBoxes: 3, boxSize: 13),
+                pw.Text(' mg/dL', style: normal(size: fsSmall)),
+              ]),
+              pw.SizedBox(height: 3),
+              pw.Row(children: [
+                pw.Text('Urine Test: ', style: bold()),
+                cb('Normal', false), cb('Protein+', false), cb('Glucose+', false), cb('Blood+', false),
+              ]),
+              pw.SizedBox(height: 2),
+              pw.Row(children: [
+                pw.Text('Pregnancy Test (UPT): ', style: bold()),
+                cb('Negative', false), cb('Positive', false), cb('Not Done', false),
+              ]),
+            ],
+          );
+
+          // RIGHT COLUMN: Stations 4-6 (Diagnoses, Treatment, Outtake)
+          final rightCol = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // ── STATION 4: DIAGNOSES ─────────────────────────────────────
+              sectionHeader('STATION 4: CONFIRMED DIAGNOSES / निदान'),
+              pw.Wrap(
+                spacing: 0, runSpacing: 1,
+                children: ClinicalConstants.defaultDiagnoses
+                    .map((d) => cb(sanitizeText(d), false))
+                    .toList(),
+              ),
+              pw.SizedBox(height: 2),
+              pw.Text('Other: ', style: bold(size: fsSmall)),
+              line(h: 12),
+              pw.SizedBox(height: 5),
+
+              // ── STATION 5: TREATMENT ─────────────────────────────────────
+              sectionHeader('STATION 5: TREATMENT & PRESCRIPTIONS / उपचार'),
+              pw.Text('Medications Dispensed:', style: bold(size: fsSmall)),
+              pw.SizedBox(height: 2),
+              pw.Wrap(
+                spacing: 0, runSpacing: 1,
+                children: ClinicalConstants.defaultMedications
+                    .map((m) => cb(sanitizeText(m), false))
+                    .toList(),
+              ),
+              pw.SizedBox(height: 3),
+              pw.Row(children: [
+                pw.Text('Ring Pessary: ', style: bold()),
+                cb('Yes', false), cb('No', false),
+                pw.Text('  Size: ', style: bold()),
+                buildCharBoxes('', minBoxes: 3, boxSize: 13),
+                pw.Text(' mm', style: normal(size: fsSmall)),
+              ]),
+              pw.SizedBox(height: 2),
+              pw.Row(children: [
+                pw.Text('Surgery Done: ', style: bold()),
+                cb('Yes', false), cb('No', false),
+              ]),
+              pw.SizedBox(height: 2),
+              pw.Row(children: [
+                pw.Text('Type: ', style: bold()),
+                ...ClinicalConstants.surgeryTypes.map((s) => cb(sanitizeText(s), false)),
+              ]),
+              pw.SizedBox(height: 5),
+
+              // ── STATION 6: OUTTAKE ───────────────────────────────────────
+              sectionHeader('STATION 6: OUTTAKE & CONTINUITY OF CARE / अनुगमन'),
+              pw.Row(children: [
+                pw.Text('Follow-up Required: ', style: bold()),
+                cb('Yes (Follow-up Needed)', false),
+                cb('No (Routine)', false),
+              ]),
+              pw.SizedBox(height: 2),
+              pw.Text('Follow-up Destination:', style: bold(size: fsSmall)),
+              line(h: 12),
+              pw.SizedBox(height: 2),
+              pw.Text('Surgical Referral:', style: bold(size: fsSmall)),
+              pw.SizedBox(height: 2),
+              pw.Row(children: [
+                cb('None', false),
+                ...ClinicalConstants.referralHospitals.map((h) => cb(sanitizeText(h), false)),
+              ]),
+              pw.SizedBox(height: 2),
+              pw.Text('Clinical Notes:', style: bold(size: fsSmall)),
+              line(h: 12),
+              line(h: 12),
+              pw.SizedBox(height: 10),
+
+              // Signatures
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                    pw.Container(width: 120, height: 0.8, color: PdfColors.black),
+                    pw.SizedBox(height: 2),
+                    pw.Text('Data Entry Operator', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Name & Date:', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                  ]),
+                  pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+                    pw.Container(width: 130, height: 0.8, color: PdfColors.black),
+                    pw.SizedBox(height: 2),
+                    pw.Text('Medical Officer / Gynecologist', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('NMC Certified — Date:', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                  ]),
+                ],
+              ),
+            ],
+          );
+
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Page 2 header strip
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: pw.BoxDecoration(
+                  color: PdfColor.fromHex('F0FDFA'),
+                  border: pw.Border.all(color: primary, width: 1.2),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                      pw.Text(sanitizeText(organizationName.toUpperCase()),
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: primary)),
+                      pw.Text('CLINICAL ASSESSMENT — PAGE 2 (BACK) • Stations 1–6',
+                          style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: dark)),
+                      pw.Text('To be completed by clinical staff — Block letters only',
+                          style: pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700)),
+                    ]),
+                    if (hasPatient)
+                      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+                        pw.Text(patient.patientId,
+                            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: primary)),
+                        pw.Text('${sanitizeText(patient.firstName)} ${sanitizeText(patient.surname)}',
+                            style: pw.TextStyle(fontSize: 7)),
+                      ])
+                    else
+                      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                        pw.Text('Patient ID:', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: primary)),
+                        pw.SizedBox(height: 2),
+                        buildCharBoxes('', minBoxes: 12, boxSize: 13),
+                      ]),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 6),
+
+              // 2-column layout: LEFT (Stations 1-3) | RIGHT (Stations 4-6)
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(flex: 5, child: leftCol),
+                  pw.SizedBox(width: 10),
+                  pw.Container(width: 0.5, color: gray),
+                  pw.SizedBox(width: 10),
+                  pw.Expanded(flex: 5, child: rightCol),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
     return pdf.save();
   }
 }
-
-
