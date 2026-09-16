@@ -184,15 +184,48 @@ class OcrFormService {
       confidences.putIfAbsent('name', () => 0.30);
 
       // ── Age ──
-      final ageValue = findValueForLabel(['age', 'Age', 'उमेर', 'Aqe']);
+      // Search 'patient age' first to avoid matching 'Age at Marriage'
       int? parsedAge;
-      if (ageValue != null) {
-        final ageDigits = RegExp(r'(\d{1,3})').firstMatch(ageValue);
-        parsedAge = ageDigits != null ? int.tryParse(ageDigits.group(1)!) : null;
+      // Priority 1: explicit 'Patient Age' label
+      final patientAgeLine = lines.firstWhere(
+        (l) => l.toLowerCase().contains('patient age'),
+        orElse: () => '',
+      );
+      if (patientAgeLine.isNotEmpty) {
+        final m = RegExp(r'patient\s*age[:\s]+(\d{1,3})', caseSensitive: false)
+            .firstMatch(patientAgeLine);
+        parsedAge = m != null ? int.tryParse(m.group(1)!) : null;
       }
+      // Priority 2: 'Age:' label, but NOT if line contains 'marriage' or 'marital'
       if (parsedAge == null) {
-        final ageMatch = RegExp(r'\b(?:age|उमेर|aqe)[:\s]+(\d{1,3})\b', caseSensitive: false).firstMatch(text);
+        for (final line in lines) {
+          final lowerLine = line.toLowerCase();
+          if (lowerLine.contains('age') &&
+              !lowerLine.contains('marriage') &&
+              !lowerLine.contains('marital') &&
+              !lowerLine.contains('at marriage') &&
+              !lowerLine.contains('patient age')) {
+            final m = RegExp(r'(?:^|\s)age[:\s]+(\d{1,3})', caseSensitive: false)
+                .firstMatch(line);
+            if (m != null) {
+              parsedAge = int.tryParse(m.group(1)!);
+              break;
+            }
+          }
+        }
+      }
+      // Priority 3: regex fallback excluding 'age at marriage'
+      if (parsedAge == null) {
+        final ageMatch = RegExp(
+          r'\bage(?!\s*at\s*marriage)[:\s]+(\d{1,3})\b',
+          caseSensitive: false,
+        ).firstMatch(text);
         parsedAge = ageMatch != null ? int.tryParse(ageMatch.group(1)!) : null;
+      }
+      // Also try उमेर (Nepali)
+      if (parsedAge == null) {
+        final nepaliAge = RegExp(r'उमेर[:\s]+(\d{1,3})').firstMatch(text);
+        parsedAge = nepaliAge != null ? int.tryParse(nepaliAge.group(1)!) : null;
       }
       if (parsedAge != null && parsedAge >= 10 && parsedAge <= 110) {
         demographics['age'] = parsedAge;
@@ -201,6 +234,7 @@ class OcrFormService {
         demographics['age'] = 35;
         confidences['age'] = 0.50;
       }
+
 
       // ── Relative / Spouse / Father Name ──
       final relLabels = [
@@ -760,7 +794,7 @@ GYNOCAMP RURAL HEALTH CLINICAL INTAKE FORM (YELLOW FORM - PAGE 1)
 Camp Code: KTM01    Date: 2026-09-06
 First Name: MAYA
 Surname: TAMANG
-Age: 44
+Patient Age: 44
 Marital Status: [x] Married
 Husband's Name: SOM BAHADUR TAMANG
 Mobile: 9841987654
