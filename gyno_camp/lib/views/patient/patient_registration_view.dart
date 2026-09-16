@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/clinical_constants.dart';
+import '../../core/constants/nepal_geodata.dart';
 
 import '../../core/services/file_download_helper.dart';
 import '../../core/services/nepali_localization_service.dart';
@@ -16,6 +17,7 @@ import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../models/camp_model.dart';
 import '../../models/patient_model.dart';
+import '../../viewmodels/master_lookup_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
 import 'clinical_assessment_view.dart';
@@ -53,9 +55,17 @@ class _PatientRegistrationViewState
   final _contactPersonFocus = FocusNode();
   final _contactMobileFocus = FocusNode();
 
-  // Reason options — delegates to shared constant so UI, PDF, and OCR always match.
-  // See ClinicalConstants.visitReasonOptions for keys and display labels.
-  Map<String, String> get _reasonOptions => ClinicalConstants.visitReasonOptions;
+  // Reason options — dynamically populated from admin master config when available
+  Map<String, String> get _reasonOptions {
+    final activeLookups = ref.watch(activeVisitReasonsProvider);
+    if (activeLookups.isNotEmpty) {
+      return {
+        for (final item in activeLookups)
+          item.code: '${item.labelEn}${item.labelNe.isNotEmpty ? " (${item.labelNe})" : ""}'
+      };
+    }
+    return ClinicalConstants.visitReasonOptions;
+  }
 
 
   @override
@@ -903,23 +913,86 @@ class _PatientRegistrationViewState
                             onChanged: (val) {
                               if (val != null) {
                                 vm.updateField(province: val);
+                                final newDists = NepalGeodata.districtsFor(val);
+                                if (!newDists.any((d) => d.toUpperCase() == _districtController.text.toUpperCase())) {
+                                  final newDist = newDists.isNotEmpty ? newDists.first : '';
+                                  _districtController.text = newDist.toUpperCase();
+                                  vm.updateField(district: newDist.toUpperCase());
+                                  final newPalikas = NepalGeodata.palikasFor(newDist);
+                                  final newPalika = newPalikas.isNotEmpty ? newPalikas.first : '';
+                                  _municipalityController.text = newPalika.toUpperCase();
+                                  vm.updateField(municipality: newPalika.toUpperCase());
+                                }
                               }
                             },
                           ),
                           const SizedBox(height: 12),
-                          _buildBlockGrid(
-                            _districtController.text, 14,
-                            label: 'District (जिल्ला) [BLOCK LETTERS]',
-                            controller: _districtController,
-                            focusNode: _districtFocus,
-                            onChanged: (val) => vm.updateField(district: val.toUpperCase()),
+                          Builder(
+                            builder: (context) {
+                              final availableDistricts = NepalGeodata.districtsFor(
+                                state.province.isNotEmpty ? state.province : 'Bagmati',
+                              );
+                              final currentDistrict = availableDistricts.firstWhere(
+                                (d) => d.toUpperCase() == _districtController.text.trim().toUpperCase(),
+                                orElse: () => availableDistricts.isNotEmpty ? availableDistricts.first : '',
+                              );
+                              return DropdownButtonFormField<String>(
+                                isExpanded: true,
+                                key: ValueKey('reg_mob_dist_${state.province}_${_districtController.text}'),
+                                initialValue: currentDistrict.isNotEmpty ? currentDistrict : null,
+                                decoration: const InputDecoration(
+                                  labelText: 'District * (जिल्ला)',
+                                  prefixIcon: Icon(Icons.map_outlined),
+                                ),
+                                items: availableDistricts.map((dist) {
+                                  return DropdownMenuItem(value: dist, child: Text(dist));
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    _districtController.text = val.toUpperCase();
+                                    vm.updateField(district: val.toUpperCase());
+                                    final newPalikas = NepalGeodata.palikasFor(val);
+                                    if (!newPalikas.any((p) => p.toUpperCase() == _municipalityController.text.toUpperCase())) {
+                                      final newPalika = newPalikas.isNotEmpty ? newPalikas.first : '';
+                                      _municipalityController.text = newPalika.toUpperCase();
+                                      vm.updateField(municipality: newPalika.toUpperCase());
+                                    }
+                                  }
+                                },
+                              );
+                            },
                           ),
-                          _buildBlockGrid(
-                            _municipalityController.text, 14,
-                            label: 'Municipality / Gaunpalika (गाउँपालिका) [BLOCK LETTERS]',
-                            controller: _municipalityController,
-                            focusNode: _municipalityFocus,
-                            onChanged: (val) => vm.updateField(municipality: val.toUpperCase()),
+                          const SizedBox(height: 12),
+                          Builder(
+                            builder: (context) {
+                              final dist = _districtController.text.isNotEmpty ? _districtController.text : state.district;
+                              final availablePalikas = NepalGeodata.palikasFor(
+                                dist,
+                                extraPalikas: _municipalityController.text.isNotEmpty ? [_municipalityController.text] : null,
+                              );
+                              final currentPalika = availablePalikas.firstWhere(
+                                (p) => p.toUpperCase() == _municipalityController.text.trim().toUpperCase(),
+                                orElse: () => availablePalikas.isNotEmpty ? availablePalikas.first : '',
+                              );
+                              return DropdownButtonFormField<String>(
+                                isExpanded: true,
+                                key: ValueKey('reg_mob_palika_${dist}_${_municipalityController.text}'),
+                                initialValue: currentPalika.isNotEmpty ? currentPalika : null,
+                                decoration: const InputDecoration(
+                                  labelText: 'Palika / Municipality * (पालिका)',
+                                  prefixIcon: Icon(Icons.location_city_outlined),
+                                ),
+                                items: availablePalikas.map((palika) {
+                                  return DropdownMenuItem(value: palika, child: Text(palika));
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    _municipalityController.text = val.toUpperCase();
+                                    vm.updateField(municipality: val.toUpperCase());
+                                  }
+                                },
+                              );
+                            },
                           ),
                         ] else ...[
                           Row(
@@ -1016,6 +1089,16 @@ class _PatientRegistrationViewState
                                   onChanged: (val) {
                                     if (val != null) {
                                       vm.updateField(province: val);
+                                      final newDists = NepalGeodata.districtsFor(val);
+                                      if (!newDists.any((d) => d.toUpperCase() == _districtController.text.toUpperCase())) {
+                                        final newDist = newDists.isNotEmpty ? newDists.first : '';
+                                        _districtController.text = newDist.toUpperCase();
+                                        vm.updateField(district: newDist.toUpperCase());
+                                        final newPalikas = NepalGeodata.palikasFor(newDist);
+                                        final newPalika = newPalikas.isNotEmpty ? newPalikas.first : '';
+                                        _municipalityController.text = newPalika.toUpperCase();
+                                        vm.updateField(municipality: newPalika.toUpperCase());
+                                      }
                                     }
                                   },
                                 ),
@@ -1023,23 +1106,75 @@ class _PatientRegistrationViewState
                               const SizedBox(width: 12),
                               Expanded(
                                 flex: 3,
-                                child: _buildBlockGrid(
-                                  _districtController.text, 14,
-                                  label: 'District (जिल्ला) [BLOCK LETTERS]',
-                                  controller: _districtController,
-                                  focusNode: _districtFocus,
-                                  onChanged: (val) => vm.updateField(district: val.toUpperCase()),
+                                child: Builder(
+                                  builder: (context) {
+                                    final availableDistricts = NepalGeodata.districtsFor(
+                                      state.province.isNotEmpty ? state.province : 'Bagmati',
+                                    );
+                                    final currentDistrict = availableDistricts.firstWhere(
+                                      (d) => d.toUpperCase() == _districtController.text.trim().toUpperCase(),
+                                      orElse: () => availableDistricts.isNotEmpty ? availableDistricts.first : '',
+                                    );
+                                    return DropdownButtonFormField<String>(
+                                      isExpanded: true,
+                                      key: ValueKey('reg_desk_dist_${state.province}_${_districtController.text}'),
+                                      initialValue: currentDistrict.isNotEmpty ? currentDistrict : null,
+                                      decoration: const InputDecoration(
+                                        labelText: 'District * (जिल्ला)',
+                                        prefixIcon: Icon(Icons.map_outlined),
+                                      ),
+                                      items: availableDistricts.map((dist) {
+                                        return DropdownMenuItem(value: dist, child: Text(dist));
+                                      }).toList(),
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          _districtController.text = val.toUpperCase();
+                                          vm.updateField(district: val.toUpperCase());
+                                          final newPalikas = NepalGeodata.palikasFor(val);
+                                          if (!newPalikas.any((p) => p.toUpperCase() == _municipalityController.text.toUpperCase())) {
+                                            final newPalika = newPalikas.isNotEmpty ? newPalikas.first : '';
+                                            _municipalityController.text = newPalika.toUpperCase();
+                                            vm.updateField(municipality: newPalika.toUpperCase());
+                                          }
+                                        }
+                                      },
+                                    );
+                                  },
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 flex: 3,
-                                child: _buildBlockGrid(
-                                  _municipalityController.text, 14,
-                                  label: 'Municipality / Gaunpalika (गाउँपालिका)',
-                                  controller: _municipalityController,
-                                  focusNode: _municipalityFocus,
-                                  onChanged: (val) => vm.updateField(municipality: val.toUpperCase()),
+                                child: Builder(
+                                  builder: (context) {
+                                    final dist = _districtController.text.isNotEmpty ? _districtController.text : state.district;
+                                    final availablePalikas = NepalGeodata.palikasFor(
+                                      dist,
+                                      extraPalikas: _municipalityController.text.isNotEmpty ? [_municipalityController.text] : null,
+                                    );
+                                    final currentPalika = availablePalikas.firstWhere(
+                                      (p) => p.toUpperCase() == _municipalityController.text.trim().toUpperCase(),
+                                      orElse: () => availablePalikas.isNotEmpty ? availablePalikas.first : '',
+                                    );
+                                    return DropdownButtonFormField<String>(
+                                      isExpanded: true,
+                                      key: ValueKey('reg_desk_palika_${dist}_${_municipalityController.text}'),
+                                      initialValue: currentPalika.isNotEmpty ? currentPalika : null,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Palika / Municipality * (पालिका)',
+                                        prefixIcon: Icon(Icons.location_city_outlined),
+                                      ),
+                                      items: availablePalikas.map((palika) {
+                                        return DropdownMenuItem(value: palika, child: Text(palika));
+                                      }).toList(),
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          _municipalityController.text = val.toUpperCase();
+                                          vm.updateField(municipality: val.toUpperCase());
+                                        }
+                                      },
+                                    );
+                                  },
                                 ),
                               ),
                             ],

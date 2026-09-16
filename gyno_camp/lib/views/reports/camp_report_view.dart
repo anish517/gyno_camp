@@ -26,6 +26,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   final TextEditingController _patientSearchController = TextEditingController();
   String? _exportingPatientId;
 
+  // ── Date Range Filter ────────────────────────────────────────────────────────
+  DateTime? _startDate;
+  DateTime? _endDate;
+
   @override
   void initState() {
     super.initState();
@@ -66,13 +70,46 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     final reportState = ref.read(reportingViewModelProvider);
     final campState = ref.read(campStateProvider);
     final currentCampId = reportState.selectedCampId;
-    ref.read(reportingViewModelProvider.notifier).loadSummary(campId: currentCampId);
+    ref.read(reportingViewModelProvider.notifier).loadSummary(
+      campId: currentCampId,
+      startDate: _startDate,
+      endDate: _endDate,
+    );
     final targetCampId = currentCampId ??
         campState.activeCamp?.id ??
         (campState.camps.isNotEmpty ? campState.camps.first.id : null);
     if (targetCampId != null) {
       ref.read(patientListProvider.notifier).loadPatients(targetCampId);
     }
+  }
+
+  Future<void> _pickStartDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? DateTime.now().subtract(const Duration(days: 30)),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Select Start Date',
+    );
+    if (picked != null) setState(() => _startDate = picked);
+  }
+
+  Future<void> _pickEndDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? DateTime.now(),
+      firstDate: _startDate ?? DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Select End Date',
+    );
+    if (picked != null) setState(() => _endDate = picked);
+  }
+
+  void _applyDateFilter() => _onRefresh();
+
+  void _clearDateFilter() {
+    setState(() { _startDate = null; _endDate = null; });
+    _onRefresh();
   }
 
   void _exportPdf(UserModel? user, String deviceId) {
@@ -278,10 +315,107 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         ),
                       ],
 
+                      const SizedBox(height: 12),
+
+                      // ── Date Range Filter Bar ──────────────────────────────────────────
+                      Card(
+                        elevation: 0,
+                        color: const Color(0xFFF0FDFA),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: const BorderSide(color: Color(0xFFB2DFDB)),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          child: Wrap(
+                            alignment: WrapAlignment.start,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              const Icon(Icons.date_range_outlined, size: 16, color: AppTheme.primaryTeal),
+                              const Text('Date Range Filter:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.primaryDark)),
+                              // Start Date picker
+                              GestureDetector(
+                                onTap: () => _pickStartDate(context),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: _startDate != null ? AppTheme.primaryTeal : const Color(0xFFCBD5E1)),
+                                  ),
+                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    const Icon(Icons.calendar_today_outlined, size: 13, color: AppTheme.primaryTeal),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      _startDate != null
+                                          ? '${_startDate!.day}/${_startDate!.month}/${_startDate!.year}'
+                                          : 'From date',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: _startDate != null ? AppTheme.primaryDark : Colors.grey,
+                                        fontWeight: _startDate != null ? FontWeight.w600 : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ]),
+                                ),
+                              ),
+                              const Text('→', style: TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.bold)),
+                              // End Date picker
+                              GestureDetector(
+                                onTap: () => _pickEndDate(context),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: _endDate != null ? AppTheme.primaryTeal : const Color(0xFFCBD5E1)),
+                                  ),
+                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    const Icon(Icons.calendar_today_outlined, size: 13, color: AppTheme.primaryTeal),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      _endDate != null
+                                          ? '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}'
+                                          : 'To date',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: _endDate != null ? AppTheme.primaryDark : Colors.grey,
+                                        fontWeight: _endDate != null ? FontWeight.w600 : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ]),
+                                ),
+                              ),
+                              // Apply button
+                              FilledButton.icon(
+                                onPressed: (_startDate != null || _endDate != null) ? _applyDateFilter : null,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryTeal,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                icon: const Icon(Icons.filter_alt_outlined, size: 14),
+                                label: const Text('Apply', style: TextStyle(fontSize: 12)),
+                              ),
+                              if (_startDate != null || _endDate != null)
+                                TextButton.icon(
+                                  onPressed: _clearDateFilter,
+                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                                  icon: const Icon(Icons.close, size: 13),
+                                  label: const Text('Clear', style: TextStyle(fontSize: 12)),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+
                       const SizedBox(height: 16),
 
                       // 2. Executive KPI Cards
                       if (reportState.summary != null) ...[
+
                         _buildExecutiveKpis(reportState.summary!),
                         const SizedBox(height: 16),
 

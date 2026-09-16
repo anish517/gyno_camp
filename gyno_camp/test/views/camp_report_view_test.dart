@@ -50,7 +50,12 @@ class FakeReportingRepository implements IReportingRepository {
   );
 
   @override
-  Future<CampReportSummaryModel> getCampSummary({String? campId, String generatedBy = 'Data Analyst'}) async {
+  Future<CampReportSummaryModel> getCampSummary({
+    String? campId,
+    String generatedBy = 'Data Analyst',
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     return summary;
   }
 

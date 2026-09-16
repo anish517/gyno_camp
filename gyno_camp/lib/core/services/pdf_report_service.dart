@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -9,36 +10,56 @@ import '../../models/patient_model.dart';
 import '../constants/clinical_constants.dart';
 
 class PdfReportService {
-  /// Sanitizes dynamic strings for standard PDF Type-1 Helvetica font encoding.
-  /// Converts typographical quotes/dashes and strips or filters non-Latin-1 code points (such as Devanagari)
-  /// so that `doc.save()` does not throw an unhandled Helvetica Unicode encoding exception.
+  static pw.ThemeData? _cachedTheme;
+
+  static set testTheme(pw.ThemeData? theme) => _cachedTheme = theme;
+
+  static Future<pw.ThemeData> getPdfTheme() async {
+    if (_cachedTheme != null) return _cachedTheme!;
+    try {
+      final regData = await rootBundle.load('assets/fonts/NotoSansDevanagari-Regular.ttf');
+      final devanagariFont = pw.Font.ttf(regData);
+      _cachedTheme = pw.ThemeData.withFont(
+        base: pw.Font.helvetica(),
+        bold: pw.Font.helveticaBold(),
+        fontFallback: [devanagariFont],
+      );
+      return _cachedTheme!;
+    } catch (_) {
+      try {
+        final regData = await rootBundle.load('assets/fonts/mangal.ttf');
+        final devanagariFont = pw.Font.ttf(regData);
+        _cachedTheme = pw.ThemeData.withFont(
+          base: pw.Font.helvetica(),
+          bold: pw.Font.helveticaBold(),
+          fontFallback: [devanagariFont],
+        );
+        return _cachedTheme!;
+      } catch (_) {
+        return pw.ThemeData.base();
+      }
+    }
+  }
+
+  /// Sanitizes dynamic strings for PDF generation.
+  /// Standardizes typographical quotes/dashes while preserving Devanagari and Latin characters.
   static String sanitizeText(String? input, {String fallback = ''}) {
     if (input == null || input.trim().isEmpty) return fallback;
-    var s = input
+    final s = input
         .replaceAll('’', "'")
         .replaceAll('‘', "'")
         .replaceAll('“', '"')
         .replaceAll('”', '"')
         .replaceAll('—', '-')
         .replaceAll('–', '-')
+        .replaceAll('•', '-')
         .replaceAll('…', '...');
-
-    if (s.runes.every((r) => r <= 255)) {
-      return s;
-    }
-
-    final buffer = StringBuffer();
-    for (final rune in s.runes) {
-      if (rune <= 255) {
-        buffer.writeCharCode(rune);
-      }
-    }
-    final cleaned = buffer.toString().trim();
-    return cleaned.isNotEmpty ? cleaned : input.replaceAll(RegExp(r'[^\x00-\x7F]'), '?');
+    return s.trim();
   }
 
   Future<Uint8List> generateCampSummaryPdf(CampReportSummaryModel summary) async {
-    final pdf = pw.Document();
+    final theme = await getPdfTheme();
+    final pdf = pw.Document(theme: theme);
     final dateFormatter = DateFormat('yyyy-MM-dd');
     final timeFormatter = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -600,7 +621,8 @@ class PdfReportService {
     CampModel? camp,
     String organizationName = 'Nepal Gyno Health Outreach Network',
   }) async {
-    final pdf = pw.Document();
+    final theme = await getPdfTheme();
+    final pdf = pw.Document(theme: theme);
     final dateFormatter = DateFormat('yyyy-MM-dd');
     final timeFormatter = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -1172,7 +1194,8 @@ class PdfReportService {
     CampModel? camp,
     String organizationName = 'Nepal Gyno Health Outreach Network',
   }) async {
-    final pdf = pw.Document();
+    final theme = await getPdfTheme();
+    final pdf = pw.Document(theme: theme);
     final dateFormatter = DateFormat('yyyy-MM-dd');
     final timeFormatter = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -1467,7 +1490,8 @@ class PdfReportService {
     CampModel? camp,
     String organizationName = 'Nepal Gyno Health Outreach Network',
   }) async {
-    final pdf = pw.Document();
+    final theme = await getPdfTheme();
+    final pdf = pw.Document(theme: theme);
     final dateFormatter = DateFormat('yyyy-MM-dd');
     final hasPatient = patient != null;
     final intakeDate = patient?.intakeDate ?? DateTime.now();
@@ -1618,7 +1642,7 @@ class PdfReportService {
               pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
                 pw.Expanded(child: field('District', 'जिल्ला', patient?.district ?? camp?.district ?? '', minBoxes: 10)),
                 pw.SizedBox(width: 6),
-                pw.Expanded(child: field('Municipality / VDC', 'नगर / गाउँपालिका', patient?.municipality ?? camp?.municipality ?? '', minBoxes: 10)),
+                pw.Expanded(child: field('Palika / Municipality', 'पालिका / नगर', patient?.municipality ?? camp?.municipality ?? '', minBoxes: 10)),
                 pw.SizedBox(width: 6),
                 pw.SizedBox(width: 56, child: field('Ward No.', 'वडा', patient?.ward ?? camp?.ward ?? '', minBoxes: 2, boxSize: 16)),
               ]),

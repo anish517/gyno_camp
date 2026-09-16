@@ -67,12 +67,16 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
   Future<void> loadSummary({
     String? campId,
     String generatedBy = 'Data Analyst',
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     state = state.copyWith(isLoading: true, clearFeedback: true);
     try {
       final res = await reportingRepository.getCampSummary(
         campId: campId,
         generatedBy: generatedBy,
+        startDate: startDate,
+        endDate: endDate,
       );
       if (!mounted) return;
       state = state.copyWith(

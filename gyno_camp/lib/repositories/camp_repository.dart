@@ -338,6 +338,11 @@ class CampRepository implements ICampRepository {
 
     final db = await _databaseService.database;
     await db.delete(
+      DatabaseTables.tablePatients,
+      where: 'camp_id = ?',
+      whereArgs: [campId],
+    );
+    await db.delete(
       DatabaseTables.tableCamps,
       where: 'id = ?',
       whereArgs: [campId],

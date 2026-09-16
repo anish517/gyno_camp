@@ -196,12 +196,20 @@ class CampViewModel extends StateNotifier<CampState> {
   Future<bool> updateCamp(CampModel camp, {required String adminUserId, required String deviceId}) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      await _campRepository.updateCamp(
+      final savedCamp = await _campRepository.updateCamp(
         camp,
         adminUserId: adminUserId,
         deviceId: deviceId,
       );
-      await loadCamps();
+      // ✅ Optimistically update the in-memory list immediately so UI refreshes
+      final updatedList = state.camps.map((c) => c.id == savedCamp.id ? savedCamp : c).toList();
+      state = state.copyWith(
+        camps: updatedList,
+        isLoading: false,
+        // Update activeCamp if this was the active camp
+        activeCamp: state.activeCamp?.id == savedCamp.id ? savedCamp : state.activeCamp,
+        selectedCamp: state.selectedCamp?.id == savedCamp.id ? savedCamp : state.selectedCamp,
+      );
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: 'Update camp error: $e');
@@ -221,7 +229,16 @@ class CampViewModel extends StateNotifier<CampState> {
         if (SessionService.current?.getSavedActiveCampId() == campId) {
           await SessionService.current?.clearActiveCampId();
         }
-        await loadCamps();
+        // ✅ Immediately remove from in-memory list so UI refreshes without DB round-trip
+        final updatedList = state.camps.where((c) => c.id != campId).toList();
+        state = state.copyWith(
+          camps: updatedList,
+          isLoading: false,
+          clearActiveCamp: state.activeCamp?.id == campId,
+          selectedCamp: state.selectedCamp?.id == campId
+              ? (updatedList.isNotEmpty ? updatedList.first : null)
+              : state.selectedCamp,
+        );
         return true;
       }
       state = state.copyWith(isLoading: false, errorMessage: 'Unable to delete camp.');

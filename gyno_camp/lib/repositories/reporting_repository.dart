@@ -13,7 +13,7 @@ import '../models/patient_model.dart';
 import 'audit_repository.dart';
 
 abstract class IReportingRepository {
-  Future<CampReportSummaryModel> getCampSummary({String? campId, String generatedBy = 'Data Analyst'});
+  Future<CampReportSummaryModel> getCampSummary({String? campId, String generatedBy = 'Data Analyst', DateTime? startDate, DateTime? endDate});
   Future<Uint8List> generatePdfReport(CampReportSummaryModel summary);
   Future<Uint8List> generateIndividualPatientPdf({
     required PatientModel patient,
@@ -63,6 +63,8 @@ class ReportingRepository implements IReportingRepository {
   Future<CampReportSummaryModel> getCampSummary({
     String? campId,
     String generatedBy = 'Data Analyst',
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     final db = await _databaseService.database;
 
@@ -78,13 +80,36 @@ class ReportingRepository implements IReportingRepository {
       }
     }
 
-    // Fetch Patients
+    // Build date range WHERE clause
+    String? dateWhere;
+    final List<dynamic> dateArgs = [];
+    if (startDate != null && endDate != null) {
+      dateWhere = 'created_at >= ? AND created_at <= ?';
+      dateArgs.addAll([startDate.toIso8601String(), endDate.copyWith(hour: 23, minute: 59, second: 59).toIso8601String()]);
+    } else if (startDate != null) {
+      dateWhere = 'created_at >= ?';
+      dateArgs.add(startDate.toIso8601String());
+    } else if (endDate != null) {
+      dateWhere = 'created_at <= ?';
+      dateArgs.add(endDate.copyWith(hour: 23, minute: 59, second: 59).toIso8601String());
+    }
+
+    // Fetch Patients (with optional camp + date filter)
     final List<Map<String, dynamic>> patientRows;
     if (campId != null && campId != 'all') {
+      final campFilter = dateWhere != null ? 'camp_id = ? AND $dateWhere' : 'camp_id = ?';
+      final campArgs = [campId, ...dateArgs];
       patientRows = await db.query(
         DatabaseTables.tablePatients,
-        where: 'camp_id = ?',
-        whereArgs: [campId],
+        where: campFilter,
+        whereArgs: campArgs,
+        orderBy: 'created_at ASC',
+      );
+    } else if (dateWhere != null) {
+      patientRows = await db.query(
+        DatabaseTables.tablePatients,
+        where: dateWhere,
+        whereArgs: dateArgs,
         orderBy: 'created_at ASC',
       );
     } else {

@@ -2,6 +2,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/constants/clinical_constants.dart';
+import '../../core/constants/nepal_geodata.dart';
 import '../../core/services/clinical_validation_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/ocr_scan_result_model.dart';
@@ -975,6 +977,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
   Widget _buildDemographicsTab(OcrScanResultModel result, OcrScanViewModel vm, OcrScanState ocrState, String? campId) {
     final demo = result.demographics;
 
+    final selectedProvince = demo['province']?.toString().isNotEmpty == true
+        ? demo['province'].toString()
+        : 'Bagmati';
+    final validProvince = ClinicalConstants.nepalProvinces.contains(selectedProvince)
+        ? selectedProvince
+        : 'Bagmati';
+    final districtList = NepalGeodata.districtsFor(validProvince);
+    final selectedDistrict = demo['district']?.toString();
+    final validDistrict = (selectedDistrict != null && districtList.contains(selectedDistrict))
+        ? selectedDistrict
+        : (districtList.isNotEmpty ? districtList.first : null);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -1090,6 +1104,135 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               ),
               const SizedBox(width: 12),
               Expanded(
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey('scan_marital_${demo['maritalStatus']}'),
+                  initialValue: const ['married', 'unmarried', 'widow', 'divorced'].contains(demo['maritalStatus']?.toString().toLowerCase())
+                      ? demo['maritalStatus']?.toString().toLowerCase()
+                      : 'married',
+                  decoration: const InputDecoration(
+                    labelText: 'Marital Status (वैवाहिक स्थिति)',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'married', child: Text('Married (विवाहित)', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'unmarried', child: Text('Unmarried (अविवाहित)', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'widow', child: Text('Widow (एकल/विधवा)', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'divorced', child: Text('Divorced (सम्बन्धविच्छेद)', style: TextStyle(fontSize: 13))),
+                  ],
+                  onChanged: (status) {
+                    if (status != null) {
+                      vm.updateDemographic('maritalStatus', status, campId: campId);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Administrative Location: Province & Cascading District
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey('scan_prov_$validProvince'),
+                  initialValue: validProvince,
+                  decoration: const InputDecoration(
+                    labelText: 'Province (प्रदेश)',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                  items: ClinicalConstants.nepalProvinces.map((prov) {
+                    return DropdownMenuItem(
+                      value: prov,
+                      child: Text(prov, style: const TextStyle(fontSize: 13)),
+                    );
+                  }).toList(),
+                  onChanged: (newProv) {
+                    if (newProv != null) {
+                      vm.updateDemographic('province', newProv, campId: campId);
+                      final newDistricts = NepalGeodata.districtsFor(newProv);
+                      final newDist = !newDistricts.contains(demo['district'])
+                          ? (newDistricts.isNotEmpty ? newDistricts.first : '')
+                          : demo['district'];
+                      vm.updateDemographic('district', newDist, campId: campId);
+                      final newPalikas = NepalGeodata.palikasFor(newDist);
+                      if (!newPalikas.contains(demo['municipality'])) {
+                        vm.updateDemographic('municipality', newPalikas.isNotEmpty ? newPalikas.first : '', campId: campId);
+                      }
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey('scan_dist_${validProvince}_$validDistrict'),
+                  initialValue: validDistrict,
+                  decoration: const InputDecoration(
+                    labelText: 'District (जिल्ला)',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                  items: districtList.map((dist) {
+                    return DropdownMenuItem(
+                      value: dist,
+                      child: Text(dist, style: const TextStyle(fontSize: 13)),
+                    );
+                  }).toList(),
+                  onChanged: (newDist) {
+                    if (newDist != null) {
+                      vm.updateDemographic('district', newDist, campId: campId);
+                      final newPalikas = NepalGeodata.palikasFor(newDist);
+                      if (!newPalikas.contains(demo['municipality'])) {
+                        vm.updateDemographic('municipality', newPalikas.isNotEmpty ? newPalikas.first : '', campId: campId);
+                      }
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Builder(
+                  builder: (context) {
+                    final palikas = NepalGeodata.palikasFor(
+                      validDistrict,
+                      extraPalikas: demo['municipality'] != null && demo['municipality'].toString().isNotEmpty
+                          ? [demo['municipality'].toString()]
+                          : null,
+                    );
+                    final currentPalika = palikas.firstWhere(
+                      (p) => p.toLowerCase() == demo['municipality']?.toString().toLowerCase(),
+                      orElse: () => palikas.isNotEmpty ? palikas.first : '',
+                    );
+                    return DropdownButtonFormField<String>(
+                      key: ValueKey('scan_palika_${validDistrict}_${demo['municipality']}'),
+                      initialValue: currentPalika.isNotEmpty ? currentPalika : null,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Palika / Municipality * (पालिका)',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      ),
+                      items: palikas.map((p) {
+                        return DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)));
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          vm.updateDemographic('municipality', val, campId: campId);
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
                 child: _buildFieldWithConfidence(
                   label: 'Ward Number (वडा नं)',
                   value: demo['ward']?.toString() ?? '03',
@@ -1155,18 +1298,87 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ],
           ),
           const SizedBox(height: 16),
-          const Text('Primary Reasons for Visit (शिविरमा आउनुको कारण):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const Text(
+            'Primary Reasons for Visit (शिविरमा आउनुको कारण):',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: (demo['reasonsForVisit'] as List? ?? []).map((reason) {
-              return Chip(
-                avatar: const Icon(Icons.check, size: 16, color: AppTheme.primaryTeal),
-                label: Text(reason.toString(), style: const TextStyle(fontSize: 12)),
-                backgroundColor: AppTheme.primaryLight,
+          Builder(
+            builder: (context) {
+              final currentReasons = List<String>.from(demo['reasonsForVisit'] as List? ?? []);
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ClinicalConstants.visitReasonOptions.entries.map((entry) {
+                  final key = entry.key;
+                  final label = entry.value;
+                  final isSelected = currentReasons.contains(key);
+                  return FilterChip(
+                    label: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? AppTheme.primaryTeal : Colors.black87,
+                      ),
+                    ),
+                    selected: isSelected,
+                    selectedColor: AppTheme.primaryLight,
+                    checkmarkColor: AppTheme.primaryTeal,
+                    onSelected: (selected) {
+                      final updated = List<String>.from(currentReasons);
+                      if (selected) {
+                        if (!updated.contains(key)) updated.add(key);
+                      } else {
+                        updated.remove(key);
+                      }
+                      vm.updateDemographic('reasonsForVisit', updated, campId: campId);
+                    },
+                  );
+                }).toList(),
               );
-            }).toList(),
+            },
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 24),
+          const Text(
+            'Informed Consent & Authorizations (सहमति विवरण):',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Column(
+              children: [
+                CheckboxListTile(
+                  value: demo['consentTreatment'] as bool? ?? true,
+                  title: const Text('Consent for Examination & Treatment', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('परीक्षण तथा आवश्यक उपचारको लागि स्वीकृति', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  activeColor: AppTheme.primaryTeal,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                  onChanged: (val) {
+                    vm.updateDemographic('consentTreatment', val ?? false, campId: campId);
+                  },
+                ),
+                const Divider(height: 1),
+                CheckboxListTile(
+                  value: demo['consentStoreMedicalInfo'] as bool? ?? true,
+                  title: const Text('Consent to Store Medical Information', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('स्वास्थ्य विवरण भण्डारण तथा अनुसन्धान सहमति', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  activeColor: AppTheme.primaryTeal,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                  onChanged: (val) {
+                    vm.updateDemographic('consentStoreMedicalInfo', val ?? false, campId: campId);
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1520,9 +1732,12 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       {'key': 'contactPerson', 'label': 'Contact Person',    'section': 'Demographics', 'tabIndex': 0, 'value': demo['contactPerson']?.toString() ?? '—', 'confKey': 'contactPerson'},
       {'key': 'contactMobile', 'label': 'Contact Mobile',    'section': 'Demographics', 'tabIndex': 0, 'value': demo['contactMobile']?.toString() ?? '—', 'confKey': 'contactMobile'},
       {'key': 'maritalAge',    'label': 'Age at Marriage',   'section': 'Demographics', 'tabIndex': 0, 'value': demo['maritalAge']?.toString() ?? '—', 'confKey': 'maritalAge'},
+      {'key': 'province',      'label': 'Province',          'section': 'Demographics', 'tabIndex': 0, 'value': demo['province']?.toString() ?? '—',   'confKey': 'location'},
       {'key': 'district',      'label': 'District',          'section': 'Demographics', 'tabIndex': 0, 'value': demo['district']?.toString() ?? '—',   'confKey': 'location'},
-      {'key': 'municipality',  'label': 'Municipality',      'section': 'Demographics', 'tabIndex': 0, 'value': demo['municipality']?.toString() ?? '—', 'confKey': 'location'},
+      {'key': 'municipality',  'label': 'Palika / Municipality', 'section': 'Demographics', 'tabIndex': 0, 'value': demo['municipality']?.toString() ?? '—', 'confKey': 'location'},
       {'key': 'ward',          'label': 'Ward No.',          'section': 'Demographics', 'tabIndex': 0, 'value': demo['ward']?.toString() ?? '—',       'confKey': 'ward'},
+      {'key': 'consentTreatment', 'label': 'Consent: Treatment', 'section': 'Demographics', 'tabIndex': 0, 'value': (demo['consentTreatment'] as bool?) == false ? 'No' : 'Yes', 'confKey': 'consent'},
+      {'key': 'consentStoreMedicalInfo', 'label': 'Consent: Store Info', 'section': 'Demographics', 'tabIndex': 0, 'value': (demo['consentStoreMedicalInfo'] as bool?) == false ? 'No' : 'Yes', 'confKey': 'consent'},
       // ── Obstetrics ────────────────────────────────────────
       {'key': 'deliveries',     'label': 'Deliveries (P)',   'section': 'Obstetrics',   'tabIndex': 1, 'value': obs['deliveries']?.toString() ?? '—',     'confKey': 'obstetrics'},
       {'key': 'livingChildren', 'label': 'Living Children',  'section': 'Obstetrics',   'tabIndex': 1, 'value': obs['livingChildren']?.toString() ?? '—', 'confKey': 'obstetrics'},

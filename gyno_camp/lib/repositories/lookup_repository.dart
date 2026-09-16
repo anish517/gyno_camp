@@ -335,6 +335,30 @@ class LookupRepository implements ILookupRepository {
       }
     }
 
+    // 3b. Seed default Visit Reasons from ClinicalConstants.visitReasonOptions
+    final existingReasons = await getItemsByCategory('visit_reason', tenantId: targetTenant);
+    if (existingReasons.isEmpty) {
+      for (final entry in ClinicalConstants.visitReasonOptions.entries) {
+        final cleanCode = entry.key.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+        await db.insert(
+          DatabaseTables.tableLookupItems,
+          {
+            'id': 'reason-$targetTenant-$cleanCode',
+            'category': 'visit_reason',
+            'sub_category': 'Reason for Visit',
+            'code': cleanCode,
+            'label_en': entry.key,
+            'label_ne': entry.value,
+            'is_active': 1,
+            'sort_order': ClinicalConstants.visitReasonOptions.keys.toList().indexOf(entry.key) + 1,
+            'tenant_id': targetTenant,
+            'is_deleted': 0,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
+
     // 4. Persist seed gate marker so deletions remain permanent
     try {
       await db.insert(

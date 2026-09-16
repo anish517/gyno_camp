@@ -8,6 +8,10 @@ import 'package:gyno_camp/models/clinical_visit_model.dart';
 import 'package:gyno_camp/models/patient_model.dart';
 
 void main() {
+  setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+  });
+
   group('PdfReportService Tests', () {
     late PdfReportService pdfService;
     late ReportAggregationService aggregationService;
@@ -180,6 +184,14 @@ void main() {
       expect(bytes.length, greaterThan(1500));
       final header = utf8.decode(bytes.sublist(0, 5));
       expect(header, equals('%PDF-'));
+    });
+
+    test('generatePatientRegistrationFormPdf creates exactly 2 pages', () async {
+      final bytes = await pdfService.generatePatientRegistrationFormPdf();
+      expect(bytes, isNotEmpty);
+      final pdfStr = latin1.decode(bytes);
+      final pageMatches = RegExp(r'/Type\s*/Page\b').allMatches(pdfStr);
+      expect(pageMatches.length, equals(2));
     });
   });
 }

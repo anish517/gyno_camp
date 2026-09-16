@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/clinical_constants.dart';
+import '../../core/constants/nepal_geodata.dart';
 import '../../core/services/document_capture_service.dart';
 import '../../core/services/file_download_helper.dart';
 import '../../core/services/pdf_report_service.dart';
@@ -31,11 +32,7 @@ class PatientListView extends ConsumerStatefulWidget {
 
 class _PatientListViewState extends ConsumerState<PatientListView> {
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _districtFilterController =
-      TextEditingController();
   final TextEditingController _municipalityFilterController =
-      TextEditingController();
-  final TextEditingController _diseaseFilterController =
       TextEditingController();
   final TextEditingController _minAgeController = TextEditingController();
   final TextEditingController _maxAgeController = TextEditingController();
@@ -64,9 +61,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
   @override
   void dispose() {
     _searchController.dispose();
-    _districtFilterController.dispose();
     _municipalityFilterController.dispose();
-    _diseaseFilterController.dispose();
     _minAgeController.dispose();
     _maxAgeController.dispose();
     super.dispose();
@@ -469,13 +464,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
   }
 
   void _clearAllFilters(PatientListViewModel vm) {
-    setState(() {
-      _districtFilterController.clear();
-      _municipalityFilterController.clear();
-      _diseaseFilterController.clear();
-      _minAgeController.clear();
-      _maxAgeController.clear();
-    });
+    _municipalityFilterController.clear();
+    _minAgeController.clear();
+    _maxAgeController.clear();
     vm.resetFilters();
   }
 
@@ -713,128 +704,136 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     ),
                     const SizedBox(height: 8),
 
-                    // District & Municipality Row
+                    // District Dropdown — cascades from Province
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final isNarrow = constraints.maxWidth < 450;
-                        final districtField = TextField(
-                          controller: _districtFilterController,
+                        final availableDistricts = NepalGeodata.districtsFor(
+                          filters.province == 'all' ? null : filters.province,
+                        );
+                        final currentDistrict = availableDistricts.contains(filters.district)
+                            ? filters.district
+                            : null;
+
+                        final districtDropdown = DropdownButtonFormField<String?>(
+                          key: ValueKey('district_filter_${filters.district}'),
+                          initialValue: currentDistrict,
                           decoration: const InputDecoration(
                             labelText: 'District (जिल्ला)',
-                            hintText: 'e.g. Kathmandu',
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                             isDense: true,
                           ),
-                          onChanged: (val) =>
-                              vm.updateFilters(filters.copyWith(district: val)),
-                        );
-                        final muniField = TextField(
-                          controller: _municipalityFilterController,
-                          decoration: const InputDecoration(
-                            labelText: 'Municipality (पालिका)',
-                            hintText: 'e.g. Ward / Nagarpalika',
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            isDense: true,
-                          ),
+                          isExpanded: true,
+                          items: [
+                            const DropdownMenuItem(value: null, child: Text('All Districts', style: TextStyle(fontSize: 13, color: Colors.grey))),
+                            ...availableDistricts.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13)))),
+                          ],
                           onChanged: (val) => vm.updateFilters(
-                            filters.copyWith(municipality: val),
+                            filters.copyWith(district: val, clearDistrict: val == null),
+                          ),
+                        );
+
+                        final availablePalikas = NepalGeodata.palikasFor(
+                          currentDistrict,
+                          extraPalikas: (patientState.rawPatients.isNotEmpty ? patientState.rawPatients : patientState.patients)
+                              .map((p) => p.municipality.trim())
+                              .where((m) => m.isNotEmpty)
+                              .toList(),
+                        );
+                        final currentPalika = (filters.municipality?.isNotEmpty == true && availablePalikas.contains(filters.municipality))
+                            ? filters.municipality
+                            : null;
+
+                        final palikaDropdown = DropdownButtonFormField<String?>(
+                          key: ValueKey('palika_filter_${filters.municipality}'),
+                          initialValue: currentPalika,
+                          decoration: const InputDecoration(
+                            labelText: 'Palika / Municipality (पालिका)',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            isDense: true,
+                          ),
+                          isExpanded: true,
+                          items: [
+                            const DropdownMenuItem(value: null, child: Text('All Palikas (सबै)', style: TextStyle(fontSize: 13, color: Colors.grey))),
+                            ...availablePalikas.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(fontSize: 13)))),
+                          ],
+                          onChanged: (val) => vm.updateFilters(
+                            filters.copyWith(municipality: val, clearMunicipality: val == null),
                           ),
                         );
 
                         if (isNarrow) {
                           return Column(
                             children: [
-                              districtField,
+                              districtDropdown,
                               const SizedBox(height: 8),
-                              muniField,
+                              palikaDropdown,
                             ],
                           );
                         }
                         return Row(
                           children: [
-                            Expanded(child: districtField),
+                            Expanded(child: districtDropdown),
                             const SizedBox(width: 8),
-                            Expanded(child: muniField),
+                            Expanded(child: palikaDropdown),
                           ],
                         );
                       },
                     ),
                     const SizedBox(height: 8),
 
-                    // Age Range Row
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isNarrow = constraints.maxWidth < 350;
-                        final minAgeField = TextField(
-                          controller: _minAgeController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Min Age (उमेर देखि)',
-                            hintText: 'e.g. 20',
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            isDense: true,
-                          ),
-                          onChanged: (val) {
-                            final age = int.tryParse(val.trim());
-                            vm.updateFilters(
-                              filters.copyWith(
-                                minAge: age,
-                                clearMinAge: age == null,
-                              ),
-                            );
-                          },
-                        );
-                        final maxAgeField = TextField(
-                          controller: _maxAgeController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Max Age (उमेर सम्म)',
-                            hintText: 'e.g. 65',
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            isDense: true,
-                          ),
-                          onChanged: (val) {
-                            final age = int.tryParse(val.trim());
-                            vm.updateFilters(
-                              filters.copyWith(
-                                maxAge: age,
-                                clearMaxAge: age == null,
-                              ),
-                            );
-                          },
-                        );
-
-                        if (isNarrow) {
-                          return Column(
-                            children: [
-                              minAgeField,
-                              const SizedBox(height: 8),
-                              maxAgeField,
-                            ],
-                          );
+                    // Age Range Dropdown
+                    Builder(
+                      builder: (context) {
+                        String currentAgeBracket = 'all';
+                        if (filters.minAge == null && filters.maxAge == 19) {
+                          currentAgeBracket = '<20';
+                        } else if (filters.minAge == 20 && filters.maxAge == 35) {
+                          currentAgeBracket = '20-35';
+                        } else if (filters.minAge == 36 && filters.maxAge == 50) {
+                          currentAgeBracket = '36-50';
+                        } else if (filters.minAge == 51 && filters.maxAge == 65) {
+                          currentAgeBracket = '51-65';
+                        } else if (filters.minAge == 66 && filters.maxAge == null) {
+                          currentAgeBracket = '>65';
                         }
-                        return Row(
-                          children: [
-                            Expanded(child: minAgeField),
-                            const SizedBox(width: 8),
-                            Expanded(child: maxAgeField),
+
+                        return DropdownButtonFormField<String>(
+                          key: ValueKey('age_bracket_$currentAgeBracket'),
+                          initialValue: currentAgeBracket,
+                          decoration: const InputDecoration(
+                            labelText: 'Age Bracket (उमेर समूह)',
+                            prefixIcon: Icon(Icons.cake_outlined, size: 18),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            isDense: true,
+                          ),
+                          isExpanded: true,
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('All Ages (सबै उमेर समूह)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: '<20', child: Text('Under 20 Years (< 20 वर्ष)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: '20-35', child: Text('20 - 35 Years (20 देखि 35 सम्म)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: '36-50', child: Text('36 - 50 Years (36 देखि 50 सम्म)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: '51-65', child: Text('51 - 65 Years (51 देखि 65 सम्म)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: '>65', child: Text('Above 65 Years (> 65 भन्दा माथि)', style: TextStyle(fontSize: 13))),
                           ],
+                          onChanged: (val) {
+                            if (val == '<20') {
+                              vm.updateFilters(filters.copyWith(maxAge: 19, clearMinAge: true));
+                            } else if (val == '20-35') {
+                              vm.updateFilters(filters.copyWith(minAge: 20, maxAge: 35));
+                            } else if (val == '36-50') {
+                              vm.updateFilters(filters.copyWith(minAge: 36, maxAge: 50));
+                            } else if (val == '51-65') {
+                              vm.updateFilters(filters.copyWith(minAge: 51, maxAge: 65));
+                            } else if (val == '>65') {
+                              vm.updateFilters(filters.copyWith(minAge: 66, clearMaxAge: true));
+                            } else {
+                              vm.updateFilters(filters.copyWith(clearMinAge: true, clearMaxAge: true));
+                            }
+                          },
                         );
                       },
                     ),
@@ -894,22 +893,29 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     ),
                     const SizedBox(height: 8),
 
-                    // Disease / Diagnosis Search
-                    TextField(
-                      controller: _diseaseFilterController,
+                    // Disease / Diagnosis Dropdown
+                    DropdownButtonFormField<String?>(
+                      key: ValueKey('disease_filter_${filters.disease}'),
+                      initialValue: (filters.disease?.isNotEmpty == true &&
+                              ClinicalConstants.defaultDiagnoses.contains(filters.disease))
+                          ? filters.disease
+                          : null,
                       decoration: const InputDecoration(
                         labelText: 'Disease / Diagnosis (रोग / निदान)',
-                        hintText: 'e.g. Prolapse, Cervicitis, UTI, Fibroid...',
                         prefixIcon: Icon(Icons.healing, size: 18),
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         isDense: true,
                       ),
-                      onChanged: (val) =>
-                          vm.updateFilters(filters.copyWith(disease: val)),
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('All Diagnoses', style: TextStyle(fontSize: 13, color: Colors.grey))),
+                        ...ClinicalConstants.defaultDiagnoses.map((d) =>
+                          DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13)))),
+                      ],
+                      onChanged: (val) => vm.updateFilters(
+                        filters.copyWith(disease: val, clearDisease: val == null),
+                      ),
                     ),
                     const SizedBox(height: 8),
 

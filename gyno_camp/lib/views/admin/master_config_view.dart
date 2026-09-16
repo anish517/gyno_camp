@@ -24,7 +24,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         setState(() {});
@@ -48,8 +48,10 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       case 1:
         return 'medicine';
       case 2:
-      default:
         return 'referral_hospital';
+      case 3:
+      default:
+        return 'visit_reason';
     }
   }
 
@@ -58,10 +60,12 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       case 0:
         return AppTheme.primaryTeal;
       case 1:
-        return const Color(0xFF059669); // Emerald for Pharmacy / Medicine
+        return const Color(0xFF059669);
       case 2:
+        return const Color(0xFF4F46E5);
+      case 3:
       default:
-        return const Color(0xFF4F46E5); // Indigo for Referral Hospitals
+        return const Color(0xFFD97706); // Amber for Visit Reasons
     }
   }
 
@@ -197,6 +201,10 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 Tab(
                   icon: const Icon(Icons.local_hospital_outlined, size: 17),
                   text: 'Referral Hospitals (${state.referralHospitals.length})',
+                ),
+                Tab(
+                  icon: const Icon(Icons.checklist_outlined, size: 17),
+                  text: 'Visit Reasons (${state.visitReasons.length})',
                 ),
               ],
             ),
@@ -338,6 +346,13 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                             deviceState.device?.deviceId ?? 'dev-admin',
                             categoryIndex: 2,
                           ),
+                          _buildItemsList(
+                            context,
+                            state.filteredVisitReasons,
+                            user?.id ?? 'admin-user',
+                            deviceState.device?.deviceId ?? 'dev-admin',
+                            categoryIndex: 3,
+                          ),
                         ],
                       ),
               ),
@@ -365,10 +380,15 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
         themeColor = const Color(0xFF059669);
         break;
       case 2:
-      default:
         currentItems = state.referralHospitals;
         categoryName = 'Referral Hospitals';
         themeColor = const Color(0xFF4F46E5);
+        break;
+      case 3:
+      default:
+        currentItems = state.visitReasons;
+        categoryName = 'Visit Reasons';
+        themeColor = const Color(0xFFD97706);
         break;
     }
 
@@ -967,10 +987,34 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
     final enCtrl = TextEditingController(text: item?.labelEn ?? '');
     final neCtrl = TextEditingController(text: item?.labelNe ?? '');
     final codeCtrl = TextEditingController(text: item?.code ?? '');
+    final customCategoryCtrl = TextEditingController();
+    bool isCustomCategoryMode = false;
+
+    final lookupState = ref.read(masterLookupProvider);
+    final List<String> availableCategories = [];
+    if (category == 'diagnosis') {
+      availableCategories.addAll(ClinicalConstants.diagnosisCategories);
+      for (final d in lookupState.diagnoses) {
+        if (d.subCategory != null && d.subCategory!.isNotEmpty && !availableCategories.contains(d.subCategory)) {
+          availableCategories.add(d.subCategory!);
+        }
+      }
+    } else if (category == 'medicine') {
+      availableCategories.addAll(ClinicalConstants.medicationCategories);
+      for (final m in lookupState.medicines) {
+        if (m.subCategory != null && m.subCategory!.isNotEmpty && !availableCategories.contains(m.subCategory)) {
+          availableCategories.add(m.subCategory!);
+        }
+      }
+    }
+
     String selectedSubCategory = item?.subCategory ??
-        (category == 'diagnosis'
-            ? ClinicalConstants.diagnosisCategories.first
-            : (category == 'medicine' ? ClinicalConstants.medicationCategories.first : 'Referral Centers'));
+        (availableCategories.isNotEmpty ? availableCategories.first : 'General / Other');
+    if (!availableCategories.contains(selectedSubCategory) && selectedSubCategory.isNotEmpty) {
+      availableCategories.add(selectedSubCategory);
+    }
+
+    const String addCustomCategorySentinel = '__ADD_CUSTOM_CATEGORY__';
 
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
@@ -1066,23 +1110,70 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                     if (category == 'diagnosis' || category == 'medicine') ...[
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
+                        key: ValueKey(isCustomCategoryMode ? addCustomCategorySentinel : selectedSubCategory),
                         isExpanded: true,
-                        initialValue: selectedSubCategory,
+                        initialValue: isCustomCategoryMode ? addCustomCategorySentinel : selectedSubCategory,
                         decoration: const InputDecoration(
                           labelText: 'Clinical Sub-Category / Group *',
                           prefixIcon: Icon(Icons.category_outlined, size: 18),
                         ),
-                        items: (category == 'diagnosis'
-                                ? ClinicalConstants.diagnosisCategories
-                                : ClinicalConstants.medicationCategories)
-                            .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
-                            .toList(),
+                        items: [
+                          ...availableCategories.map((cat) => DropdownMenuItem(value: cat, child: Text(cat))),
+                          const DropdownMenuItem(
+                            value: addCustomCategorySentinel,
+                            child: Row(
+                              children: [
+                                Icon(Icons.add_circle_outline, size: 16, color: AppTheme.primaryTeal),
+                                SizedBox(width: 6),
+                                Text(
+                                  '+ Add Custom Category...',
+                                  style: TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() => selectedSubCategory = val);
+                          if (val == addCustomCategorySentinel) {
+                            setDialogState(() {
+                              isCustomCategoryMode = true;
+                            });
+                          } else if (val != null) {
+                            setDialogState(() {
+                              selectedSubCategory = val;
+                              isCustomCategoryMode = false;
+                            });
                           }
                         },
                       ),
+                      if (isCustomCategoryMode) ...[
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: customCategoryCtrl,
+                          autofocus: true,
+                          decoration: InputDecoration(
+                            labelText: 'New Custom Category Name *',
+                            hintText: 'e.g. Specialized Endocrine / Oncology',
+                            prefixIcon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.primaryTeal),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.close, size: 16),
+                              tooltip: 'Cancel Custom Category',
+                              onPressed: () {
+                                setDialogState(() {
+                                  isCustomCategoryMode = false;
+                                  customCategoryCtrl.clear();
+                                });
+                              },
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF0FDFA),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: AppTheme.primaryTeal),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                     const SizedBox(height: 14),
                     TextField(
@@ -1123,6 +1214,12 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                     return;
                   }
 
+                  final finalSubCategory = isCustomCategoryMode
+                      ? (customCategoryCtrl.text.trim().isNotEmpty
+                          ? customCategoryCtrl.text.trim()
+                          : 'Other / Custom')
+                      : selectedSubCategory;
+
                   var rawCode = codeCtrl.text.trim();
                   if (rawCode.isEmpty) {
                     rawCode = enText.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
@@ -1136,7 +1233,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                       labelEn: enText,
                       labelNe: neCtrl.text.trim(),
                       code: sanitizedCode,
-                      subCategory: selectedSubCategory,
+                      subCategory: finalSubCategory,
                     );
                     await vm.updateItem(
                       updated,
@@ -1148,7 +1245,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                     final newItem = LookupItemModel(
                       id: 'lookup-${DateTime.now().millisecondsSinceEpoch}',
                       category: category,
-                      subCategory: selectedSubCategory,
+                      subCategory: finalSubCategory,
                       code: sanitizedCode,
                       labelEn: enText,
                       labelNe: neCtrl.text.trim(),
@@ -1280,8 +1377,10 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       case 1:
         return 'Medicine';
       case 2:
-      default:
         return 'Referral Hospital';
+      case 3:
+      default:
+        return 'Visit Reason';
     }
   }
 
@@ -1292,8 +1391,10 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       case 1:
         return 'Medicines';
       case 2:
-      default:
         return 'Referral Hospitals';
+      case 3:
+      default:
+        return 'Visit Reasons';
     }
   }
 
@@ -1304,8 +1405,10 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       case 'medicine':
         return 'Medicine';
       case 'referral_hospital':
-      default:
         return 'Referral Hospital';
+      case 'visit_reason':
+      default:
+        return 'Visit Reason';
     }
   }
 }

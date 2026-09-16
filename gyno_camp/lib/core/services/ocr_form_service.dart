@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import '../constants/nepal_geodata.dart';
 import '../../models/ocr_scan_result_model.dart';
 import 'omr_service.dart';
 
@@ -370,19 +371,36 @@ class OcrFormService {
         }
       }
 
-      // ── District & Municipality ──
+      // ── Province, District & Municipality ──
       final districtValue = findValueForLabel(['district', 'जिल्ला']);
       demographics['district'] = districtValue
           ?.replaceAll(RegExp(r'\s*(municipality|ward|वडा|गाउँपालिका).*$', caseSensitive: false), '')
           .replaceAll('+', 't')
           .trim() ?? '';
 
-      final muniValue = findValueForLabel(['municipality', 'vdc', 'ward center', 'गाउँपालिका', 'नगरपालिका']);
+      final muniValue = findValueForLabel(['municipality', 'vdc', 'ward center', 'गाउँपालिका', 'नगरपालिका', 'पालिका']);
       demographics['municipality'] = muniValue
           ?.replaceAll(RegExp(r'\s*(ward\s*(?:no\.?)?[:\s#]*\d*|वडा नं).*$', caseSensitive: false), '')
           .replaceAll('+', 't')
           .trim() ?? '';
+
+      final provinceValue = findValueForLabel(['province', 'प्रदेश']);
+      if (provinceValue != null && provinceValue.isNotEmpty) {
+        demographics['province'] = provinceValue.trim();
+      } else if (demographics['district'] != null && (demographics['district'] as String).isNotEmpty) {
+        demographics['province'] = NepalGeodata.provinceOf(demographics['district'] as String);
+      } else {
+        demographics['province'] = 'Bagmati';
+      }
       confidences['location'] = (districtValue != null) ? 0.92 : 0.55;
+
+      // ── Consents ──
+      final lowerFull = text.toLowerCase();
+      demographics['consentTreatment'] = !lowerFull.contains('no consent') &&
+          (lowerFull.contains('consent to examination') || lowerFull.contains('उपचार') || lowerFull.contains('treatment') || lowerFull.contains('सहमति'));
+      demographics['consentStoreMedicalInfo'] = !lowerFull.contains('no consent') &&
+          (lowerFull.contains('storage') || lowerFull.contains('भण्डारण') || lowerFull.contains('medical information') || lowerFull.contains('सहमति'));
+      confidences['consent'] = 0.92;
 
       // ── Marital Status ──
       if (page1OmrMarital != null && page1OmrMarital.values.any((r) => r.isMarked)) {

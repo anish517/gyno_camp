@@ -7,6 +7,7 @@ class MasterLookupState {
   final List<LookupItemModel> diagnoses;
   final List<LookupItemModel> medicines;
   final List<LookupItemModel> referralHospitals;
+  final List<LookupItemModel> visitReasons;  // NEW — Issue 4
   final String selectedCategory;
   final String searchQuery;
   final bool isLoading;
@@ -17,6 +18,7 @@ class MasterLookupState {
     this.diagnoses = const [],
     this.medicines = const [],
     this.referralHospitals = const [],
+    this.visitReasons = const [],
     this.selectedCategory = 'diagnosis',
     this.searchQuery = '',
     this.isLoading = false,
@@ -27,6 +29,7 @@ class MasterLookupState {
   List<LookupItemModel> get activeDiagnoses => diagnoses.where((d) => d.isActive).toList();
   List<LookupItemModel> get activeMedicines => medicines.where((m) => m.isActive).toList();
   List<LookupItemModel> get activeReferralHospitals => referralHospitals.where((h) => h.isActive).toList();
+  List<LookupItemModel> get activeVisitReasons => visitReasons.where((r) => r.isActive).toList();
 
   List<LookupItemModel> get filteredDiagnoses {
     if (searchQuery.trim().isEmpty) return diagnoses;
@@ -46,10 +49,17 @@ class MasterLookupState {
     return referralHospitals.where((h) => h.labelEn.toLowerCase().contains(q) || h.labelNe.toLowerCase().contains(q)).toList();
   }
 
+  List<LookupItemModel> get filteredVisitReasons {
+    if (searchQuery.trim().isEmpty) return visitReasons;
+    final q = searchQuery.toLowerCase().trim();
+    return visitReasons.where((r) => r.labelEn.toLowerCase().contains(q) || r.labelNe.toLowerCase().contains(q)).toList();
+  }
+
   MasterLookupState copyWith({
     List<LookupItemModel>? diagnoses,
     List<LookupItemModel>? medicines,
     List<LookupItemModel>? referralHospitals,
+    List<LookupItemModel>? visitReasons,
     String? selectedCategory,
     String? searchQuery,
     bool? isLoading,
@@ -62,6 +72,7 @@ class MasterLookupState {
       diagnoses: diagnoses ?? this.diagnoses,
       medicines: medicines ?? this.medicines,
       referralHospitals: referralHospitals ?? this.referralHospitals,
+      visitReasons: visitReasons ?? this.visitReasons,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       searchQuery: searchQuery ?? this.searchQuery,
       isLoading: isLoading ?? this.isLoading,
@@ -96,11 +107,13 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
       final diag = await _repository.getItemsByCategory('diagnosis', tenantId: _tenantId);
       final med = await _repository.getItemsByCategory('medicine', tenantId: _tenantId);
       final hosp = await _repository.getItemsByCategory('referral_hospital', tenantId: _tenantId);
+      final reasons = await _repository.getItemsByCategory('visit_reason', tenantId: _tenantId);
 
       state = state.copyWith(
         diagnoses: diag,
         medicines: med,
         referralHospitals: hosp,
+        visitReasons: reasons,
         isLoading: false,
       );
     } catch (e) {
@@ -236,4 +249,8 @@ final activeMedicinesProvider = Provider<List<LookupItemModel>>((ref) {
 
 final activeReferralHospitalsProvider = Provider<List<LookupItemModel>>((ref) {
   return ref.watch(masterLookupProvider).activeReferralHospitals;
+});
+
+final activeVisitReasonsProvider = Provider<List<LookupItemModel>>((ref) {
+  return ref.watch(masterLookupProvider).activeVisitReasons;
 });

@@ -14,7 +14,12 @@ class MockReportingRepository implements IReportingRepository {
   final List<String> auditedExports = [];
 
   @override
-  Future<CampReportSummaryModel> getCampSummary({String? campId, String generatedBy = 'Data Analyst'}) async {
+  Future<CampReportSummaryModel> getCampSummary({
+    String? campId,
+    String generatedBy = 'Data Analyst',
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     if (shouldThrowOnSummary) throw Exception('Database read error');
     return CampReportSummaryModel.empty(generatedBy: generatedBy);
   }
