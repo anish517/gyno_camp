@@ -1457,15 +1457,19 @@ class PdfReportService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   // BLOCK-LETTER REGISTRATION FORM PDF (printable grid with squares per char)
+  // Supports both pre-filled (patient != null) and blank physical forms (patient == null)
   // ─────────────────────────────────────────────────────────────────────────
   Future<Uint8List> generatePatientRegistrationFormPdf({
-    required PatientModel patient,
+    PatientModel? patient,
     CampModel? camp,
     String organizationName = 'Nepal Gyno Health Outreach Network',
   }) async {
     final pdf = pw.Document();
     final dateFormatter = DateFormat('yyyy-MM-dd');
+    final hasPatient = patient != null;
+    final intakeDate = patient?.intakeDate ?? DateTime.now();
 
     final primary = PdfColor.fromHex('0F766E');
     final secondary = PdfColor.fromHex('0D9488');
@@ -1570,33 +1574,52 @@ class PdfReportService {
                           style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: secondary)),
                       pw.SizedBox(height: 3),
                       pw.Text(
-                        'Camp: ${sanitizeText(camp?.name ?? "Gynecological Health Outreach Camp")} | Date: ${dateFormatter.format(patient.intakeDate)}',
+                        'Camp: ${sanitizeText(camp?.name ?? "Gynecological Health Outreach Camp")} | Date: ${dateFormatter.format(intakeDate)}',
                         style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
                       ),
                     ],
                   ),
                 ),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.BarcodeWidget(
-                      barcode: pw.Barcode.qrCode(),
-                      data: patient.patientId,
-                      width: 58,
-                      height: 58,
+                if (hasPatient)
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.BarcodeWidget(
+                        barcode: pw.Barcode.qrCode(),
+                        data: patient.patientId,
+                        width: 58,
+                        height: 58,
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(patient.patientId,
+                          style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: primary)),
+                      pw.BarcodeWidget(
+                        barcode: pw.Barcode.code128(),
+                        data: patient.patientId,
+                        width: 90,
+                        height: 20,
+                        drawText: false,
+                      ),
+                    ],
+                  )
+                else
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(6),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.white,
+                      border: pw.Border.all(color: gray),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                     ),
-                    pw.SizedBox(height: 2),
-                    pw.Text(patient.patientId,
-                        style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: primary)),
-                    pw.BarcodeWidget(
-                      barcode: pw.Barcode.code128(),
-                      data: patient.patientId,
-                      width: 90,
-                      height: 20,
-                      drawText: false,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('PATIENT TOKEN ID (अस्पताल दर्ता नं.)',
+                            style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: primary)),
+                        pw.SizedBox(height: 4),
+                        buildCharBoxes(camp?.campCode != null ? '${camp!.campCode}-' : '', minBoxes: 14, boxSize: 15),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
               ],
             ),
           ),
@@ -1610,9 +1633,9 @@ class PdfReportService {
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Expanded(child: buildField('First Name', 'पहिलो नाम', patient.firstName, minBoxes: 14)),
+              pw.Expanded(child: buildField('First Name', 'पहिलो नाम', patient?.firstName ?? '', minBoxes: 14)),
               pw.SizedBox(width: 10),
-              pw.Expanded(child: buildField('Surname', 'थर', patient.surname, minBoxes: 14)),
+              pw.Expanded(child: buildField('Surname', 'थर', patient?.surname ?? '', minBoxes: 14)),
             ],
           ),
 
@@ -1622,7 +1645,7 @@ class PdfReportService {
             children: [
               pw.SizedBox(
                 width: 80,
-                child: buildField('Age', 'उमेर', patient.age.toString(), minBoxes: 3, boxSize: 18),
+                child: buildField('Age', 'उमेर', patient != null ? patient.age.toString() : '', minBoxes: 3, boxSize: 18),
               ),
               pw.SizedBox(width: 10),
               pw.Expanded(
@@ -1636,13 +1659,13 @@ class PdfReportService {
                       pw.SizedBox(height: 4),
                       pw.Row(
                         children: [
-                          buildCheckbox('Married / विवाहित', patient.maritalStatus == 'married'),
+                          buildCheckbox('Married / विवाहित', patient?.maritalStatus == 'married'),
                           pw.SizedBox(width: 12),
-                          buildCheckbox('Widow / विधवा', patient.maritalStatus == 'widow'),
+                          buildCheckbox('Widow / विधवा', patient?.maritalStatus == 'widow'),
                           pw.SizedBox(width: 12),
-                          buildCheckbox('Unmarried / अविवाहित', patient.maritalStatus == 'unmarried'),
+                          buildCheckbox('Unmarried / अविवाहित', patient?.maritalStatus == 'unmarried'),
                           pw.SizedBox(width: 12),
-                          buildCheckbox('Divorced / सम्बन्ध विच्छेद', patient.maritalStatus == 'divorced'),
+                          buildCheckbox('Divorced / सम्बन्ध विच्छेद', patient?.maritalStatus == 'divorced'),
                         ],
                       ),
                     ],
@@ -1654,29 +1677,29 @@ class PdfReportService {
 
           // Spouse/Father Name
           buildField(
-            patient.maritalStatus == 'unmarried' || patient.age < 20 ? "Father's Name" : "Husband's Name",
-            patient.maritalStatus == 'unmarried' || patient.age < 20 ? 'बुबाको नाम' : 'श्रीमानको नाम',
-            patient.spouseOrFatherName ?? '',
+            (patient?.maritalStatus == 'unmarried' || (patient != null && patient.age < 20)) ? "Father's Name" : "Husband's / Father's Name",
+            (patient?.maritalStatus == 'unmarried' || (patient != null && patient.age < 20)) ? 'बुबाको नाम' : 'श्रीमान / बुबाको नाम',
+            patient?.spouseOrFatherName ?? '',
             minBoxes: 24,
           ),
 
           // Mobile
-          buildField('Mobile No.', 'मोबाइल नम्बर', patient.mobile, minBoxes: 10, boxSize: 18),
+          buildField('Mobile No.', 'मोबाइल नम्बर', patient?.mobile ?? '', minBoxes: 10, boxSize: 18),
 
           // District + Municipality + Ward
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Expanded(child: buildField('District', 'जिल्ला', patient.district, minBoxes: 14)),
+              pw.Expanded(child: buildField('District', 'जिल्ला', patient?.district ?? camp?.district ?? '', minBoxes: 14)),
               pw.SizedBox(width: 10),
-              pw.Expanded(child: buildField('Municipality / VDC', 'नगर / गाउँपालिका', patient.municipality, minBoxes: 14)),
+              pw.Expanded(child: buildField('Municipality / VDC', 'नगर / गाउँपालिका', patient?.municipality ?? camp?.municipality ?? '', minBoxes: 14)),
               pw.SizedBox(width: 10),
-              pw.SizedBox(width: 70, child: buildField('Ward No.', 'वडा नं.', patient.ward, minBoxes: 3, boxSize: 18)),
+              pw.SizedBox(width: 70, child: buildField('Ward No.', 'वडा नं.', patient?.ward ?? camp?.ward ?? '', minBoxes: 3, boxSize: 18)),
             ],
           ),
 
           // Province
-          buildField('Province', 'प्रदेश', patient.province, minBoxes: 16),
+          buildField('Province', 'प्रदेश', patient?.province ?? camp?.province ?? '', minBoxes: 16),
 
           pw.SizedBox(height: 4),
           pw.Divider(color: gray),
@@ -1689,14 +1712,14 @@ class PdfReportService {
             spacing: 20,
             runSpacing: 6,
             children: [
-              buildCheckbox('Something Hanging Out / बाहिर आएको महसुस', patient.reasonsForVisit.any((r) => r.contains('hanging'))),
-              buildCheckbox('Vaginal Discharge / Itching / स्राव खटिरो', patient.reasonsForVisit.any((r) => r.contains('discharge'))),
-              buildCheckbox('Problems Passing Urine / पेसाब समस्या', patient.reasonsForVisit.any((r) => r.contains('urine'))),
-              buildCheckbox('Problems Passing Stool / दिसा समस्या', patient.reasonsForVisit.any((r) => r.contains('stool'))),
-              buildCheckbox('Menstrual Problem / महिनावारी समस्या', patient.reasonsForVisit.any((r) => r.contains('menstrual'))),
-              buildCheckbox('Infertility / बाँझोपन', patient.reasonsForVisit.any((r) => r.contains('infertility'))),
-              buildCheckbox('Pelvic / Abdominal Pain / दुखाई', patient.reasonsForVisit.any((r) => r.contains('pain'))),
-              buildCheckbox('General Checkup / सामान्य जाँच', patient.reasonsForVisit.any((r) => r.contains('checkup'))),
+              buildCheckbox('Something Hanging Out / बाहिर आएको महसुस', patient?.reasonsForVisit.any((r) => r.contains('hanging')) ?? false),
+              buildCheckbox('Vaginal Discharge / Itching / स्राव खटिरो', patient?.reasonsForVisit.any((r) => r.contains('discharge')) ?? false),
+              buildCheckbox('Problems Passing Urine / पेसाब समस्या', patient?.reasonsForVisit.any((r) => r.contains('urine')) ?? false),
+              buildCheckbox('Problems Passing Stool / दिसा समस्या', patient?.reasonsForVisit.any((r) => r.contains('stool')) ?? false),
+              buildCheckbox('Menstrual Problem / महिनावारी समस्या', patient?.reasonsForVisit.any((r) => r.contains('menstrual')) ?? false),
+              buildCheckbox('Infertility / बाँझोपन', patient?.reasonsForVisit.any((r) => r.contains('infertility')) ?? false),
+              buildCheckbox('Pelvic / Abdominal Pain / दुखाई', patient?.reasonsForVisit.any((r) => r.contains('pain')) ?? false),
+              buildCheckbox('General Checkup / सामान्य जाँच', patient?.reasonsForVisit.any((r) => r.contains('checkup')) ?? false),
             ],
           ),
 
@@ -1708,9 +1731,9 @@ class PdfReportService {
           _buildPdfSectionHeader('SECTION C: PATIENT CONSENT / सहमति', primary),
           pw.SizedBox(height: 6),
           pw.Row(children: [
-            buildCheckbox('I consent to examination and treatment / जाँच र उपचार गर्न सहमति छ', patient.consentTreatment),
+            buildCheckbox('I consent to examination and treatment / जाँच र उपचार गर्न सहमति छ', patient?.consentTreatment ?? false),
             pw.SizedBox(width: 20),
-            buildCheckbox('I consent to storage of my medical information / स्वास्थ्य विवरण भण्डारण गर्न सहमति छ', patient.consentStoreMedicalInfo),
+            buildCheckbox('I consent to storage of my medical information / स्वास्थ्य विवरण भण्डारण गर्न सहमति छ', patient?.consentStoreMedicalInfo ?? false),
           ]),
 
           pw.SizedBox(height: 16),
@@ -1759,8 +1782,12 @@ class PdfReportService {
               mainAxisAlignment: pw.MainAxisAlignment.center,
               children: [
                 pw.Text('FOR OFFICIAL USE ONLY — ', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: primary)),
-                pw.Text('Patient ID: ${patient.patientId} | Camp: ${camp?.campCode ?? patient.campCode} | Registered: ${dateFormatter.format(patient.intakeDate)}',
-                    style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(
+                  hasPatient
+                      ? 'Patient ID: ${patient.patientId} | Camp: ${camp?.campCode ?? patient.campCode} | Registered: ${dateFormatter.format(patient.intakeDate)}'
+                      : 'Official Camp Intake Form | Camp: ${camp?.campCode ?? "CAMP"} | Venue: ${camp?.venue ?? "Health Center"}',
+                  style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+                ),
               ],
             ),
           ),
@@ -1771,4 +1798,5 @@ class PdfReportService {
     return pdf.save();
   }
 }
+
 

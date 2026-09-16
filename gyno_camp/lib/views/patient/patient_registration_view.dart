@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/clinical_constants.dart';
 
+import '../../core/services/file_download_helper.dart';
 import '../../core/services/nepali_localization_service.dart';
+import '../../core/services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../viewmodels/auth_viewmodel.dart';
@@ -137,6 +139,51 @@ class _PatientRegistrationViewState
       );
     } else {
       Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _printBlankRegistrationForm(CampModel? camp) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Generating blank block-letter registration form...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      final orgName = camp?.organizationName.isNotEmpty == true
+          ? camp!.organizationName
+          : 'Nepal Gyno Health Outreach Network';
+      final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
+        camp: camp,
+        organizationName: orgName,
+      );
+      final campCode = camp?.campCode ?? 'OUTREACH';
+      await FileDownloadHelper.saveAndDownloadFile(
+        bytes: bytes,
+        filename: 'Blank_Registration_Form_$campCode.pdf',
+        mimeType: 'application/pdf',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Blank registration form downloaded: Blank_Registration_Form_$campCode.pdf',
+            ),
+            backgroundColor: AppTheme.successGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating blank form: $e'),
+            backgroundColor: AppTheme.dangerRose,
+          ),
+        );
+      }
     }
   }
 
@@ -392,6 +439,19 @@ class _PatientRegistrationViewState
                                 ],
                               ),
                             ),
+                          ),
+                          const SizedBox(width: 10),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF1D4ED8),
+                              side: const BorderSide(color: Color(0xFF93C5FD)),
+                              backgroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.print_outlined, size: 15),
+                            label: const Text('Print Blank Form', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            onPressed: () => _printBlankRegistrationForm(camp),
                           ),
                         ],
                       ),
