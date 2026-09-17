@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -224,197 +225,16 @@ class _PatientRegistrationViewState
     ValueChanged<String>? onChanged,
     List<TextInputFormatter>? inputFormatters,
   }) {
-    final isInteractive = controller != null;
-    final listenable = isInteractive
-        ? Listenable.merge([
-            ?focusNode,
-            controller,
-          ])
-        : null;
-
-    Widget contentBuilder(BuildContext context) {
-      final textValue = controller != null ? controller.text : value;
-      final chars = textValue.toUpperCase().split('');
-      final total = chars.length > minBoxes ? chars.length : minBoxes;
-      final isFocused = focusNode != null && focusNode.hasFocus;
-
-      final isMobile = MediaQuery.of(context).size.width < 768;
-      // Generous responsive sizing so character boxes are prominent and comfortable
-      final boxWidth = isMobile ? 26.0 : (minBoxes <= 10 ? 34.0 : 30.0);
-      final boxHeight = isMobile ? 38.0 : 44.0;
-      final fontSize = isMobile ? 13.5 : 16.0;
-      final boxMargin = isMobile ? 2.5 : 3.5;
-
-      // Active cursor index (points to the cursor position or the next empty box)
-      final cursorIndex = isFocused
-          ? (controller != null && controller.selection.isValid
-              ? controller.selection.baseOffset.clamp(0, total - 1)
-              : chars.length.clamp(0, total - 1))
-          : -1;
-
-      final grid = SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: List.generate(total, (i) {
-            final hasChar = i < chars.length && chars[i].isNotEmpty;
-            final isCursor = isInteractive && isFocused && i == cursorIndex;
-
-            return Container(
-              width: boxWidth,
-              height: boxHeight,
-              margin: EdgeInsets.only(right: boxMargin),
-              decoration: BoxDecoration(
-                color: isCursor
-                    ? const Color(0xFFE0F2FE)
-                    : hasChar
-                        ? const Color(0xFFF0FDFA)
-                        : Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: isCursor
-                      ? AppTheme.primaryTeal
-                      : hasChar
-                          ? AppTheme.primaryTeal.withValues(alpha: 0.8)
-                          : const Color(0xFFCBD5E1),
-                  width: isCursor ? 2.0 : (hasChar ? 1.4 : 1.0),
-                ),
-                boxShadow: isCursor
-                    ? [
-                        BoxShadow(
-                          color: AppTheme.primaryTeal.withValues(alpha: 0.25),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Center(
-                child: hasChar
-                    ? Text(
-                        chars[i],
-                        style: TextStyle(
-                          fontSize: fontSize,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryDark,
-                          letterSpacing: 0.3,
-                        ),
-                      )
-                    : isCursor
-                        ? Container(
-                            width: 2.0,
-                            height: boxHeight * 0.52,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryTeal,
-                              borderRadius: BorderRadius.circular(1),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-              ),
-            );
-          }),
-        ),
-      );
-
-      return Padding(
-        padding: const EdgeInsets.only(top: 4, bottom: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (label != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 5),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => focusNode?.requestFocus(),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: isFocused ? FontWeight.bold : FontWeight.w600,
-                            color: isFocused
-                                ? AppTheme.primaryTeal
-                                : const Color(0xFF475569),
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ),
-                      if (isFocused) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE0F2FE),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'ACTIVE',
-                            style: TextStyle(
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryTeal,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            if (isInteractive)
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapDown: (details) {
-                  focusNode?.requestFocus();
-                  final boxTotalWidth = boxWidth + boxMargin;
-                  final clickedIndex = (details.localPosition.dx / boxTotalWidth).floor();
-                  final targetOffset = clickedIndex.clamp(0, controller.text.length);
-                  controller.selection = TextSelection.fromPosition(
-                    TextPosition(offset: targetOffset),
-                  );
-                },
-                child: Stack(
-                  children: [
-                    // Hidden TextField for keyboard input
-                    SizedBox(
-                      height: 1,
-                      width: 1,
-                      child: Opacity(
-                        opacity: 0,
-                        child: TextField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          keyboardType: keyboardType,
-                          textCapitalization: TextCapitalization.characters,
-                          inputFormatters: inputFormatters ?? [const UpperCaseTextFormatter()],
-                          onChanged: (val) {
-                            onChanged?.call(val);
-                          },
-                        ),
-                      ),
-                    ),
-                    // Visible interactive block grid
-                    grid,
-                  ],
-                ),
-              )
-            else
-              grid,
-          ],
-        ),
-      );
-    }
-
-    if (listenable != null) {
-      return ListenableBuilder(
-        listenable: listenable,
-        builder: (context, _) => contentBuilder(context),
-      );
-    }
-    return Builder(builder: contentBuilder);
+    return _BlockLetterGridField(
+      value: value,
+      minBoxes: minBoxes,
+      label: label,
+      controller: controller,
+      focusNode: focusNode,
+      keyboardType: keyboardType,
+      onChanged: onChanged,
+      inputFormatters: inputFormatters,
+    );
   }
 
   Future<void> _submitRegistrationForm({
@@ -1474,58 +1294,92 @@ class _PatientRegistrationViewState
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // Full-width block grid with generous 24 boxes for complete name entry
+                                _buildBlockGrid(
+                                  _spouseOrFatherController.text, 24,
+                                  label: '$relativeLabel [BLOCK LETTERS]',
+                                  controller: _spouseOrFatherController,
+                                  focusNode: _spouseFocus,
+                                  onChanged: (val) {
+                                    vm.updateField(spouseOrFatherName: val.toUpperCase());
+                                    _triggerLiveDuplicateCheck();
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Relation & Marriage Age
                                 if (isMobile) ...[
-                                  _buildBlockGrid(
-                                    _spouseOrFatherController.text, 20,
-                                    label: '$relativeLabel [BLOCK LETTERS]',
-                                    controller: _spouseOrFatherController,
-                                    focusNode: _spouseFocus,
-                                    onChanged: (val) {
-                                      vm.updateField(spouseOrFatherName: val.toUpperCase());
-                                      _triggerLiveDuplicateCheck();
-                                    },
-                                  ),
-                                  const SizedBox(height: 12),
                                   DropdownButtonFormField<String>(
-                                    key: ValueKey(
-                                      'relation_$selectedRelation',
-                                    ),
+                                    key: ValueKey('relation_$selectedRelation'),
                                     isExpanded: true,
                                     initialValue: selectedRelation,
                                     decoration: const InputDecoration(
                                       labelText: 'Relation (नाता)',
-                                      prefixIcon: Icon(
-                                        Icons.group_outlined,
-                                      ),
+                                      prefixIcon: Icon(Icons.group_outlined),
                                     ),
                                     items: relationItems,
                                     onChanged: (val) {
                                       if (val != null) {
-                                        vm.updateField(
-                                          relationshipType: val,
-                                        );
+                                        vm.updateField(relationshipType: val);
                                       }
                                     },
                                   ),
-                                ] else ...[
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 3,
-                                        child: _buildBlockGrid(
-                                          _spouseOrFatherController.text, 20,
-                                          label: '$relativeLabel [BLOCK LETTERS]',
-                                          controller: _spouseOrFatherController,
-                                          focusNode: _spouseFocus,
-                                          onChanged: (val) {
-                                            vm.updateField(spouseOrFatherName: val.toUpperCase());
-                                            _triggerLiveDuplicateCheck();
-                                          },
+                                  const SizedBox(height: 12),
+                                  if (isUnmarried)
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF8FAFC),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: const Color(0xFFE2E8F0),
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      child: const Row(
+                                        children: [
+                                          Icon(
+                                            Icons.info_outline,
+                                            size: 18,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                          SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Marriage Age is not applicable for unmarried patients (अविवाहित - विवाह उमेर लागू हुँदैन).',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Color(0xFF64748B),
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  else
+                                    TextField(
+                                      controller: _maritalAgeController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Marriage Age (विवाह उमेर)',
+                                        hintText: 'e.g. 18 (Years at marriage)',
+                                        prefixIcon: Icon(Icons.history_edu_outlined),
+                                        helperText: 'Assessing early marriage and obstetric risks',
+                                      ),
+                                      onChanged: (val) {
+                                        final parsed = int.tryParse(val);
+                                        vm.updateField(maritalAge: parsed);
+                                      },
+                                    ),
+                                ] else ...[
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                                       Expanded(
-                                        flex: 2,
                                         child: DropdownButtonFormField<String>(
                                           key: ValueKey('relation_$selectedRelation'),
                                           isExpanded: true,
@@ -1540,72 +1394,60 @@ class _PatientRegistrationViewState
                                           },
                                         ),
                                       ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: isUnmarried
+                                            ? Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 14,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFF8FAFC),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: const Color(0xFFE2E8F0),
+                                                  ),
+                                                ),
+                                                child: const Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.info_outline,
+                                                      size: 18,
+                                                      color: Color(0xFF64748B),
+                                                    ),
+                                                    SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        'Marriage Age is not applicable for unmarried patients (अविवाहित - विवाह उमेर लागू हुँदैन).',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Color(0xFF64748B),
+                                                          fontStyle: FontStyle.italic,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                            : TextField(
+                                                controller: _maritalAgeController,
+                                                keyboardType: TextInputType.number,
+                                                decoration: const InputDecoration(
+                                                  labelText: 'Marriage Age (विवाह उमेर)',
+                                                  hintText: 'e.g. 18 (Years at marriage)',
+                                                  prefixIcon: Icon(Icons.history_edu_outlined),
+                                                  helperText: 'Assessing early marriage and obstetric risks',
+                                                ),
+                                                onChanged: (val) {
+                                                  final parsed = int.tryParse(val);
+                                                  vm.updateField(maritalAge: parsed);
+                                                },
+                                              ),
+                                      ),
                                     ],
                                   ),
                                 ],
-                                const SizedBox(height: 14),
-
-                                // Marriage Age (Hidden / info note for unmarried)
-                                if (isUnmarried)
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF8FAFC),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: const Color(0xFFE2E8F0),
-                                      ),
-                                    ),
-                                    child: const Row(
-                                      children: [
-                                        Icon(
-                                          Icons.info_outline,
-                                          size: 18,
-                                          color: Color(0xFF64748B),
-                                        ),
-                                        SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'Marriage Age is not applicable for unmarried patients (अविवाहित - विवाह उमेर लागू हुँदैन).',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFF64748B),
-                                              fontStyle: FontStyle.italic,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                else
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _maritalAgeController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(
-                                            labelText:
-                                                'Marriage Age (विवाह उमेर)',
-                                            hintText:
-                                                'e.g. 18 (Years at marriage)',
-                                            prefixIcon: Icon(
-                                              Icons.history_edu_outlined,
-                                            ),
-                                            helperText: 'Assessing early marriage and obstetric risks',
-                                          ),
-                                          onChanged: (val) {
-                                            final parsed = int.tryParse(val);
-                                            vm.updateField(maritalAge: parsed);
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
                               ],
                             );
                           },
@@ -2189,3 +2031,349 @@ class _FormStep {
   final bool done;
   const _FormStep({required this.label, required this.icon, required this.done});
 }
+
+class _BlockLetterGridField extends StatefulWidget {
+  final String value;
+  final int minBoxes;
+  final String? label;
+  final TextEditingController? controller;
+  final FocusNode? focusNode;
+  final TextInputType keyboardType;
+  final ValueChanged<String>? onChanged;
+  final List<TextInputFormatter>? inputFormatters;
+
+  const _BlockLetterGridField({
+    required this.value,
+    required this.minBoxes,
+    this.label,
+    this.controller,
+    this.focusNode,
+    this.keyboardType = TextInputType.text,
+    this.onChanged,
+    this.inputFormatters,
+  });
+
+  @override
+  State<_BlockLetterGridField> createState() => _BlockLetterGridFieldState();
+}
+
+class _BlockLetterGridFieldState extends State<_BlockLetterGridField> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToCursor(int cursorIndex, double boxTotalWidth, double boxWidth) {
+    if (!_scrollController.hasClients || cursorIndex < 0) return;
+    final cursorLeft = cursorIndex * boxTotalWidth;
+    final cursorRight = cursorLeft + boxWidth;
+    final currentOffset = _scrollController.offset;
+    final viewportWidth = _scrollController.position.viewportDimension;
+
+    if (cursorRight > currentOffset + viewportWidth - 20) {
+      final target = (cursorRight - viewportWidth + 60)
+          .clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+      );
+    } else if (cursorLeft < currentOffset + 15) {
+      final target = (cursorLeft - 40)
+          .clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  void _scrollStep(double delta) {
+    if (!_scrollController.hasClients) return;
+    final target = (_scrollController.offset + delta).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+    _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isInteractive = widget.controller != null;
+    final listenable = isInteractive
+        ? Listenable.merge([
+            ?widget.focusNode,
+            widget.controller,
+          ])
+        : null;
+
+    Widget contentBuilder(BuildContext context) {
+      final textValue = widget.controller != null ? widget.controller!.text : widget.value;
+      final chars = textValue.toUpperCase().split('');
+      final total = chars.length > widget.minBoxes ? chars.length : widget.minBoxes;
+      final isFocused = widget.focusNode != null && widget.focusNode!.hasFocus;
+
+      final isMobile = MediaQuery.of(context).size.width < 768;
+      final boxWidth = isMobile ? 26.0 : (widget.minBoxes <= 10 ? 34.0 : 30.0);
+      final boxHeight = isMobile ? 38.0 : 44.0;
+      final fontSize = isMobile ? 13.5 : 16.0;
+      final boxMargin = isMobile ? 2.5 : 3.5;
+      final boxTotalWidth = boxWidth + boxMargin;
+
+      final cursorIndex = isFocused
+          ? (widget.controller != null && widget.controller!.selection.isValid
+              ? widget.controller!.selection.baseOffset.clamp(0, total - 1)
+              : chars.length.clamp(0, total - 1))
+          : -1;
+
+      if (isFocused && cursorIndex >= 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToCursor(cursorIndex, boxTotalWidth, boxWidth);
+        });
+      }
+
+      final gridRow = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(total, (i) {
+          final hasChar = i < chars.length && chars[i].isNotEmpty;
+          final isCursor = isInteractive && isFocused && i == cursorIndex;
+
+          return Container(
+            width: boxWidth,
+            height: boxHeight,
+            margin: EdgeInsets.only(right: boxMargin),
+            decoration: BoxDecoration(
+              color: isCursor
+                  ? const Color(0xFFE0F2FE)
+                  : hasChar
+                      ? const Color(0xFFF0FDFA)
+                      : Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isCursor
+                    ? AppTheme.primaryTeal
+                    : hasChar
+                        ? AppTheme.primaryTeal.withValues(alpha: 0.8)
+                        : const Color(0xFFCBD5E1),
+                width: isCursor ? 2.0 : (hasChar ? 1.4 : 1.0),
+              ),
+              boxShadow: isCursor
+                  ? [
+                      BoxShadow(
+                        color: AppTheme.primaryTeal.withValues(alpha: 0.25),
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: hasChar
+                  ? Text(
+                      chars[i],
+                      style: TextStyle(
+                        fontSize: fontSize,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryDark,
+                        letterSpacing: 0.3,
+                      ),
+                    )
+                  : isCursor
+                      ? Container(
+                          width: 2.0,
+                          height: boxHeight * 0.52,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryTeal,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+            ),
+          );
+        }),
+      );
+
+      final scrollableGrid = ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(
+          dragDevices: {
+            PointerDeviceKind.touch,
+            PointerDeviceKind.mouse,
+            PointerDeviceKind.trackpad,
+            PointerDeviceKind.stylus,
+          },
+        ),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: isInteractive
+              ? GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (details) {
+                    widget.focusNode?.requestFocus();
+                    final clickedIndex =
+                        (details.localPosition.dx / boxTotalWidth).floor();
+                    final targetOffset = clickedIndex.clamp(
+                      0,
+                      widget.controller!.text.length,
+                    );
+                    widget.controller!.selection = TextSelection.fromPosition(
+                      TextPosition(offset: targetOffset),
+                    );
+                  },
+                  child: gridRow,
+                )
+              : gridRow,
+        ),
+      );
+
+      return Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.label != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => widget.focusNode?.requestFocus(),
+                        child: Text(
+                          widget.label!,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isFocused ? FontWeight.bold : FontWeight.w600,
+                            color: isFocused
+                                ? AppTheme.primaryTeal
+                                : const Color(0xFF475569),
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (chars.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '(${chars.length} chars)',
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                    if (isFocused) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0F2FE),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'ACTIVE',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryTeal,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (total > 12) ...[
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: () => _scrollStep(-100),
+                        borderRadius: BorderRadius.circular(4),
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: const Icon(
+                            Icons.chevron_left,
+                            size: 15,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      InkWell(
+                        onTap: () => _scrollStep(100),
+                        borderRadius: BorderRadius.circular(4),
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: const Icon(
+                            Icons.chevron_right,
+                            size: 15,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            if (isInteractive)
+              Stack(
+                children: [
+                  SizedBox(
+                    height: 1,
+                    width: 1,
+                    child: Opacity(
+                      opacity: 0,
+                      child: TextField(
+                        controller: widget.controller,
+                        focusNode: widget.focusNode,
+                        keyboardType: widget.keyboardType,
+                        textCapitalization: TextCapitalization.characters,
+                        inputFormatters: widget.inputFormatters ??
+                            [const UpperCaseTextFormatter()],
+                        onChanged: (val) {
+                          widget.onChanged?.call(val);
+                        },
+                      ),
+                    ),
+                  ),
+                  scrollableGrid,
+                ],
+              )
+            else
+              scrollableGrid,
+          ],
+        ),
+      );
+    }
+
+    if (listenable != null) {
+      return ListenableBuilder(
+        listenable: listenable,
+        builder: (context, _) => contentBuilder(context),
+      );
+    }
+    return Builder(builder: contentBuilder);
+  }
+}
+

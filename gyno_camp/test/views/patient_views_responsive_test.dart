@@ -325,6 +325,59 @@ void main() {
       expect(find.text('A'), findsOneWidget);
     });
 
+    testWidgets('Father/Husband long full name renders with 24-box full width, char count and scroll buttons without clipping', (tester) async {
+      tester.view.physicalSize = const Size(1024, 768);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+            campStateProvider.overrideWith((ref) => _FakeCampViewModel(sampleCamp)),
+            authStateProvider.overrideWith((ref) => _FakeAuthViewModel(sampleUser)),
+          ],
+          child: const MaterialApp(
+            home: PatientRegistrationView(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final husbandFieldFinder = find.textContaining("Husband's Name");
+      expect(husbandFieldFinder, findsOneWidget);
+
+      await tester.ensureVisible(husbandFieldFinder);
+      await tester.pumpAndSettle();
+
+      // Tap the husband field to focus
+      await tester.tap(husbandFieldFinder);
+      await tester.pump();
+
+      // Enter 'DANDA PANI TIWARI' into focused text input
+      tester.testTextInput.enterText('DANDA PANI TIWARI');
+      await tester.pump();
+
+      // Verify character count badge appears
+      expect(find.text('(17 chars)'), findsOneWidget);
+
+      // Verify characters of full name are rendered
+      expect(find.text('W'), findsOneWidget);
+      expect(find.text('R'), findsOneWidget);
+
+      // Scroll buttons exist since total boxes (24) > 12
+      expect(find.byIcon(Icons.chevron_left), findsWidgets);
+      expect(find.byIcon(Icons.chevron_right), findsWidgets);
+
+      // Tap right scroll chevron button
+      await tester.tap(find.byIcon(Icons.chevron_right).last, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('PatientListView renders on mobile (360x640) without overflow and with responsive stats and actions', (tester) async {
       tester.view.physicalSize = const Size(360, 640);
       tester.view.devicePixelRatio = 1.0;

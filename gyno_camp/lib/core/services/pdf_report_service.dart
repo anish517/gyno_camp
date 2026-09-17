@@ -1681,9 +1681,9 @@ class PdfReportService {
                     ? 'बुबाको नाम'
                     : 'श्रीमान / बुबाको नाम',
                 patient?.spouseOrFatherName ?? '',
-                minBoxes: 18,
-                maxBoxes: 18,
-                boxSize: 12.5,
+                minBoxes: 20,
+                maxBoxes: 20,
+                boxSize: 12.0,
                 boxMargin: 1.5,
               ),
 
