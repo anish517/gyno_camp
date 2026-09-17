@@ -1982,7 +1982,7 @@ class PdfReportService {
               pw.SizedBox(height: 2),
               pw.Row(children: [
                 pw.Text('Pelvic Tone: ', style: bold()),
-                cb('Normal', false), cb('Weak', false), cb('Torn', false),
+                cb('Normal', false), cb('Weak', false), cb('Hypertonic', false),
               ]),
               pw.SizedBox(height: 3),
               pw.Text('Baden-Walker Staging:', style: bold()),

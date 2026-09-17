@@ -35,6 +35,8 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
   final _glucoseController = TextEditingController();
   final _ecgController = TextEditingController();
 
+  final _cervixRemarksController = TextEditingController();
+  final _vaginaRemarksController = TextEditingController();
   final _pessarySizeController = TextEditingController();
   final _customMedController = TextEditingController();
   final _outtakeNotesController = TextEditingController();
@@ -67,6 +69,8 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     if (visit.spo2 != null) _spo2Controller.text = visit.spo2.toString();
     if (visit.glucose != null) _glucoseController.text = visit.glucose.toString();
     if (visit.ecgNotes != null && visit.ecgNotes!.isNotEmpty) _ecgController.text = visit.ecgNotes!;
+    if (visit.cervixRemarks != null && visit.cervixRemarks!.isNotEmpty) _cervixRemarksController.text = visit.cervixRemarks!;
+    if (visit.vaginaRemarks != null && visit.vaginaRemarks!.isNotEmpty) _vaginaRemarksController.text = visit.vaginaRemarks!;
     if (visit.pessarySize != null && visit.pessarySize!.isNotEmpty) _pessarySizeController.text = visit.pessarySize!;
     if (visit.customMedication != null && visit.customMedication!.isNotEmpty) _customMedController.text = visit.customMedication!;
     if (visit.outtakeNotes != null && visit.outtakeNotes!.isNotEmpty) _outtakeNotesController.text = visit.outtakeNotes!;
@@ -90,6 +94,8 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     _spo2Controller.dispose();
     _glucoseController.dispose();
     _ecgController.dispose();
+    _cervixRemarksController.dispose();
+    _vaginaRemarksController.dispose();
     _pessarySizeController.dispose();
     _customMedController.dispose();
     _outtakeNotesController.dispose();
@@ -773,6 +779,113 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             );
           }).toList(),
         ),
+        const SizedBox(height: 16),
+
+        // Cervix Appearance & Vagina / Vulva Examination
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.visibility_outlined, color: AppTheme.primaryTeal, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Cervix Appearance (पाठेघरको मुखको अवस्था)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF1E293B)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    'Normal / Smooth', 'Erosion', 'Hypertrophied', 'Polyp', 'Bleeding on Touch', 'Leukoplakia'
+                  ].map((chip) {
+                    final isSelected = _cervixRemarksController.text.contains(chip);
+                    return ChoiceChip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(chip, style: const TextStyle(fontSize: 11)),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                      onSelected: (sel) {
+                        setState(() {
+                          _cervixRemarksController.text = sel ? chip : '';
+                          vm.updateExam(cervixRemarks: _cervixRemarksController.text);
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _cervixRemarksController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cervix Clinical Remarks (पाठेघरको मुखको टिप्पणी)',
+                    hintText: 'e.g. Smooth, healthy, no discharge, or erosion present',
+                    prefixIcon: Icon(Icons.edit_note_rounded),
+                  ),
+                  onChanged: (val) => vm.updateExam(cervixRemarks: val),
+                ),
+                const Divider(height: 28),
+                const Row(
+                  children: [
+                    Icon(Icons.medical_information_outlined, color: AppTheme.primaryTeal, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Vagina / Vulva Examination (योनी तथा बाह्य अङ्गको अवस्था)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF1E293B)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    'Normal', 'Atrophic', 'Discharge', 'Condyloma', 'Ulcer', 'Lichen Sclerosus'
+                  ].map((chip) {
+                    final isSelected = _vaginaRemarksController.text.contains(chip);
+                    return ChoiceChip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(chip, style: const TextStyle(fontSize: 11)),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                      onSelected: (sel) {
+                        setState(() {
+                          _vaginaRemarksController.text = sel ? chip : '';
+                          vm.updateExam(vaginaRemarks: _vaginaRemarksController.text);
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _vaginaRemarksController,
+                  decoration: const InputDecoration(
+                    labelText: 'Vagina / Vulva Remarks (योनी तथा बाह्य अङ्ग सम्बन्धी टिप्पणी)',
+                    hintText: 'e.g. Healthy mucosa, mild discharge, or atrophy',
+                    prefixIcon: Icon(Icons.edit_note_rounded),
+                  ),
+                  onChanged: (val) => vm.updateExam(vaginaRemarks: val),
+                ),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 20),
 
         // POP STAGING BOX
@@ -887,61 +1000,133 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Rapid Point-of-Care Tests (प्रयोगशाला जाँच)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            if (isMobile) ...[
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: state.urineTest,
-                decoration: const InputDecoration(labelText: 'Urine Test (पिसाब जाँच)'),
-                items: const [
-                  DropdownMenuItem(value: 'normal', child: Text('Normal (सामान्य)')),
-                  DropdownMenuItem(value: 'pos', child: Text('Positive (संक्रमण देखियो)')),
-                ],
-                onChanged: (val) => vm.setVitals(urineTest: val),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: state.pregnancyTest,
-                decoration: const InputDecoration(labelText: 'Pregnancy Test (गर्भावस्था)'),
-                items: const [
-                  DropdownMenuItem(value: 'neg', child: Text('Negative (नेगेटिभ)')),
-                  DropdownMenuItem(value: 'pos', child: Text('Positive (पोजिटिभ)')),
-                ],
-                onChanged: (val) => vm.setVitals(pregnancyTest: val),
-              ),
-            ] else ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      initialValue: state.urineTest,
-                      decoration: const InputDecoration(labelText: 'Urine Test (पिसाब जाँच)'),
-                      items: const [
-                        DropdownMenuItem(value: 'normal', child: Text('Normal (सामान्य)')),
-                        DropdownMenuItem(value: 'pos', child: Text('Positive (संक्रमण देखियो)')),
-                      ],
-                      onChanged: (val) => vm.setVitals(urineTest: val),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Rapid Point-of-Care Tests (प्रयोगशाला जाँच)',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      initialValue: state.pregnancyTest,
-                      decoration: const InputDecoration(labelText: 'Pregnancy Test (गर्भावस्था)'),
-                      items: const [
-                        DropdownMenuItem(value: 'neg', child: Text('Negative (नेगेटिभ)')),
-                        DropdownMenuItem(value: 'pos', child: Text('Positive (पोजिटिभ)')),
-                      ],
-                      onChanged: (val) => vm.setVitals(pregnancyTest: val),
+                    const SizedBox(height: 12),
+                    const Text('Urine Dipstick (पिसाब जाँच - Multi-reagent):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    Builder(
+                      builder: (context) {
+                        final currentUrine = (state.urineTest ?? 'normal').toLowerCase();
+                        final isNormal = currentUrine == 'normal' || currentUrine.isEmpty;
+                        final hasProtein = currentUrine.contains('protein');
+                        final hasGlucose = currentUrine.contains('glucose');
+                        final hasBlood = currentUrine.contains('blood');
+
+                        void updateUrine(String type, bool selected) {
+                          if (type == 'normal') {
+                            vm.setVitals(urineTest: 'normal');
+                            return;
+                          }
+                          final parts = <String>[];
+                          if (type == 'protein' ? selected : hasProtein) parts.add('protein');
+                          if (type == 'glucose' ? selected : hasGlucose) parts.add('glucose');
+                          if (type == 'blood' ? selected : hasBlood) parts.add('blood');
+
+                          if (parts.isEmpty) {
+                            vm.setVitals(urineTest: 'normal');
+                          } else {
+                            vm.setVitals(urineTest: parts.join(', '));
+                          }
+                        }
+
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('Normal (सामान्य)'),
+                              selected: isNormal,
+                              selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                              labelStyle: TextStyle(
+                                color: isNormal ? AppTheme.primaryTeal : const Color(0xFF334155),
+                                fontWeight: isNormal ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 11.5,
+                              ),
+                              onSelected: (sel) => updateUrine('normal', true),
+                            ),
+                            FilterChip(
+                              label: const Text('Protein+ (प्रोटिन)'),
+                              selected: hasProtein,
+                              selectedColor: Colors.amber.shade100,
+                              checkmarkColor: Colors.amber.shade900,
+                              labelStyle: TextStyle(
+                                color: hasProtein ? Colors.amber.shade900 : const Color(0xFF334155),
+                                fontWeight: hasProtein ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 11.5,
+                              ),
+                              onSelected: (sel) => updateUrine('protein', sel),
+                            ),
+                            FilterChip(
+                              label: const Text('Glucose+ (ग्लुकोज)'),
+                              selected: hasGlucose,
+                              selectedColor: Colors.orange.shade100,
+                              checkmarkColor: Colors.deepOrange,
+                              labelStyle: TextStyle(
+                                color: hasGlucose ? Colors.deepOrange : const Color(0xFF334155),
+                                fontWeight: hasGlucose ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 11.5,
+                              ),
+                              onSelected: (sel) => updateUrine('glucose', sel),
+                            ),
+                            FilterChip(
+                              label: const Text('Blood+ (रगत)'),
+                              selected: hasBlood,
+                              selectedColor: Colors.red.shade100,
+                              checkmarkColor: Colors.red.shade900,
+                              labelStyle: TextStyle(
+                                color: hasBlood ? Colors.red.shade900 : const Color(0xFF334155),
+                                fontWeight: hasBlood ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 11.5,
+                              ),
+                              onSelected: (sel) => updateUrine('blood', sel),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ),
-                ],
+                    const Divider(height: 24),
+                    const Text('Pregnancy Test (UPT) (गर्भावस्था जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        {'val': 'neg', 'label': 'Negative (नेगेटिभ)'},
+                        {'val': 'pos', 'label': 'Positive (पोजिटिभ)'},
+                        {'val': 'not_done', 'label': 'Not Done (जाँच नगरिएको)'},
+                      ].map((item) {
+                        final isSelected = (state.pregnancyTest ?? 'neg').toLowerCase() == item['val'];
+                        return ChoiceChip(
+                          label: Text(item['label']!),
+                          selected: isSelected,
+                          selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                          labelStyle: TextStyle(
+                            color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 11.5,
+                          ),
+                          onSelected: (_) => vm.setVitals(pregnancyTest: item['val']),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
             const SizedBox(height: 20),
 
             const Text('Numeric Vital Signs (महत्वपूर्ण शारीरिक सूचकहरू)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),

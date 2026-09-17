@@ -70,7 +70,7 @@ void main() {
   });
 
   // ──────────────────────────────────────────────────────────
-  // PAGE 1  Obstetric History
+  // PAGE 1  Obstetric History & Complaints
   // ──────────────────────────────────────────────────────────
   group('Page 1 — Obstetrics', () {
     late Map<String, dynamic> o;
@@ -79,6 +79,14 @@ void main() {
     test('Deliveries = 3',       () { expectField(o, 'deliveries',     3); });
     test('Living children = 3',  () { expectField(o, 'livingChildren', 3); });
     test('Abortions = 0',        () { expectField(o, 'abortions',      0); });
+    test('Complaints duration = > 1 year', () {
+      expect(o['complaintsDuration'], '> 1 year');
+    });
+    test('Clinical complaints detected', () {
+      final comps = (o['clinicalComplaints'] as List?)?.cast<String>() ?? [];
+      expect(comps, isNotEmpty);
+      expect(comps.contains('Mass Per Vagina') || comps.contains('White / Foul Discharge'), isTrue);
+    });
   });
 
   // ──────────────────────────────────────────────────────────
@@ -114,7 +122,28 @@ void main() {
   });
 
   // ──────────────────────────────────────────────────────────
-  // PAGE 2  POP Staging
+  // PAGE 2  Station 1: Anamnesis & Obstetric History
+  // ──────────────────────────────────────────────────────────
+  group('Page 2 — Station 1 Anamnesis & Complaints', () {
+    late Map<String, dynamic> o;
+    setUpAll(() { o = parsePage2().obstetrics; });
+
+    test('Deliveries = 3', () { expectField(o, 'deliveries', 3); });
+    test('Living children = 3', () { expectField(o, 'livingChildren', 3); });
+    test('Abortions = 0', () { expectField(o, 'abortions', 0); });
+    test('Complaints duration = 3-12 months', () {
+      expect(o['complaintsDuration'], '3-12 months');
+    });
+    test('Clinical complaints detected on Page 2', () {
+      final comps = (o['clinicalComplaints'] as List?)?.cast<String>() ?? [];
+      expect(comps.contains('Mass Per Vagina'), isTrue);
+      expect(comps.contains('White / Foul Discharge'), isTrue);
+      expect(comps.contains('Pelvic Heaviness'), isTrue);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────
+  // PAGE 2  POP Staging & Exam (Station 2)
   // ──────────────────────────────────────────────────────────
   group('Page 2 — POP Staging', () {
     late Map<String, dynamic> p;
@@ -127,6 +156,8 @@ void main() {
     test('Highest stage = 3',    () { expectField(p, 'highestPopStage',3); });
     test('Uterus inside = false',() { expectField(p, 'uterusInside',   false); });
     test('Pelvic tone = weak',   () { expectField(p, 'pelvicFloorTone','weak'); });
+    test('Cervix remarks detected', () { expect(p['cervixRemarks'], isNotNull); });
+    test('Vagina remarks detected', () { expect(p['vaginaRemarks'], isNotNull); });
   });
 
   // ──────────────────────────────────────────────────────────

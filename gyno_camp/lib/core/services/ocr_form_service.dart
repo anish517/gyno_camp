@@ -471,66 +471,145 @@ class OcrFormService {
         demographics['reasonsForVisit'] = reasons;
         confidences['reasonsForVisit'] = reasons.isNotEmpty ? 0.88 : 0.40;
       }
-
-      // ── Obstetric History ──
-      final deliveriesValue = findValueForLabel(['deliveries', 'parity', 'para', 'p:', 'सुत्केरी']);
-      final livingValue = findValueForLabel(['living children', 'living', 'l:', 'जीवित']);
-      final abortionsValue = findValueForLabel(['abortions', 'abortion', 'miscarriage', 'गर्भपतन'], multiLine: false);
-
-      int? rawDeliveries;
-      int? rawLiving;
-      int? rawAbortions;
-
-      if (deliveriesValue != null) {
-        final dDigits = RegExp(r'(\d{1,2})').firstMatch(deliveriesValue);
-        rawDeliveries = dDigits != null ? int.tryParse(dDigits.group(1)!) : null;
-      }
-      if (livingValue != null) {
-        final lDigits = RegExp(r'(\d{1,2})').firstMatch(livingValue);
-        rawLiving = lDigits != null ? int.tryParse(lDigits.group(1)!) : null;
-      }
-      if (abortionsValue != null) {
-        final aDigits = RegExp(r'([0-9OoIl|]{1,2})').firstMatch(abortionsValue);
-        if (aDigits != null) {
-          rawAbortions = parseOcrInt(aDigits.group(1));
-        }
-      }
-
-      if (rawDeliveries == null) {
-        final delMatch = RegExp(r'\b(?:deliveries|parity|para)\b[:\s_]*([0-9]{1,2})', caseSensitive: false).firstMatch(text);
-        rawDeliveries = delMatch != null ? int.tryParse(delMatch.group(1)!) : null;
-      }
-      if (rawLiving == null) {
-        final livingMatch = RegExp(r'\b(?:living(?:\s*children)?|alive)\b[:\s_]*([0-9]{1,2})', caseSensitive: false).firstMatch(text);
-        rawLiving = livingMatch != null ? int.tryParse(livingMatch.group(1)!) : null;
-      }
-      if (rawAbortions == null) {
-        final abortionLine = lines.firstWhere(
-          (l) => l.toLowerCase().contains('abortion') || l.toLowerCase().contains('miscarriage'),
-          orElse: () => '',
-        );
-        if (abortionLine.isNotEmpty) {
-          final m = RegExp(r'abortions?[:\s_]*([0-9OoIl|]{1,2})', caseSensitive: false).firstMatch(abortionLine);
-          if (m != null) {
-            rawAbortions = parseOcrInt(m.group(1));
-          }
-        }
-      }
-
-      rawDeliveries ??= 3;
-      if (rawDeliveries > 15) rawDeliveries = 3;
-
-      rawLiving ??= min(rawDeliveries, 3);
-      if (rawLiving > 15) rawLiving = min(rawDeliveries, 3);
-
-      rawAbortions ??= max(0, rawDeliveries - rawLiving);
-      if (rawAbortions > 15) rawAbortions = max(0, rawDeliveries - rawLiving);
-
-      obstetrics['deliveries'] = rawDeliveries;
-      obstetrics['livingChildren'] = min(rawLiving, rawDeliveries);
-      obstetrics['abortions'] = rawAbortions;
-      confidences['obstetrics'] = 0.92;
     }
+
+    // ==========================================
+    // 2. Obstetric History & Station 1 Anamnesis
+    // Present on Page 1 (Obstetric Summary) and Page 2 (Station 1: Anamnesis)
+    // ==========================================
+    // ── Deliveries, Living Children, Abortions ──
+    final deliveriesValue = findValueForLabel(['deliveries', 'parity', 'para', 'p:', 'सुत्केरी']);
+    final livingValue = findValueForLabel(['living children', 'living', 'l:', 'जीवित']);
+    final abortionsValue = findValueForLabel(['abortions', 'abortion', 'miscarriage', 'गर्भपतन'], multiLine: false);
+
+    int? rawDeliveries;
+    int? rawLiving;
+    int? rawAbortions;
+
+    if (deliveriesValue != null) {
+      final dDigits = RegExp(r'(\d{1,2})').firstMatch(deliveriesValue);
+      rawDeliveries = dDigits != null ? int.tryParse(dDigits.group(1)!) : null;
+    }
+    if (livingValue != null) {
+      final lDigits = RegExp(r'(\d{1,2})').firstMatch(livingValue);
+      rawLiving = lDigits != null ? int.tryParse(lDigits.group(1)!) : null;
+    }
+    if (abortionsValue != null) {
+      final aDigits = RegExp(r'([0-9OoIl|]{1,2})').firstMatch(abortionsValue);
+      if (aDigits != null) {
+        rawAbortions = parseOcrInt(aDigits.group(1));
+      }
+    }
+
+    if (rawDeliveries == null) {
+      final delMatch = RegExp(r'\b(?:deliveries|parity|para)\b[:\s_]*([0-9]{1,2})', caseSensitive: false).firstMatch(text);
+      rawDeliveries = delMatch != null ? int.tryParse(delMatch.group(1)!) : null;
+    }
+    if (rawLiving == null) {
+      final livingMatch = RegExp(r'\b(?:living(?:\s*children)?|alive)\b[:\s_]*([0-9]{1,2})', caseSensitive: false).firstMatch(text);
+      rawLiving = livingMatch != null ? int.tryParse(livingMatch.group(1)!) : null;
+    }
+    if (rawAbortions == null) {
+      final abortionLine = lines.firstWhere(
+        (l) => l.toLowerCase().contains('abortion') || l.toLowerCase().contains('miscarriage'),
+        orElse: () => '',
+      );
+      if (abortionLine.isNotEmpty) {
+        final m = RegExp(r'abortions?[:\s_]*([0-9OoIl|]{1,2})', caseSensitive: false).firstMatch(abortionLine);
+        if (m != null) {
+          rawAbortions = parseOcrInt(m.group(1));
+        }
+      }
+    }
+
+    rawDeliveries ??= 3;
+    if (rawDeliveries > 15) rawDeliveries = 3;
+
+    rawLiving ??= min(rawDeliveries, 3);
+    if (rawLiving > 15) rawLiving = min(rawDeliveries, 3);
+
+    rawAbortions ??= max(0, rawDeliveries - rawLiving);
+    if (rawAbortions > 15) rawAbortions = max(0, rawDeliveries - rawLiving);
+
+    obstetrics['deliveries'] = rawDeliveries;
+    obstetrics['livingChildren'] = min(rawLiving, rawDeliveries);
+    obstetrics['abortions'] = rawAbortions;
+
+    // ── Complaints Duration ──
+    String? duration;
+    final rawDuration = findValueForLabel(['complaints duration', 'complaint duration', 'duration', 'अवधि']);
+    if (rawDuration != null) {
+      final low = rawDuration.toLowerCase();
+      if (low.contains('< 3') || low.contains('<3') || low.contains('less than 3')) {
+        duration = '< 3 months';
+      } else if (low.contains('3-12') || low.contains('3 to 12') || low.contains('3 - 12') || low.contains('3–12')) {
+        duration = '3-12 months';
+      } else if (low.contains('> 1') || low.contains('>1') || low.contains('greater than 1') || low.contains('1 year') || low.contains('1year')) {
+        duration = '> 1 year';
+      } else {
+        duration = rawDuration.trim();
+      }
+    }
+    if (duration == null) {
+      if (isOptionSelected(['< 3 months', '<3 months', '< 3m'])) {
+        duration = '< 3 months';
+      } else if (isOptionSelected(['3-12 months', '3 - 12 months', '3 to 12 months'])) {
+        duration = '3-12 months';
+      } else if (isOptionSelected(['> 1 year', '>1 year', '> 1 yr', '>1 yr', '>1 Year'])) {
+        duration = '> 1 year';
+      } else {
+        duration = '3-12 months';
+      }
+    }
+    obstetrics['complaintsDuration'] = duration;
+
+    // ── 9 Chief Clinical Complaints (Page 2 Station 1 Checkboxes) ──
+    final clinicalComplaints = <String>[];
+    if (isOptionSelected(['lower abdominal pain', 'abdominal pain', 'तल्लो पेट दुख्ने'])) {
+      clinicalComplaints.add('Lower Abdominal Pain');
+    }
+    if (isOptionSelected(['white / foul discharge', 'white discharge', 'foul discharge', 'discharge and or itching', 'सेतो पानी', 'चिलाउने'])) {
+      clinicalComplaints.add('White / Foul Discharge');
+    }
+    if (isOptionSelected(['pelvic heaviness', 'heaviness', 'पेल्भिक भारी'])) {
+      clinicalComplaints.add('Pelvic Heaviness');
+    }
+    if (isOptionSelected(['burning micturition', 'burning urine', 'पिसाब पोल्ने'])) {
+      clinicalComplaints.add('Burning Micturition');
+    }
+    if (isOptionSelected(['urinary incontinence', 'incontinence', 'problems passing urine', 'पिसाब चुहिने'])) {
+      clinicalComplaints.add('Urinary Incontinence');
+    }
+    if (isOptionSelected(['dyspareunia', 'pain during intercourse', 'सम्पर्कमा दुखाई'])) {
+      clinicalComplaints.add('Dyspareunia');
+    }
+    if (isOptionSelected(['coital bleeding', 'bleeding after intercourse', 'सम्पर्कपछि रक्तस्राव'])) {
+      clinicalComplaints.add('Coital Bleeding');
+    }
+    if (isOptionSelected(['mass per vagina', 'mass per vaginam', 'something hanging out', 'something hanging', 'योनीबाट केही बाहिर'])) {
+      clinicalComplaints.add('Mass Per Vagina');
+    }
+    if (isOptionSelected(['severe backache', 'backache', 'ढाड दुख्ने', 'back pain'])) {
+      clinicalComplaints.add('Severe Backache');
+    }
+
+    // Correlate with Page 1 intake reasons if scanning combined form and complaints list is sparse
+    final reasons = (demographics['reasonsForVisit'] as List?)?.cast<String>() ?? [];
+    if (reasons.any((r) => r.contains('hanging') || r.contains('prolapse')) && !clinicalComplaints.contains('Mass Per Vagina')) {
+      clinicalComplaints.add('Mass Per Vagina');
+    }
+    if (reasons.any((r) => r.contains('discharge') || r.contains('itching')) && !clinicalComplaints.contains('White / Foul Discharge')) {
+      clinicalComplaints.add('White / Foul Discharge');
+    }
+    if (reasons.any((r) => r.contains('urine')) && !clinicalComplaints.contains('Urinary Incontinence') && !clinicalComplaints.contains('Burning Micturition')) {
+      clinicalComplaints.add('Urinary Incontinence');
+    }
+    if (reasons.any((r) => r.contains('pain')) && !clinicalComplaints.contains('Lower Abdominal Pain')) {
+      clinicalComplaints.add('Lower Abdominal Pain');
+    }
+
+    obstetrics['clinicalComplaints'] = clinicalComplaints;
+    confidences['obstetrics'] = 0.92;
 
     // ==========================================
     // 2. Clinical Assessment (Page 2 / Back)
@@ -619,11 +698,36 @@ class OcrFormService {
       confidences['glucose'] = (parsedGlucose != null) ? 0.92 : 0.60;
 
       // ── Rapid Tests ──
-      final urinePositive = isOptionSelected(['urine: pos', 'urine test: pos', 'positive']) && !isOptionSelected(['urine test: normal', 'urine: normal', 'normal']);
-      vitals['urineTest'] = urinePositive ? 'pos' : 'normal';
+      final urineProtein = isOptionSelected(['protein+', 'protein', 'प्रोटिन']);
+      final urineGlucose = isOptionSelected(['glucose+', 'glucose', 'ग्लुकोज']);
+      final urineBlood = isOptionSelected(['blood+', 'blood', 'रगत']);
+      final urineNormal = isOptionSelected(['urine test: normal', 'urine: normal', 'normal']) && !urineProtein && !urineGlucose && !urineBlood;
 
-      final pregPositive = isOptionSelected(['hcg: pos', 'pregnancy: pos', 'pregnancy test: pos']) && !isOptionSelected(['pregnancy test: neg', 'pregnancy: negative', 'negative']);
-      vitals['pregnancyTest'] = pregPositive ? 'pos' : 'neg';
+      final urineParts = <String>[];
+      if (urineProtein) urineParts.add('protein');
+      if (urineGlucose) urineParts.add('glucose');
+      if (urineBlood) urineParts.add('blood');
+
+      if (urineParts.isNotEmpty) {
+        vitals['urineTest'] = urineParts.join(', ');
+      } else if (urineNormal) {
+        vitals['urineTest'] = 'normal';
+      } else {
+        final rawUrine = findValueForLabel(['urine test', 'urine', 'पिसाब जाँच']);
+        if (rawUrine != null && rawUrine.isNotEmpty) {
+          vitals['urineTest'] = rawUrine.toLowerCase().contains('pos') ? 'pos' : 'normal';
+        } else {
+          vitals['urineTest'] = 'normal';
+        }
+      }
+
+      if (isOptionSelected(['not done', 'upt: not done', 'pregnancy test: not done', 'जाँच नगरिएको'])) {
+        vitals['pregnancyTest'] = 'not_done';
+      } else if (isOptionSelected(['hcg: pos', 'pregnancy: pos', 'pregnancy test: pos', 'positive'])) {
+        vitals['pregnancyTest'] = 'pos';
+      } else {
+        vitals['pregnancyTest'] = 'neg';
+      }
       confidences['labs'] = 0.88;
 
       // ── POP Examination & Staging (Station 3) ──
@@ -686,17 +790,48 @@ class OcrFormService {
       final uterusOutside = isOptionSelected(['no (prolapsed)', 'prolapsed outside', 'uterus inside: no']) || highest >= 2;
       popStaging['uterusInside'] = !uterusOutside;
 
+      // Cervix Appearance (Station 2)
+      final cervixVal = findValueForLabel(['cervix appearance', 'cervix:', 'cervix', 'पाठेघरको मुख']);
+      if (cervixVal != null && cervixVal.isNotEmpty) {
+        popStaging['cervixRemarks'] = cervixVal.trim();
+      } else if (isOptionSelected(['erosion', 'इरोज़न'])) {
+        popStaging['cervixRemarks'] = 'Erosion';
+      } else if (isOptionSelected(['polyp', 'पोलिप'])) {
+        popStaging['cervixRemarks'] = 'Polyp';
+      } else if (isOptionSelected(['hypertrophy', 'hypertrophied'])) {
+        popStaging['cervixRemarks'] = 'Hypertrophied';
+      } else if (lowerText.contains('cervix') && lowerText.contains('normal')) {
+        popStaging['cervixRemarks'] = 'Normal / Smooth';
+      }
+
+      // Vagina / Vulva (Station 2)
+      final vaginaVal = findValueForLabel(['vagina / vulva', 'vagina/vulva', 'vagina:', 'vulva:', 'योनी']);
+      if (vaginaVal != null && vaginaVal.isNotEmpty) {
+        popStaging['vaginaRemarks'] = vaginaVal.trim();
+      } else if (isOptionSelected(['atrophy', 'atrophic', 'सुकेको'])) {
+        popStaging['vaginaRemarks'] = 'Atrophic';
+      } else if (isOptionSelected(['mild discharge', 'vaginal discharge'])) {
+        popStaging['vaginaRemarks'] = 'Mild discharge';
+      } else if (lowerText.contains('vagina') && lowerText.contains('normal')) {
+        popStaging['vaginaRemarks'] = 'Normal';
+      }
+
       if (page2OmrPop != null && (page2OmrPop['tone_weak']?.isMarked == true || page2OmrPop['tone_torn']?.isMarked == true || page2OmrPop['tone_normal']?.isMarked == true)) {
         if (page2OmrPop['tone_torn']?.isMarked == true) {
-          popStaging['pelvicFloorTone'] = 'torn';
+          popStaging['pelvicFloorTone'] = 'hypertonic';
         } else if (page2OmrPop['tone_weak']?.isMarked == true) {
           popStaging['pelvicFloorTone'] = 'weak';
         } else {
           popStaging['pelvicFloorTone'] = 'normal';
         }
       } else {
-        final toneWeak = isOptionSelected(['tone: weak', 'weak tone', 'weak']) || highest >= 2;
-        popStaging['pelvicFloorTone'] = toneWeak ? 'weak' : 'normal';
+        if (isOptionSelected(['hypertonic', 'tone: hypertonic', 'torn', 'tone: torn', 'कडा'])) {
+          popStaging['pelvicFloorTone'] = 'hypertonic';
+        } else if (isOptionSelected(['tone: weak', 'weak tone', 'weak', 'कमजोर']) || highest >= 2) {
+          popStaging['pelvicFloorTone'] = 'weak';
+        } else {
+          popStaging['pelvicFloorTone'] = 'normal';
+        }
       }
       confidences['popStaging'] = 0.94;
 
@@ -834,7 +969,11 @@ OBSTETRIC HISTORY:
 Deliveries: 3
 Living Children: 3
 Abortions: 0
-Complaints Duration: >1 Year
+Complaints Duration: > 1 year
+Clinical Complaints:
+[x] Mass Per Vagina
+[x] White / Foul Discharge
+[x] Pelvic Heaviness
 Consent: [x] Treatment Informed Consent Granted
 [x] Medical information storage consent granted
 ''';
@@ -843,15 +982,28 @@ Consent: [x] Treatment Informed Consent Granted
   /// Sample 2: Back Page (Vitals, POP Examination, Diagnoses & Treatment)
   static const String samplePage2Text = '''
 GYNOCAMP CLINICAL ASSESSMENT & EXAMINATION (YELLOW FORM - PAGE 2)
-Station 3: Pelvic Organ Prolapse (POP) Examination
+Station 1: Anamnesis & Obstetric History
+Deliveries: 3
+Living Children: 3
+Abortions: 0
+Complaints Duration: 3-12 months
+Clinical Complaints:
+[x] Mass Per Vagina
+[x] White / Foul Discharge
+[x] Pelvic Heaviness
+[x] Lower Abdominal Pain
+
+Station 2: Pelvic Organ Prolapse (POP) Examination
 Uterus Inside: No (Prolapsed outside introitus)
 Pelvic Floor Tone: Weak
 Anterior Compartment Stage: 2
 Middle Compartment Stage: 3
 Posterior Compartment Stage: 1
 Highest POP Stage: 3
+Cervix Appearance: Erosion
+Vagina / Vulva: Mild discharge
 
-Station 4: Point-of-Care Lab Tests & Vitals
+Station 3: Point-of-Care Lab Tests & Vitals
 Blood Pressure: 130/85 mmHg
 Pulse Rate: 78 bpm
 SpO2: 98%
@@ -859,16 +1011,19 @@ Blood Glucose: 115 mg/dL
 Urine Test: Normal
 Pregnancy Test: Neg
 
-Station 5: Diagnoses & Prescription
+Station 4: Confirmed Diagnoses
 Diagnoses:
 [x] POP (Pelvic Organ Prolapse Stage 3)
 [x] candid infection (Candidiasis)
 [x] hypertension (Pre-hypertension monitor)
 
+Station 5: Treatments & Prescriptions
 Treatments & Prescriptions:
 [x] Ring Pessary (Size 65mm fitted)
 [x] Metronidazole 400mg PO BD x 7d
 [x] Fluconazole 150mg stat
+
+Station 6: Outtake & Referral
 Surgical Referral: Scheer Memorial Hospital (Vaginal Hysterectomy evaluation)
 Follow-up: GynaeSupport Nurse in 2 weeks
 ''';

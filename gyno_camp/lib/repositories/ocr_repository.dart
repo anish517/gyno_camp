@@ -186,6 +186,17 @@ class OcrRepository implements IOcrRepository {
     );
 
     // 2. Construct Clinical Visit Model
+    final rawComplaints = obs['clinicalComplaints'];
+    final List<String> complaintsList = rawComplaints is List ? List<String>.from(rawComplaints) : [];
+    final duration = obs['complaintsDuration'] as String? ?? '';
+    final Map<String, dynamic> anamnesisMap = {};
+    for (final c in complaintsList) {
+      anamnesisMap[c] = {
+        'present': true,
+        'duration': duration,
+      };
+    }
+
     final clinicalVisit = ClinicalVisitModel(
       id: 'vis-${_uuid.v4()}',
       patientId: registeredPatient.patientId,
@@ -195,7 +206,11 @@ class OcrRepository implements IOcrRepository {
       deliveries: obs['deliveries'] as int? ?? 3,
       livingChildren: obs['livingChildren'] as int? ?? 3,
       abortions: obs['abortions'] as int? ?? 0,
+      anamnesisComplaints: anamnesisMap,
       uterusInside: pop['uterusInside'] as bool? ?? false,
+      cervixRemarks: pop['cervixRemarks'] as String?,
+      vaginaRemarks: pop['vaginaRemarks'] as String?,
+      vulvaRemarks: pop['vulvaRemarks'] as String?,
       pelvicFloorTone: pop['pelvicFloorTone'] as String? ?? 'weak',
       popAnteriorStage: pop['anteriorStage'] as int? ?? 2,
       popMiddleStage: pop['middleStage'] as int? ?? 3,

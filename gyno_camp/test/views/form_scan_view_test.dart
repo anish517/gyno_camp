@@ -95,6 +95,30 @@ void main() {
       expect(find.text('Living Children (जीवित बालबच्चा)'), findsOneWidget);
       expect(find.text('Abortions / Miscarriages (गर्भपतन)'), findsOneWidget);
 
+      // Verify Complaints Duration and 9 Chief Clinical Complaints in Obstetric tab
+      expect(find.text('Complaints Duration (समस्या सुरु भएको अवधि)'), findsOneWidget);
+      expect(find.text('Chief Clinical Complaints (प्रमुख क्लिनिकल लक्षणहरू)'), findsOneWidget);
+      expect(find.text('Mass Per Vagina (केही बाहिर निस्कने)'), findsOneWidget);
+      expect(find.text('White / Foul Discharge (सेतो / गन्हाउने पानी)'), findsOneWidget);
+
+      // Switch to POP Staging tab
+      await tester.tap(find.text('3. POP Staging'));
+      await tester.pumpAndSettle();
+
+      // Verify Uterus Inside, Pelvic Tone, Cervix Appearance, Vagina/Vulva
+      expect(find.text('Uterus Inside:'), findsOneWidget);
+      expect(find.text('Pelvic Floor Tone (पेल्भिक मांसपेशीको तनाव):'), findsOneWidget);
+      expect(find.text('Cervix Appearance (पाठेघरको मुखको अवस्था):'), findsOneWidget);
+      expect(find.text('Vagina / Vulva (योनी तथा बाह्य अङ्गको अवस्था):'), findsOneWidget);
+
+      // Switch to Vitals & Diagnoses tab
+      await tester.tap(find.text('4. Vitals & Diagnoses'));
+      await tester.pumpAndSettle();
+
+      // Verify Point-of-care lab tests (Urine dipstick & UPT)
+      expect(find.text('Urine Dipstick (पिसाब जाँच):'), findsOneWidget);
+      expect(find.text('Pregnancy Test (UPT) (गर्भ जाँच):'), findsOneWidget);
+
       // Verify back button to return to capture slots
       expect(find.byTooltip('Return to Document Upload Slots'), findsOneWidget);
       await tester.tap(find.byTooltip('Return to Document Upload Slots'));

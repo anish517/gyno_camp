@@ -117,9 +117,18 @@ ${page2.rawText}
       page1RawText: page1.rawText,
       page2RawText: page2.rawText,
       demographics: Map<String, dynamic>.from(page1.demographics.isNotEmpty ? page1.demographics : page2.demographics),
-      obstetrics: Map<String, dynamic>.from(page1.obstetrics.isNotEmpty ? page1.obstetrics : page2.obstetrics),
-      vitals: Map<String, dynamic>.from(page2.vitals.isNotEmpty ? page2.vitals : page1.vitals),
-      popStaging: Map<String, dynamic>.from(page2.popStaging.isNotEmpty ? page2.popStaging : page1.popStaging),
+      obstetrics: <String, dynamic>{
+        ...page1.obstetrics,
+        ...page2.obstetrics,
+      },
+      vitals: <String, dynamic>{
+        ...page1.vitals,
+        ...page2.vitals,
+      },
+      popStaging: <String, dynamic>{
+        ...page1.popStaging,
+        ...page2.popStaging,
+      },
       diagnoses: List<String>.from(page2.diagnoses.isNotEmpty ? page2.diagnoses : page1.diagnoses),
       medications: List<String>.from(page2.medications.isNotEmpty ? page2.medications : page1.medications),
       surgicalReferral: page2.surgicalReferral ?? page1.surgicalReferral,

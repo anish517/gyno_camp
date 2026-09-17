@@ -1432,7 +1432,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     value: obs['deliveries'] as int? ?? 3,
                     onChanged: (v) {
                       obs['deliveries'] = v;
-                      vm.updateDemographic('deliveries', v);
+                      vm.updateObstetric('deliveries', v);
                     },
                   ),
                   const Divider(height: 24),
@@ -1442,7 +1442,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     value: obs['livingChildren'] as int? ?? 3,
                     onChanged: (v) {
                       obs['livingChildren'] = v;
-                      vm.updateDemographic('livingChildren', v);
+                      vm.updateObstetric('livingChildren', v);
                     },
                   ),
                   const Divider(height: 24),
@@ -1452,8 +1452,139 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     value: obs['abortions'] as int? ?? 0,
                     onChanged: (v) {
                       obs['abortions'] = v;
-                      vm.updateDemographic('abortions', v);
+                      vm.updateObstetric('abortions', v);
                     },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Station 1: Complaints Duration
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.schedule, color: AppTheme.primaryTeal, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Complaints Duration (समस्या सुरु भएको अवधि)',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Cross-check with Yellow Form Station 1 duration checkboxes:',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      {'label': '< 3 months (< ३ महिना)', 'val': '< 3 months'},
+                      {'label': '3-12 months (३-१२ महिना)', 'val': '3-12 months'},
+                      {'label': '> 1 year (> १ वर्ष)', 'val': '> 1 year'},
+                    ].map((item) {
+                      final isSelected = (obs['complaintsDuration'] as String?) == item['val'];
+                      return ChoiceChip(
+                        label: Text(item['label']!),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 12,
+                        ),
+                        onSelected: (sel) {
+                          vm.updateObstetric('complaintsDuration', sel ? item['val'] : null);
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Station 1: 9 Chief Clinical Complaints Checkboxes
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.checklist_rounded, color: AppTheme.primaryTeal, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Chief Clinical Complaints (प्रमुख क्लिनिकल लक्षणहरू)',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryLight.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${((obs['clinicalComplaints'] as List?) ?? []).length} detected',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Select all presenting complaints matching physical Yellow Form Page 2 checkboxes:',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      {'key': 'Lower Abdominal Pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुख्ने)'},
+                      {'key': 'White / Foul Discharge', 'label': 'White / Foul Discharge (सेतो / गन्हाउने पानी)'},
+                      {'key': 'Pelvic Heaviness', 'label': 'Pelvic Heaviness (तल्लो पेट भारी हुने)'},
+                      {'key': 'Burning Micturition', 'label': 'Burning Micturition (पिसाब पोल्ने)'},
+                      {'key': 'Urinary Incontinence', 'label': 'Urinary Incontinence (पिसाब चुहिने)'},
+                      {'key': 'Dyspareunia', 'label': 'Dyspareunia (सम्पर्कमा दुखाई)'},
+                      {'key': 'Coital Bleeding', 'label': 'Coital Bleeding (सम्पर्कपछि रक्तस्राव)'},
+                      {'key': 'Mass Per Vagina', 'label': 'Mass Per Vagina (केही बाहिर निस्कने)'},
+                      {'key': 'Severe Backache', 'label': 'Severe Backache (अत्यधिक ढाड दुख्ने)'},
+                    ].map((comp) {
+                      final selectedComplaints = (obs['clinicalComplaints'] as List?)?.cast<String>() ?? [];
+                      final isSelected = selectedComplaints.contains(comp['key']);
+                      return FilterChip(
+                        label: Text(comp['label']!),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        checkmarkColor: AppTheme.primaryTeal,
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 11.5,
+                        ),
+                        onSelected: (_) {
+                          vm.toggleClinicalComplaint(comp['key']!);
+                        },
+                      );
+                    }).toList(),
                   ),
                 ],
               ),
@@ -1511,8 +1642,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     : AppTheme.successGreen,
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1562,6 +1696,155 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     value: pop['posteriorStage'] as int? ?? 1,
                     maxStage: 4,
                     onChanged: (v) => vm.updatePopStage('posteriorStage', v),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Station 2: Pelvic Floor Tone & Uterus Inside
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Uterus Position & Pelvic Tone (पाठेघरको अवस्था तथा मांसपेशी तनाव):',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      const Text('Uterus Inside:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ChoiceChip(
+                        label: const Text('Yes (भित्रै छ)'),
+                        selected: pop['uterusInside'] == true,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        onSelected: (sel) => vm.updatePopStage('uterusInside', true),
+                      ),
+                      ChoiceChip(
+                        label: const Text('No / Prolapsed (बाहिर खसेको)'),
+                        selected: pop['uterusInside'] == false,
+                        selectedColor: Colors.orange.shade100,
+                        onSelected: (sel) => vm.updatePopStage('uterusInside', false),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  const Text('Pelvic Floor Tone (पेल्भिक मांसपेशीको तनाव):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      {'val': 'normal', 'label': 'Normal (सामान्य)'},
+                      {'val': 'weak', 'label': 'Weak (कमजोर)'},
+                      {'val': 'hypertonic', 'label': 'Hypertonic (कडा / तनावग्रस्त)'},
+                    ].map((t) {
+                      final isSelected = (pop['pelvicFloorTone'] as String?)?.toLowerCase() == t['val'];
+                      return ChoiceChip(
+                        label: Text(t['label']!),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 12,
+                        ),
+                        onSelected: (_) => vm.updatePopStage('pelvicFloorTone', t['val']),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Station 2: Cervix Appearance & Vagina / Vulva
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Cervix Appearance (पाठेघरको मुखको अवस्था):',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      'Normal / Smooth', 'Erosion', 'Hypertrophy', 'Polyp', 'Bleeding on Touch', 'Leukoplakia'
+                    ].map((chip) {
+                      final current = (pop['cervixRemarks'] as String? ?? '').toLowerCase();
+                      final isSelected = current.contains(chip.toLowerCase());
+                      return ChoiceChip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(chip, style: const TextStyle(fontSize: 11)),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        onSelected: (sel) {
+                          vm.updatePopStage('cervixRemarks', sel ? chip : '');
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue: pop['cervixRemarks'] as String? ?? '',
+                    decoration: const InputDecoration(
+                      hintText: 'Cervix clinical remarks or notes',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) => vm.updatePopStage('cervixRemarks', val),
+                  ),
+                  const Divider(height: 28),
+                  const Text(
+                    'Vagina / Vulva (योनी तथा बाह्य अङ्गको अवस्था):',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      'Normal', 'Atrophic', 'Mild discharge', 'Condyloma', 'Ulcer', 'Lichen Sclerosus'
+                    ].map((chip) {
+                      final current = (pop['vaginaRemarks'] as String? ?? '').toLowerCase();
+                      final isSelected = current.contains(chip.toLowerCase());
+                      return ChoiceChip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(chip, style: const TextStyle(fontSize: 11)),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        onSelected: (sel) {
+                          vm.updatePopStage('vaginaRemarks', sel ? chip : '');
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue: pop['vaginaRemarks'] as String? ?? '',
+                    decoration: const InputDecoration(
+                      hintText: 'Vagina / Vulva clinical remarks or notes',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) => vm.updatePopStage('vaginaRemarks', val),
                   ),
                 ],
               ),
@@ -1656,6 +1939,130 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+
+          // Station 3: Rapid Lab Tests (Urine Dipstick & UPT)
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Point-of-Care Lab Tests (प्रयोगशाला जाँच):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark)),
+                  const SizedBox(height: 10),
+                  const Text('Urine Dipstick (पिसाब जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Builder(
+                    builder: (context) {
+                      final currentUrine = (vitals['urineTest'] as String? ?? 'normal').toLowerCase();
+                      final isNormal = currentUrine == 'normal' || currentUrine.isEmpty;
+                      final hasProtein = currentUrine.contains('protein');
+                      final hasGlucose = currentUrine.contains('glucose');
+                      final hasBlood = currentUrine.contains('blood');
+
+                      void updateUrine(String type, bool selected) {
+                        if (type == 'normal') {
+                          vm.updateVital('urineTest', 'normal');
+                          return;
+                        }
+                        final parts = <String>[];
+                        if (type == 'protein' ? selected : hasProtein) parts.add('protein');
+                        if (type == 'glucose' ? selected : hasGlucose) parts.add('glucose');
+                        if (type == 'blood' ? selected : hasBlood) parts.add('blood');
+
+                        if (parts.isEmpty) {
+                          vm.updateVital('urineTest', 'normal');
+                        } else {
+                          vm.updateVital('urineTest', parts.join(', '));
+                        }
+                      }
+
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Normal (सामान्य)'),
+                            selected: isNormal,
+                            selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                            labelStyle: TextStyle(
+                              color: isNormal ? AppTheme.primaryTeal : const Color(0xFF334155),
+                              fontWeight: isNormal ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 11.5,
+                            ),
+                            onSelected: (sel) => updateUrine('normal', true),
+                          ),
+                          FilterChip(
+                            label: const Text('Protein+ (प्रोटिन)'),
+                            selected: hasProtein,
+                            selectedColor: Colors.amber.shade100,
+                            checkmarkColor: Colors.amber.shade900,
+                            labelStyle: TextStyle(
+                              color: hasProtein ? Colors.amber.shade900 : const Color(0xFF334155),
+                              fontWeight: hasProtein ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 11.5,
+                            ),
+                            onSelected: (sel) => updateUrine('protein', sel),
+                          ),
+                          FilterChip(
+                            label: const Text('Glucose+ (ग्लुकोज)'),
+                            selected: hasGlucose,
+                            selectedColor: Colors.orange.shade100,
+                            checkmarkColor: Colors.deepOrange,
+                            labelStyle: TextStyle(
+                              color: hasGlucose ? Colors.deepOrange : const Color(0xFF334155),
+                              fontWeight: hasGlucose ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 11.5,
+                            ),
+                            onSelected: (sel) => updateUrine('glucose', sel),
+                          ),
+                          FilterChip(
+                            label: const Text('Blood+ (रगत)'),
+                            selected: hasBlood,
+                            selectedColor: Colors.red.shade100,
+                            checkmarkColor: Colors.red.shade900,
+                            labelStyle: TextStyle(
+                              color: hasBlood ? Colors.red.shade900 : const Color(0xFF334155),
+                              fontWeight: hasBlood ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 11.5,
+                            ),
+                            onSelected: (sel) => updateUrine('blood', sel),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const Divider(height: 24),
+                  const Text('Pregnancy Test (UPT) (गर्भ जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      {'val': 'neg', 'label': 'Negative (नेगेटिभ)'},
+                      {'val': 'pos', 'label': 'Positive (पोजिटिभ)'},
+                      {'val': 'not_done', 'label': 'Not Done (जाँच नगरिएको)'},
+                    ].map((item) {
+                      final isSelected = (vitals['pregnancyTest'] as String? ?? 'neg').toLowerCase() == item['val'];
+                      return ChoiceChip(
+                        label: Text(item['label']!),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 11.5,
+                        ),
+                        onSelected: (_) => vm.updateVital('pregnancyTest', item['val']),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 20),
           const Text('Diagnoses Detected (रोग पहिचान):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),

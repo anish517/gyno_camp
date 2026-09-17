@@ -363,6 +363,33 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     state = state.copyWith(duplicateResult: result);
   }
 
+  /// Updates an obstetric / anamnesis field during human verification
+  void updateObstetric(String key, dynamic value) {
+    if (state.scanResult == null) return;
+    final updatedObs = Map<String, dynamic>.from(state.scanResult!.obstetrics);
+    updatedObs[key] = value;
+    state = state.copyWith(
+      scanResult: state.scanResult!.copyWith(obstetrics: updatedObs),
+    );
+  }
+
+  /// Toggles clinical complaint in obstetrics
+  void toggleClinicalComplaint(String complaint) {
+    if (state.scanResult == null) return;
+    final updatedObs = Map<String, dynamic>.from(state.scanResult!.obstetrics);
+    final rawList = updatedObs['clinicalComplaints'];
+    final List<String> complaints = rawList is List ? List<String>.from(rawList) : [];
+    if (complaints.contains(complaint)) {
+      complaints.remove(complaint);
+    } else {
+      complaints.add(complaint);
+    }
+    updatedObs['clinicalComplaints'] = complaints;
+    state = state.copyWith(
+      scanResult: state.scanResult!.copyWith(obstetrics: updatedObs),
+    );
+  }
+
   /// Updates a vital sign field during human verification
   void updateVital(String key, dynamic value) {
     if (state.scanResult == null) return;
