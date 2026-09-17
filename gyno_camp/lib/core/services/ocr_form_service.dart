@@ -98,25 +98,60 @@ class OcrFormService {
     bool isOptionSelected(List<String> keywords) {
       for (final line in lines) {
         final lower = line.toLowerCase();
-        if (!keywords.any((k) => lower.contains(k.toLowerCase()))) continue;
+        for (final k in keywords) {
+          final kw = k.toLowerCase();
+          final idx = lower.indexOf(kw);
+          if (idx == -1) continue;
 
-        final hasPositive = RegExp(
-          r'\[\s*[xX✓✔•*+\#1\-]\s*\]|☒|☑|[✓✔√]|(?:\b|[^\w])[xX](?:\b|[^\w])|•',
-        ).hasMatch(line);
+          // Check if there are multiple checkboxes on this line (e.g. "[ ] A  [x] B")
+          final checkCount = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔]?\s*\)|[☐口Ü☑☒]').allMatches(line).length;
+          if (checkCount > 1) {
+            final start = max(0, idx - 25);
+            final end = min(line.length, idx + kw.length + 25);
+            final snippet = line.substring(start, end);
 
-        final hasUnchecked = RegExp(r'\[\s*\]|\(\s*\)|[☐口Ü]').hasMatch(line);
+            final checkedNear = RegExp(
+              r'\[\s*[xX✓✔•*+\#1\-]\s*\]\s*' + RegExp.escape(kw) +
+              r'|\(\s*[xX✓✔•*+\#1\-]\s*\)\s*' + RegExp.escape(kw) +
+              r'|[☑☒✓✔•]\s*' + RegExp.escape(kw) +
+              r'|' + RegExp.escape(kw) + r'\s*\[\s*[xX✓✔•*+\#1\-]\s*\]' +
+              r'|' + RegExp.escape(kw) + r'\s*\(\s*[xX✓✔•*+\#1\-]\s*\)' +
+              r'|' + RegExp.escape(kw) + r'\s*[☑☒✓✔•]',
+              caseSensitive: false,
+            ).hasMatch(snippet);
 
-        if (hasPositive) return true;
-        if (hasUnchecked) return false;
+            final uncheckedNear = RegExp(
+              r'\[\s*\]\s*' + RegExp.escape(kw) +
+              r'|\(\s*\)\s*' + RegExp.escape(kw) +
+              r'|[☐口Ü]\s*' + RegExp.escape(kw) +
+              r'|' + RegExp.escape(kw) + r'\s*\[\s*\]' +
+              r'|' + RegExp.escape(kw) + r'\s*\(\s*\)' +
+              r'|' + RegExp.escape(kw) + r'\s*[☐口Ü]',
+              caseSensitive: false,
+            ).hasMatch(snippet);
 
-        if (line.trim().endsWith('(x)') || line.trim().endsWith('[x]') || line.trim().endsWith('✓')) {
-          return true;
+            if (checkedNear) return true;
+            if (uncheckedNear) return false;
+          } else {
+            final hasPositive = RegExp(
+              r'\[\s*[xX✓✔•*+\#1\-]\s*\]|☒|☑|[✓✔√]|(?:\b|[^\w])[xX](?:\b|[^\w])|•',
+            ).hasMatch(line);
+
+            final hasUnchecked = RegExp(r'\[\s*\]|\(\s*\)|[☐口Ü]').hasMatch(line);
+
+            if (hasPositive) return true;
+            if (hasUnchecked) return false;
+
+            if (line.trim().endsWith('(x)') || line.trim().endsWith('[x]') || line.trim().endsWith('✓')) {
+              return true;
+            }
+          }
         }
       }
 
-      // If document has checkmarks elsewhere in the document, any option without one is unchecked
+      // If document has checkmarks/checkboxes elsewhere in the document, any option without one is unchecked
       final allText = lines.join('\n');
-      final hasAnyCheckmarks = RegExp(r'\[\s*[xX✓✔•*+\#1\-]\s*\]|☒|☑|[✓✔√]|•').hasMatch(allText);
+      final hasAnyCheckmarks = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔]?\s*\)|☒|☑|[✓✔√]|•|[☐口Ü]').hasMatch(allText);
       if (hasAnyCheckmarks) {
         return false;
       }
@@ -698,10 +733,29 @@ class OcrFormService {
       confidences['glucose'] = (parsedGlucose != null) ? 0.92 : 0.60;
 
       // ── Rapid Tests ──
-      final urineProtein = isOptionSelected(['protein+', 'protein', 'प्रोटिन']);
-      final urineGlucose = isOptionSelected(['glucose+', 'glucose', 'ग्लुकोज']);
-      final urineBlood = isOptionSelected(['blood+', 'blood', 'रगत']);
-      final urineNormal = isOptionSelected(['urine test: normal', 'urine: normal', 'normal']) && !urineProtein && !urineGlucose && !urineBlood;
+      final rawUrine = findValueForLabel(['urine test', 'urine dipstick', 'urine', 'पिसाब जाँच']);
+      final urineLineText = (rawUrine ?? '').toLowerCase();
+
+      final urineRelatedLines = lines
+          .where((l) => l.toLowerCase().contains('urine') || l.toLowerCase().contains('dipstick') || l.toLowerCase().contains('पिसाब'))
+          .map((l) => l.toLowerCase())
+          .toList();
+      final urineContext = '$urineLineText ${urineRelatedLines.join(' ')}';
+
+      final hasUrineBoxes = rawUrine != null && RegExp(r'\[|\]|\(|\)|[☐口Ü☑☒]').hasMatch(rawUrine);
+
+      final urineProtein = isOptionSelected(['protein+', 'urine protein', 'protein: +', 'प्रोटिन+']) ||
+          (!hasUrineBoxes && rawUrine != null && rawUrine.toLowerCase().contains('protein') && !rawUrine.toLowerCase().contains('no protein') && !rawUrine.toLowerCase().contains('nil'));
+
+      final urineGlucose = isOptionSelected(['glucose+', 'urine glucose', 'urine sugar', 'glucose: +', 'ग्लुकोज+']) ||
+          (!hasUrineBoxes && rawUrine != null && (rawUrine.toLowerCase().contains('glucose+') || rawUrine.toLowerCase().contains('sugar+')));
+
+      final urineBlood = isOptionSelected(['blood+', 'urine blood', 'dipstick blood', 'blood: +', 'रगत+']) ||
+          (!hasUrineBoxes && rawUrine != null && rawUrine.toLowerCase().contains('blood+'));
+
+      final urineNormal = (rawUrine != null && (urineLineText.contains('normal') || urineLineText.contains('nil') || urineLineText.contains('neg'))) ||
+          isOptionSelected(['urine: normal', 'urine test: normal', 'dipstick: normal']) ||
+          (!urineProtein && !urineGlucose && !urineBlood && urineContext.contains('normal'));
 
       final urineParts = <String>[];
       if (urineProtein) urineParts.add('protein');
@@ -710,20 +764,25 @@ class OcrFormService {
 
       if (urineParts.isNotEmpty) {
         vitals['urineTest'] = urineParts.join(', ');
-      } else if (urineNormal) {
+      } else if (urineNormal || rawUrine == null || rawUrine.isEmpty) {
         vitals['urineTest'] = 'normal';
       } else {
-        final rawUrine = findValueForLabel(['urine test', 'urine', 'पिसाब जाँच']);
-        if (rawUrine != null && rawUrine.isNotEmpty) {
-          vitals['urineTest'] = rawUrine.toLowerCase().contains('pos') ? 'pos' : 'normal';
-        } else {
-          vitals['urineTest'] = 'normal';
-        }
+        vitals['urineTest'] = urineLineText.contains('pos') ? 'pos' : 'normal';
       }
 
-      if (isOptionSelected(['not done', 'upt: not done', 'pregnancy test: not done', 'जाँच नगरिएको'])) {
+      final rawPregnancy = findValueForLabel(['pregnancy test', 'pregnancy', 'upt', 'hcg', 'गर्भ जाँच']);
+      final pregLower = (rawPregnancy ?? '').toLowerCase();
+      final hasPregBoxes = rawPregnancy != null && RegExp(r'\[|\]|\(|\)|[☐口Ü☑☒]').hasMatch(rawPregnancy);
+
+      final pregNotDone = isOptionSelected(['not done', 'upt: not done', 'pregnancy: not done', 'pregnancy test: not done', 'जाँच नगरिएको']) ||
+          (!hasPregBoxes && pregLower.contains('not'));
+
+      final pregPos = isOptionSelected(['positive', 'pos', 'hcg: pos', 'pregnancy: pos', 'pregnancy test: pos', 'upt: pos', 'upt: positive']) ||
+          (!hasPregBoxes && pregLower.contains('pos'));
+
+      if (pregNotDone) {
         vitals['pregnancyTest'] = 'not_done';
-      } else if (isOptionSelected(['hcg: pos', 'pregnancy: pos', 'pregnancy test: pos', 'positive'])) {
+      } else if (pregPos) {
         vitals['pregnancyTest'] = 'pos';
       } else {
         vitals['pregnancyTest'] = 'neg';
@@ -733,34 +792,36 @@ class OcrFormService {
       // ── POP Examination & Staging (Station 3) ──
       int? ant, mid, post, explicitHighest;
 
-      final antValue = findValueForLabel(['anterior compartment', 'anterior', 'cystocele']);
-      if (antValue != null) {
-        final firstToken = antValue.split(RegExp(r'[,;\n]')).first.trim();
-        ant = parseStageInt(RegExp(r'([0-3IlL|])', caseSensitive: false).firstMatch(firstToken)?.group(1));
+      int? parsePopStage(String? val) {
+        if (val == null) return null;
+        final clean = val.replaceAll(RegExp(r'\([^)]*\)'), ' ').trim();
+        final digitMatch = RegExp(r'(?:stage[:\s]*)?([0-4])\b', caseSensitive: false).firstMatch(clean);
+        if (digitMatch != null) {
+          return int.tryParse(digitMatch.group(1)!);
+        }
+        final ocrMatch = RegExp(r'(?:stage[:\s]*|[:\s_])([0-4IlL|])', caseSensitive: false).firstMatch(clean);
+        if (ocrMatch != null) {
+          return parseStageInt(ocrMatch.group(1));
+        }
+        return null;
       }
+
+      final antValue = findValueForLabel(['anterior compartment', 'anterior', 'cystocele']);
+      ant = parsePopStage(antValue);
 
       final midValue = findValueForLabel(['middle compartment', 'middle', 'uterine', 'cervical']);
-      if (midValue != null) {
-        final firstToken = midValue.split(RegExp(r'[,;\n]')).first.trim();
-        mid = parseStageInt(RegExp(r'([0-3IlL|])', caseSensitive: false).firstMatch(firstToken)?.group(1));
-      }
+      mid = parsePopStage(midValue);
 
       final postValue = findValueForLabel(['posterior compartment', 'posterior', 'rectocele']);
-      if (postValue != null) {
-        final firstToken = postValue.split(RegExp(r'[,;\n]')).first.trim();
-        post = parseStageInt(RegExp(r'([0-3IlL|])', caseSensitive: false).firstMatch(firstToken)?.group(1));
-      }
+      post = parsePopStage(postValue);
 
       final highestValue = findValueForLabel(['highest pop stage', 'highest stage', 'highest pop']);
-      if (highestValue != null) {
-        final firstToken = highestValue.split(RegExp(r'[,;\n]')).first.trim();
-        explicitHighest = parseStageInt(RegExp(r'([0-3IlL|])', caseSensitive: false).firstMatch(firstToken)?.group(1));
-      }
+      explicitHighest = parsePopStage(highestValue);
 
-      ant ??= parseStageInt(RegExp(r'anterior(?: compartment)?(?: stage)?[:\s_]*([0-3IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
-      mid ??= parseStageInt(RegExp(r'middle(?: compartment)?(?: stage)?[:\s_]*([0-3IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
-      post ??= parseStageInt(RegExp(r'posterior(?: compartment)?(?: stage)?[:\s_]*([0-3IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
-      explicitHighest ??= parseStageInt(RegExp(r'highest(?: pop)?(?: stage)?[:\s_]*([0-3IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
+      ant ??= parseStageInt(RegExp(r'anterior(?: compartment)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
+      mid ??= parseStageInt(RegExp(r'middle(?: compartment)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
+      post ??= parseStageInt(RegExp(r'posterior(?: compartment)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
+      explicitHighest ??= parseStageInt(RegExp(r'highest(?: pop)?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
 
       // OMR override for POP compartments if pixel analysis detected marked boxes
       if (page2OmrPop != null && page2OmrPop.values.any((r) => r.isMarked)) {
