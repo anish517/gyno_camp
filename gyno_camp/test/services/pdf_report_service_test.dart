@@ -193,5 +193,69 @@ void main() {
       final pageMatches = RegExp(r'/Type\s*/Page\b').allMatches(pdfStr);
       expect(pageMatches.length, equals(2));
     });
+
+    test('generatePatientRegistrationFormPdf with camp generates 2 pages for blank form without bullet glyph errors', () async {
+      final camp = CampModel(
+        id: 'c-ktm-01',
+        campCode: 'KTM01',
+        name: 'Outreach Gyno Health Camp',
+        venue: 'Primary Health Care Center',
+        district: 'KATHMANDU',
+        municipality: 'BUDHANILKANTHA MUNICIPALITY',
+        ward: '03',
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 3)),
+        status: CampStatus.open,
+        createdAt: DateTime.now(),
+      );
+
+      final bytes = await pdfService.generatePatientRegistrationFormPdf(
+        camp: camp,
+        organizationName: 'Community Health Outreach Mission',
+      );
+      expect(bytes, isNotEmpty);
+      final pdfStr = latin1.decode(bytes);
+      final pageMatches = RegExp(r'/Type\s*/Page\b').allMatches(pdfStr);
+      expect(pageMatches.length, equals(2));
+      // Verify no bullet character exists in raw stream
+      expect(pdfStr.contains('•'), isFalse);
+    });
+
+    test('generatePatientRegistrationFormPdf with long municipality stays strictly 2 pages', () async {
+      final patient = PatientModel(
+        id: 'p-long-01',
+        patientId: 'KTM01-001',
+        campId: 'c-ktm-01',
+        campCode: 'KTM01',
+        intakeDate: DateTime.now(),
+        firstName: 'SITA',
+        surname: 'SHRESTHA',
+        age: 38,
+        maritalStatus: 'married',
+        spouseOrFatherName: 'RAM SHRESTHA',
+        mobile: '9841234567',
+        contactPerson: 'HARI SHRESTHA',
+        contactMobile: '9847654321',
+        maritalAge: 20,
+        district: 'KATHMANDU',
+        municipality: 'BUDHANILKANTHA MUNICIPALITY',
+        ward: '03',
+        province: 'BAGMATI',
+        reasonsForVisit: ['pelvic_organ_prolapse', 'urinary_problems'],
+        consentTreatment: true,
+        consentStoreMedicalInfo: true,
+        createdByUserId: 'usr-1',
+        createdByDeviceId: 'dev-1',
+        createdAt: DateTime.now(),
+      );
+
+      final bytes = await pdfService.generatePatientRegistrationFormPdf(
+        patient: patient,
+      );
+      expect(bytes, isNotEmpty);
+      final pdfStr = latin1.decode(bytes);
+      final pageMatches = RegExp(r'/Type\s*/Page\b').allMatches(pdfStr);
+      expect(pageMatches.length, equals(2));
+    });
   });
 }
