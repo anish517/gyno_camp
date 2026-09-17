@@ -1488,6 +1488,7 @@ class PdfReportService {
   Future<Uint8List> generatePatientRegistrationFormPdf({
     PatientModel? patient,
     CampModel? camp,
+    ClinicalVisitModel? visit,
     String organizationName = 'Nepal Gyno Health Outreach Network',
   }) async {
     final theme = await getPdfTheme();
@@ -1727,7 +1728,14 @@ class PdfReportService {
               ...ClinicalConstants.visitReasonOptions.entries.map(
                 (e) => cb(
                   e.value,
-                  patient?.reasonsForVisit.contains(e.key) ?? false,
+                  patient?.reasonsForVisit.any((r) {
+                    final rNorm = r.toLowerCase().trim();
+                    final keyNorm = e.key.toLowerCase().trim();
+                    return rNorm == keyNorm ||
+                        rNorm.contains(keyNorm) ||
+                        keyNorm.contains(rNorm) ||
+                        e.value.toLowerCase().contains(rNorm);
+                  }) ?? false,
                   isExpanded: true,
                 ),
               ),
@@ -1923,14 +1931,23 @@ class PdfReportService {
                 ]),
               );
 
-          pw.Widget line({double h = 13}) => pw.Container(
+          pw.Widget line({double h = 13, String? text}) => pw.Container(
                 height: h,
+                padding: const pw.EdgeInsets.symmetric(horizontal: 4),
                 margin: const pw.EdgeInsets.only(top: 2, bottom: 3),
                 decoration: pw.BoxDecoration(
-                  color: boxBg,
+                  color: (text != null && text.isNotEmpty) ? PdfColor.fromHex('F0FDFA') : boxBg,
                   border: pw.Border(bottom: pw.BorderSide(color: gray, width: 0.7)),
                 ),
+                alignment: pw.Alignment.centerLeft,
+                child: text != null && text.isNotEmpty
+                    ? pw.Text(sanitizeText(text), style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: dark))
+                    : pw.SizedBox(),
               );
+
+          final complaintsList = (visit?.anamnesisComplaints['clinicalComplaints'] as List?)?.map((e) => e.toString().toLowerCase()).toList() ?? [];
+          final durationVal = (visit?.anamnesisComplaints['complaintsDuration'] as String? ?? '').toLowerCase();
+          final tone = (visit?.pelvicFloorTone ?? '').toLowerCase();
 
           // Build columns
           // LEFT COLUMN: Stations 1-3 (Anamnesis, POP, Vitals)
@@ -1941,35 +1958,35 @@ class PdfReportService {
               sectionHeader('STATION 1: ANAMNESIS & OBSTETRIC HISTORY'),
               pw.Row(children: [
                 pw.Text('Deliveries (P): ', style: bold()),
-                numBox(''),
+                numBox(visit?.deliveries?.toString() ?? ''),
                 pw.SizedBox(width: 8),
                 pw.Text('Living Children: ', style: bold()),
-                numBox(''),
+                numBox(visit?.livingChildren?.toString() ?? ''),
                 pw.SizedBox(width: 8),
                 pw.Text('Abortions: ', style: bold()),
-                numBox(''),
+                numBox(visit?.abortions?.toString() ?? ''),
               ]),
               pw.SizedBox(height: 3),
               pw.Text('Complaints Duration:', style: bold()),
               pw.SizedBox(height: 2),
               pw.Row(children: [
-                cb('< 3 months', false),
-                cb('3-12 months', false),
-                cb('> 1 year', false),
+                cb('< 3 months', durationVal.contains('< 3') || durationVal.contains('<3')),
+                cb('3-12 months', durationVal.contains('3-12') || durationVal.contains('3 to 12')),
+                cb('> 1 year', durationVal.contains('> 1') || durationVal.contains('>1') || durationVal.contains('1 year')),
               ]),
               pw.SizedBox(height: 2),
               pw.Text('Clinical Complaints:', style: bold()),
               pw.SizedBox(height: 2),
               pw.Wrap(spacing: 0, runSpacing: 1, children: [
-                cb('Lower Abdominal Pain', false),
-                cb('White / Foul Discharge', false),
-                cb('Pelvic Heaviness', false),
-                cb('Burning Micturition', false),
-                cb('Urinary Incontinence', false),
-                cb('Dyspareunia', false),
-                cb('Coital Bleeding', false),
-                cb('Mass Per Vagina', false),
-                cb('Severe Backache', false),
+                cb('Lower Abdominal Pain', complaintsList.any((c) => c.contains('lower abdominal') || c.contains('abdominal pain'))),
+                cb('White / Foul Discharge', complaintsList.any((c) => c.contains('white') || c.contains('discharge'))),
+                cb('Pelvic Heaviness', complaintsList.any((c) => c.contains('heaviness'))),
+                cb('Burning Micturition', complaintsList.any((c) => c.contains('burning'))),
+                cb('Urinary Incontinence', complaintsList.any((c) => c.contains('incontinence'))),
+                cb('Dyspareunia', complaintsList.any((c) => c.contains('dyspareunia'))),
+                cb('Coital Bleeding', complaintsList.any((c) => c.contains('coital') || c.contains('bleeding'))),
+                cb('Mass Per Vagina', complaintsList.any((c) => c.contains('mass') || c.contains('hanging'))),
+                cb('Severe Backache', complaintsList.any((c) => c.contains('backache') || c.contains('back'))),
               ]),
               pw.SizedBox(height: 5),
 
@@ -1977,12 +1994,15 @@ class PdfReportService {
               sectionHeader('STATION 2: POP EXAMINATION (BADEN-WALKER)'),
               pw.Row(children: [
                 pw.Text('Uterus Inside: ', style: bold()),
-                cb('Yes', false), cb('No (Prolapsed)', false),
+                cb('Yes', visit?.uterusInside == true),
+                cb('No (Prolapsed)', visit?.uterusInside == false),
               ]),
               pw.SizedBox(height: 2),
               pw.Row(children: [
                 pw.Text('Pelvic Tone: ', style: bold()),
-                cb('Normal', false), cb('Weak', false), cb('Hypertonic', false),
+                cb('Normal', tone == 'normal'),
+                cb('Weak', tone == 'weak'),
+                cb('Hypertonic', tone == 'hypertonic' || tone == 'torn'),
               ]),
               pw.SizedBox(height: 3),
               pw.Text('Baden-Walker Staging:', style: bold()),
@@ -1992,39 +2012,39 @@ class PdfReportService {
                   pw.Text('Anterior', style: pw.TextStyle(fontSize: fsSmall)),
                   pw.Text('(Cystocele)', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
                   pw.SizedBox(height: 2),
-                  numBox('', w: 26, h: 20),
+                  numBox(visit != null ? '${visit.popAnteriorStage}' : '', w: 26, h: 20),
                 ]),
                 pw.SizedBox(width: 10),
                 pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
                   pw.Text('Middle', style: pw.TextStyle(fontSize: fsSmall)),
                   pw.Text('(Uterine)', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
                   pw.SizedBox(height: 2),
-                  numBox('', w: 26, h: 20),
+                  numBox(visit != null ? '${visit.popMiddleStage}' : '', w: 26, h: 20),
                 ]),
                 pw.SizedBox(width: 10),
                 pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
                   pw.Text('Posterior', style: pw.TextStyle(fontSize: fsSmall)),
                   pw.Text('(Rectocele)', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
                   pw.SizedBox(height: 2),
-                  numBox('', w: 26, h: 20),
+                  numBox(visit != null ? '${visit.popPosteriorStage}' : '', w: 26, h: 20),
                 ]),
                 pw.SizedBox(width: 10),
                 pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
                   pw.Text('Highest Stage', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold, color: primary)),
                   pw.SizedBox(height: 8),
-                  numBox('', w: 26, h: 20),
+                  numBox(visit != null ? '${visit.highestPopStage}' : '', w: 26, h: 20),
                 ]),
               ]),
               pw.SizedBox(height: 3),
               pw.Row(children: [
                 pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
                   pw.Text('Cervix Appearance:', style: bold(size: fsSmall)),
-                  line(),
+                  line(text: visit?.cervixRemarks),
                 ])),
                 pw.SizedBox(width: 8),
                 pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
                   pw.Text('Vagina / Vulva:', style: bold(size: fsSmall)),
-                  line(),
+                  line(text: visit?.vaginaRemarks),
                 ])),
               ]),
               pw.SizedBox(height: 5),
@@ -2033,32 +2053,37 @@ class PdfReportService {
               sectionHeader('STATION 3: VITALS & POINT-OF-CARE LABS'),
               pw.Row(children: [
                 pw.Text('Blood Pressure: ', style: bold()),
-                buildCharBoxes('', minBoxes: 3, maxBoxes: 3, boxSize: 13),
+                buildCharBoxes(visit?.systolicBp?.toString() ?? '', minBoxes: 3, maxBoxes: 3, boxSize: 13),
                 pw.Text(' / ', style: normal()),
-                buildCharBoxes('', minBoxes: 3, maxBoxes: 3, boxSize: 13),
+                buildCharBoxes(visit?.diastolicBp?.toString() ?? '', minBoxes: 3, maxBoxes: 3, boxSize: 13),
                 pw.Text(' mmHg  ', style: normal(size: fsSmall)),
                 pw.Text('Pulse: ', style: bold()),
-                buildCharBoxes('', minBoxes: 3, maxBoxes: 3, boxSize: 13),
+                buildCharBoxes(visit?.pulse?.toString() ?? '', minBoxes: 3, maxBoxes: 3, boxSize: 13),
                 pw.Text(' bpm', style: normal(size: fsSmall)),
               ]),
               pw.SizedBox(height: 3),
               pw.Row(children: [
                 pw.Text('SpO2: ', style: bold()),
-                buildCharBoxes('', minBoxes: 3, maxBoxes: 3, boxSize: 13),
+                buildCharBoxes(visit?.spo2?.toString() ?? '', minBoxes: 3, maxBoxes: 3, boxSize: 13),
                 pw.Text(' %  ', style: normal(size: fsSmall)),
                 pw.Text('Blood Glucose: ', style: bold()),
-                buildCharBoxes('', minBoxes: 3, maxBoxes: 3, boxSize: 13),
+                buildCharBoxes(visit?.glucose?.toString() ?? '', minBoxes: 3, maxBoxes: 3, boxSize: 13),
                 pw.Text(' mg/dL', style: normal(size: fsSmall)),
               ]),
               pw.SizedBox(height: 3),
               pw.Row(children: [
                 pw.Text('Urine Test: ', style: bold()),
-                cb('Normal', false), cb('Protein+', false), cb('Glucose+', false), cb('Blood+', false),
+                cb('Normal', visit?.urineTest == 'normal'),
+                cb('Protein+', visit?.urineTest?.contains('protein') == true),
+                cb('Glucose+', visit?.urineTest?.contains('glucose') == true),
+                cb('Blood+', visit?.urineTest?.contains('blood') == true),
               ]),
               pw.SizedBox(height: 2),
               pw.Row(children: [
                 pw.Text('Pregnancy Test (UPT): ', style: bold()),
-                cb('Negative', false), cb('Positive', false), cb('Not Done', false),
+                cb('Negative', visit?.pregnancyTest == 'neg'),
+                cb('Positive', visit?.pregnancyTest == 'pos'),
+                cb('Not Done', visit?.pregnancyTest == 'not_done'),
               ]),
             ],
           );
@@ -2072,7 +2097,18 @@ class PdfReportService {
               pw.Wrap(
                 spacing: 0, runSpacing: 1,
                 children: ClinicalConstants.defaultDiagnoses
-                    .map((d) => cb(sanitizeText(d), false))
+                    .map((d) {
+                      final isChecked = visit?.diagnoses.any((diag) {
+                        final dNorm = d.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                        final diagNorm = diag.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                        return dNorm == diagNorm ||
+                            dNorm.contains(diagNorm) ||
+                            diagNorm.contains(dNorm) ||
+                            (diagNorm.contains('candid') && dNorm.contains('candid')) ||
+                            (diagNorm.contains('vaginosis') && dNorm.contains('vaginosis'));
+                      }) ?? false;
+                      return cb(sanitizeText(d), isChecked);
+                    })
                     .toList(),
               ),
               pw.SizedBox(height: 2),
@@ -2087,26 +2123,39 @@ class PdfReportService {
               pw.Wrap(
                 spacing: 0, runSpacing: 1,
                 children: ClinicalConstants.defaultMedications
-                    .map((m) => cb(sanitizeText(m), false))
+                    .map((m) {
+                      final isChecked = visit?.medications.any((med) {
+                        final mNorm = m.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                        final medNorm = med.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                        return mNorm == medNorm ||
+                            mNorm.contains(medNorm) ||
+                            medNorm.contains(mNorm) ||
+                            (medNorm.contains('metronid') && mNorm.contains('metronid')) ||
+                            (medNorm.contains('clotrim') && mNorm.contains('clotrim'));
+                      }) ?? false;
+                      return cb(sanitizeText(m), isChecked);
+                    })
                     .toList(),
               ),
               pw.SizedBox(height: 3),
               pw.Row(children: [
                 pw.Text('Ring Pessary: ', style: bold()),
-                cb('Yes', false), cb('No', false),
+                cb('Yes', visit?.pessaryType != null),
+                cb('No', visit != null && visit.pessaryType == null),
                 pw.Text('  Size: ', style: bold()),
-                buildCharBoxes('', minBoxes: 3, maxBoxes: 3, boxSize: 13),
+                buildCharBoxes(visit?.pessarySize ?? '', minBoxes: 3, maxBoxes: 3, boxSize: 13),
                 pw.Text(' mm', style: normal(size: fsSmall)),
               ]),
               pw.SizedBox(height: 2),
               pw.Row(children: [
                 pw.Text('Surgery Done: ', style: bold()),
-                cb('Yes', false), cb('No', false),
+                cb('Yes', visit?.surgeryDone == true),
+                cb('No', visit != null && visit.surgeryDone == false),
               ]),
               pw.SizedBox(height: 2),
               pw.Row(children: [
                 pw.Text('Type: ', style: bold()),
-                ...ClinicalConstants.surgeryTypes.map((s) => cb(sanitizeText(s), false)),
+                ...ClinicalConstants.surgeryTypes.map((s) => cb(sanitizeText(s), visit?.surgeryType == s)),
               ]),
               pw.SizedBox(height: 5),
 
@@ -2114,22 +2163,22 @@ class PdfReportService {
               sectionHeader('STATION 6: OUTTAKE & CONTINUITY OF CARE / अनुगमन'),
               pw.Row(children: [
                 pw.Text('Follow-up Required: ', style: bold()),
-                cb('Yes (Follow-up Needed)', false),
-                cb('No (Routine)', false),
+                cb('Yes (Follow-up Needed)', visit?.followUpNeeded == true),
+                cb('No (Routine)', visit != null && visit.followUpNeeded == false),
               ]),
               pw.SizedBox(height: 2),
               pw.Text('Follow-up Destination:', style: bold(size: fsSmall)),
-              line(h: 12),
+              line(h: 12, text: visit?.followUpDestination),
               pw.SizedBox(height: 2),
               pw.Text('Surgical Referral:', style: bold(size: fsSmall)),
               pw.SizedBox(height: 2),
               pw.Row(children: [
-                cb('None', false),
-                ...ClinicalConstants.referralHospitals.map((h) => cb(sanitizeText(h), false)),
+                cb('None', visit != null && (visit.surgicalReferral == null || visit.surgicalReferral!.isEmpty)),
+                ...ClinicalConstants.referralHospitals.map((h) => cb(sanitizeText(h), visit?.surgicalReferral?.toLowerCase().contains(h.toLowerCase().split(' ').first) == true)),
               ]),
               pw.SizedBox(height: 2),
               pw.Text('Clinical Notes:', style: bold(size: fsSmall)),
-              line(h: 12),
+              line(h: 12, text: visit?.outtakeNotes),
               line(h: 12),
               pw.SizedBox(height: 10),
 
