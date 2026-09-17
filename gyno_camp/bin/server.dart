@@ -267,6 +267,8 @@ class GynoCampSyncServer {
         await _handleGetCamps(request);
       } else if (request.method == 'POST' && path == '/api/camps') {
         await _handlePostCamp(request);
+      } else if (request.method == 'DELETE' && path == '/api/camps') {
+        await _handleDeleteCamp(request);
       } else if (request.method == 'GET' && path == '/api/users') {
         await _handleGetUsers(request);
       } else if (request.method == 'POST' && path == '/api/users') {
@@ -723,6 +725,18 @@ class GynoCampSyncServer {
       list.addAll(_memCamps.values);
     }
 
+    // Ensure at most 1 camp is OPEN across the system
+    bool foundOpen = false;
+    for (final c in list) {
+      if ((c['status']?.toString() ?? '').toUpperCase() == 'OPEN') {
+        if (foundOpen) {
+          c['status'] = 'CLOSED';
+        } else {
+          foundOpen = true;
+        }
+      }
+    }
+
     request.response.statusCode = HttpStatus.ok;
     request.response.write(jsonEncode(list));
     await request.response.close();
@@ -733,7 +747,27 @@ class GynoCampSyncServer {
     final map = jsonDecode(body) as Map<String, dynamic>;
     final id = map['id']?.toString() ?? 'camp-${DateTime.now().millisecondsSinceEpoch}';
     map['id'] = id;
+    final status = (map['status']?.toString() ?? 'DRAFT').toUpperCase();
+    map['status'] = status;
     _memCamps[id] = map;
+
+    // Enforce single active camp rule on server: when opening a camp, close all other open camps
+    if (status == 'OPEN') {
+      _memCamps.forEach((key, val) {
+        if (key != id && (val['status']?.toString() ?? '').toUpperCase() == 'OPEN') {
+          val['status'] = 'CLOSED';
+          val['updated_at'] = DateTime.now().toIso8601String();
+        }
+      });
+      if (_isPgConnected && _connection != null) {
+        try {
+          await _connection!.execute(
+            Sql.named("UPDATE camps SET status = 'CLOSED', updated_at = NOW() WHERE id != @id AND status = 'OPEN'"),
+            parameters: {'id': id},
+          );
+        } catch (_) {}
+      }
+    }
 
     if (_isPgConnected && _connection != null) {
       try {
@@ -758,7 +792,7 @@ class GynoCampSyncServer {
             'venue': map['venue'],
             'start_date': map['start_date'] ?? DateTime.now().toIso8601String(),
             'end_date': map['end_date'] ?? DateTime.now().toIso8601String(),
-            'status': map['status'] ?? 'open',
+            'status': status,
             'assigned_staff_ids': map['assigned_staff_ids'],
             'total_patients_registered': map['total_patients_registered'] ?? 0,
             'tenant_id': map['tenant_id'] ?? 'tenant_default',
@@ -772,6 +806,24 @@ class GynoCampSyncServer {
 
     request.response.statusCode = HttpStatus.created;
     request.response.write(jsonEncode(map));
+    await request.response.close();
+  }
+
+  Future<void> _handleDeleteCamp(HttpRequest request) async {
+    final id = request.uri.queryParameters['id'] ?? '';
+    if (id.isNotEmpty) {
+      _memCamps.remove(id);
+      if (_isPgConnected && _connection != null) {
+        try {
+          await _connection!.execute(
+            Sql.named('DELETE FROM camps WHERE id = @id'),
+            parameters: {'id': id},
+          );
+        } catch (_) {}
+      }
+    }
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode({'success': true}));
     await request.response.close();
   }
 

@@ -38,20 +38,65 @@ class CampRepository implements ICampRepository {
   Future<List<CampModel>> getAllCamps() async {
     final db = await _databaseService.database;
 
-    // 1. Merge latest camps from Central Cloud if available
+    // 1. Merge latest camps from Central Cloud if available (with timestamp conflict resolution)
     if (enableCentralSync) {
       try {
         final centralCamps = await HttpCentralApiService().fetchCentralCamps();
         if (centralCamps.isNotEmpty) {
           for (final c in centralCamps) {
-            await db.insert(
+            final existingRows = await db.query(
               DatabaseTables.tableCamps,
-              c.toMap(),
-              conflictAlgorithm: ConflictAlgorithm.replace,
+              where: 'id = ?',
+              whereArgs: [c.id],
+              limit: 1,
             );
+            if (existingRows.isEmpty) {
+              await db.insert(
+                DatabaseTables.tableCamps,
+                c.toMap(),
+                conflictAlgorithm: ConflictAlgorithm.replace,
+              );
+            } else {
+              final local = CampModel.fromMap(existingRows.first);
+              final localUpdated = local.updatedAt ?? local.createdAt;
+              final centralUpdated = c.updatedAt ?? c.createdAt;
+
+              // Only update local if central is strictly newer
+              if (centralUpdated.isAfter(localUpdated)) {
+                await db.update(
+                  DatabaseTables.tableCamps,
+                  c.toMap(),
+                  where: 'id = ?',
+                  whereArgs: [c.id],
+                );
+              } else if (localUpdated.isAfter(centralUpdated)) {
+                // Local is newer: propagate local state back to central server
+                await HttpCentralApiService().broadcastCamp(local);
+              }
+            }
           }
         }
       } catch (_) {}
+    }
+
+    // 2. Enforce single active camp invariant locally:
+    // If multiple camps somehow are marked 'OPEN', keep only the most recent one OPEN, and close the others.
+    final openRows = await db.query(
+      DatabaseTables.tableCamps,
+      where: 'status = ?',
+      whereArgs: [AppConstants.campStatusOpen],
+      orderBy: 'start_date DESC',
+    );
+    if (openRows.length > 1) {
+      for (int i = 1; i < openRows.length; i++) {
+        final staleId = openRows[i]['id'] as String;
+        await db.update(
+          DatabaseTables.tableCamps,
+          {'status': AppConstants.campStatusClosed, 'updated_at': DateTime.now().toIso8601String()},
+          where: 'id = ?',
+          whereArgs: [staleId],
+        );
+      }
     }
 
     final maps = await db.rawQuery('''
@@ -67,15 +112,6 @@ class CampRepository implements ICampRepository {
       }
       return CampModel.fromMap(map);
     }).toList();
-
-    // 2. Broadcast any local camps to central cloud
-    if (enableCentralSync) {
-      try {
-        for (final camp in localCamps) {
-          HttpCentralApiService().broadcastCamp(camp);
-        }
-      } catch (_) {}
-    }
 
     return localCamps;
   }
@@ -104,12 +140,15 @@ class CampRepository implements ICampRepository {
         final centralCamps = await HttpCentralApiService().fetchCentralCamps();
         CampModel? matched;
         for (final c in centralCamps) {
-          await db.insert(
-            DatabaseTables.tableCamps,
-            c.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
-          if (c.id == id) matched = c;
+          if (c.id == id) {
+            await db.insert(
+              DatabaseTables.tableCamps,
+              c.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+            matched = c;
+            break;
+          }
         }
         if (matched != null) return matched;
       } catch (_) {}
@@ -126,6 +165,7 @@ class CampRepository implements ICampRepository {
              COALESCE((SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} p WHERE p.camp_id = c.id), 0) AS live_patient_count
       FROM ${DatabaseTables.tableCamps} c
       WHERE c.status = ?
+      ORDER BY c.start_date DESC
       LIMIT 1
     ''', [AppConstants.campStatusOpen]);
     if (maps.isNotEmpty) {
@@ -134,25 +174,6 @@ class CampRepository implements ICampRepository {
         map['total_patients_registered'] = map['live_patient_count'];
       }
       return CampModel.fromMap(map);
-    }
-
-    // Check central cloud if local has no active camp
-    if (enableCentralSync) {
-      try {
-        final centralCamps = await HttpCentralApiService().fetchCentralCamps();
-        CampModel? active;
-        for (final c in centralCamps) {
-          await db.insert(
-            DatabaseTables.tableCamps,
-            c.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
-          if (c.status == CampStatus.open && active == null) {
-            active = c;
-          }
-        }
-        if (active != null) return active;
-      } catch (_) {}
     }
 
     return null;
@@ -196,10 +217,15 @@ class CampRepository implements ICampRepository {
     final db = await _databaseService.database;
     final now = DateTime.now();
 
-    // Enforce single active camp rule: close any other currently open camp
-    final activeCamp = await getActiveCamp();
-    if (activeCamp != null && activeCamp.id != campId) {
-      await closeCamp(activeCamp.id, adminUserId: adminUserId, deviceId: deviceId);
+    // Enforce single active camp rule: close all other currently open camps
+    final otherOpenCamps = await db.query(
+      DatabaseTables.tableCamps,
+      where: 'status = ? AND id != ?',
+      whereArgs: [AppConstants.campStatusOpen, campId],
+    );
+    for (final m in otherOpenCamps) {
+      final oldId = m['id'] as String;
+      await closeCamp(oldId, adminUserId: adminUserId, deviceId: deviceId);
     }
 
     final updated = camp.copyWith(
@@ -225,9 +251,11 @@ class CampRepository implements ICampRepository {
       deviceId: deviceId,
     );
 
-    try {
-      HttpCentralApiService().broadcastCamp(updated);
-    } catch (_) {}
+    if (enableCentralSync) {
+      try {
+        await HttpCentralApiService().broadcastCamp(updated);
+      } catch (_) {}
+    }
 
     return true;
   }
@@ -263,6 +291,12 @@ class CampRepository implements ICampRepository {
       deviceId: deviceId,
     );
 
+    if (enableCentralSync) {
+      try {
+        await HttpCentralApiService().broadcastCamp(updated);
+      } catch (_) {}
+    }
+
     return true;
   }
 
@@ -297,6 +331,12 @@ class CampRepository implements ICampRepository {
       deviceId: deviceId,
     );
 
+    if (enableCentralSync) {
+      try {
+        await HttpCentralApiService().broadcastCamp(updated);
+      } catch (_) {}
+    }
+
     return true;
   }
 
@@ -324,9 +364,11 @@ class CampRepository implements ICampRepository {
       deviceId: deviceId,
     );
 
-    try {
-      HttpCentralApiService().broadcastCamp(updated);
-    } catch (_) {}
+    if (enableCentralSync) {
+      try {
+        await HttpCentralApiService().broadcastCamp(updated);
+      } catch (_) {}
+    }
 
     return updated;
   }
@@ -358,6 +400,12 @@ class CampRepository implements ICampRepository {
       detailsJson: '{"campCode":"${camp.campCode}"}',
       deviceId: deviceId,
     );
+
+    if (enableCentralSync) {
+      try {
+        await HttpCentralApiService().deleteCentralCamp(campId);
+      } catch (_) {}
+    }
 
     return true;
   }

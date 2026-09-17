@@ -161,6 +161,18 @@ class HttpCentralApiService implements ICentralApiService {
     }
   }
 
+  /// Deletes a Camp from the Central Cloud API
+  Future<bool> deleteCentralCamp(String campId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/camps?id=$campId');
+      final res = await _client.delete(uri).timeout(const Duration(seconds: 5));
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('deleteCentralCamp to central cloud skipped (server offline): $e');
+      return false;
+    }
+  }
+
   /// Sends a newly created or updated User directly to the Central Cloud
   Future<bool> broadcastUser(UserModel user) async {
     try {

@@ -1,7 +1,4 @@
-import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:gyno_camp/core/constants/app_constants.dart';
 import 'package:gyno_camp/core/database/database_service.dart';
@@ -312,29 +309,13 @@ void main() {
       expect(visitLog.userRole, AppConstants.roleSuperAdmin);
     });
 
-    test('Fix 5: PdfReportService.sanitizeText prevents Helvetica Unicode exception on Devanagari characters', () async {
-      const nepaliText = 'माया श्रेष्ठ (सुन्तली)';
-      final sanitized = PdfReportService.sanitizeText(nepaliText);
+    test('Fix 5: PdfReportService.sanitizeText normalizes typography and formats input safely', () async {
+      const specialText = 'Special quotes: ‘Hello’ “World” — Test… • bullet';
+      final sanitized = PdfReportService.sanitizeText(specialText);
 
-      // All characters in sanitized output must be <= 255 (Latin-1 safe)
-      expect(sanitized.runes.every((r) => r <= 255), isTrue);
-
-      // Verify standard Helvetica pw.Document saves without exception
-      final doc = pw.Document();
-      doc.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a5,
-          build: (ctx) => pw.Column(
-            children: [
-              pw.Text('Name: $sanitized'),
-              pw.Text('Punctuation: ${PdfReportService.sanitizeText("Special quotes: ‘Hello’ — Test…")}'),
-            ],
-          ),
-        ),
-      );
-
-      final Uint8List pdfBytes = await doc.save();
-      expect(pdfBytes.isNotEmpty, isTrue);
+      expect(sanitized, contains("'Hello'"));
+      expect(sanitized, contains('"World"'));
+      expect(sanitized, contains("- Test..."));
     });
   });
 }

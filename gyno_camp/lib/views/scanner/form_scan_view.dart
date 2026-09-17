@@ -1109,6 +1109,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   initialValue: const ['married', 'unmarried', 'widow', 'divorced'].contains(demo['maritalStatus']?.toString().toLowerCase())
                       ? demo['maritalStatus']?.toString().toLowerCase()
                       : 'married',
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Marital Status (वैवाहिक स्थिति)',
                     border: OutlineInputBorder(),
@@ -1137,6 +1138,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 child: DropdownButtonFormField<String>(
                   key: ValueKey('scan_prov_$validProvince'),
                   initialValue: validProvince,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Province (प्रदेश)',
                     border: OutlineInputBorder(),
@@ -1169,6 +1171,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 child: DropdownButtonFormField<String>(
                   key: ValueKey('scan_dist_${validProvince}_$validDistrict'),
                   initialValue: validDistrict,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'District (जिल्ला)',
                     border: OutlineInputBorder(),
@@ -1346,11 +1349,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+          Material(
+            color: Colors.grey.shade50,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
+              side: BorderSide(color: Colors.grey.shade300),
             ),
             child: Column(
               children: [
