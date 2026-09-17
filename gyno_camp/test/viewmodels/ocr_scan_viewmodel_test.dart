@@ -86,6 +86,60 @@ void main() {
       expect(vm.state.scanResult!.medications, isNot(contains('Ciprofloxacin')));
     });
 
+    test('addDiagnosis, removeDiagnosis, addMedication, and removeMedication handle explicit operations', () async {
+      await vm.loadSample('full');
+
+      // Add custom diagnosis
+      vm.addDiagnosis('Severe Anemia');
+      expect(vm.state.scanResult!.diagnoses, contains('Severe Anemia'));
+      // Add duplicate should not duplicate
+      final countBefore = vm.state.scanResult!.diagnoses.where((d) => d == 'Severe Anemia').length;
+      vm.addDiagnosis('Severe Anemia');
+      final countAfter = vm.state.scanResult!.diagnoses.where((d) => d == 'Severe Anemia').length;
+      expect(countBefore, countAfter);
+
+      // Remove diagnosis
+      vm.removeDiagnosis('Severe Anemia');
+      expect(vm.state.scanResult!.diagnoses, isNot(contains('Severe Anemia')));
+
+      // Add custom medication
+      vm.addMedication('Ring Pessary 65mm');
+      expect(vm.state.scanResult!.medications, contains('Ring Pessary 65mm'));
+
+      // Remove medication
+      vm.removeMedication('Ring Pessary 65mm');
+      expect(vm.state.scanResult!.medications, isNot(contains('Ring Pessary 65mm')));
+    });
+
+    test('updateSurgicalReferral and updateFollowUpDestination update referral status', () async {
+      await vm.loadSample('full');
+
+      vm.updateSurgicalReferral('Model Hospital');
+      expect(vm.state.scanResult!.surgicalReferral, 'Model Hospital');
+
+      vm.updateSurgicalReferral(null);
+      expect(vm.state.scanResult!.surgicalReferral, isNull);
+
+      vm.updateFollowUpDestination('Camp Follow-up Day');
+      expect(vm.state.scanResult!.followUpDestination, 'Camp Follow-up Day');
+    });
+
+    test('updateVital updates all 5 point-of-care vital metrics', () async {
+      await vm.loadSample('full');
+
+      vm.updateVital('systolicBp', 135);
+      vm.updateVital('diastolicBp', 85);
+      vm.updateVital('pulseRate', 82);
+      vm.updateVital('spo2', 97);
+      vm.updateVital('bloodGlucose', 125);
+
+      expect(vm.state.scanResult!.vitals['systolicBp'], 135);
+      expect(vm.state.scanResult!.vitals['diastolicBp'], 85);
+      expect(vm.state.scanResult!.vitals['pulseRate'], 82);
+      expect(vm.state.scanResult!.vitals['spo2'], 97);
+      expect(vm.state.scanResult!.vitals['bloodGlucose'], 125);
+    });
+
     test('loadSample with page1 and page2 manages slots and auto-merges when both ready', () async {
       await vm.loadSample('page1');
       expect(vm.state.hasPage1, true);

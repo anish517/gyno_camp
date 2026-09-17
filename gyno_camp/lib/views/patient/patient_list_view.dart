@@ -1840,6 +1840,44 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         ),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF0F766E),
+                            side: const BorderSide(color: Color(0xFF0F766E)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.edit_note_rounded,
+                            size: 17,
+                            color: AppTheme.primaryTeal,
+                          ),
+                          label: const Text(
+                            'Edit Page 1',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: () async {
+                            final updated = await Navigator.push<PatientModel?>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PatientRegistrationView(
+                                  patientToEdit: patient,
+                                ),
+                              ),
+                            );
+                            if (context.mounted && updated != null && activeCamp != null) {
+                              vm.loadPatients(activeCamp.id);
+                            }
+                          },
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF334155),
                             side: const BorderSide(color: Color(0xFFCBD5E1)),
                             padding: const EdgeInsets.symmetric(

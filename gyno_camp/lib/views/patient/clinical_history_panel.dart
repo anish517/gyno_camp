@@ -6,7 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
-
+import 'patient_registration_view.dart';
 
 class ClinicalHistoryPanel extends StatefulWidget {
   final PatientModel patient;
@@ -22,6 +22,7 @@ class ClinicalHistoryPanel extends StatefulWidget {
 
 class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
   late Future<List<ClinicalVisitModel>> _visitsFuture;
+  late PatientModel _patient;
   final Set<int> _dlIdx = {};
   bool _dlDossier = false;
   bool _dlForm = false; // loading state for registration form download
@@ -29,18 +30,19 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
   @override
   void initState() {
     super.initState();
-    _visitsFuture = widget.repo.getClinicalVisits(widget.patient.patientId, patientUuid: widget.patient.id);
+    _patient = widget.patient;
+    _visitsFuture = widget.repo.getClinicalVisits(_patient.patientId, patientUuid: _patient.id);
   }
 
   Future<void> _dlSlip(ClinicalVisitModel v, int i) async {
     setState(() => _dlIdx.add(i));
     try {
       final bytes = await PdfReportService().generateFollowUpEncounterSlipPdf(
-        patient: widget.patient, visit: v, camp: widget.camp, organizationName: widget.orgName,
+        patient: _patient, visit: v, camp: widget.camp, organizationName: widget.orgName,
       );
       final ds = DateFormat('yyyyMMdd').format(v.visitDate);
       await FileDownloadHelper.saveAndDownloadFile(
-        bytes: bytes, filename: 'EncounterSlip_${widget.patient.patientId}_$ds.pdf', mimeType: 'application/pdf',
+        bytes: bytes, filename: 'EncounterSlip_${_patient.patientId}_$ds.pdf', mimeType: 'application/pdf',
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -61,18 +63,18 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     setState(() => _dlForm = true);
     try {
       final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
-        patient: widget.patient,
+        patient: _patient,
         camp: widget.camp,
         organizationName: widget.orgName,
       );
       await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
-        filename: 'RegistrationForm_${widget.patient.patientId}.pdf',
+        filename: 'RegistrationForm_${_patient.patientId}.pdf',
         mimeType: 'application/pdf',
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Registration form downloaded: RegistrationForm_${widget.patient.patientId}.pdf'),
+          content: Text('Registration form downloaded: RegistrationForm_${_patient.patientId}.pdf'),
           backgroundColor: AppTheme.successGreen,
           behavior: SnackBarBehavior.floating,
         ));
@@ -86,7 +88,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final p = widget.patient;
+    final p = _patient;
     final fmt = DateFormat('dd MMM yyyy, HH:mm');
     final sd = DateFormat('dd MMM yyyy');
     return Column(children: [
@@ -116,6 +118,30 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
         Text(p.fullName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
         Text('${p.patientId} \u2022 ${p.district} Ward ${p.ward} \u2022 Age ${p.age}', style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
       ])),
+      OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppTheme.primaryTeal,
+          side: const BorderSide(color: AppTheme.primaryTeal),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        icon: const Icon(Icons.edit_note_rounded, size: 16),
+        label: const Text('Edit Page 1', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        onPressed: () async {
+          final updated = await Navigator.push<PatientModel?>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PatientRegistrationView(patientToEdit: _patient),
+            ),
+          );
+          if (updated != null && mounted) {
+            setState(() {
+              _patient = updated;
+            });
+          }
+        },
+      ),
+      const SizedBox(width: 8),
       IconButton(icon: const Icon(Icons.close_rounded), style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9)), onPressed: () => Navigator.of(context).pop()),
     ]),
   );
@@ -216,97 +242,325 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     final isDl = _dlIdx.contains(i);
     final ac = isF ? const Color(0xFF0891B2) : AppTheme.primaryTeal;
     final bg = isF ? const Color(0xFFECFEFF) : const Color(0xFFF0FDFA);
+
+    // BP classification matching PDF slip
+    String bpStatus = 'Normal';
+    Color bpColor = AppTheme.successGreen;
+    if (v.systolicBp != null && v.diastolicBp != null) {
+      final s = v.systolicBp!;
+      final d = v.diastolicBp!;
+      if (s >= 160 || d >= 100) {
+        bpStatus = 'HTN 2 (Critical)';
+        bpColor = AppTheme.dangerRose;
+      } else if (s >= 140 || d >= 90) {
+        bpStatus = 'HTN 1 (Elevated)';
+        bpColor = Colors.orange.shade800;
+      } else if (s >= 120) {
+        bpStatus = 'Pre-HTN';
+        bpColor = Colors.amber.shade800;
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: ac.withValues(alpha: 0.25), width: 1.2), boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2))]),
-      child: Column(children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(color: bg, borderRadius: const BorderRadius.vertical(top: Radius.circular(14))),
-          child: Row(children: [
-            Container(padding: const EdgeInsets.all(7), decoration: BoxDecoration(color: ac.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-              child: Icon(isF ? Icons.replay_circle_filled_rounded : Icons.local_hospital_rounded, size: 17, color: ac)),
-            const SizedBox(width: 10),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(isF ? 'Follow-Up Visit #$i' : 'Initial Examination', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: ac)),
-              Text(fmt.format(v.visitDate), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-            ])),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: ac, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), elevation: 0),
-              icon: isDl ? const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.download_rounded, size: 14),
-              label: Text(isDl ? 'Downloading...' : 'Download Slip', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              onPressed: isDl ? null : () => _dlSlip(v, i),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ac.withValues(alpha: 0.25), width: 1.2),
+        boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2))],
+      ),
+      child: Column(
+        children: [
+          // Header Row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(color: bg, borderRadius: const BorderRadius.vertical(top: Radius.circular(14))),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(color: ac.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                  child: Icon(isF ? Icons.replay_circle_filled_rounded : Icons.local_hospital_rounded, size: 17, color: ac),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isF ? 'Follow-Up Visit #$i' : 'Primary Camp Examination (Initial)',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: ac),
+                      ),
+                      Text(fmt.format(v.visitDate), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ac,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                  icon: isDl
+                      ? const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.download_rounded, size: 14),
+                  label: Text(isDl ? 'Downloading...' : 'Download Slip', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: isDl ? null : () => _dlSlip(v, i),
+                ),
+              ],
             ),
-          ]),
-        ),
-        Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE2E8F0))),
-            child: Wrap(spacing: 14, runSpacing: 4, children: [
-              _vc('BP', '${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"} mmHg'),
-              if (v.pulse != null) _vc('Pulse', '${v.pulse} bpm'),
-              if (v.spo2 != null) _vc('SpO2', '${v.spo2}%'),
-              if (v.glucose != null) _vc('Glucose', '${v.glucose} mg/dL'),
-              if (v.urineTest?.isNotEmpty == true) _vc('Urine', v.urineTest!),
-            ])),
-          const SizedBox(height: 8),
-          Row(children: [
-            const Text('POP:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-            const SizedBox(width: 6),
-            _pb('Highest', 'St ${v.highestPopStage}', ip: true, ic: v.highestPopStage >= 3),
-            const SizedBox(width: 4), _pb('Ant', 'St ${v.popAnteriorStage}'),
-            const SizedBox(width: 4), _pb('Mid', 'St ${v.popMiddleStage}'),
-            const SizedBox(width: 4), _pb('Post', 'St ${v.popPosteriorStage}'),
-          ]),
-          if (v.diagnoses.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            // Obstetric summary inline in visit card
-            if (v.deliveries != null || v.livingChildren != null || v.abortions != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(children: [
-                  const Text('Obstetrics: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                  _obsBadge('P', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal),
-                  const SizedBox(width: 3),
-                  _obsBadge('L', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
-                  const SizedBox(width: 3),
-                  _obsBadge('A', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
-                ]),
-              ),
-            const SizedBox(height: 8),
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Diagnoses: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-              Expanded(child: Wrap(spacing: 4, runSpacing: 4, children: v.diagnoses.map((d) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: AppTheme.primaryLight.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3))),
-                child: Text(d, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppTheme.primaryDark)))).toList())),
-            ]),
-          ],
-          if (v.medications.isNotEmpty) ...[
-            const SizedBox(height: 5),
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Meds: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-              Expanded(child: Wrap(spacing: 4, runSpacing: 4, children: v.medications.map((m) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: const Color(0xFFF0F9FF), borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF0891B2).withValues(alpha: 0.3))),
-                child: Text(m, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF0C4A6E))))).toList())),
-            ]),
-          ],
-          if (v.pessarySize?.isNotEmpty == true || v.surgeryDone || v.surgicalReferral?.isNotEmpty == true) ...[
-            const SizedBox(height: 5),
-            Wrap(spacing: 6, runSpacing: 5, children: [
-              if (v.pessarySize?.isNotEmpty == true) _tb('Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.pessarySize}', AppTheme.primaryTeal),
-              if (v.surgeryDone) _tb('Surgery: ${v.surgeryType ?? "Done"}', AppTheme.successGreen),
-              if (v.surgicalReferral?.isNotEmpty == true) _tb('Referral: ${v.surgicalReferral}', AppTheme.dangerRose),
-            ]),
-          ],
-          if (v.followUpNotes?.isNotEmpty == true || v.outtakeNotes?.isNotEmpty == true) ...[
-            const SizedBox(height: 7),
-            Container(width: double.infinity, padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(7)),
-              child: Text('Notes: ${v.followUpNotes?.isNotEmpty == true ? v.followUpNotes! : v.outtakeNotes!}', style: const TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: Color(0xFF334155)))),
-          ],
-        ])),
-      ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. Obstetric History & Pelvic Floor Exam (Station 2)
+                if (v.deliveries != null || v.livingChildren != null || v.abortions != null || v.cervixRemarks != null || v.vaginaRemarks != null || !v.uterusInside) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Obstetric & Pelvic Floor Examination (प्रसूति तथा श्रोणी जाँच):',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                        ),
+                        const SizedBox(height: 5),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (v.deliveries != null || v.livingChildren != null || v.abortions != null) ...[
+                              _obsBadge('P', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal),
+                              _obsBadge('L', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
+                              _obsBadge('A', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
+                            ],
+                            _tb('Tone: ${v.pelvicFloorTone.toUpperCase()}', AppTheme.primaryTeal),
+                            _tb(
+                              v.uterusInside ? 'Uterus: Inside' : 'Uterus: Prolapsed',
+                              v.uterusInside ? AppTheme.successGreen : AppTheme.dangerRose,
+                            ),
+                            if (v.cervixRemarks?.isNotEmpty == true)
+                              _tb('Cervix: ${v.cervixRemarks}', const Color(0xFF64748B)),
+                            if (v.vaginaRemarks?.isNotEmpty == true)
+                              _tb('Vagina: ${v.vaginaRemarks}', const Color(0xFF64748B)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // 2. Vitals & Screening Labs (Station 3)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Clinical Vitals & Screening Labs (स्वास्थ्य सूचक):',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: bpColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: bpColor.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(
+                              'BP: $bpStatus',
+                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: bpColor),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 14,
+                        runSpacing: 4,
+                        children: [
+                          _vc('BP', '${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"} mmHg'),
+                          if (v.pulse != null) _vc('Pulse', '${v.pulse} bpm'),
+                          if (v.spo2 != null) _vc('SpO2', '${v.spo2}%'),
+                          if (v.glucose != null) _vc('Glucose', '${v.glucose} mg/dL'),
+                          if (v.urineTest?.isNotEmpty == true) _vc('Urine', v.urineTest!.toUpperCase()),
+                          if (v.pregnancyTest?.isNotEmpty == true) _vc('Pregnancy', v.pregnancyTest!.toUpperCase()),
+                          if (v.ecgNotes?.isNotEmpty == true) _vc('ECG', v.ecgNotes!),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // 3. Baden-Walker POP Staging (Station 4)
+                Row(
+                  children: [
+                    const Text('Baden-Walker POP:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const SizedBox(width: 6),
+                    _pb('Highest', 'St ${v.highestPopStage}', ip: true, ic: v.highestPopStage >= 3),
+                    const SizedBox(width: 4),
+                    _pb('Ant', 'St ${v.popAnteriorStage}'),
+                    const SizedBox(width: 4),
+                    _pb('Mid', 'St ${v.popMiddleStage}'),
+                    const SizedBox(width: 4),
+                    _pb('Post', 'St ${v.popPosteriorStage}'),
+                  ],
+                ),
+
+                // 4. Confirmed Diagnoses (Station 5)
+                if (v.diagnoses.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Diagnoses: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: v.diagnoses.map((d) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryLight.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(d, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppTheme.primaryDark)),
+                          )).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                // 5. Prescriptions & Treatments (Station 5)
+                if (v.medications.isNotEmpty || v.customMedication?.isNotEmpty == true) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Prescriptions: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            ...v.medications.map((m) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F9FF),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFF0891B2).withValues(alpha: 0.3)),
+                              ),
+                              child: Text(m, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF0C4A6E))),
+                            )),
+                            if (v.customMedication?.isNotEmpty == true)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFFBEB),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                                ),
+                                child: Text('Rx: ${v.customMedication}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                // Interventions: Pessary, Surgery, Referral, Counseling
+                if (v.pessarySize?.isNotEmpty == true || v.surgeryDone || v.surgicalReferral?.isNotEmpty == true || v.counseling.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 5,
+                    children: [
+                      if (v.pessarySize?.isNotEmpty == true)
+                        _tb('Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.pessarySize}', AppTheme.primaryTeal),
+                      if (v.surgeryDone)
+                        _tb('Surgery: ${v.surgeryType ?? "Done"}', AppTheme.successGreen),
+                      if (v.surgicalReferral?.isNotEmpty == true)
+                        _tb('Referral: ${v.surgicalReferral}', AppTheme.dangerRose),
+                      if (v.counseling.isNotEmpty)
+                        _tb('Counseling: ${v.counseling.join(", ")}', const Color(0xFF0284C7)),
+                    ],
+                  ),
+                ],
+
+                // 6. Continuity of Care & Referral notes (Station 6)
+                if (v.followUpNeeded || v.followUpDestination?.isNotEmpty == true || v.followUpNotes?.isNotEmpty == true || v.outtakeNotes?.isNotEmpty == true) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              v.followUpNeeded ? 'Follow-Up Required: YES' : 'Follow-Up: Routine',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: v.followUpNeeded ? AppTheme.dangerRose : const Color(0xFF475569),
+                              ),
+                            ),
+                            if (v.followUpDestination?.isNotEmpty == true) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                '• Center: ${v.followUpDestination}',
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF334155)),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (v.followUpNotes?.isNotEmpty == true) ...[
+                          const SizedBox(height: 4),
+                          Text('Clinical Notes: ${v.followUpNotes}', style: const TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: Color(0xFF334155))),
+                        ],
+                        if (v.outtakeNotes?.isNotEmpty == true && v.outtakeNotes != v.followUpNotes) ...[
+                          const SizedBox(height: 4),
+                          Text('Attending Notes: ${v.outtakeNotes}', style: const TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: Color(0xFF334155))),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

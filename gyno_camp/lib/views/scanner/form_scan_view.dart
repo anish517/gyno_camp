@@ -26,6 +26,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
   late TabController _tabController;
   // Tracks per-field verification: true=correct, false=incorrect, null=not yet reviewed
   final Map<String, bool?> _verifyMap = {};
+  final TextEditingController _customDiagnosisController = TextEditingController();
+  final TextEditingController _customMedicationController = TextEditingController();
 
   @override
   void initState() {
@@ -35,6 +37,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
 
   @override
   void dispose() {
+    _customDiagnosisController.dispose();
+    _customMedicationController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -1866,6 +1870,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     final glucose = vitals['bloodGlucose'] as int? ?? 110;
 
     final bpStatus = ClinicalValidationService.validateSystolicBp(sys);
+    final bpDiaStatus = ClinicalValidationService.validateDiastolicBp(dia, systolic: sys);
+    final ValidationSeverity bpSeverity = (bpStatus.isError || bpDiaStatus.isError)
+        ? ValidationSeverity.error
+        : (bpStatus.isWarning || bpDiaStatus.isWarning)
+            ? ValidationSeverity.warning
+            : ValidationSeverity.normal;
+
     final pulseStatus = ClinicalValidationService.validatePulse(pulse);
     final spo2Status = ClinicalValidationService.validateSpO2(spo2);
     final glucoseStatus = ClinicalValidationService.validateGlucose(glucose);
@@ -1900,45 +1911,416 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ],
 
           const Text('Point-of-Care Vitals (भाइटल परीक्षण):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 4),
+          const Text(
+            'Directly edit detected vitals. Live clinical warnings and validation will update automatically.',
+            style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+          ),
           const SizedBox(height: 12),
+
+          // ── 1. BLOOD PRESSURE CARD (TWIN FIELDS) ────────────────
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: bpSeverity == ValidationSeverity.normal
+                    ? AppTheme.successGreen.withValues(alpha: 0.3)
+                    : bpSeverity == ValidationSeverity.warning
+                        ? AppTheme.warningAmber
+                        : AppTheme.dangerRose,
+                width: bpSeverity == ValidationSeverity.normal ? 1 : 1.5,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.favorite, color: Colors.redAccent, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Blood Pressure (रक्तचाप)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                        ),
+                      ),
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: bpSeverity == ValidationSeverity.normal
+                            ? AppTheme.successGreen.withValues(alpha: 0.15)
+                            : bpSeverity == ValidationSeverity.warning
+                                ? AppTheme.warningAmber.withValues(alpha: 0.2)
+                                : AppTheme.dangerRose.withValues(alpha: 0.2),
+                        label: Text(
+                          bpSeverity == ValidationSeverity.normal
+                              ? 'Normal ($sys/$dia)'
+                              : bpSeverity == ValidationSeverity.warning
+                                  ? 'Warning ($sys/$dia)'
+                                  : 'Alert ($sys/$dia)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: bpSeverity == ValidationSeverity.normal
+                                ? AppTheme.successGreen
+                                : bpSeverity == ValidationSeverity.warning
+                                    ? Colors.amber.shade900
+                                    : AppTheme.dangerRose,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Standard unit: mmHg. Cross-check against Yellow Form Box 4.',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          key: ValueKey('vital_sys_${result.scannedAt.millisecondsSinceEpoch}'),
+                          initialValue: '$sys',
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Systolic (सिस्टोलिक)',
+                            suffixText: 'mmHg',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            prefixIcon: Icon(Icons.arrow_upward, size: 16, color: Colors.blueGrey),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                          onChanged: (val) {
+                            final parsed = int.tryParse(val.trim());
+                            if (parsed != null) {
+                              vm.updateVital('systolicBp', parsed);
+                            }
+                          },
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('/', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.grey)),
+                      ),
+                      Expanded(
+                        child: TextFormField(
+                          key: ValueKey('vital_dia_${result.scannedAt.millisecondsSinceEpoch}'),
+                          initialValue: '$dia',
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Diastolic (डायस्टोलिक)',
+                            suffixText: 'mmHg',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            prefixIcon: Icon(Icons.arrow_downward, size: 16, color: Colors.blueGrey),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                          onChanged: (val) {
+                            final parsed = int.tryParse(val.trim());
+                            if (parsed != null) {
+                              vm.updateVital('diastolicBp', parsed);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (bpStatus.messageEn != null || bpDiaStatus.messageEn != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: (bpStatus.isError || bpDiaStatus.isError)
+                            ? Colors.red.shade50
+                            : Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: (bpStatus.isError || bpDiaStatus.isError)
+                                ? Colors.red.shade700
+                                : Colors.amber.shade800,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              bpStatus.messageEn ?? bpDiaStatus.messageEn ?? '',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: (bpStatus.isError || bpDiaStatus.isError)
+                                    ? Colors.red.shade900
+                                    : Colors.amber.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── 2. PULSE RATE & SPO2 SATURATION (ROW) ─────────────────
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Pulse Card
               Expanded(
-                child: _buildVitalBox(
-                  label: 'Blood Pressure',
-                  value: '$sys / $dia mmHg',
-                  status: bpStatus.severity,
+                child: Card(
+                  elevation: 1.5,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: pulseStatus.severity == ValidationSeverity.normal
+                          ? AppTheme.successGreen.withValues(alpha: 0.3)
+                          : pulseStatus.severity == ValidationSeverity.warning
+                              ? AppTheme.warningAmber
+                              : AppTheme.dangerRose,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.monitor_heart, color: Colors.pinkAccent, size: 18),
+                            const SizedBox(width: 6),
+                            const Expanded(
+                              child: Text(
+                                'Pulse Rate',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: pulseStatus.severity == ValidationSeverity.normal
+                                    ? AppTheme.successGreen.withValues(alpha: 0.15)
+                                    : Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                pulseStatus.severity == ValidationSeverity.normal ? 'Normal' : 'Alert',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: pulseStatus.severity == ValidationSeverity.normal
+                                      ? AppTheme.successGreen
+                                      : Colors.amber.shade900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          key: ValueKey('vital_pulse_${result.scannedAt.millisecondsSinceEpoch}'),
+                          initialValue: '$pulse',
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'नाडी (bpm)',
+                            suffixText: 'bpm',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          ),
+                          onChanged: (val) {
+                            final parsed = int.tryParse(val.trim());
+                            if (parsed != null) {
+                              vm.updateVital('pulseRate', parsed);
+                            }
+                          },
+                        ),
+                        if (pulseStatus.messageEn != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            pulseStatus.messageEn!,
+                            style: TextStyle(fontSize: 10, color: Colors.amber.shade900),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
+              // SpO2 Card
               Expanded(
-                child: _buildVitalBox(
-                  label: 'Pulse Rate',
-                  value: '$pulse bpm',
-                  status: pulseStatus.severity,
+                child: Card(
+                  elevation: 1.5,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: spo2Status.severity == ValidationSeverity.normal
+                          ? AppTheme.successGreen.withValues(alpha: 0.3)
+                          : spo2Status.severity == ValidationSeverity.warning
+                              ? AppTheme.warningAmber
+                              : AppTheme.dangerRose,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.air, color: Colors.blueAccent, size: 18),
+                            const SizedBox(width: 6),
+                            const Expanded(
+                              child: Text(
+                                'SpO2 Saturation',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: spo2Status.severity == ValidationSeverity.normal
+                                    ? AppTheme.successGreen.withValues(alpha: 0.15)
+                                    : Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                spo2Status.severity == ValidationSeverity.normal ? 'Normal' : 'Hypoxia',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: spo2Status.severity == ValidationSeverity.normal
+                                      ? AppTheme.successGreen
+                                      : Colors.amber.shade900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          key: ValueKey('vital_spo2_${result.scannedAt.millisecondsSinceEpoch}'),
+                          initialValue: '$spo2',
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'अक्सिजन (%)',
+                            suffixText: '%',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          ),
+                          onChanged: (val) {
+                            final parsed = int.tryParse(val.trim());
+                            if (parsed != null) {
+                              vm.updateVital('spo2', parsed);
+                            }
+                          },
+                        ),
+                        if (spo2Status.messageEn != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            spo2Status.messageEn!,
+                            style: TextStyle(fontSize: 10, color: Colors.amber.shade900),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildVitalBox(
-                  label: 'SpO2 Saturation',
-                  value: '$spo2%',
-                  status: spo2Status.severity,
-                ),
+
+          // ── 3. BLOOD GLUCOSE CARD ─────────────────────────────────
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: glucoseStatus.severity == ValidationSeverity.normal
+                    ? AppTheme.successGreen.withValues(alpha: 0.3)
+                    : glucoseStatus.severity == ValidationSeverity.warning
+                        ? AppTheme.warningAmber
+                        : AppTheme.dangerRose,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildVitalBox(
-                  label: 'Blood Glucose',
-                  value: '$glucose mg/dL',
-                  status: glucoseStatus.severity,
-                ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.bloodtype, color: Colors.deepOrange, size: 18),
+                      const SizedBox(width: 6),
+                      const Expanded(
+                        child: Text(
+                          'Blood Glucose / सुगर जाँच (RBS)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: glucoseStatus.severity == ValidationSeverity.normal
+                              ? AppTheme.successGreen.withValues(alpha: 0.15)
+                              : Colors.amber.shade100,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          glucoseStatus.severity == ValidationSeverity.normal
+                              ? 'Normal ($glucose mg/dL)'
+                              : 'Abnormal ($glucose mg/dL)',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: glucoseStatus.severity == ValidationSeverity.normal
+                                ? AppTheme.successGreen
+                                : Colors.amber.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    key: ValueKey('vital_glucose_${result.scannedAt.millisecondsSinceEpoch}'),
+                    initialValue: '$glucose',
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Random Blood Glucose (रक्त ग्लुकोज)',
+                      suffixText: 'mg/dL',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    onChanged: (val) {
+                      final parsed = int.tryParse(val.trim());
+                      if (parsed != null) {
+                        vm.updateVital('bloodGlucose', parsed);
+                      }
+                    },
+                  ),
+                  if (glucoseStatus.messageEn != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      glucoseStatus.messageEn!,
+                      style: TextStyle(fontSize: 10.5, color: Colors.amber.shade900),
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -2064,57 +2446,412 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          const Text('Diagnoses Detected (रोग पहिचान):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: result.diagnoses.map((dx) {
-              return Chip(
-                avatar: const Icon(Icons.healing, size: 16, color: Colors.teal),
-                label: Text(dx, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                backgroundColor: Colors.teal.shade50,
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 20),
-          const Text('Prescriptions Dispensed (औषधी):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: result.medications.map((rx) {
-              return Chip(
-                avatar: const Icon(Icons.medication, size: 16, color: Colors.indigo),
-                label: Text(rx, style: const TextStyle(fontSize: 12)),
-                backgroundColor: Colors.indigo.shade50,
-              );
-            }).toList(),
-          ),
-          if (result.surgicalReferral != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade300),
-              ),
-              child: Row(
+          const SizedBox(height: 16),
+
+          // ── 4. DIAGNOSES DETECTED & VERIFICATION ──────────────────
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.local_hospital, color: Colors.red, size: 24),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Surgical Referral: ${result.surgicalReferral}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                  Row(
+                    children: [
+                      const Icon(Icons.healing, color: AppTheme.primaryTeal, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Diagnoses Detected (रोग पहिचान)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                        ),
+                      ),
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: AppTheme.primaryLight,
+                        label: Text(
+                          '${result.diagnoses.length} Selected',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryTeal),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Review OCR-detected diagnoses. Tap "×" on any chip to remove, or toggle below to add:',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Currently Selected Active Diagnoses
+                  if (result.diagnoses.isEmpty) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 18, color: Colors.blueGrey),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'No diagnoses selected. Tap standard diagnoses below or type to add custom.',
+                              style: TextStyle(fontSize: 11.5, color: Colors.blueGrey),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                  ] else ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: result.diagnoses.map((dx) {
+                        return InputChip(
+                          avatar: const Icon(Icons.healing, size: 15, color: Colors.teal),
+                          label: Text(dx, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          backgroundColor: Colors.teal.shade50,
+                          deleteIcon: const Icon(Icons.cancel, size: 16, color: Colors.teal),
+                          onDeleted: () => vm.removeDiagnosis(dx),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+
+                  const Divider(height: 24),
+                  const Text(
+                    'Standard Yellow Form Diagnoses (२१ वटा मानक रोगहरू):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: ClinicalConstants.defaultDiagnoses.map((dx) {
+                      final isSelected = result.diagnoses.contains(dx);
+                      return FilterChip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(dx, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryLight,
+                        checkmarkColor: AppTheme.primaryTeal,
+                        onSelected: (selected) {
+                          if (selected) {
+                            vm.addDiagnosis(dx);
+                          } else {
+                            vm.removeDiagnosis(dx);
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Custom diagnosis text field
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _customDiagnosisController,
+                          decoration: const InputDecoration(
+                            hintText: 'Add custom or other diagnosis (अन्य रोग)...',
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          ),
+                          onSubmitted: (val) {
+                            if (val.trim().isNotEmpty) {
+                              vm.addDiagnosis(val.trim());
+                              _customDiagnosisController.clear();
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryTeal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add', style: TextStyle(fontSize: 12)),
+                        onPressed: () {
+                          final val = _customDiagnosisController.text.trim();
+                          if (val.isNotEmpty) {
+                            vm.addDiagnosis(val);
+                            _customDiagnosisController.clear();
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-          ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── 5. PRESCRIPTIONS DISPENSED & VERIFICATION ──────────────
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.medication, color: Colors.indigo, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Prescriptions Dispensed (औषधी)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                        ),
+                      ),
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: Colors.indigo.shade50,
+                        label: Text(
+                          '${result.medications.length} Prescribed',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.indigo.shade800),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Tap "×" to remove incorrect medicine, or select from Station 5 medicines below:',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Currently Selected Active Prescriptions
+                  if (result.medications.isEmpty) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 18, color: Colors.blueGrey),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'No medications recorded. Tap standard medicines below or type custom prescription.',
+                              style: TextStyle(fontSize: 11.5, color: Colors.blueGrey),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: result.medications.map((rx) {
+                        return InputChip(
+                          avatar: const Icon(Icons.medication, size: 15, color: Colors.indigo),
+                          label: Text(rx, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                          backgroundColor: Colors.indigo.shade50,
+                          deleteIcon: const Icon(Icons.cancel, size: 16, color: Colors.indigo),
+                          onDeleted: () => vm.removeMedication(rx),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+
+                  const Divider(height: 24),
+                  const Text(
+                    'Standard Yellow Form Medications (स्टेशन ५ औषधीहरू):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: ClinicalConstants.defaultMedications.map((rx) {
+                      final isSelected = result.medications.contains(rx);
+                      return FilterChip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(rx, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                        selected: isSelected,
+                        selectedColor: Colors.indigo.shade100,
+                        checkmarkColor: Colors.indigo.shade900,
+                        onSelected: (selected) {
+                          if (selected) {
+                            vm.addMedication(rx);
+                          } else {
+                            vm.removeMedication(rx);
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Quick Suggestion Chips for Ring Pessaries & Common Camp Meds
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      'Ring Pessary 65mm',
+                      'Ring Pessary 70mm',
+                      'Paracetamol 500mg',
+                      'Iron + Folic Acid',
+                    ].map((quick) {
+                      final hasQuick = result.medications.contains(quick);
+                      return ActionChip(
+                        visualDensity: VisualDensity.compact,
+                        avatar: Icon(hasQuick ? Icons.check : Icons.add, size: 14, color: AppTheme.primaryTeal),
+                        label: Text(quick, style: const TextStyle(fontSize: 10.5)),
+                        onPressed: () {
+                          if (hasQuick) {
+                            vm.removeMedication(quick);
+                          } else {
+                            vm.addMedication(quick);
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Custom prescription text field
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _customMedicationController,
+                          decoration: const InputDecoration(
+                            hintText: 'Add custom medication or dosage (थप औषधी)...',
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          ),
+                          onSubmitted: (val) {
+                            if (val.trim().isNotEmpty) {
+                              vm.addMedication(val.trim());
+                              _customMedicationController.clear();
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add', style: TextStyle(fontSize: 12)),
+                        onPressed: () {
+                          final val = _customMedicationController.text.trim();
+                          if (val.isNotEmpty) {
+                            vm.addMedication(val);
+                            _customMedicationController.clear();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── 6. SURGICAL REFERRAL & FOLLOW-UP DESTINATION ───────────
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.local_hospital, color: Colors.redAccent, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Surgical Referral & Follow-up (शल्यक्रिया सिफारिस)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Text('Referral Hospital Destination (सिफारिस गरिएको अस्पताल):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      {'val': null, 'label': 'None (छैन)'},
+                      {'val': 'Scheer Memorial Hospital', 'label': 'Scheer Memorial Hospital'},
+                      {'val': 'Model Hospital', 'label': 'Model Hospital'},
+                      {'val': 'Local Government Hospital', 'label': 'Local Government Hospital'},
+                    ].map((item) {
+                      final val = item['val'];
+                      final isSelected = (val == null && (result.surgicalReferral == null || result.surgicalReferral!.isEmpty)) ||
+                          (val != null && result.surgicalReferral?.toLowerCase().contains(val.toLowerCase().split(' ').first) == true);
+                      return ChoiceChip(
+                        label: Text(item['label']!),
+                        selected: isSelected,
+                        selectedColor: val == null ? Colors.grey.shade200 : Colors.red.shade100,
+                        labelStyle: TextStyle(
+                          color: isSelected ? (val == null ? Colors.black87 : Colors.red.shade900) : const Color(0xFF334155),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 11.5,
+                        ),
+                        onSelected: (_) => vm.updateSurgicalReferral(val),
+                      );
+                    }).toList(),
+                  ),
+                  const Divider(height: 20),
+                  const Text('Follow-up Destination (फलो-अप कहाँ गर्ने):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      {'val': 'Health Post', 'label': 'Health Post / PHC (स्वास्थ्य चौकी)'},
+                      {'val': 'Camp Follow-up Day', 'label': 'Camp Follow-up Day (पुनः शिविर)'},
+                      {'val': 'Scheer Memorial Hospital', 'label': 'Scheer Memorial Hospital (अस्पताल)'},
+                    ].map((item) {
+                      final val = item['val']!;
+                      final isSelected = (result.followUpDestination ?? 'Health Post').toLowerCase().contains(val.toLowerCase().split(' ').first);
+                      return ChoiceChip(
+                        label: Text(item['label']!),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 11.5,
+                        ),
+                        onSelected: (_) => vm.updateFollowUpDestination(val),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -2541,34 +3278,6 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     );
   }
 
-  Widget _buildVitalBox({
-    required String label,
-    required String value,
-    required ValidationSeverity status,
-  }) {
-    final color = status == ValidationSeverity.normal
-        ? AppTheme.successGreen
-        : status == ValidationSeverity.warning
-            ? AppTheme.warningAmber
-            : AppTheme.dangerRose;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
-          const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color)),
-        ],
-      ),
-    );
-  }
 
   void _showSuccessDialog(BuildContext context, PatientModel patient) {
     showDialog(

@@ -69,6 +69,23 @@ class _FakePatientRepository implements IPatientRepository {
   }
 
   @override
+  Future<PatientModel> updatePatient(
+    PatientModel patient, {
+    required String updatedByUserId,
+    required String updatedByUserName,
+    required String updatedByUserRole,
+    required String deviceId,
+  }) async {
+    final idx = storedPatients.indexWhere((p) => p.id == patient.id || p.patientId == patient.patientId);
+    if (idx != -1) {
+      storedPatients[idx] = patient;
+    } else {
+      storedPatients.add(patient);
+    }
+    return patient;
+  }
+
+  @override
   Future<List<PatientModel>> getPatientsByCamp([String? campId]) async => storedPatients;
 
   @override

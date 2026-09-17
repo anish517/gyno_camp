@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/clinical_constants.dart';
+import '../../core/services/file_download_helper.dart';
 import '../../core/services/nepali_localization_service.dart';
+import '../../core/services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/camp_model.dart';
@@ -36,6 +38,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   bool _isLoadingHistory = true;
   List<ClinicalVisitModel> _pastVisits = [];
   ClinicalVisitModel? _latestVisit;
+  final Set<int> _dlSlipIdx = {};
 
   // Form Fields
   final TextEditingController _newIssuesController = TextEditingController();
@@ -45,6 +48,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   final TextEditingController _pulseController = TextEditingController();
   final TextEditingController _spo2Controller = TextEditingController();
   final TextEditingController _glucoseController = TextEditingController();
+  final TextEditingController _ecgNotesController = TextEditingController();
 
   // Active / New Clinical Complaints
   final Set<String> _selectedComplaints = {};
@@ -54,19 +58,25 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   int _middleStage = 0;
   int _posteriorStage = 0;
 
-  // Diagnoses
+  // Screening Labs (Station 3)
+  String? _urineTest;
+  String? _pregnancyTest;
+
+  // Diagnoses (Station 5)
   final Set<String> _selectedDiagnoses = {};
 
-  // Surgery
+  // Surgery & Referral (Station 5 & 6)
   bool _surgeryDone = false;
   String? _selectedSurgeryType;
+  String? _surgicalReferral;
 
   // Grouping Toggles
   bool _groupDiagnosesByCategory = true;
   bool _groupMedicationsByCategory = true;
 
-  // Treatment / Follow-Up Outtake
+  // Treatment / Follow-Up Outtake (Station 5 & 6)
   final Set<String> _selectedMedications = {};
+  final Set<String> _selectedCounseling = {};
   String? _pessaryType;
   String? _pessarySize;
   String? _followUpDestination;
@@ -89,6 +99,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
     _pulseController.dispose();
     _spo2Controller.dispose();
     _glucoseController.dispose();
+    _ecgNotesController.dispose();
     super.dispose();
   }
 
@@ -97,6 +108,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
     try {
       final repo = ref.read(patientRepositoryProvider);
       final visits = await repo.getClinicalVisits(widget.patient.patientId, patientUuid: widget.patient.id);
+      visits.sort((a, b) => b.visitDate.compareTo(a.visitDate));
       if (mounted) {
         setState(() {
           _pastVisits = visits;
@@ -109,6 +121,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             _posteriorStage = _latestVisit!.popPosteriorStage;
             _surgeryDone = _latestVisit!.surgeryDone;
             _selectedSurgeryType = _latestVisit!.surgeryType;
+            _surgicalReferral = _latestVisit!.surgicalReferral;
+            _urineTest = _latestVisit!.urineTest;
+            _pregnancyTest = _latestVisit!.pregnancyTest;
+            _selectedCounseling.addAll(_latestVisit!.counseling);
             if (_latestVisit!.systolicBp != null) {
               _systolicController.text = _latestVisit!.systolicBp.toString();
             }
@@ -120,6 +136,12 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             }
             if (_latestVisit!.spo2 != null) {
               _spo2Controller.text = _latestVisit!.spo2.toString();
+            }
+            if (_latestVisit!.glucose != null) {
+              _glucoseController.text = _latestVisit!.glucose.toString();
+            }
+            if (_latestVisit!.ecgNotes != null && _latestVisit!.ecgNotes!.isNotEmpty) {
+              _ecgNotesController.text = _latestVisit!.ecgNotes!;
             }
           }
           _isLoadingHistory = false;
@@ -137,6 +159,39 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
     if (_middleStage > highest) highest = _middleStage;
     if (_posteriorStage > highest) highest = _posteriorStage;
     return highest;
+  }
+
+  Future<void> _dlSlip(ClinicalVisitModel v, int i) async {
+    setState(() => _dlSlipIdx.add(i));
+    try {
+      final bytes = await PdfReportService().generateFollowUpEncounterSlipPdf(
+        patient: widget.patient,
+        visit: v,
+        camp: widget.camp,
+      );
+      final ds = DateFormat('yyyyMMdd').format(v.visitDate);
+      await FileDownloadHelper.saveAndDownloadFile(
+        bytes: bytes,
+        filename: 'EncounterSlip_${widget.patient.patientId}_$ds.pdf',
+        mimeType: 'application/pdf',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Slip downloaded for ${DateFormat("dd MMM yyyy").format(v.visitDate)}'),
+          backgroundColor: AppTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error generating slip: $e'),
+          backgroundColor: AppTheme.dangerRose,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _dlSlipIdx.remove(i));
+    }
   }
 
   Future<void> _submitFollowUp() async {
@@ -166,6 +221,12 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
       deliveries: _latestVisit?.deliveries ?? 0,
       livingChildren: _latestVisit?.livingChildren ?? 0,
       abortions: _latestVisit?.abortions ?? 0,
+      uterusInside: _latestVisit?.uterusInside ?? true,
+      vulvaRemarks: _latestVisit?.vulvaRemarks,
+      vaginaRemarks: _latestVisit?.vaginaRemarks,
+      cervixRemarks: _latestVisit?.cervixRemarks,
+      uterusRemarks: _latestVisit?.uterusRemarks,
+      pelvicFloorTone: _latestVisit?.pelvicFloorTone ?? ClinicalConstants.pelvicFloorNormal,
       anamnesisComplaints: complaintsMap,
       popAnteriorStage: _anteriorStage,
       popMiddleStage: _middleStage,
@@ -176,10 +237,15 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
       pulse: int.tryParse(_pulseController.text.trim()),
       spo2: int.tryParse(_spo2Controller.text.trim()),
       glucose: int.tryParse(_glucoseController.text.trim()),
+      urineTest: _urineTest,
+      pregnancyTest: _pregnancyTest,
+      ecgNotes: _ecgNotesController.text.trim().isNotEmpty ? _ecgNotesController.text.trim().toUpperCase() : null,
       diagnoses: _selectedDiagnoses.toList(),
+      counseling: _selectedCounseling.toList(),
       medications: _selectedMedications.toList(),
       pessaryType: _pessaryType,
       pessarySize: _pessarySize,
+      surgicalReferral: _surgicalReferral,
       followUpNeeded: _followUpNeeded,
       followUpDestination: _followUpDestination,
       outtakeNotes: _followUpNotesController.text.trim().toUpperCase(),
@@ -421,7 +487,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         title: Row(
           children: [
             const Text(
-              'Chronological Visit History',
+              'Chronological Visit History (विगतका जाँच विवरण)',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(width: 8),
@@ -438,7 +504,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             ),
           ],
         ),
-        subtitle: const Text('Track progression & newly recorded issues', style: TextStyle(fontSize: 11)),
+        subtitle: const Text('Stations 2–6 details matching Yellow Form & Downloadable PDF Slip', style: TextStyle(fontSize: 11)),
         children: [
           if (_isLoadingHistory)
             const Padding(
@@ -457,21 +523,153 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               itemCount: _pastVisits.length,
-              separatorBuilder: (_, _) => const Divider(height: 16),
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final visit = _pastVisits[index];
-                final dateStr = DateFormat('yyyy-MM-dd HH:mm').format(visit.visitDate);
+                return _buildPastVisitEncounterCard(visit, index + 1);
+              },
+            ),
+        ],
+      ),
+    );
+  }
 
-                return Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: index == 0 ? AppTheme.primaryLight.withValues(alpha: 0.3) : Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: index == 0 ? AppTheme.primaryTeal.withValues(alpha: 0.3) : Colors.grey.shade300,
+  Widget _buildPastVisitEncounterCard(ClinicalVisitModel v, int index) {
+    final isF = v.isFollowUp;
+    final isDl = _dlSlipIdx.contains(index);
+    final ac = isF ? const Color(0xFF0891B2) : AppTheme.primaryTeal;
+    final bg = isF ? const Color(0xFFECFEFF) : const Color(0xFFF0FDFA);
+    final fmt = DateFormat('yyyy-MM-dd HH:mm');
+
+    // BP classification matching PDF slip
+    String bpStatus = 'Normal';
+    Color bpColor = AppTheme.successGreen;
+    if (v.systolicBp != null && v.diastolicBp != null) {
+      final s = v.systolicBp!;
+      final d = v.diastolicBp!;
+      if (s >= 160 || d >= 100) {
+        bpStatus = 'HTN 2 (Critical)';
+        bpColor = AppTheme.dangerRose;
+      } else if (s >= 140 || d >= 90) {
+        bpStatus = 'HTN 1 (Elevated)';
+        bpColor = Colors.orange.shade800;
+      } else if (s >= 120) {
+        bpStatus = 'Pre-HTN';
+        bpColor = Colors.amber.shade800;
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ac.withValues(alpha: 0.3), width: 1.2),
+        boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 6, offset: Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: bg, borderRadius: const BorderRadius.vertical(top: Radius.circular(11))),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(color: ac.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
+                  child: Icon(isF ? Icons.replay_circle_filled_rounded : Icons.local_hospital_rounded, size: 16, color: ac),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isF ? 'Follow-Up Visit #$index' : 'Initial Assessment (प्राथमिक जाँच)',
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: ac),
+                      ),
+                      Text(fmt.format(v.visitDate), style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ac,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    elevation: 0,
+                  ),
+                  icon: isDl
+                      ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.download_rounded, size: 13),
+                  label: Text(isDl ? '...' : 'Download Slip (PDF)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  onPressed: isDl ? null : () => _dlSlip(v, index),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. Obstetric History & Pelvic Floor Exam (Station 2)
+                if (v.deliveries != null || v.livingChildren != null || v.abortions != null || v.cervixRemarks != null || v.vaginaRemarks != null || !v.uterusInside) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Obstetric & Pelvic Floor Exam (प्रसूति तथा श्रोणी जाँच):',
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                        ),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (v.deliveries != null || v.livingChildren != null || v.abortions != null) ...[
+                              _obsBadge('P', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal),
+                              _obsBadge('L', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
+                              _obsBadge('A', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
+                            ],
+                            _tb('Tone: ${v.pelvicFloorTone.toUpperCase()}', AppTheme.primaryTeal),
+                            _tb(
+                              v.uterusInside ? 'Uterus: Inside' : 'Uterus: Prolapsed',
+                              v.uterusInside ? AppTheme.successGreen : AppTheme.dangerRose,
+                            ),
+                            if (v.cervixRemarks?.isNotEmpty == true)
+                              _tb('Cervix: ${v.cervixRemarks}', const Color(0xFF64748B)),
+                            if (v.vaginaRemarks?.isNotEmpty == true)
+                              _tb('Vagina: ${v.vaginaRemarks}', const Color(0xFF64748B)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // 2. Vitals & Screening Labs (Station 3)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -479,59 +677,229 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Icon(
-                                visit.isFollowUp ? Icons.replay_rounded : Icons.fiber_new_rounded,
-                                size: 16,
-                                color: visit.isFollowUp ? AppTheme.accentCyan : AppTheme.primaryTeal,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                visit.isFollowUp ? 'Follow-Up Visit' : 'Initial Assessment',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                            ],
+                          const Text(
+                            'Clinical Vitals & Screening Labs (स्वास्थ्य सूचक):',
+                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                           ),
-                          Text(
-                            dateStr,
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: bpColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: bpColor.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(
+                              'BP: $bpStatus',
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: bpColor),
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'POP Stage: ${visit.highestPopStage} (A:${visit.popAnteriorStage} M:${visit.popMiddleStage} P:${visit.popPosteriorStage}) • BP: ${visit.systolicBp ?? "-"}/${visit.diastolicBp ?? "-"} mmHg',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 3,
+                        children: [
+                          _vc('BP', '${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"} mmHg'),
+                          if (v.pulse != null) _vc('Pulse', '${v.pulse} bpm'),
+                          if (v.spo2 != null) _vc('SpO2', '${v.spo2}%'),
+                          if (v.glucose != null) _vc('Glucose', '${v.glucose} mg/dL'),
+                          if (v.urineTest?.isNotEmpty == true) _vc('Urine', v.urineTest!.toUpperCase()),
+                          if (v.pregnancyTest?.isNotEmpty == true) _vc('UPT', v.pregnancyTest!.toUpperCase()),
+                          if (v.ecgNotes?.isNotEmpty == true) _vc('ECG', v.ecgNotes!),
+                        ],
                       ),
-                      if (visit.diagnoses.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Diagnoses: ${visit.diagnoses.join(", ")}',
-                          style: const TextStyle(fontSize: 11.5, color: AppTheme.primaryDark),
-                        ),
-                      ],
-                      if (visit.surgeryDone) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          'Surgery Done: ${visit.surgeryType ?? "Yes"}',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.successGreen),
-                        ),
-                      ],
-                      if (visit.followUpNotes != null && visit.followUpNotes!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Follow-up Notes / New Issues: ${visit.followUpNotes}',
-                          style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.black87),
-                        ),
-                      ],
                     ],
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: 6),
+
+                // 3. Baden-Walker POP Staging (Station 4)
+                Row(
+                  children: [
+                    const Text('Baden-Walker POP: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    _pb('Highest', 'St ${v.highestPopStage}', ip: true, ic: v.highestPopStage >= 3),
+                    const SizedBox(width: 4),
+                    _pb('Ant', 'St ${v.popAnteriorStage}'),
+                    const SizedBox(width: 4),
+                    _pb('Mid', 'St ${v.popMiddleStage}'),
+                    const SizedBox(width: 4),
+                    _pb('Post', 'St ${v.popPosteriorStage}'),
+                  ],
+                ),
+
+                // 4. Diagnoses & Treatments (Station 5)
+                if (v.diagnoses.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Diagnoses: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: v.diagnoses.map((d) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryLight.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(d, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.primaryDark)),
+                          )).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                // Prescriptions & Treatments (Station 5)
+                if (v.medications.isNotEmpty || v.customMedication?.isNotEmpty == true) ...[
+                  const SizedBox(height: 5),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Prescriptions: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            ...v.medications.map((m) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F9FF),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFF0891B2).withValues(alpha: 0.3)),
+                              ),
+                              child: Text(m, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF0C4A6E))),
+                            )),
+                            if (v.customMedication?.isNotEmpty == true)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFFBEB),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                                ),
+                                child: Text('Rx: ${v.customMedication}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                // Interventions: Pessary, Surgery, Referral, Counseling
+                if (v.pessarySize?.isNotEmpty == true || v.surgeryDone || v.surgicalReferral?.isNotEmpty == true || v.counseling.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Wrap(
+                    spacing: 5,
+                    runSpacing: 4,
+                    children: [
+                      if (v.pessarySize?.isNotEmpty == true)
+                        _tb('Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.pessarySize}', AppTheme.primaryTeal),
+                      if (v.surgeryDone)
+                        _tb('Surgery: ${v.surgeryType ?? "Done"}', AppTheme.successGreen),
+                      if (v.surgicalReferral?.isNotEmpty == true)
+                        _tb('Referral: ${v.surgicalReferral}', AppTheme.dangerRose),
+                      if (v.counseling.isNotEmpty)
+                        _tb('Counseling: ${v.counseling.join(", ")}', const Color(0xFF0284C7)),
+                    ],
+                  ),
+                ],
+
+                // 5. Continuity of Care & Outtake (Station 6)
+                if (v.followUpNeeded || v.followUpDestination?.isNotEmpty == true || v.followUpNotes?.isNotEmpty == true || v.outtakeNotes?.isNotEmpty == true) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              v.followUpNeeded ? 'Follow-Up: YES' : 'Follow-Up: Routine',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: v.followUpNeeded ? AppTheme.dangerRose : const Color(0xFF475569),
+                              ),
+                            ),
+                            if (v.followUpDestination?.isNotEmpty == true) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                '• Center: ${v.followUpDestination}',
+                                style: const TextStyle(fontSize: 10, color: Color(0xFF334155)),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (v.followUpNotes?.isNotEmpty == true) ...[
+                          const SizedBox(height: 3),
+                          Text('Clinical / Follow-up Notes: ${v.followUpNotes}', style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Color(0xFF334155))),
+                        ],
+                        if (v.outtakeNotes?.isNotEmpty == true && v.outtakeNotes != v.followUpNotes) ...[
+                          const SizedBox(height: 3),
+                          Text('Outtake Notes: ${v.outtakeNotes}', style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Color(0xFF334155))),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _obsBadge(String label, String val, Color bg, Color fg) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4), border: Border.all(color: fg.withValues(alpha: 0.3))),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: fg)),
+        const SizedBox(width: 3),
+        Text(val, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: fg)),
+      ],
+    ),
+  );
+
+  Widget _tb(String text, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withValues(alpha: 0.3))),
+    child: Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+  );
+
+  Widget _vc(String label, String val) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text('$label: ', style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+      Text(val, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
+    ],
+  );
+
+  Widget _pb(String label, String val, {bool ip = false, bool ic = false}) {
+    final c = ic ? AppTheme.dangerRose : (ip ? AppTheme.primaryTeal : const Color(0xFF475569));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: c.withValues(alpha: 0.3)),
+      ),
+      child: Text('$label: $val', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: c)),
     );
   }
 
@@ -616,7 +984,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '2. Physical Vitals Check (शारीरिक जाँच)',
+              '2. Physical Vitals Check & Screening Labs (शारीरिक जाँच तथा ल्याब)',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 12),
@@ -696,6 +1064,66 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            const Text(
+              'Screening Labs & Diagnostic Findings (स्टेसन ३: प्रयोगशाला जाँच):',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _urineTest,
+                    decoration: const InputDecoration(
+                      labelText: 'Urine Dipstick (पिसाब जाँच)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: null, child: Text('Not Done')),
+                      DropdownMenuItem(value: 'normal', child: Text('Normal (नर्मल)')),
+                      DropdownMenuItem(value: 'protein_pos', child: Text('Protein (+)')),
+                      DropdownMenuItem(value: 'glucose_pos', child: Text('Glucose (+)')),
+                      DropdownMenuItem(value: 'leukocytes_pos', child: Text('Leukocytes (+)')),
+                      DropdownMenuItem(value: 'blood_pos', child: Text('Blood / Hematuria (+)')),
+                    ],
+                    onChanged: (val) => setState(() => _urineTest = val),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _pregnancyTest,
+                    decoration: const InputDecoration(
+                      labelText: 'Pregnancy Test / UPT',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: null, child: Text('Not Indicated')),
+                      DropdownMenuItem(value: 'neg', child: Text('Negative (-)')),
+                      DropdownMenuItem(value: 'pos', child: Text('Positive (+)')),
+                    ],
+                    onChanged: (val) => setState(() => _pregnancyTest = val),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _ecgNotesController,
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [const UpperCaseTextFormatter()],
+              decoration: const InputDecoration(
+                labelText: 'ECG Findings / Notes [BLOCK LETTERS]',
+                hintText: 'e.g. NORMAL SINUS RHYTHM, SINUS BRADYCARDIA',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
             ),
           ],
         ),
@@ -1008,6 +1436,20 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 }).toList(),
               ),
             ],
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _surgicalReferral,
+              decoration: const InputDecoration(
+                labelText: 'Surgical Referral Center (शल्यक्रिया सिफारिस अस्पताल)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('No Surgical Referral')),
+                ...ClinicalConstants.referralHospitals.map((h) => DropdownMenuItem(value: h, child: Text(h))),
+              ],
+              onChanged: (val) => setState(() => _surgicalReferral = val),
+            ),
           ],
         ),
       ),
@@ -1175,7 +1617,54 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 );
               }).toList(),
               ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
             const SizedBox(height: 12),
+            const Text(
+              'Specialized Counseling (परामर्श सेवा):',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                'weak pelvic floor',
+                'POP',
+                'stress incontinence',
+                'urge incontinence',
+                'abdominal pain',
+                'pelvic floor exercises',
+                'pessary care & hygiene',
+              ].map((c) {
+                final isSelected = _selectedCounseling.contains(c);
+                return FilterChip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(
+                    c,
+                    style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                  ),
+                  selected: isSelected,
+                  selectedColor: AppTheme.primaryLight,
+                  checkmarkColor: AppTheme.primaryTeal,
+                  onSelected: (val) {
+                    setState(() {
+                      if (val) {
+                        _selectedCounseling.add(c);
+                      } else {
+                        _selectedCounseling.remove(c);
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Pessary Fitting & Continuity of Care (पेसरी तथा निरन्तर हेरचाह):',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(

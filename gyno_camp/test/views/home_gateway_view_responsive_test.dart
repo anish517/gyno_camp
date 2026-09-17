@@ -116,6 +116,9 @@ class FakePatientRepoForResponsive implements IPatientRepository {
   Future<PatientModel> registerPatient(PatientModel patient, {required String createdByUserId, required String createdByUserName, required String createdByUserRole, required String deviceId}) async => patient;
 
   @override
+  Future<PatientModel> updatePatient(PatientModel patient, {required String updatedByUserId, required String updatedByUserName, required String updatedByUserRole, required String deviceId}) async => patient;
+
+  @override
   Future<List<PatientModel>> getPatientsByCamp([String? campId]) async => patients;
 
   @override

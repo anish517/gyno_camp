@@ -180,5 +180,124 @@ void main() {
       expect(vm.state.isValid, isTrue);
       expect(vm.state.validationError, isNull);
     });
+
+    test('loadPatientForEditing populates form state from existing patient', () async {
+      vm.updateField(
+        firstName: 'Gita',
+        surname: 'Thapa',
+        age: 35,
+        mobile: '9841112233',
+        ward: '07',
+        district: 'Kavre',
+        municipality: 'Dhulikhel',
+        province: 'Bagmati',
+        maritalStatus: 'married',
+        maritalAge: 22,
+        spouseOrFatherName: 'Ram Thapa',
+        relationshipType: 'Husband',
+        consentTreatment: true,
+        consentStoreMedicalInfo: true,
+      );
+      vm.toggleReason('something hanging out');
+
+      final registered = await vm.submitRegistration(
+        campId: 'camp-kvr-01',
+        campCode: 'KVR',
+        staffUserId: 'usr-nurse',
+        staffUserName: 'Nurse Maya',
+        staffUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+      );
+      expect(registered, isNotNull);
+
+      // Create new VM instance and load for editing
+      final editVm = PatientRegistrationViewModel(patientRepo);
+      editVm.loadPatientForEditing(registered!);
+
+      expect(editVm.state.firstName, 'Gita');
+      expect(editVm.state.surname, 'Thapa');
+      expect(editVm.state.age, 35);
+      expect(editVm.state.mobile, '9841112233');
+      expect(editVm.state.ward, '07');
+      expect(editVm.state.district, 'Kavre');
+      expect(editVm.state.municipality, 'Dhulikhel');
+      expect(editVm.state.province, 'Bagmati');
+      expect(editVm.state.maritalStatus, 'married');
+      expect(editVm.state.maritalAge, 22);
+      expect(editVm.state.spouseOrFatherName, 'Ram Thapa');
+      expect(editVm.state.consentTreatment, isTrue);
+      expect(editVm.state.consentStoreMedicalInfo, isTrue);
+      expect(editVm.state.selectedReasons, contains('something hanging out'));
+      expect(editVm.state.isValid, isTrue);
+    });
+
+    test('submitUpdate successfully modifies Page 1 details and preserves patient identity', () async {
+      vm.updateField(
+        firstName: 'Anita',
+        surname: 'Shrestha',
+        age: 40,
+        mobile: '9851000111',
+        ward: '02',
+        district: 'Lalitpur',
+        municipality: 'Lalitpur Metropol',
+        province: 'Bagmati',
+        consentTreatment: true,
+        consentStoreMedicalInfo: true,
+      );
+
+      final original = await vm.submitRegistration(
+        campId: 'camp-lal-01',
+        campCode: 'LAL',
+        staffUserId: 'usr-nurse',
+        staffUserName: 'Nurse Maya',
+        staffUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+      );
+      expect(original, isNotNull);
+
+      // Now edit Page 1 details
+      final editVm = PatientRegistrationViewModel(patientRepo);
+      editVm.loadPatientForEditing(original!);
+
+      // Change age, phone, ward, and add guardian
+      editVm.updateField(
+        age: 42,
+        mobile: '9851999888',
+        ward: '05',
+        spouseOrFatherName: 'Hari Shrestha',
+        relationshipType: 'Husband',
+      );
+
+      final updated = await editVm.submitUpdate(
+        originalPatient: original,
+        staffUserId: 'usr-nurse',
+        staffUserName: 'Nurse Maya',
+        staffUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+      );
+
+      expect(updated, isNotNull);
+      // Key identity fields preserved
+      expect(updated!.id, original.id);
+      expect(updated.patientId, original.patientId);
+      expect(updated.campId, original.campId);
+      expect(updated.createdAt, original.createdAt);
+
+      // Modified fields updated
+      expect(updated.age, 42);
+      expect(updated.mobile, '9851999888');
+      expect(updated.ward, '05');
+      expect(updated.spouseOrFatherName, 'HARI SHRESTHA');
+      expect(updated.isSynced, isFalse);
+
+      // Verify in DB via repository
+      final fromDb = await patientRepo.getPatientByPatientId(original.patientId);
+      expect(fromDb, isNotNull);
+      expect(fromDb!.age, 42);
+      expect(fromDb.mobile, '9851999888');
+      expect(fromDb.ward, '05');
+      expect(fromDb.spouseOrFatherName, 'HARI SHRESTHA');
+    });
   });
 }
+

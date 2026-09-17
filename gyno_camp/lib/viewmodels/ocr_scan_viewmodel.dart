@@ -431,6 +431,31 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     );
   }
 
+  /// Explicitly adds a diagnosis if not already present
+  void addDiagnosis(String diagnosis) {
+    if (state.scanResult == null) return;
+    final trimmed = diagnosis.trim();
+    if (trimmed.isEmpty) return;
+    final list = List<String>.from(state.scanResult!.diagnoses);
+    if (!list.contains(trimmed)) {
+      list.add(trimmed);
+      state = state.copyWith(
+        scanResult: state.scanResult!.copyWith(diagnoses: list),
+      );
+    }
+  }
+
+  /// Explicitly removes a diagnosis
+  void removeDiagnosis(String diagnosis) {
+    if (state.scanResult == null) return;
+    final list = List<String>.from(state.scanResult!.diagnoses);
+    if (list.remove(diagnosis)) {
+      state = state.copyWith(
+        scanResult: state.scanResult!.copyWith(diagnoses: list),
+      );
+    }
+  }
+
   /// Toggles medication on/off
   void toggleMedication(String medication) {
     if (state.scanResult == null) return;
@@ -442,6 +467,53 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     }
     state = state.copyWith(
       scanResult: state.scanResult!.copyWith(medications: list),
+    );
+  }
+
+  /// Explicitly adds a medication if not already present
+  void addMedication(String medication) {
+    if (state.scanResult == null) return;
+    final trimmed = medication.trim();
+    if (trimmed.isEmpty) return;
+    final list = List<String>.from(state.scanResult!.medications);
+    if (!list.contains(trimmed)) {
+      list.add(trimmed);
+      state = state.copyWith(
+        scanResult: state.scanResult!.copyWith(medications: list),
+      );
+    }
+  }
+
+  /// Explicitly removes a medication
+  void removeMedication(String medication) {
+    if (state.scanResult == null) return;
+    final list = List<String>.from(state.scanResult!.medications);
+    if (list.remove(medication)) {
+      state = state.copyWith(
+        scanResult: state.scanResult!.copyWith(medications: list),
+      );
+    }
+  }
+
+  /// Updates surgical referral hospital destination
+  void updateSurgicalReferral(String? referral) {
+    if (state.scanResult == null) return;
+    state = state.copyWith(
+      scanResult: state.scanResult!.copyWith(
+        surgicalReferral: referral,
+        clearSurgicalReferral: referral == null,
+      ),
+    );
+  }
+
+  /// Updates follow-up destination
+  void updateFollowUpDestination(String? destination) {
+    if (state.scanResult == null) return;
+    state = state.copyWith(
+      scanResult: state.scanResult!.copyWith(
+        followUpDestination: destination,
+        clearFollowUpDestination: destination == null,
+      ),
     );
   }
 

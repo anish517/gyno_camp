@@ -25,7 +25,10 @@ import 'clinical_assessment_view.dart';
 import 'patient_follow_up_slip_modal.dart';
 
 class PatientRegistrationView extends ConsumerStatefulWidget {
-  const PatientRegistrationView({super.key});
+  final PatientModel? patientToEdit;
+  const PatientRegistrationView({super.key, this.patientToEdit});
+
+  bool get isEditMode => patientToEdit != null;
 
   @override
   ConsumerState<PatientRegistrationView> createState() =>
@@ -68,13 +71,32 @@ class _PatientRegistrationViewState
     return ClinicalConstants.visitReasonOptions;
   }
 
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _applyActiveCampLocation();
+      if (widget.patientToEdit != null) {
+        _applyPatientToEdit(widget.patientToEdit!);
+      } else {
+        _applyActiveCampLocation();
+      }
     });
+  }
+
+  void _applyPatientToEdit(PatientModel patient) {
+    ref.read(patientRegistrationProvider.notifier).loadPatientForEditing(patient);
+    _firstNameController.text = patient.firstName.toUpperCase();
+    _surnameController.text = patient.surname.toUpperCase();
+    _ageController.text = patient.age.toString();
+    _wardController.text = patient.ward;
+    _districtController.text = patient.district.toUpperCase();
+    _municipalityController.text = patient.municipality.toUpperCase();
+    _spouseOrFatherController.text = (patient.spouseOrFatherName ?? '').toUpperCase();
+    _maritalAgeController.text = patient.maritalAge?.toString() ?? '';
+    _mobileController.text = patient.mobile;
+    _contactPersonController.text = (patient.contactPerson ?? '').toUpperCase();
+    _contactMobileController.text = patient.contactMobile ?? '';
+    setState(() {});
   }
 
   void _applyActiveCampLocation() {
@@ -246,6 +268,7 @@ class _PatientRegistrationViewState
     required dynamic device,
   }) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     scaffoldMessenger.clearSnackBars();
 
     if (!state.isValid) {
@@ -290,6 +313,32 @@ class _PatientRegistrationViewState
           behavior: SnackBarBehavior.floating,
         ),
       );
+      return;
+    }
+
+    if (widget.patientToEdit != null) {
+      final updated = await vm.submitUpdate(
+        originalPatient: widget.patientToEdit!,
+        staffUserId: user?.id ?? 'usr-field',
+        staffUserName: user?.name ?? 'Field Nurse',
+        staffUserRole: user?.role.toDbString() ?? AppConstants.roleDataTaker,
+        deviceId: device?.deviceId ?? 'dev-field',
+      );
+
+      if (!mounted) return;
+
+      if (updated != null) {
+        ref.read(patientListProvider.notifier).loadPatients(camp.id);
+
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('Patient updated: ${updated.fullName} (ID: ${updated.patientId})'),
+            backgroundColor: AppTheme.successGreen,
+          ),
+        );
+
+        navigator.pop(updated);
+      }
       return;
     }
 
@@ -373,6 +422,10 @@ class _PatientRegistrationViewState
   }
 
   void _clearForm() {
+    if (widget.patientToEdit != null) {
+      _applyPatientToEdit(widget.patientToEdit!);
+      return;
+    }
     _firstNameController.clear();
     _surnameController.clear();
     _ageController.clear();
@@ -409,17 +462,21 @@ class _PatientRegistrationViewState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Patient Registration (दर्ता)',
+              widget.patientToEdit != null
+                  ? 'Edit Patient Details (विवरण सम्पादन)'
+                  : 'Patient Registration (दर्ता)',
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              'Station 1: Demographics & Triage • Yellow Form',
+              widget.patientToEdit != null
+                  ? '${widget.patientToEdit!.patientId} • Page 1 Demographics'
+                  : 'Station 1: Demographics & Triage • Yellow Form',
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.normal,
                 color: Colors.white70,
@@ -1738,9 +1795,13 @@ class _PatientRegistrationViewState
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Icon(Icons.arrow_forward_rounded, size: 20),
+                              : (widget.patientToEdit != null
+                                  ? const Icon(Icons.check_circle_outline_rounded, size: 20)
+                                  : const Icon(Icons.arrow_forward_rounded, size: 20)),
                           label: Text(
-                            state.isSubmitting ? 'Registering Patient...' : 'Register Patient & Start Clinical Form (Station 1 → 2)',
+                            state.isSubmitting
+                                ? (widget.patientToEdit != null ? 'Updating Patient Details...' : 'Registering Patient...')
+                                : (widget.patientToEdit != null ? 'Update Patient Details (विवरण अद्यावधिक गर्नुहोस्)' : 'Register Patient & Start Clinical Form (Station 1 → 2)'),
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -1770,7 +1831,7 @@ class _PatientRegistrationViewState
                             ),
                           ),
                           icon: const Icon(Icons.clear_rounded, size: 18),
-                          label: const Text('Clear Form'),
+                          label: Text(widget.patientToEdit != null ? 'Reset to Original' : 'Clear Form'),
                           onPressed: _clearForm,
                         ),
                       ),
@@ -1790,7 +1851,7 @@ class _PatientRegistrationViewState
                           ),
                         ),
                         icon: const Icon(Icons.clear_rounded, size: 18),
-                        label: const Text('Clear'),
+                        label: Text(widget.patientToEdit != null ? 'Reset to Original' : 'Clear'),
                         onPressed: _clearForm,
                       ),
                       const SizedBox(width: 14),
@@ -1813,9 +1874,13 @@ class _PatientRegistrationViewState
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Icon(Icons.arrow_forward_rounded, size: 20),
+                              : (widget.patientToEdit != null
+                                  ? const Icon(Icons.check_circle_outline_rounded, size: 20)
+                                  : const Icon(Icons.arrow_forward_rounded, size: 20)),
                           label: Text(
-                            state.isSubmitting ? 'Registering Patient...' : 'Register Patient & Start Clinical Form (Station 1 → 2)',
+                            state.isSubmitting
+                                ? (widget.patientToEdit != null ? 'Updating Patient Details...' : 'Registering Patient...')
+                                : (widget.patientToEdit != null ? 'Update Patient Details (विवरण अद्यावधिक गर्नुहोस्)' : 'Register Patient & Start Clinical Form (Station 1 → 2)'),
                             style: const TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.bold,

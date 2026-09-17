@@ -286,6 +286,88 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     }
   }
 
+  void loadPatientForEditing(PatientModel patient) {
+    state = PatientRegistrationState(
+      firstName: patient.firstName,
+      surname: patient.surname,
+      age: patient.age,
+      mobile: patient.mobile,
+      province: patient.province.isNotEmpty ? patient.province : 'Bagmati',
+      district: patient.district,
+      municipality: patient.municipality,
+      ward: patient.ward,
+      spouseOrFatherName: patient.spouseOrFatherName ?? '',
+      relationshipType: patient.relationshipType ?? (patient.age < 20 ? 'Father' : 'Husband'),
+      contactPerson: patient.contactPerson,
+      contactMobile: patient.contactMobile,
+      maritalStatus: patient.maritalStatus,
+      maritalAge: patient.maritalAge,
+      selectedReasons: List<String>.from(patient.reasonsForVisit),
+      consentTreatment: patient.consentTreatment,
+      consentStoreMedicalInfo: patient.consentStoreMedicalInfo,
+      registeredPatient: patient,
+    );
+  }
+
+  Future<PatientModel?> submitUpdate({
+    required PatientModel originalPatient,
+    required String staffUserId,
+    required String staffUserName,
+    required String staffUserRole,
+    required String deviceId,
+  }) async {
+    if (!state.isValid) {
+      state = state.copyWith(errorMessage: state.validationError ?? 'Please fill in required fields properly.');
+      return null;
+    }
+
+    state = state.copyWith(isSubmitting: true, errorMessage: null);
+
+    try {
+      final updatedPatient = originalPatient.copyWith(
+        firstName: state.firstName.trim().toUpperCase(),
+        surname: state.surname.trim().toUpperCase(),
+        age: state.age,
+        spouseOrFatherName: state.spouseOrFatherName.trim().toUpperCase(),
+        relationshipType: state.relationshipType,
+        mobile: state.mobile.trim(),
+        province: state.province.trim(),
+        district: state.district.trim(),
+        municipality: state.municipality.trim(),
+        ward: state.ward.trim(),
+        contactPerson: state.contactPerson?.trim().toUpperCase(),
+        contactMobile: state.contactMobile?.trim(),
+        maritalStatus: state.maritalStatus,
+        maritalAge: state.maritalAge,
+        reasonsForVisit: state.selectedReasons,
+        consentTreatment: state.consentTreatment,
+        consentStoreMedicalInfo: state.consentStoreMedicalInfo,
+        updatedAt: DateTime.now(),
+      );
+
+      final result = await _patientRepository.updatePatient(
+        updatedPatient,
+        updatedByUserId: staffUserId,
+        updatedByUserName: staffUserName,
+        updatedByUserRole: staffUserRole,
+        deviceId: deviceId,
+      );
+
+      state = state.copyWith(
+        isSubmitting: false,
+        registeredPatient: result,
+      );
+
+      return result;
+    } catch (e) {
+      state = state.copyWith(
+        isSubmitting: false,
+        errorMessage: 'Update failed: $e',
+      );
+      return null;
+    }
+  }
+
   void reset({String province = 'Bagmati', String district = '', String municipality = '', String ward = ''}) {
     state = PatientRegistrationState(
       province: province,

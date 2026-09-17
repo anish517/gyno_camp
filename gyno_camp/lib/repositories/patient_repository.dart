@@ -17,6 +17,13 @@ abstract class IPatientRepository {
     required String createdByUserRole,
     required String deviceId,
   });
+  Future<PatientModel> updatePatient(
+    PatientModel patient, {
+    required String updatedByUserId,
+    required String updatedByUserName,
+    required String updatedByUserRole,
+    required String deviceId,
+  });
   Future<List<PatientModel>> getPatientsByCamp([String? campId]);
   Future<PatientModel?> getPatientByPatientId(String patientId);
   Future<List<PatientModel>> searchPatients({required String campId, required String query});
@@ -122,6 +129,55 @@ class PatientRepository implements IPatientRepository {
     );
 
     return newPatient;
+  }
+
+  @override
+  Future<PatientModel> updatePatient(
+    PatientModel patient, {
+    required String updatedByUserId,
+    required String updatedByUserName,
+    required String updatedByUserRole,
+    required String deviceId,
+  }) async {
+    final db = await _databaseService.database;
+
+    final updatedPatient = patient.copyWith(
+      updatedAt: DateTime.now(),
+      isSynced: false,
+    );
+
+    await db.update(
+      DatabaseTables.tablePatients,
+      updatedPatient.toMap(),
+      where: 'id = ? OR patient_id = ?',
+      whereArgs: [updatedPatient.id, updatedPatient.patientId],
+    );
+
+    // Audit log update
+    await _auditRepository.logActivity(
+      userId: updatedByUserId,
+      userName: updatedByUserName,
+      userRole: updatedByUserRole,
+      action: AppConstants.auditActionPatientUpdate,
+      entityType: 'Patient',
+      entityId: updatedPatient.patientId,
+      detailsJson: jsonEncode({
+        'patientId': updatedPatient.patientId,
+        'name': updatedPatient.fullName,
+        'age': updatedPatient.age,
+        'ward': updatedPatient.ward,
+        'municipality': updatedPatient.municipality,
+        'district': updatedPatient.district,
+        'province': updatedPatient.province,
+        'mobile': updatedPatient.mobile,
+        'spouseOrFather': updatedPatient.spouseOrFatherName,
+        'maritalStatus': updatedPatient.maritalStatus,
+        'reasons': updatedPatient.reasonsForVisit,
+      }),
+      deviceId: deviceId,
+    );
+
+    return updatedPatient;
   }
 
   @override

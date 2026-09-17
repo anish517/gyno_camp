@@ -36,6 +36,7 @@ class AppConstants {
   static const String auditActionCampOpen = 'CAMP_OPENED';
   static const String auditActionCampClose = 'CAMP_CLOSED';
   static const String auditActionPatientRegister = 'PATIENT_REGISTERED';
+  static const String auditActionPatientUpdate = 'PATIENT_UPDATED';
   static const String auditActionClinicalEntry = 'CLINICAL_ENTRY_SAVED';
   static const String auditActionSyncStarted = 'SYNC_STARTED';
   static const String auditActionSyncCompleted = 'SYNC_COMPLETED';
