@@ -1575,10 +1575,20 @@ class PdfReportService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Row(children: [
-                      pw.Text('$labelEn / ', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: dark)),
-                      pw.Text(labelNe, style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
-                    ]),
+                    pw.RichText(
+                      text: pw.TextSpan(
+                        children: [
+                          pw.TextSpan(
+                            text: '$labelEn / ',
+                            style: pw.TextStyle(fontSize: 7.2, fontWeight: pw.FontWeight.bold, color: dark),
+                          ),
+                          pw.TextSpan(
+                            text: labelNe,
+                            style: pw.TextStyle(fontSize: 6.8, color: PdfColors.grey600),
+                          ),
+                        ],
+                      ),
+                    ),
                     pw.SizedBox(height: 2),
                     buildCharBoxes(
                       value,
@@ -1679,14 +1689,14 @@ class PdfReportService {
 
               pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
                 pw.Expanded(
-                  flex: 65,
-                  child: field('Mobile No.', 'मोबाइल नम्बर', patient?.mobile ?? '', minBoxes: 10, maxBoxes: 10, boxSize: 13, boxMargin: 1.5),
+                  flex: 52,
+                  child: field('Mobile No.', 'मोबाइल नम्बर', patient?.mobile ?? '', minBoxes: 10, maxBoxes: 10, boxSize: 12, boxMargin: 1.5),
                 ),
                 pw.SizedBox(width: 8),
-                pw.SizedBox(
-                  width: 70,
+                pw.Expanded(
+                  flex: 48,
                   child: field('Age at Marriage', 'विवाह उमेर',
-                      patient?.maritalAge != null ? patient!.maritalAge.toString() : '', minBoxes: 3, maxBoxes: 3, boxSize: 14, boxMargin: 2),
+                      patient?.maritalAge != null ? patient!.maritalAge.toString() : '', minBoxes: 3, maxBoxes: 3, boxSize: 13, boxMargin: 2),
                 ),
               ]),
 
@@ -1732,46 +1742,52 @@ class PdfReportService {
 
               pw.SizedBox(height: 10),
 
-              // Signature lines
-              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                  pw.Container(width: 110, height: 0.8, color: PdfColors.black),
-                  pw.SizedBox(height: 2),
-                  pw.Text('Patient Signature / Thumbprint', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('(Required for consent)', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
-                ]),
-                pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
-                  pw.Container(width: 50, height: 35,
-                      decoration: pw.BoxDecoration(border: pw.Border.all(color: gray),
-                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)))),
-                  pw.SizedBox(height: 2),
-                  pw.Text('Thumbprint', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
-                ]),
-                pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                  pw.Container(width: 100, height: 0.8, color: PdfColors.black),
-                  pw.SizedBox(height: 2),
-                  pw.Text('Data Entry Operator', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Date: ${dateFormatter.format(DateTime.now())}', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
-                ]),
-              ]),
+              // Signature lines (clean 2-column signature block without square box)
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                    pw.Container(width: 105, height: 0.8, color: PdfColors.black),
+                    pw.SizedBox(height: 2),
+                    pw.Text('Patient Signature / Thumbprint', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('(Required for consent)', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                  ]),
+                  pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+                    pw.Container(width: 95, height: 0.8, color: PdfColors.black),
+                    pw.SizedBox(height: 2),
+                    pw.Text('Data Entry Operator', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Date: ${dateFormatter.format(DateTime.now())}', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                  ]),
+                ],
+              ),
 
               pw.SizedBox(height: 8),
               pw.Container(
-                padding: const pw.EdgeInsets.all(5),
+                width: double.infinity,
+                padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                 decoration: pw.BoxDecoration(
                   color: PdfColor.fromHex('F8FAFC'),
-                  border: pw.Border.all(color: gray),
+                  border: pw.Border.all(color: gray, width: 0.8),
                   borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
                 ),
-                child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.center, children: [
-                  pw.Text('FOR OFFICIAL USE ONLY — ', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: primary)),
-                  pw.Text(
-                    hasPatient
-                        ? 'Patient ID: ${patient.patientId} | Camp: ${camp?.campCode ?? patient.campCode}'
-                        : 'Camp: ${camp?.campCode ?? "CAMP"} | Venue: ${camp?.venue ?? "Health Center"}',
-                    style: pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
-                  ),
-                ]),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Text(
+                      'FOR OFFICIAL USE ONLY',
+                      style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: primary),
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      hasPatient
+                          ? 'Patient ID: ${patient.patientId} | Camp: ${camp?.campCode ?? patient.campCode}'
+                          : 'Camp: ${camp?.campCode ?? "CAMP"} | Venue: ${sanitizeText(camp?.venue ?? "Health Center")}',
+                      style: pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             ],
           );
@@ -1781,6 +1797,7 @@ class PdfReportService {
             children: [
               // Page 1 Header strip
               pw.Container(
+                width: double.infinity,
                 padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: pw.BoxDecoration(
                   color: lightBg,
@@ -1789,31 +1806,40 @@ class PdfReportService {
                 ),
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
-                    pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                      pw.Text(sanitizeText(organizationName.toUpperCase()),
-                          style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: primary)),
-                      pw.Text('PATIENT REGISTRATION — PAGE 1 (FRONT) | Yellow Form',
-                          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: dark)),
-                      pw.Text('PLEASE FILL IN BLOCK LETTERS — ठूला अक्षरमा भर्नुहोस् | Camp: ${sanitizeText(camp?.name ?? "Gynecological Health Outreach Camp")} | Date: ${dateFormatter.format(intakeDate)}',
-                          style: pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
-                    ]),
+                    pw.Expanded(
+                      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                        pw.Text(sanitizeText(organizationName.toUpperCase()),
+                            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: primary)),
+                        pw.Text('PATIENT REGISTRATION — PAGE 1 (FRONT) | Yellow Form',
+                            style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: dark)),
+                        pw.Text('PLEASE FILL IN BLOCK LETTERS — ठूला अक्षरमा भर्नुहोस् | Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} | Date: ${dateFormatter.format(intakeDate)}',
+                            style: pw.TextStyle(fontSize: 6.8, color: PdfColors.grey700)),
+                      ]),
+                    ),
+                    pw.SizedBox(width: 10),
                     hasPatient
                         ? pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
                             pw.BarcodeWidget(
                               barcode: pw.Barcode.qrCode(),
                               data: patient.patientId,
-                              width: 48, height: 48,
+                              width: 42, height: 42,
                             ),
                             pw.Text(patient.patientId,
                                 style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: primary)),
                           ])
-                        : pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                        : pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
                             pw.Text('PATIENT TOKEN ID / अस्पताल दर्ता नं.',
                                 style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: primary)),
                             pw.SizedBox(height: 3),
-                            buildCharBoxes(camp?.campCode != null ? '${camp!.campCode}-' : '', minBoxes: 12, maxBoxes: 12, boxSize: 14),
+                            buildCharBoxes(
+                              camp?.campCode != null ? '${camp!.campCode}-' : '',
+                              minBoxes: 10,
+                              maxBoxes: 10,
+                              boxSize: 13,
+                              boxMargin: 1.5,
+                            ),
                           ]),
                   ],
                 ),
@@ -1824,11 +1850,11 @@ class PdfReportService {
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Expanded(flex: 55, child: leftCol),
+                  pw.Expanded(flex: 53, child: leftCol),
                   pw.SizedBox(width: 10),
                   pw.Container(width: 0.5, color: gray),
                   pw.SizedBox(width: 10),
-                  pw.Expanded(flex: 45, child: rightCol),
+                  pw.Expanded(flex: 47, child: rightCol),
                 ],
               ),
             ],
@@ -2112,13 +2138,13 @@ class PdfReportService {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                    pw.Container(width: 120, height: 0.8, color: PdfColors.black),
+                    pw.Container(width: 105, height: 0.8, color: PdfColors.black),
                     pw.SizedBox(height: 2),
                     pw.Text('Data Entry Operator', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold)),
                     pw.Text('Name & Date:', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
                   ]),
                   pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                    pw.Container(width: 130, height: 0.8, color: PdfColors.black),
+                    pw.Container(width: 115, height: 0.8, color: PdfColors.black),
                     pw.SizedBox(height: 2),
                     pw.Text('Medical Officer / Gynecologist', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold)),
                     pw.Text('NMC Certified — Date:', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
@@ -2142,15 +2168,19 @@ class PdfReportService {
                 ),
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
-                    pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                      pw.Text(sanitizeText(organizationName.toUpperCase()),
-                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: primary)),
-                      pw.Text('CLINICAL ASSESSMENT — PAGE 2 (BACK) | Stations 1-6',
-                          style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: dark)),
-                      pw.Text('To be completed by clinical staff — Block letters only',
-                          style: pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700)),
-                    ]),
+                    pw.Expanded(
+                      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                        pw.Text(sanitizeText(organizationName.toUpperCase()),
+                            style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: primary)),
+                        pw.Text('CLINICAL ASSESSMENT — PAGE 2 (BACK) | Stations 1-6',
+                            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: dark)),
+                        pw.Text('To be completed by clinical staff — Block letters only',
+                            style: pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700)),
+                      ]),
+                    ),
+                    pw.SizedBox(width: 10),
                     if (hasPatient)
                       pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
                         pw.Text(patient.patientId,
@@ -2159,10 +2189,10 @@ class PdfReportService {
                             style: pw.TextStyle(fontSize: 7)),
                       ])
                     else
-                      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
                         pw.Text('Patient ID:', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: primary)),
                         pw.SizedBox(height: 2),
-                        buildCharBoxes('', minBoxes: 12, maxBoxes: 12, boxSize: 13),
+                        buildCharBoxes('', minBoxes: 10, maxBoxes: 10, boxSize: 12, boxMargin: 1.5),
                       ]),
                   ],
                 ),
