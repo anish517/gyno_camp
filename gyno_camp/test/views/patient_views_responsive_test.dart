@@ -280,6 +280,51 @@ void main() {
       expect(find.text('Register Patient & Start Clinical Form (Station 1 → 2)'), findsOneWidget);
     });
 
+    testWidgets('Block letter grid shows immediate ACTIVE indication upon click before typing text', (tester) async {
+      tester.view.physicalSize = const Size(1024, 768);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+            campStateProvider.overrideWith((ref) => _FakeCampViewModel(sampleCamp)),
+            authStateProvider.overrideWith((ref) => _FakeAuthViewModel(sampleUser)),
+          ],
+          child: const MaterialApp(
+            home: PatientRegistrationView(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Before tap, no ACTIVE indicator
+      expect(find.text('ACTIVE'), findsNothing);
+
+      // Tap on the First Name block grid
+      final firstNameFinder = find.textContaining('First Name * (पहिलो नाम)');
+      expect(firstNameFinder, findsOneWidget);
+      await tester.tap(firstNameFinder);
+      await tester.pump();
+
+      // Immediately after tap (without typing any text yet), ACTIVE badge is displayed!
+      expect(find.text('ACTIVE'), findsOneWidget);
+
+      // Enter text
+      await tester.enterText(find.byType(TextField).first, 'SITA');
+      await tester.pump();
+
+      // Characters are rendered in boxes
+      expect(find.text('S'), findsOneWidget);
+      expect(find.text('I'), findsOneWidget);
+      expect(find.text('T'), findsOneWidget);
+      expect(find.text('A'), findsOneWidget);
+    });
+
     testWidgets('PatientListView renders on mobile (360x640) without overflow and with responsive stats and actions', (tester) async {
       tester.view.physicalSize = const Size(360, 640);
       tester.view.devicePixelRatio = 1.0;

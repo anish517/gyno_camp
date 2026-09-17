@@ -211,7 +211,9 @@ class _PatientRegistrationViewState
   /// Interactive block-grid input widget.
   /// When [controller] is provided, tapping the grid focuses the hidden TextField
   /// so the user types directly into the character boxes.
-  /// When [controller] is null, renders as a read-only display grid.
+  /// When [controller] is null, renders as a read-only display grid.  /// Interactive block-grid input widget.
+  /// When [controller] is provided, tapping the grid focuses the input
+  /// so the user types directly into the character boxes with immediate visual focus feedback.
   Widget _buildBlockGrid(
     String value,
     int minBoxes, {
@@ -222,114 +224,197 @@ class _PatientRegistrationViewState
     ValueChanged<String>? onChanged,
     List<TextInputFormatter>? inputFormatters,
   }) {
-    final chars = value.toUpperCase().split('');
-    final total = chars.length > minBoxes ? chars.length : minBoxes;
     final isInteractive = controller != null;
+    final listenable = isInteractive
+        ? Listenable.merge([
+            ?focusNode,
+            controller,
+          ])
+        : null;
 
-    final grid = SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: List.generate(total, (i) {
-          final hasChar = i < chars.length && chars[i].isNotEmpty;
-          // Show cursor blinking in the next empty box
-          final isCursor = isInteractive &&
-              focusNode != null &&
-              focusNode.hasFocus &&
-              i == chars.length;
-          return Container(
-            width: 21,
-            height: 23,
-            margin: const EdgeInsets.only(right: 2.5),
-            decoration: BoxDecoration(
-              color: hasChar
-                  ? const Color(0xFFF0FDFA)
-                  : isCursor
-                      ? const Color(0xFFE0F2FE)
-                      : const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(
+    Widget contentBuilder(BuildContext context) {
+      final textValue = controller != null ? controller.text : value;
+      final chars = textValue.toUpperCase().split('');
+      final total = chars.length > minBoxes ? chars.length : minBoxes;
+      final isFocused = focusNode != null && focusNode.hasFocus;
+
+      final isMobile = MediaQuery.of(context).size.width < 768;
+      // Generous responsive sizing so character boxes are prominent and comfortable
+      final boxWidth = isMobile ? 26.0 : (minBoxes <= 10 ? 34.0 : 30.0);
+      final boxHeight = isMobile ? 38.0 : 44.0;
+      final fontSize = isMobile ? 13.5 : 16.0;
+      final boxMargin = isMobile ? 2.5 : 3.5;
+
+      // Active cursor index (points to the cursor position or the next empty box)
+      final cursorIndex = isFocused
+          ? (controller != null && controller.selection.isValid
+              ? controller.selection.baseOffset.clamp(0, total - 1)
+              : chars.length.clamp(0, total - 1))
+          : -1;
+
+      final grid = SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: List.generate(total, (i) {
+            final hasChar = i < chars.length && chars[i].isNotEmpty;
+            final isCursor = isInteractive && isFocused && i == cursorIndex;
+
+            return Container(
+              width: boxWidth,
+              height: boxHeight,
+              margin: EdgeInsets.only(right: boxMargin),
+              decoration: BoxDecoration(
                 color: isCursor
-                    ? AppTheme.primaryTeal
+                    ? const Color(0xFFE0F2FE)
                     : hasChar
-                        ? AppTheme.primaryTeal
-                        : const Color(0xFFCBD5E1),
-                width: (hasChar || isCursor) ? 1.2 : 0.7,
+                        ? const Color(0xFFF0FDFA)
+                        : Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isCursor
+                      ? AppTheme.primaryTeal
+                      : hasChar
+                          ? AppTheme.primaryTeal.withValues(alpha: 0.8)
+                          : const Color(0xFFCBD5E1),
+                  width: isCursor ? 2.0 : (hasChar ? 1.4 : 1.0),
+                ),
+                boxShadow: isCursor
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.primaryTeal.withValues(alpha: 0.25),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
               ),
-            ),
-            child: Center(
-              child: hasChar
-                  ? Text(
-                      chars[i],
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryDark,
-                      ),
-                    )
-                  : isCursor
-                      ? Container(
-                          width: 1.5,
-                          height: 14,
-                          color: AppTheme.primaryTeal,
-                        )
-                      : const SizedBox.shrink(),
-            ),
-          );
-        }),
-      ),
-    );
+              child: Center(
+                child: hasChar
+                    ? Text(
+                        chars[i],
+                        style: TextStyle(
+                          fontSize: fontSize,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryDark,
+                          letterSpacing: 0.3,
+                        ),
+                      )
+                    : isCursor
+                        ? Container(
+                            width: 2.0,
+                            height: boxHeight * 0.52,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryTeal,
+                              borderRadius: BorderRadius.circular(1),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+              ),
+            );
+          }),
+        ),
+      );
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (label != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF475569),
-                  letterSpacing: 0.3,
+      return Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (label != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => focusNode?.requestFocus(),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isFocused ? FontWeight.bold : FontWeight.w600,
+                            color: isFocused
+                                ? AppTheme.primaryTeal
+                                : const Color(0xFF475569),
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                      if (isFocused) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'ACTIVE',
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryTeal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          if (isInteractive)
-            GestureDetector(
-              onTap: () => focusNode?.requestFocus(),
-              child: Stack(
-                children: [
-                  // Hidden TextField handles actual keyboard input
-                  SizedBox(
-                    height: 0,
-                    child: Opacity(
-                      opacity: 0,
-                      child: TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        keyboardType: keyboardType,
-                        textCapitalization: TextCapitalization.characters,
-                        inputFormatters: inputFormatters ?? [const UpperCaseTextFormatter()],
-                        onChanged: (val) {
-                          setState(() {});
-                          onChanged?.call(val);
-                        },
+            if (isInteractive)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (details) {
+                  focusNode?.requestFocus();
+                  final boxTotalWidth = boxWidth + boxMargin;
+                  final clickedIndex = (details.localPosition.dx / boxTotalWidth).floor();
+                  final targetOffset = clickedIndex.clamp(0, controller.text.length);
+                  controller.selection = TextSelection.fromPosition(
+                    TextPosition(offset: targetOffset),
+                  );
+                },
+                child: Stack(
+                  children: [
+                    // Hidden TextField for keyboard input
+                    SizedBox(
+                      height: 1,
+                      width: 1,
+                      child: Opacity(
+                        opacity: 0,
+                        child: TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          keyboardType: keyboardType,
+                          textCapitalization: TextCapitalization.characters,
+                          inputFormatters: inputFormatters ?? [const UpperCaseTextFormatter()],
+                          onChanged: (val) {
+                            onChanged?.call(val);
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                  // Visible block grid
-                  grid,
-                ],
-              ),
-            )
-          else
-            grid,
-        ],
-      ),
-    );
+                    // Visible interactive block grid
+                    grid,
+                  ],
+                ),
+              )
+            else
+              grid,
+          ],
+        ),
+      );
+    }
+
+    if (listenable != null) {
+      return ListenableBuilder(
+        listenable: listenable,
+        builder: (context, _) => contentBuilder(context),
+      );
+    }
+    return Builder(builder: contentBuilder);
   }
 
   Future<void> _submitRegistrationForm({
