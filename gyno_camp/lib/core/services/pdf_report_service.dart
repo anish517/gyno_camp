@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
@@ -26,6 +27,19 @@ class PdfReportService {
       );
       return _cachedTheme!;
     } catch (_) {
+      try {
+        final fontFile = File('assets/fonts/NotoSansDevanagari-Regular.ttf');
+        if (fontFile.existsSync()) {
+          final bytes = fontFile.readAsBytesSync();
+          final devanagariFont = pw.Font.ttf(bytes.buffer.asByteData());
+          _cachedTheme = pw.ThemeData.withFont(
+            base: pw.Font.helvetica(),
+            bold: pw.Font.helveticaBold(),
+            fontFallback: [devanagariFont],
+          );
+          return _cachedTheme!;
+        }
+      } catch (_) {}
       try {
         final regData = await rootBundle.load('assets/fonts/mangal.ttf');
         final devanagariFont = pw.Font.ttf(regData);
@@ -1521,24 +1535,30 @@ class PdfReportService {
         mainAxisSize: pw.MainAxisSize.min,
         children: List.generate(total, (i) {
           final char = i < chars.length ? chars[i] : '';
+          if (char == ' ') {
+            return pw.SizedBox(width: 5);
+          }
+          if (char.isNotEmpty) {
+            return pw.Container(
+              margin: const pw.EdgeInsets.only(right: 1.2),
+              child: pw.Text(
+                char,
+                style: pw.TextStyle(
+                  fontSize: 9.0,
+                  fontWeight: pw.FontWeight.bold,
+                  color: dark,
+                ),
+              ),
+            );
+          }
           return pw.Container(
             width: boxSize,
             height: boxSize + 2,
             margin: pw.EdgeInsets.only(right: boxMargin),
             decoration: pw.BoxDecoration(
-              color: char.isNotEmpty ? PdfColor.fromHex('F0FDFA') : boxBg,
-              border: pw.Border.all(color: gray, width: 0.8),
+              color: boxBg,
+              border: pw.Border.all(color: gray, width: 0.5),
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(1.5)),
-            ),
-            child: pw.Center(
-              child: pw.Text(
-                char,
-                style: pw.TextStyle(
-                  fontSize: boxSize <= 12 ? 7 : 8,
-                  fontWeight: pw.FontWeight.bold,
-                  color: dark,
-                ),
-              ),
             ),
           );
         }),
@@ -1580,7 +1600,7 @@ class PdfReportService {
                       text: pw.TextSpan(
                         children: [
                           pw.TextSpan(
-                            text: '$labelEn / ',
+                            text: '$labelEn: ',
                             style: pw.TextStyle(fontSize: 7.2, fontWeight: pw.FontWeight.bold, color: dark),
                           ),
                           pw.TextSpan(
@@ -1612,12 +1632,12 @@ class PdfReportService {
                       width: 10, height: 10,
                       margin: const pw.EdgeInsets.only(right: 4, top: 1),
                       decoration: pw.BoxDecoration(
-                        color: checked ? primary : PdfColors.white,
-                        border: pw.Border.all(color: checked ? primary : gray, width: 0.8),
+                        color: PdfColors.white,
+                        border: pw.Border.all(color: checked ? dark : gray, width: checked ? 1.0 : 0.8),
                         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
                       ),
                       child: checked
-                          ? pw.Center(child: pw.Text('X', style: pw.TextStyle(fontSize: 6, fontWeight: pw.FontWeight.bold, color: PdfColors.white)))
+                          ? pw.Center(child: pw.Text('X', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: dark)))
                           : pw.SizedBox(),
                     ),
                     if (isExpanded)
@@ -1644,9 +1664,9 @@ class PdfReportService {
 
               // Name row
               pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Expanded(child: field('First Name', 'पहिलो नाम', patient?.firstName ?? '', minBoxes: 10, maxBoxes: 10, boxSize: 11.5, boxMargin: 1.5)),
+                pw.Expanded(child: field('First Name', 'पहिलो नाम', patient?.firstName ?? '', minBoxes: 8, maxBoxes: 8, boxSize: 13.0, boxMargin: 2.0)),
                 pw.SizedBox(width: 8),
-                pw.Expanded(child: field('Surname', 'थर', patient?.surname ?? '', minBoxes: 10, maxBoxes: 10, boxSize: 11.5, boxMargin: 1.5)),
+                pw.Expanded(child: field('Surname', 'थर', patient?.surname ?? '', minBoxes: 8, maxBoxes: 8, boxSize: 13.0, boxMargin: 2.0)),
               ]),
 
               // Patient Age label & Marital status
@@ -1917,14 +1937,15 @@ class PdfReportService {
                 padding: const pw.EdgeInsets.only(right: 10, bottom: 2),
                 child: pw.Row(children: [
                   pw.Container(
-                    width: 9, height: 9,
+                    width: 9.5, height: 9.5,
                     margin: const pw.EdgeInsets.only(right: 3, top: 1),
                     decoration: pw.BoxDecoration(
-                      color: checked ? primary : PdfColors.white,
-                      border: pw.Border.all(color: checked ? primary : gray, width: 0.7),
+                      color: PdfColors.white,
+                      border: pw.Border.all(color: checked ? dark : gray, width: checked ? 1.0 : 0.7),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(1.5)),
                     ),
                     child: checked
-                        ? pw.Center(child: pw.Text('X', style: pw.TextStyle(fontSize: 6, fontWeight: pw.FontWeight.bold, color: PdfColors.white)))
+                        ? pw.Center(child: pw.Text('X', style: pw.TextStyle(fontSize: 7.0, fontWeight: pw.FontWeight.bold, color: dark)))
                         : pw.SizedBox(),
                   ),
                   pw.Text(sanitizeText(label), style: pw.TextStyle(fontSize: fsSmall)),

@@ -16,7 +16,8 @@ class OcrFormService {
   /// - OCR character substitutions (O→0, l→1, etc.)
   /// - Mixed English/Nepali text
   /// - Missing or misspelled labels
-  OcrScanResultModel parseFormText(String text, {int pageNumber = 0, String? imagePath}) {
+  OcrScanResultModel parseFormText(String rawText, {int pageNumber = 0, String? imagePath}) {
+    final text = normalizeOcrText(rawText);
     final confidences = <String, double>{};
 
     final lines = text.split(RegExp(r'[\r\n]+')).map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
@@ -67,6 +68,15 @@ class OcrFormService {
       return int.tryParse(clean);
     }
 
+    bool isNoiseOrSeparator(String s) {
+      final clean = s.replaceAll(RegExp(r'[/\\|:_\-I\s\(\)]'), '');
+      if (clean.isEmpty) return true;
+      if (RegExp(r'^\(?(?:secondary|optional|required)\)?[:\s]*$', caseSensitive: false).hasMatch(s.trim())) {
+        return true;
+      }
+      return false;
+    }
+
     /// Searches for a value associated with a label across lines.
     String? findValueForLabel(List<String> labels, {bool multiLine = true}) {
       for (int i = 0; i < lines.length; i++) {
@@ -78,11 +88,11 @@ class OcrFormService {
             final labelIdx = lowerLine.indexOf(labelLower);
             final afterLabel = line.substring(labelIdx + label.length).trim();
             final value = afterLabel.replaceFirst(RegExp(r'^[:\-=\s]+'), '').trim();
-            if (value.isNotEmpty) return value;
+            if (value.isNotEmpty && !isNoiseOrSeparator(value)) return value;
 
             if (multiLine && i + 1 < lines.length) {
               final nextLine = lines[i + 1].trim();
-              if (nextLine.isNotEmpty && !_isLabel(nextLine)) {
+              if (nextLine.isNotEmpty && !_isLabel(nextLine) && !isNoiseOrSeparator(nextLine)) {
                 return nextLine;
               }
             }
@@ -104,7 +114,7 @@ class OcrFormService {
           if (idx == -1) continue;
 
           // Check if there are multiple checkboxes on this line (e.g. "[ ] A  [x] B")
-          final checkCount = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔]?\s*\)|[☐口Ü☑☒]').allMatches(line).length;
+          final checkCount = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔]?\s*\)|[☐口Ü☑☒]|\b[xX✓✔]\b').allMatches(line).length;
           if (checkCount > 1) {
             final start = max(0, idx - 25);
             final end = min(line.length, idx + kw.length + 25);
@@ -114,9 +124,11 @@ class OcrFormService {
               r'\[\s*[xX✓✔•*+\#1\-]\s*\]\s*' + RegExp.escape(kw) +
               r'|\(\s*[xX✓✔•*+\#1\-]\s*\)\s*' + RegExp.escape(kw) +
               r'|[☑☒✓✔•]\s*' + RegExp.escape(kw) +
+              r'|(?:\b|[^\w])[xX✓✔]\s*' + RegExp.escape(kw) +
               r'|' + RegExp.escape(kw) + r'\s*\[\s*[xX✓✔•*+\#1\-]\s*\]' +
               r'|' + RegExp.escape(kw) + r'\s*\(\s*[xX✓✔•*+\#1\-]\s*\)' +
-              r'|' + RegExp.escape(kw) + r'\s*[☑☒✓✔•]',
+              r'|' + RegExp.escape(kw) + r'\s*[☑☒✓✔•]' +
+              r'|' + RegExp.escape(kw) + r'\s*(?:\b|[^\w])[xX✓✔]',
               caseSensitive: false,
             ).hasMatch(snippet);
 
@@ -195,7 +207,7 @@ class OcrFormService {
         if (rawName == null || rawName.isEmpty) {
           final nameMatch = RegExp(
             r'(?<!husband[^\n]{0,10})(?<!spouse[^\n]{0,10})(?<!father[^\n]{0,10})(?<!relative[^\n]{0,10})'
-            r'(?:patient\s*name|patient|नाम)[:\s]+([A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F\s]{1,35})',
+            r'(?:patient\s*name|बिरामीको नाम|नाम)[:\s]+(?!(?:registration|intake|form|demographics)\b)([A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F\s]{1,35})',
             caseSensitive: false,
           ).firstMatch(text);
           rawName = nameMatch?.group(1)?.trim().split(RegExp(r'[\r\n]+')).first.trim();
@@ -343,14 +355,15 @@ class OcrFormService {
 
       // ── Contact Person (Secondary / Emergency Contact) ──
       final contactPersonValue = findValueForLabel([
-        'contact person', 'secondary contact', 'emergency contact',
+        'contact person (secondary)', 'contact person', 'secondary contact', 'emergency contact',
         'सम्पर्क व्यक्ति', 'सम्पर्क',
       ]);
       if (contactPersonValue != null && contactPersonValue.isNotEmpty) {
         var cleanContact = contactPersonValue
+            .replaceAll(RegExp(r'^\(?secondary\)?[:\s]*', caseSensitive: false), '')
             .replaceAll(RegExp(r'\s*(mobile|phone|नम्बर|contact mobile).*$', caseSensitive: false), '')
             .trim();
-        if (cleanContact.isNotEmpty) {
+        if (cleanContact.isNotEmpty && !cleanContact.contains(':')) {
           demographics['contactPerson'] = cleanContact;
           confidences['contactPerson'] = 0.85;
         }
@@ -823,6 +836,27 @@ class OcrFormService {
       post ??= parseStageInt(RegExp(r'posterior(?: compartment)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
       explicitHighest ??= parseStageInt(RegExp(r'highest(?: pop)?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
 
+      // Multi-column Baden-Walker table fallback: when numbers appear on lines below headers
+      if (ant == null || mid == null || post == null || explicitHighest == null) {
+        final bwIdx = lowerText.indexOf('baden-walker');
+        if (bwIdx != -1) {
+          final bwSnippet = text.substring(bwIdx, min(text.length, bwIdx + 500));
+          final isolatedDigits = <int>[];
+          for (final l in bwSnippet.split(RegExp(r'[\r\n]+'))) {
+            final trimmed = l.trim();
+            if (RegExp(r'^[0-4]$').hasMatch(trimmed)) {
+              isolatedDigits.add(int.parse(trimmed));
+            }
+          }
+          if (isolatedDigits.length >= 3) {
+            ant ??= isolatedDigits[0];
+            mid ??= isolatedDigits[1];
+            post ??= isolatedDigits.length >= 4 ? isolatedDigits[2] : 0;
+            explicitHighest ??= isolatedDigits.last;
+          }
+        }
+      }
+
       // OMR override for POP compartments if pixel analysis detected marked boxes
       if (page2OmrPop != null && page2OmrPop.values.any((r) => r.isMarked)) {
         for (final entry in page2OmrPop.entries) {
@@ -990,6 +1024,74 @@ class OcrFormService {
   static String _capitalizeFirst(String s) {
     if (s.isEmpty) return s;
     return s[0].toUpperCase() + s.substring(1).toLowerCase();
+  }
+
+  /// Pre-processes and normalizes raw OCR text to resolve common artifacts:
+  /// - Spaced digits from character boxes (BP, Pulse, SpO2, Glucose, Phone)
+  /// - Spaced uppercase letters from block-letter grid boxes (e.g. M A Y A -> MAYA)
+  /// - Common OCR letter/digit confusions in medical values
+  static String normalizeOcrText(String raw) {
+    var text = raw;
+
+    // 0. Decode OCR circled/cross box symbols: '@' or circled marks as checked boxes '[x]'
+    text = text.replaceAll(RegExp(r'(?:^|(?<=\s))@\s*'), '[x] ');
+
+    // 1. Collapse spaced single digits for Nepali mobile numbers: "9 8 4 1 9 8 7 6 5 4" -> "9841987654"
+    text = text.replaceAllMapped(
+      RegExp(r'\b([qgQG9])\s*(\d)\s+(\d)\s+(\d)\s+(\d)\s+(\d)\s+(\d)\s+(\d)\s+(\d)\s+(\d)\b'),
+      (m) => '9${m[2]}${m[3]}${m[4]}${m[5]}${m[6]}${m[7]}${m[8]}${m[9]}${m[10]}',
+    );
+
+    // 2. Collapse spaced single digits for BP: "1 3 0 / 8 5" -> "130/85"
+    text = text.replaceAllMapped(
+      RegExp(r'(\d)\s+(\d)(?:\s+(\d))?\s*[/|\\]\s*(\d)\s+(\d)(?:\s+(\d))?'),
+      (m) => '${m[1]}${m[2]}${m[3] ?? ""}/${m[4]}${m[5]}${m[6] ?? ""}',
+    );
+
+    // 3. Collapse spaced digits for Pulse: "Pulse: 7 8" or "7 8 bpm" -> "Pulse: 78 bpm"
+    text = text.replaceAllMapped(
+      RegExp(r'\b(?:pulse(?:\s*rate)?|pr|hr)\b[:\s]*(\d)\s+(\d)(?:\s+(\d))?', caseSensitive: false),
+      (m) => 'Pulse: ${m[1]}${m[2]}${m[3] ?? ""}',
+    );
+    text = text.replaceAllMapped(
+      RegExp(r'\b(\d)\s+(\d)(?:\s+(\d))?\s*bpm\b', caseSensitive: false),
+      (m) => '${m[1]}${m[2]}${m[3] ?? ""} bpm',
+    );
+
+    // 4. Collapse spaced digits for SpO2: "sp02: 9 8" or "9 8 %" -> "SpO2: 98%"
+    text = text.replaceAllMapped(
+      RegExp(r'(?:spo2|sp02|saturation)\b[:\s]*(\d)\s+(\d)(?:\s+(\d))?', caseSensitive: false),
+      (m) => 'SpO2: ${m[1]}${m[2]}${m[3] ?? ""}',
+    );
+    text = text.replaceAllMapped(
+      RegExp(r'\b(\d)\s+(\d)(?:\s+(\d))?\s*%', caseSensitive: false),
+      (m) => '${m[1]}${m[2]}${m[3] ?? ""}%',
+    );
+
+    // 5. Collapse spaced digits for Glucose: "glucose: 1 1 5" or "1 1 5 mg" -> "Glucose: 115 mg/dL"
+    text = text.replaceAllMapped(
+      RegExp(r'(?:glucose|sugar|rbs)\b[:\s]*(\d)\s+(\d)\s+(\d)', caseSensitive: false),
+      (m) => 'Glucose: ${m[1]}${m[2]}${m[3]}',
+    );
+
+    // 6. Normalize common OCR duration mangling: "> I year", "> l year", "> | year" -> "> 1 year"
+    text = text.replaceAll(RegExp(r'>\s*[Il|]\s*year', caseSensitive: false), '> 1 year');
+
+    // 7. Collapse spaced single uppercase letters (block-letter boxes):
+    // E.g. "M A Y A" -> "MAYA", "T A M A N G" -> "TAMANG"
+    text = text.replaceAllMapped(
+      RegExp(r'\b([A-Z])(?:\s+([A-Z])){1,}\b'),
+      (m) {
+        final match = m.group(0)!;
+        final letters = match.split(RegExp(r'\s+'));
+        if (letters.length >= 2 && letters.every((l) => l.length == 1 && RegExp(r'[A-Z]').hasMatch(l))) {
+          return letters.join('');
+        }
+        return match;
+      },
+    );
+
+    return text;
   }
 
   /// Merges Page 1 (Front: Demographics & Anamnesis) and Page 2 (Back: POP Staging & Prescriptions)
