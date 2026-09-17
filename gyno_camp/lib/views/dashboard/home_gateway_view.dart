@@ -23,6 +23,8 @@ import '../admin/user_management_view.dart';
 import '../patient/clinical_assessment_view.dart';
 import '../patient/patient_list_view.dart';
 import '../patient/patient_registration_view.dart';
+import '../../models/camp_model.dart';
+import '../../models/camp_report_summary_model.dart';
 import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
 import '../reports/camp_report_view.dart';
@@ -1256,17 +1258,18 @@ class HomeGatewayView extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
 
-          // 3 Operational Governance Cards
+          // 4 Operational Governance & Intelligence Cards
           LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth > 700;
+              final cardWidth = isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
               return Wrap(
                 spacing: 12,
                 runSpacing: 12,
                 children: [
                   _buildSupervisorActionCard(
                     context: context,
-                    width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                    width: cardWidth,
                     icon: Icons.assignment_ind_rounded,
                     iconColor: const Color(0xFF0F766E),
                     iconBgColor: const Color(0xFFCCFBF1),
@@ -1280,7 +1283,7 @@ class HomeGatewayView extends ConsumerWidget {
                   ),
                   _buildSupervisorActionCard(
                     context: context,
-                    width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                    width: cardWidth,
                     icon: Icons.devices_other_rounded,
                     iconColor: const Color(0xFF4338CA),
                     iconBgColor: const Color(0xFFE0E7FF),
@@ -1294,7 +1297,7 @@ class HomeGatewayView extends ConsumerWidget {
                   ),
                   _buildSupervisorActionCard(
                     context: context,
-                    width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                    width: cardWidth,
                     icon: Icons.tune_rounded,
                     iconColor: const Color(0xFF7E22CE),
                     iconBgColor: const Color(0xFFF3E8FF),
@@ -1304,6 +1307,20 @@ class HomeGatewayView extends ConsumerWidget {
                     description: 'Configure standard medication formularies, wards, and diagnosis dropdowns',
                     onTap: () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const MasterConfigView()));
+                    },
+                  ),
+                  _buildSupervisorActionCard(
+                    context: context,
+                    width: cardWidth,
+                    icon: Icons.analytics_rounded,
+                    iconColor: const Color(0xFF0D9488),
+                    iconBgColor: const Color(0xFFCCFBF1),
+                    badgeText: 'EPIDEMIOLOGY & CHARTS',
+                    badgeColor: const Color(0xFF0D9488),
+                    title: 'Data Analyst Workstation',
+                    description: 'Cross-camp POP staging charts, chief complaint ranking, age demographics & clinical dossiers',
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DataAnalystWorkstationPage()));
                     },
                   ),
                 ],
@@ -3535,6 +3552,30 @@ class HomeGatewayView extends ConsumerWidget {
   }
 }
 
+class DataAnalystWorkstationPage extends StatelessWidget {
+  const DataAnalystWorkstationPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Data Analyst Workstation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text('Cross-Camp Epidemiology & Visual Analytics', style: TextStyle(fontSize: 11, color: Colors.white70)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF0F172A),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: const _DataAnalystWorkstation(),
+    );
+  }
+}
+
 class _DataAnalystWorkstation extends ConsumerStatefulWidget {
   const _DataAnalystWorkstation();
 
@@ -3544,7 +3585,15 @@ class _DataAnalystWorkstation extends ConsumerStatefulWidget {
 
 class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation> {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedFilter = 'ALL'; // 'ALL', 'STAGE_2_PLUS', 'SURGICAL', 'HIGH_BP'
+  String _selectedCampId = 'all'; // 'all' or specific camp ID
+  String _selectedPopStage = 'all'; // 'all', '0', '1', '2', '3', '4', 'significant'
+  String _selectedComplaint = 'all'; // 'all', 'prolapse', 'discharge', 'urine', 'stool', 'pain', 'menstrual', 'infertility'
+  String _selectedSurgery = 'all'; // 'all', 'yes', 'no', 'referral'
+  String _selectedAgeBracket = 'all'; // 'all', '<20', '20-35', '36-50', '51-65', '>65'
+  String _selectedIntakeStatus = 'all'; // 'all', 'completed', 'pending', 'followup'
+  bool _highBpOnly = false;
+  String _activeTab = 'overview'; // 'overview', 'charts', 'patients', 'camps'
+  bool _filtersExpanded = true;
   String? _exportingPatientId;
   final Map<String, ClinicalVisitModel> _patientVisits = {};
   bool _isLoadingVisits = false;
@@ -3559,16 +3608,35 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
   void _initCampAndData() {
     final campState = ref.read(campStateProvider);
-    final targetCamp = campState.selectedCamp ??
-        campState.activeCamp ??
-        (campState.camps.isNotEmpty ? campState.camps.first : null);
-    if (targetCamp != null) {
-      if (campState.selectedCamp?.id != targetCamp.id) {
-        ref.read(campStateProvider.notifier).selectCamp(targetCamp);
-      }
-      ref.read(patientListProvider.notifier).loadPatients(targetCamp.id);
-      ref.read(reportingViewModelProvider.notifier).loadSummary(campId: targetCamp.id);
+    if (campState.activeCamp != null && _selectedCampId != 'all') {
+      _selectedCampId = campState.activeCamp!.id;
     }
+    _fetchDataForCamp(_selectedCampId);
+  }
+
+  void _fetchDataForCamp(String campId) {
+    if (campId == 'all') {
+      ref.read(patientListProvider.notifier).loadPatients(null);
+      ref.read(reportingViewModelProvider.notifier).loadSummary(campId: null);
+    } else {
+      ref.read(patientListProvider.notifier).loadPatients(campId);
+      ref.read(reportingViewModelProvider.notifier).loadSummary(campId: campId);
+    }
+  }
+
+  void _onCampChanged(String? newCampId) {
+    if (newCampId == null || newCampId == _selectedCampId) return;
+    setState(() {
+      _selectedCampId = newCampId;
+    });
+    final campState = ref.read(campStateProvider);
+    if (newCampId != 'all') {
+      try {
+        final selected = campState.camps.firstWhere((c) => c.id == newCampId);
+        ref.read(campStateProvider.notifier).selectCamp(selected);
+      } catch (_) {}
+    }
+    _fetchDataForCamp(newCampId);
   }
 
   void _loadVisitsForPatients(List<PatientModel> patients) async {
@@ -3596,6 +3664,31 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     }
   }
 
+  int get _activeFilterCount {
+    int count = 0;
+    if (_selectedCampId != 'all') count++;
+    if (_selectedPopStage != 'all') count++;
+    if (_selectedComplaint != 'all') count++;
+    if (_selectedSurgery != 'all') count++;
+    if (_selectedAgeBracket != 'all') count++;
+    if (_selectedIntakeStatus != 'all') count++;
+    if (_highBpOnly) count++;
+    if (_searchController.text.trim().isNotEmpty) count++;
+    return count;
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _searchController.clear();
+      _selectedPopStage = 'all';
+      _selectedComplaint = 'all';
+      _selectedSurgery = 'all';
+      _selectedAgeBracket = 'all';
+      _selectedIntakeStatus = 'all';
+      _highBpOnly = false;
+    });
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -3606,11 +3699,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
     final campState = ref.read(campStateProvider);
-    final targetCamp = campState.selectedCamp ??
-        campState.activeCamp ??
-        (campState.camps.isNotEmpty
-            ? campState.camps.firstWhere((c) => c.id == patient.campId, orElse: () => campState.camps.first)
-            : null);
+    final targetCamp = campState.camps.isNotEmpty
+        ? campState.camps.firstWhere((c) => c.id == patient.campId, orElse: () => campState.camps.first)
+        : campState.selectedCamp ?? campState.activeCamp;
 
     setState(() {
       _exportingPatientId = patient.patientId;
@@ -3719,9 +3810,17 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final reportingState = ref.watch(reportingViewModelProvider);
     final patientState = ref.watch(patientListProvider);
 
-    final currentCamp = campState.selectedCamp ?? campState.activeCamp ?? (campState.camps.isNotEmpty ? campState.camps.first : null);
     final summary = reportingState.summary;
-    final allPatients = patientState.patients;
+    final allPatients = patientState.rawPatients.isNotEmpty ? patientState.rawPatients : patientState.patients;
+
+    // Seed visits from summary if available
+    if (summary != null && summary.visits.isNotEmpty) {
+      for (final v in summary.visits) {
+        if (!_patientVisits.containsKey(v.patientId)) {
+          _patientVisits[v.patientId] = v;
+        }
+      }
+    }
 
     if (allPatients.isNotEmpty && _patientVisits.length < allPatients.length && !_isLoadingVisits) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3731,693 +3830,184 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
     final query = _searchController.text.trim().toLowerCase();
     final filteredPatients = allPatients.where((p) {
+      // 1. Camp filter
+      if (_selectedCampId != 'all' && p.campId != _selectedCampId) return false;
+
+      // 2. Query search
       if (query.isNotEmpty) {
         final matchesName = p.fullName.toLowerCase().contains(query);
         final matchesId = p.patientId.toLowerCase().contains(query);
         final matchesMobile = p.mobile.contains(query);
-        if (!matchesName && !matchesId && !matchesMobile) return false;
+        final matchesWard = p.ward.contains(query);
+        final matchesPalika = p.municipality.toLowerCase().contains(query);
+        final matchesDistrict = p.district.toLowerCase().contains(query);
+        final matchesCampCode = p.campCode.toLowerCase().contains(query);
+        if (!matchesName && !matchesId && !matchesMobile && !matchesWard && !matchesPalika && !matchesDistrict && !matchesCampCode) {
+          return false;
+        }
       }
 
       final visit = _patientVisits[p.patientId];
-      if (_selectedFilter == 'STAGE_2_PLUS') {
-        if (visit == null || visit.highestPopStage < 2) return false;
-      } else if (_selectedFilter == 'SURGICAL') {
-        if (visit == null || visit.surgicalReferral == null || visit.surgicalReferral!.isEmpty) return false;
-      } else if (_selectedFilter == 'HIGH_BP') {
+
+      // 3. POP Stage filter
+      final popStage = visit?.highestPopStage ?? p.highestPopStage ?? 0;
+      if (_selectedPopStage == 'significant') {
+        if (popStage < 2) return false;
+      } else if (_selectedPopStage != 'all') {
+        final targetStage = int.tryParse(_selectedPopStage);
+        if (targetStage != null && popStage != targetStage) return false;
+      }
+
+      // 4. Complaint filter
+      if (_selectedComplaint != 'all') {
+        final reasons = p.reasonsForVisit.map((r) => r.toLowerCase()).toList();
+        final anamnesis = visit?.anamnesisComplaints.toString().toLowerCase() ?? '';
+        final combined = [...reasons, anamnesis].join(' ');
+        switch (_selectedComplaint) {
+          case 'prolapse':
+            if (!combined.contains('hanging') && !combined.contains('prolapse') && !combined.contains('खस्ने')) return false;
+            break;
+          case 'discharge':
+            if (!combined.contains('discharge') && !combined.contains('itching') && !combined.contains('सेतो') && !combined.contains('चिलाउने')) return false;
+            break;
+          case 'urine':
+            if (!combined.contains('urine') && !combined.contains('dysuria') && !combined.contains('पिसाब')) return false;
+            break;
+          case 'stool':
+            if (!combined.contains('stool') && !combined.contains('bowel') && !combined.contains('constipation') && !combined.contains('दिसा')) return false;
+            break;
+          case 'pain':
+            if (!combined.contains('pain') && !combined.contains('दुख्ने') && !combined.contains('तल्लो पेट')) return false;
+            break;
+          case 'menstrual':
+            if (!combined.contains('menstrual') && !combined.contains('महिनावारी') && !combined.contains('bleeding')) return false;
+            break;
+          case 'infertility':
+            if (!combined.contains('infertility') && !combined.contains('निःसन्तान')) return false;
+            break;
+        }
+      }
+
+      // 5. Surgery filter
+      if (_selectedSurgery == 'yes') {
+        if (p.surgeryDone != true && (visit == null || visit.surgeryDone != true)) return false;
+      } else if (_selectedSurgery == 'no') {
+        if (p.surgeryDone == true || (visit != null && visit.surgeryDone == true)) return false;
+      } else if (_selectedSurgery == 'referral') {
+        if (visit == null || visit.surgicalReferral == null || visit.surgicalReferral!.trim().isEmpty) return false;
+      }
+
+      // 6. Age bracket filter
+      if (_selectedAgeBracket == '<20' && p.age >= 20) return false;
+      if (_selectedAgeBracket == '20-35' && (p.age < 20 || p.age > 35)) return false;
+      if (_selectedAgeBracket == '36-50' && (p.age < 36 || p.age > 50)) return false;
+      if (_selectedAgeBracket == '51-65' && (p.age < 51 || p.age > 65)) return false;
+      if (_selectedAgeBracket == '>65' && p.age <= 65) return false;
+
+      // 7. Clinical Intake status filter
+      if (_selectedIntakeStatus == 'completed') {
+        if (!p.hasClinicalVisit && visit == null) return false;
+      } else if (_selectedIntakeStatus == 'pending') {
+        if (p.hasClinicalVisit || visit != null) return false;
+      } else if (_selectedIntakeStatus == 'followup') {
+        if (!p.isFollowUp && !(visit?.isFollowUp ?? false)) return false;
+      }
+
+      // 8. High BP filter
+      if (_highBpOnly) {
         if (visit == null) return false;
         final sys = visit.systolicBp ?? 0;
         final dia = visit.diastolicBp ?? 0;
         if (sys < 140 && dia < 90) return false;
       }
+
       return true;
     }).toList();
 
+    // Determine current camp display name
+    String campDisplayName = 'All Camps (Cross-Camp Intelligence)';
+    if (_selectedCampId != 'all') {
+      try {
+        final c = campState.camps.firstWhere((x) => x.id == _selectedCampId);
+        campDisplayName = '${c.campCode} - ${c.name}';
+      } catch (_) {
+        campDisplayName = 'Selected Camp';
+      }
+    }
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1180),
+          constraints: const BoxConstraints(maxWidth: 1200),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // 1. EXECUTIVE COMMAND HEADER
-              Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F766E)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Role Badge & Tenant
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0D9488),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.analytics_rounded, color: Colors.white, size: 14),
-                              SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  'CLINICAL DATA ANALYST WORKSTATION',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.8,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Builder(
-                          builder: (context) {
-                            final tenantName = user?.tenantName;
-                            final tenantId = user?.tenantId;
-                            final orgName = (tenantName != null && tenantName.trim().isNotEmpty)
-                                ? tenantName
-                                : (currentCamp?.organizationName ?? "Nepal Health Outreach Network");
-                            final tenantTag = (tenantId != null && tenantId.isNotEmpty) ? tenantId : "tenant_default";
-                            return Text(
-                              '$orgName • Tenant: $tenantTag',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.8),
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.3,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // User Identity & Camp Switcher
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isNarrow = constraints.maxWidth < 650;
-                        final userProfile = Row(
-                          children: [
-                            Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF0D9488), Color(0xFF042F2E)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.teal.shade200, width: 1.5),
-                              ),
-                              child: const Icon(Icons.insights_rounded, color: Colors.white, size: 28),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    user?.name ?? 'Population Health Analyst',
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Multi-station Epidemiology, POP-Q Triage & Dossier Issuance',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white.withValues(alpha: 0.75),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
-
-                        final campSwitcher = Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              isExpanded: true,
-                              dropdownColor: const Color(0xFF1E293B),
-                              value: currentCamp?.id,
-                              hint: const Text('Select Camp', style: TextStyle(color: Colors.white70)),
-                              icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                              items: campState.camps.map((c) {
-                                return DropdownMenuItem<String>(
-                                  value: c.id,
-                                  child: Text(
-                                    '${c.campCode} - ${c.name}',
-                                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (campId) {
-                                if (campId != null) {
-                                  final selected = campState.camps.firstWhere((c) => c.id == campId);
-                                  ref.read(campStateProvider.notifier).selectCamp(selected);
-                                  ref.read(patientListProvider.notifier).loadPatients(selected.id);
-                                  ref.read(reportingViewModelProvider.notifier).loadSummary(campId: selected.id);
-                                }
-                              },
-                            ),
-                          ),
-                        );
-
-                        if (isNarrow) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              userProfile,
-                              const SizedBox(height: 12),
-                              campSwitcher,
-                            ],
-                          );
-                        }
-
-                        return Row(
-                          children: [
-                            Expanded(child: userProfile),
-                            const SizedBox(width: 16),
-                            SizedBox(width: 280, child: campSwitcher),
-                          ],
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-                    const Divider(color: Colors.white12, height: 1),
-                    const SizedBox(height: 14),
-
-                    // Quick Actions Bar
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 8,
-                      children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D9488),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          icon: const Icon(Icons.assessment_rounded, size: 18),
-                          label: const Text('Aggregate Camp Report (पिडिएफ)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => CampReportView(initialCampId: currentCamp?.id),
-                              ),
-                            );
-                          },
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white30),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          icon: const Icon(Icons.history_edu_rounded, size: 18),
-                          label: const Text('Audit Trail', style: TextStyle(fontSize: 12.5)),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const AuditTrailView()),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              _buildExecutiveCommandHeader(
+                user: user,
+                campState: campState,
+                currentCampName: campDisplayName,
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
-              // 2. REAL-TIME KPI METRICS (4 CARDS)
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth >= 720;
-                  final totalReg = summary?.totalPatientsRegistered ?? allPatients.length;
-                  final totalExam = summary?.totalVisitsRecorded ?? _patientVisits.length;
-                  final popSignificant = summary?.significantPopCount ?? 0;
-                  final popPercentage = summary?.significantPopPercentage ?? 0.0;
-                  final referrals = summary?.totalSurgicalReferrals ?? 0;
-
-                  final cards = [
-                    _buildTelemetryCard(
-                      title: 'Registered Cohort',
-                      value: '$totalReg',
-                      subtitle: 'Total Screened: $totalExam',
-                      icon: Icons.people_alt_rounded,
-                      color: const Color(0xFF0D9488),
-                    ),
-                    _buildTelemetryCard(
-                      title: 'POP Grade II-IV',
-                      value: '$popPercentage%',
-                      subtitle: '$popSignificant Patients Affected',
-                      icon: Icons.healing_rounded,
-                      color: const Color(0xFFF59E0B),
-                    ),
-                    _buildTelemetryCard(
-                      title: 'Surgical Candidates',
-                      value: '$referrals',
-                      subtitle: 'Hospital Referrals',
-                      icon: Icons.local_hospital_rounded,
-                      color: const Color(0xFFF43F5E),
-                    ),
-                    _buildTelemetryCard(
-                      title: 'Prescriptions',
-                      value: '${summary?.totalPrescriptionsCount ?? 0}',
-                      subtitle: 'Pessaries: ${summary?.totalPessariesInserted ?? 0}',
-                      icon: Icons.medication_rounded,
-                      color: const Color(0xFF3B82F6),
-                    ),
-                  ];
-
-                  if (isWide) {
-                    return Row(
-                      children: cards
-                          .map((c) => Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                                  child: c,
-                                ),
-                              ))
-                          .toList(),
-                    );
-                  }
-
-                  return GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: constraints.maxWidth < 420 ? 1.25 : 1.5,
-                    children: cards,
-                  );
-                },
+              // 2. REAL-TIME KPI METRICS (4 TELEMETRY CARDS)
+              _buildKpiMetricsRow(
+                summary: summary,
+                allPatientsCount: allPatients.length,
+                filteredPatientsCount: filteredPatients.length,
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
-              // 3. POP-Q SEVERITY SPECTRUM BREAKDOWN
-              if (summary != null)
-                Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.bar_chart_rounded, color: Color(0xFF0F766E), size: 22),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: Text(
-                                'Pelvic Organ Prolapse Severity Spectrum (Baden-Walker / POP-Q)',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        LayoutBuilder(
-                          builder: (ctx, constraints) {
-                            final isCompact = constraints.maxWidth < 580;
-                            final seg0 = _buildPopSpectrumSegment(
-                              label: 'Stage 0 (Normal)',
-                              count: summary.highestPopStages[0] ?? 0,
-                              total: summary.totalVisitsRecorded,
-                              color: const Color(0xFF10B981),
-                            );
-                            final seg1 = _buildPopSpectrumSegment(
-                              label: 'Stage I (Mild)',
-                              count: summary.highestPopStages[1] ?? 0,
-                              total: summary.totalVisitsRecorded,
-                              color: const Color(0xFF06B6D4),
-                            );
-                            final seg2 = _buildPopSpectrumSegment(
-                              label: 'Stage II (Moderate)',
-                              count: summary.highestPopStages[2] ?? 0,
-                              total: summary.totalVisitsRecorded,
-                              color: const Color(0xFFF59E0B),
-                            );
-                            final seg3 = _buildPopSpectrumSegment(
-                              label: 'Stage III-IV (Severe)',
-                              count: (summary.highestPopStages[3] ?? 0) + (summary.highestPopStages[4] ?? 0),
-                              total: summary.totalVisitsRecorded,
-                              color: const Color(0xFFEF4444),
-                            );
-
-                            if (isCompact) {
-                              return Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      seg0,
-                                      const SizedBox(width: 10),
-                                      seg1,
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      seg2,
-                                      const SizedBox(width: 10),
-                                      seg3,
-                                    ],
-                                  ),
-                                ],
-                              );
-                            }
-
-                            return Row(
-                              children: [
-                                seg0,
-                                const SizedBox(width: 10),
-                                seg1,
-                                const SizedBox(width: 10),
-                                seg2,
-                                const SizedBox(width: 10),
-                                seg3,
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              const SizedBox(height: 24),
-
-              // 4. INDIVIDUAL PATIENT REGISTRY & PDF DOSSIER DOWNLOAD HUB
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0F766E).withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.folder_shared_rounded, color: Color(0xFF0F766E), size: 24),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Individual Patient Clinical Dossiers (व्यक्तिगत बिरामी कागजात)',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  '1-tap tamper-evident clinical export containing multi-station anamnesis, vitals, POP-Q, and prescriptions.',
-                                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Search Bar & Filter Chips
-                      TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search by Patient Name, ID (GC-...), or Phone...',
-                          prefixIcon: const Icon(Icons.search, size: 20),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () {
-                                    setState(() {
-                                      _searchController.clear();
-                                    });
-                                  },
-                                )
-                              : null,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: 12),
-
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _buildFilterChip('All Patients (${allPatients.length})', 'ALL'),
-                            const SizedBox(width: 8),
-                            _buildFilterChip('POP Stage II-IV', 'STAGE_2_PLUS'),
-                            const SizedBox(width: 8),
-                            _buildFilterChip('Surgical Referrals', 'SURGICAL'),
-                            const SizedBox(width: 8),
-                            _buildFilterChip('High BP (HTN >= 140/90)', 'HIGH_BP'),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Patient Dossier List
-                      if (filteredPatients.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 36),
-                          alignment: Alignment.center,
-                          child: Column(
-                            children: [
-                              Icon(Icons.person_search_rounded, size: 48, color: Colors.grey.shade400),
-                              const SizedBox(height: 10),
-                              Text(
-                                allPatients.isEmpty
-                                    ? 'No patients registered for this camp.'
-                                    : 'No patients match your search or filter.',
-                                style: const TextStyle(color: Color(0xFF64748B), fontSize: 13.5),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: filteredPatients.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          itemBuilder: (context, index) {
-                            final patient = filteredPatients[index];
-                            final visit = _patientVisits[patient.patientId];
-                            final isExporting = _exportingPatientId == patient.patientId;
-
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                              child: LayoutBuilder(
-                                builder: (ctx, constraints) {
-                                  final isCompact = constraints.maxWidth < 640;
-
-                                  final avatar = CircleAvatar(
-                                    radius: 22,
-                                    backgroundColor: const Color(0xFF0F766E).withValues(alpha: 0.12),
-                                    child: Text(
-                                      patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F766E), fontSize: 16),
-                                    ),
-                                  );
-
-                                  final bioColumn = Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              patient.fullName,
-                                              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF1F5F9),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              patient.patientId,
-                                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        'Age: ${patient.age}y • Ward: ${patient.ward} • Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"}',
-                                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                                      ),
-                                      if (visit != null) ...[
-                                        const SizedBox(height: 4),
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 4,
-                                          children: [
-                                            _buildMiniBadge(
-                                              text: 'POP Stage ${visit.highestPopStage}',
-                                              color: visit.highestPopStage >= 2 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
-                                            ),
-                                            if (visit.systolicBp != null && visit.diastolicBp != null)
-                                              _buildMiniBadge(
-                                                text: 'BP ${visit.systolicBp}/${visit.diastolicBp}',
-                                                color: (visit.systolicBp! >= 140 || visit.diastolicBp! >= 90)
-                                                    ? const Color(0xFFEF4444)
-                                                    : const Color(0xFF3B82F6),
-                                              ),
-                                            if (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty)
-                                              _buildMiniBadge(
-                                                text: 'Ref: ${visit.surgicalReferral}',
-                                                color: const Color(0xFFDC2626),
-                                              ),
-                                          ],
-                                        ),
-                                      ],
-                                    ],
-                                  );
-
-                                  final inspectBtn = OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: const Color(0xFF0F766E),
-                                      side: BorderSide(color: Colors.teal.shade200),
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    ),
-                                    icon: const Icon(Icons.visibility_outlined, size: 15),
-                                    label: const Text('Inspect', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                    onPressed: () => _inspectPatientDossier(patient),
-                                  );
-
-                                  final dossierBtn = ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0F766E),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    ),
-                                    icon: isExporting
-                                        ? const SizedBox(
-                                            width: 14,
-                                            height: 14,
-                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                          )
-                                        : const Icon(Icons.picture_as_pdf_rounded, size: 15),
-                                    label: Text(
-                                      isExporting ? 'Exporting...' : 'PDF Dossier',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                    ),
-                                    onPressed: isExporting ? null : () => _exportPatientDossier(patient),
-                                  );
-
-                                  if (isCompact) {
-                                    return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            avatar,
-                                            const SizedBox(width: 12),
-                                            Expanded(child: bioColumn),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Row(
-                                          children: [
-                                            Expanded(child: inspectBtn),
-                                            const SizedBox(width: 8),
-                                            Expanded(child: dossierBtn),
-                                          ],
-                                        ),
-                                      ],
-                                    );
-                                  }
-
-                                  return Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                    children: [
-                                      avatar,
-                                      const SizedBox(width: 14),
-                                      Expanded(child: bioColumn),
-                                      const SizedBox(width: 10),
-                                      inspectBtn,
-                                      const SizedBox(width: 8),
-                                      dossierBtn,
-                                    ],
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                    ],
-                  ),
-                ),
+              // 3. MULTI-DIMENSIONAL ANALYTICS FILTER BAR
+              _buildAnalyticsFilterBar(
+                campState: campState,
+                totalPatients: allPatients.length,
+                filteredCount: filteredPatients.length,
               ),
+
+              const SizedBox(height: 18),
+
+              // 4. VIEW MODE TABS NAVIGATION
+              _buildViewModeTabs(filteredCount: filteredPatients.length),
+
+              const SizedBox(height: 16),
+
+              // 5. VIEW CONTENT ACCORDING TO ACTIVE TAB
+              if (_activeTab == 'overview' || _activeTab == 'charts') ...[
+                // POP-Q Staging Spectrum Bar Chart
+                _buildPopStagingBarChart(summary, filteredPatients),
+                const SizedBox(height: 18),
+
+                // Chief Clinical Complaints Distribution Chart
+                _buildChiefComplaintsChart(filteredPatients),
+                const SizedBox(height: 18),
+
+                // Demographic Age Cohort Chart
+                _buildAgeDistributionChart(summary, filteredPatients),
+                const SizedBox(height: 18),
+
+                // Clinical Interventions & Modalities Chart
+                _buildTreatmentModalityChart(summary, filteredPatients),
+                const SizedBox(height: 18),
+              ],
+
+              if (_activeTab == 'overview' || _activeTab == 'camps') ...[
+                // Cross-Camp Comparison Chart
+                _buildCampWiseComparisonChart(campState.camps, allPatients),
+                const SizedBox(height: 18),
+              ],
+
+              if (_activeTab == 'overview' || _activeTab == 'patients') ...[
+                // Camp-Wise Patients Registry with Individual Dossier Export
+                _buildCampWisePatientRegistry(
+                  filteredPatients: filteredPatients,
+                  allPatientsCount: allPatients.length,
+                  campState: campState,
+                ),
+              ],
             ],
           ),
         ),
@@ -4425,38 +4015,1790 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     );
   }
 
-  Widget _buildFilterChip(String label, String value) {
-    final isSelected = _selectedFilter == value;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      selectedColor: const Color(0xFF0F766E),
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : const Color(0xFF334155),
-        fontSize: 12,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+  // ==========================================
+  // COMPONENT 1: EXECUTIVE COMMAND HEADER
+  // ==========================================
+  Widget _buildExecutiveCommandHeader({
+    required UserModel? user,
+    required CampState campState,
+    required String currentCampName,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F766E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      backgroundColor: const Color(0xFFF1F5F9),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      onSelected: (_) {
-        setState(() {
-          _selectedFilter = value;
-        });
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top Badges & Tenant Info
+          Wrap(
+            spacing: 10,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D9488),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.analytics_rounded, color: Colors.white, size: 14),
+                      SizedBox(width: 5),
+                      Text(
+                        'CLINICAL DATA ANALYST WORKSTATION',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Text(
+                '${user?.tenantName ?? "Nepal Health Outreach Network"} • Role: Data Analyst',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // User Identity & Camp Selector Row
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 650;
+              final userProfile = Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0D9488), Color(0xFF042F2E)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.teal.shade200, width: 1.5),
+                    ),
+                    child: const Icon(Icons.insights_rounded, color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.name ?? 'Population Health Analyst',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Multi-station Epidemiology, POP-Q Triage & Clinical Dossiers',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.75),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              final campDropdown = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    dropdownColor: const Color(0xFF1E293B),
+                    value: _selectedCampId,
+                    icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: 'all',
+                        child: Row(
+                          children: [
+                            Icon(Icons.public_rounded, color: Color(0xFF2DD4BF), size: 16),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'All Camps (Cross-Camp Intelligence)',
+                                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ...campState.camps.map((c) => DropdownMenuItem<String>(
+                            value: c.id,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.location_on_outlined, color: Colors.white70, size: 16),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${c.campCode} - ${c.name}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )),
+                    ],
+                    onChanged: _onCampChanged,
+                  ),
+                ),
+              );
+
+              if (isNarrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    userProfile,
+                    const SizedBox(height: 12),
+                    campDropdown,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: userProfile),
+                  const SizedBox(width: 16),
+                  SizedBox(width: 320, child: campDropdown),
+                ],
+              );
+            },
+          ),
+
+          const SizedBox(height: 14),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 12),
+
+          // Actions Row
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D9488),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                label: const Text('Aggregate Camp Report (पिडिएफ)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CampReportView(
+                        initialCampId: _selectedCampId == 'all' ? null : _selectedCampId,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white30),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.history_edu_rounded, size: 16),
+                label: const Text('Audit Trail', style: TextStyle(fontSize: 12)),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AuditTrailView()),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // COMPONENT 2: REAL-TIME KPI METRICS
+  // ==========================================
+  Widget _buildKpiMetricsRow({
+    required CampReportSummaryModel? summary,
+    required int allPatientsCount,
+    required int filteredPatientsCount,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 720;
+        final totalReg = allPatientsCount;
+        final totalExam = _patientVisits.length;
+        final popSignificant = summary?.significantPopCount ??
+            _patientVisits.values.where((v) => v.highestPopStage >= 2).length;
+        final popPct = totalExam > 0 ? (popSignificant / totalExam * 100).toStringAsFixed(1) : '0.0';
+        final referrals = summary?.totalSurgicalReferrals ??
+            _patientVisits.values.where((v) => v.surgicalReferral != null && v.surgicalReferral!.isNotEmpty).length;
+        final prescriptions = summary?.totalPrescriptionsCount ?? 0;
+
+        final cards = [
+          _buildTelemetryCard(
+            title: 'Registered Cohort',
+            value: '$totalReg',
+            subtitle: 'Exams Completed: $totalExam',
+            icon: Icons.people_alt_rounded,
+            color: const Color(0xFF0D9488),
+          ),
+          _buildTelemetryCard(
+            title: 'POP Grade II-IV',
+            value: '$popPct%',
+            subtitle: '$popSignificant High-Grade Prolapse',
+            icon: Icons.healing_rounded,
+            color: const Color(0xFFF59E0B),
+          ),
+          _buildTelemetryCard(
+            title: 'Surgical Candidates',
+            value: '$referrals',
+            subtitle: 'Hospital Referrals',
+            icon: Icons.local_hospital_rounded,
+            color: const Color(0xFFF43F5E),
+          ),
+          _buildTelemetryCard(
+            title: 'Prescriptions',
+            value: '$prescriptions',
+            subtitle: 'Pessaries Fitted: ${summary?.totalPessariesInserted ?? 0}',
+            icon: Icons.medication_rounded,
+            color: const Color(0xFF3B82F6),
+          ),
+        ];
+
+        if (isWide) {
+          return Row(
+            children: cards
+                .map((c) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: c,
+                      ),
+                    ))
+                .toList(),
+          );
+        }
+
+        return GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: constraints.maxWidth < 420 ? 1.3 : 1.6,
+          children: cards,
+        );
       },
     );
   }
 
-  Widget _buildMiniBadge({required String text, required Color color}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+  // ==========================================
+  // COMPONENT 3: MULTI-DIMENSIONAL FILTER BAR
+  // ==========================================
+  Widget _buildAnalyticsFilterBar({
+    required CampState campState,
+    required int totalPatients,
+    required int filteredCount,
+  }) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
       ),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Filter Header & Toggle
+            Row(
+              children: [
+                const Icon(Icons.filter_list_rounded, color: Color(0xFF0F766E), size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text(
+                        'Multi-Dimensional Analytics Filters',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B)),
+                      ),
+                      if (_activeFilterCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F766E),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$_activeFilterCount Active',
+                            style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (_activeFilterCount > 0)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFDC2626),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(Icons.clear_all_rounded, size: 16),
+                    label: const Text('Reset All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: _resetFilters,
+                  ),
+                IconButton(
+                  icon: Icon(_filtersExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 20),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => setState(() => _filtersExpanded = !_filtersExpanded),
+                  tooltip: _filtersExpanded ? 'Collapse Filters' : 'Expand Filters',
+                ),
+              ],
+            ),
+
+            // Search Bar
+            const SizedBox(height: 8),
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search cohort by Patient Name, ID (GC-...), Mobile, Ward, or Camp...',
+                prefixIcon: const Icon(Icons.search, size: 18),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 16),
+                        onPressed: () => setState(() => _searchController.clear()),
+                      )
+                    : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+
+            if (_filtersExpanded) ...[
+              const SizedBox(height: 12),
+              // Dropdowns Grid
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 700;
+
+                  final popDropdown = DropdownButtonFormField<String>(
+                    initialValue: _selectedPopStage,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'POP Severity',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('All POP Stages', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: '0', child: Text('Stage 0 (Normal)', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: '1', child: Text('Stage I (Mild)', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: '2', child: Text('Stage II (Moderate)', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: '3', child: Text('Stage III (Severe)', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: '4', child: Text('Stage IV (Procidentia)', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: 'significant', child: Text('Stages II-IV (Significant POP)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold))),
+                    ],
+                    onChanged: (v) => setState(() => _selectedPopStage = v ?? 'all'),
+                  );
+
+                  final complaintDropdown = DropdownButtonFormField<String>(
+                    initialValue: _selectedComplaint,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Chief Complaint',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('All Complaints', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: 'prolapse', child: Text('Prolapse / Something Hanging', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: 'discharge', child: Text('Discharge / Itching', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: 'urine', child: Text('Urinary Issues', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: 'stool', child: Text('Bowel / Stool Issues', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: 'pain', child: Text('Pelvic / Abdominal Pain', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: 'menstrual', child: Text('Menstrual Problems', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: 'infertility', child: Text('Infertility Issues', style: TextStyle(fontSize: 12.5))),
+                    ],
+                    onChanged: (v) => setState(() => _selectedComplaint = v ?? 'all'),
+                  );
+
+                  final surgeryDropdown = DropdownButtonFormField<String>(
+                    initialValue: _selectedSurgery,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Surgery Status',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('All / Any', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: 'yes', child: Text('Surgery Performed', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: 'no', child: Text('No Surgery', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: 'referral', child: Text('Hospital Referral', style: TextStyle(fontSize: 12.5))),
+                    ],
+                    onChanged: (v) => setState(() => _selectedSurgery = v ?? 'all'),
+                  );
+
+                  final ageDropdown = DropdownButtonFormField<String>(
+                    initialValue: _selectedAgeBracket,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Age Cohort',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('All Age Cohorts', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: '<20', child: Text('< 20 Years', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: '20-35', child: Text('20 - 35 Years', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: '36-50', child: Text('36 - 50 Years', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: '51-65', child: Text('51 - 65 Years', style: TextStyle(fontSize: 12.5))),
+                      DropdownMenuItem(value: '>65', child: Text('> 65 Years', style: TextStyle(fontSize: 12.5))),
+                    ],
+                    onChanged: (v) => setState(() => _selectedAgeBracket = v ?? 'all'),
+                  );
+
+                  if (isWide) {
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: popDropdown),
+                            const SizedBox(width: 8),
+                            Expanded(child: complaintDropdown),
+                            const SizedBox(width: 8),
+                            Expanded(child: surgeryDropdown),
+                            const SizedBox(width: 8),
+                            Expanded(child: ageDropdown),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: popDropdown),
+                          const SizedBox(width: 8),
+                          Expanded(child: complaintDropdown),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(child: surgeryDropdown),
+                          const SizedBox(width: 8),
+                          Expanded(child: ageDropdown),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: 10),
+
+              // Filter Toggles Row
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  FilterChip(
+                    label: const Text('Hypertension Alert (HTN >= 140/90)', style: TextStyle(fontSize: 11.5)),
+                    selected: _highBpOnly,
+                    selectedColor: const Color(0xFFFEE2E2),
+                    checkmarkColor: const Color(0xFFDC2626),
+                    labelStyle: TextStyle(
+                      color: _highBpOnly ? const Color(0xFFDC2626) : const Color(0xFF334155),
+                      fontWeight: _highBpOnly ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    onSelected: (val) => setState(() => _highBpOnly = val),
+                  ),
+                  FilterChip(
+                    label: const Text('Clinical Intake Completed', style: TextStyle(fontSize: 11.5)),
+                    selected: _selectedIntakeStatus == 'completed',
+                    selectedColor: const Color(0xFFCCFBF1),
+                    checkmarkColor: const Color(0xFF0F766E),
+                    labelStyle: TextStyle(
+                      color: _selectedIntakeStatus == 'completed' ? const Color(0xFF0F766E) : const Color(0xFF334155),
+                      fontWeight: _selectedIntakeStatus == 'completed' ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    onSelected: (val) => setState(() => _selectedIntakeStatus = val ? 'completed' : 'all'),
+                  ),
+                  FilterChip(
+                    label: const Text('Intake Pending', style: TextStyle(fontSize: 11.5)),
+                    selected: _selectedIntakeStatus == 'pending',
+                    selectedColor: const Color(0xFFFEF3C7),
+                    checkmarkColor: const Color(0xFFD97706),
+                    labelStyle: TextStyle(
+                      color: _selectedIntakeStatus == 'pending' ? const Color(0xFFD97706) : const Color(0xFF334155),
+                      fontWeight: _selectedIntakeStatus == 'pending' ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    onSelected: (val) => setState(() => _selectedIntakeStatus = val ? 'pending' : 'all'),
+                  ),
+                  FilterChip(
+                    label: const Text('Follow-Up Visits', style: TextStyle(fontSize: 11.5)),
+                    selected: _selectedIntakeStatus == 'followup',
+                    selectedColor: const Color(0xFFEDE9FE),
+                    checkmarkColor: const Color(0xFF7C3AED),
+                    labelStyle: TextStyle(
+                      color: _selectedIntakeStatus == 'followup' ? const Color(0xFF7C3AED) : const Color(0xFF334155),
+                      fontWeight: _selectedIntakeStatus == 'followup' ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    onSelected: (val) => setState(() => _selectedIntakeStatus = val ? 'followup' : 'all'),
+                  ),
+                ],
+              ),
+            ],
+
+            const SizedBox(height: 8),
+            // Results Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 14, color: Color(0xFF475569)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Displaying $filteredCount of $totalPatients registered cohort records',
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // COMPONENT 4: VIEW MODE TABS NAVIGATION
+  // ==========================================
+  Widget _buildViewModeTabs({required int filteredCount}) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildNavTab(
+            id: 'overview',
+            label: 'All-In-One Dashboard',
+            icon: Icons.dashboard_customize_rounded,
+          ),
+          const SizedBox(width: 8),
+          _buildNavTab(
+            id: 'charts',
+            label: 'Epidemiological Charts',
+            icon: Icons.bar_chart_rounded,
+          ),
+          const SizedBox(width: 8),
+          _buildNavTab(
+            id: 'patients',
+            label: 'Camp-Wise Patients ($filteredCount)',
+            icon: Icons.people_outline_rounded,
+          ),
+          const SizedBox(width: 8),
+          _buildNavTab(
+            id: 'camps',
+            label: 'Cross-Camp Comparison',
+            icon: Icons.map_outlined,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavTab({
+    required String id,
+    required String label,
+    required IconData icon,
+  }) {
+    final isSelected = _activeTab == id;
+    return ChoiceChip(
+      selected: isSelected,
+      onSelected: (_) => setState(() => _activeTab = id),
+      avatar: Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF475569)),
+      label: Text(label),
+      selectedColor: const Color(0xFF0F766E),
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : const Color(0xFF334155),
+        fontSize: 12.5,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+      ),
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: isSelected ? const Color(0xFF0F766E) : const Color(0xFFCBD5E1),
+          width: 1,
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // CHART 1: POP-Q SEVERITY SPECTRUM
+  // ==========================================
+  Widget _buildPopStagingBarChart(CampReportSummaryModel? summary, List<PatientModel> patients) {
+    // Calculate stage counts from visits or summary
+    int st0 = 0, st1 = 0, st2 = 0, st3 = 0, st4 = 0;
+    int totalExams = 0;
+
+    if (summary != null && summary.totalVisitsRecorded > 0 && summary.highestPopStages.isNotEmpty) {
+      st0 = summary.highestPopStages[0] ?? 0;
+      st1 = summary.highestPopStages[1] ?? 0;
+      st2 = summary.highestPopStages[2] ?? 0;
+      st3 = summary.highestPopStages[3] ?? 0;
+      st4 = summary.highestPopStages[4] ?? 0;
+      totalExams = summary.totalVisitsRecorded;
+    } else {
+      for (final p in patients) {
+        final v = _patientVisits[p.patientId];
+        if (v != null || p.highestPopStage != null) {
+          totalExams++;
+          final s = v?.highestPopStage ?? p.highestPopStage ?? 0;
+          if (s == 0) {
+            st0++;
+          } else if (s == 1) {
+            st1++;
+          } else if (s == 2) {
+            st2++;
+          } else if (s == 3) {
+            st3++;
+          } else if (s >= 4) {
+            st4++;
+          }
+        }
+      }
+    }
+
+    final significant = st2 + st3 + st4;
+    final sigPct = totalExams > 0 ? (significant / totalExams * 100).toStringAsFixed(1) : '0.0';
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.stacked_bar_chart_rounded, color: Color(0xFF0F766E), size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pelvic Organ Prolapse (POP-Q) Severity Spectrum',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        'Baden-Walker Classification across clinical examinations',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '$totalExams Evaluated',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // 2x2 POP-Q Stage Breakdown Cards
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 2.3,
+              children: [
+                _buildPopStageGridCard('Stage 0 (Normal)', '$st0', const Color(0xFF10B981)),
+                _buildPopStageGridCard('Stage I (Mild)', '$st1', const Color(0xFF06B6D4)),
+                _buildPopStageGridCard('Stage II (Moderate)', '$st2', const Color(0xFFF59E0B)),
+                _buildPopStageGridCard('Stage III-IV (Severe)', '${st3 + st4}', const Color(0xFFEA580C)),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Horizontal Distribution Bars
+            _buildChartHorizontalBar(
+              label: 'Stage 0 - Normal Anatomy (सामान्य)',
+              subtitle: 'Leading edge above -1 cm • No prolapse',
+              count: st0,
+              total: totalExams,
+              color: const Color(0xFF10B981),
+            ),
+            const SizedBox(height: 10),
+            _buildChartHorizontalBar(
+              label: 'Stage I - Mild Prolapse (हल्का)',
+              subtitle: 'Leading edge > 1 cm above hymenal ring',
+              count: st1,
+              total: totalExams,
+              color: const Color(0xFF06B6D4),
+            ),
+            const SizedBox(height: 10),
+            _buildChartHorizontalBar(
+              label: 'Stage II - Moderate Prolapse (मध्यम)',
+              subtitle: 'Leading edge within 1 cm of hymen • Conservative / Pessary candidate',
+              count: st2,
+              total: totalExams,
+              color: const Color(0xFFF59E0B),
+            ),
+            const SizedBox(height: 10),
+            _buildChartHorizontalBar(
+              label: 'Stage III - Severe Prolapse (गम्भीर)',
+              subtitle: 'Leading edge > 1 cm below hymen, but < 2 cm less than TVL',
+              count: st3,
+              total: totalExams,
+              color: const Color(0xFFEA580C),
+            ),
+            const SizedBox(height: 10),
+            _buildChartHorizontalBar(
+              label: 'Stage IV - Complete Procidentia (पूर्ण खसेको)',
+              subtitle: 'Complete eversion of lower genital tract • Surgical candidate',
+              count: st4,
+              total: totalExams,
+              color: const Color(0xFFDC2626),
+            ),
+
+            const SizedBox(height: 16),
+            // Significant POP Summary Banner
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Epidemiological Prolapse Burden: $sigPct% ($significant Patients) have Stage II-IV Prolapse requiring clinical intervention.',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // CHART 2: CHIEF CLINICAL COMPLAINTS
+  // ==========================================
+  Widget _buildChiefComplaintsChart(List<PatientModel> patients) {
+    int prolapseCount = 0;
+    int dischargeCount = 0;
+    int urineCount = 0;
+    int stoolCount = 0;
+    int painCount = 0;
+    int menstrualCount = 0;
+    int infertilityCount = 0;
+    int checkupCount = 0;
+
+    final totalCohort = patients.length;
+
+    for (final p in patients) {
+      final reasons = p.reasonsForVisit.map((r) => r.toLowerCase()).toList();
+      final visit = _patientVisits[p.patientId];
+      final anamnesis = visit?.anamnesisComplaints.toString().toLowerCase() ?? '';
+      final combined = [...reasons, anamnesis].join(' ');
+
+      if (combined.contains('hanging') || combined.contains('prolapse') || combined.contains('खस्ने')) prolapseCount++;
+      if (combined.contains('discharge') || combined.contains('itching') || combined.contains('सेतो') || combined.contains('चिलाउने')) dischargeCount++;
+      if (combined.contains('urine') || combined.contains('dysuria') || combined.contains('पिसाब')) urineCount++;
+      if (combined.contains('stool') || combined.contains('bowel') || combined.contains('constipation') || combined.contains('दिसा')) stoolCount++;
+      if (combined.contains('pain') || combined.contains('दुख्ने') || combined.contains('तल्लो पेट')) painCount++;
+      if (combined.contains('menstrual') || combined.contains('महिनावारी') || combined.contains('bleeding')) menstrualCount++;
+      if (combined.contains('infertility') || combined.contains('निःसन्तान')) infertilityCount++;
+      if (combined.contains('checkup') || combined.contains('routine') || combined.contains('जाँच')) checkupCount++;
+    }
+
+    final items = [
+      {'label': 'Prolapse / Something Hanging Out (आङ खस्ने)', 'count': prolapseCount, 'color': const Color(0xFFE11D48)},
+      {'label': 'White Discharge & Itching (सेतो पानी तथा चिलाउने)', 'count': dischargeCount, 'color': const Color(0xFF0284C7)},
+      {'label': 'Urinary Problems (पिसाब सम्बन्धी / पोल्ने)', 'count': urineCount, 'color': const Color(0xFF7C3AED)},
+      {'label': 'Pelvic / Lower Abdominal Pain (तल्लो पेट / कम्मर दुख्ने)', 'count': painCount, 'color': const Color(0xFFD97706)},
+      {'label': 'Bowel / Stool Problems (दिसा सम्बन्धी / कब्जियत)', 'count': stoolCount, 'color': const Color(0xFF0D9488)},
+      {'label': 'Menstrual Irregularities (महिनावारी गडबडी)', 'count': menstrualCount, 'color': const Color(0xFFDB2777)},
+      {'label': 'Infertility / Subfertility (निःसन्तान सम्बन्धी)', 'count': infertilityCount, 'color': const Color(0xFF4F46E5)},
+      {'label': 'Routine Health Checkup (सामान्य स्वास्थ्य जाँच)', 'count': checkupCount, 'color': const Color(0xFF10B981)},
+    ]..sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.leaderboard_rounded, color: Color(0xFF7C3AED), size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chief Clinical Complaints Frequency & Ranking',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        'Reported symptomatology ranked by cohort frequency',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...items.asMap().entries.map((entry) {
+              final idx = entry.key + 1;
+              final item = entry.value;
+              final count = item['count'] as int;
+              final color = item['color'] as Color;
+              final label = item['label'] as String;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildRankedBarItem(
+                  rank: idx,
+                  label: label,
+                  count: count,
+                  total: totalCohort,
+                  color: color,
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // CHART 3: DEMOGRAPHIC AGE COHORT
+  // ==========================================
+  Widget _buildAgeDistributionChart(CampReportSummaryModel? summary, List<PatientModel> patients) {
+    int under20 = 0, a20to35 = 0, a36to50 = 0, a51to65 = 0, over65 = 0;
+    final totalPatients = patients.length;
+
+    for (final p in patients) {
+      if (p.age < 20) {
+        under20++;
+      } else if (p.age <= 35) {
+        a20to35++;
+      } else if (p.age <= 50) {
+        a36to50++;
+      } else if (p.age <= 65) {
+        a51to65++;
+      } else {
+        over65++;
+      }
+    }
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.cake_rounded, color: Color(0xFF0284C7), size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Demographic Age Cohort Distribution',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        'Age bracket breakdown across registered female population',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            _buildChartHorizontalBar(
+              label: '< 20 Years (युवा / किशोरावस्था)',
+              subtitle: 'Early reproductive age group',
+              count: under20,
+              total: totalPatients,
+              color: const Color(0xFF38BDF8),
+            ),
+            const SizedBox(height: 10),
+            _buildChartHorizontalBar(
+              label: '20 - 35 Years (प्रजनन उमेर समूह)',
+              subtitle: 'Peak childbearing & post-partum cohort',
+              count: a20to35,
+              total: totalPatients,
+              color: const Color(0xFF0D9488),
+            ),
+            const SizedBox(height: 10),
+            _buildChartHorizontalBar(
+              label: '36 - 50 Years (मध्यम उमेर समूह)',
+              subtitle: 'Perimenopausal & multiparous cohort',
+              count: a36to50,
+              total: totalPatients,
+              color: const Color(0xFFF59E0B),
+            ),
+            const SizedBox(height: 10),
+            _buildChartHorizontalBar(
+              label: '51 - 65 Years (प्रौढ उमेर समूह)',
+              subtitle: 'Postmenopausal • High POP & pelvic tone laxity burden',
+              count: a51to65,
+              total: totalPatients,
+              color: const Color(0xFFEA580C),
+            ),
+            const SizedBox(height: 10),
+            _buildChartHorizontalBar(
+              label: '> 65 Years (ज्येष्ठ नागरिक)',
+              subtitle: 'Elderly population requiring conservative pessary management',
+              count: over65,
+              total: totalPatients,
+              color: const Color(0xFF9333EA),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // CHART 4: TREATMENT & CLINICAL MODALITY
+  // ==========================================
+  Widget _buildTreatmentModalityChart(CampReportSummaryModel? summary, List<PatientModel> patients) {
+    int surgicalCount = 0;
+    int pessaryCount = 0;
+    int prescriptionCount = 0;
+    int counselingCount = 0;
+
+    if (summary != null) {
+      surgicalCount = summary.totalSurgicalReferrals;
+      pessaryCount = summary.totalPessariesInserted;
+      prescriptionCount = summary.totalPrescriptionsCount;
+      counselingCount = summary.pelvicFloorCounselingCount;
+    } else {
+      for (final p in patients) {
+        final v = _patientVisits[p.patientId];
+        if (v != null) {
+          if (v.surgicalReferral != null && v.surgicalReferral!.isNotEmpty) surgicalCount++;
+          if (v.pessaryType != null && v.pessaryType!.isNotEmpty) pessaryCount++;
+          if (v.medications.isNotEmpty) prescriptionCount++;
+          if (v.counseling.isNotEmpty) counselingCount++;
+        }
+      }
+    }
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.medical_services_rounded, color: Color(0xFF10B981), size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Clinical Treatment & Management Modalities',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        'Distribution of surgical, mechanical & pharmacological care delivered',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 600;
+                final items = [
+                  _buildModalityCard(
+                    title: 'Surgical Referrals',
+                    count: '$surgicalCount',
+                    desc: 'Tertiary Hospital Referrals',
+                    icon: Icons.local_hospital_rounded,
+                    color: const Color(0xFFDC2626),
+                  ),
+                  _buildModalityCard(
+                    title: 'Pessary Fittings',
+                    count: '$pessaryCount',
+                    desc: 'Ring & Shelf Devices Inserted',
+                    icon: Icons.donut_large_rounded,
+                    color: const Color(0xFFF59E0B),
+                  ),
+                  _buildModalityCard(
+                    title: 'Medications Dispensed',
+                    count: '$prescriptionCount',
+                    desc: 'Prescriptions Formulated',
+                    icon: Icons.medication_rounded,
+                    color: const Color(0xFF0D9488),
+                  ),
+                  _buildModalityCard(
+                    title: 'Pelvic Floor Training',
+                    count: '$counselingCount',
+                    desc: 'Kegel & Lifestyle Guidance',
+                    icon: Icons.fitness_center_rounded,
+                    color: const Color(0xFF3B82F6),
+                  ),
+                ];
+
+                if (isWide) {
+                  return Row(
+                    children: items
+                        .map((it) => Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: it,
+                              ),
+                            ))
+                        .toList(),
+                  );
+                }
+
+                return GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 1.35,
+                  children: items,
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // CHART 5: CROSS-CAMP VOLUME & PREVALENCE COMPARISON
+  // ==========================================
+  Widget _buildCampWiseComparisonChart(List<CampModel> camps, List<PatientModel> allPatients) {
+    if (camps.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4338CA).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.hub_rounded, color: Color(0xFF4338CA), size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Cross-Camp Volume & Epidemiological Comparison',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        'Comparative patient registry and prolapse prevalence across camps',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDE9FE),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${camps.length} Camps',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4338CA)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            ...camps.map((camp) {
+              final campPatients = allPatients.where((p) => p.campId == camp.id).toList();
+              final exams = campPatients.where((p) => p.hasClinicalVisit || _patientVisits.containsKey(p.patientId)).length;
+              final sigPop = campPatients.where((p) {
+                final v = _patientVisits[p.patientId];
+                return (v?.highestPopStage ?? p.highestPopStage ?? 0) >= 2;
+              }).length;
+              final sigPopPct = exams > 0 ? (sigPop / exams * 100).toStringAsFixed(1) : '0.0';
+              final pctOfTotal = allPatients.isNotEmpty ? (campPatients.length / allPatients.length * 100).toStringAsFixed(1) : '0.0';
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${camp.name} (${camp.campCode})',
+                            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${campPatients.length} Patients ($pctOfTotal%)',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${camp.district}, ${camp.municipality} • Venue: ${camp.venue}',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Progress Bar of volume
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: allPatients.isNotEmpty ? campPatients.length / allPatients.length : 0,
+                        minHeight: 6,
+                        backgroundColor: const Color(0xFFE2E8F0),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0D9488)),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Metrics Badges
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        Text('Exams: $exams', style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
+                        const Text('•', style: TextStyle(fontSize: 11, color: Color(0xFFCBD5E1))),
+                        Text('POP Stage II-IV: $sigPop ($sigPopPct%)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // COMPONENT 5: CAMP-WISE PATIENTS REGISTRY & DOSSIER HUB
+  // ==========================================
+  Widget _buildCampWisePatientRegistry({
+    required List<PatientModel> filteredPatients,
+    required int allPatientsCount,
+    required CampState campState,
+  }) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.folder_shared_rounded, color: Color(0xFF0F766E), size: 24),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Camp-Wise Individual Patient Clinical Dossiers (बिरामी कागजात)',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        '1-tap tamper-evident clinical export containing anamnesis, vitals, POP-Q, and prescriptions.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Patient List
+            if (filteredPatients.isEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 36),
+                alignment: Alignment.center,
+                child: Column(
+                  children: [
+                    Icon(Icons.person_search_rounded, size: 48, color: Colors.grey.shade400),
+                    const SizedBox(height: 10),
+                    Text(
+                      allPatientsCount == 0
+                          ? 'No patients registered yet.'
+                          : 'No patients match your search or filter criteria.',
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 13.5),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(
+                      onPressed: _resetFilters,
+                      child: const Text('Reset All Filters'),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: filteredPatients.length,
+                separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                itemBuilder: (context, index) {
+                  final patient = filteredPatients[index];
+                  final visit = _patientVisits[patient.patientId];
+                  final isExporting = _exportingPatientId == patient.patientId;
+
+                  // Find camp name for this patient
+                  String patientCampLabel = patient.campCode;
+                  try {
+                    final c = campState.camps.firstWhere((x) => x.id == patient.campId);
+                    patientCampLabel = '${c.campCode} • ${c.name}';
+                  } catch (_) {}
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                    child: LayoutBuilder(
+                      builder: (ctx, constraints) {
+                        final isCompact = constraints.maxWidth < 640;
+
+                        final avatar = CircleAvatar(
+                          radius: 22,
+                          backgroundColor: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                          child: Text(
+                            patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F766E), fontSize: 16),
+                          ),
+                        );
+
+                        final bioColumn = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    patient.fullName,
+                                    style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    patient.patientId,
+                                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Age: ${patient.age}y • Ward: ${patient.ward} • ${patient.municipality} • Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"}',
+                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                            ),
+                            const SizedBox(height: 4),
+                            // Camp Badge & Clinical Badges
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  constraints: const BoxConstraints(maxWidth: 160),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE0E7FF),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFC7D2FE)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.location_on, size: 10, color: Color(0xFF4338CA)),
+                                      const SizedBox(width: 3),
+                                      Flexible(
+                                        child: Text(
+                                          patientCampLabel,
+                                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF4338CA)),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (visit != null || patient.highestPopStage != null)
+                                  _buildMiniBadge(
+                                    text: 'POP Stage ${visit?.highestPopStage ?? patient.highestPopStage ?? 0}',
+                                    color: (visit?.highestPopStage ?? patient.highestPopStage ?? 0) >= 2
+                                        ? const Color(0xFFF59E0B)
+                                        : const Color(0xFF10B981),
+                                  ),
+                                if (visit?.systolicBp != null && visit?.diastolicBp != null)
+                                  _buildMiniBadge(
+                                    text: 'BP ${visit!.systolicBp}/${visit.diastolicBp}',
+                                    color: (visit.systolicBp! >= 140 || visit.diastolicBp! >= 90)
+                                        ? const Color(0xFFEF4444)
+                                        : const Color(0xFF3B82F6),
+                                  ),
+                                if (visit?.surgicalReferral != null && visit!.surgicalReferral!.isNotEmpty)
+                                  _buildMiniBadge(
+                                    text: 'Ref: ${visit.surgicalReferral}',
+                                    color: const Color(0xFFDC2626),
+                                  ),
+                                if (patient.isFollowUp || (visit?.isFollowUp ?? false))
+                                  _buildMiniBadge(
+                                    text: 'Follow-Up',
+                                    color: const Color(0xFF7C3AED),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        );
+
+                        final inspectBtn = OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF0F766E),
+                            side: BorderSide(color: Colors.teal.shade200),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.visibility_outlined, size: 15),
+                          label: const Text('Inspect', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          onPressed: () => _inspectPatientDossier(patient),
+                        );
+
+                        final dossierBtn = ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F766E),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: isExporting
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.picture_as_pdf_rounded, size: 15),
+                          label: Text(
+                            isExporting ? 'Exporting...' : 'PDF Dossier',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: isExporting ? null : () => _exportPatientDossier(patient),
+                        );
+
+                        if (isCompact) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  avatar,
+                                  const SizedBox(width: 12),
+                                  Expanded(child: bioColumn),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(child: inspectBtn),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: dossierBtn),
+                                ],
+                              ),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            avatar,
+                            const SizedBox(width: 14),
+                            Expanded(child: bioColumn),
+                            const SizedBox(width: 10),
+                            inspectBtn,
+                            const SizedBox(width: 8),
+                            dossierBtn,
+                          ],
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // SHARED CHART & CARD HELPERS
+  // ==========================================
+  Widget _buildPopStageGridCard(String title, String count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            count,
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartHorizontalBar({
+    required String label,
+    required String subtitle,
+    required int count,
+    required int total,
+    required Color color,
+  }) {
+    final pctValue = total > 0 ? (count / total) : 0.0;
+    final pctText = total > 0 ? (count / total * 100).toStringAsFixed(1) : '0.0';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              '$count ($pctText%)',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: color),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: pctValue.clamp(0.0, 1.0),
+            minHeight: 8,
+            backgroundColor: const Color(0xFFF1F5F9),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRankedBarItem({
+    required int rank,
+    required String label,
+    required int count,
+    required int total,
+    required Color color,
+  }) {
+    final pctValue = total > 0 ? (count / total) : 0.0;
+    final pctText = total > 0 ? (count / total * 100).toStringAsFixed(1) : '0.0';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '#$rank',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              '$count ($pctText%)',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: pctValue.clamp(0.0, 1.0),
+            minHeight: 6,
+            backgroundColor: const Color(0xFFF1F5F9),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModalityCard({
+    required String title,
+    required String count,
+    required String desc,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, color: color, size: 20),
+              Text(
+                count,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            desc,
+            style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
@@ -4525,41 +5867,17 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     );
   }
 
-  Widget _buildPopSpectrumSegment({
-    required String label,
-    required int count,
-    required int total,
-    required Color color,
-  }) {
-    final pct = total > 0 ? (count / total * 100).toStringAsFixed(1) : '0';
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          children: [
-            Text(
-              '$count',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
-            ),
-            Text(
-              '$pct%',
-              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: color),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 10, color: Color(0xFF475569)),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
+  Widget _buildMiniBadge({required String text, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }

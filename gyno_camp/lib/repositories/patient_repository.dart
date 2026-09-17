@@ -190,10 +190,11 @@ class PatientRepository implements IPatientRepository {
              cv.highest_pop_stage,
              cv.diagnoses,
              cv.surgery_done,
-             cv.surgery_type
+             cv.surgery_type,
+             cv.is_follow_up
       FROM ${DatabaseTables.tablePatients} p
       LEFT JOIN (
-        SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type
+        SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)

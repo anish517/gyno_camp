@@ -16,6 +16,7 @@ class PatientFilterCriteria {
   final String? surgeryType; // 'Open surgery', 'Laparoscopy', 'Vaginal route'
   final String? popStage; // 'all', '0', '1', '2', '3', '4'
   final String? chiefComplaint; // reason for visit key e.g. 'something hanging out'
+  final String? clinicalIntake; // 'all', 'completed', 'pending', 'followup'
 
   const PatientFilterCriteria({
     this.campId,
@@ -30,6 +31,7 @@ class PatientFilterCriteria {
     this.surgeryType,
     this.popStage,
     this.chiefComplaint,
+    this.clinicalIntake,
   });
 
   bool get hasActiveFilters =>
@@ -44,7 +46,8 @@ class PatientFilterCriteria {
       (surgeryDone != null && surgeryDone != 'all') ||
       (surgeryType != null && surgeryType!.trim().isNotEmpty) ||
       (popStage != null && popStage != 'all') ||
-      (chiefComplaint != null && chiefComplaint!.trim().isNotEmpty);
+      (chiefComplaint != null && chiefComplaint!.trim().isNotEmpty) ||
+      (clinicalIntake != null && clinicalIntake != 'all');
 
   int get activeFilterCount {
     int count = 0;
@@ -59,6 +62,7 @@ class PatientFilterCriteria {
     if (surgeryType != null && surgeryType!.trim().isNotEmpty) count++;
     if (popStage != null && popStage != 'all') count++;
     if (chiefComplaint != null && chiefComplaint!.trim().isNotEmpty) count++;
+    if (clinicalIntake != null && clinicalIntake != 'all') count++;
     return count;
   }
 
@@ -75,6 +79,7 @@ class PatientFilterCriteria {
     String? surgeryType,
     String? popStage,
     String? chiefComplaint,
+    String? clinicalIntake,
     bool clearMinAge = false,
     bool clearMaxAge = false,
     bool clearDistrict = false,
@@ -86,6 +91,7 @@ class PatientFilterCriteria {
     bool clearSurgeryType = false,
     bool clearPopStage = false,
     bool clearChiefComplaint = false,
+    bool clearClinicalIntake = false,
   }) {
     return PatientFilterCriteria(
       campId: campId ?? this.campId,
@@ -100,6 +106,7 @@ class PatientFilterCriteria {
       surgeryType: clearSurgeryType ? null : (surgeryType ?? this.surgeryType),
       popStage: clearPopStage ? null : (popStage ?? this.popStage),
       chiefComplaint: clearChiefComplaint ? null : (chiefComplaint ?? this.chiefComplaint),
+      clinicalIntake: clearClinicalIntake ? null : (clinicalIntake ?? this.clinicalIntake),
     );
   }
 }
@@ -284,6 +291,13 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         final cLower = filters.chiefComplaint!.trim().toLowerCase();
         final matchesComplaint = p.reasonsForVisit.any((r) => r.toLowerCase() == cLower);
         if (!matchesComplaint) return false;
+      }
+
+      // Clinical Intake
+      if (filters.clinicalIntake != null && filters.clinicalIntake != 'all') {
+        if (filters.clinicalIntake == 'completed' && !p.hasClinicalVisit) return false;
+        if (filters.clinicalIntake == 'pending' && p.hasClinicalVisit) return false;
+        if (filters.clinicalIntake == 'followup' && !p.isFollowUp) return false;
       }
 
       return true;

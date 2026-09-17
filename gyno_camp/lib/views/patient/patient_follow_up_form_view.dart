@@ -53,10 +53,12 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   // Active / New Clinical Complaints
   final Set<String> _selectedComplaints = {};
 
-  // POP Staging
+  // POP Staging & Pelvic Floor
   int _anteriorStage = 0;
   int _middleStage = 0;
   int _posteriorStage = 0;
+  bool _uterusInside = true;
+  String _pelvicFloorTone = ClinicalConstants.pelvicFloorNormal;
 
   // Screening Labs (Station 3)
   String? _urineTest;
@@ -119,6 +121,8 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             _anteriorStage = _latestVisit!.popAnteriorStage;
             _middleStage = _latestVisit!.popMiddleStage;
             _posteriorStage = _latestVisit!.popPosteriorStage;
+            _uterusInside = _latestVisit!.uterusInside;
+            _pelvicFloorTone = _latestVisit!.pelvicFloorTone;
             _surgeryDone = _latestVisit!.surgeryDone;
             _selectedSurgeryType = _latestVisit!.surgeryType;
             _surgicalReferral = _latestVisit!.surgicalReferral;
@@ -221,12 +225,12 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
       deliveries: _latestVisit?.deliveries ?? 0,
       livingChildren: _latestVisit?.livingChildren ?? 0,
       abortions: _latestVisit?.abortions ?? 0,
-      uterusInside: _latestVisit?.uterusInside ?? true,
+      uterusInside: _uterusInside,
       vulvaRemarks: _latestVisit?.vulvaRemarks,
       vaginaRemarks: _latestVisit?.vaginaRemarks,
       cervixRemarks: _latestVisit?.cervixRemarks,
       uterusRemarks: _latestVisit?.uterusRemarks,
-      pelvicFloorTone: _latestVisit?.pelvicFloorTone ?? ClinicalConstants.pelvicFloorNormal,
+      pelvicFloorTone: _pelvicFloorTone,
       anamnesisComplaints: complaintsMap,
       popAnteriorStage: _anteriorStage,
       popMiddleStage: _middleStage,
@@ -1143,10 +1147,14 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  '3. POP Re-Staging (आङ खस्ने जाँच)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                const Expanded(
+                  child: Text(
+                    '3. Pelvic Floor & POP Re-Staging (श्रोणी जाँच तथा आङ खस्ने स्टेज)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -1169,6 +1177,57 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            // Uterus Position
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Uterus Position (पाठेघरको अवस्था)',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              subtitle: Text(
+                _uterusInside ? 'Inside (भित्र सामान्य अवस्था)' : 'Prolapsed / Outside (बाहिर खसेको)',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: _uterusInside ? AppTheme.successGreen : AppTheme.dangerRose,
+                ),
+              ),
+              value: _uterusInside,
+              onChanged: (val) => setState(() => _uterusInside = val),
+            ),
+            const SizedBox(height: 8),
+
+            // Pelvic Floor Tone
+            const Text(
+              'Pelvic Floor Muscle Tone (पेल्भिक मांसपेशीको अवस्था / तनाव):',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                {'key': 'normal', 'label': 'Normal (सामान्य)'},
+                {'key': 'weak', 'label': 'Weak / Lax (कमजोर)'},
+                {'key': 'hypertonic', 'label': 'Torn / Hypertonic (च्यातिएको वा तनाव)'},
+              ].map((t) {
+                final isSelected = _pelvicFloorTone.toLowerCase() == t['key'];
+                return ChoiceChip(
+                  label: Text(t['label']!),
+                  selected: isSelected,
+                  selectedColor: AppTheme.primaryTeal,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : Colors.black87,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontSize: 11.5,
+                  ),
+                  onSelected: (_) => setState(() => _pelvicFloorTone = t['key']!),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
             const SizedBox(height: 12),
             _buildStageSelector('Anterior Compartment (Cystocele)', _anteriorStage, [0, 1, 2, 3], (val) {
               setState(() => _anteriorStage = val);

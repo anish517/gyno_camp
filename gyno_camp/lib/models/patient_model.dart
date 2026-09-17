@@ -42,6 +42,7 @@ class PatientModel {
 
   /// Transient fields — populated by repository JOIN, not stored in DB.
   final bool hasClinicalVisit;
+  final bool isFollowUp;
   final int? highestPopStage;
   final List<String> diagnoses;
   final bool? surgeryDone;
@@ -78,6 +79,7 @@ class PatientModel {
     this.isSynced = false,
     this.syncedAt,
     this.hasClinicalVisit = false,
+    this.isFollowUp = false,
     this.highestPopStage,
     this.diagnoses = const [],
     this.surgeryDone,
@@ -152,6 +154,7 @@ class PatientModel {
     bool? isSynced,
     DateTime? syncedAt,
     bool? hasClinicalVisit,
+    bool? isFollowUp,
     int? highestPopStage,
     List<String>? diagnoses,
     bool? surgeryDone,
@@ -188,6 +191,7 @@ class PatientModel {
       isSynced: isSynced ?? this.isSynced,
       syncedAt: syncedAt ?? this.syncedAt,
       hasClinicalVisit: hasClinicalVisit ?? this.hasClinicalVisit,
+      isFollowUp: isFollowUp ?? this.isFollowUp,
       highestPopStage: highestPopStage ?? this.highestPopStage,
       diagnoses: diagnoses ?? this.diagnoses,
       surgeryDone: surgeryDone ?? this.surgeryDone,
@@ -281,6 +285,7 @@ class PatientModel {
       syncedAt: map['synced_at'] != null ? DateTime.tryParse(map['synced_at'] as String) : null,
       // Transient JOIN columns — present when loaded via getPatientsByCamp
       hasClinicalVisit: (map['has_clinical_visit'] as int? ?? 0) == 1,
+      isFollowUp: (map['is_follow_up'] as int? ?? 0) == 1 || map['is_follow_up'] == true,
       highestPopStage: map['highest_pop_stage'] as int?,
       diagnoses: map['diagnoses'] != null
           ? (map['diagnoses'] is String

@@ -323,25 +323,35 @@ void main() {
       // Check Section 2: Clinical Intake & POP Staging Filters
       expect(find.textContaining('Clinical Intake & POP Staging Filters'), findsOneWidget);
 
-      // Verify POP Staging chips in Section 2
-      expect(find.text('All Stages'), findsOneWidget);
-      expect(find.text('Stage 0'), findsOneWidget);
-      expect(find.text('Stage I'), findsOneWidget);
-      expect(find.text('Stage II'), findsOneWidget);
-      expect(find.text('Stage III'), findsOneWidget);
-      expect(find.text('Stage IV'), findsOneWidget);
+      // Verify 5 Dropdowns: Marital Status, Clinical Intake, POP Stage, Surgery Performed, Chief Complaint
+      expect(find.textContaining('Marital Status (वैवाहिक स्थिति)'), findsOneWidget);
+      expect(find.text('All Marital Statuses (सबै)'), findsOneWidget);
 
-      // Verify Surgery Done toggle chips
-      expect(find.text('Surgery Done (भएको)'), findsOneWidget);
-      expect(find.text('No Surgery (नभएको)'), findsOneWidget);
+      expect(find.textContaining('Clinical Intake Status (क्लिनिकल अवस्था)'), findsOneWidget);
+      expect(find.text('All Patients (सबै बिरामी)'), findsOneWidget);
 
-      // Select 'Surgery Done (भएको)' to expose surgery routes
-      await tester.tap(find.text('Surgery Done (भएको)'));
+      expect(find.textContaining('POP Staging (आङ खस्ने अवस्था)'), findsOneWidget);
+      expect(find.text('All Stages (सबै स्टेज)'), findsOneWidget);
+
+      expect(find.textContaining('Surgery Performed (शल्यक्रिया भएको)'), findsOneWidget);
+      expect(find.text('All / Any (सबै)'), findsOneWidget);
+
+      expect(find.textContaining('Chief Clinical Complaint (मुख्य समस्या)'), findsOneWidget);
+      expect(find.text('All Complaints (सबै मुख्य समस्या)'), findsOneWidget);
+
+      // Open and select 'Surgery Done (शल्यक्रिया भएको)' from surgery dropdown
+      final surgeryDropdown = find.byKey(const ValueKey('surgery_done_dropdown'));
+      expect(surgeryDropdown, findsOneWidget);
+      await tester.tap(surgeryDropdown);
       await tester.pumpAndSettle();
 
-      expect(find.text('Open surgery'), findsOneWidget);
-      expect(find.text('Laparoscopy'), findsOneWidget);
-      expect(find.text('Vaginal route'), findsOneWidget);
+      // Tap 'Surgery Done (शल्यक्रिया भएको)' in the popup menu
+      final surgeryDoneItem = find.text('Surgery Done (शल्यक्रिया भएको)').last;
+      await tester.tap(surgeryDoneItem);
+      await tester.pumpAndSettle();
+
+      // Now Surgical Route dropdown is visible
+      expect(find.textContaining('Surgical Route (शल्यक्रियाको प्रकार/मार्ग)'), findsOneWidget);
     });
   });
 
@@ -426,6 +436,21 @@ void main() {
 
       // Verify Follow-Up form sections
       expect(find.textContaining('1. Follow-Up Complaints & New Issues'), findsOneWidget);
+      expect(find.textContaining('3. Pelvic Floor & POP Re-Staging'), findsOneWidget);
+
+      // Verify Uterus Position and Pelvic Floor Tone controls
+      expect(find.textContaining('Uterus Position (पाठेघरको अवस्था)'), findsOneWidget);
+      expect(find.textContaining('Pelvic Floor Muscle Tone'), findsOneWidget);
+      expect(find.text('Normal (सामान्य)'), findsOneWidget);
+      expect(find.text('Weak / Lax (कमजोर)'), findsOneWidget);
+      expect(find.text('Torn / Hypertonic (च्यातिएको वा तनाव)'), findsOneWidget);
+
+      // Scroll into view and select Weak tone
+      final weakChip = find.text('Weak / Lax (कमजोर)');
+      await tester.ensureVisible(weakChip);
+      await tester.pumpAndSettle();
+      await tester.tap(weakChip);
+      await tester.pumpAndSettle();
 
       // Verify save follow-up button exists
       expect(find.textContaining('Save Follow-Up Record'), findsOneWidget);

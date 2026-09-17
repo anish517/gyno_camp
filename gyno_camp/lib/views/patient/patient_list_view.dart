@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -481,9 +482,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
     return Container(
       color: const Color(0xFFF8FAFC),
-      constraints: BoxConstraints(maxHeight: screenHeight * 0.65),
+      constraints: BoxConstraints(
+        maxHeight: math.min(screenHeight * 0.52, 450.0),
+      ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -784,9 +788,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     ),
                     const SizedBox(height: 8),
 
-                    // Age Range Dropdown
-                    Builder(
-                      builder: (context) {
+                    // Row 3: Age Range & Marital Status Dropdowns
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 450;
                         String currentAgeBracket = 'all';
                         if (filters.minAge == null && filters.maxAge == 19) {
                           currentAgeBracket = '<20';
@@ -800,7 +805,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           currentAgeBracket = '>65';
                         }
 
-                        return DropdownButtonFormField<String>(
+                        final ageDropdown = DropdownButtonFormField<String>(
                           key: ValueKey('age_bracket_$currentAgeBracket'),
                           initialValue: currentAgeBracket,
                           decoration: const InputDecoration(
@@ -835,183 +840,53 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             }
                           },
                         );
+
+                        final maritalDropdown = DropdownButtonFormField<String>(
+                          key: const ValueKey('marital_status_dropdown'),
+                          initialValue: filters.maritalStatus ?? 'all',
+                          decoration: const InputDecoration(
+                            labelText: 'Marital Status (वैवाहिक स्थिति)',
+                            prefixIcon: Icon(Icons.favorite_outline, size: 18),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            isDense: true,
+                          ),
+                          isExpanded: true,
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('All Marital Statuses (सबै)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'married', child: Text('Married (विवाहित)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'unmarried', child: Text('Unmarried (अविवाहित)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'widow', child: Text('Widow (एकल/विधवा)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'divorced', child: Text('Divorced (सम्बन्धविच्छेद)', style: TextStyle(fontSize: 13))),
+                          ],
+                          onChanged: (val) => vm.updateFilters(filters.copyWith(maritalStatus: val)),
+                        );
+
+                        if (isNarrow) {
+                          return Column(
+                            children: [
+                              ageDropdown,
+                              const SizedBox(height: 8),
+                              maritalDropdown,
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(child: ageDropdown),
+                            const SizedBox(width: 8),
+                            Expanded(child: maritalDropdown),
+                          ],
+                        );
                       },
                     ),
-                    const SizedBox(height: 8),
-
-                    // Marital Status Filter Chips
-                    const Text(
-                      'Marital Status (वैवाहिक स्थिति):',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children:
-                          [
-                            {'key': 'all', 'label': 'All (सबै)'},
-                            {'key': 'married', 'label': 'Married (विवाहित)'},
-                            {
-                              'key': 'unmarried',
-                              'label': 'Unmarried (अविवाहित)',
-                            },
-                            {'key': 'widow', 'label': 'Widow (एकल/विधवा)'},
-                            {
-                              'key': 'divorced',
-                              'label': 'Divorced (सम्बन्धविच्छेद)',
-                            },
-                          ].map((m) {
-                            final isSelected =
-                                (filters.maritalStatus ?? 'all') == m['key'];
-                            return ChoiceChip(
-                              label: Text(m['label']!),
-                              selected: isSelected,
-                              selectedColor: AppTheme.primaryTeal,
-                              labelStyle: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.black87,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                              ),
-                              onSelected: (selected) {
-                                if (selected) {
-                                  vm.updateFilters(
-                                    filters.copyWith(maritalStatus: m['key']),
-                                  );
-                                }
-                              },
-                            );
-                          }).toList(),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Disease / Diagnosis Dropdown
-                    DropdownButtonFormField<String?>(
-                      key: ValueKey('disease_filter_${filters.disease}'),
-                      initialValue: (filters.disease?.isNotEmpty == true &&
-                              ClinicalConstants.defaultDiagnoses.contains(filters.disease))
-                          ? filters.disease
-                          : null,
-                      decoration: const InputDecoration(
-                        labelText: 'Disease / Diagnosis (रोग / निदान)',
-                        prefixIcon: Icon(Icons.healing, size: 18),
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        isDense: true,
-                      ),
-                      isExpanded: true,
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('All Diagnoses', style: TextStyle(fontSize: 13, color: Colors.grey))),
-                        ...ClinicalConstants.defaultDiagnoses.map((d) =>
-                          DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13)))),
-                      ],
-                      onChanged: (val) => vm.updateFilters(
-                        filters.copyWith(disease: val, clearDisease: val == null),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Surgery Done or Not Filter
-                    const Text(
-                      'Surgery Performed (शल्यक्रिया भएको):',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children:
-                          [
-                            {'key': 'all', 'label': 'All'},
-                            {'key': 'yes', 'label': 'Surgery Done (भएको)'},
-                            {'key': 'no', 'label': 'No Surgery (नभएको)'},
-                          ].map((s) {
-                            final isSelected =
-                                (filters.surgeryDone ?? 'all') == s['key'];
-                            return ChoiceChip(
-                              label: Text(s['label']!),
-                              selected: isSelected,
-                              selectedColor: AppTheme.primaryTeal,
-                              labelStyle: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.black87,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                              ),
-                              onSelected: (selected) {
-                                if (selected) {
-                                  vm.updateFilters(
-                                    filters.copyWith(
-                                      surgeryDone: s['key'],
-                                      clearSurgeryType: s['key'] != 'yes',
-                                    ),
-                                  );
-                                }
-                              },
-                            );
-                          }).toList(),
-                    ),
-
-                    // If Surgery Done is Yes, show 3 Route Types
-                    if (filters.surgeryDone == 'yes') ...[
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Surgical Route (शल्यक्रियाको प्रकार):',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.textSecondaryLight,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: ClinicalConstants.surgeryTypes.map((type) {
-                          final isSelected = filters.surgeryType == type;
-                          return ChoiceChip(
-                            label: Text(type),
-                            selected: isSelected,
-                            selectedColor: AppTheme.successGreen,
-                            labelStyle: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: isSelected ? Colors.white : Colors.black87,
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            onSelected: (selected) {
-                              vm.updateFilters(
-                                filters.copyWith(
-                                  surgeryType: selected ? type : null,
-                                  clearSurgeryType: !selected,
-                                ),
-                              );
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ],
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 10),
 
-            // SECTION 2: Clinical Intake & POP Staging Filters
+            // SECTION 2: Clinical Intake, Staging & Surgical Filters
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -1046,122 +921,203 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     ),
                     const SizedBox(height: 10),
 
-                    // POP Stage Filter
-                    const Text(
-                      'Pelvic Organ Prolapse Stage (आङ खस्ने अवस्था):',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children:
-                          [
-                            {'key': 'all', 'label': 'All Stages'},
-                            {'key': '0', 'label': 'Stage 0'},
-                            {'key': '1', 'label': 'Stage I'},
-                            {'key': '2', 'label': 'Stage II'},
-                            {'key': '3', 'label': 'Stage III'},
-                            {'key': '4', 'label': 'Stage IV'},
-                          ].map((st) {
-                            final isSelected =
-                                (filters.popStage ?? 'all') == st['key'];
-                            return ChoiceChip(
-                              label: Text(st['label']!),
-                              selected: isSelected,
-                              selectedColor: AppTheme.warningAmber,
-                              labelStyle: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected
-                                    ? Colors.brown.shade900
-                                    : Colors.black87,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                              ),
-                              onSelected: (selected) {
-                                if (selected) {
-                                  vm.updateFilters(
-                                    filters.copyWith(popStage: st['key']),
-                                  );
-                                }
-                              },
-                            );
-                          }).toList(),
-                    ),
-                    const SizedBox(height: 10),
+                    // Row 1: Clinical Intake & Disease / Diagnosis
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 450;
 
-                    // Chief Complaint Filter
-                    const Text(
-                      'Chief Clinical Complaint (मुख्य समस्या):',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                      ),
+                        final intakeDropdown = DropdownButtonFormField<String>(
+                          key: const ValueKey('clinical_intake_dropdown'),
+                          initialValue: filters.clinicalIntake ?? 'all',
+                          decoration: const InputDecoration(
+                            labelText: 'Clinical Intake Status (क्लिनिकल अवस्था)',
+                            prefixIcon: Icon(Icons.how_to_reg_outlined, size: 18),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            isDense: true,
+                          ),
+                          isExpanded: true,
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('All Patients (सबै बिरामी)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'completed', child: Text('Intake Completed (जाँच सम्पन्न)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'pending', child: Text('Intake Pending (जाँच बाँकी)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'followup', child: Text('Follow-Up Visit (फलो-अप)', style: TextStyle(fontSize: 13))),
+                          ],
+                          onChanged: (val) => vm.updateFilters(filters.copyWith(clinicalIntake: val)),
+                        );
+
+                        final diseaseDropdown = DropdownButtonFormField<String?>(
+                          key: ValueKey('disease_filter_${filters.disease}'),
+                          initialValue: (filters.disease?.isNotEmpty == true &&
+                                  ClinicalConstants.defaultDiagnoses.contains(filters.disease))
+                              ? filters.disease
+                              : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Disease / Diagnosis (रोग / निदान)',
+                            prefixIcon: Icon(Icons.healing, size: 18),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            isDense: true,
+                          ),
+                          isExpanded: true,
+                          items: [
+                            const DropdownMenuItem(value: null, child: Text('All Diagnoses (सबै निदान)', style: TextStyle(fontSize: 13, color: Colors.grey))),
+                            ...ClinicalConstants.defaultDiagnoses.map((d) =>
+                              DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13)))),
+                          ],
+                          onChanged: (val) => vm.updateFilters(
+                            filters.copyWith(disease: val, clearDisease: val == null),
+                          ),
+                        );
+
+                        if (isNarrow) {
+                          return Column(
+                            children: [
+                              intakeDropdown,
+                              const SizedBox(height: 8),
+                              diseaseDropdown,
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(child: intakeDropdown),
+                            const SizedBox(width: 8),
+                            Expanded(child: diseaseDropdown),
+                          ],
+                        );
+                      },
                     ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children:
-                          [
-                            {'key': '', 'label': 'All Complaints'},
-                            {
-                              'key': 'something hanging out',
-                              'label': 'Prolapse (आङ खस्ने)',
-                            },
-                            {
-                              'key': 'discharge and or itching',
-                              'label': 'Discharge / Itching',
-                            },
-                            {
-                              'key': 'problems passing urine',
-                              'label': 'Urinary complaint',
-                            },
-                            {
-                              'key': 'problems passing stool',
-                              'label': 'Stool complaint',
-                            },
-                            {
-                              'key': 'menstrual problem',
-                              'label': 'Menstrual issue',
-                            },
-                            {'key': 'infertility', 'label': 'Infertility'},
-                            {'key': 'pain', 'label': 'Pelvic / Abdominal pain'},
-                            {'key': 'checkup', 'label': 'Routine checkup'},
-                          ].map((c) {
-                            final isSelected =
-                                (filters.chiefComplaint ?? '') == c['key'];
-                            return ChoiceChip(
-                              label: Text(c['label']!),
-                              selected: isSelected,
-                              selectedColor: AppTheme.primaryTeal,
-                              labelStyle: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.black87,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                              ),
-                              onSelected: (selected) {
-                                if (selected) {
-                                  vm.updateFilters(
-                                    filters.copyWith(
-                                      chiefComplaint: c['key'],
-                                      clearChiefComplaint: c['key']!.isEmpty,
-                                    ),
-                                  );
-                                }
-                              },
-                            );
-                          }).toList(),
+                    const SizedBox(height: 8),
+
+                    // Row 2: POP Stage & Surgery Performed
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 450;
+
+                        final popStageDropdown = DropdownButtonFormField<String>(
+                          key: const ValueKey('pop_stage_dropdown'),
+                          initialValue: filters.popStage ?? 'all',
+                          decoration: const InputDecoration(
+                            labelText: 'POP Staging (आङ खस्ने अवस्था)',
+                            prefixIcon: Icon(Icons.straighten_outlined, size: 18),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            isDense: true,
+                          ),
+                          isExpanded: true,
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('All Stages (सबै स्टेज)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: '0', child: Text('Stage 0 - Normal (सामान्य)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: '1', child: Text('Stage I - Mild (हल्का)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: '2', child: Text('Stage II - Moderate (मध्यम)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: '3', child: Text('Stage III - Severe (गम्भीर)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: '4', child: Text('Stage IV - Complete Procidentia (पूर्ण खसेको)', style: TextStyle(fontSize: 13))),
+                          ],
+                          onChanged: (val) => vm.updateFilters(filters.copyWith(popStage: val)),
+                        );
+
+                        final surgeryDoneDropdown = DropdownButtonFormField<String>(
+                          key: const ValueKey('surgery_done_dropdown'),
+                          initialValue: filters.surgeryDone ?? 'all',
+                          decoration: const InputDecoration(
+                            labelText: 'Surgery Performed (शल्यक्रिया भएको)',
+                            prefixIcon: Icon(Icons.medical_services_outlined, size: 18),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            isDense: true,
+                          ),
+                          isExpanded: true,
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('All / Any (सबै)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'yes', child: Text('Surgery Done (शल्यक्रिया भएको)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'no', child: Text('No Surgery (नभएको)', style: TextStyle(fontSize: 13))),
+                          ],
+                          onChanged: (val) => vm.updateFilters(
+                            filters.copyWith(
+                              surgeryDone: val,
+                              clearSurgeryType: val != 'yes',
+                            ),
+                          ),
+                        );
+
+                        if (isNarrow) {
+                          return Column(
+                            children: [
+                              popStageDropdown,
+                              const SizedBox(height: 8),
+                              surgeryDoneDropdown,
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(child: popStageDropdown),
+                            const SizedBox(width: 8),
+                            Expanded(child: surgeryDoneDropdown),
+                          ],
+                        );
+                      },
+                    ),
+
+                    // If Surgery Done is Yes, show Surgical Route Dropdown
+                    if (filters.surgeryDone == 'yes') ...[
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String?>(
+                        key: const ValueKey('surgery_type_dropdown'),
+                        initialValue: filters.surgeryType,
+                        decoration: const InputDecoration(
+                          labelText: 'Surgical Route (शल्यक्रियाको प्रकार/मार्ग)',
+                          prefixIcon: Icon(Icons.route_outlined, size: 18),
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          isDense: true,
+                        ),
+                        isExpanded: true,
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('All Surgical Routes (सबै प्रकार)', style: TextStyle(fontSize: 13, color: Colors.grey))),
+                          ...ClinicalConstants.surgeryTypes.map((type) =>
+                            DropdownMenuItem(value: type, child: Text(type, style: const TextStyle(fontSize: 13)))),
+                        ],
+                        onChanged: (val) => vm.updateFilters(
+                          filters.copyWith(
+                            surgeryType: val,
+                            clearSurgeryType: val == null,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+
+                    // Chief Clinical Complaint Dropdown
+                    DropdownButtonFormField<String>(
+                      key: const ValueKey('chief_complaint_dropdown'),
+                      initialValue: (filters.chiefComplaint?.isNotEmpty == true) ? filters.chiefComplaint : 'all',
+                      decoration: const InputDecoration(
+                        labelText: 'Chief Clinical Complaint (मुख्य समस्या)',
+                        prefixIcon: Icon(Icons.report_problem_outlined, size: 18),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        isDense: true,
+                      ),
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'all', child: Text('All Complaints (सबै मुख्य समस्या)', style: TextStyle(fontSize: 13))),
+                        DropdownMenuItem(value: 'something hanging out', child: Text('Prolapse / Something Hanging Out (आङ खस्ने)', style: TextStyle(fontSize: 13))),
+                        DropdownMenuItem(value: 'discharge and or itching', child: Text('White Discharge & Itching (सेतो पानी तथा चिलाउने)', style: TextStyle(fontSize: 13))),
+                        DropdownMenuItem(value: 'problems passing urine', child: Text('Urinary Problems (पिसाब सम्बन्धी)', style: TextStyle(fontSize: 13))),
+                        DropdownMenuItem(value: 'problems passing stool', child: Text('Bowel / Stool Problems (दिसा सम्बन्धी)', style: TextStyle(fontSize: 13))),
+                        DropdownMenuItem(value: 'menstrual problem', child: Text('Menstrual Problem (महिनावारी गडबडी)', style: TextStyle(fontSize: 13))),
+                        DropdownMenuItem(value: 'infertility', child: Text('Infertility (निःसन्तान)', style: TextStyle(fontSize: 13))),
+                        DropdownMenuItem(value: 'pain', child: Text('Pelvic / Lower Abdominal Pain (तल्लो पेट / कम्मर दुख्ने)', style: TextStyle(fontSize: 13))),
+                        DropdownMenuItem(value: 'checkup', child: Text('Routine Checkup (सामान्य स्वास्थ्य जाँच)', style: TextStyle(fontSize: 13))),
+                      ],
+                      onChanged: (val) => vm.updateFilters(
+                        filters.copyWith(
+                          chiefComplaint: val == 'all' ? '' : val,
+                          clearChiefComplaint: val == 'all' || val == null || val.isEmpty,
+                        ),
+                      ),
                     ),
                   ],
                 ),
