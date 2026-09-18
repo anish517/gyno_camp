@@ -1,5 +1,6 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'dart:typed_data';
+import 'package:web/web.dart' as web;
 
 Future<String> saveFile({
   required List<int> bytes,
@@ -13,19 +14,25 @@ Future<String> saveFile({
           ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
           : 'application/octet-stream';
 
-  final blob = html.Blob([bytes], mimeType ?? defaultMime);
-  final url = html.Url.createObjectUrlFromBlob(blob);
-  final anchor = html.AnchorElement(href: url)
-    ..setAttribute('download', filename)
+  final jsArray = [Uint8List.fromList(bytes).toJS].toJS;
+  final blob = web.Blob(
+    jsArray,
+    web.BlobPropertyBag(type: mimeType ?? defaultMime),
+  );
+
+  final url = web.URL.createObjectURL(blob);
+  final anchor = web.document.createElement('a') as web.HTMLAnchorElement
+    ..href = url
+    ..download = filename
     ..style.display = 'none';
 
-  html.document.body?.children.add(anchor);
+  web.document.body?.appendChild(anchor);
   anchor.click();
-  html.document.body?.children.remove(anchor);
+  anchor.remove();
 
   // Delay revocation so the browser download engine has time to read the blob stream
   Future.delayed(const Duration(seconds: 2), () {
-    html.Url.revokeObjectUrl(url);
+    web.URL.revokeObjectURL(url);
   });
 
   return 'Downloads (Browser): $filename';
