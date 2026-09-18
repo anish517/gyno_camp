@@ -20,6 +20,14 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
   String _searchQuery = '';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(deviceManagementProvider.notifier).loadDevices();
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();

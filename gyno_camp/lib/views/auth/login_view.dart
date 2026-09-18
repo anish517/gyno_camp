@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/device_management_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../security/device_activation_view.dart';
 import '../splash/security_gateway_view.dart';
@@ -25,6 +26,9 @@ class _LoginViewState extends ConsumerState<LoginView> {
     super.initState();
     _emailController.addListener(_onFieldChanged);
     _passwordController.addListener(_onFieldChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(deviceSecurityProvider.notifier).checkCurrentDevice();
+    });
   }
 
   void _onFieldChanged() {
@@ -92,8 +96,15 @@ class _LoginViewState extends ConsumerState<LoginView> {
     final user = ref.read(authStateProvider).currentUser;
     if (user == null) return;
 
+    if (user.isSuperAdmin) {
+      ref.read(deviceManagementProvider.notifier).loadDevices();
+    }
+
     // If regular staff (non-admin), enforce hardware registration & approval
     if (!user.isSuperAdmin) {
+      // Re-verify current device status live from repository before gating authorization
+      await ref.read(deviceSecurityProvider.notifier).checkCurrentDevice();
+      if (!mounted) return;
       final currentDeviceState = ref.read(deviceSecurityProvider);
       if (!currentDeviceState.isApproved) {
         // Clear active session immediately so the user is not authenticated on unapproved hardware

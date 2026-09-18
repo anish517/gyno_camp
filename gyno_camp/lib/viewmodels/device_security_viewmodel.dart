@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/security/security_service.dart';
 import '../models/device_model.dart';
 import '../repositories/device_security_repository.dart';
+import 'device_management_viewmodel.dart';
 
 class DeviceSecurityState {
   final DeviceModel? device;
@@ -49,8 +50,9 @@ class DeviceSecurityState {
 
 class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
   final IDeviceSecurityRepository _repository;
+  final Ref? _ref;
 
-  DeviceSecurityViewModel(this._repository)
+  DeviceSecurityViewModel(this._repository, [this._ref])
       : super(DeviceSecurityState(
           hardwareFingerprint: SecurityService.generateDeviceFingerprint(),
           isChecking: true,
@@ -98,6 +100,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
         latestOtp: result.plainOtp,
         isChecking: false,
       );
+      _ref?.read(deviceManagementProvider.notifier).loadDevices();
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -124,6 +127,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
           device: updated,
           isChecking: false,
         );
+        _ref?.read(deviceManagementProvider.notifier).loadDevices();
         return true;
       } else {
         state = state.copyWith(
@@ -157,6 +161,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
           device: updated,
           isChecking: false,
         );
+        _ref?.read(deviceManagementProvider.notifier).loadDevices();
         return true;
       } else {
         state = state.copyWith(isChecking: false, errorMessage: 'Failed to approve device.');
@@ -214,5 +219,5 @@ final deviceSecurityRepositoryProvider = Provider<IDeviceSecurityRepository>((re
 
 final deviceSecurityProvider = StateNotifierProvider<DeviceSecurityViewModel, DeviceSecurityState>((ref) {
   final repository = ref.watch(deviceSecurityRepositoryProvider);
-  return DeviceSecurityViewModel(repository);
+  return DeviceSecurityViewModel(repository, ref);
 });

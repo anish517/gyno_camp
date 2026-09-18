@@ -48,8 +48,9 @@ class DeviceManagementState {
 
 class DeviceManagementViewModel extends StateNotifier<DeviceManagementState> {
   final IDeviceSecurityRepository _repository;
+  final Ref? _ref;
 
-  DeviceManagementViewModel(this._repository) : super(const DeviceManagementState()) {
+  DeviceManagementViewModel(this._repository, [this._ref]) : super(const DeviceManagementState()) {
     loadDevices();
   }
 
@@ -80,6 +81,7 @@ class DeviceManagementViewModel extends StateNotifier<DeviceManagementState> {
       if (success) {
         await loadDevices();
         state = state.copyWith(successMessage: 'Device successfully authorized.');
+        _ref?.read(deviceSecurityProvider.notifier).checkCurrentDevice();
         return true;
       }
       state = state.copyWith(isLoading: false, errorMessage: 'Failed to approve device.');
@@ -100,6 +102,7 @@ class DeviceManagementViewModel extends StateNotifier<DeviceManagementState> {
       if (success) {
         await loadDevices();
         state = state.copyWith(successMessage: 'Device access revoked.');
+        _ref?.read(deviceSecurityProvider.notifier).checkCurrentDevice();
         return true;
       }
       state = state.copyWith(isLoading: false, errorMessage: 'Failed to revoke device.');
@@ -113,5 +116,5 @@ class DeviceManagementViewModel extends StateNotifier<DeviceManagementState> {
 
 final deviceManagementProvider = StateNotifierProvider<DeviceManagementViewModel, DeviceManagementState>((ref) {
   final repo = ref.watch(deviceSecurityRepositoryProvider);
-  return DeviceManagementViewModel(repo);
+  return DeviceManagementViewModel(repo, ref);
 });
