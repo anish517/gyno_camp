@@ -228,7 +228,7 @@ class LookupRepository implements ILookupRepository {
         await db.update(
           DatabaseTables.tableLookupItems,
           {'sub_category': entry.value},
-          where: 'category = ? AND label_en = ? AND (sub_category IS NULL OR sub_category = "")',
+          where: "category = ? AND label_en = ? AND (sub_category IS NULL OR sub_category = '')",
           whereArgs: ['diagnosis', entry.key],
         );
       }
@@ -236,7 +236,7 @@ class LookupRepository implements ILookupRepository {
         await db.update(
           DatabaseTables.tableLookupItems,
           {'sub_category': entry.value},
-          where: 'category = ? AND label_en = ? AND (sub_category IS NULL OR sub_category = "")',
+          where: "category = ? AND label_en = ? AND (sub_category IS NULL OR sub_category = '')",
           whereArgs: ['medicine', entry.key],
         );
       }
