@@ -164,6 +164,7 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final list = await _patientRepository.getPatientsByCamp(campId);
+      if (!mounted) return;
       final filtered = _filterList(list, state.searchQuery, state.filters);
       state = state.copyWith(
         isLoading: false,
@@ -173,6 +174,7 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         patients: filtered,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         hasLoaded: true,
@@ -186,6 +188,7 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
     if (state.rawPatients.isEmpty || (campId != null && state.loadedCampId != campId)) {
       await loadPatients(campId);
     }
+    if (!mounted) return;
     final filtered = _filterList(state.rawPatients, query, state.filters);
     state = state.copyWith(
       searchQuery: query,

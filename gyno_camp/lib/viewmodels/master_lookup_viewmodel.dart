@@ -109,6 +109,7 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
       final hosp = await _repository.getItemsByCategory('referral_hospital', tenantId: _tenantId);
       final reasons = await _repository.getItemsByCategory('visit_reason', tenantId: _tenantId);
 
+      if (!mounted) return;
       state = state.copyWith(
         diagnoses: diag,
         medicines: med,
@@ -117,6 +118,7 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
         isLoading: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to load master lookup data: $e',
@@ -145,9 +147,11 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
           : item;
       await _repository.addItem(itemToSave, userId: userId, userName: userName, deviceId: deviceId);
       await loadAll();
+      if (!mounted) return true;
       state = state.copyWith(successMessage: 'Added "${item.labelEn}" successfully');
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Failed to add item: $e');
       return false;
     }
@@ -163,9 +167,11 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
     try {
       await _repository.updateItem(item, userId: userId, userName: userName, deviceId: deviceId);
       await loadAll();
+      if (!mounted) return true;
       state = state.copyWith(successMessage: 'Updated "${item.labelEn}"');
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Failed to update item: $e');
       return false;
     }
@@ -189,6 +195,7 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
       );
       if (success) {
         await loadAll();
+        if (!mounted) return true;
         state = state.copyWith(
           successMessage: isActive ? 'Item activated' : 'Item deactivated',
         );
@@ -196,6 +203,7 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
       }
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(errorMessage: 'Failed to toggle status: $e');
       return false;
     }
@@ -217,12 +225,15 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
       );
       if (success) {
         await loadAll();
+        if (!mounted) return true;
         state = state.copyWith(successMessage: 'Item deleted permanently');
         return true;
       }
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Item not found');
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Failed to delete item: $e');
       return false;
     }

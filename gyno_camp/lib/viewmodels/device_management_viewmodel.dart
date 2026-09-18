@@ -58,8 +58,10 @@ class DeviceManagementViewModel extends StateNotifier<DeviceManagementState> {
     state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
     try {
       final list = await _repository.getAllDevices();
+      if (!mounted) return;
       state = state.copyWith(devices: list, isLoading: false);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to load devices: $e',
@@ -80,13 +82,16 @@ class DeviceManagementViewModel extends StateNotifier<DeviceManagementState> {
       );
       if (success) {
         await loadDevices();
+        if (!mounted) return true;
         state = state.copyWith(successMessage: 'Device successfully authorized.');
         _ref?.read(deviceSecurityProvider.notifier).checkCurrentDevice();
         return true;
       }
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Failed to approve device.');
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Approval error: $e');
       return false;
     }
@@ -101,13 +106,16 @@ class DeviceManagementViewModel extends StateNotifier<DeviceManagementState> {
       );
       if (success) {
         await loadDevices();
+        if (!mounted) return true;
         state = state.copyWith(successMessage: 'Device access revoked.');
         _ref?.read(deviceSecurityProvider.notifier).checkCurrentDevice();
         return true;
       }
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Failed to revoke device.');
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Revocation error: $e');
       return false;
     }

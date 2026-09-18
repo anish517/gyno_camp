@@ -89,6 +89,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       if (sampleType == 'page1') {
         final text = _captureService.getSampleFormText('page1');
         final res = await _repository.processTextScan(text, pageNumber: 1, imagePath: 'test_samples/yellow_form_sample_page1.jpg');
+        if (!mounted) return;
         state = state.copyWith(
           isProcessing: false,
           page1Scan: res,
@@ -98,6 +99,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       } else if (sampleType == 'page2') {
         final text = _captureService.getSampleFormText('page2');
         final res = await _repository.processTextScan(text, pageNumber: 2, imagePath: 'test_samples/yellow_form_sample_page2.jpg');
+        if (!mounted) return;
         state = state.copyWith(
           isProcessing: false,
           page2Scan: res,
@@ -110,6 +112,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         final text2 = _captureService.getSampleFormText('page2');
         final res1 = await _repository.processTextScan(text1, pageNumber: 1, imagePath: 'test_samples/yellow_form_sample_page1.jpg');
         final res2 = await _repository.processTextScan(text2, pageNumber: 2, imagePath: 'test_samples/yellow_form_sample_page2.jpg');
+        if (!mounted) return;
         final merged = OcrScanResultModel.merge(res1, res2);
         state = state.copyWith(
           isProcessing: false,
@@ -120,6 +123,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isProcessing: false,
         errorMessage: 'Failed to process Yellow Form sample: ${e.toString()}',
@@ -136,9 +140,11 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       if (photo == null) {
         return; // user cancelled — nothing to do
       }
+      if (!mounted) return;
       // Photo confirmed — now show the processing indicator
       state = state.copyWith(isProcessing: true);
       final result = await _repository.processImageScan(photo, pageNumber: pageNumber);
+      if (!mounted) return;
       if (pageNumber == 1) {
         state = state.copyWith(
           isProcessing: false,
@@ -155,6 +161,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       final msg = e.toString();
       final friendlyMsg = msg.contains('camera_access_denied') || msg.contains('permission')
           ? 'Camera permission was denied. Please grant camera permission or use "Upload File".'
@@ -178,9 +185,11 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       if (photo == null) {
         return; // user cancelled — nothing to do
       }
+      if (!mounted) return;
       // File confirmed — now show the processing indicator
       state = state.copyWith(isProcessing: true);
       final result = await _repository.processImageScan(photo, pageNumber: pageNumber);
+      if (!mounted) return;
       if (pageNumber == 1) {
         state = state.copyWith(
           isProcessing: false,
@@ -197,6 +206,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isProcessing: false,
         errorMessage: 'Image pick error: ${e.toString()}',
@@ -216,10 +226,12 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       if (photos.isEmpty) {
         return; // user cancelled — nothing to do
       }
+      if (!mounted) return;
       // Files confirmed — now show the processing indicator
       state = state.copyWith(isProcessing: true);
       if (photos.length == 1) {
         final res = await _repository.processImageScan(photos[0], pageNumber: 1);
+        if (!mounted) return;
         state = state.copyWith(
           isProcessing: false,
           page1Scan: res,
@@ -231,6 +243,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       // Process first as Page 1, second as Page 2
       final res1 = await _repository.processImageScan(photos[0], pageNumber: 1);
       final res2 = await _repository.processImageScan(photos[1], pageNumber: 2);
+      if (!mounted) return;
       final merged = OcrScanResultModel.merge(res1, res2);
 
       state = state.copyWith(
@@ -241,6 +254,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         successMessage: 'Both Page 1 (Front) & Page 2 (Back) successfully imported & merged!',
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isProcessing: false,
         errorMessage: 'Multi-image pick error: ${e.toString()}',
@@ -254,10 +268,12 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     try {
       final photos = await _captureService.scanDocumentPages(pageLimit: 2);
       if (photos.isEmpty) return;
+      if (!mounted) return;
 
       state = state.copyWith(isProcessing: true);
       if (photos.length == 1) {
         final res = await _repository.processImageScan(photos[0], pageNumber: 1);
+        if (!mounted) return;
         state = state.copyWith(
           isProcessing: false,
           page1Scan: res,
@@ -268,6 +284,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
       final res1 = await _repository.processImageScan(photos[0], pageNumber: 1);
       final res2 = await _repository.processImageScan(photos[1], pageNumber: 2);
+      if (!mounted) return;
       final merged = OcrScanResultModel.merge(res1, res2);
 
       state = state.copyWith(
@@ -278,6 +295,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         successMessage: 'Both Page 1 (Front) & Page 2 (Back) scanned, deskewed & merged!',
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isProcessing: false,
         errorMessage: 'Document scanner error: ${e.toString()}',
@@ -360,6 +378,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       maritalStatus: maritalStatus,
     );
 
+    if (!mounted) return;
     state = state.copyWith(duplicateResult: result);
   }
 
@@ -538,6 +557,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         deviceId: deviceId,
       );
 
+      if (!mounted) return savedPatient;
       state = state.copyWith(
         isSaving: false,
         committedPatient: savedPatient,
@@ -545,6 +565,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       );
       return savedPatient;
     } catch (e) {
+      if (!mounted) return null;
       state = state.copyWith(
         isSaving: false,
         errorMessage: 'Failed to save scanned record: ${e.toString()}',

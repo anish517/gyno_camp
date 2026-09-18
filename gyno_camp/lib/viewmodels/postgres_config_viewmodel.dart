@@ -67,6 +67,7 @@ class PostgresConfigViewModel extends StateNotifier<PostgresConfigState> {
     state = state.copyWith(isTesting: true, clearTest: true, statusMessage: 'Connecting to PostgreSQL server...');
     try {
       final latency = await _postgresService.testConnection(state.config);
+      if (!mounted) return true;
       state = state.copyWith(
         isTesting: false,
         testLatencyMs: latency,
@@ -74,6 +75,7 @@ class PostgresConfigViewModel extends StateNotifier<PostgresConfigState> {
       );
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isTesting: false,
         testError: e.toString(),
@@ -87,12 +89,14 @@ class PostgresConfigViewModel extends StateNotifier<PostgresConfigState> {
     state = state.copyWith(isMigrating: true, statusMessage: 'Verifying and creating database tables...');
     try {
       await _postgresService.initializePostgresSchema(config: state.config);
+      if (!mounted) return true;
       state = state.copyWith(
         isMigrating: false,
         statusMessage: 'All PostgreSQL tables & indexes verified successfully!',
       );
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isMigrating: false,
         testError: e.toString(),
@@ -106,6 +110,7 @@ class PostgresConfigViewModel extends StateNotifier<PostgresConfigState> {
     state = state.copyWith(isSyncing: true, statusMessage: 'Synchronizing SQLite records to PostgreSQL...');
     try {
       final result = await _postgresService.syncSqliteToPostgres(config: state.config);
+      if (!mounted) return result;
       if (result.success) {
         state = state.copyWith(
           isSyncing: false,
@@ -122,6 +127,7 @@ class PostgresConfigViewModel extends StateNotifier<PostgresConfigState> {
       return result;
     } catch (e) {
       final failedResult = PostgresSyncResult(success: false, errorMessage: e.toString());
+      if (!mounted) return failedResult;
       state = state.copyWith(
         isSyncing: false,
         lastSyncResult: failedResult,

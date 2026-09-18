@@ -483,6 +483,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     state = state.copyWith(isSaving: true, errorMessage: null);
     try {
       final visit = await _patientRepository.getLatestClinicalVisit(patientId, patientUuid: patientUuid);
+      if (!mounted) return visit;
       if (visit != null) {
         state = state.copyWith(
           existingVisitId: visit.id,
@@ -553,6 +554,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         return null;
       }
     } catch (e) {
+      if (!mounted) return null;
       state = state.copyWith(
         isSaving: false,
         errorMessage: 'Failed to load existing visit: $e',
@@ -628,9 +630,11 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         deviceId: deviceId,
       );
 
+      if (!mounted) return saved;
       state = state.copyWith(isSaving: false, savedVisit: saved, existingVisitId: saved.id);
       return saved;
     } catch (e) {
+      if (!mounted) return null;
       state = state.copyWith(
         isSaving: false,
         errorMessage: 'Failed to save clinical assessment: $e',

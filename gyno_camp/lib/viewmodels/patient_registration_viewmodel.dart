@@ -216,6 +216,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         maritalStatus: state.maritalStatus,
       );
 
+      if (!mounted) return;
       state = state.copyWith(duplicateResult: result);
     } catch (_) {}
   }
@@ -274,6 +275,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         deviceId: deviceId,
       );
 
+      if (!mounted) return registered;
       state = PatientRegistrationState(
         province: state.province,
         district: state.district,
@@ -285,6 +287,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
 
       return registered;
     } catch (e) {
+      if (!mounted) return null;
       state = state.copyWith(
         isSubmitting: false,
         errorMessage: 'Registration failed: $e',
@@ -360,6 +363,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         deviceId: deviceId,
       );
 
+      if (!mounted) return result;
       state = state.copyWith(
         isSubmitting: false,
         registeredPatient: result,
@@ -367,6 +371,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
 
       return result;
     } catch (e) {
+      if (!mounted) return null;
       state = state.copyWith(
         isSubmitting: false,
         errorMessage: 'Update failed: $e',

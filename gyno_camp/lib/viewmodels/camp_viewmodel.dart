@@ -69,6 +69,7 @@ class CampViewModel extends StateNotifier<CampState> {
         await SessionService.current?.clearActiveCampId();
       }
 
+      if (!mounted) return;
       state = state.copyWith(
         camps: camps,
         activeCamp: active,
@@ -77,6 +78,7 @@ class CampViewModel extends StateNotifier<CampState> {
         isLoading: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to load camps: $e',
@@ -118,10 +120,12 @@ class CampViewModel extends StateNotifier<CampState> {
         createdByUserId: adminUserId,
         deviceId: deviceId,
       );
+      if (!mounted) return true;
       final updatedList = [created, ...state.camps];
       state = state.copyWith(camps: updatedList, isLoading: false);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Create camp failed: $e');
       return false;
     }
@@ -139,9 +143,11 @@ class CampViewModel extends StateNotifier<CampState> {
         await loadCamps();
         return true;
       }
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Unable to open camp.');
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Open camp error: $e');
       return false;
     }
@@ -162,9 +168,11 @@ class CampViewModel extends StateNotifier<CampState> {
         await loadCamps();
         return true;
       }
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Unable to close camp.');
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Close camp error: $e');
       return false;
     }
@@ -185,9 +193,11 @@ class CampViewModel extends StateNotifier<CampState> {
         await loadCamps();
         return true;
       }
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Unable to archive camp.');
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Archive camp error: $e');
       return false;
     }
@@ -201,6 +211,7 @@ class CampViewModel extends StateNotifier<CampState> {
         adminUserId: adminUserId,
         deviceId: deviceId,
       );
+      if (!mounted) return true;
       // ✅ Optimistically update the in-memory list immediately so UI refreshes
       final updatedList = state.camps.map((c) => c.id == savedCamp.id ? savedCamp : c).toList();
       state = state.copyWith(
@@ -212,6 +223,7 @@ class CampViewModel extends StateNotifier<CampState> {
       );
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Update camp error: $e');
       return false;
     }
@@ -229,6 +241,7 @@ class CampViewModel extends StateNotifier<CampState> {
         if (SessionService.current?.getSavedActiveCampId() == campId) {
           await SessionService.current?.clearActiveCampId();
         }
+        if (!mounted) return true;
         // ✅ Immediately remove from in-memory list so UI refreshes without DB round-trip
         final updatedList = state.camps.where((c) => c.id != campId).toList();
         state = state.copyWith(
@@ -241,9 +254,11 @@ class CampViewModel extends StateNotifier<CampState> {
         );
         return true;
       }
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Unable to delete camp.');
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Delete camp error: $e');
       return false;
     }
@@ -262,9 +277,11 @@ class CampViewModel extends StateNotifier<CampState> {
         await loadCamps();
         return true;
       }
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Unable to assign staff.');
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Assign staff error: $e');
       return false;
     }

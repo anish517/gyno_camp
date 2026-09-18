@@ -76,6 +76,7 @@ class SyncViewModel extends StateNotifier<SyncState> {
   void _init() {
     refreshPendingCounts();
     _connectivitySub = _connectivityService.onConnectivityChanged.listen((online) {
+      if (!mounted) return;
       final wasOffline = !state.isOnline;
       state = state.copyWith(isOnline: online);
 

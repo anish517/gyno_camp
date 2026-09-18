@@ -62,9 +62,11 @@ class AuditLogViewModel extends StateNotifier<AuditLogState> {
     state = state.copyWith(isLoading: true);
     try {
       final logs = await _repository.getRecentLogs(limit: 100);
+      if (!mounted) return;
       state = state.copyWith(logs: logs, isLoading: false);
       await verifyCryptographicChain();
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
@@ -73,6 +75,7 @@ class AuditLogViewModel extends StateNotifier<AuditLogState> {
     state = state.copyWith(isVerifyingChain: true);
     try {
       final allLogs = await _repository.getAllLogs();
+      if (!mounted) return;
       if (allLogs.isEmpty) {
         state = state.copyWith(
           isVerifyingChain: false,
@@ -152,6 +155,7 @@ class AuditLogViewModel extends StateNotifier<AuditLogState> {
         }
       }
 
+      if (!mounted) return;
       state = state.copyWith(
         isVerifyingChain: false,
         isChainValid: allValid,
@@ -163,6 +167,7 @@ class AuditLogViewModel extends StateNotifier<AuditLogState> {
         lastVerifiedAt: DateTime.now(),
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isVerifyingChain: false,
         isChainValid: false,

@@ -95,6 +95,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
         staffName: staffName,
       );
 
+      if (!mounted) return true;
       state = state.copyWith(
         device: result.device,
         latestOtp: result.plainOtp,
@@ -103,6 +104,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
       _ref?.read(deviceManagementProvider.notifier).loadDevices();
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isChecking: false,
         errorMessage: 'Registration failed: $e',
@@ -123,6 +125,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
 
       if (success) {
         final updated = await _repository.getDeviceById(state.device!.deviceId);
+        if (!mounted) return true;
         state = state.copyWith(
           device: updated,
           isChecking: false,
@@ -130,6 +133,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
         _ref?.read(deviceManagementProvider.notifier).loadDevices();
         return true;
       } else {
+        if (!mounted) return false;
         state = state.copyWith(
           isChecking: false,
           errorMessage: 'Invalid or expired OTP. Please try again.',
@@ -137,6 +141,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
         return false;
       }
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isChecking: false,
         errorMessage: 'OTP Verification error: $e',
@@ -157,6 +162,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
 
       if (success) {
         final updated = await _repository.getDeviceById(state.device!.deviceId);
+        if (!mounted) return true;
         state = state.copyWith(
           device: updated,
           isChecking: false,
@@ -164,10 +170,12 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
         _ref?.read(deviceManagementProvider.notifier).loadDevices();
         return true;
       } else {
+        if (!mounted) return false;
         state = state.copyWith(isChecking: false, errorMessage: 'Failed to approve device.');
         return false;
       }
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isChecking: false, errorMessage: 'Approval error: $e');
       return false;
     }
@@ -182,11 +190,13 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
       );
       if (success) {
         final updated = await _repository.getDeviceById(state.device!.deviceId);
+        if (!mounted) return true;
         state = state.copyWith(device: updated, isAppLocked: false);
         return true;
       }
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(errorMessage: 'PIN setup failed: $e');
       return false;
     }
@@ -199,6 +209,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
       enteredPin: pin,
     );
 
+    if (!mounted) return valid;
     if (valid) {
       state = state.copyWith(isAppLocked: false, clearError: true);
       return true;
