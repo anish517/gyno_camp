@@ -31,7 +31,6 @@ import '../reports/camp_report_view.dart';
 import '../scanner/form_scan_view.dart';
 import '../sync/sync_status_view.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
-import '../splash/security_gateway_view.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
 
 class HomeGatewayView extends ConsumerWidget {
@@ -43,8 +42,12 @@ class HomeGatewayView extends ConsumerWidget {
     final user = authState.currentUser;
     final deviceState = ref.watch(deviceSecurityProvider);
 
-    // Guard: Prevent premature dashboard render before role claim is fully loaded from session
-    if (user == null || authState.isLoading) {
+    // Guard: Prevent premature dashboard render or flash during session termination
+    if (!authState.isAuthenticated || user == null) {
+      return const SizedBox.shrink();
+    }
+
+    if (authState.isLoading) {
       return const Scaffold(
         body: Center(
           child: Column(
@@ -116,16 +119,22 @@ class HomeGatewayView extends ConsumerWidget {
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () async {
+                        // 1. Dismiss confirmation dialog
                         Navigator.pop(dialogCtx);
+
+                        // 2. Pop any nested/pushed routes back to the root SecurityGatewayView
+                        if (context.mounted) {
+                          Navigator.of(context).popUntil((route) => route.isFirst);
+                        }
+
+                        // 3. Clear session and update authStateProvider to unauthenticated
                         await ref.read(authStateProvider.notifier).logout(
                               deviceId: deviceState.device?.deviceId ?? 'dev-local',
                             );
-                        if (context.mounted) {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const SecurityGatewayView()),
-                            (route) => false,
-                          );
-                        }
+
+                        // SecurityGatewayView is the reactive root of MaterialApp.
+                        // When authState.isAuthenticated is false, it automatically renders
+                        // LoginView smoothly without route duplication or glitch animations.
                       },
                       child: const Text('Sign Out'),
                     ),

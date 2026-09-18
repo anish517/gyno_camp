@@ -120,9 +120,15 @@ class UserModel {
       lastLoginAt: map['last_login_at'] != null
           ? DateTime.tryParse(map['last_login_at'] as String)
           : null,
-      assignedCampIds: map['assigned_camp_ids'] != null && (map['assigned_camp_ids'] as String).isNotEmpty
-          ? (map['assigned_camp_ids'] as String).split(',')
-          : [],
+      assignedCampIds: () {
+        final raw = map['assigned_camp_ids'];
+        if (raw is List) {
+          return raw.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+        } else if (raw is String && raw.trim().isNotEmpty) {
+          return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        }
+        return <String>[];
+      }(),
       tenantId: map['tenant_id'] as String? ?? 'tenant_default',
       tenantName: map['tenant_name'] as String? ?? 'Outreach Health Center',
       passwordHash: map['password_hash'] as String?,

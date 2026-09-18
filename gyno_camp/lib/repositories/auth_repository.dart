@@ -88,18 +88,7 @@ class AuthRepository implements IAuthRepository {
       whereArgs: includeInactive ? null : [1],
       orderBy: 'name ASC',
     );
-    final users = maps.map((m) => UserModel.fromMap(m)).toList();
-
-    // 2. Broadcast any local users to central cloud
-    if (enableCentralSync) {
-      try {
-        for (final u in users) {
-          HttpCentralApiService().broadcastUser(u);
-        }
-      } catch (_) {}
-    }
-
-    return users;
+    return maps.map((m) => UserModel.fromMap(m)).toList();
   }
 
   @override

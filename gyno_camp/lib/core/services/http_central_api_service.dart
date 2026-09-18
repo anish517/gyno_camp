@@ -15,6 +15,33 @@ class HttpCentralApiService implements ICentralApiService {
   final String? _customBaseUrl;
   final http.Client _client;
   static String? _activeBaseUrl;
+  static bool _isServerReachable = true;
+  static DateTime? _lastOfflineCheck;
+  static const Duration _offlineCooldown = Duration(seconds: 30);
+
+  /// Checks if the circuit breaker is currently open (server was recently unreachable)
+  static bool get isServerCooldownActive {
+    if (_isServerReachable) return false;
+    final last = _lastOfflineCheck;
+    if (last == null) return false;
+    if (DateTime.now().difference(last) < _offlineCooldown) {
+      return true;
+    }
+    return false;
+  }
+
+  static void markServerOffline() {
+    _isServerReachable = false;
+    _lastOfflineCheck = DateTime.now();
+  }
+
+  static void markServerOnline([String? url]) {
+    _isServerReachable = true;
+    _lastOfflineCheck = null;
+    if (url != null && url.isNotEmpty) {
+      _activeBaseUrl = url;
+    }
+  }
 
   HttpCentralApiService({
     String? baseUrl,
@@ -65,7 +92,7 @@ class HttpCentralApiService implements ICentralApiService {
   Future<bool> pingServer() async {
     // 1. Check current baseUrl
     if (await _testEndpoint(baseUrl)) {
-      _activeBaseUrl = baseUrl;
+      markServerOnline(baseUrl);
       return true;
     }
 
@@ -78,12 +105,13 @@ class HttpCentralApiService implements ICentralApiService {
       ];
       for (final candidate in candidates) {
         if (candidate != baseUrl && await _testEndpoint(candidate)) {
-          _activeBaseUrl = candidate;
+          markServerOnline(candidate);
           return true;
         }
       }
     }
 
+    markServerOffline();
     return false;
   }
 
@@ -109,12 +137,14 @@ class HttpCentralApiService implements ICentralApiService {
       ).timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
+        markServerOnline();
         final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
         return SyncPushResponse.fromMap(data);
       } else {
         throw Exception('Central server returned HTTP ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
+      markServerOffline();
       debugPrint('HttpCentralApiService pushDelta error: $e');
       rethrow;
     }
@@ -134,12 +164,14 @@ class HttpCentralApiService implements ICentralApiService {
       ).timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 200) {
+        markServerOnline();
         final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
         return SyncPullResponse.fromMap(data);
       } else {
         throw Exception('Central server returned HTTP ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
+      markServerOffline();
       debugPrint('HttpCentralApiService pullDelta error: $e');
       rethrow;
     }
@@ -147,15 +179,19 @@ class HttpCentralApiService implements ICentralApiService {
 
   /// Sends a newly created or updated Camp directly to the Central Cloud
   Future<bool> broadcastCamp(CampModel camp) async {
+    if (isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/camps');
       final res = await _client.post(
         uri,
         headers: {'Content-Type': 'application/json; charset=utf-8'},
         body: jsonEncode(camp.toMap()),
-      ).timeout(const Duration(seconds: 5));
-      return res.statusCode == 200 || res.statusCode == 201;
+      ).timeout(const Duration(seconds: 3));
+      final ok = res.statusCode == 200 || res.statusCode == 201;
+      if (ok) markServerOnline();
+      return ok;
     } catch (e) {
+      markServerOffline();
       debugPrint('broadcastCamp to central cloud skipped (server offline): $e');
       return false;
     }
@@ -163,11 +199,15 @@ class HttpCentralApiService implements ICentralApiService {
 
   /// Deletes a Camp from the Central Cloud API
   Future<bool> deleteCentralCamp(String campId) async {
+    if (isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/camps?id=$campId');
-      final res = await _client.delete(uri).timeout(const Duration(seconds: 5));
-      return res.statusCode == 200 || res.statusCode == 204;
+      final res = await _client.delete(uri).timeout(const Duration(seconds: 3));
+      final ok = res.statusCode == 200 || res.statusCode == 204;
+      if (ok) markServerOnline();
+      return ok;
     } catch (e) {
+      markServerOffline();
       debugPrint('deleteCentralCamp to central cloud skipped (server offline): $e');
       return false;
     }
@@ -175,15 +215,19 @@ class HttpCentralApiService implements ICentralApiService {
 
   /// Sends a newly created or updated User directly to the Central Cloud
   Future<bool> broadcastUser(UserModel user) async {
+    if (isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/users');
       final res = await _client.post(
         uri,
         headers: {'Content-Type': 'application/json; charset=utf-8'},
         body: jsonEncode(user.toMap()),
-      ).timeout(const Duration(seconds: 5));
-      return res.statusCode == 200 || res.statusCode == 201;
+      ).timeout(const Duration(seconds: 3));
+      final ok = res.statusCode == 200 || res.statusCode == 201;
+      if (ok) markServerOnline();
+      return ok;
     } catch (e) {
+      markServerOffline();
       debugPrint('broadcastUser to central cloud skipped (server offline): $e');
       return false;
     }
@@ -191,6 +235,7 @@ class HttpCentralApiService implements ICentralApiService {
 
   /// Fetches all active camps from the Central Cloud API
   Future<List<CampModel>> fetchCentralCamps() async {
+    if (isServerCooldownActive) return [];
     try {
       final uri = Uri.parse('$baseUrl/api/camps');
       final res = await _client.get(
@@ -198,10 +243,12 @@ class HttpCentralApiService implements ICentralApiService {
         headers: {'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
+        markServerOnline();
         final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
         return list.map((item) => CampModel.fromMap(item as Map<String, dynamic>)).toList();
       }
     } catch (e) {
+      markServerOffline();
       debugPrint('fetchCentralCamps offline or skipped: $e');
     }
     return [];
@@ -209,6 +256,7 @@ class HttpCentralApiService implements ICentralApiService {
 
   /// Fetches all staff users from the Central Cloud API
   Future<List<UserModel>> fetchCentralUsers() async {
+    if (isServerCooldownActive) return [];
     try {
       final uri = Uri.parse('$baseUrl/api/users');
       final res = await _client.get(
@@ -216,10 +264,12 @@ class HttpCentralApiService implements ICentralApiService {
         headers: {'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
+        markServerOnline();
         final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
         return list.map((item) => UserModel.fromMap(item as Map<String, dynamic>)).toList();
       }
     } catch (e) {
+      markServerOffline();
       debugPrint('fetchCentralUsers offline or skipped: $e');
     }
     return [];
