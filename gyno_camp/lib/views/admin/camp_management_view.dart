@@ -3104,13 +3104,17 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 ? SnackBarAction(
                     label: 'View Drafts',
                     textColor: Colors.amberAccent,
-                    onPressed: () => setState(() => _statusFilter = AppConstants.campStatusDraft),
+                    onPressed: () {
+                      if (mounted) setState(() => _statusFilter = AppConstants.campStatusDraft);
+                    },
                   )
                 : (assignedStaffIds.isEmpty
                     ? SnackBarAction(
                         label: 'Assign Staff',
                         textColor: Colors.tealAccent,
-                        onPressed: () => _showAssignStaffDialog(context, newCamp),
+                        onPressed: () {
+                          if (mounted) _showAssignStaffDialog(context, newCamp);
+                        },
                       )
                     : null),
             duration: const Duration(seconds: 6),

@@ -38,45 +38,9 @@ class CampRepository implements ICampRepository {
   Future<List<CampModel>> getAllCamps() async {
     final db = await _databaseService.database;
 
-    // 1. Merge latest camps from Central Cloud if available (with timestamp conflict resolution)
-    if (enableCentralSync) {
-      try {
-        final centralCamps = await HttpCentralApiService().fetchCentralCamps();
-        if (centralCamps.isNotEmpty) {
-          for (final c in centralCamps) {
-            final existingRows = await db.query(
-              DatabaseTables.tableCamps,
-              where: 'id = ?',
-              whereArgs: [c.id],
-              limit: 1,
-            );
-            if (existingRows.isEmpty) {
-              await db.insert(
-                DatabaseTables.tableCamps,
-                c.toMap(),
-                conflictAlgorithm: ConflictAlgorithm.replace,
-              );
-            } else {
-              final local = CampModel.fromMap(existingRows.first);
-              final localUpdated = local.updatedAt ?? local.createdAt;
-              final centralUpdated = c.updatedAt ?? c.createdAt;
-
-              // Only update local if central is strictly newer
-              if (centralUpdated.isAfter(localUpdated)) {
-                await db.update(
-                  DatabaseTables.tableCamps,
-                  c.toMap(),
-                  where: 'id = ?',
-                  whereArgs: [c.id],
-                );
-              } else if (localUpdated.isAfter(centralUpdated)) {
-                // Local is newer: propagate local state back to central server
-                await HttpCentralApiService().broadcastCamp(local);
-              }
-            }
-          }
-        }
-      } catch (_) {}
+    // 1. Sync latest camps from Central Cloud in background without blocking local return
+    if (enableCentralSync && !HttpCentralApiService.isServerCooldownActive) {
+      _syncCentralCampsInBackground(db);
     }
 
     // 2. Enforce single active camp invariant locally:
@@ -116,6 +80,45 @@ class CampRepository implements ICampRepository {
     return localCamps;
   }
 
+  void _syncCentralCampsInBackground(dynamic db) {
+    Future<void>(() async {
+      try {
+        final centralCamps = await HttpCentralApiService().fetchCentralCamps();
+        if (centralCamps.isEmpty) return;
+        for (final c in centralCamps) {
+          final existingRows = await db.query(
+            DatabaseTables.tableCamps,
+            where: 'id = ?',
+            whereArgs: [c.id],
+            limit: 1,
+          );
+          if (existingRows.isEmpty) {
+            await db.insert(
+              DatabaseTables.tableCamps,
+              c.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          } else {
+            final local = CampModel.fromMap(existingRows.first);
+            final localUpdated = local.updatedAt ?? local.createdAt;
+            final centralUpdated = c.updatedAt ?? c.createdAt;
+
+            if (centralUpdated.isAfter(localUpdated)) {
+              await db.update(
+                DatabaseTables.tableCamps,
+                c.toMap(),
+                where: 'id = ?',
+                whereArgs: [c.id],
+              );
+            } else if (localUpdated.isAfter(centralUpdated)) {
+              await HttpCentralApiService().broadcastCamp(local);
+            }
+          }
+        }
+      } catch (_) {}
+    });
+  }
+
   @override
   Future<CampModel?> getCampById(String id) async {
     final db = await _databaseService.database;
@@ -126,6 +129,7 @@ class CampRepository implements ICampRepository {
       WHERE c.id = ?
       LIMIT 1
     ''', [id]);
+
     if (maps.isNotEmpty) {
       final map = Map<String, dynamic>.from(maps.first);
       if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
@@ -134,8 +138,8 @@ class CampRepository implements ICampRepository {
       return CampModel.fromMap(map);
     }
 
-    // Try central cloud if enabled
-    if (enableCentralSync) {
+    // Try central cloud if enabled and server is available
+    if (enableCentralSync && !HttpCentralApiService.isServerCooldownActive) {
       try {
         final centralCamps = await HttpCentralApiService().fetchCentralCamps();
         CampModel? matched;

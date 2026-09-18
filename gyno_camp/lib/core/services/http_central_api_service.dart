@@ -192,7 +192,6 @@ class HttpCentralApiService implements ICentralApiService {
       return ok;
     } catch (e) {
       markServerOffline();
-      debugPrint('broadcastCamp to central cloud skipped (server offline): $e');
       return false;
     }
   }
@@ -208,7 +207,6 @@ class HttpCentralApiService implements ICentralApiService {
       return ok;
     } catch (e) {
       markServerOffline();
-      debugPrint('deleteCentralCamp to central cloud skipped (server offline): $e');
       return false;
     }
   }
@@ -228,7 +226,6 @@ class HttpCentralApiService implements ICentralApiService {
       return ok;
     } catch (e) {
       markServerOffline();
-      debugPrint('broadcastUser to central cloud skipped (server offline): $e');
       return false;
     }
   }
@@ -249,7 +246,6 @@ class HttpCentralApiService implements ICentralApiService {
       }
     } catch (e) {
       markServerOffline();
-      debugPrint('fetchCentralCamps offline or skipped: $e');
     }
     return [];
   }
@@ -270,7 +266,6 @@ class HttpCentralApiService implements ICentralApiService {
       }
     } catch (e) {
       markServerOffline();
-      debugPrint('fetchCentralUsers offline or skipped: $e');
     }
     return [];
   }

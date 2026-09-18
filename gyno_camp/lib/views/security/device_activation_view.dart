@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../splash/security_gateway_view.dart';
 
@@ -52,10 +53,11 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Return to Login',
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
+          onPressed: () async {
+            await ref.read(authStateProvider.notifier).logout(
+                  deviceId: ref.read(deviceSecurityProvider).device?.deviceId ?? 'dev-local',
+                );
+            if (context.mounted) {
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const SecurityGatewayView()),
                 (route) => false,
@@ -381,11 +383,16 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                     TextButton.icon(
                       icon: const Icon(Icons.arrow_back),
                       label: const Text('Return to Staff Login'),
-                      onPressed: () {
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const SecurityGatewayView()),
-                          (route) => false,
-                        );
+                      onPressed: () async {
+                        await ref.read(authStateProvider.notifier).logout(
+                              deviceId: ref.read(deviceSecurityProvider).device?.deviceId ?? 'dev-local',
+                            );
+                        if (context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const SecurityGatewayView()),
+                            (route) => false,
+                          );
+                        }
                       },
                     ),
                   ],
