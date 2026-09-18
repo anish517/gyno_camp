@@ -78,7 +78,7 @@ class _PatientRegistrationViewState
       if (widget.patientToEdit != null) {
         _applyPatientToEdit(widget.patientToEdit!);
       } else {
-        _applyActiveCampLocation();
+        _resetToFreshRegistration();
       }
     });
   }
@@ -99,28 +99,57 @@ class _PatientRegistrationViewState
     setState(() {});
   }
 
-  void _applyActiveCampLocation() {
+  void _resetToFreshRegistration() {
+    _firstNameController.clear();
+    _surnameController.clear();
+    _ageController.clear();
+    _mobileController.clear();
+    _spouseOrFatherController.clear();
+    _maritalAgeController.clear();
+    _contactPersonController.clear();
+    _contactMobileController.clear();
+
     final camp = ref.read(campStateProvider).activeCamp;
-    if (camp != null) {
-      ref
-          .read(patientRegistrationProvider.notifier)
-          .updateField(
-            province: camp.province.isNotEmpty ? camp.province : 'Bagmati',
-            district: camp.district,
-            municipality: camp.municipality,
-            ward: camp.ward,
-          );
-      if (_districtController.text.isEmpty && camp.district.isNotEmpty) {
-        _districtController.text = camp.district;
-      }
-      if (_municipalityController.text.isEmpty &&
-          camp.municipality.isNotEmpty) {
-        _municipalityController.text = camp.municipality;
-      }
-      if (_wardController.text.isEmpty && camp.ward.isNotEmpty) {
-        _wardController.text = camp.ward;
-      }
-    }
+    final province = (camp?.province.isNotEmpty == true) ? camp!.province : 'Bagmati';
+    final district = camp?.district ?? '';
+    final municipality = camp?.municipality ?? '';
+    final ward = camp?.ward ?? '';
+
+    _wardController.text = ward;
+    _districtController.text = district.toUpperCase();
+    _municipalityController.text = municipality.toUpperCase();
+
+    ref.read(patientRegistrationProvider.notifier).reset(
+      province: province,
+      ward: ward,
+      district: district,
+      municipality: municipality,
+    );
+    setState(() {});
+  }
+
+  void _syncControllersToViewModel() {
+    final vm = ref.read(patientRegistrationProvider.notifier);
+    final ageText = _ageController.text.trim();
+    final ageInt = int.tryParse(ageText);
+    final maritalAgeText = _maritalAgeController.text.trim();
+    final maritalAgeInt = int.tryParse(maritalAgeText);
+
+    vm.updateField(
+      firstName: _firstNameController.text.trim().toUpperCase(),
+      surname: _surnameController.text.trim().toUpperCase(),
+      age: ageInt,
+      clearAge: ageInt == null,
+      ward: _wardController.text.trim(),
+      district: _districtController.text.trim().toUpperCase(),
+      municipality: _municipalityController.text.trim().toUpperCase(),
+      spouseOrFatherName: _spouseOrFatherController.text.trim().toUpperCase(),
+      maritalAge: maritalAgeInt,
+      clearMaritalAge: maritalAgeInt == null,
+      mobile: _mobileController.text.trim(),
+      contactPerson: _contactPersonController.text.trim().toUpperCase(),
+      contactMobile: _contactMobileController.text.trim(),
+    );
   }
 
   @override
@@ -271,7 +300,12 @@ class _PatientRegistrationViewState
     final navigator = Navigator.of(context);
     scaffoldMessenger.clearSnackBars();
 
-    if (!state.isValid) {
+    // 1. Force synchronise all UI controllers into the ViewModel state before validation
+    _syncControllersToViewModel();
+    final currentState = ref.read(patientRegistrationProvider);
+
+    // 2. Validate current state strictly
+    if (!currentState.isValid) {
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Row(
@@ -280,7 +314,7 @@ class _PatientRegistrationViewState
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  state.validationError ?? 'Please complete all required fields properly.',
+                  currentState.validationError ?? 'Please complete all required fields properly.',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -294,7 +328,7 @@ class _PatientRegistrationViewState
       return;
     }
 
-    if (state.selectedReasons.isEmpty) {
+    if (currentState.selectedReasons.isEmpty) {
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: const Row(
@@ -358,6 +392,9 @@ class _PatientRegistrationViewState
       ref.read(campStateProvider.notifier).loadCamps();
       ref.read(patientListProvider.notifier).loadPatients(camp.id);
 
+      // Clean form immediately upon successful registration so subsequent registrations start fresh
+      _clearForm();
+
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Registered: ${registered.fullName} (ID: ${registered.patientId})'),
@@ -366,6 +403,42 @@ class _PatientRegistrationViewState
       );
 
       await _handlePostRegistrationSlip(registered, camp);
+    }
+  }
+
+  Future<void> _confirmAndFillSamplePatient() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.auto_fix_high_rounded, color: AppTheme.primaryTeal),
+            SizedBox(width: 8),
+            Text('Populate Demo Sample?'),
+          ],
+        ),
+        content: const Text(
+          'This will fill the registration form with demo sample patient data (SUNTALI TAMANG, age 48) for demonstration and testing.\n\nAre you sure you want to proceed?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryTeal,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: const Text('Fill Sample'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      _fillSamplePatient();
     }
   }
 
@@ -426,29 +499,7 @@ class _PatientRegistrationViewState
       _applyPatientToEdit(widget.patientToEdit!);
       return;
     }
-    _firstNameController.clear();
-    _surnameController.clear();
-    _ageController.clear();
-    _mobileController.clear();
-    _spouseOrFatherController.clear();
-    _maritalAgeController.clear();
-    _contactPersonController.clear();
-    _contactMobileController.clear();
-
-    final camp = ref.read(campStateProvider).activeCamp;
-    _wardController.text = camp?.ward ?? '';
-    _districtController.text = camp?.district.toUpperCase() ?? '';
-    _municipalityController.text = camp?.municipality.toUpperCase() ?? '';
-
-    ref
-        .read(patientRegistrationProvider.notifier)
-        .reset(
-          province: camp?.province.isNotEmpty == true ? camp!.province : 'Bagmati',
-          ward: camp?.ward ?? '',
-          district: camp?.district ?? '',
-          municipality: camp?.municipality ?? '',
-        );
-    setState(() {});
+    _resetToFreshRegistration();
   }
 
   @override
@@ -489,7 +540,7 @@ class _PatientRegistrationViewState
             IconButton(
               tooltip: 'Demo Sample',
               icon: const Icon(Icons.auto_fix_high_rounded, size: 20),
-              onPressed: _fillSamplePatient,
+              onPressed: _confirmAndFillSamplePatient,
             ),
           IconButton(
             tooltip: 'Print Blank Grid Form (खाली फाराम)',

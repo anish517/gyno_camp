@@ -81,6 +81,7 @@ class PatientRegistrationState {
     String? firstName,
     String? surname,
     int? age,
+    bool clearAge = false,
     String? mobile,
     String? province,
     String? district,
@@ -105,7 +106,7 @@ class PatientRegistrationState {
     return PatientRegistrationState(
       firstName: firstName ?? this.firstName,
       surname: surname ?? this.surname,
-      age: age ?? this.age,
+      age: clearAge ? null : (age ?? this.age),
       mobile: mobile ?? this.mobile,
       province: province ?? this.province,
       district: district ?? this.district,
@@ -138,6 +139,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     String? firstName,
     String? surname,
     int? age,
+    bool clearAge = false,
     String? mobile,
     String? province,
     String? district,
@@ -167,7 +169,8 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     state = state.copyWith(
       firstName: firstName,
       surname: surname,
-      age: age,
+      age: clearAge ? null : (age ?? state.age),
+      clearAge: clearAge,
       mobile: mobile,
       province: province,
       district: district,
@@ -271,7 +274,11 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         deviceId: deviceId,
       );
 
-      state = state.copyWith(
+      state = PatientRegistrationState(
+        province: state.province,
+        district: state.district,
+        municipality: state.municipality,
+        ward: state.ward,
         isSubmitting: false,
         registeredPatient: registered,
       );
@@ -383,7 +390,7 @@ final patientRepositoryProvider = Provider<IPatientRepository>((ref) {
 });
 
 final patientRegistrationProvider =
-    StateNotifierProvider<PatientRegistrationViewModel, PatientRegistrationState>((ref) {
+    StateNotifierProvider.autoDispose<PatientRegistrationViewModel, PatientRegistrationState>((ref) {
   final repo = ref.watch(patientRepositoryProvider);
   return PatientRegistrationViewModel(repo);
 });
