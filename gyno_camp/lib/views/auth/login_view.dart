@@ -26,9 +26,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
     super.initState();
     _emailController.addListener(_onFieldChanged);
     _passwordController.addListener(_onFieldChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(deviceSecurityProvider.notifier).checkCurrentDevice();
-    });
   }
 
   void _onFieldChanged() {

@@ -11,6 +11,7 @@ class DeviceSecurityState {
   final bool isAppLocked;
   final String? latestOtp; // Useful for demonstration/testing
   final String? errorMessage;
+  final bool isInitialized;
 
   const DeviceSecurityState({
     this.device,
@@ -19,6 +20,7 @@ class DeviceSecurityState {
     this.isAppLocked = true,
     this.latestOtp,
     this.errorMessage,
+    this.isInitialized = false,
   });
 
   bool get isApproved => device?.isApproved ?? false;
@@ -35,6 +37,7 @@ class DeviceSecurityState {
     bool? isAppLocked,
     String? latestOtp,
     String? errorMessage,
+    bool? isInitialized,
     bool clearError = false,
   }) {
     return DeviceSecurityState(
@@ -44,6 +47,7 @@ class DeviceSecurityState {
       isAppLocked: isAppLocked ?? this.isAppLocked,
       latestOtp: latestOtp ?? this.latestOtp,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      isInitialized: isInitialized ?? this.isInitialized,
     );
   }
 }
@@ -56,6 +60,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
       : super(DeviceSecurityState(
           hardwareFingerprint: SecurityService.generateDeviceFingerprint(),
           isChecking: true,
+          isInitialized: false,
         )) {
     checkCurrentDevice();
   }
@@ -70,11 +75,13 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
         device: dev,
         isChecking: false,
         isAppLocked: isLocked,
+        isInitialized: true,
       );
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(
         isChecking: false,
+        isInitialized: true,
         errorMessage: 'Failed to verify device: $e',
       );
     }

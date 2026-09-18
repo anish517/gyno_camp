@@ -28,9 +28,13 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
   void initState() {
     super.initState();
     _staffNameController = TextEditingController(text: widget.prefillStaffName ?? '');
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(deviceSecurityProvider.notifier).checkCurrentDevice();
-    });
+    if (!ref.read(deviceSecurityProvider).isInitialized) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(deviceSecurityProvider.notifier).checkCurrentDevice();
+        }
+      });
+    }
   }
 
   @override

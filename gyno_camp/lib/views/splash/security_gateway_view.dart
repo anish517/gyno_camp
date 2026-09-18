@@ -16,7 +16,8 @@ class SecurityGatewayView extends ConsumerWidget {
     final deviceState = ref.watch(deviceSecurityProvider);
     final authState = ref.watch(authStateProvider);
 
-    if (deviceState.isChecking || authState.isRestoringSession) {
+    // Only show full-screen loader on initial boot check or while restoring active session
+    if (!deviceState.isInitialized || authState.isRestoringSession) {
       return const Scaffold(
         body: Center(
           child: Column(
