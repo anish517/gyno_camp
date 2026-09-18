@@ -57,30 +57,55 @@ class DatabaseService {
   }
 
   Future<void> _ensureAllColumnsExist(Database db) async {
-    final migrations = [
-      "ALTER TABLE ${DatabaseTables.tableUsers} ADD COLUMN password_hash TEXT",
-      "ALTER TABLE ${DatabaseTables.tableUsers} ADD COLUMN pin_hash TEXT",
-      "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
-      "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN organization_name TEXT DEFAULT 'Outreach Health Center'",
-      "ALTER TABLE ${DatabaseTables.tableCamps} ADD COLUMN province TEXT DEFAULT 'Bagmati'",
-      "ALTER TABLE ${DatabaseTables.tablePatients} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
-      "ALTER TABLE ${DatabaseTables.tablePatients} ADD COLUMN province TEXT DEFAULT 'Bagmati'",
-      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
-      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN is_follow_up INTEGER DEFAULT 0",
-      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN follow_up_notes TEXT",
-      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN surgery_done INTEGER DEFAULT 0",
-      "ALTER TABLE ${DatabaseTables.tableClinicalVisits} ADD COLUMN surgery_type TEXT",
-      "ALTER TABLE ${DatabaseTables.tableAuditLogs} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
-      "ALTER TABLE ${DatabaseTables.tableAuditLogs} ADD COLUMN previous_hash TEXT",
-      "ALTER TABLE ${DatabaseTables.tableLookupItems} ADD COLUMN tenant_id TEXT DEFAULT 'tenant_default'",
-      "ALTER TABLE ${DatabaseTables.tableLookupItems} ADD COLUMN is_deleted INTEGER DEFAULT 0",
-      "ALTER TABLE ${DatabaseTables.tableLookupItems} ADD COLUMN sub_category TEXT",
-    ];
-    for (final sql in migrations) {
+    final columnsByTable = <String, List<Map<String, String>>>{
+      DatabaseTables.tableUsers: [
+        {'name': 'password_hash', 'def': 'password_hash TEXT'},
+        {'name': 'pin_hash', 'def': 'pin_hash TEXT'},
+      ],
+      DatabaseTables.tableCamps: [
+        {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
+        {'name': 'organization_name', 'def': "organization_name TEXT DEFAULT 'Outreach Health Center'"},
+        {'name': 'province', 'def': "province TEXT DEFAULT 'Bagmati'"},
+      ],
+      DatabaseTables.tablePatients: [
+        {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
+        {'name': 'province', 'def': "province TEXT DEFAULT 'Bagmati'"},
+      ],
+      DatabaseTables.tableClinicalVisits: [
+        {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
+        {'name': 'is_follow_up', 'def': 'is_follow_up INTEGER DEFAULT 0'},
+        {'name': 'follow_up_notes', 'def': 'follow_up_notes TEXT'},
+        {'name': 'surgery_done', 'def': 'surgery_done INTEGER DEFAULT 0'},
+        {'name': 'surgery_type', 'def': 'surgery_type TEXT'},
+      ],
+      DatabaseTables.tableAuditLogs: [
+        {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
+        {'name': 'previous_hash', 'def': 'previous_hash TEXT'},
+      ],
+      DatabaseTables.tableLookupItems: [
+        {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
+        {'name': 'is_deleted', 'def': 'is_deleted INTEGER DEFAULT 0'},
+        {'name': 'sub_category', 'def': 'sub_category TEXT'},
+      ],
+    };
+
+    for (final entry in columnsByTable.entries) {
+      final table = entry.key;
       try {
-        await db.execute(sql);
+        final tableInfo = await db.rawQuery("PRAGMA table_info($table)");
+        final existingColumns = tableInfo
+            .map((row) => (row['name'] as String?)?.toLowerCase())
+            .whereType<String>()
+            .toSet();
+
+        for (final col in entry.value) {
+          final colName = col['name']!.toLowerCase();
+          if (!existingColumns.contains(colName)) {
+            await db.execute("ALTER TABLE $table ADD COLUMN ${col['def']}");
+          }
+        }
       } catch (_) {
-        // Safe to ignore if column already exists
+        // Safe to ignore if table does not exist or column could not be added
       }
     }
 

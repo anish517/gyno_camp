@@ -42,11 +42,6 @@ class HomeGatewayView extends ConsumerWidget {
     final user = authState.currentUser;
     final deviceState = ref.watch(deviceSecurityProvider);
 
-    // Guard: Prevent premature dashboard render or flash during session termination
-    if (!authState.isAuthenticated || user == null) {
-      return const SizedBox.shrink();
-    }
-
     if (authState.isLoading) {
       return const Scaffold(
         body: Center(
@@ -63,6 +58,11 @@ class HomeGatewayView extends ConsumerWidget {
           ),
         ),
       );
+    }
+
+    // Guard: Prevent premature dashboard render or flash during session termination
+    if (!authState.isAuthenticated || user == null) {
+      return const SizedBox.shrink();
     }
 
     return Scaffold(

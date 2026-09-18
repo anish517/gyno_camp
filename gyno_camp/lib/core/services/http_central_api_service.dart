@@ -19,6 +19,26 @@ class HttpCentralApiService implements ICentralApiService {
   static DateTime? _lastOfflineCheck;
   static const Duration _offlineCooldown = Duration(seconds: 30);
 
+  /// Checks whether a central cloud server is configured or enabled
+  static bool get isServerConfigured {
+    final active = _activeBaseUrl;
+    if (active != null && active.isNotEmpty) return true;
+    try {
+      final config = SessionService.current?.getPostgresConfig();
+      if (config != null && config.isDirectModeEnabled) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /// True if this instance has a custom URL or a central server is configured
+  bool get isConfigured {
+    final custom = _customBaseUrl;
+    if (custom != null && custom.isNotEmpty) return true;
+    return isServerConfigured;
+  }
+
   /// Checks if the circuit breaker is currently open (server was recently unreachable)
   static bool get isServerCooldownActive {
     if (_isServerReachable) return false;
@@ -179,7 +199,7 @@ class HttpCentralApiService implements ICentralApiService {
 
   /// Sends a newly created or updated Camp directly to the Central Cloud
   Future<bool> broadcastCamp(CampModel camp) async {
-    if (isServerCooldownActive) return false;
+    if (!isConfigured || isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/camps');
       final res = await _client.post(
@@ -198,7 +218,7 @@ class HttpCentralApiService implements ICentralApiService {
 
   /// Deletes a Camp from the Central Cloud API
   Future<bool> deleteCentralCamp(String campId) async {
-    if (isServerCooldownActive) return false;
+    if (!isConfigured || isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/camps?id=$campId');
       final res = await _client.delete(uri).timeout(const Duration(seconds: 3));
@@ -213,7 +233,7 @@ class HttpCentralApiService implements ICentralApiService {
 
   /// Sends a newly created or updated User directly to the Central Cloud
   Future<bool> broadcastUser(UserModel user) async {
-    if (isServerCooldownActive) return false;
+    if (!isConfigured || isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/users');
       final res = await _client.post(
@@ -232,7 +252,7 @@ class HttpCentralApiService implements ICentralApiService {
 
   /// Fetches all active camps from the Central Cloud API
   Future<List<CampModel>> fetchCentralCamps() async {
-    if (isServerCooldownActive) return [];
+    if (!isConfigured || isServerCooldownActive) return [];
     try {
       final uri = Uri.parse('$baseUrl/api/camps');
       final res = await _client.get(
@@ -252,7 +272,7 @@ class HttpCentralApiService implements ICentralApiService {
 
   /// Fetches all staff users from the Central Cloud API
   Future<List<UserModel>> fetchCentralUsers() async {
-    if (isServerCooldownActive) return [];
+    if (!isConfigured || isServerCooldownActive) return [];
     try {
       final uri = Uri.parse('$baseUrl/api/users');
       final res = await _client.get(

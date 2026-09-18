@@ -67,7 +67,7 @@ class AuthRepository implements IAuthRepository {
     final db = await _databaseService.database;
 
     // 1. Merge latest users from Central Cloud if available
-    if (enableCentralSync) {
+    if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
       try {
         final centralUsers = await HttpCentralApiService().fetchCentralUsers();
         if (centralUsers.isNotEmpty) {
@@ -103,7 +103,7 @@ class AuthRepository implements IAuthRepository {
     if (maps.isNotEmpty) return UserModel.fromMap(maps.first);
 
     // Try central cloud if enabled
-    if (enableCentralSync) {
+    if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
       try {
         final centralUsers = await HttpCentralApiService().fetchCentralUsers();
         for (final u in centralUsers) {
@@ -138,7 +138,7 @@ class AuthRepository implements IAuthRepository {
     if (maps.isNotEmpty) return UserModel.fromMap(maps.first);
 
     // Try central cloud for newly registered staff from other devices
-    if (enableCentralSync) {
+    if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
       try {
         final centralUsers = await HttpCentralApiService().fetchCentralUsers();
         for (final u in centralUsers) {

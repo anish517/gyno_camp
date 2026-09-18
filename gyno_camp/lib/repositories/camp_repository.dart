@@ -81,6 +81,7 @@ class CampRepository implements ICampRepository {
   }
 
   void _syncCentralCampsInBackground(dynamic db) {
+    if (!HttpCentralApiService.isServerConfigured) return;
     Future<void>(() async {
       try {
         final centralCamps = await HttpCentralApiService().fetchCentralCamps();
