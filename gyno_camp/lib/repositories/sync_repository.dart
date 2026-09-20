@@ -7,6 +7,7 @@ import '../core/database/postgres_database_service.dart';
 import '../core/services/central_api_service.dart';
 import '../core/services/http_central_api_service.dart';
 import '../models/audit_log_model.dart';
+import '../models/camp_model.dart';
 import '../models/clinical_visit_model.dart';
 import '../models/patient_model.dart';
 import '../models/sync_payload_model.dart';
@@ -77,7 +78,11 @@ class SyncRepository implements ISyncRepository {
     );
     final visits = visitRows.map((r) => ClinicalVisitModel.fromMap(r)).toList();
 
-    // 3. Fetch recent audit logs to archive to cloud
+    // 3. Fetch all camps to ensure central server is up to date
+    final campRows = await db.query(DatabaseTables.tableCamps);
+    final camps = campRows.map((r) => CampModel.fromMap(r)).toList();
+
+    // 4. Fetch recent audit logs to archive to cloud
     final logRows = await db.query(
       DatabaseTables.tableAuditLogs,
       limit: 50,
@@ -85,7 +90,7 @@ class SyncRepository implements ISyncRepository {
     );
     final logs = logRows.map((r) => AuditLogModel.fromMap(r)).toList();
 
-    if (patients.isEmpty && visits.isEmpty) {
+    if (patients.isEmpty && visits.isEmpty && camps.isEmpty) {
       return SyncPushResponse(
         success: true,
         serverTimestamp: DateTime.now(),
@@ -96,6 +101,7 @@ class SyncRepository implements ISyncRepository {
     final payload = SyncPushPayload(
       deviceId: deviceId,
       generatedAt: DateTime.now(),
+      camps: camps,
       patients: patients,
       clinicalVisits: visits,
       auditLogs: logs,

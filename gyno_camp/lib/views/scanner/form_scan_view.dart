@@ -2981,7 +2981,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       Switch(
                         value: result.surgeryDone,
-                        activeColor: AppTheme.primaryTeal,
+                        activeThumbColor: AppTheme.primaryTeal,
                         onChanged: (val) {
                           vm.updateSurgery(
                             done: val,
@@ -3056,7 +3056,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       Switch(
                         value: result.ringPessary,
-                        activeColor: AppTheme.primaryTeal,
+                        activeThumbColor: AppTheme.primaryTeal,
                         onChanged: (val) {
                           vm.updateRingPessary(
                             ringPessary: val,

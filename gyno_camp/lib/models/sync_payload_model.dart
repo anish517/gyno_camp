@@ -9,6 +9,7 @@ class SyncPushPayload {
   final String deviceId;
   final DateTime generatedAt;
   final String tenantId;
+  final List<CampModel> camps;
   final List<PatientModel> patients;
   final List<ClinicalVisitModel> clinicalVisits;
   final List<AuditLogModel> auditLogs;
@@ -17,19 +18,21 @@ class SyncPushPayload {
     required this.deviceId,
     required this.generatedAt,
     this.tenantId = 'tenant_bir_hospital',
+    this.camps = const [],
     this.patients = const [],
     this.clinicalVisits = const [],
     this.auditLogs = const [],
   });
 
-  bool get isEmpty => patients.isEmpty && clinicalVisits.isEmpty && auditLogs.isEmpty;
-  int get totalRecords => patients.length + clinicalVisits.length + auditLogs.length;
+  bool get isEmpty => camps.isEmpty && patients.isEmpty && clinicalVisits.isEmpty && auditLogs.isEmpty;
+  int get totalRecords => camps.length + patients.length + clinicalVisits.length + auditLogs.length;
 
   Map<String, dynamic> toMap() {
     return {
       'device_id': deviceId,
       'generated_at': generatedAt.toIso8601String(),
       'tenant_id': tenantId,
+      'camps': camps.map((c) => c.toMap()).toList(),
       'patients': patients.map((p) => p.toMap()).toList(),
       'clinical_visits': clinicalVisits.map((v) => v.toMap()).toList(),
       'audit_logs': auditLogs.map((a) => a.toMap()).toList(),
@@ -41,6 +44,10 @@ class SyncPushPayload {
       deviceId: map['device_id'] as String? ?? '',
       generatedAt: DateTime.tryParse(map['generated_at'] as String? ?? '') ?? DateTime.now(),
       tenantId: map['tenant_id'] as String? ?? 'tenant_bir_hospital',
+      camps: (map['camps'] as List<dynamic>?)
+              ?.map((c) => CampModel.fromMap(c as Map<String, dynamic>))
+              .toList() ??
+          [],
       patients: (map['patients'] as List<dynamic>?)
               ?.map((p) => PatientModel.fromMap(p as Map<String, dynamic>))
               .toList() ??

@@ -5,8 +5,6 @@ import 'package:http/testing.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:gyno_camp/core/constants/app_constants.dart';
 import 'package:gyno_camp/core/services/gemini_ocr_service.dart';
-import 'package:gyno_camp/core/services/mlkit_ocr_service.dart';
-import 'package:gyno_camp/core/services/ocr_form_service.dart';
 import 'package:gyno_camp/repositories/audit_repository.dart';
 import 'package:gyno_camp/repositories/ocr_repository.dart';
 import 'package:gyno_camp/repositories/patient_repository.dart';

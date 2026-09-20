@@ -23,13 +23,15 @@ class HttpCentralApiService implements ICentralApiService {
   static bool get isServerConfigured {
     final active = _activeBaseUrl;
     if (active != null && active.isNotEmpty) return true;
+    const envUrl = String.fromEnvironment('CENTRAL_SERVER_URL', defaultValue: '');
+    if (envUrl.isNotEmpty) return true;
     try {
       final config = SessionService.current?.getPostgresConfig();
-      if (config != null && config.isDirectModeEnabled) {
+      if (config != null && (config.isDirectModeEnabled || config.host.isNotEmpty)) {
         return true;
       }
     } catch (_) {}
-    return false;
+    return true;
   }
 
   /// True if this instance has a custom URL or a central server is configured

@@ -80,11 +80,20 @@ class SyncViewModel extends StateNotifier<SyncState> {
       final wasOffline = !state.isOnline;
       state = state.copyWith(isOnline: online);
 
-      // Auto-trigger sync upon reconnecting to internet
+    // Auto-trigger sync upon reconnecting to internet
       if (wasOffline && online) {
         syncNow(deviceId: _lastKnownDeviceId, userId: _lastKnownUserId);
       }
     });
+
+    // Auto-trigger initial sync on app startup if connected
+    if (state.isOnline) {
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted && state.isOnline && !state.isSyncing) {
+          syncNow(deviceId: _lastKnownDeviceId, userId: _lastKnownUserId);
+        }
+      });
+    }
   }
 
   Future<void> refreshPendingCounts() async {
