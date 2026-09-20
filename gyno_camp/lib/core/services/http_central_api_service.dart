@@ -79,6 +79,11 @@ class HttpCentralApiService implements ICentralApiService {
       return activeUrl;
     }
 
+    const envUrl = String.fromEnvironment('CENTRAL_SERVER_URL', defaultValue: '');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
+
     try {
       final configuredHost = SessionService.current?.getPostgresConfig().host;
       if (configuredHost != null &&

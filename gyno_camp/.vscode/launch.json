@@ -16,6 +16,15 @@
       "request": "launch",
       "type": "dart",
       "deviceId": "windows"
+    },
+    {
+      "name": "Gynocamp (Android Real Device RMX3269)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "1B04293210NA0SCT",
+      "args": [
+        "--dart-define", "CENTRAL_SERVER_URL=http://192.168.110.108:8080"
+      ]
     }
   ]
 }
