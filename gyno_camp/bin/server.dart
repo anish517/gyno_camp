@@ -461,6 +461,18 @@ class GynoCampSyncServer {
       }
     }
 
+    // Recalculate total_patients_registered on camps
+    if (_isPgConnected && _connection != null && patients.isNotEmpty) {
+      try {
+        await _connection!.execute('''
+          UPDATE camps 
+          SET total_patients_registered = (
+            SELECT COUNT(*) FROM patients WHERE patients.camp_id = camps.id
+          );
+        ''');
+      } catch (_) {}
+    }
+
     // 4. Process Clinical Visits
     for (final v in visits) {
       final map = v as Map<String, dynamic>;

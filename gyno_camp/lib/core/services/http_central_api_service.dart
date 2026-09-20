@@ -98,6 +98,9 @@ class HttpCentralApiService implements ICentralApiService {
       }
     } catch (_) {}
 
+    if (!kIsWeb) {
+      return 'http://192.168.110.108:8080';
+    }
     return 'http://localhost:8080';
   }
 
@@ -154,6 +157,9 @@ class HttpCentralApiService implements ICentralApiService {
 
   @override
   Future<SyncPushResponse> pushDelta(SyncPushPayload payload) async {
+    if (_activeBaseUrl == null || !_isServerReachable) {
+      await pingServer();
+    }
     try {
       final uri = Uri.parse('$baseUrl/api/sync/push');
       final body = jsonEncode(payload.toMap());
@@ -179,6 +185,9 @@ class HttpCentralApiService implements ICentralApiService {
 
   @override
   Future<SyncPullResponse> pullDelta({DateTime? since, required String deviceId}) async {
+    if (_activeBaseUrl == null || !_isServerReachable) {
+      await pingServer();
+    }
     try {
       var urlStr = '$baseUrl/api/sync/pull?deviceId=$deviceId';
       if (since != null) {
