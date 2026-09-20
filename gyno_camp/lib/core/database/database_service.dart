@@ -66,6 +66,7 @@ class DatabaseService {
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
         {'name': 'organization_name', 'def': "organization_name TEXT DEFAULT 'Outreach Health Center'"},
         {'name': 'province', 'def': "province TEXT DEFAULT 'Bagmati'"},
+        {'name': 'doctor_name', 'def': "doctor_name TEXT DEFAULT ''"},
       ],
       DatabaseTables.tablePatients: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},

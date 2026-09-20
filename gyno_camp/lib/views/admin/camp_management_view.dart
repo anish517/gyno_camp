@@ -679,6 +679,21 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   ),
                 ],
               ),
+              if (camp.doctorName.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.medical_services_outlined, size: 15, color: Color(0xFF0F766E)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Dr. ${camp.doctorName}',
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 8),
 
               // Dual Date Range (Nepali BS & English AD)
@@ -1723,6 +1738,21 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         '🇳🇵 ${NepaliDateHelper.formatBsRange(c.startDate, c.endDate, pureNepali: true)}   •   🌐 ${_formatDate(c.startDate)} to ${_formatDate(c.endDate)}',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.primaryDark),
                       ),
+                      if (c.doctorName.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.medical_services_outlined, size: 14, color: Color(0xFF0F766E)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Dr. ${c.doctorName}',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const Divider(height: 20),
                       Row(
                         children: [
@@ -2422,6 +2452,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   void _showCreateCampDialog(BuildContext context, {CampStatus initialStatus = CampStatus.scheduled}) {
     final codeCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
+    final doctorCtrl = TextEditingController();
     String selectedProvince = 'Bagmati';
     String selectedDistrict = 'Kathmandu';
     final munCtrl = TextEditingController();
@@ -2544,6 +2575,16 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                       ),
                                     ),
                                   ],
+                                ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  controller: doctorCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Examining Doctor / Medical Officer (डाक्टरको नाम)',
+                                    hintText: 'e.g. Dr. Sita Sharma, MD',
+                                    isDense: true,
+                                    prefixIcon: Icon(Icons.medical_services_outlined, size: 18),
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
 
@@ -2986,6 +3027,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   ctx: ctx,
                                   code: codeCtrl.text.trim(),
                                   name: nameCtrl.text.trim(),
+                                  doctorName: doctorCtrl.text.trim(),
                                   province: selectedProvince,
                                   district: selectedDistrict,
                                   municipality: munCtrl.text.trim(),
@@ -3010,6 +3052,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   ctx: ctx,
                                   code: codeCtrl.text.trim(),
                                   name: nameCtrl.text.trim(),
+                                  doctorName: doctorCtrl.text.trim(),
                                   province: selectedProvince,
                                   district: selectedDistrict,
                                   municipality: munCtrl.text.trim(),
@@ -3042,6 +3085,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     required BuildContext ctx,
     required String code,
     required String name,
+    String doctorName = '',
     required String province,
     required String district,
     required String municipality,
@@ -3072,6 +3116,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       id: 'camp-${DateTime.now().millisecondsSinceEpoch}',
       campCode: code.toUpperCase(),
       name: name,
+      doctorName: doctorName,
       province: province,
       district: district.isNotEmpty ? district : 'Bagmati',
       municipality: municipality,
@@ -3134,6 +3179,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
   void _showEditCampDialog(BuildContext context, CampModel camp) {
     final nameCtrl = TextEditingController(text: camp.name);
+    final doctorCtrl = TextEditingController(text: camp.doctorName);
     String selectedProvince = camp.province.isNotEmpty ? camp.province : 'Bagmati';
     final availableDistricts = NepalGeodata.districtsFor(selectedProvince);
     String selectedDistrict = availableDistricts.contains(camp.district)
@@ -3199,6 +3245,16 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             TextField(
                               controller: nameCtrl,
                               decoration: const InputDecoration(labelText: 'Camp Name *', isDense: true),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: doctorCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Examining Doctor / Medical Officer (डाक्टरको नाम)',
+                                hintText: 'e.g. Dr. Sita Sharma, MD',
+                                isDense: true,
+                                prefixIcon: Icon(Icons.medical_services_outlined, size: 18),
+                              ),
                             ),
                             const SizedBox(height: 12),
                             DropdownButtonFormField<String>(
@@ -3425,6 +3481,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
                               final updated = camp.copyWith(
                                 name: nameCtrl.text.trim(),
+                                doctorName: doctorCtrl.text.trim(),
                                 province: selectedProvince,
                                 district: selectedDistrict,
                                 municipality: munCtrl.text.trim(),

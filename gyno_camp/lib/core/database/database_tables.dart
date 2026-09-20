@@ -65,6 +65,7 @@ class DatabaseTables {
       total_patients_registered INTEGER NOT NULL DEFAULT 0,
       tenant_id TEXT DEFAULT 'tenant_default',
       organization_name TEXT DEFAULT 'Community Health Outreach Mission',
+      doctor_name TEXT DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT
     );

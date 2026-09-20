@@ -72,6 +72,7 @@ class CampModel {
   final int totalPatientsRegistered;
   final String tenantId;
   final String organizationName;
+  final String doctorName;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -91,6 +92,7 @@ class CampModel {
     this.totalPatientsRegistered = 0,
     this.tenantId = 'tenant_default',
     this.organizationName = 'Community Health Outreach Mission',
+    this.doctorName = '',
     required this.createdAt,
     this.updatedAt,
   });
@@ -115,6 +117,7 @@ class CampModel {
       'total_patients_registered': totalPatientsRegistered,
       'tenant_id': tenantId,
       'organization_name': organizationName,
+      'doctor_name': doctorName,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -139,6 +142,7 @@ class CampModel {
       totalPatientsRegistered: map['total_patients_registered'] as int? ?? 0,
       tenantId: map['tenant_id'] as String? ?? 'tenant_default',
       organizationName: map['organization_name'] as String? ?? 'Community Health Outreach Mission',
+      doctorName: map['doctor_name'] as String? ?? '',
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
     );
@@ -160,6 +164,7 @@ class CampModel {
     int? totalPatientsRegistered,
     String? tenantId,
     String? organizationName,
+    String? doctorName,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -179,6 +184,7 @@ class CampModel {
       totalPatientsRegistered: totalPatientsRegistered ?? this.totalPatientsRegistered,
       tenantId: tenantId ?? this.tenantId,
       organizationName: organizationName ?? this.organizationName,
+      doctorName: doctorName ?? this.doctorName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

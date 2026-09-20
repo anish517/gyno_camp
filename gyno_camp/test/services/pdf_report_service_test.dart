@@ -5,6 +5,7 @@ import 'package:gyno_camp/core/services/report_aggregation_service.dart';
 import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/camp_report_summary_model.dart';
 import 'package:gyno_camp/models/clinical_visit_model.dart';
+import 'package:gyno_camp/models/lookup_item_model.dart';
 import 'package:gyno_camp/models/patient_model.dart';
 
 void main() {
@@ -256,6 +257,91 @@ void main() {
       final pdfStr = latin1.decode(bytes);
       final pageMatches = RegExp(r'/Type\s*/Page\b').allMatches(pdfStr);
       expect(pageMatches.length, equals(2));
+    });
+
+    test('generatePatientRegistrationFormPdf with dynamic lookups and camp doctor stays strictly 2 pages', () async {
+      final camp = CampModel(
+        id: 'camp-doc-01',
+        campCode: 'DOC01',
+        name: 'Dhading Health Outreach',
+        doctorName: 'Dr. Aarav Koirala, MD',
+        province: 'Bagmati',
+        district: 'Dhading',
+        municipality: 'Nilkantha',
+        ward: '04',
+        venue: 'Nilkantha Primary Health Care',
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 2)),
+        status: CampStatus.open,
+        createdAt: DateTime.now(),
+      );
+
+      final customDiagnoses = [
+        LookupItemModel(id: 'd1', category: 'diagnosis', code: 'cervical_erosion', labelEn: 'Cervical Erosion', labelNe: 'पाठेघरको मुखको घाउ'),
+        LookupItemModel(id: 'd2', category: 'diagnosis', code: 'pelvic_adhesions', labelEn: 'Pelvic Adhesions', labelNe: 'तल्लो पेटको जालो'),
+      ];
+
+      final customMedicines = [
+        LookupItemModel(id: 'm1', category: 'medicine', code: 'doxycycline_100mg', labelEn: 'Doxycycline 100mg', labelNe: 'डक्सिसाइक्लिन'),
+        LookupItemModel(id: 'm2', category: 'medicine', code: 'azithromycin_500mg', labelEn: 'Azithromycin 500mg', labelNe: 'एजिथ्रोमाइसिन'),
+      ];
+
+      final customHospitals = [
+        LookupItemModel(id: 'h1', category: 'referral_hospital', code: 'patan_hospital', labelEn: 'Patan Hospital', labelNe: 'पाटन अस्पताल'),
+      ];
+
+      final customReasons = [
+        LookupItemModel(id: 'r1', category: 'visit_reason', code: 'urinary_trouble', labelEn: 'Urinary Issues', labelNe: 'पिसाब सम्बन्धी समस्या'),
+      ];
+
+      final customComplaints = [
+        LookupItemModel(id: 'c1', category: 'chief_complaint', code: 'dysuria', labelEn: 'Dysuria / Burning Urine', labelNe: 'पिसाब पोल्ने'),
+      ];
+
+      final bytes = await pdfService.generatePatientRegistrationFormPdf(
+        camp: camp,
+        organizationName: 'Community Medical Outreach Mission',
+        diagnoses: customDiagnoses,
+        medications: customMedicines,
+        referralHospitals: customHospitals,
+        visitReasons: customReasons,
+        chiefComplaints: customComplaints,
+      );
+
+      expect(bytes, isNotEmpty);
+      final pdfStr = latin1.decode(bytes);
+      final pageMatches = RegExp(r'/Type\s*/Page\b').allMatches(pdfStr);
+      expect(pageMatches.length, equals(2));
+      expect(bytes.length, greaterThan(1000));
+    });
+
+    test('CampModel serialization preserves doctorName correctly', () {
+      final camp = CampModel(
+        id: 'c-test-doc',
+        campCode: 'KTM99',
+        name: 'Specialist Camp',
+        doctorName: 'Dr. Sita Sharma, MD',
+        district: 'Kathmandu',
+        municipality: 'Kathmandu Metropolitan',
+        venue: 'Camp Hall',
+        ward: '03',
+        startDate: DateTime(2026, 9, 20),
+        endDate: DateTime(2026, 9, 22),
+        status: CampStatus.scheduled,
+        createdAt: DateTime(2026, 9, 20),
+      );
+
+      expect(camp.doctorName, equals('Dr. Sita Sharma, MD'));
+
+      final map = camp.toMap();
+      expect(map['doctor_name'], equals('Dr. Sita Sharma, MD'));
+
+      final restored = CampModel.fromMap(map);
+      expect(restored.doctorName, equals('Dr. Sita Sharma, MD'));
+
+      final copied = camp.copyWith(doctorName: 'Dr. Ramesh Adhikari');
+      expect(copied.doctorName, equals('Dr. Ramesh Adhikari'));
+      expect(copied.campCode, equals('KTM99'));
     });
   });
 }

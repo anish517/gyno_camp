@@ -13,6 +13,7 @@ import '../../models/patient_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/clinical_assessment_viewmodel.dart';
+import '../../viewmodels/master_lookup_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
@@ -2510,10 +2511,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           duration: Duration(seconds: 2),
         ),
       );
+      final masterState = ref.read(masterLookupProvider);
       final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
         patient: patient,
         camp: camp,
         organizationName: orgName,
+        diagnoses: masterState.activeDiagnoses,
+        medications: masterState.activeMedicines,
+        referralHospitals: masterState.activeReferralHospitals,
+        visitReasons: masterState.activeVisitReasons,
+        chiefComplaints: masterState.activeChiefComplaints,
       );
       await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,

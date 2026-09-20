@@ -169,12 +169,12 @@ class ClinicalConstants {
   //   • OcrFormService (reason key resolution)
   static const Map<String, String> visitReasonOptions = {
     'something hanging out':    'Something Hanging Out / Prolapse (पाठेघर खस्ने)',
-    'discharge and or itching': 'Vaginal Discharge / Itching (स्राव / खटिरो)',
-    'problems passing urine':   'Problems Passing Urine (पेसाब सम्बन्धी समस्या)',
+    'discharge and or itching': 'Vaginal Discharge / Itching (योनी स्राव / चिलाउने)',
+    'problems passing urine':   'Problems Passing Urine (पिसाब सम्बन्धी समस्या)',
     'problems passing stool':   'Problems Passing Stool (दिसा सम्बन्धी समस्या)',
     'menstrual problem':        'Menstrual Problem (महिनावारी सम्बन्धी समस्या)',
     'infertility':              'Infertility (बाँझोपन)',
-    'pain':                     'Pelvic / Abdominal Pain (दुखाई)',
+    'pain':                     'Pelvic / Abdominal Pain (तल्लो पेट / कम्मर दुखाई)',
     'checkup':                  'General Gynaecological Checkup (सामान्य जाँच)',
   };
 }

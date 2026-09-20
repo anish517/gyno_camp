@@ -226,9 +226,15 @@ class _PatientRegistrationViewState
       final orgName = camp?.organizationName.isNotEmpty == true
           ? camp!.organizationName
           : 'Nepal Gyno Health Outreach Network';
+      final masterState = ref.read(masterLookupProvider);
       final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
         camp: camp,
         organizationName: orgName,
+        diagnoses: masterState.activeDiagnoses,
+        medications: masterState.activeMedicines,
+        referralHospitals: masterState.activeReferralHospitals,
+        visitReasons: masterState.activeVisitReasons,
+        chiefComplaints: masterState.activeChiefComplaints,
       );
       final campCode = camp?.campCode ?? 'OUTREACH';
       await FileDownloadHelper.saveAndDownloadFile(

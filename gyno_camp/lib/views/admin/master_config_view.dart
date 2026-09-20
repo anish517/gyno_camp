@@ -24,7 +24,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         setState(() {});
@@ -50,8 +50,10 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       case 2:
         return 'referral_hospital';
       case 3:
-      default:
         return 'visit_reason';
+      case 4:
+      default:
+        return 'chief_complaint';
     }
   }
 
@@ -64,8 +66,10 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       case 2:
         return const Color(0xFF4F46E5);
       case 3:
-      default:
         return const Color(0xFFD97706); // Amber for Visit Reasons
+      case 4:
+      default:
+        return const Color(0xFFE11D48); // Rose for Chief Complaints
     }
   }
 
@@ -83,13 +87,49 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
     }).join(' ');
   }
 
+  String _getCategorySingularTitle(int idx) {
+    switch (idx) {
+      case 0:
+        return 'Diagnosis';
+      case 1:
+        return 'Medicine';
+      case 2:
+        return 'Hospital';
+      case 3:
+        return 'Visit Reason';
+      case 4:
+      default:
+        return 'Chief Complaint';
+    }
+  }
+
+  String _getCategoryPluralTitle(int idx) {
+    switch (idx) {
+      case 0:
+        return 'Diagnoses';
+      case 1:
+        return 'Medicines';
+      case 2:
+        return 'Referral Hospitals';
+      case 3:
+        return 'Visit Reasons';
+      case 4:
+      default:
+        return 'Chief Complaints';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(masterLookupProvider);
     final user = ref.watch(authStateProvider).currentUser;
     final deviceState = ref.watch(deviceSecurityProvider);
 
-    final totalEntities = state.diagnoses.length + state.medicines.length + state.referralHospitals.length;
+    final totalEntities = state.diagnoses.length +
+        state.medicines.length +
+        state.referralHospitals.length +
+        state.visitReasons.length +
+        state.chiefComplaints.length;
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 600;
 
@@ -136,59 +176,66 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
             ),
             const SizedBox(height: 2),
             Text(
-              isCompact
-                  ? 'Clinical formulary & referral directory'
-                  : 'Standardized clinical terminology, prescription formulary & hospital referral directory',
-              style: const TextStyle(color: Color(0xFFCCFBF1), fontSize: 11, fontWeight: FontWeight.normal),
+              'Unified Master Database & Standard Clinical Dictionary ($totalEntities Active / Cataloged Entries)',
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
               overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: 'Reload Master Catalog',
+            onPressed: () {
+              ref.read(masterLookupProvider.notifier).loadAll();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Refreshing Master Data Catalog from central repository...'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+          ),
           if (!isCompact)
             Padding(
-              padding: const EdgeInsets.only(right: 16.0),
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.add, size: 16),
-                label: Text('Add ${_getCategorySingularTitle(_tabController.index)}'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF042F2E),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: const BorderSide(color: Color(0xFF14B8A6)),
+              padding: const EdgeInsets.only(right: 12.0),
+              child: Center(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.primaryTeal,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(
+                    'Add ${_getCategorySingularTitle(_tabController.index)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  onPressed: () => _showAddEditDialog(
+                    context,
+                    null,
+                    _getCategoryForIndex(_tabController.index),
                   ),
                 ),
-                onPressed: () => _showAddEditDialog(context, null, _getCategoryForIndex(_tabController.index)),
               ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-              tooltip: 'Add ${_getCategorySingularTitle(_tabController.index)}',
-              onPressed: () => _showAddEditDialog(context, null, _getCategoryForIndex(_tabController.index)),
             ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(50),
+          preferredSize: const Size.fromHeight(48),
           child: Container(
-            width: double.infinity,
-            color: const Color(0xFF042F2E),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            color: Colors.white,
             child: TabBar(
               controller: _tabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              indicatorSize: TabBarIndicatorSize.tab,
-              indicator: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: AppTheme.primaryTeal,
-              ),
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
+              labelColor: _getCategoryThemeColor(_tabController.index),
+              unselectedLabelColor: Colors.blueGrey.shade600,
+              indicatorColor: _getCategoryThemeColor(_tabController.index),
+              indicatorWeight: 3.0,
               labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
               tabs: [
                 Tab(
                   icon: const Icon(Icons.healing_outlined, size: 17),
@@ -205,6 +252,10 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 Tab(
                   icon: const Icon(Icons.checklist_outlined, size: 17),
                   text: 'Visit Reasons (${state.visitReasons.length})',
+                ),
+                Tab(
+                  icon: const Icon(Icons.sick_outlined, size: 17),
+                  text: 'Chief Complaints (${state.chiefComplaints.length})',
                 ),
               ],
             ),
@@ -353,6 +404,13 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                             deviceState.device?.deviceId ?? 'dev-admin',
                             categoryIndex: 3,
                           ),
+                          _buildItemsList(
+                            context,
+                            state.filteredChiefComplaints,
+                            user?.id ?? 'admin-user',
+                            deviceState.device?.deviceId ?? 'dev-admin',
+                            categoryIndex: 4,
+                          ),
                         ],
                       ),
               ),
@@ -385,10 +443,15 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
         themeColor = const Color(0xFF4F46E5);
         break;
       case 3:
-      default:
         currentItems = state.visitReasons;
         categoryName = 'Visit Reasons';
         themeColor = const Color(0xFFD97706);
+        break;
+      case 4:
+      default:
+        currentItems = state.chiefComplaints;
+        categoryName = 'Chief Complaints';
+        themeColor = const Color(0xFFE11D48);
         break;
     }
 
@@ -1006,6 +1069,21 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
           availableCategories.add(m.subCategory!);
         }
       }
+    } else if (category == 'chief_complaint') {
+      availableCategories.addAll([
+        'Pelvic & Abdominal',
+        'Infections & Discharge',
+        'Pelvic Floor & Prolapse',
+        'Urinary Symptoms',
+        'Reproductive & Sexual',
+        'Bleeding & Neoplasms',
+        'Musculoskeletal & General',
+      ]);
+      for (final c in lookupState.chiefComplaints) {
+        if (c.subCategory != null && c.subCategory!.isNotEmpty && !availableCategories.contains(c.subCategory)) {
+          availableCategories.add(c.subCategory!);
+        }
+      }
     }
 
     String selectedSubCategory = item?.subCategory ??
@@ -1038,7 +1116,13 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                   child: Icon(
                     category == 'diagnosis'
                         ? Icons.healing_outlined
-                        : (category == 'medicine' ? Icons.medication_outlined : Icons.local_hospital_outlined),
+                        : (category == 'medicine'
+                            ? Icons.medication_outlined
+                            : (category == 'chief_complaint'
+                                ? Icons.sick_outlined
+                                : (category == 'visit_reason'
+                                    ? Icons.checklist_outlined
+                                    : Icons.local_hospital_outlined))),
                     size: 22,
                     color: AppTheme.primaryTeal,
                   ),
@@ -1107,7 +1191,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                         prefixIcon: Icon(Icons.translate, size: 18),
                       ),
                     ),
-                    if (category == 'diagnosis' || category == 'medicine') ...[
+                    if (category == 'diagnosis' || category == 'medicine' || category == 'chief_complaint') ...[
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
                         key: ValueKey(isCustomCategoryMode ? addCustomCategorySentinel : selectedSubCategory),
@@ -1370,34 +1454,6 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
     );
   }
 
-  String _getCategorySingularTitle(int idx) {
-    switch (idx) {
-      case 0:
-        return 'Diagnosis';
-      case 1:
-        return 'Medicine';
-      case 2:
-        return 'Referral Hospital';
-      case 3:
-      default:
-        return 'Visit Reason';
-    }
-  }
-
-  String _getCategoryPluralTitle(int idx) {
-    switch (idx) {
-      case 0:
-        return 'Diagnoses';
-      case 1:
-        return 'Medicines';
-      case 2:
-        return 'Referral Hospitals';
-      case 3:
-      default:
-        return 'Visit Reasons';
-    }
-  }
-
   String _getCategoryTitleSingular(String category) {
     switch (category) {
       case 'diagnosis':
@@ -1407,8 +1463,10 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       case 'referral_hospital':
         return 'Referral Hospital';
       case 'visit_reason':
-      default:
         return 'Visit Reason';
+      case 'chief_complaint':
+      default:
+        return 'Chief Complaint';
     }
   }
 }

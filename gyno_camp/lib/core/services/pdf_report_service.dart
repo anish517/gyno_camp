@@ -7,7 +7,9 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../models/camp_model.dart';
 import '../../models/camp_report_summary_model.dart';
 import '../../models/clinical_visit_model.dart';
+import '../../models/lookup_item_model.dart';
 import '../../models/patient_model.dart';
+import '../../repositories/lookup_repository.dart';
 import '../constants/clinical_constants.dart';
 
 class PdfReportService {
@@ -1504,6 +1506,11 @@ class PdfReportService {
     CampModel? camp,
     ClinicalVisitModel? visit,
     String organizationName = 'Nepal Gyno Health Outreach Network',
+    List<LookupItemModel>? diagnoses,
+    List<LookupItemModel>? medications,
+    List<LookupItemModel>? referralHospitals,
+    List<LookupItemModel>? visitReasons,
+    List<LookupItemModel>? chiefComplaints,
   }) async {
     final theme = await getPdfTheme();
     final pdf = pw.Document(theme: theme);
@@ -1516,6 +1523,128 @@ class PdfReportService {
     final dark = PdfColor.fromHex('1E293B');
     final gray = PdfColor.fromHex('CBD5E1');
     final boxBg = PdfColor.fromHex('FAFAFA');
+
+    // ── Resolve dynamic master items with graceful fallbacks ──
+    // 1. Diagnoses
+    List<String> effectiveDiagnoses = diagnoses?.where((d) => d.isActive).map((d) => d.labelEn).toList() ?? [];
+    if (effectiveDiagnoses.isEmpty) {
+      try {
+        final repoItems = await LookupRepository().getItemsByCategory('diagnosis');
+        if (repoItems.isNotEmpty) {
+          effectiveDiagnoses = repoItems.where((i) => i.isActive).map((i) => i.labelEn).toList();
+        }
+      } catch (_) {}
+    }
+    if (effectiveDiagnoses.isEmpty) {
+      effectiveDiagnoses = ClinicalConstants.defaultDiagnoses;
+    }
+    if (effectiveDiagnoses.length > 22) {
+      effectiveDiagnoses = effectiveDiagnoses.take(22).toList();
+    }
+
+    // 2. Medications
+    List<String> effectiveMedications = medications?.where((m) => m.isActive).map((m) => m.labelEn).toList() ?? [];
+    if (effectiveMedications.isEmpty) {
+      try {
+        final repoItems = await LookupRepository().getItemsByCategory('medicine');
+        if (repoItems.isNotEmpty) {
+          effectiveMedications = repoItems.where((i) => i.isActive).map((i) => i.labelEn).toList();
+        }
+      } catch (_) {}
+    }
+    if (effectiveMedications.isEmpty) {
+      effectiveMedications = ClinicalConstants.defaultMedications;
+    }
+    if (effectiveMedications.length > 12) {
+      effectiveMedications = effectiveMedications.take(12).toList();
+    }
+
+    // 3. Referral Hospitals
+    List<String> effectiveHospitals = referralHospitals?.where((h) => h.isActive).map((h) => h.labelEn).toList() ?? [];
+    if (effectiveHospitals.isEmpty) {
+      try {
+        final repoItems = await LookupRepository().getItemsByCategory('referral_hospital');
+        if (repoItems.isNotEmpty) {
+          effectiveHospitals = repoItems.where((i) => i.isActive).map((i) => i.labelEn).toList();
+        }
+      } catch (_) {}
+    }
+    if (effectiveHospitals.isEmpty) {
+      effectiveHospitals = ClinicalConstants.referralHospitals;
+    }
+    if (effectiveHospitals.length > 6) {
+      effectiveHospitals = effectiveHospitals.take(6).toList();
+    }
+
+    // 4. Visit Reasons (Map of code/key -> bilingual label)
+    Map<String, String> effectiveVisitReasons = {};
+    if (visitReasons != null && visitReasons.isNotEmpty) {
+      for (final vr in visitReasons.where((v) => v.isActive)) {
+        final label = (vr.labelNe.isNotEmpty && vr.labelNe != vr.labelEn)
+            ? '${vr.labelEn} (${vr.labelNe})'
+            : vr.labelEn;
+        effectiveVisitReasons[vr.code] = label;
+      }
+    }
+    if (effectiveVisitReasons.isEmpty) {
+      try {
+        final repoItems = await LookupRepository().getItemsByCategory('visit_reason');
+        if (repoItems.isNotEmpty) {
+          for (final vr in repoItems.where((v) => v.isActive)) {
+            final label = (vr.labelNe.isNotEmpty && vr.labelNe != vr.labelEn)
+                ? '${vr.labelEn} (${vr.labelNe})'
+                : vr.labelEn;
+            effectiveVisitReasons[vr.code] = label;
+          }
+        }
+      } catch (_) {}
+    }
+    if (effectiveVisitReasons.isEmpty) {
+      effectiveVisitReasons = Map.from(ClinicalConstants.visitReasonOptions);
+    }
+    if (effectiveVisitReasons.length > 8) {
+      final capped = <String, String>{};
+      for (final k in effectiveVisitReasons.keys.take(8)) {
+        capped[k] = effectiveVisitReasons[k]!;
+      }
+      effectiveVisitReasons = capped;
+    }
+
+    // 5. Chief Complaints
+    List<Map<String, String>> effectiveComplaints = [];
+    if (chiefComplaints != null && chiefComplaints.isNotEmpty) {
+      effectiveComplaints = chiefComplaints.where((c) => c.isActive).map((c) => {
+        'code': c.code,
+        'label': c.labelEn,
+      }).toList();
+    }
+    if (effectiveComplaints.isEmpty) {
+      try {
+        final repoItems = await LookupRepository().getItemsByCategory('chief_complaint');
+        if (repoItems.isNotEmpty) {
+          effectiveComplaints = repoItems.where((i) => i.isActive).map((c) => {
+            'code': c.code,
+            'label': c.labelEn,
+          }).toList();
+        }
+      } catch (_) {}
+    }
+    if (effectiveComplaints.isEmpty) {
+      effectiveComplaints = [
+        {'code': 'lower_abdominal_pain', 'label': 'Lower Abdominal Pain'},
+        {'code': 'white_foul_discharge', 'label': 'White / Foul Discharge'},
+        {'code': 'pelvic_heaviness', 'label': 'Pelvic Heaviness'},
+        {'code': 'burning_micturition', 'label': 'Burning Micturition'},
+        {'code': 'urinary_incontinence', 'label': 'Urinary Incontinence'},
+        {'code': 'dyspareunia', 'label': 'Dyspareunia'},
+        {'code': 'coital_bleeding', 'label': 'Coital Bleeding'},
+        {'code': 'mass_per_vagina', 'label': 'Mass Per Vagina'},
+        {'code': 'severe_backache', 'label': 'Severe Backache'},
+      ];
+    }
+    if (effectiveComplaints.length > 10) {
+      effectiveComplaints = effectiveComplaints.take(10).toList();
+    }
 
     // Helper: row of individual character boxes for a given value
     pw.Widget buildCharBoxes(
@@ -1716,7 +1845,7 @@ class PdfReportService {
                 pw.SizedBox(width: 8),
                 pw.Expanded(
                   flex: 48,
-                  child: field('Age at Marriage', 'विवाह उमेर',
+                  child: field('Age at Marriage', 'विवाह भएको उमेर',
                       patient?.maritalAge != null ? patient!.maritalAge.toString() : '', minBoxes: 3, maxBoxes: 3, boxSize: 13, boxMargin: 2),
                 ),
               ]),
@@ -1733,9 +1862,9 @@ class PdfReportService {
 
               // Location Row 2: Palika & Ward No.
               pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Expanded(child: field('Palika / Municipality', 'पालिका / नगर', palikaVal, minBoxes: 15, maxBoxes: 15, boxSize: 12, boxMargin: 1.5)),
+                pw.Expanded(child: field('Palika / Municipality', 'गाउँपालिका / नगरपालिका', palikaVal, minBoxes: 15, maxBoxes: 15, boxSize: 12, boxMargin: 1.5)),
                 pw.SizedBox(width: 8),
-                pw.SizedBox(width: 56, child: field('Ward No.', 'वडा', patient?.ward ?? '', minBoxes: 2, maxBoxes: 3, boxSize: 14, boxMargin: 2)),
+                pw.SizedBox(width: 56, child: field('Ward No.', 'वडा नं.', patient?.ward ?? '', minBoxes: 2, maxBoxes: 3, boxSize: 14, boxMargin: 2)),
               ]),
             ],
           );
@@ -1745,16 +1874,17 @@ class PdfReportService {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               secHdr('SECTION B: REASONS FOR VISIT / जाँचको कारण'),
-              ...ClinicalConstants.visitReasonOptions.entries.map(
+              ...effectiveVisitReasons.entries.map(
                 (e) => cb(
                   e.value,
                   patient?.reasonsForVisit.any((r) {
                     final rNorm = r.toLowerCase().trim();
                     final keyNorm = e.key.toLowerCase().trim();
+                    final valNorm = e.value.toLowerCase().trim();
                     return rNorm == keyNorm ||
                         rNorm.contains(keyNorm) ||
                         keyNorm.contains(rNorm) ||
-                        e.value.toLowerCase().contains(rNorm);
+                        valNorm.contains(rNorm);
                   }) ?? false,
                   isExpanded: true,
                 ),
@@ -1762,10 +1892,10 @@ class PdfReportService {
 
               pw.SizedBox(height: 6),
               secHdr('SECTION C: PATIENT CONSENT / सहमति'),
-              cb('I consent to examination and treatment / जाँच र उपचार गर्न सहमति छ',
+              cb('I consent to examination and treatment / जाँच तथा उपचारका लागि मेरो सहमति छ',
                   patient?.consentTreatment ?? false, isExpanded: true),
               pw.SizedBox(height: 3),
-              cb('I consent to storage of my medical information / स्वास्थ्य विवरण भण्डारण गर्न सहमति छ',
+              cb('I consent to storage of my medical information / मेरो स्वास्थ्य विवरण सुरक्षित राख्न सहमति छ',
                   patient?.consentStoreMedicalInfo ?? false, isExpanded: true),
 
               pw.SizedBox(height: 10),
@@ -1842,8 +1972,10 @@ class PdfReportService {
                             style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: primary)),
                         pw.Text('PATIENT REGISTRATION — PAGE 1 (FRONT) | Yellow Form',
                             style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: dark)),
-                        pw.Text('PLEASE FILL IN BLOCK LETTERS — ठूला अक्षरमा भर्नुहोस् | Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} | Date: ${dateFormatter.format(intakeDate)}',
-                            style: pw.TextStyle(fontSize: 6.8, color: PdfColors.grey700)),
+                        pw.Text(
+                          'PLEASE FILL IN BLOCK LETTERS — ठूला अक्षरमा भर्नुहोस् | Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")}${camp != null && camp.doctorName.trim().isNotEmpty ? " | Dr: ${sanitizeText(camp.doctorName.trim())}" : ""} | Date: ${dateFormatter.format(intakeDate)}',
+                          style: pw.TextStyle(fontSize: 6.8, color: PdfColors.grey700),
+                        ),
                       ]),
                     ),
                     pw.SizedBox(width: 10),
@@ -1998,17 +2130,21 @@ class PdfReportService {
               pw.SizedBox(height: 2),
               pw.Text('Clinical Complaints:', style: bold()),
               pw.SizedBox(height: 2),
-              pw.Wrap(spacing: 0, runSpacing: 1, children: [
-                cb('Lower Abdominal Pain', complaintsList.any((c) => c.contains('lower abdominal') || c.contains('abdominal pain'))),
-                cb('White / Foul Discharge', complaintsList.any((c) => c.contains('white') || c.contains('discharge'))),
-                cb('Pelvic Heaviness', complaintsList.any((c) => c.contains('heaviness'))),
-                cb('Burning Micturition', complaintsList.any((c) => c.contains('burning'))),
-                cb('Urinary Incontinence', complaintsList.any((c) => c.contains('incontinence'))),
-                cb('Dyspareunia', complaintsList.any((c) => c.contains('dyspareunia'))),
-                cb('Coital Bleeding', complaintsList.any((c) => c.contains('coital') || c.contains('bleeding'))),
-                cb('Mass Per Vagina', complaintsList.any((c) => c.contains('mass') || c.contains('hanging'))),
-                cb('Severe Backache', complaintsList.any((c) => c.contains('backache') || c.contains('back'))),
-              ]),
+              pw.Wrap(
+                spacing: 0, runSpacing: 1,
+                children: effectiveComplaints.map((item) {
+                  final lbl = item['label'] ?? '';
+                  final code = item['code'] ?? '';
+                  final codeWords = code.replaceAll('_', ' ');
+                  final isChecked = complaintsList.any((c) =>
+                    c.contains(lbl.toLowerCase()) ||
+                    c.contains(codeWords) ||
+                    (code == 'mass_per_vagina' && (c.contains('mass') || c.contains('hanging'))) ||
+                    (code == 'severe_backache' && (c.contains('backache') || c.contains('back')))
+                  );
+                  return cb(sanitizeText(lbl), isChecked);
+                }).toList(),
+              ),
               pw.SizedBox(height: 5),
 
               // ── STATION 2: POP EXAMINATION ───────────────────────────────
@@ -2117,7 +2253,7 @@ class PdfReportService {
               sectionHeader('STATION 4: CONFIRMED DIAGNOSES / निदान'),
               pw.Wrap(
                 spacing: 0, runSpacing: 1,
-                children: ClinicalConstants.defaultDiagnoses
+                children: effectiveDiagnoses
                     .map((d) {
                       final isChecked = visit?.diagnoses.any((diag) {
                         final dNorm = d.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
@@ -2143,7 +2279,7 @@ class PdfReportService {
               pw.SizedBox(height: 2),
               pw.Wrap(
                 spacing: 0, runSpacing: 1,
-                children: ClinicalConstants.defaultMedications
+                children: effectiveMedications
                     .map((m) {
                       final isChecked = visit?.medications.any((med) {
                         final mNorm = m.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
@@ -2181,7 +2317,7 @@ class PdfReportService {
               pw.SizedBox(height: 5),
 
               // ── STATION 6: OUTTAKE ───────────────────────────────────────
-              sectionHeader('STATION 6: OUTTAKE & CONTINUITY OF CARE / अनुगमन'),
+              sectionHeader('STATION 6: OUTTAKE & CONTINUITY OF CARE / अनुगमन तथा फलो-अप'),
               pw.Row(children: [
                 pw.Text('Follow-up Required: ', style: bold()),
                 cb('Yes (Follow-up Needed)', visit?.followUpNeeded == true),
@@ -2193,15 +2329,21 @@ class PdfReportService {
               pw.SizedBox(height: 2),
               pw.Text('Surgical Referral:', style: bold(size: fsSmall)),
               pw.SizedBox(height: 2),
-              pw.Row(children: [
-                cb('None', visit != null && (visit.surgicalReferral == null || visit.surgicalReferral!.isEmpty)),
-                ...ClinicalConstants.referralHospitals.map((h) => cb(sanitizeText(h), visit?.surgicalReferral?.toLowerCase().contains(h.toLowerCase().split(' ').first) == true)),
-              ]),
+              pw.Wrap(
+                spacing: 0, runSpacing: 1,
+                children: [
+                  cb('None', visit != null && (visit.surgicalReferral == null || visit.surgicalReferral!.isEmpty)),
+                  ...effectiveHospitals.map((h) => cb(
+                    sanitizeText(h),
+                    visit?.surgicalReferral?.toLowerCase().contains(h.toLowerCase().split(' ').first) == true,
+                  )),
+                ],
+              ),
               pw.SizedBox(height: 2),
               pw.Text('Clinical Notes:', style: bold(size: fsSmall)),
               line(h: 12, text: visit?.outtakeNotes),
               line(h: 12),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: (camp != null && camp.doctorName.trim().isNotEmpty) ? 4 : 8),
 
               // Signatures
               pw.Row(
@@ -2214,10 +2356,21 @@ class PdfReportService {
                     pw.Text('Name & Date:', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
                   ]),
                   pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                    pw.Container(width: 115, height: 0.8, color: PdfColors.black),
+                    pw.Container(width: 120, height: 0.8, color: PdfColors.black),
                     pw.SizedBox(height: 2),
-                    pw.Text('Medical Officer / Gynecologist', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold)),
-                    pw.Text('NMC Certified — Date:', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                    if (camp != null && camp.doctorName.trim().isNotEmpty) ...[
+                      pw.Text(
+                        camp.doctorName.trim().toLowerCase().startsWith('dr')
+                            ? sanitizeText(camp.doctorName.trim())
+                            : 'Dr. ${sanitizeText(camp.doctorName.trim())}',
+                        style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold, color: dark),
+                      ),
+                      pw.Text('Medical Officer / Gynecologist', style: pw.TextStyle(fontSize: 6.2, color: PdfColors.grey700)),
+                      pw.Text('NMC Certified — Date: ${dateFormatter.format(intakeDate)}', style: pw.TextStyle(fontSize: 5.8, color: PdfColors.grey600)),
+                    ] else ...[
+                      pw.Text('Medical Officer / Gynecologist', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('NMC Certified — Date:', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                    ],
                   ]),
                 ],
               ),

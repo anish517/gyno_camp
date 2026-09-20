@@ -40,7 +40,13 @@ class LookupRepository implements ILookupRepository {
       if (fromLabel.length > 1) {
         return fromLabel;
       }
-      final prefix = category == 'referral_hospital' ? 'hosp' : (category == 'medicine' ? 'med' : 'diag');
+      final prefix = category == 'referral_hospital'
+          ? 'hosp'
+          : (category == 'medicine'
+              ? 'med'
+              : (category == 'chief_complaint'
+                  ? 'complaint'
+                  : (category == 'visit_reason' ? 'reason' : 'diag')));
       return '${prefix}_${DateTime.now().millisecondsSinceEpoch % 100000}';
     }
     return trimmed;
@@ -340,6 +346,10 @@ class LookupRepository implements ILookupRepository {
     if (existingReasons.isEmpty) {
       for (final entry in ClinicalConstants.visitReasonOptions.entries) {
         final cleanCode = entry.key.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+        final reg = RegExp(r'^(.*?)\s*\((.*?)\)$');
+        final match = reg.firstMatch(entry.value);
+        final labelEn = match != null ? match.group(1)!.trim() : entry.key;
+        final labelNe = match != null ? match.group(2)!.trim() : entry.value;
         await db.insert(
           DatabaseTables.tableLookupItems,
           {
@@ -347,10 +357,47 @@ class LookupRepository implements ILookupRepository {
             'category': 'visit_reason',
             'sub_category': 'Reason for Visit',
             'code': cleanCode,
-            'label_en': entry.key,
-            'label_ne': entry.value,
+            'label_en': labelEn,
+            'label_ne': labelNe,
             'is_active': 1,
             'sort_order': ClinicalConstants.visitReasonOptions.keys.toList().indexOf(entry.key) + 1,
+            'tenant_id': targetTenant,
+            'is_deleted': 0,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
+
+    // 3c. Seed default Chief Complaints (Yellow Form Standard Symptoms)
+    final existingComplaints = await getItemsByCategory('chief_complaint', tenantId: targetTenant);
+    if (existingComplaints.isEmpty) {
+      final defaultComplaints = [
+        {'en': 'Lower Abdominal Pain', 'ne': 'तल्लो पेट दुख्ने', 'sub': 'Pelvic & Abdominal'},
+        {'en': 'White / Foul Discharge', 'ne': 'सेतो वा गन्हाउने पानी बग्ने', 'sub': 'Infections & Discharge'},
+        {'en': 'Pelvic Heaviness', 'ne': 'तल्लो पेट भारी हुने', 'sub': 'Pelvic Floor & Prolapse'},
+        {'en': 'Burning Micturition', 'ne': 'पिसाब पोल्ने', 'sub': 'Urinary Symptoms'},
+        {'en': 'Urinary Incontinence', 'ne': 'पिसाब चुहिने', 'sub': 'Urinary Symptoms'},
+        {'en': 'Dyspareunia', 'ne': 'यौन सम्पर्कमा दुखाई', 'sub': 'Reproductive & Sexual'},
+        {'en': 'Coital Bleeding', 'ne': 'सम्पर्कपछि रगत बग्ने', 'sub': 'Bleeding & Neoplasms'},
+        {'en': 'Mass Per Vagina', 'ne': 'पाठेघर / मासु खस्ने', 'sub': 'Pelvic Floor & Prolapse'},
+        {'en': 'Severe Backache', 'ne': 'कम्मर दुख्ने', 'sub': 'Musculoskeletal & General'},
+      ];
+      int idx = 0;
+      for (final c in defaultComplaints) {
+        idx++;
+        final cleanCode = c['en']!.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+        await db.insert(
+          DatabaseTables.tableLookupItems,
+          {
+            'id': 'complaint-$targetTenant-$idx',
+            'category': 'chief_complaint',
+            'sub_category': c['sub'],
+            'code': cleanCode,
+            'label_en': c['en'],
+            'label_ne': c['ne'],
+            'is_active': 1,
+            'sort_order': idx,
             'tenant_id': targetTenant,
             'is_deleted': 0,
           },
