@@ -7,6 +7,13 @@ import 'package:gyno_camp/views/scanner/form_scan_view.dart';
 void main() {
   group('FormScanView Widget Tests', () {
     testWidgets('FormScanView renders dual-slot capture prompt with Page 1 and Page 2 cards', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(

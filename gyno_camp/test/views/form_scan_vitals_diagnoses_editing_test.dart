@@ -112,13 +112,47 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.widgetWithText(InputChip, 'Ring Pessary 65mm'), findsOneWidget);
 
-      // ── 7. Check Surgical Referral & Follow-up Destination ─────────────
+      // ── 7. Check Surgery Done & Route Card ─────────────────────────────
+      expect(find.text('Surgery Done & Route (शल्यक्रिया भएको र विधि)'), findsOneWidget);
+      final surgerySwitches = find.byType(Switch);
+      expect(surgerySwitches, findsWidgets);
+
+      // Tap surgery switch to enable
+      await tester.tap(surgerySwitches.first);
+      await tester.pumpAndSettle();
+
+      // Verify the 3 surgical routes are available
+      expect(find.widgetWithText(ChoiceChip, 'Open surgery'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Laparoscopy'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Vaginal route'), findsOneWidget);
+
+      // Select Vaginal route
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Vaginal route'));
+      await tester.pumpAndSettle();
+
+      // ── 8. Check Ring Pessary Insertion Card ───────────────────────────
+      expect(find.text('Ring Pessary Insertion (रिङ्ग पेसरी राखिएको)'), findsOneWidget);
+      await tester.tap(surgerySwitches.last);
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(ChoiceChip, '70mm'), findsOneWidget);
+      await tester.tap(find.widgetWithText(ChoiceChip, '70mm'));
+      await tester.pumpAndSettle();
+
+      // ── 9. Check Surgical Referral & Follow-up Destination ─────────────
       expect(find.text('Surgical Referral & Follow-up (शल्यक्रिया सिफारिस)'), findsOneWidget);
       await tester.tap(find.widgetWithText(ChoiceChip, 'Model Hospital'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.widgetWithText(ChoiceChip, 'Camp Follow-up Day (पुनः शिविर)'));
       await tester.pumpAndSettle();
+
+      // ── 10. Switch to Tab 5: Verify Accuracy and verify display ─────────
+      await tester.tap(find.text('✅ Verify Accuracy'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Surgery Done & Route'), findsOneWidget);
+      expect(find.text('Ring Pessary'), findsWidgets);
     });
   });
 }

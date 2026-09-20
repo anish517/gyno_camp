@@ -348,7 +348,14 @@ class NepalGeodata {
     if (province == null || province.isEmpty || province == 'all') {
       return districtsByProvince.values.expand((d) => d).toList()..sort();
     }
-    return districtsByProvince[province] ?? [];
+    final key = districtsByProvince.keys.firstWhere(
+      (k) => k.toLowerCase() == province.trim().toLowerCase(),
+      orElse: () => '',
+    );
+    if (key.isNotEmpty) {
+      return districtsByProvince[key]!;
+    }
+    return [];
   }
 
   static List<String> get allDistricts =>

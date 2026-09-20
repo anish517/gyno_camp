@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
+import '../core/services/gemini_ocr_service.dart';
 import '../core/services/mlkit_ocr_service.dart';
 import '../core/services/ocr_form_service.dart';
 import '../models/clinical_visit_model.dart';
@@ -10,10 +11,24 @@ import '../models/patient_model.dart';
 import 'audit_repository.dart';
 import 'patient_repository.dart';
 
+enum OcrEngineMode {
+  auto,
+  onlineGemini,
+  offlineOnly,
+}
+
 abstract class IOcrRepository {
   Future<OcrScanResultModel> processTextScan(String text, {int pageNumber = 0, String? imagePath});
-  Future<OcrScanResultModel> processImageScan(XFile imageFile, {int pageNumber = 0});
-  Future<OcrScanResultModel> processDualPageScan({required XFile page1File, required XFile page2File});
+  Future<OcrScanResultModel> processImageScan(
+    XFile imageFile, {
+    int pageNumber = 0,
+    OcrEngineMode engineMode = OcrEngineMode.auto,
+  });
+  Future<OcrScanResultModel> processDualPageScan({
+    required XFile page1File,
+    required XFile page2File,
+    OcrEngineMode engineMode = OcrEngineMode.auto,
+  });
   Future<PatientModel> commitVerifiedScan({
     required OcrScanResultModel verifiedScan,
     required String campId,
@@ -28,15 +43,21 @@ class OcrRepository implements IOcrRepository {
   final OcrFormService _ocrService;
   final IPatientRepository _patientRepository;
   final AuditRepository _auditRepository;
+  final GeminiOcrService _geminiService;
+  final MlKitOcrService Function() _mlkitFactory;
   final Uuid _uuid = const Uuid();
 
   OcrRepository({
     OcrFormService? ocrService,
     IPatientRepository? patientRepository,
     AuditRepository? auditRepository,
+    GeminiOcrService? geminiService,
+    MlKitOcrService Function()? mlkitFactory,
   })  : _ocrService = ocrService ?? const OcrFormService(),
         _patientRepository = patientRepository ?? PatientRepository(),
-        _auditRepository = auditRepository ?? AuditRepository();
+        _auditRepository = auditRepository ?? AuditRepository(),
+        _geminiService = geminiService ?? GeminiOcrService(),
+        _mlkitFactory = mlkitFactory ?? (() => MlKitOcrService());
 
   @override
   Future<OcrScanResultModel> processTextScan(String text, {int pageNumber = 0, String? imagePath}) async {
@@ -44,7 +65,11 @@ class OcrRepository implements IOcrRepository {
   }
 
   @override
-  Future<OcrScanResultModel> processImageScan(XFile imageFile, {int pageNumber = 0}) async {
+  Future<OcrScanResultModel> processImageScan(
+    XFile imageFile, {
+    int pageNumber = 0,
+    OcrEngineMode engineMode = OcrEngineMode.auto,
+  }) async {
     final path = imageFile.path;
     final lowerPath = path.toLowerCase();
 
@@ -58,9 +83,40 @@ class OcrRepository implements IOcrRepository {
       detectedPage = pageNumber;
     }
 
-    // Attempt real OCR — Android/iOS via ML Kit (dual-pass Latin+Devanagari),
-    // Windows via PowerShell WinRT
-    final mlkit = MlKitOcrService();
+    // 1. If engineMode is onlineGemini or auto: try Gemini Flash multimodal OCR first
+    if (engineMode == OcrEngineMode.onlineGemini || engineMode == OcrEngineMode.auto) {
+      try {
+        if (kDebugMode) {
+          debugPrint('[OcrRepo] 🌐 Attempting Gemini Flash OCR for page $detectedPage (Mode: $engineMode)...');
+        }
+        final geminiResult = await _geminiService.extractFromImage(imageFile, pageNumber: detectedPage);
+        if (kDebugMode) {
+          debugPrint('[OcrRepo] ✅ Gemini Flash extraction succeeded for page $detectedPage');
+          debugPrint('[OcrRepo] Demographics: ${geminiResult.demographics["firstName"]} ${geminiResult.demographics["surname"]}');
+        }
+        return geminiResult;
+      } catch (e) {
+        if (engineMode == OcrEngineMode.onlineGemini) {
+          // Strict online mode: propagate failure to user
+          if (kDebugMode) {
+            debugPrint('[OcrRepo] ❌ Gemini Flash OCR failed in strict online mode: $e');
+          }
+          rethrow;
+        }
+        // Auto mode: log warning and smoothly fall back to On-Device ML Kit
+        if (kDebugMode) {
+          debugPrint('[OcrRepo] ⚠️ Gemini Flash failed in AUTO mode: $e. Falling back to On-Device ML Kit.');
+        }
+      }
+    }
+
+    // 2. Offline / On-Device ML Kit OCR (Android/iOS ML Kit, Windows WinRT OCR)
+    return _processOfflineMlKitScan(imageFile, detectedPage: detectedPage);
+  }
+
+  Future<OcrScanResultModel> _processOfflineMlKitScan(XFile imageFile, {required int detectedPage}) async {
+    final path = imageFile.path;
+    final mlkit = _mlkitFactory();
     String extractedText = '';
     String? ocrError;
     try {
@@ -93,8 +149,6 @@ class OcrRepository implements IOcrRepository {
           debugPrint('[OcrRepo] Reason: OCR returned empty text (image may be too blurry/dark)');
         }
       }
-      // Graceful fallback: use sample text template so the clinical intake pipeline
-      // stays functional and the nurse is never blocked, but flag result as simulated.
       textToProcess = detectedPage == 1
           ? OcrFormService.samplePage1Text
           : (detectedPage == 2
@@ -117,17 +171,20 @@ class OcrRepository implements IOcrRepository {
       debugPrint('[OcrRepo] Overall confidence: ${(result.overallConfidence * 100).toStringAsFixed(0)}%');
     }
 
-    // Propagate simulation flag so FormScanView can show the amber warning banner
-    return isSimulated ? result.copyWith(isSimulated: true) : result;
+    return result.copyWith(
+      isSimulated: isSimulated,
+      ocrEngine: isSimulated ? AppConstants.ocrEngineSimulation : AppConstants.ocrEngineMlKitOffline,
+    );
   }
 
   @override
   Future<OcrScanResultModel> processDualPageScan({
     required XFile page1File,
     required XFile page2File,
+    OcrEngineMode engineMode = OcrEngineMode.auto,
   }) async {
-    final scan1 = await processImageScan(page1File, pageNumber: 1);
-    final scan2 = await processImageScan(page2File, pageNumber: 2);
+    final scan1 = await processImageScan(page1File, pageNumber: 1, engineMode: engineMode);
+    final scan2 = await processImageScan(page2File, pageNumber: 2, engineMode: engineMode);
     return OcrScanResultModel.merge(scan1, scan2);
   }
 
@@ -226,6 +283,12 @@ class OcrRepository implements IOcrRepository {
       diagnoses: verifiedScan.diagnoses,
       counseling: const [],
       medications: verifiedScan.medications,
+      pessaryType: (verifiedScan.ringPessary || pop['ringPessary'] == true) ? 'ring' : null,
+      pessarySize: verifiedScan.ringPessarySize != null
+          ? '${verifiedScan.ringPessarySize}mm'
+          : (pop['ringPessarySize'] != null ? '${pop['ringPessarySize']}mm' : null),
+      surgeryDone: verifiedScan.surgeryDone || pop['surgeryDone'] == true,
+      surgeryType: verifiedScan.surgeryType ?? pop['surgeryType'] as String?,
       surgicalReferral: verifiedScan.surgicalReferral,
       followUpNeeded: (pop['highestPopStage'] as int? ?? 0) >= 2,
       followUpDestination: verifiedScan.followUpDestination ?? 'Health Post',
@@ -248,7 +311,7 @@ class OcrRepository implements IOcrRepository {
       action: AppConstants.auditActionPatientRegisteredViaOcr,
       entityType: 'PATIENT',
       entityId: registeredPatient.id,
-      detailsJson: '{"patientId":"${registeredPatient.patientId}","confidence":${verifiedScan.overallConfidence}}',
+      detailsJson: '{"patientId":"${registeredPatient.patientId}","confidence":${verifiedScan.overallConfidence},"ocrEngine":"${verifiedScan.ocrEngine}"}',
       deviceId: deviceId,
     );
 

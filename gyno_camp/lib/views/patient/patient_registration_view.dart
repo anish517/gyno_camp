@@ -916,8 +916,8 @@ class _PatientRegistrationViewState
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
                             key: ValueKey('province_${state.province}'),
-                            initialValue: ClinicalConstants.nepalProvinces.contains(state.province)
-                                ? state.province
+                            initialValue: ClinicalConstants.nepalProvinces.any((p) => p.toLowerCase() == state.province.toLowerCase())
+                                ? ClinicalConstants.nepalProvinces.firstWhere((p) => p.toLowerCase() == state.province.toLowerCase())
                                 : 'Bagmati',
                             decoration: const InputDecoration(
                               labelText: 'Province * (प्रदेश)',
@@ -1092,8 +1092,8 @@ class _PatientRegistrationViewState
                                 child: DropdownButtonFormField<String>(
                                   isExpanded: true,
                                   key: ValueKey('province_desktop_${state.province}'),
-                                  initialValue: ClinicalConstants.nepalProvinces.contains(state.province)
-                                      ? state.province
+                                  initialValue: ClinicalConstants.nepalProvinces.any((p) => p.toLowerCase() == state.province.toLowerCase())
+                                      ? ClinicalConstants.nepalProvinces.firstWhere((p) => p.toLowerCase() == state.province.toLowerCase())
                                       : 'Bagmati',
                                   decoration: const InputDecoration(
                                     labelText: 'Province * (प्रदेश)',
@@ -1727,8 +1727,14 @@ class _PatientRegistrationViewState
                               itemBuilder: (context, index) {
                                 final reason = _reasonOptions.keys.elementAt(index);
                                 final label = _reasonOptions[reason]!;
-                                final isChecked = state.selectedReasons
-                                    .contains(reason);
+                                final isChecked = state.selectedReasons.any((r) {
+                                  final rNorm = r.trim().toLowerCase();
+                                  final reasonNorm = reason.trim().toLowerCase();
+                                  return rNorm == reasonNorm ||
+                                      rNorm.contains(reasonNorm) ||
+                                      reasonNorm.contains(rNorm) ||
+                                      (label.toLowerCase().contains(rNorm) && rNorm.length > 3);
+                                });
                                 return _buildReasonTile(
                                   reason,
                                   label,

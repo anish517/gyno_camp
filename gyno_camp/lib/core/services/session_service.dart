@@ -66,6 +66,8 @@ class SessionService {
   static const String _keyPgUseSsl = 'gynocamp_pg_use_ssl';
   static const String _keyPgDirectMode = 'gynocamp_pg_direct_mode';
   static const String _keyDeviceInstallToken = 'gynocamp_device_install_token';
+  static const String _keyOcrEngineMode = 'gynocamp_ocr_engine_mode';
+  static const String _keyGeminiApiKey = 'gynocamp_gemini_api_key';
 
   static SessionService? _instance;
   final SharedPreferences? _prefs;
@@ -159,4 +161,19 @@ class SessionService {
       isDirectModeEnabled: _prefs.getBool(_keyPgDirectMode) ?? false,
     );
   }
+
+  // OCR Preferences
+  Future<void> saveOcrEngineMode(String mode) async {
+    if (_prefs == null) return;
+    await _prefs.setString(_keyOcrEngineMode, mode);
+  }
+
+  String getOcrEngineMode() => _prefs?.getString(_keyOcrEngineMode) ?? 'auto';
+
+  Future<void> saveGeminiApiKey(String apiKey) async {
+    if (_prefs == null) return;
+    await _prefs.setString(_keyGeminiApiKey, apiKey);
+  }
+
+  String? getGeminiApiKey() => _prefs?.getString(_keyGeminiApiKey);
 }

@@ -8,6 +8,7 @@ import '../../core/services/clinical_validation_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/ocr_scan_result_model.dart';
 import '../../models/patient_model.dart';
+import '../../repositories/ocr_repository.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
@@ -146,7 +147,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Header Badge: MoHP Nepal Standard
+              // Header Badge: MoHP Nepal Standard & Engine Mode
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                 decoration: BoxDecoration(
@@ -154,14 +155,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.verified_user_outlined, color: AppTheme.primaryTeal, size: 16),
-                    SizedBox(width: 8),
+                    const Icon(Icons.verified_user_outlined, color: AppTheme.primaryTeal, size: 16),
+                    const SizedBox(width: 8),
                     Text(
-                      'OFFLINE CLINICAL OPTICAL CHARACTER RECOGNITION (OCR)',
-                      style: TextStyle(
+                      ocrState.engineMode == OcrEngineMode.onlineGemini
+                          ? 'GEMINI FLASH AI MULTIMODAL CLOUD OCR'
+                          : (ocrState.engineMode == OcrEngineMode.offlineOnly
+                              ? 'OFFLINE ON-DEVICE ML KIT OCR'
+                              : 'INTELLIGENT DUAL OCR (GEMINI CLOUD + OFFLINE ML KIT)'),
+                      style: const TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.1,
@@ -183,6 +188,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondaryLight, height: 1.45),
               ),
               const SizedBox(height: 16),
+
+              // OCR Engine Selector Control
+              _buildEngineSelector(ocrState, ocrVm),
+              const SizedBox(height: 12),
 
               // Instruction Banner: Block Letters for Scan Accuracy
               Container(
@@ -222,6 +231,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     title: 'Page 1 (Front Page)',
                     subtitle: 'Demographics, Obstetric History & Visit Reasons',
                     isCaptured: ocrState.hasPage1,
+                    ocrEngine: ocrState.page1Scan?.ocrEngine,
                     summaryText: ocrState.hasPage1
                         ? '${ocrState.page1Scan!.demographics["firstName"] ?? "Patient"} ${ocrState.page1Scan!.demographics["surname"] ?? ""} (${ocrState.page1Scan!.demographics["age"] ?? 35}y) • Ward ${ocrState.page1Scan!.demographics["ward"] ?? "03"}'
                         : null,
@@ -235,6 +245,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     title: 'Page 2 (Back Page)',
                     subtitle: 'POP Staging, Vitals, Diagnoses & Prescriptions',
                     isCaptured: ocrState.hasPage2,
+                    ocrEngine: ocrState.page2Scan?.ocrEngine,
                     summaryText: ocrState.hasPage2
                         ? 'POP Stage ${ocrState.page2Scan!.popStaging["highestPopStage"] ?? 3} • BP ${ocrState.page2Scan!.vitals["systolicBp"] ?? 120}/${ocrState.page2Scan!.vitals["diastolicBp"] ?? 80} • ${ocrState.page2Scan!.diagnoses.length} Diagnoses'
                         : null,
@@ -428,11 +439,147 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     );
   }
 
+  Widget _buildEngineSelector(OcrScanState ocrState, OcrScanViewModel ocrVm) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.settings_suggest_outlined, size: 18, color: AppTheme.primaryTeal),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'OCR Detection Engine (अप्टिकल पहिचान इन्जिन):',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (ocrState.engineMode == OcrEngineMode.auto) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.green.shade300),
+                  ),
+                  child: const Text(
+                    '⚡ Recommended',
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.green),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          SegmentedButton<OcrEngineMode>(
+            segments: const [
+              ButtonSegment<OcrEngineMode>(
+                value: OcrEngineMode.auto,
+                icon: Icon(Icons.bolt, size: 15),
+                label: Text('⚡ Auto (Cloud + Offline)', style: TextStyle(fontSize: 11.5)),
+              ),
+              ButtonSegment<OcrEngineMode>(
+                value: OcrEngineMode.onlineGemini,
+                icon: Icon(Icons.auto_awesome, size: 15),
+                label: Text('✨ Gemini AI (Cloud)', style: TextStyle(fontSize: 11.5)),
+              ),
+              ButtonSegment<OcrEngineMode>(
+                value: OcrEngineMode.offlineOnly,
+                icon: Icon(Icons.phone_android, size: 15),
+                label: Text('📱 ML Kit (Offline)', style: TextStyle(fontSize: 11.5)),
+              ),
+            ],
+            selected: {ocrState.engineMode},
+            onSelectionChanged: (Set<OcrEngineMode> newSelection) {
+              ocrVm.setEngineMode(newSelection.first);
+            },
+            style: SegmentedButton.styleFrom(
+              selectedBackgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.15),
+              selectedForegroundColor: AppTheme.primaryTeal,
+              textStyle: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEngineBadge(String? engine) {
+    if (engine == 'gemini_flash') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.indigo.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.indigo.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.auto_awesome, size: 11, color: Colors.indigo.shade700),
+            const SizedBox(width: 4),
+            Text('Gemini AI', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.indigo.shade800)),
+          ],
+        ),
+      );
+    } else if (engine == 'mlkit_offline') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.teal.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.teal.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.phone_android, size: 11, color: Colors.teal.shade700),
+            const SizedBox(width: 4),
+            Text('ML Kit Offline', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.teal.shade800)),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.amber.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.amber.shade300),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.info_outline, size: 11, color: Colors.amber.shade800),
+            const SizedBox(width: 4),
+            Text('Simulation', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber.shade900)),
+          ],
+        ),
+      );
+    }
+  }
+
   Widget _buildPageSlotCard({
     required int pageNumber,
     required String title,
     required String subtitle,
     required bool isCaptured,
+    String? ocrEngine,
     String? summaryText,
     required VoidCallback onCamera,
     required VoidCallback onGallery,
@@ -484,20 +631,29 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 ),
                 const SizedBox(width: 6),
                 if (isCaptured)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.successGreen.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check_circle, size: 14, color: AppTheme.successGreen),
-                        SizedBox(width: 4),
-                        Text('Ready', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.successGreen)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (ocrEngine != null) ...[
+                        _buildEngineBadge(ocrEngine),
+                        const SizedBox(width: 6),
                       ],
-                    ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.successGreen.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_circle, size: 14, color: AppTheme.successGreen),
+                            SizedBox(width: 4),
+                            Text('Ready', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.successGreen)),
+                          ],
+                        ),
+                      ),
+                    ],
                   )
                 else
                   Container(
@@ -818,11 +974,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           : (ocrState.hasPage1 ? 'Page 1 Verification (Front Page)' : 'Page 2 Verification (Back Page)'),
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
                     ),
-                    Text(
-                      'AI Digitization: ${(result.overallConfidence * 100).toInt()}% Confidence • Cross-check against form',
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        runSpacing: 2,
+                        children: [
+                          Text(
+                            'AI Digitization: ${(result.overallConfidence * 100).toInt()}% Confidence',
+                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                          ),
+                          _buildEngineBadge(result.ocrEngine),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -981,17 +1144,22 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
   Widget _buildDemographicsTab(OcrScanResultModel result, OcrScanViewModel vm, OcrScanState ocrState, String? campId) {
     final demo = result.demographics;
 
-    final selectedProvince = demo['province']?.toString().isNotEmpty == true
-        ? demo['province'].toString()
-        : 'Bagmati';
-    final validProvince = ClinicalConstants.nepalProvinces.contains(selectedProvince)
-        ? selectedProvince
-        : 'Bagmati';
+    final rawProv = demo['province']?.toString().trim() ?? '';
+    final validProvince = ClinicalConstants.nepalProvinces.firstWhere(
+      (p) => p.toLowerCase() == rawProv.toLowerCase(),
+      orElse: () => 'Bagmati',
+    );
     final districtList = NepalGeodata.districtsFor(validProvince);
-    final selectedDistrict = demo['district']?.toString();
-    final validDistrict = (selectedDistrict != null && districtList.contains(selectedDistrict))
-        ? selectedDistrict
-        : (districtList.isNotEmpty ? districtList.first : null);
+    final rawDist = demo['district']?.toString().trim() ?? '';
+    final validDistrict = districtList.firstWhere(
+      (d) => d.toLowerCase() == rawDist.toLowerCase() || rawDist.toLowerCase().contains(d.toLowerCase()),
+      orElse: () {
+        for (final d in NepalGeodata.allDistricts) {
+          if (d.toLowerCase() == rawDist.toLowerCase()) return d;
+        }
+        return districtList.isNotEmpty ? districtList.first : '';
+      },
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -1319,7 +1487,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: ClinicalConstants.visitReasonOptions.entries.map((entry) {
                   final key = entry.key;
                   final label = entry.value;
-                  final isSelected = currentReasons.contains(key);
+                  final isSelected = currentReasons.contains(key) ||
+                      currentReasons.any((r) {
+                        final rLower = r.toLowerCase();
+                        return rLower == key.toLowerCase() ||
+                            rLower == label.toLowerCase() ||
+                            (key == 'something hanging out' && (rLower.contains('hanging') || rLower.contains('prolapse') || rLower.contains('पाठेघर खस्ने'))) ||
+                            (key == 'discharge and or itching' && (rLower.contains('discharge') || rLower.contains('itching') || rLower.contains('स्राव') || rLower.contains('चिलाउने'))) ||
+                            (key == 'problems passing urine' && (rLower.contains('urine') || rLower.contains('पिसाब'))) ||
+                            (key == 'problems passing stool' && (rLower.contains('stool') || rLower.contains('दिसा'))) ||
+                            (key == 'menstrual problem' && (rLower.contains('menstrual') || rLower.contains('महिनावारी'))) ||
+                            (key == 'infertility' && (rLower.contains('infertility') || rLower.contains('बाँझोपन'))) ||
+                            (key == 'pain' && (rLower.contains('pain') || rLower.contains('दुखाई'))) ||
+                            (key == 'checkup' && (rLower.contains('checkup') || rLower.contains('जाँच')));
+                      });
                   return FilterChip(
                     label: Text(
                       label,
@@ -1337,7 +1518,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       if (selected) {
                         if (!updated.contains(key)) updated.add(key);
                       } else {
-                        updated.remove(key);
+                        updated.removeWhere((r) => r == key || r == label || r.toLowerCase().contains(key));
                       }
                       vm.updateDemographic('reasonsForVisit', updated, campId: campId);
                     },
@@ -2773,7 +2954,157 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ),
           const SizedBox(height: 16),
 
-          // ── 6. SURGICAL REFERRAL & FOLLOW-UP DESTINATION ───────────
+          // ── 6. SURGERY DONE & SURGICAL ROUTE (शल्यक्रिया) ───────────
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: result.surgeryDone ? AppTheme.primaryTeal : Colors.grey.shade300,
+                width: result.surgeryDone ? 1.5 : 1.0,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.medical_services_outlined, color: AppTheme.primaryTeal, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Surgery Done & Route (शल्यक्रिया भएको र विधि)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                        ),
+                      ),
+                      Switch(
+                        value: result.surgeryDone,
+                        activeColor: AppTheme.primaryTeal,
+                        onChanged: (val) {
+                          vm.updateSurgery(
+                            done: val,
+                            type: val ? (result.surgeryType ?? 'Vaginal route') : null,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Did the patient undergo surgical procedure at camp / hospital?',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                  ),
+                  if (result.surgeryDone) ...[
+                    const SizedBox(height: 12),
+                    const Text('Surgical Route / Method (शल्यक्रियाको विधि):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: ClinicalConstants.surgeryTypes.map((sType) {
+                        final isSelected = result.surgeryType == sType;
+                        return ChoiceChip(
+                          label: Text(sType),
+                          selected: isSelected,
+                          selectedColor: AppTheme.primaryLight,
+                          labelStyle: TextStyle(
+                            color: isSelected ? AppTheme.primaryDark : const Color(0xFF334155),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              vm.updateSurgery(done: true, type: sType);
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── 7. RING PESSARY INSERTION (रिङ्ग पेसरी) ────────────────
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: result.ringPessary ? AppTheme.primaryTeal : Colors.grey.shade300,
+                width: result.ringPessary ? 1.5 : 1.0,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.radio_button_unchecked, color: AppTheme.primaryTeal, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Ring Pessary Insertion (रिङ्ग पेसरी राखिएको)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                        ),
+                      ),
+                      Switch(
+                        value: result.ringPessary,
+                        activeColor: AppTheme.primaryTeal,
+                        onChanged: (val) {
+                          vm.updateRingPessary(
+                            ringPessary: val,
+                            size: val ? (result.ringPessarySize ?? 70) : null,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Was a ring pessary fitted and retained successfully during exam?',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                  ),
+                  if (result.ringPessary) ...[
+                    const SizedBox(height: 12),
+                    const Text('Pessary Size (साइज mm):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [55, 60, 65, 70, 75, 80, 85].map((sz) {
+                        final isSelected = result.ringPessarySize == sz;
+                        return ChoiceChip(
+                          label: Text('${sz}mm'),
+                          selected: isSelected,
+                          selectedColor: AppTheme.primaryLight,
+                          labelStyle: TextStyle(
+                            color: isSelected ? AppTheme.primaryDark : const Color(0xFF334155),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              vm.updateRingPessary(ringPessary: true, size: sz);
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── 8. SURGICAL REFERRAL & FOLLOW-UP DESTINATION ───────────
           Card(
             elevation: 1.5,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -2908,6 +3239,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       // ── Diagnoses & Medications ───────────────────────────
       {'key': 'diagnoses',      'label': 'Diagnoses',        'section': 'Clinical',     'tabIndex': 3, 'value': result.diagnoses.isEmpty ? '—' : result.diagnoses.join(', '), 'confKey': 'diagnoses'},
       {'key': 'medications',    'label': 'Medications',      'section': 'Clinical',     'tabIndex': 3, 'value': result.medications.isEmpty ? '—' : result.medications.join(', '), 'confKey': 'medications'},
+      {'key': 'surgeryDone',    'label': 'Surgery Done & Route', 'section': 'Clinical', 'tabIndex': 3, 'value': result.surgeryDone ? (result.surgeryType ?? 'Done') : 'No Surgery', 'confKey': 'diagnoses'},
+      {'key': 'ringPessary',    'label': 'Ring Pessary',     'section': 'Clinical',     'tabIndex': 3, 'value': result.ringPessary ? (result.ringPessarySize != null ? 'Inserted (${result.ringPessarySize}mm)' : 'Inserted') : 'None', 'confKey': 'diagnoses'},
       {'key': 'referral',       'label': 'Surgical Referral','section': 'Clinical',     'tabIndex': 3, 'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
       {'key': 'followUp',       'label': 'Follow-up',        'section': 'Clinical',     'tabIndex': 3, 'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
     ];

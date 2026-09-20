@@ -7,6 +7,7 @@ class OcrScanResultModel {
   final String? page2RawText;
   final bool isDualPage;
   final bool isSimulated; // true = ML Kit unavailable, demo fallback text was used
+  final String ocrEngine; // 'gemini_flash', 'mlkit_offline', or 'simulation'
   final Map<String, dynamic> demographics;
   final Map<String, dynamic> obstetrics;
   final Map<String, dynamic> vitals;
@@ -15,6 +16,10 @@ class OcrScanResultModel {
   final List<String> medications;
   final String? surgicalReferral;
   final String? followUpDestination;
+  final bool surgeryDone;
+  final String? surgeryType; // 'Open surgery', 'Laparoscopy', 'Vaginal route'
+  final bool ringPessary;
+  final int? ringPessarySize; // in mm, e.g. 65, 70
   final Map<String, double> fieldConfidences;
   final double overallConfidence;
   final String rawText;
@@ -29,6 +34,7 @@ class OcrScanResultModel {
     this.page2RawText,
     this.isDualPage = false,
     this.isSimulated = false,
+    this.ocrEngine = 'mlkit_offline',
     required this.demographics,
     required this.obstetrics,
     required this.vitals,
@@ -37,6 +43,10 @@ class OcrScanResultModel {
     required this.medications,
     this.surgicalReferral,
     this.followUpDestination,
+    this.surgeryDone = false,
+    this.surgeryType,
+    this.ringPessary = false,
+    this.ringPessarySize,
     required this.fieldConfidences,
     required this.overallConfidence,
     required this.rawText,
@@ -52,6 +62,7 @@ class OcrScanResultModel {
     String? page2RawText,
     bool? isDualPage,
     bool? isSimulated,
+    String? ocrEngine,
     Map<String, dynamic>? demographics,
     Map<String, dynamic>? obstetrics,
     Map<String, dynamic>? vitals,
@@ -62,6 +73,12 @@ class OcrScanResultModel {
     bool clearSurgicalReferral = false,
     String? followUpDestination,
     bool clearFollowUpDestination = false,
+    bool? surgeryDone,
+    String? surgeryType,
+    bool clearSurgeryType = false,
+    bool? ringPessary,
+    int? ringPessarySize,
+    bool clearRingPessarySize = false,
     Map<String, double>? fieldConfidences,
     double? overallConfidence,
     String? rawText,
@@ -76,6 +93,7 @@ class OcrScanResultModel {
       page2RawText: page2RawText ?? this.page2RawText,
       isDualPage: isDualPage ?? this.isDualPage,
       isSimulated: isSimulated ?? this.isSimulated,
+      ocrEngine: ocrEngine ?? this.ocrEngine,
       demographics: demographics ?? Map<String, dynamic>.from(this.demographics),
       obstetrics: obstetrics ?? Map<String, dynamic>.from(this.obstetrics),
       vitals: vitals ?? Map<String, dynamic>.from(this.vitals),
@@ -84,6 +102,10 @@ class OcrScanResultModel {
       medications: medications ?? List<String>.from(this.medications),
       surgicalReferral: clearSurgicalReferral ? null : (surgicalReferral ?? this.surgicalReferral),
       followUpDestination: clearFollowUpDestination ? null : (followUpDestination ?? this.followUpDestination),
+      surgeryDone: surgeryDone ?? this.surgeryDone,
+      surgeryType: clearSurgeryType ? null : (surgeryType ?? this.surgeryType),
+      ringPessary: ringPessary ?? this.ringPessary,
+      ringPessarySize: clearRingPessarySize ? null : (ringPessarySize ?? this.ringPessarySize),
       fieldConfidences: fieldConfidences ?? Map<String, double>.from(this.fieldConfidences),
       overallConfidence: overallConfidence ?? this.overallConfidence,
       rawText: rawText ?? this.rawText,
@@ -109,10 +131,15 @@ ${page1.rawText}
 ${page2.rawText}
 ''';
 
+    final mergedEngine = (page1.ocrEngine == 'gemini_flash' || page2.ocrEngine == 'gemini_flash')
+        ? 'gemini_flash'
+        : page1.ocrEngine;
+
     return OcrScanResultModel(
       pageNumber: 0, // 0 = Full Combined Intake
       isDualPage: true,
       isSimulated: page1.isSimulated || page2.isSimulated,
+      ocrEngine: mergedEngine,
       imagePath: page1.imagePath ?? page2.imagePath,
       page1ImagePath: page1.imagePath,
       page2ImagePath: page2.imagePath,
@@ -135,6 +162,10 @@ ${page2.rawText}
       medications: List<String>.from(page2.medications.isNotEmpty ? page2.medications : page1.medications),
       surgicalReferral: page2.surgicalReferral ?? page1.surgicalReferral,
       followUpDestination: page2.followUpDestination ?? page1.followUpDestination,
+      surgeryDone: page2.surgeryDone || page1.surgeryDone,
+      surgeryType: page2.surgeryType ?? page1.surgeryType,
+      ringPessary: page2.ringPessary || page1.ringPessary,
+      ringPessarySize: page2.ringPessarySize ?? page1.ringPessarySize,
       fieldConfidences: mergedConfidences,
       overallConfidence: double.parse(avgConf.toStringAsFixed(2)),
       rawText: combinedText,
@@ -154,6 +185,7 @@ ${page2.rawText}
     return {
       'pageNumber': pageNumber,
       'isSimulated': isSimulated ? 1 : 0,
+      'ocrEngine': ocrEngine,
       'imagePath': imagePath,
       'page1ImagePath': page1ImagePath,
       'page2ImagePath': page2ImagePath,
@@ -168,6 +200,10 @@ ${page2.rawText}
       'medications': medications,
       'surgicalReferral': surgicalReferral,
       'followUpDestination': followUpDestination,
+      'surgeryDone': surgeryDone ? 1 : 0,
+      'surgeryType': surgeryType,
+      'ringPessary': ringPessary ? 1 : 0,
+      'ringPessarySize': ringPessarySize,
       'fieldConfidences': fieldConfidences,
       'overallConfidence': overallConfidence,
       'rawText': rawText,
@@ -178,6 +214,7 @@ ${page2.rawText}
   factory OcrScanResultModel.empty() {
     return OcrScanResultModel(
       pageNumber: 0,
+      ocrEngine: 'mlkit_offline',
       demographics: {},
       obstetrics: {},
       vitals: {},

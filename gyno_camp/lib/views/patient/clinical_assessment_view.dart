@@ -695,7 +695,15 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: ['< 1month', '< 1 year', '> 1 year', '> 5 years', '> 10 years'].map((d) {
+                children: [
+                  '< 3 months',
+                  '3-12 months',
+                  '> 1 year',
+                  if (selectedDuration != null &&
+                      selectedDuration.isNotEmpty &&
+                      !['< 3 months', '3-12 months', '> 1 year'].contains(selectedDuration))
+                    selectedDuration,
+                ].map((d) {
                   final isSelected = selectedDuration == d;
                   return ChoiceChip(
                     visualDensity: VisualDensity.compact,

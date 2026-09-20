@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/document_capture_service.dart';
+import '../core/services/session_service.dart';
 import '../models/ocr_scan_result_model.dart';
 import '../models/patient_model.dart';
 import '../repositories/ocr_repository.dart';
@@ -14,6 +15,7 @@ class OcrScanState {
   final OcrScanResultModel? page2Scan;
   final OcrScanResultModel? scanResult;
   final int activeInspectionPage; // 1 = Front Page, 2 = Back Page
+  final OcrEngineMode engineMode; // auto, onlineGemini, offlineOnly
   final String? errorMessage;
   final String? successMessage;
   final PatientModel? committedPatient;
@@ -26,6 +28,7 @@ class OcrScanState {
     this.page2Scan,
     this.scanResult,
     this.activeInspectionPage = 1,
+    this.engineMode = OcrEngineMode.auto,
     this.errorMessage,
     this.successMessage,
     this.committedPatient,
@@ -45,6 +48,7 @@ class OcrScanState {
     OcrScanResultModel? page2Scan,
     OcrScanResultModel? scanResult,
     int? activeInspectionPage,
+    OcrEngineMode? engineMode,
     String? errorMessage,
     String? successMessage,
     PatientModel? committedPatient,
@@ -60,6 +64,7 @@ class OcrScanState {
       page2Scan: clearPage2 ? null : (page2Scan ?? this.page2Scan),
       scanResult: clearScanResult ? null : (scanResult ?? this.scanResult),
       activeInspectionPage: activeInspectionPage ?? this.activeInspectionPage,
+      engineMode: engineMode ?? this.engineMode,
       errorMessage: errorMessage,
       successMessage: successMessage,
       committedPatient: committedPatient ?? this.committedPatient,
@@ -80,7 +85,19 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
   })  : _repository = repository ?? OcrRepository(),
         _patientRepository = patientRepository ?? PatientRepository(),
         _captureService = captureService ?? DocumentCaptureService(),
-        super(const OcrScanState());
+        super(OcrScanState(engineMode: _loadInitialEngineMode()));
+
+  static OcrEngineMode _loadInitialEngineMode() {
+    final saved = SessionService.current?.getOcrEngineMode();
+    if (saved == 'onlineGemini') return OcrEngineMode.onlineGemini;
+    if (saved == 'offlineOnly') return OcrEngineMode.offlineOnly;
+    return OcrEngineMode.auto;
+  }
+
+  Future<void> setEngineMode(OcrEngineMode mode) async {
+    state = state.copyWith(engineMode: mode);
+    await SessionService.current?.saveOcrEngineMode(mode.name);
+  }
 
   /// Loads a high-fidelity sample Yellow Form (Front page, Back page, or Full form)
   Future<void> loadSample(String sampleType) async {
@@ -143,7 +160,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       if (!mounted) return;
       // Photo confirmed — now show the processing indicator
       state = state.copyWith(isProcessing: true);
-      final result = await _repository.processImageScan(photo, pageNumber: pageNumber);
+      final result = await _repository.processImageScan(photo, pageNumber: pageNumber, engineMode: state.engineMode);
       if (!mounted) return;
       if (pageNumber == 1) {
         state = state.copyWith(
@@ -188,7 +205,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       if (!mounted) return;
       // File confirmed — now show the processing indicator
       state = state.copyWith(isProcessing: true);
-      final result = await _repository.processImageScan(photo, pageNumber: pageNumber);
+      final result = await _repository.processImageScan(photo, pageNumber: pageNumber, engineMode: state.engineMode);
       if (!mounted) return;
       if (pageNumber == 1) {
         state = state.copyWith(
@@ -230,7 +247,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       // Files confirmed — now show the processing indicator
       state = state.copyWith(isProcessing: true);
       if (photos.length == 1) {
-        final res = await _repository.processImageScan(photos[0], pageNumber: 1);
+        final res = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
         if (!mounted) return;
         state = state.copyWith(
           isProcessing: false,
@@ -241,8 +258,8 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       }
 
       // Process first as Page 1, second as Page 2
-      final res1 = await _repository.processImageScan(photos[0], pageNumber: 1);
-      final res2 = await _repository.processImageScan(photos[1], pageNumber: 2);
+      final res1 = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
+      final res2 = await _repository.processImageScan(photos[1], pageNumber: 2, engineMode: state.engineMode);
       if (!mounted) return;
       final merged = OcrScanResultModel.merge(res1, res2);
 
@@ -272,7 +289,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
       state = state.copyWith(isProcessing: true);
       if (photos.length == 1) {
-        final res = await _repository.processImageScan(photos[0], pageNumber: 1);
+        final res = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
         if (!mounted) return;
         state = state.copyWith(
           isProcessing: false,
@@ -282,8 +299,8 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         return;
       }
 
-      final res1 = await _repository.processImageScan(photos[0], pageNumber: 1);
-      final res2 = await _repository.processImageScan(photos[1], pageNumber: 2);
+      final res1 = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
+      final res2 = await _repository.processImageScan(photos[1], pageNumber: 2, engineMode: state.engineMode);
       if (!mounted) return;
       final merged = OcrScanResultModel.merge(res1, res2);
 
@@ -533,6 +550,60 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         followUpDestination: destination,
         clearFollowUpDestination: destination == null,
       ),
+    );
+  }
+
+  /// Updates surgery done and surgery route during human verification
+  void updateSurgery({required bool done, String? type}) {
+    if (state.scanResult == null) return;
+    final updatedPop = Map<String, dynamic>.from(state.scanResult!.popStaging);
+    updatedPop['surgeryDone'] = done;
+    updatedPop['surgeryType'] = done ? type : null;
+
+    final updatedScan = state.scanResult!.copyWith(
+      surgeryDone: done,
+      surgeryType: done ? type : null,
+      clearSurgeryType: !done,
+      popStaging: updatedPop,
+    );
+
+    final updatedPage2 = state.page2Scan?.copyWith(
+      surgeryDone: done,
+      surgeryType: done ? type : null,
+      clearSurgeryType: !done,
+      popStaging: updatedPop,
+    );
+
+    state = state.copyWith(
+      scanResult: updatedScan,
+      page2Scan: updatedPage2,
+    );
+  }
+
+  /// Updates ring pessary status and size during human verification
+  void updateRingPessary({required bool ringPessary, int? size}) {
+    if (state.scanResult == null) return;
+    final updatedPop = Map<String, dynamic>.from(state.scanResult!.popStaging);
+    updatedPop['ringPessary'] = ringPessary;
+    updatedPop['ringPessarySize'] = ringPessary ? size : null;
+
+    final updatedScan = state.scanResult!.copyWith(
+      ringPessary: ringPessary,
+      ringPessarySize: ringPessary ? size : null,
+      clearRingPessarySize: !ringPessary,
+      popStaging: updatedPop,
+    );
+
+    final updatedPage2 = state.page2Scan?.copyWith(
+      ringPessary: ringPessary,
+      ringPessarySize: ringPessary ? size : null,
+      clearRingPessarySize: !ringPessary,
+      popStaging: updatedPop,
+    );
+
+    state = state.copyWith(
+      scanResult: updatedScan,
+      page2Scan: updatedPage2,
     );
   }
 

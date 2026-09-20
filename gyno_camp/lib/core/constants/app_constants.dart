@@ -53,4 +53,12 @@ class AppConstants {
   static const String auditActionCampArchive = 'CAMP_ARCHIVED';
   static const String auditActionCampUpdate = 'CAMP_UPDATED';
   static const String auditActionStaffAssign = 'CAMP_STAFF_ASSIGNED';
+
+  // OCR Engines & Settings
+  static const String ocrEngineGeminiFlash = 'gemini_flash';
+  static const String ocrEngineMlKitOffline = 'mlkit_offline';
+  static const String ocrEngineSimulation = 'simulation';
+  static const String defaultGeminiApiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
+  static const String defaultGeminiModel = 'gemini-flash-lite-latest';
+  static const String geminiEndpointUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent';
 }
