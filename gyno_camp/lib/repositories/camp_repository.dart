@@ -7,6 +7,7 @@ import '../core/services/http_central_api_service.dart';
 import '../models/camp_model.dart';
 import '../models/user_model.dart';
 import 'audit_repository.dart';
+import 'sync_repository.dart';
 
 abstract class ICampRepository {
   Future<List<CampModel>> getAllCamps();
@@ -116,6 +117,10 @@ class CampRepository implements ICampRepository {
             }
           }
         }
+        // Automatically pull latest patient records & visits into local database
+        try {
+          await SyncRepository().pullDelta(deviceId: 'dev-auto', userId: 'usr-auto');
+        } catch (_) {}
       } catch (_) {}
     });
   }
