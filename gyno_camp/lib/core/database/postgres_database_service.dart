@@ -60,6 +60,9 @@ class PostgresDatabaseService {
 
   /// Establishes or reuses connection
   Future<Connection> getConnection({PostgresConfig? config}) async {
+    if (kIsWeb) {
+      throw UnsupportedError('Raw PostgreSQL TCP connection not supported on Web. Use Central Sync API on port 8080.');
+    }
     if (_connection != null && _connection!.isOpen) {
       return _connection!;
     }
@@ -85,6 +88,7 @@ class PostgresDatabaseService {
 
   /// Tests connectivity and latency
   Future<int> testConnection(PostgresConfig config) async {
+    if (kIsWeb) return 0;
     final sw = Stopwatch()..start();
     Connection? testConn;
     try {
@@ -104,6 +108,7 @@ class PostgresDatabaseService {
 
   /// Creates all required tables and indexes in PostgreSQL
   Future<void> initializePostgresSchema({PostgresConfig? config}) async {
+    if (kIsWeb) return;
     final conn = await getConnection(config: config);
 
     // Users table
@@ -286,6 +291,12 @@ class PostgresDatabaseService {
     PostgresConfig? config,
     DatabaseService? localDbService,
   }) async {
+    if (kIsWeb) {
+      return const PostgresSyncResult(
+        success: true,
+        errorMessage: 'Web platform uses HTTP Central API on port 8080.',
+      );
+    }
     final sw = Stopwatch()..start();
     final dbService = localDbService ?? DatabaseService();
     final localDb = await dbService.database;

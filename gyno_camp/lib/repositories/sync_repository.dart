@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
@@ -110,11 +111,13 @@ class SyncRepository implements ISyncRepository {
     // 4. Send delta to central server
     final response = await _centralApiService.pushDelta(payload);
 
-    // Automatically sync to PostgreSQL central database
-    try {
-      await PostgresDatabaseService().syncSqliteToPostgres();
-    } catch (_) {
-      // Continues gracefully if PostgreSQL is not currently running or in mock tests
+    // Automatically sync to PostgreSQL central database on native platforms
+    if (!kIsWeb) {
+      try {
+        await PostgresDatabaseService().syncSqliteToPostgres();
+      } catch (_) {
+        // Continues gracefully if PostgreSQL is not currently running or in mock tests
+      }
     }
 
     // 5. Update local SQLite records to synced
