@@ -535,7 +535,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Chief Complaints Details (Yellow Form Standard Symptoms)',
+                'Chief Complaints Details (Dynamic Master Data & Standard Symptoms)',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
               ),
             ),
@@ -543,86 +543,152 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         ),
         const SizedBox(height: 4),
         const Text(
-          'Tap any duration or symptom option to record clinical findings. Active selections highlight in teal:',
+          'Dynamic complaints from Clinical Master Data. Tap any duration or symptom option to record findings:',
           style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
         ),
         const SizedBox(height: 12),
 
-        _buildComplaintCard(
-          state: state,
-          vm: vm,
-          complaintKey: 'prolapse',
-          title: 'Something hanging out (पाठेघर खस्ने समस्या)',
-          hasDuration: true,
-          options: ['previous pessary', 'previous surgery'],
-          isIntakeReason: patientReasons.any((r) => r.contains('hanging') || r.contains('prolapse')),
-        ),
-        const SizedBox(height: 10),
+        ...() {
+          final lookupState = ref.watch(masterLookupProvider);
+          final activeMasterComplaints = lookupState.activeChiefComplaints;
 
-        _buildComplaintCard(
-          state: state,
-          vm: vm,
-          complaintKey: 'discharge',
-          title: 'Discharge / Itching (पानी बग्ने / चिलाउने)',
-          hasDuration: true,
-          options: ['white', 'yellow', 'green', 'grey', 'smelly'],
-          isIntakeReason: patientReasons.any((r) => r.contains('discharge') || r.contains('itching')),
-        ),
-        const SizedBox(height: 10),
+          // Standard baseline Yellow Form complaints
+          final standardComplaints = [
+            {
+              'key': 'prolapse',
+              'title': 'Something hanging out (पाठेघर खस्ने समस्या)',
+              'subCategory': 'Pelvic Floor & Prolapse',
+              'hasDuration': true,
+              'options': ['previous pessary', 'previous surgery'],
+              'matches': (List<String> r) => r.any((x) => x.contains('hanging') || x.contains('prolapse') || x.contains('पाठेघर')),
+            },
+            {
+              'key': 'discharge',
+              'title': 'Discharge / Itching (पानी बग्ने / चिलाउने)',
+              'subCategory': 'Infections & Discharge',
+              'hasDuration': true,
+              'options': ['white', 'yellow', 'green', 'grey', 'smelly'],
+              'matches': (List<String> r) => r.any((x) => x.contains('discharge') || x.contains('itching') || x.contains('स्राव') || x.contains('चिलाउने')),
+            },
+            {
+              'key': 'urine',
+              'title': 'Problems passing urine (पिसाब सम्बन्धी समस्या)',
+              'subCategory': 'Urinary Symptoms',
+              'hasDuration': true,
+              'options': ['stress incontinence', 'urge incontinence', 'continuous flow'],
+              'matches': (List<String> r) => r.any((x) => x.contains('urine') || x.contains('पिसाब')),
+            },
+            {
+              'key': 'stool',
+              'title': 'Problems passing stool (दिसा सम्बन्धी समस्या)',
+              'subCategory': 'Gastrointestinal & Bowel',
+              'hasDuration': true,
+              'options': ['problems passing stool', 'anal incontinence'],
+              'matches': (List<String> r) => r.any((x) => x.contains('stool') || x.contains('दिसा')),
+            },
+            {
+              'key': 'menstrual',
+              'title': 'Menstrual problem (महिनावारी समस्या)',
+              'subCategory': 'Menstrual & Hormonal',
+              'hasDuration': false,
+              'options': ['dysmenorrhoea', 'metrorrhagia', 'menorrhagia', 'postmenopausal bleeding'],
+              'matches': (List<String> r) => r.any((x) => x.contains('menstrual') || x.contains('महिनावारी')),
+            },
+            {
+              'key': 'infertility',
+              'title': 'Infertility / Conception Difficulty (बाँझोपन)',
+              'subCategory': 'Reproductive & Fertility',
+              'hasDuration': true,
+              'options': ['infertility'],
+              'matches': (List<String> r) => r.any((x) => x.contains('infertility') || x.contains('बाँझोपन')),
+            },
+            {
+              'key': 'pain',
+              'title': 'Pelvic / Back Pain (तल्लो पेट वा ढाड दुख्ने)',
+              'subCategory': 'Pelvic & Abdominal',
+              'hasDuration': true,
+              'options': ['pain'],
+              'matches': (List<String> r) => r.any((x) => x.contains('pain') || x.contains('दुखाई')),
+            },
+          ];
 
-        _buildComplaintCard(
-          state: state,
-          vm: vm,
-          complaintKey: 'urine',
-          title: 'Problems passing urine (पिसाब सम्बन्धी समस्या)',
-          hasDuration: true,
-          options: ['stress incontinence', 'urge incontinence', 'continuous flow'],
-          isIntakeReason: patientReasons.any((r) => r.contains('urine')),
-        ),
-        const SizedBox(height: 10),
+          final List<Map<String, dynamic>> resolvedComplaints = [];
+          final Set<String> processedKeys = {};
 
-        _buildComplaintCard(
-          state: state,
-          vm: vm,
-          complaintKey: 'stool',
-          title: 'Problems passing stool (दिसा सम्बन्धी समस्या)',
-          hasDuration: true,
-          options: ['problems passing stool', 'anal incontinence'],
-          isIntakeReason: patientReasons.any((r) => r.contains('stool')),
-        ),
-        const SizedBox(height: 10),
+          if (activeMasterComplaints.isNotEmpty) {
+            for (final masterItem in activeMasterComplaints) {
+              final code = masterItem.code.toLowerCase().trim();
+              processedKeys.add(code);
 
-        _buildComplaintCard(
-          state: state,
-          vm: vm,
-          complaintKey: 'menstrual',
-          title: 'Menstrual problem (महिनावारी समस्या)',
-          hasDuration: false,
-          options: ['dysmenorrhoea', 'metrorrhagia', 'menorrhagia', 'postmenopausal bleeding'],
-          isIntakeReason: patientReasons.any((r) => r.contains('menstrual')),
-        ),
-        const SizedBox(height: 10),
+              final stdMatch = standardComplaints.cast<Map<String, dynamic>?>().firstWhere(
+                (s) => s != null && (s['key'] == code ||
+                       masterItem.labelEn.toLowerCase().contains(s['key'] as String) ||
+                       (s['title'] as String).toLowerCase().contains(masterItem.labelEn.toLowerCase())),
+                orElse: () => null,
+              );
 
-        _buildComplaintCard(
-          state: state,
-          vm: vm,
-          complaintKey: 'infertility',
-          title: 'Infertility / Conception Difficulty (बाँझोपन)',
-          hasDuration: true,
-          options: ['infertility'],
-          isIntakeReason: patientReasons.any((r) => r.contains('infertility')),
-        ),
-        const SizedBox(height: 10),
+              final title = masterItem.labelNe.isNotEmpty
+                  ? '${masterItem.labelEn} (${masterItem.labelNe})'
+                  : masterItem.labelEn;
 
-        _buildComplaintCard(
-          state: state,
-          vm: vm,
-          complaintKey: 'pain',
-          title: 'Pelvic / Back Pain (तल्लो पेट वा ढाड दुख्ने)',
-          hasDuration: true,
-          options: ['pain'],
-          isIntakeReason: patientReasons.any((r) => r.contains('pain')),
-        ),
+              resolvedComplaints.add({
+                'key': code,
+                'title': title,
+                'subCategory': masterItem.subCategory ?? stdMatch?['subCategory'],
+                'hasDuration': stdMatch?['hasDuration'] ?? true,
+                'options': stdMatch?['options'] ?? <String>[],
+                'isIntakeReason': patientReasons.any((r) =>
+                    r.contains(code) ||
+                    r.contains(masterItem.labelEn.toLowerCase()) ||
+                    (masterItem.labelNe.isNotEmpty && r.contains(masterItem.labelNe.toLowerCase()))),
+              });
+            }
+
+            // Also keep standard Yellow Form baseline complaints that haven't been customized
+            for (final std in standardComplaints) {
+              final stdKey = std['key'] as String;
+              if (!processedKeys.contains(stdKey) && !resolvedComplaints.any((r) => r['key'] == stdKey)) {
+                final matchesFn = std['matches'] as bool Function(List<String>);
+                resolvedComplaints.add({
+                  'key': stdKey,
+                  'title': std['title'] as String,
+                  'subCategory': std['subCategory'] as String?,
+                  'hasDuration': std['hasDuration'] as bool,
+                  'options': std['options'] as List<String>,
+                  'isIntakeReason': matchesFn(patientReasons),
+                });
+              }
+            }
+          } else {
+            for (final std in standardComplaints) {
+              final matchesFn = std['matches'] as bool Function(List<String>);
+              resolvedComplaints.add({
+                'key': std['key'] as String,
+                'title': std['title'] as String,
+                'subCategory': std['subCategory'] as String?,
+                'hasDuration': std['hasDuration'] as bool,
+                'options': std['options'] as List<String>,
+                'isIntakeReason': matchesFn(patientReasons),
+              });
+            }
+          }
+
+          return resolvedComplaints.map((comp) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10.0),
+              child: _buildComplaintCard(
+                state: state,
+                vm: vm,
+                complaintKey: comp['key'] as String,
+                title: comp['title'] as String,
+                hasDuration: comp['hasDuration'] as bool,
+                options: comp['options'] as List<String>,
+                subCategory: comp['subCategory'] as String?,
+                isIntakeReason: comp['isIntakeReason'] as bool,
+              ),
+            );
+          }).toList();
+        }(),
       ],
     );
   }
@@ -634,6 +700,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     required String title,
     required bool hasDuration,
     required List<String> options,
+    String? subCategory,
     bool isIntakeReason = false,
   }) {
     final complaintData = (state.complaints[complaintKey] as Map?) ?? {};
@@ -670,6 +737,21 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     ),
                   ),
                 ),
+                if (subCategory != null && subCategory.isNotEmpty) ...[
+                  Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: Text(
+                      subCategory,
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                    ),
+                  ),
+                ],
                 if (isIntakeReason)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

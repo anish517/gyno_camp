@@ -381,5 +381,50 @@ void main() {
 
       await tester.binding.setSurfaceSize(null);
     });
+
+    testWidgets('Station 1 Anamnesis dynamically displays custom Chief Complaints from Master Data (e.g. Aaa)', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 1200));
+
+      final fakeLookupRepo = FakeLookupRepository();
+      fakeLookupRepo.items.add(
+        const LookupItemModel(
+          id: 'c1',
+          category: 'chief_complaint',
+          subCategory: 'Pelvic & Abdominal',
+          code: 'aaa',
+          labelEn: 'Aaa',
+          labelNe: '',
+          isActive: true,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+            lookupRepositoryProvider.overrideWithValue(fakeLookupRepo),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: ClinicalAssessmentView(patient: testPatient),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify custom Chief Complaint Aaa is dynamically rendered in Station 1
+      expect(find.text('Aaa'), findsOneWidget);
+      expect(find.text('Pelvic & Abdominal'), findsWidgets);
+
+      // Verify duration chips on Aaa
+      expect(find.text('< 3 months'), findsWidgets);
+
+      // Tap '< 3 months' on Aaa
+      final threeMonthsChips = find.widgetWithText(ChoiceChip, '< 3 months');
+      await tester.tap(threeMonthsChips.first);
+      await tester.pumpAndSettle();
+
+      await tester.binding.setSurfaceSize(null);
+    });
   });
 }
