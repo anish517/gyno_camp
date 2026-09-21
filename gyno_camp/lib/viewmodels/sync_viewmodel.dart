@@ -5,6 +5,7 @@ import '../core/services/network_connectivity_service.dart';
 import '../models/sync_payload_model.dart';
 import '../repositories/sync_repository.dart';
 import 'camp_viewmodel.dart';
+import 'master_lookup_viewmodel.dart';
 import 'patient_list_viewmodel.dart';
 
 class SyncState {
@@ -172,6 +173,7 @@ class SyncViewModel extends StateNotifier<SyncState> {
           if (activeCamp != null) {
             r.read(patientListProvider.notifier).loadPatients(activeCamp.id);
           }
+          r.read(masterLookupProvider.notifier).loadAll();
         } catch (_) {}
       }
 
