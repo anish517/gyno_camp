@@ -17,6 +17,7 @@ import '../../viewmodels/master_lookup_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
+import '../../viewmodels/sync_viewmodel.dart';
 import '../scanner/form_scan_view.dart';
 import 'clinical_assessment_view.dart';
 import 'clinical_history_panel.dart';
@@ -86,6 +87,19 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               .search(active.id, _searchController.text.trim());
         } else {
           ref.read(patientListProvider.notifier).loadPatients(active.id);
+        }
+      }
+    });
+
+    ref.listen<SyncState>(syncStateProvider, (previous, next) {
+      if (previous?.lastSyncedAt != next.lastSyncedAt && next.lastSyncedAt != null) {
+        final currentCamp = ref.read(campStateProvider).activeCamp;
+        if (currentCamp != null) {
+          if (_searchController.text.trim().isNotEmpty) {
+            ref.read(patientListProvider.notifier).search(currentCamp.id, _searchController.text.trim());
+          } else {
+            ref.read(patientListProvider.notifier).loadPatients(currentCamp.id);
+          }
         }
       }
     });

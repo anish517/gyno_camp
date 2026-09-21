@@ -4,6 +4,8 @@ import '../core/services/central_api_service.dart';
 import '../core/services/network_connectivity_service.dart';
 import '../models/sync_payload_model.dart';
 import '../repositories/sync_repository.dart';
+import 'camp_viewmodel.dart';
+import 'patient_list_viewmodel.dart';
 
 class SyncState {
   final bool isOnline;
@@ -66,9 +68,12 @@ class SyncViewModel extends StateNotifier<SyncState> {
   String _lastKnownDeviceId = 'dev-field';
   String _lastKnownUserId = 'usr-sync';
 
+  final Ref? ref;
+
   SyncViewModel({
     required this.syncRepository,
     required INetworkConnectivityService connectivityService,
+    this.ref,
   })  : _connectivityService = connectivityService,
         super(SyncState(isOnline: connectivityService.isOnline)) {
     _init();
@@ -158,6 +163,18 @@ class SyncViewModel extends StateNotifier<SyncState> {
         lastSuccessMessage: 'Synced ${result.totalPushed} records uploaded, ${result.campsPulled} updates received.',
       );
 
+      // Instantly refresh UI state across all screens
+      final r = ref;
+      if (r != null) {
+        try {
+          r.read(campStateProvider.notifier).loadCamps();
+          final activeCamp = r.read(campStateProvider).activeCamp;
+          if (activeCamp != null) {
+            r.read(patientListProvider.notifier).loadPatients(activeCamp.id);
+          }
+        } catch (_) {}
+      }
+
       return true;
     } catch (e) {
       final hist = await syncRepository.getSyncHistory();
@@ -202,5 +219,9 @@ final syncRepositoryProvider = Provider<ISyncRepository>((ref) {
 final syncStateProvider = StateNotifierProvider<SyncViewModel, SyncState>((ref) {
   final repo = ref.watch(syncRepositoryProvider);
   final net = ref.watch(networkConnectivityProvider);
-  return SyncViewModel(syncRepository: repo, connectivityService: net);
+  return SyncViewModel(
+    syncRepository: repo,
+    connectivityService: net,
+    ref: ref,
+  );
 });
