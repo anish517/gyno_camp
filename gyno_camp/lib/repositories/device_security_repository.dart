@@ -4,6 +4,7 @@ import '../core/constants/app_constants.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
 import '../core/security/security_service.dart';
+import '../core/services/http_central_api_service.dart';
 import '../models/device_model.dart';
 import 'audit_repository.dart';
 
@@ -29,13 +30,18 @@ abstract class IDeviceSecurityRepository {
 class DeviceSecurityRepository implements IDeviceSecurityRepository {
   final DatabaseService _databaseService;
   final AuditRepository _auditRepository;
+  final HttpCentralApiService _centralApiService;
+  final bool enableCentralSync;
   final Uuid _uuid = const Uuid();
 
   DeviceSecurityRepository({
     DatabaseService? databaseService,
     AuditRepository? auditRepository,
+    HttpCentralApiService? centralApiService,
+    this.enableCentralSync = true,
   })  : _databaseService = databaseService ?? DatabaseService(),
-        _auditRepository = auditRepository ?? AuditRepository();
+        _auditRepository = auditRepository ?? AuditRepository(),
+        _centralApiService = centralApiService ?? HttpCentralApiService();
 
   @override
   Future<DeviceModel?> getDeviceByFingerprint(String fingerprint) async {
@@ -46,8 +52,39 @@ class DeviceSecurityRepository implements IDeviceSecurityRepository {
       whereArgs: [fingerprint],
       limit: 1,
     );
-    if (maps.isEmpty) return null;
-    return DeviceModel.fromMap(maps.first);
+    DeviceModel? localDevice = maps.isNotEmpty ? DeviceModel.fromMap(maps.first) : null;
+
+    // If local device is null or pending approval, check with Central Cloud Server for status updates
+    if (enableCentralSync && HttpCentralApiService.isServerConfigured && !HttpCentralApiService.isServerCooldownActive) {
+      try {
+        final centralDev = await _centralApiService.checkCentralDeviceStatus(fingerprint);
+        if (centralDev != null) {
+          if (localDevice == null) {
+            await db.insert(
+              DatabaseTables.tableDevices,
+              centralDev.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+            localDevice = centralDev;
+          } else if (centralDev.status != localDevice.status || centralDev.approvedAt != localDevice.approvedAt) {
+            final merged = centralDev.copyWith(
+              pinHash: centralDev.pinHash ?? localDevice.pinHash,
+            );
+            await db.update(
+              DatabaseTables.tableDevices,
+              merged.toMap(),
+              where: 'device_id = ?',
+              whereArgs: [localDevice.deviceId],
+            );
+            localDevice = merged;
+          }
+        }
+      } catch (e) {
+        // graceful offline fallback
+      }
+    }
+
+    return localDevice;
   }
 
   @override
@@ -66,6 +103,43 @@ class DeviceSecurityRepository implements IDeviceSecurityRepository {
   @override
   Future<List<DeviceModel>> getAllDevices() async {
     final db = await _databaseService.database;
+
+    if (enableCentralSync && HttpCentralApiService.isServerConfigured && !HttpCentralApiService.isServerCooldownActive) {
+      try {
+        final centralDevices = await _centralApiService.fetchCentralDevices();
+        for (final cDev in centralDevices) {
+          final localRows = await db.query(
+            DatabaseTables.tableDevices,
+            where: 'device_id = ?',
+            whereArgs: [cDev.deviceId],
+            limit: 1,
+          );
+          if (localRows.isEmpty) {
+            await db.insert(
+              DatabaseTables.tableDevices,
+              cDev.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          } else {
+            final local = DeviceModel.fromMap(localRows.first);
+            if (cDev.status != local.status || cDev.approvedAt != local.approvedAt) {
+              final merged = cDev.copyWith(
+                pinHash: cDev.pinHash ?? local.pinHash,
+              );
+              await db.update(
+                DatabaseTables.tableDevices,
+                merged.toMap(),
+                where: 'device_id = ?',
+                whereArgs: [cDev.deviceId],
+              );
+            }
+          }
+        }
+      } catch (e) {
+        // graceful offline fallback
+      }
+    }
+
     final maps = await db.query(
       DatabaseTables.tableDevices,
       orderBy: 'registered_at DESC',
@@ -75,6 +149,7 @@ class DeviceSecurityRepository implements IDeviceSecurityRepository {
 
   @override
   Future<List<DeviceModel>> getPendingDevices() async {
+    await getAllDevices(); // Sync latest state from Central Cloud
     final db = await _databaseService.database;
     final maps = await db.query(
       DatabaseTables.tableDevices,
@@ -149,6 +224,14 @@ class DeviceSecurityRepository implements IDeviceSecurityRepository {
       deviceId: device.deviceId,
     );
 
+    if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
+      try {
+        await _centralApiService.broadcastDevice(device);
+      } catch (e) {
+        // graceful offline fallback
+      }
+    }
+
     return (device: device, plainOtp: plainOtp);
   }
 
@@ -180,6 +263,14 @@ class DeviceSecurityRepository implements IDeviceSecurityRepository {
       where: 'device_id = ?',
       whereArgs: [deviceId],
     );
+
+    if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
+      try {
+        await _centralApiService.broadcastDevice(updated);
+      } catch (e) {
+        // graceful offline fallback
+      }
+    }
 
     return true;
   }
@@ -215,6 +306,14 @@ class DeviceSecurityRepository implements IDeviceSecurityRepository {
       deviceId: deviceId,
     );
 
+    if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
+      try {
+        await _centralApiService.approveCentralDevice(deviceId, adminUserId);
+      } catch (e) {
+        // graceful offline fallback
+      }
+    }
+
     return true;
   }
 
@@ -245,6 +344,14 @@ class DeviceSecurityRepository implements IDeviceSecurityRepository {
       detailsJson: '{"revokedAt":"${DateTime.now().toIso8601String()}"}',
       deviceId: deviceId,
     );
+
+    if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
+      try {
+        await _centralApiService.revokeCentralDevice(deviceId, adminUserId);
+      } catch (e) {
+        // graceful offline fallback
+      }
+    }
 
     return true;
   }

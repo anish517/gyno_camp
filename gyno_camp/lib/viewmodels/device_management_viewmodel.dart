@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/device_model.dart';
 import '../repositories/device_security_repository.dart';
@@ -49,13 +50,32 @@ class DeviceManagementState {
 class DeviceManagementViewModel extends StateNotifier<DeviceManagementState> {
   final IDeviceSecurityRepository _repository;
   final Ref? _ref;
+  Timer? _pollTimer;
 
   DeviceManagementViewModel(this._repository, [this._ref]) : super(const DeviceManagementState()) {
     loadDevices();
+    _startPeriodicRefresh();
   }
 
-  Future<void> loadDevices() async {
-    state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
+  void _startPeriodicRefresh() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) {
+        loadDevices(silent: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> loadDevices({bool silent = false}) async {
+    if (!silent) {
+      state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
+    }
     try {
       final list = await _repository.getAllDevices();
       if (!mounted) return;
@@ -64,7 +84,7 @@ class DeviceManagementViewModel extends StateNotifier<DeviceManagementState> {
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Failed to load devices: $e',
+        errorMessage: silent ? null : 'Failed to load devices: $e',
       );
     }
   }

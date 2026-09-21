@@ -56,6 +56,7 @@ class GynoCampSyncServer {
   final Map<String, Map<String, dynamic>> _memPatients = {};
   final Map<String, Map<String, dynamic>> _memVisits = {};
   final Map<String, Map<String, dynamic>> _memLookups = {};
+  final Map<String, Map<String, dynamic>> _memDevices = {};
   final List<Map<String, dynamic>> _memAuditLogs = [];
 
   GynoCampSyncServer({
@@ -262,6 +263,25 @@ class GynoCampSyncServer {
           tenant_id TEXT DEFAULT 'tenant_default'
         );
       ''');
+
+      await _connection!.execute('''
+        CREATE TABLE IF NOT EXISTS devices (
+          device_id TEXT PRIMARY KEY,
+          device_name TEXT NOT NULL,
+          model TEXT DEFAULT 'Android Tablet',
+          hardware_fingerprint TEXT NOT NULL,
+          status TEXT NOT NULL,
+          registered_by_user_id TEXT,
+          registered_by_name TEXT,
+          otp_hash TEXT,
+          otp_expires_at TIMESTAMPTZ,
+          registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          approved_at TIMESTAMPTZ,
+          approved_by_user_id TEXT,
+          pin_hash TEXT,
+          tenant_id TEXT DEFAULT 'tenant_default'
+        );
+      ''');
       print('✓ Verified and initialized all PostgreSQL schema tables.');
     } catch (e) {
       print('! Schema verification note: $e');
@@ -299,6 +319,16 @@ class GynoCampSyncServer {
         await _handleGetUsers(request);
       } else if (request.method == 'POST' && path == '/api/users') {
         await _handlePostUser(request);
+      } else if (request.method == 'GET' && path == '/api/devices') {
+        await _handleGetDevices(request);
+      } else if (request.method == 'GET' && path == '/api/devices/check') {
+        await _handleCheckDevice(request);
+      } else if (request.method == 'POST' && path == '/api/devices') {
+        await _handlePostDevice(request);
+      } else if (request.method == 'POST' && path == '/api/devices/approve') {
+        await _handleApproveDevice(request);
+      } else if (request.method == 'POST' && path == '/api/devices/revoke') {
+        await _handleRevokeDevice(request);
       } else {
         request.response.statusCode = HttpStatus.notFound;
         request.response.write(jsonEncode({'error': 'Endpoint not found', 'path': path}));
@@ -1075,6 +1105,238 @@ class GynoCampSyncServer {
 
     request.response.statusCode = HttpStatus.created;
     request.response.write(jsonEncode(map));
+    await request.response.close();
+  }
+
+  Future<void> _handleGetDevices(HttpRequest request) async {
+    final list = <Map<String, dynamic>>[];
+    if (_isPgConnected && _connection != null) {
+      try {
+        final rows = await _connection!.execute(
+          'SELECT device_id, device_name, model, hardware_fingerprint, status, '
+          'registered_by_user_id, registered_by_name, otp_hash, otp_expires_at, '
+          'registered_at, approved_at, approved_by_user_id, pin_hash, tenant_id '
+          'FROM devices ORDER BY registered_at DESC;'
+        );
+        for (final row in rows) {
+          list.add({
+            'device_id': row[0],
+            'device_name': row[1],
+            'model': row[2],
+            'hardware_fingerprint': row[3],
+            'status': row[4],
+            'registered_by_user_id': row[5],
+            'registered_by_name': row[6],
+            'otp_hash': row[7],
+            'otp_expires_at': row[8]?.toString(),
+            'registered_at': row[9]?.toString(),
+            'approved_at': row[10]?.toString(),
+            'approved_by_user_id': row[11],
+            'pin_hash': row[12],
+            'tenant_id': row[13],
+          });
+        }
+      } catch (e) {
+        print('Error querying devices from PostgreSQL: $e');
+      }
+    }
+    // Merge any memory devices if not already present
+    for (final memDev in _memDevices.values) {
+      if (!list.any((d) => d['device_id'] == memDev['device_id'])) {
+        list.add(memDev);
+      }
+    }
+
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode(list));
+    await request.response.close();
+  }
+
+  Future<void> _handleCheckDevice(HttpRequest request) async {
+    final fp = request.uri.queryParameters['fingerprint'];
+    if (fp == null || fp.isEmpty) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'error': 'Missing fingerprint query parameter'}));
+      await request.response.close();
+      return;
+    }
+
+    Map<String, dynamic>? found;
+    if (_isPgConnected && _connection != null) {
+      try {
+        final rows = await _connection!.execute(
+          Sql.named(
+            'SELECT device_id, device_name, model, hardware_fingerprint, status, '
+            'registered_by_user_id, registered_by_name, otp_hash, otp_expires_at, '
+            'registered_at, approved_at, approved_by_user_id, pin_hash, tenant_id '
+            'FROM devices WHERE hardware_fingerprint = @fp LIMIT 1;'
+          ),
+          parameters: {'fp': fp},
+        );
+        if (rows.isNotEmpty) {
+          final row = rows.first;
+          found = {
+            'device_id': row[0],
+            'device_name': row[1],
+            'model': row[2],
+            'hardware_fingerprint': row[3],
+            'status': row[4],
+            'registered_by_user_id': row[5],
+            'registered_by_name': row[6],
+            'otp_hash': row[7],
+            'otp_expires_at': row[8]?.toString(),
+            'registered_at': row[9]?.toString(),
+            'approved_at': row[10]?.toString(),
+            'approved_by_user_id': row[11],
+            'pin_hash': row[12],
+            'tenant_id': row[13],
+          };
+        }
+      } catch (e) {
+        print('Error checking device in Postgres: $e');
+      }
+    }
+
+    found ??= _memDevices.values.firstWhere(
+      (d) => d['hardware_fingerprint'] == fp,
+      orElse: () => {},
+    );
+
+    if (found.isEmpty) {
+      request.response.statusCode = HttpStatus.notFound;
+      request.response.write(jsonEncode({'error': 'Device not found', 'fingerprint': fp}));
+    } else {
+      request.response.statusCode = HttpStatus.ok;
+      request.response.write(jsonEncode(found));
+    }
+    await request.response.close();
+  }
+
+  Future<void> _handlePostDevice(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    final map = jsonDecode(body) as Map<String, dynamic>;
+    final deviceId = map['device_id']?.toString() ?? 'dev-${DateTime.now().millisecondsSinceEpoch}';
+    map['device_id'] = deviceId;
+    _memDevices[deviceId] = map;
+
+    if (_isPgConnected && _connection != null) {
+      try {
+        await _connection!.execute(
+          Sql.named('''
+            INSERT INTO devices (
+              device_id, device_name, model, hardware_fingerprint, status,
+              registered_by_user_id, registered_by_name, otp_hash, otp_expires_at,
+              registered_at, approved_at, approved_by_user_id, pin_hash, tenant_id
+            ) VALUES (
+              @device_id, @device_name, @model, @hardware_fingerprint, @status,
+              @registered_by_user_id, @registered_by_name, @otp_hash, @otp_expires_at,
+              @registered_at, @approved_at, @approved_by_user_id, @pin_hash, @tenant_id
+            )
+            ON CONFLICT (device_id) DO UPDATE SET
+              device_name = EXCLUDED.device_name,
+              model = EXCLUDED.model,
+              hardware_fingerprint = EXCLUDED.hardware_fingerprint,
+              status = EXCLUDED.status,
+              registered_by_user_id = EXCLUDED.registered_by_user_id,
+              registered_by_name = EXCLUDED.registered_by_name,
+              otp_hash = EXCLUDED.otp_hash,
+              otp_expires_at = EXCLUDED.otp_expires_at,
+              approved_at = EXCLUDED.approved_at,
+              approved_by_user_id = EXCLUDED.approved_by_user_id,
+              pin_hash = EXCLUDED.pin_hash;
+          '''),
+          parameters: {
+            'device_id': deviceId,
+            'device_name': map['device_name'] ?? 'Field Tablet',
+            'model': map['model'] ?? 'Android Tablet',
+            'hardware_fingerprint': map['hardware_fingerprint'] ?? '',
+            'status': map['status'] ?? 'PENDING_APPROVAL',
+            'registered_by_user_id': map['registered_by_user_id'],
+            'registered_by_name': map['registered_by_name'],
+            'otp_hash': map['otp_hash'],
+            'otp_expires_at': map['otp_expires_at'],
+            'registered_at': map['registered_at'] ?? DateTime.now().toIso8601String(),
+            'approved_at': map['approved_at'],
+            'approved_by_user_id': map['approved_by_user_id'],
+            'pin_hash': map['pin_hash'],
+            'tenant_id': map['tenant_id'] ?? 'tenant_default',
+          },
+        );
+      } catch (e) {
+        print('Error inserting/updating device in Postgres: $e');
+      }
+    }
+
+    print('✓ Central Server registered/updated device: $deviceId (${map['device_name']}, status: ${map['status']})');
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode(map));
+    await request.response.close();
+  }
+
+  Future<void> _handleApproveDevice(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    final map = jsonDecode(body) as Map<String, dynamic>;
+    final deviceId = map['device_id']?.toString() ?? '';
+    final adminUserId = map['approved_by_user_id']?.toString() ?? 'admin';
+    final nowIso = DateTime.now().toIso8601String();
+
+    if (_memDevices.containsKey(deviceId)) {
+      _memDevices[deviceId]!['status'] = 'APPROVED';
+      _memDevices[deviceId]!['approved_at'] = nowIso;
+      _memDevices[deviceId]!['approved_by_user_id'] = adminUserId;
+    }
+
+    if (_isPgConnected && _connection != null) {
+      try {
+        await _connection!.execute(
+          Sql.named('''
+            UPDATE devices
+            SET status = 'APPROVED', approved_at = NOW(), approved_by_user_id = @admin_id
+            WHERE device_id = @id;
+          '''),
+          parameters: {
+            'id': deviceId,
+            'admin_id': adminUserId,
+          },
+        );
+      } catch (e) {
+        print('Error approving device in Postgres: $e');
+      }
+    }
+
+    print('✓ Central Server approved device $deviceId by admin $adminUserId');
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode({'success': true, 'device_id': deviceId, 'status': 'APPROVED'}));
+    await request.response.close();
+  }
+
+  Future<void> _handleRevokeDevice(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    final map = jsonDecode(body) as Map<String, dynamic>;
+    final deviceId = map['device_id']?.toString() ?? '';
+
+    if (_memDevices.containsKey(deviceId)) {
+      _memDevices[deviceId]!['status'] = 'REVOKED';
+    }
+
+    if (_isPgConnected && _connection != null) {
+      try {
+        await _connection!.execute(
+          Sql.named('''
+            UPDATE devices
+            SET status = 'REVOKED'
+            WHERE device_id = @id;
+          '''),
+          parameters: {'id': deviceId},
+        );
+      } catch (e) {
+        print('Error revoking device in Postgres: $e');
+      }
+    }
+
+    print('✓ Central Server revoked device $deviceId');
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode({'success': true, 'device_id': deviceId, 'status': 'REVOKED'}));
     await request.response.close();
   }
 }

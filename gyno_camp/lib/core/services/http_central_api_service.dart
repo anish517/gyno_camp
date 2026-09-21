@@ -7,6 +7,7 @@ import '../../models/lookup_item_model.dart';
 import '../../models/patient_model.dart';
 import '../../models/sync_payload_model.dart';
 import '../../models/user_model.dart';
+import '../../models/device_model.dart';
 import 'central_api_service.dart';
 
 import 'session_service.dart';
@@ -304,6 +305,112 @@ class HttpCentralApiService implements ICentralApiService {
       markServerOffline();
     }
     return [];
+  }
+
+  /// Broadcasts device registration/update to the Central Cloud Server
+  Future<bool> broadcastDevice(DeviceModel device) async {
+    if (!isConfigured || isServerCooldownActive) return false;
+    try {
+      final uri = Uri.parse('$baseUrl/api/devices');
+      final res = await _client.post(
+        uri,
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode(device.toMap()),
+      ).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        markServerOnline();
+        return true;
+      }
+    } catch (e) {
+      markServerOffline();
+    }
+    return false;
+  }
+
+  /// Fetches all devices known to the Central Cloud Server
+  Future<List<DeviceModel>> fetchCentralDevices() async {
+    if (!isConfigured || isServerCooldownActive) return [];
+    try {
+      final uri = Uri.parse('$baseUrl/api/devices');
+      final res = await _client.get(
+        uri,
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200) {
+        markServerOnline();
+        final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
+        return list.map((item) => DeviceModel.fromMap(item as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      markServerOffline();
+    }
+    return [];
+  }
+
+  /// Checks device status by hardware fingerprint from Central Cloud Server
+  Future<DeviceModel?> checkCentralDeviceStatus(String fingerprint) async {
+    if (!isConfigured || isServerCooldownActive) return null;
+    try {
+      final uri = Uri.parse('$baseUrl/api/devices/check?fingerprint=${Uri.encodeComponent(fingerprint)}');
+      final res = await _client.get(
+        uri,
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200) {
+        markServerOnline();
+        final map = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+        return DeviceModel.fromMap(map);
+      }
+    } catch (e) {
+      markServerOffline();
+    }
+    return null;
+  }
+
+  /// Approves a device on the Central Cloud Server
+  Future<bool> approveCentralDevice(String deviceId, String adminUserId) async {
+    if (!isConfigured || isServerCooldownActive) return false;
+    try {
+      final uri = Uri.parse('$baseUrl/api/devices/approve');
+      final res = await _client.post(
+        uri,
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({
+          'device_id': deviceId,
+          'approved_by_user_id': adminUserId,
+        }),
+      ).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200) {
+        markServerOnline();
+        return true;
+      }
+    } catch (e) {
+      markServerOffline();
+    }
+    return false;
+  }
+
+  /// Revokes a device on the Central Cloud Server
+  Future<bool> revokeCentralDevice(String deviceId, String adminUserId) async {
+    if (!isConfigured || isServerCooldownActive) return false;
+    try {
+      final uri = Uri.parse('$baseUrl/api/devices/revoke');
+      final res = await _client.post(
+        uri,
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({
+          'device_id': deviceId,
+          'revoked_by_user_id': adminUserId,
+        }),
+      ).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200) {
+        markServerOnline();
+        return true;
+      }
+    } catch (e) {
+      markServerOffline();
+    }
+    return false;
   }
 }
 

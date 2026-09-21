@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/security/security_service.dart';
 import '../models/device_model.dart';
@@ -55,6 +56,7 @@ class DeviceSecurityState {
 class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
   final IDeviceSecurityRepository _repository;
   final Ref? _ref;
+  Timer? _approvalPollTimer;
 
   DeviceSecurityViewModel(this._repository, [this._ref])
       : super(DeviceSecurityState(
@@ -65,8 +67,35 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
     checkCurrentDevice();
   }
 
-  Future<void> checkCurrentDevice() async {
-    state = state.copyWith(isChecking: true, clearError: true);
+  void _startPollingApproval() {
+    if (_approvalPollTimer != null && _approvalPollTimer!.isActive) return;
+    _approvalPollTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
+      if (!mounted) {
+        _stopPollingApproval();
+        return;
+      }
+      await checkCurrentDevice(silent: true);
+      if (state.isApproved) {
+        _stopPollingApproval();
+      }
+    });
+  }
+
+  void _stopPollingApproval() {
+    _approvalPollTimer?.cancel();
+    _approvalPollTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _stopPollingApproval();
+    super.dispose();
+  }
+
+  Future<void> checkCurrentDevice({bool silent = false}) async {
+    if (!silent) {
+      state = state.copyWith(isChecking: true, clearError: true);
+    }
     try {
       final dev = await _repository.getDeviceByFingerprint(state.hardwareFingerprint);
       if (!mounted) return;
@@ -77,12 +106,18 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
         isAppLocked: isLocked,
         isInitialized: true,
       );
+
+      if (dev?.status == DeviceActivationStatus.pendingApproval) {
+        _startPollingApproval();
+      } else {
+        _stopPollingApproval();
+      }
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(
         isChecking: false,
         isInitialized: true,
-        errorMessage: 'Failed to verify device: $e',
+        errorMessage: silent ? null : 'Failed to verify device: $e',
       );
     }
   }
@@ -138,6 +173,9 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
           isChecking: false,
         );
         _ref?.read(deviceManagementProvider.notifier).loadDevices();
+        if (updated?.status == DeviceActivationStatus.pendingApproval) {
+          _startPollingApproval();
+        }
         return true;
       } else {
         if (!mounted) return false;
