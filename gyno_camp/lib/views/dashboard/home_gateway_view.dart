@@ -4799,20 +4799,50 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             ),
             const SizedBox(height: 16),
 
-            // 2x2 POP-Q Stage Breakdown Cards
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 2.3,
-              children: [
-                _buildPopStageGridCard('Stage 0 (Normal)', '$st0', const Color(0xFF10B981)),
-                _buildPopStageGridCard('Stage I (Mild)', '$st1', const Color(0xFF06B6D4)),
-                _buildPopStageGridCard('Stage II (Moderate)', '$st2', const Color(0xFFF59E0B)),
-                _buildPopStageGridCard('Stage III-IV (Severe)', '${st3 + st4}', const Color(0xFFEA580C)),
-              ],
+            // POP-Q Stage Breakdown Cards (Responsive 4-column on desktop, 2x2 on mobile)
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 640;
+                final cards = [
+                  _buildPopStageGridCard('Stage 0 (Normal)', '$st0', const Color(0xFF10B981)),
+                  _buildPopStageGridCard('Stage I (Mild)', '$st1', const Color(0xFF06B6D4)),
+                  _buildPopStageGridCard('Stage II (Moderate)', '$st2', const Color(0xFFF59E0B)),
+                  _buildPopStageGridCard('Stage III-IV (Severe)', '${st3 + st4}', const Color(0xFFEA580C)),
+                ];
+
+                if (isWide) {
+                  return Row(
+                    children: cards
+                        .map((c) => Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: c,
+                              ),
+                            ))
+                        .toList(),
+                  );
+                }
+
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: cards[0]),
+                        const SizedBox(width: 8),
+                        Expanded(child: cards[1]),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: cards[2]),
+                        const SizedBox(width: 8),
+                        Expanded(child: cards[3]),
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 14),
 
@@ -5637,7 +5667,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   // ==========================================
   Widget _buildPopStageGridCard(String title, String count, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
@@ -5649,13 +5679,21 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
           Expanded(
             child: Text(
               title,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: color),
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text(
-            count,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: color),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              count,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: color),
+            ),
           ),
         ],
       ),
