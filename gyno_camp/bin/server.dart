@@ -55,6 +55,7 @@ class GynoCampSyncServer {
   final Map<String, Map<String, dynamic>> _memUsers = {};
   final Map<String, Map<String, dynamic>> _memPatients = {};
   final Map<String, Map<String, dynamic>> _memVisits = {};
+  final Map<String, Map<String, dynamic>> _memLookups = {};
   final List<Map<String, dynamic>> _memAuditLogs = [];
 
   GynoCampSyncServer({
@@ -211,6 +212,8 @@ class GynoCampSyncServer {
           follow_up_needed INTEGER,
           follow_up_destination TEXT,
           outtake_notes TEXT,
+          surgery_done INTEGER DEFAULT 0,
+          surgery_type TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ,
           created_by_user_id TEXT NOT NULL,
@@ -218,6 +221,29 @@ class GynoCampSyncServer {
           is_synced INTEGER NOT NULL DEFAULT 1
         );
       ''');
+
+      await _connection!.execute('''
+        CREATE TABLE IF NOT EXISTS lookup_items (
+          id TEXT PRIMARY KEY,
+          category TEXT NOT NULL,
+          sub_category TEXT,
+          code TEXT NOT NULL,
+          label_en TEXT NOT NULL,
+          label_ne TEXT,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          tenant_id TEXT DEFAULT 'tenant_default',
+          is_deleted INTEGER NOT NULL DEFAULT 0
+        );
+      ''');
+
+      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_done INTEGER DEFAULT 0;');
+      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_type TEXT;');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS sub_category TEXT;');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS is_deleted INTEGER NOT NULL DEFAULT 0;');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS label_ne TEXT;');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT \'tenant_default\';');
 
       await _connection!.execute('''
         CREATE TABLE IF NOT EXISTS audit_logs (
@@ -331,6 +357,44 @@ class GynoCampSyncServer {
     // Ensure DB connection
     if (!_isPgConnected) {
       await _tryConnectPostgres();
+    }
+
+    // 0. Process Lookup Items (medicines, diagnoses, etc.)
+    final lookupItems = (data['lookup_items'] as List<dynamic>?) ?? [];
+    for (final l in lookupItems) {
+      final map = l as Map<String, dynamic>;
+      final id = map['id']?.toString() ?? '';
+      if (id.isEmpty) continue;
+      _memLookups[id] = map;
+      if (_isPgConnected && _connection != null) {
+        try {
+          await _connection!.execute(
+            Sql.named('''
+              INSERT INTO lookup_items (id, category, sub_category, code, label_en, label_ne, is_active, sort_order, tenant_id, is_deleted)
+              VALUES (@id, @category, @sub_category, @code, @label_en, @label_ne, @is_active, @sort_order, @tenant_id, @is_deleted)
+              ON CONFLICT (id) DO UPDATE SET
+                category = EXCLUDED.category,
+                code = EXCLUDED.code,
+                label_en = EXCLUDED.label_en,
+                label_ne = EXCLUDED.label_ne,
+                is_active = EXCLUDED.is_active,
+                is_deleted = EXCLUDED.is_deleted;
+            '''),
+            parameters: {
+              'id': id,
+              'category': map['category'] ?? 'unknown',
+              'sub_category': map['sub_category'],
+              'code': map['code'] ?? id,
+              'label_en': map['label_en'] ?? '',
+              'label_ne': map['label_ne'],
+              'is_active': map['is_active'] ?? 1,
+              'sort_order': map['sort_order'] ?? 0,
+              'tenant_id': map['tenant_id'] ?? 'tenant_default',
+              'is_deleted': map['is_deleted'] ?? 0,
+            },
+          );
+        } catch (_) {}
+      }
     }
 
     // 1. Process Camps
@@ -457,7 +521,9 @@ class GynoCampSyncServer {
               'tenant_id': map['tenant_id'] ?? 'tenant_default',
             },
           );
-        } catch (_) {}
+        } catch (e) {
+          print('Error inserting patient $id: $e');
+        }
       }
     }
 
@@ -484,13 +550,40 @@ class GynoCampSyncServer {
         try {
           await _connection!.execute(
             Sql.named('''
-              INSERT INTO clinical_visits (id, patient_id, camp_id, visit_date, deliveries, living_children, abortions, anamnesis_json, highest_pop_stage, systolic_bp, diastolic_bp, pulse, spo2, glucose, diagnoses, counseling, medications, created_at, created_by_user_id, tenant_id, is_synced)
-              VALUES (@id, @patient_id, @camp_id, @visit_date, @deliveries, @living_children, @abortions, @anamnesis_json, @highest_pop_stage, @systolic_bp, @diastolic_bp, @pulse, @spo2, @glucose, @diagnoses, @counseling, @medications, @created_at, @created_by_user_id, @tenant_id, 1)
+              INSERT INTO clinical_visits (
+                id, patient_id, camp_id, visit_date, deliveries, living_children, abortions,
+                anamnesis_json, uterus_inside, vulva_remarks, vagina_remarks, cervix_remarks,
+                uterus_remarks, pelvic_floor_tone, pop_anterior_stage, pop_middle_stage,
+                pop_posterior_stage, highest_pop_stage, urine_test, pregnancy_test,
+                systolic_bp, diastolic_bp, pulse, spo2, glucose, ecg_notes, diagnoses,
+                counseling, pessary_type, pessary_size, surgical_referral, medications,
+                custom_medication, follow_up_needed, follow_up_destination, outtake_notes,
+                surgery_done, surgery_type, created_at, created_by_user_id, tenant_id, is_synced
+              ) VALUES (
+                @id, @patient_id, @camp_id, @visit_date, @deliveries, @living_children, @abortions,
+                @anamnesis_json, @uterus_inside, @vulva_remarks, @vagina_remarks, @cervix_remarks,
+                @uterus_remarks, @pelvic_floor_tone, @pop_anterior_stage, @pop_middle_stage,
+                @pop_posterior_stage, @highest_pop_stage, @urine_test, @pregnancy_test,
+                @systolic_bp, @diastolic_bp, @pulse, @spo2, @glucose, @ecg_notes, @diagnoses,
+                @counseling, @pessary_type, @pessary_size, @surgical_referral, @medications,
+                @custom_medication, @follow_up_needed, @follow_up_destination, @outtake_notes,
+                @surgery_done, @surgery_type, @created_at, @created_by_user_id, @tenant_id, 1
+              )
               ON CONFLICT (id) DO UPDATE SET
                 highest_pop_stage = EXCLUDED.highest_pop_stage,
+                anamnesis_json = EXCLUDED.anamnesis_json,
                 diagnoses = EXCLUDED.diagnoses,
                 counseling = EXCLUDED.counseling,
                 medications = EXCLUDED.medications,
+                custom_medication = EXCLUDED.custom_medication,
+                pessary_type = EXCLUDED.pessary_type,
+                pessary_size = EXCLUDED.pessary_size,
+                surgical_referral = EXCLUDED.surgical_referral,
+                surgery_done = EXCLUDED.surgery_done,
+                surgery_type = EXCLUDED.surgery_type,
+                follow_up_needed = EXCLUDED.follow_up_needed,
+                follow_up_destination = EXCLUDED.follow_up_destination,
+                outtake_notes = EXCLUDED.outtake_notes,
                 updated_at = NOW();
             '''),
             parameters: {
@@ -502,21 +595,48 @@ class GynoCampSyncServer {
               'living_children': map['living_children'],
               'abortions': map['abortions'],
               'anamnesis_json': map['anamnesis_json'],
+              'uterus_inside': map['uterus_inside'] ?? 1,
+              'vulva_remarks': map['vulva_remarks'],
+              'vagina_remarks': map['vagina_remarks'],
+              'cervix_remarks': map['cervix_remarks'],
+              'uterus_remarks': map['uterus_remarks'],
+              'pelvic_floor_tone': map['pelvic_floor_tone'] ?? 'normal',
+              'pop_anterior_stage': map['pop_anterior_stage'] ?? 0,
+              'pop_middle_stage': map['pop_middle_stage'] ?? 0,
+              'pop_posterior_stage': map['pop_posterior_stage'] ?? 0,
               'highest_pop_stage': map['highest_pop_stage'] ?? 0,
+              'urine_test': map['urine_test'],
+              'pregnancy_test': map['pregnancy_test'],
               'systolic_bp': map['systolic_bp'],
               'diastolic_bp': map['diastolic_bp'],
               'pulse': map['pulse'],
               'spo2': map['spo2'],
               'glucose': map['glucose'],
+              'ecg_notes': map['ecg_notes'],
               'diagnoses': map['diagnoses'],
               'counseling': map['counseling'],
+              'pessary_type': map['pessary_type'],
+              'pessary_size': map['pessary_size'],
+              'surgical_referral': map['surgical_referral'],
               'medications': map['medications'],
+              'custom_medication': map['custom_medication'],
+              'follow_up_needed': (map['follow_up_needed'] is bool)
+                  ? (map['follow_up_needed'] == true ? 1 : 0)
+                  : (map['follow_up_needed'] ?? 0),
+              'follow_up_destination': map['follow_up_destination'],
+              'outtake_notes': map['outtake_notes'],
+              'surgery_done': (map['surgery_done'] is bool)
+                  ? (map['surgery_done'] == true ? 1 : 0)
+                  : (map['surgery_done'] ?? 0),
+              'surgery_type': map['surgery_type'],
               'created_at': map['created_at'] ?? DateTime.now().toIso8601String(),
               'created_by_user_id': map['created_by_user_id'] ?? '',
               'tenant_id': map['tenant_id'] ?? 'tenant_default',
             },
           );
-        } catch (_) {}
+        } catch (e) {
+          print('Error inserting clinical visit $id: $e');
+        }
       }
     }
 
@@ -593,7 +713,16 @@ class GynoCampSyncServer {
             'pin_hash': row[11],
           });
         }
-        final patientRows = await _connection!.execute('SELECT * FROM patients ORDER BY intake_date DESC;');
+        final patientRows = await _connection!.execute('''
+          SELECT id, patient_id, camp_id, camp_code, intake_date,
+                 first_name, surname, age, spouse_or_father_name, relationship_type,
+                 mobile, district, municipality, ward, contact_person, contact_mobile,
+                 marital_status, marital_age, reasons_for_visit,
+                 consent_treatment, consent_store_medical_info,
+                 created_at, updated_at, created_by_user_id, created_by_device_id,
+                 tenant_id, is_synced, synced_at
+          FROM patients ORDER BY intake_date DESC;
+        ''');
         for (final row in patientRows) {
           patientsList.add({
             'id': row[0],
@@ -627,7 +756,18 @@ class GynoCampSyncServer {
           });
         }
 
-        final visitRows = await _connection!.execute('SELECT * FROM clinical_visits ORDER BY visit_date DESC;');
+        final visitRows = await _connection!.execute('''
+          SELECT id, patient_id, camp_id, visit_date, deliveries, living_children, abortions,
+                 anamnesis_json, uterus_inside, vulva_remarks, vagina_remarks, cervix_remarks,
+                 uterus_remarks, pelvic_floor_tone, pop_anterior_stage, pop_middle_stage,
+                 pop_posterior_stage, highest_pop_stage, urine_test, pregnancy_test,
+                 systolic_bp, diastolic_bp, pulse, spo2, glucose, ecg_notes, diagnoses,
+                 counseling, pessary_type, pessary_size, surgical_referral, medications,
+                 custom_medication, follow_up_needed, follow_up_destination, outtake_notes,
+                 created_at, updated_at, created_by_user_id, tenant_id,
+                 COALESCE(surgery_done, 0), surgery_type
+          FROM clinical_visits ORDER BY visit_date DESC;
+        ''');
         for (final row in visitRows) {
           visitsList.add({
             'id': row[0],
@@ -670,7 +810,27 @@ class GynoCampSyncServer {
             'updated_at': row[37]?.toString(),
             'created_by_user_id': row[38],
             'tenant_id': row[39],
+            'surgery_done': row[40] is int ? row[40] : (row[40] == true ? 1 : 0),
+            'surgery_type': row[41]?.toString(),
             'is_synced': 1,
+          });
+        }
+        // Lookup items
+        final lookupRows = await _connection!.execute(
+          'SELECT id, category, sub_category, code, label_en, label_ne, is_active, sort_order, tenant_id, is_deleted FROM lookup_items ORDER BY category ASC, sort_order ASC;'
+        );
+        for (final row in lookupRows) {
+          lookupList.add({
+            'id': row[0],
+            'category': row[1],
+            'sub_category': row[2],
+            'code': row[3],
+            'label_en': row[4],
+            'label_ne': row[5],
+            'is_active': row[6],
+            'sort_order': row[7],
+            'tenant_id': row[8],
+            'is_deleted': row[9],
           });
         }
       } catch (e) {
@@ -690,6 +850,9 @@ class GynoCampSyncServer {
     }
     if (visitsList.isEmpty) {
       visitsList.addAll(_memVisits.values);
+    }
+    if (lookupList.isEmpty) {
+      lookupList.addAll(_memLookups.values);
     }
 
     request.response.statusCode = HttpStatus.ok;

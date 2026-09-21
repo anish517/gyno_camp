@@ -50,7 +50,7 @@ class AuthRepository implements IAuthRepository {
   AuthRepository({
     DatabaseService? databaseService,
     AuditRepository? auditRepository,
-    this.enableCentralSync = false,
+    this.enableCentralSync = true,
   }) : _databaseService = databaseService ?? DatabaseService(),
        _auditRepository = auditRepository ?? AuditRepository();
 

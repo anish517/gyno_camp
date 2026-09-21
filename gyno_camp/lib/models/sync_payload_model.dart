@@ -13,6 +13,7 @@ class SyncPushPayload {
   final List<PatientModel> patients;
   final List<ClinicalVisitModel> clinicalVisits;
   final List<AuditLogModel> auditLogs;
+  final List<LookupItemModel> lookupItems;
 
   const SyncPushPayload({
     required this.deviceId,
@@ -22,10 +23,11 @@ class SyncPushPayload {
     this.patients = const [],
     this.clinicalVisits = const [],
     this.auditLogs = const [],
+    this.lookupItems = const [],
   });
 
-  bool get isEmpty => camps.isEmpty && patients.isEmpty && clinicalVisits.isEmpty && auditLogs.isEmpty;
-  int get totalRecords => camps.length + patients.length + clinicalVisits.length + auditLogs.length;
+  bool get isEmpty => camps.isEmpty && patients.isEmpty && clinicalVisits.isEmpty && auditLogs.isEmpty && lookupItems.isEmpty;
+  int get totalRecords => camps.length + patients.length + clinicalVisits.length + auditLogs.length + lookupItems.length;
 
   Map<String, dynamic> toMap() {
     return {
@@ -36,6 +38,7 @@ class SyncPushPayload {
       'patients': patients.map((p) => p.toMap()).toList(),
       'clinical_visits': clinicalVisits.map((v) => v.toMap()).toList(),
       'audit_logs': auditLogs.map((a) => a.toMap()).toList(),
+      'lookup_items': lookupItems.map((l) => l.toMap()).toList(),
     };
   }
 
@@ -58,6 +61,10 @@ class SyncPushPayload {
           [],
       auditLogs: (map['audit_logs'] as List<dynamic>?)
               ?.map((a) => AuditLogModel.fromMap(a as Map<String, dynamic>))
+              .toList() ??
+          [],
+      lookupItems: (map['lookup_items'] as List<dynamic>?)
+              ?.map((l) => LookupItemModel.fromMap(l as Map<String, dynamic>))
               .toList() ??
           [],
     );

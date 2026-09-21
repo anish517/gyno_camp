@@ -31,7 +31,7 @@ class CampRepository implements ICampRepository {
   CampRepository({
     DatabaseService? databaseService,
     AuditRepository? auditRepository,
-    this.enableCentralSync = false,
+    this.enableCentralSync = true,
   })  : _databaseService = databaseService ?? DatabaseService(),
         _auditRepository = auditRepository ?? AuditRepository();
 
@@ -374,11 +374,9 @@ class CampRepository implements ICampRepository {
       deviceId: deviceId,
     );
 
-    if (enableCentralSync) {
-      try {
-        await HttpCentralApiService().broadcastCamp(updated);
-      } catch (_) {}
-    }
+    try {
+      HttpCentralApiService().broadcastCamp(updated);
+    } catch (_) {}
 
     return updated;
   }
@@ -439,11 +437,9 @@ class CampRepository implements ICampRepository {
     );
 
     // 1. Broadcast the updated camp to Central Cloud
-    if (enableCentralSync) {
-      try {
-        HttpCentralApiService().broadcastCamp(updated);
-      } catch (_) {}
-    }
+    try {
+      HttpCentralApiService().broadcastCamp(updated);
+    } catch (_) {}
 
     // 2. Also update each assigned staff's user record with this campId
     try {

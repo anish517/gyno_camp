@@ -1,10 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
-import '../core/database/postgres_database_service.dart';
 import '../core/services/central_api_service.dart';
 import '../core/services/http_central_api_service.dart';
 import '../models/audit_log_model.dart';
@@ -108,17 +106,8 @@ class SyncRepository implements ISyncRepository {
       auditLogs: logs,
     );
 
-    // 4. Send delta to central server
+    // 4. Send delta to central server (single path for all platforms)
     final response = await _centralApiService.pushDelta(payload);
-
-    // Automatically sync to PostgreSQL central database on native platforms
-    if (!kIsWeb) {
-      try {
-        await PostgresDatabaseService().syncSqliteToPostgres();
-      } catch (_) {
-        // Continues gracefully if PostgreSQL is not currently running or in mock tests
-      }
-    }
 
     // 5. Update local SQLite records to synced
     if (response.success) {
@@ -245,24 +234,11 @@ class SyncRepository implements ISyncRepository {
       // Step 1: Push local deltas
       final pushRes = await pushDelta(deviceId: deviceId, userId: userId);
 
-      // Step 2: Auto-sync to PostgreSQL database
-      int pgPatients = 0;
-      int pgVisits = 0;
-      try {
-        final pgResult = await PostgresDatabaseService().syncSqliteToPostgres();
-        if (pgResult.success) {
-          pgPatients = pgResult.syncedPatients;
-          pgVisits = pgResult.syncedVisits;
-        }
-      } catch (_) {
-        // Continues gracefully if PostgreSQL is offline
-      }
-
-      // Step 3: Pull remote deltas
+      // Step 2: Pull remote deltas from central server
       final pullRes = await pullDelta(deviceId: deviceId, userId: userId);
 
-      final totalPatients = pushRes.syncedPatientIds.isNotEmpty ? pushRes.syncedPatientIds.length : pgPatients;
-      final totalVisits = pushRes.syncedVisitIds.isNotEmpty ? pushRes.syncedVisitIds.length : pgVisits;
+      final totalPatients = pushRes.syncedPatientIds.length;
+      final totalVisits = pushRes.syncedVisitIds.length;
 
       final historyItem = SyncHistoryItem(
         id: _uuid.v4(),
@@ -275,6 +251,7 @@ class SyncRepository implements ISyncRepository {
       );
 
       _history.insert(0, historyItem);
+      await _persistLastSyncedAt(cycleStart);
       return historyItem;
     } catch (e) {
       final failedItem = SyncHistoryItem(
@@ -295,9 +272,39 @@ class SyncRepository implements ISyncRepository {
 
   @override
   Future<DateTime?> getLastSyncedAt() async {
-    if (_history.isEmpty) return null;
+    // First check in-memory history for this session
     final successfulRuns = _history.where((h) => h.isSuccess).toList();
-    if (successfulRuns.isEmpty) return null;
-    return successfulRuns.first.timestamp;
+    if (successfulRuns.isNotEmpty) return successfulRuns.first.timestamp;
+    // Fall back to persisted value in SQLite (survives app restarts)
+    try {
+      final db = await _databaseService.database;
+      final rows = await db.query(
+        DatabaseTables.tableMetadata,
+        where: 'key = ?',
+        whereArgs: ['last_sync_at'],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        final val = rows.first['value'] as String?;
+        if (val != null) return DateTime.tryParse(val);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Persists the last successful sync timestamp to SQLite metadata.
+  Future<void> _persistLastSyncedAt(DateTime timestamp) async {
+    try {
+      final db = await _databaseService.database;
+      await db.insert(
+        DatabaseTables.tableMetadata,
+        {
+          'key': 'last_sync_at',
+          'value': timestamp.toIso8601String(),
+          'updated_at': timestamp.toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (_) {}
   }
 }

@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
 import '../core/constants/clinical_constants.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
+import '../core/services/http_central_api_service.dart';
 import '../models/lookup_item_model.dart';
+import '../models/sync_payload_model.dart';
 import 'audit_repository.dart';
 
 abstract class ILookupRepository {
@@ -125,6 +128,9 @@ class LookupRepository implements ILookupRepository {
       deviceId: deviceId,
     );
 
+    // Auto-push to central server (fire-and-forget)
+    unawaited(_pushLookupToServer(newItem));
+
     return newItem;
   }
 
@@ -157,6 +163,9 @@ class LookupRepository implements ILookupRepository {
       deviceId: deviceId,
     );
 
+    // Auto-push to central server (fire-and-forget)
+    unawaited(_pushLookupToServer(updatedItem));
+
     return updatedItem;
   }
 
@@ -187,6 +196,14 @@ class LookupRepository implements ILookupRepository {
         detailsJson: '{"isActive":$isActive}',
         deviceId: deviceId,
       );
+      // Auto-push status change to central server
+      final rows = await (await _databaseService.database).query(
+        DatabaseTables.tableLookupItems,
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) unawaited(_pushLookupToServer(LookupItemModel.fromMap(rows.first)));
       return true;
     }
     return false;
@@ -217,9 +234,49 @@ class LookupRepository implements ILookupRepository {
         detailsJson: '{"deletedId":"$id"}',
         deviceId: deviceId,
       );
+      // Notify server of deletion by pushing a tombstone item
+      unawaited(_pushLookupDeleteToServer(id));
       return true;
     }
     return false;
+  }
+
+  /// Fire-and-forget: push a lookup item to the central server.
+  Future<void> _pushLookupToServer(LookupItemModel item) async {
+    try {
+      final apiService = HttpCentralApiService();
+      if (!apiService.isConfigured || HttpCentralApiService.isServerCooldownActive) return;
+      final payload = SyncPushPayload(
+        deviceId: 'dev-auto',
+        generatedAt: DateTime.now(),
+        lookupItems: [item],
+      );
+      await apiService.pushDelta(payload);
+    } catch (_) {}
+  }
+
+  /// Fire-and-forget: notify server that a lookup item was deleted.
+  Future<void> _pushLookupDeleteToServer(String id) async {
+    try {
+      final apiService = HttpCentralApiService();
+      if (!apiService.isConfigured || HttpCentralApiService.isServerCooldownActive) return;
+      // Push a tombstone with is_deleted=1
+      final tombstone = LookupItemModel(
+        id: id,
+        category: 'deleted',
+        code: 'deleted',
+        labelEn: 'deleted',
+        labelNe: 'deleted',
+        isDeleted: true,
+        isActive: false,
+      );
+      final payload = SyncPushPayload(
+        deviceId: 'dev-auto',
+        generatedAt: DateTime.now(),
+        lookupItems: [tombstone],
+      );
+      await apiService.pushDelta(payload);
+    } catch (_) {}
   }
 
   @override

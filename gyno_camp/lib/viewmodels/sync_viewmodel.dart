@@ -61,6 +61,7 @@ class SyncViewModel extends StateNotifier<SyncState> {
   final ISyncRepository syncRepository;
   final INetworkConnectivityService _connectivityService;
   StreamSubscription<bool>? _connectivitySub;
+  Timer? _periodicSyncTimer;
 
   String _lastKnownDeviceId = 'dev-field';
   String _lastKnownUserId = 'usr-sync';
@@ -94,6 +95,13 @@ class SyncViewModel extends StateNotifier<SyncState> {
         }
       });
     }
+
+    // Periodic auto-sync every 30 seconds while app is active and online
+    _periodicSyncTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted && state.isOnline && !state.isSyncing) {
+        syncNow(deviceId: _lastKnownDeviceId, userId: _lastKnownUserId);
+      }
+    });
   }
 
   Future<void> refreshPendingCounts() async {
@@ -169,6 +177,7 @@ class SyncViewModel extends StateNotifier<SyncState> {
 
   @override
   void dispose() {
+    _periodicSyncTimer?.cancel();
     _connectivitySub?.cancel();
     super.dispose();
   }

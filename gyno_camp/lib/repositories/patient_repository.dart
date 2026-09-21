@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
@@ -5,8 +6,10 @@ import '../core/constants/app_constants.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
 import '../core/services/duplicate_detection_service.dart';
+import '../core/services/http_central_api_service.dart';
 import '../models/clinical_visit_model.dart';
 import '../models/patient_model.dart';
+import '../models/sync_payload_model.dart';
 import 'audit_repository.dart';
 
 abstract class IPatientRepository {
@@ -110,6 +113,9 @@ class PatientRepository implements IPatientRepository {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
 
+    // Auto-push to central server immediately (fire-and-forget)
+    unawaited(_pushPatientToServer(newPatient));
+
     // Increment camp patient count
     await db.rawUpdate(
       'UPDATE ${DatabaseTables.tableCamps} SET total_patients_registered = total_patients_registered + 1 WHERE id = ?',
@@ -153,6 +159,9 @@ class PatientRepository implements IPatientRepository {
       whereArgs: [updatedPatient.id, updatedPatient.patientId],
     );
 
+    // Auto-push updated patient to central server immediately (fire-and-forget)
+    unawaited(_pushPatientToServer(updatedPatient));
+
     // Audit log update
     await _auditRepository.logActivity(
       userId: updatedByUserId,
@@ -178,6 +187,53 @@ class PatientRepository implements IPatientRepository {
     );
 
     return updatedPatient;
+  }
+
+  /// Fire-and-forget: push a single patient to the central sync server.
+  /// Marks is_synced=1 in local SQLite on success. Silent on failure.
+  Future<void> _pushPatientToServer(PatientModel patient) async {
+    try {
+      final apiService = HttpCentralApiService();
+      if (!apiService.isConfigured || HttpCentralApiService.isServerCooldownActive) return;
+      final payload = SyncPushPayload(
+        deviceId: patient.createdByDeviceId,
+        generatedAt: DateTime.now(),
+        patients: [patient],
+      );
+      final response = await apiService.pushDelta(payload);
+      if (response.success && response.syncedPatientIds.contains(patient.id)) {
+        final db = await _databaseService.database;
+        await db.rawUpdate(
+          'UPDATE ${DatabaseTables.tablePatients} SET is_synced = 1, synced_at = ? WHERE id = ?',
+          [DateTime.now().toIso8601String(), patient.id],
+        );
+      }
+    } catch (_) {
+      // Silently ignore — data stays is_synced=0 for next manual sync
+    }
+  }
+
+  /// Fire-and-forget: push a single clinical visit to the central sync server.
+  Future<void> _pushVisitToServer(ClinicalVisitModel visit) async {
+    try {
+      final apiService = HttpCentralApiService();
+      if (!apiService.isConfigured || HttpCentralApiService.isServerCooldownActive) return;
+      final payload = SyncPushPayload(
+        deviceId: 'dev-auto',
+        generatedAt: DateTime.now(),
+        clinicalVisits: [visit],
+      );
+      final response = await apiService.pushDelta(payload);
+      if (response.success && response.syncedVisitIds.contains(visit.id)) {
+        final db = await _databaseService.database;
+        await db.rawUpdate(
+          'UPDATE ${DatabaseTables.tableClinicalVisits} SET is_synced = 1 WHERE id = ?',
+          [visit.id],
+        );
+      }
+    } catch (_) {
+      // Silently ignore
+    }
   }
 
   @override
@@ -326,6 +382,9 @@ class PatientRepository implements IPatientRepository {
       newVisit.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+
+    // Auto-push to central server immediately (fire-and-forget)
+    unawaited(_pushVisitToServer(newVisit));
 
     final detailMap = {
       'patientId': newVisit.patientId,
