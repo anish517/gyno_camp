@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gyno_camp/core/constants/clinical_constants.dart';
 import 'package:gyno_camp/core/services/pdf_report_service.dart';
 import 'package:gyno_camp/core/services/report_aggregation_service.dart';
 import 'package:gyno_camp/models/camp_model.dart';
@@ -313,6 +315,61 @@ void main() {
       final pageMatches = RegExp(r'/Type\s*/Page\b').allMatches(pdfStr);
       expect(pageMatches.length, equals(2));
       expect(bytes.length, greaterThan(1000));
+    });
+
+    test('generatePatientRegistrationFormPdf renders Page 2 stations under full capacity lookups without blank overflow', () async {
+      final camp = CampModel(
+        id: 'camp-full-01',
+        campCode: 'FULL01',
+        name: 'Full Capacity Camp',
+        district: 'Kathmandu',
+        municipality: 'Budhanilkantha Municipality',
+        ward: '03',
+        venue: 'Health Post',
+        startDate: DateTime(2026, 9, 20),
+        endDate: DateTime(2026, 9, 24),
+        status: CampStatus.open,
+        createdAt: DateTime.now(),
+        organizationName: 'Community Health Outreach Mission',
+      );
+
+      final diags = ClinicalConstants.defaultDiagnoses.map((d) => LookupItemModel(
+        id: d, category: 'diagnosis', code: d, labelEn: d, labelNe: '',
+      )).toList();
+
+      final meds = ClinicalConstants.defaultMedications.map((m) => LookupItemModel(
+        id: m, category: 'medicine', code: m, labelEn: m, labelNe: '',
+      )).toList();
+
+      final hosps = ClinicalConstants.referralHospitals.map((h) => LookupItemModel(
+        id: h, category: 'referral_hospital', code: h, labelEn: h, labelNe: '',
+      )).toList();
+
+      final bytes = await pdfService.generatePatientRegistrationFormPdf(
+        camp: camp,
+        organizationName: 'Community Health Outreach Mission',
+        diagnoses: diags,
+        medications: meds,
+        referralHospitals: hosps,
+      );
+
+      expect(bytes, isNotEmpty);
+      // Size must be over 20KB indicating Page 2 body is populated
+      expect(bytes.length, greaterThan(20000));
+      
+      final pdfStr = String.fromCharCodes(bytes);
+      final streamRegex = RegExp(r'stream[\r\n]+(.*?)[\r\n]+endstream', dotAll: true);
+      final streams = streamRegex.allMatches(pdfStr).toList();
+      var foundStationOnPage2 = false;
+      for (final m in streams) {
+        try {
+          final decoded = String.fromCharCodes(zlib.decode(m.group(1)!.codeUnits));
+          if (decoded.contains('CLINICAL') && decoded.contains('STATION') && decoded.contains('ANAMNESIS')) {
+            foundStationOnPage2 = true;
+          }
+        } catch (_) {}
+      }
+      expect(foundStationOnPage2, isTrue);
     });
 
     test('CampModel serialization preserves doctorName correctly', () {

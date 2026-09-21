@@ -2007,15 +2007,24 @@ class PdfReportService {
               pw.SizedBox(height: 6),
 
               // 2-column: LEFT (demographics) | RIGHT (reasons + consent + sigs)
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Expanded(flex: 53, child: leftCol),
-                  pw.SizedBox(width: 10),
-                  pw.Container(width: 0.5, color: gray),
-                  pw.SizedBox(width: 10),
-                  pw.Expanded(flex: 47, child: rightCol),
-                ],
+              pw.Expanded(
+                child: pw.FittedBox(
+                  fit: pw.BoxFit.scaleDown,
+                  alignment: pw.Alignment.topCenter,
+                  child: pw.SizedBox(
+                    width: 551.28,
+                    child: pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Expanded(flex: 53, child: leftCol),
+                        pw.SizedBox(width: 10),
+                        pw.Container(width: 0.5, color: gray),
+                        pw.SizedBox(width: 10),
+                        pw.Expanded(flex: 47, child: rightCol),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
           );
@@ -2043,17 +2052,17 @@ class PdfReportService {
               pw.TextStyle(fontSize: size, color: dark);
 
           pw.Widget sectionHeader(String title) => pw.Container(
-                margin: const pw.EdgeInsets.only(bottom: 3),
-                padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                margin: const pw.EdgeInsets.only(bottom: 2.5),
+                padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: pw.BoxDecoration(
                   color: PdfColor.fromHex('F0FDFA'),
                   border: pw.Border(left: pw.BorderSide(color: primary, width: 2.5)),
                 ),
                 child: pw.Text(sanitizeText(title),
-                    style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: primary)),
+                    style: pw.TextStyle(fontSize: 7.2, fontWeight: pw.FontWeight.bold, color: primary)),
               );
 
-          pw.Widget numBox(String v, {double w = 22, double h = 17}) => pw.Container(
+          pw.Widget numBox(String v, {double w = 22, double h = 16}) => pw.Container(
                 width: w, height: h,
                 margin: const pw.EdgeInsets.only(right: 3),
                 decoration: pw.BoxDecoration(
@@ -2061,40 +2070,43 @@ class PdfReportService {
                   border: pw.Border.all(color: gray, width: 0.7),
                 ),
                 child: pw.Center(
-                  child: pw.Text(v, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: dark)),
+                  child: pw.Text(v, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: dark)),
                 ),
               );
 
           pw.Widget cb(String label, bool checked) => pw.Padding(
-                padding: const pw.EdgeInsets.only(right: 10, bottom: 2),
-                child: pw.Row(children: [
-                  pw.Container(
-                    width: 9.5, height: 9.5,
-                    margin: const pw.EdgeInsets.only(right: 3, top: 1),
-                    decoration: pw.BoxDecoration(
-                      color: PdfColors.white,
-                      border: pw.Border.all(color: checked ? dark : gray, width: checked ? 1.0 : 0.7),
-                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(1.5)),
+                padding: const pw.EdgeInsets.only(right: 8, bottom: 1.5),
+                child: pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    pw.Container(
+                      width: 9, height: 9,
+                      margin: const pw.EdgeInsets.only(right: 2.5, top: 0.5),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.white,
+                        border: pw.Border.all(color: checked ? dark : gray, width: checked ? 1.0 : 0.7),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(1.5)),
+                      ),
+                      child: checked
+                          ? pw.Center(child: pw.Text('X', style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: dark)))
+                          : pw.SizedBox(),
                     ),
-                    child: checked
-                        ? pw.Center(child: pw.Text('X', style: pw.TextStyle(fontSize: 7.0, fontWeight: pw.FontWeight.bold, color: dark)))
-                        : pw.SizedBox(),
-                  ),
-                  pw.Text(sanitizeText(label), style: pw.TextStyle(fontSize: fsSmall)),
-                ]),
+                    pw.Text(sanitizeText(label), style: pw.TextStyle(fontSize: fsSmall)),
+                  ],
+                ),
               );
 
-          pw.Widget line({double h = 13, String? text}) => pw.Container(
+          pw.Widget line({double h = 11, String? text}) => pw.Container(
                 height: h,
                 padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                margin: const pw.EdgeInsets.only(top: 2, bottom: 3),
+                margin: const pw.EdgeInsets.only(top: 1.5, bottom: 2),
                 decoration: pw.BoxDecoration(
                   color: (text != null && text.isNotEmpty) ? PdfColor.fromHex('F0FDFA') : boxBg,
                   border: pw.Border(bottom: pw.BorderSide(color: gray, width: 0.7)),
                 ),
                 alignment: pw.Alignment.centerLeft,
                 child: text != null && text.isNotEmpty
-                    ? pw.Text(sanitizeText(text), style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: dark))
+                    ? pw.Text(sanitizeText(text), style: pw.TextStyle(fontSize: 6.8, fontWeight: pw.FontWeight.bold, color: dark))
                     : pw.SizedBox(),
               );
 
@@ -2423,15 +2435,24 @@ class PdfReportService {
               pw.SizedBox(height: 6),
 
               // 2-column layout: LEFT (Stations 1-3) | RIGHT (Stations 4-6)
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Expanded(flex: 5, child: leftCol),
-                  pw.SizedBox(width: 10),
-                  pw.Container(width: 0.5, color: gray),
-                  pw.SizedBox(width: 10),
-                  pw.Expanded(flex: 5, child: rightCol),
-                ],
+              pw.Expanded(
+                child: pw.FittedBox(
+                  fit: pw.BoxFit.scaleDown,
+                  alignment: pw.Alignment.topCenter,
+                  child: pw.SizedBox(
+                    width: 551.28,
+                    child: pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Expanded(flex: 5, child: leftCol),
+                        pw.SizedBox(width: 10),
+                        pw.Container(width: 0.5, color: gray),
+                        pw.SizedBox(width: 10),
+                        pw.Expanded(flex: 5, child: rightCol),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
           );
