@@ -208,6 +208,32 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       return true;
     }).toList();
 
+    // Priority Sort: OPEN camps pinned to top, followed by SCHEDULED, DRAFT, CLOSED, ARCHIVED.
+    filteredCamps.sort((a, b) {
+      int statusWeight(CampStatus s) {
+        switch (s) {
+          case CampStatus.open:
+            return 1;
+          case CampStatus.scheduled:
+            return 2;
+          case CampStatus.draft:
+            return 3;
+          case CampStatus.closed:
+            return 4;
+          case CampStatus.archived:
+            return 5;
+        }
+      }
+
+      final wA = statusWeight(a.status);
+      final wB = statusWeight(b.status);
+      if (wA != wB) return wA.compareTo(wB);
+
+      final dateA = a.updatedAt ?? a.createdAt;
+      final dateB = b.updatedAt ?? b.createdAt;
+      return dateB.compareTo(dateA);
+    });
+
     final openCount = campState.camps.where((c) => c.status == CampStatus.open).length;
     final scheduledCount = campState.camps.where((c) => c.status == CampStatus.scheduled).length;
     final draftCount = campState.camps.where((c) => c.status == CampStatus.draft).length;
@@ -1955,10 +1981,15 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               await ref.read(campStateProvider.notifier).loadCamps();
               if (mounted) {
                 if (success) {
+                  setState(() {
+                    _statusFilter = 'ALL';
+                  });
                   messenger.showSnackBar(
-                    SnackBar(content: Text('Camp "${camp.name}" is now OPEN for data intake.')),
+                    SnackBar(
+                      content: Text('Camp "${camp.name}" is now OPEN for data intake.'),
+                      backgroundColor: AppTheme.successGreen,
+                    ),
                   );
-                  setState(() {});
                 } else {
                   messenger.showSnackBar(
                     SnackBar(

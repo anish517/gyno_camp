@@ -245,6 +245,9 @@ class GynoCampSyncServer {
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS label_ne TEXT;');
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;');
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT \'tenant_default\';');
+      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS province TEXT DEFAULT \'Bagmati\';');
+      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_name TEXT DEFAULT \'\';');
+      await _connection!.execute('ALTER TABLE devices ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT \'tenant_default\';');
 
       await _connection!.execute('''
         CREATE TABLE IF NOT EXISTS audit_logs (
@@ -704,7 +707,7 @@ class GynoCampSyncServer {
 
     if (_isPgConnected && _connection != null) {
       try {
-        final campRows = await _connection!.execute('SELECT * FROM camps ORDER BY start_date DESC;');
+        final campRows = await _connection!.execute('SELECT * FROM camps ORDER BY updated_at DESC NULLS LAST, created_at DESC;');
         for (final row in campRows) {
           campsList.add({
             'id': row[0],
@@ -903,7 +906,12 @@ class GynoCampSyncServer {
     final list = <Map<String, dynamic>>[];
     if (_isPgConnected && _connection != null) {
       try {
-        final rows = await _connection!.execute('SELECT * FROM camps ORDER BY start_date DESC;');
+        final rows = await _connection!.execute(
+          'SELECT id, camp_code, name, district, municipality, ward, venue, '
+          'start_date, end_date, status, assigned_staff_ids, total_patients_registered, '
+          'tenant_id, organization_name, created_at, updated_at, province, doctor_name '
+          'FROM camps ORDER BY updated_at DESC NULLS LAST, created_at DESC;'
+        );
         for (final row in rows) {
           list.add({
             'id': row[0],
@@ -922,9 +930,13 @@ class GynoCampSyncServer {
             'organization_name': row[13],
             'created_at': row[14]?.toString(),
             'updated_at': row[15]?.toString(),
+            'province': row[16] ?? 'Bagmati',
+            'doctor_name': row[17] ?? '',
           });
         }
-      } catch (_) {}
+      } catch (e) {
+        print('Error fetching camps from Postgres: $e');
+      }
     }
     if (list.isEmpty) {
       list.addAll(_memCamps.values);
@@ -978,19 +990,38 @@ class GynoCampSyncServer {
       try {
         await _connection!.execute(
           Sql.named('''
-            INSERT INTO camps (id, camp_code, name, district, municipality, ward, venue, start_date, end_date, status, assigned_staff_ids, total_patients_registered, tenant_id, organization_name, created_at, updated_at)
-            VALUES (@id, @camp_code, @name, @district, @municipality, @ward, @venue, @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered, @tenant_id, @organization_name, @created_at, @updated_at)
+            INSERT INTO camps (
+              id, camp_code, name, province, district, municipality, ward, venue,
+              start_date, end_date, status, assigned_staff_ids, total_patients_registered,
+              tenant_id, organization_name, doctor_name, created_at, updated_at
+            ) VALUES (
+              @id, @camp_code, @name, @province, @district, @municipality, @ward, @venue,
+              @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered,
+              @tenant_id, @organization_name, @doctor_name, @created_at, @updated_at
+            )
             ON CONFLICT (id) DO UPDATE SET
+              camp_code = EXCLUDED.camp_code,
               name = EXCLUDED.name,
+              province = EXCLUDED.province,
+              district = EXCLUDED.district,
+              municipality = EXCLUDED.municipality,
+              ward = EXCLUDED.ward,
+              venue = EXCLUDED.venue,
+              start_date = EXCLUDED.start_date,
+              end_date = EXCLUDED.end_date,
               status = EXCLUDED.status,
               assigned_staff_ids = EXCLUDED.assigned_staff_ids,
               total_patients_registered = EXCLUDED.total_patients_registered,
+              tenant_id = EXCLUDED.tenant_id,
+              organization_name = EXCLUDED.organization_name,
+              doctor_name = EXCLUDED.doctor_name,
               updated_at = NOW();
           '''),
           parameters: {
             'id': id,
             'camp_code': map['camp_code'] ?? 'KTM01',
             'name': map['name'] ?? '',
+            'province': map['province'] ?? 'Bagmati',
             'district': map['district'] ?? '',
             'municipality': map['municipality'],
             'ward': map['ward'],
@@ -1002,11 +1033,14 @@ class GynoCampSyncServer {
             'total_patients_registered': map['total_patients_registered'] ?? 0,
             'tenant_id': map['tenant_id'] ?? 'tenant_default',
             'organization_name': map['organization_name'] ?? 'Nepal Health Outreach Network',
+            'doctor_name': map['doctor_name'] ?? '',
             'created_at': map['created_at'] ?? DateTime.now().toIso8601String(),
             'updated_at': map['updated_at'] ?? DateTime.now().toIso8601String(),
           },
         );
-      } catch (_) {}
+      } catch (e) {
+        print('Error saving camp to Postgres: $e');
+      }
     }
 
     request.response.statusCode = HttpStatus.created;
@@ -1020,11 +1054,23 @@ class GynoCampSyncServer {
       _memCamps.remove(id);
       if (_isPgConnected && _connection != null) {
         try {
+          // Delete related records first to satisfy foreign key constraints
+          await _connection!.execute(
+            Sql.named('DELETE FROM clinical_visits WHERE camp_id = @id'),
+            parameters: {'id': id},
+          );
+          await _connection!.execute(
+            Sql.named('DELETE FROM patients WHERE camp_id = @id'),
+            parameters: {'id': id},
+          );
           await _connection!.execute(
             Sql.named('DELETE FROM camps WHERE id = @id'),
             parameters: {'id': id},
           );
-        } catch (_) {}
+          print('✓ Central Server deleted camp and associated records: $id');
+        } catch (e) {
+          print('Error deleting camp $id in Postgres: $e');
+        }
       }
     }
     request.response.statusCode = HttpStatus.ok;

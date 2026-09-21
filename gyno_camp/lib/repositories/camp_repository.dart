@@ -50,7 +50,7 @@ class CampRepository implements ICampRepository {
       DatabaseTables.tableCamps,
       where: 'status = ?',
       whereArgs: [AppConstants.campStatusOpen],
-      orderBy: 'start_date DESC',
+      orderBy: 'updated_at DESC, created_at DESC',
     );
     if (openRows.length > 1) {
       for (int i = 1; i < openRows.length; i++) {
@@ -68,7 +68,16 @@ class CampRepository implements ICampRepository {
       SELECT c.*,
              COALESCE((SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} p WHERE p.camp_id = c.id), 0) AS live_patient_count
       FROM ${DatabaseTables.tableCamps} c
-      ORDER BY c.start_date DESC
+      ORDER BY 
+        CASE 
+          WHEN c.status = 'OPEN' THEN 1
+          WHEN c.status = 'SCHEDULED' THEN 2
+          WHEN c.status = 'DRAFT' THEN 3
+          WHEN c.status = 'CLOSED' THEN 4
+          WHEN c.status = 'ARCHIVED' THEN 5
+          ELSE 6
+        END ASC,
+        COALESCE(c.updated_at, c.created_at) DESC
     ''');
     final localCamps = maps.map((m) {
       final map = Map<String, dynamic>.from(m);
@@ -175,7 +184,7 @@ class CampRepository implements ICampRepository {
              COALESCE((SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} p WHERE p.camp_id = c.id), 0) AS live_patient_count
       FROM ${DatabaseTables.tableCamps} c
       WHERE c.status = ?
-      ORDER BY c.start_date DESC
+      ORDER BY c.updated_at DESC, c.created_at DESC
       LIMIT 1
     ''', [AppConstants.campStatusOpen]);
     if (maps.isNotEmpty) {
@@ -387,6 +396,11 @@ class CampRepository implements ICampRepository {
     if (camp == null) return false;
 
     final db = await _databaseService.database;
+    await db.delete(
+      DatabaseTables.tableClinicalVisits,
+      where: 'camp_id = ?',
+      whereArgs: [campId],
+    );
     await db.delete(
       DatabaseTables.tablePatients,
       where: 'camp_id = ?',
