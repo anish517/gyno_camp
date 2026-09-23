@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
@@ -52,11 +53,13 @@ abstract class IPatientRepository {
 class PatientRepository implements IPatientRepository {
   final DatabaseService _databaseService;
   final AuditRepository _auditRepository;
+  final bool _enableCentralSync;
   final Uuid _uuid = const Uuid();
 
   PatientRepository({
     DatabaseService? databaseService,
     AuditRepository? auditRepository,
+    this._enableCentralSync = true,
   })  : _databaseService = databaseService ?? DatabaseService(),
         _auditRepository = auditRepository ?? AuditRepository();
 
@@ -114,7 +117,7 @@ class PatientRepository implements IPatientRepository {
     );
 
     // Auto-push to central server immediately (fire-and-forget)
-    unawaited(_pushPatientToServer(newPatient));
+    if (_enableCentralSync) unawaited(_pushPatientToServer(newPatient));
 
     // Increment camp patient count
     await db.rawUpdate(
@@ -160,7 +163,7 @@ class PatientRepository implements IPatientRepository {
     );
 
     // Auto-push updated patient to central server immediately (fire-and-forget)
-    unawaited(_pushPatientToServer(updatedPatient));
+    if (_enableCentralSync) unawaited(_pushPatientToServer(updatedPatient));
 
     // Audit log update
     await _auditRepository.logActivity(
@@ -208,8 +211,10 @@ class PatientRepository implements IPatientRepository {
           [DateTime.now().toIso8601String(), patient.id],
         );
       }
-    } catch (_) {
-      // Silently ignore — data stays is_synced=0 for next manual sync
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[PatientRepo] Fire-and-forget patient push failed: $e');
+      }
     }
   }
 
@@ -219,7 +224,7 @@ class PatientRepository implements IPatientRepository {
       final apiService = HttpCentralApiService();
       if (!apiService.isConfigured || HttpCentralApiService.isServerCooldownActive) return;
       final payload = SyncPushPayload(
-        deviceId: 'dev-auto',
+        deviceId: visit.createdByUserId.isNotEmpty ? visit.createdByUserId : 'unknown-device',
         generatedAt: DateTime.now(),
         clinicalVisits: [visit],
       );
@@ -231,8 +236,10 @@ class PatientRepository implements IPatientRepository {
           [visit.id],
         );
       }
-    } catch (_) {
-      // Silently ignore
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[PatientRepo] Fire-and-forget visit push failed: $e');
+      }
     }
   }
 
@@ -384,7 +391,7 @@ class PatientRepository implements IPatientRepository {
     );
 
     // Auto-push to central server immediately (fire-and-forget)
-    unawaited(_pushVisitToServer(newVisit));
+    if (_enableCentralSync) unawaited(_pushVisitToServer(newVisit));
 
     final detailMap = {
       'patientId': newVisit.patientId,

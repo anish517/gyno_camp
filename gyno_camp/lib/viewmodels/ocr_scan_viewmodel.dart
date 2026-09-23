@@ -613,6 +613,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     required String campCode,
     required String userId,
     required String userName,
+    String userRole = 'NURSE',
     required String deviceId,
   }) async {
     if (state.scanResult == null) return null;
@@ -625,6 +626,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         campCode: campCode,
         userId: userId,
         userName: userName,
+        userRole: userRole,
         deviceId: deviceId,
       );
 

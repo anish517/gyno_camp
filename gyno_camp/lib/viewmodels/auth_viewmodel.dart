@@ -107,10 +107,12 @@ class AuthViewModel extends StateNotifier<AuthState> {
         password: password,
         deviceId: deviceId,
       );
+      if (!mounted) return false;
       if (user != null) {
         if (requiredRole != null && user.role != requiredRole) {
           // STRICT RBAC CHECK: Deny access if account role does not match selected station terminal
           await _authRepository.logout(deviceId: deviceId);
+          if (!mounted) return false;
           state = state.copyWith(
             currentUser: null,
             isLoading: false,
@@ -122,8 +124,10 @@ class AuthViewModel extends StateNotifier<AuthState> {
         // CAMP ASSIGNMENT GATE: Non-superAdmin staff must have at least one assigned camp that exists
         if (!user.isSuperAdmin && user.role != UserRole.superAdmin) {
           final validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
+          if (!mounted) return false;
           if (validCamps.isEmpty) {
             await _authRepository.logout(deviceId: deviceId);
+            if (!mounted) return false;
             state = state.copyWith(
               currentUser: null,
               isLoading: false,
@@ -138,10 +142,12 @@ class AuthViewModel extends StateNotifier<AuthState> {
           email: user.email,
           role: user.role.toDbString(),
         );
+        if (!mounted) return true;
         state = state.copyWith(currentUser: user, isLoading: false);
         return true;
 
       } else {
+        if (!mounted) return false;
         state = state.copyWith(
           isLoading: false,
           errorMessage: 'Invalid staff credentials or account deactivated. Please verify your email and password.',
@@ -149,6 +155,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
         return false;
       }
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Login failed: ${e.toString()}',
@@ -161,11 +168,14 @@ class AuthViewModel extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final user = await _authRepository.loginAsRole(role: role, deviceId: deviceId);
+      if (!mounted) return false;
       if (user != null) {
         if (!user.isSuperAdmin && user.role != UserRole.superAdmin) {
           final validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
+          if (!mounted) return false;
           if (validCamps.isEmpty) {
             await _authRepository.logout(deviceId: deviceId);
+            if (!mounted) return false;
             state = state.copyWith(
               currentUser: null,
               isLoading: false,
@@ -180,9 +190,11 @@ class AuthViewModel extends StateNotifier<AuthState> {
           email: user.email,
           role: user.role.toDbString(),
         );
+        if (!mounted) return true;
         state = state.copyWith(currentUser: user, isLoading: false);
         return true;
       } else {
+        if (!mounted) return false;
         state = state.copyWith(
           isLoading: false,
           errorMessage: 'No active profile found for role: ${role.displayNameEn}',
@@ -190,6 +202,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
         return false;
       }
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Role switch failed: ${e.toString()}',
@@ -209,9 +222,11 @@ class AuthViewModel extends StateNotifier<AuthState> {
         adminUserId: state.currentUser?.id ?? updatedUser.id,
         deviceId: deviceId,
       );
+      if (!mounted) return true;
       state = state.copyWith(currentUser: saved, isLoading: false);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to update profile: $e',
@@ -234,6 +249,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true);
     await _authRepository.logout(deviceId: deviceId);
     await SessionService.current?.clearSession();
+    if (!mounted) return;
     state = state.copyWith(clearUser: true, isLoading: false);
   }
 }

@@ -50,6 +50,9 @@ class GynoCampSyncServer {
   Connection? _connection;
   bool _isPgConnected = false;
 
+  // SSE (Server-Sent Events) real-time push connections
+  final List<_SseClient> _sseClients = [];
+
   // In-memory fallback cache if PostgreSQL is offline
   final Map<String, Map<String, dynamic>> _memCamps = {};
   final Map<String, Map<String, dynamic>> _memUsers = {};
@@ -98,6 +101,21 @@ class GynoCampSyncServer {
       print('! Operating with High-Availability In-Memory Cloud Store.');
       return false;
     }
+  }
+
+  /// Auto-reconnect wrapper: checks connection health and reconnects if stale
+  Future<bool> _ensurePgConnection() async {
+    if (_isPgConnected && _connection != null) {
+      try {
+        await _connection!.execute('SELECT 1;');
+        return true;
+      } catch (_) {
+        print('! PostgreSQL connection stale, reconnecting...');
+        _isPgConnected = false;
+        _connection = null;
+      }
+    }
+    return _tryConnectPostgres();
   }
 
   Future<void> _ensureTablesExist() async {
@@ -331,6 +349,10 @@ class GynoCampSyncServer {
 
     final path = request.uri.path;
     try {
+      if (path != '/api/events') {
+        await _ensurePgConnection();
+      }
+
       if (request.method == 'GET' && (path == '/' || path == '/health' || path == '/api/status')) {
         await _handleHealth(request);
       } else if (request.method == 'POST' && path == '/api/sync/push') {
@@ -361,6 +383,8 @@ class GynoCampSyncServer {
         await _handleApproveDevice(request);
       } else if (request.method == 'POST' && path == '/api/devices/revoke') {
         await _handleRevokeDevice(request);
+      } else if (request.method == 'GET' && path == '/api/events') {
+        await _handleSseEvents(request);
       } else {
         request.response.statusCode = HttpStatus.notFound;
         request.response.write(jsonEncode({'error': 'Endpoint not found', 'path': path}));
@@ -504,7 +528,9 @@ class GynoCampSyncServer {
               'updated_at': map['updated_at'] ?? DateTime.now().toIso8601String(),
             },
           );
-        } catch (_) {}
+        } catch (e) {
+          print('Error upserting camp $id in push: $e');
+        }
       }
     }
 
@@ -547,7 +573,9 @@ class GynoCampSyncServer {
               'pin_hash': map['pin_hash'],
             },
           );
-        } catch (_) {}
+        } catch (e) {
+          print('Error upserting user $id in push: $e');
+        }
       }
     }
 
@@ -650,7 +678,9 @@ class GynoCampSyncServer {
             SELECT COUNT(*) FROM patients WHERE patients.camp_id = camps.id
           );
         ''');
-      } catch (_) {}
+      } catch (e) {
+        print('Error recalculating total_patients_registered: $e');
+      }
     }
 
     // 4. Process Clinical Visits
@@ -822,6 +852,16 @@ class GynoCampSyncServer {
       'message': 'Successfully committed ${syncedPatientIds.length} patients and ${syncedVisitIds.length} visits to central cloud.',
     }));
     await request.response.close();
+
+    // Broadcast SSE event to all connected clients so they pull immediately
+    final pushDeviceId = data['device_id']?.toString() ?? '';
+    _broadcastSseEvent('sync_update', {
+      'action': 'push',
+      'patients': syncedPatientIds.length,
+      'visits': syncedVisitIds.length,
+      'camps': camps.length,
+      'timestamp': DateTime.now().toIso8601String(),
+    }, excludeDeviceId: pushDeviceId);
   }
 
   Future<void> _handleSyncPull(HttpRequest request) async {
@@ -922,8 +962,8 @@ class GynoCampSyncServer {
             'assigned_camp_ids': row[7],
             'tenant_id': row[8],
             'tenant_name': row[9],
-            'password_hash': row[10],
-            'pin_hash': row[11],
+            // Security: password_hash and pin_hash are NOT included in pull
+            // Devices retain their locally-set credentials
           });
         }
 
@@ -1334,6 +1374,7 @@ class GynoCampSyncServer {
     request.response.statusCode = HttpStatus.created;
     request.response.write(jsonEncode(map));
     await request.response.close();
+    _broadcastSseEvent('sync_update', {'action': 'camp_upsert', 'camp_id': id, 'timestamp': DateTime.now().toIso8601String()});
   }
 
   Future<void> _handleDeleteCamp(HttpRequest request) async {
@@ -1369,6 +1410,7 @@ class GynoCampSyncServer {
     request.response.statusCode = HttpStatus.ok;
     request.response.write(jsonEncode({'success': true}));
     await request.response.close();
+    _broadcastSseEvent('sync_update', {'action': 'camp_delete', 'camp_id': id, 'timestamp': DateTime.now().toIso8601String()});
   }
 
   Future<void> _handleGetUsers(HttpRequest request) async {
@@ -1478,6 +1520,7 @@ class GynoCampSyncServer {
     request.response.statusCode = HttpStatus.created;
     request.response.write(jsonEncode(map));
     await request.response.close();
+    _broadcastSseEvent('sync_update', {'action': 'user_upsert', 'user_id': id, 'timestamp': DateTime.now().toIso8601String()});
   }
 
   Future<void> _handleDeleteUser(HttpRequest request) async {
@@ -1508,6 +1551,7 @@ class GynoCampSyncServer {
     request.response.statusCode = HttpStatus.ok;
     request.response.write(jsonEncode({'success': true, 'deleted_user_id': userId}));
     await request.response.close();
+    _broadcastSseEvent('sync_update', {'action': 'user_delete', 'user_id': userId, 'timestamp': DateTime.now().toIso8601String()});
   }
 
   Future<void> _handleDeleteLookup(HttpRequest request) async {
@@ -1540,6 +1584,7 @@ class GynoCampSyncServer {
     request.response.statusCode = HttpStatus.ok;
     request.response.write(jsonEncode({'success': true, 'deleted_lookup_id': id}));
     await request.response.close();
+    _broadcastSseEvent('sync_update', {'action': 'lookup_delete', 'lookup_id': id, 'timestamp': DateTime.now().toIso8601String()});
   }
 
   Future<void> _handleGetDevices(HttpRequest request) async {
@@ -1717,6 +1762,7 @@ class GynoCampSyncServer {
     request.response.statusCode = HttpStatus.ok;
     request.response.write(jsonEncode(map));
     await request.response.close();
+    _broadcastSseEvent('sync_update', {'action': 'device_upsert', 'device_id': deviceId, 'status': map['status'], 'timestamp': DateTime.now().toIso8601String()});
   }
 
   Future<void> _handleApproveDevice(HttpRequest request) async {
@@ -1754,6 +1800,7 @@ class GynoCampSyncServer {
     request.response.statusCode = HttpStatus.ok;
     request.response.write(jsonEncode({'success': true, 'device_id': deviceId, 'status': 'APPROVED'}));
     await request.response.close();
+    _broadcastSseEvent('sync_update', {'action': 'device_approved', 'device_id': deviceId, 'timestamp': DateTime.now().toIso8601String()});
   }
 
   Future<void> _handleRevokeDevice(HttpRequest request) async {
@@ -1784,5 +1831,79 @@ class GynoCampSyncServer {
     request.response.statusCode = HttpStatus.ok;
     request.response.write(jsonEncode({'success': true, 'device_id': deviceId, 'status': 'REVOKED'}));
     await request.response.close();
+    _broadcastSseEvent('sync_update', {'action': 'device_revoked', 'device_id': deviceId, 'timestamp': DateTime.now().toIso8601String()});
   }
+
+  // ============================================================
+  //  SSE (Server-Sent Events) Real-Time Push Infrastructure
+  // ============================================================
+
+  /// Handle a new SSE client connection. Keeps the response open.
+  Future<void> _handleSseEvents(HttpRequest request) async {
+    final deviceId = request.uri.queryParameters['deviceId'] ?? 'unknown';
+    print('→ SSE client connected: deviceId=$deviceId');
+
+    request.response.headers.set('Content-Type', 'text/event-stream');
+    request.response.headers.set('Cache-Control', 'no-cache');
+    request.response.headers.set('Connection', 'keep-alive');
+    request.response.headers.set('Access-Control-Allow-Origin', '*');
+
+    // Send initial heartbeat
+    request.response.write('event: connected\ndata: {"status":"connected","server_time":"${DateTime.now().toIso8601String()}"}\n\n');
+
+    final client = _SseClient(deviceId: deviceId, response: request.response);
+    _sseClients.add(client);
+
+    // Keep connection alive with periodic heartbeats
+    final heartbeat = Stream.periodic(const Duration(seconds: 15), (count) => count);
+    final heartbeatSub = heartbeat.listen((_) {
+      try {
+        request.response.write('event: heartbeat\ndata: {"time":"${DateTime.now().toIso8601String()}"}\n\n');
+      } catch (_) {
+        // Client disconnected
+      }
+    });
+
+    // Wait for client disconnect
+    request.response.done.then((_) {
+      _sseClients.remove(client);
+      heartbeatSub.cancel();
+      print('← SSE client disconnected: deviceId=$deviceId (${_sseClients.length} remaining)');
+    }).catchError((_) {
+      _sseClients.remove(client);
+      heartbeatSub.cancel();
+    });
+  }
+
+  /// Broadcast an SSE event to all connected clients, optionally excluding the sender
+  void _broadcastSseEvent(String eventType, Map<String, dynamic> data, {String? excludeDeviceId}) {
+    final payload = 'event: $eventType\ndata: ${jsonEncode(data)}\n\n';
+    final deadClients = <_SseClient>[];
+
+    for (final client in _sseClients) {
+      if (excludeDeviceId != null && client.deviceId == excludeDeviceId) continue;
+      try {
+        client.response.write(payload);
+      } catch (_) {
+        deadClients.add(client);
+      }
+    }
+
+    // Clean up dead connections
+    for (final dead in deadClients) {
+      _sseClients.remove(dead);
+    }
+
+    if (_sseClients.isNotEmpty || deadClients.isNotEmpty) {
+      print('📡 SSE broadcast: $eventType → ${_sseClients.length} clients (${deadClients.length} cleaned)');
+    }
+  }
+}
+
+/// Represents a connected SSE client
+class _SseClient {
+  final String deviceId;
+  final HttpResponse response;
+
+  _SseClient({required this.deviceId, required this.response});
 }

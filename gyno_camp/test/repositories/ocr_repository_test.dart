@@ -68,6 +68,7 @@ void main() {
         campCode: 'KTM01',
         userId: 'usr-datataker-01',
         userName: 'Sita Sharma',
+        userRole: 'DataTaker',
         deviceId: 'dev-tab-01',
       );
 

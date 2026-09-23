@@ -39,6 +39,12 @@ class HomeGatewayView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<SyncState>(syncStateProvider, (previous, next) {
+      if (previous?.lastSyncedAt != next.lastSyncedAt && next.lastSyncedAt != null) {
+        ref.read(campStateProvider.notifier).loadCamps();
+      }
+    });
+
     final authState = ref.watch(authStateProvider);
     final user = authState.currentUser;
     final deviceState = ref.watch(deviceSecurityProvider);

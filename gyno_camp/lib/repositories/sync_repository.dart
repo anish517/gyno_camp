@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
@@ -391,7 +392,7 @@ class SyncRepository implements ISyncRepository {
         final val = rows.first['value'] as String?;
         if (val != null) return DateTime.tryParse(val);
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[SyncRepo] Metadata error: $e'); }
     return null;
   }
 
@@ -408,6 +409,6 @@ class SyncRepository implements ISyncRepository {
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-    } catch (_) {}
+    } catch (e) { debugPrint('[SyncRepo] Metadata error: $e'); }
   }
 }

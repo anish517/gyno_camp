@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../core/constants/app_constants.dart';
@@ -105,7 +106,7 @@ class AuthRepository implements IAuthRepository {
         final val = meta.first['value'] as String? ?? '';
         deletedUserIds = val.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
 
     // 1. Merge latest users from Central Cloud if available
     if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
@@ -121,7 +122,7 @@ class AuthRepository implements IAuthRepository {
             await _upsertUserPreservingCredentials(db, u);
           }
         }
-      } catch (_) {}
+      } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
     }
 
     final maps = await db.query(
@@ -163,7 +164,7 @@ class AuthRepository implements IAuthRepository {
         final deletedUserIds = val.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
         if (deletedUserIds.contains(id)) return null;
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
 
     final maps = await db.query(
       DatabaseTables.tableUsers,
@@ -192,7 +193,7 @@ class AuthRepository implements IAuthRepository {
           await _upsertUserPreservingCredentials(db, u);
           if (u.id == id) return u;
         }
-      } catch (_) {}
+      } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
     }
 
     return null;
@@ -229,7 +230,7 @@ class AuthRepository implements IAuthRepository {
             return u;
           }
         }
-      } catch (_) {}
+      } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
     }
 
     return null;
@@ -266,7 +267,7 @@ class AuthRepository implements IAuthRepository {
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
 
     await db.insert(
       DatabaseTables.tableUsers,
@@ -289,7 +290,7 @@ class AuthRepository implements IAuthRepository {
     if (enableCentralSync) {
       try {
         HttpCentralApiService().broadcastUser(user);
-      } catch (_) {}
+      } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
     }
 
     return user;
@@ -328,7 +329,7 @@ class AuthRepository implements IAuthRepository {
           where: 'tenant_id = ?',
           whereArgs: [user.tenantId],
         );
-      } catch (_) {}
+      } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
     }
 
     // Synchronize camp assigned_staff_ids with user.assignedCampIds (Issue 1)
@@ -362,7 +363,7 @@ class AuthRepository implements IAuthRepository {
           );
         }
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
 
     await _auditRepository.logActivity(
       userId: adminUserId,
@@ -379,7 +380,7 @@ class AuthRepository implements IAuthRepository {
     if (enableCentralSync) {
       try {
         HttpCentralApiService().broadcastUser(user);
-      } catch (_) {}
+      } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
     }
 
     if (_currentUser?.id == user.id) {
@@ -430,13 +431,13 @@ class AuthRepository implements IAuthRepository {
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-    } catch (_) {}
+    } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
 
     // Tell Central Cloud Server to delete user immediately
     if (enableCentralSync) {
       try {
         await HttpCentralApiService().deleteCentralUser(userId);
-      } catch (_) {}
+      } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
     }
 
     await _auditRepository.logActivity(

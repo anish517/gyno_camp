@@ -8,6 +8,7 @@ import '../../models/user_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
+import '../../viewmodels/sync_viewmodel.dart';
 
 final allUsersProvider = FutureProvider.autoDispose<List<UserModel>>((ref) async {
   final authRepo = ref.watch(authRepositoryProvider);
@@ -54,6 +55,12 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<SyncState>(syncStateProvider, (previous, next) {
+      if (previous?.lastSyncedAt != next.lastSyncedAt && next.lastSyncedAt != null) {
+        ref.invalidate(allUsersProvider);
+      }
+    });
+
     final usersAsync = ref.watch(allUsersProvider);
     final campState = ref.watch(campStateProvider);
     final currentUser = ref.watch(authStateProvider).currentUser;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
@@ -24,11 +25,13 @@ abstract class ILookupRepository {
 class LookupRepository implements ILookupRepository {
   final DatabaseService _databaseService;
   final AuditRepository _auditRepository;
+  final bool _enableCentralSync;
   final Uuid _uuid = const Uuid();
 
   LookupRepository({
     DatabaseService? databaseService,
     AuditRepository? auditRepository,
+    this._enableCentralSync = true,
   })  : _databaseService = databaseService ?? DatabaseService(),
         _auditRepository = auditRepository ?? AuditRepository();
 
@@ -148,7 +151,7 @@ class LookupRepository implements ILookupRepository {
     );
 
     // Auto-push to central server (fire-and-forget)
-    unawaited(_pushLookupToServer(newItem));
+    if (_enableCentralSync) unawaited(_pushLookupToServer(newItem));
 
     return newItem;
   }
@@ -183,7 +186,7 @@ class LookupRepository implements ILookupRepository {
     );
 
     // Auto-push to central server (fire-and-forget)
-    unawaited(_pushLookupToServer(updatedItem));
+    if (_enableCentralSync) unawaited(_pushLookupToServer(updatedItem));
 
     return updatedItem;
   }
@@ -248,13 +251,13 @@ class LookupRepository implements ILookupRepository {
         deviceId: deviceId,
       );
       // Auto-push status change to central server
-      final rows = await (await _databaseService.database).query(
+      final rows = await db.query(
         DatabaseTables.tableLookupItems,
         where: 'id = ?',
         whereArgs: [id],
         limit: 1,
       );
-      if (rows.isNotEmpty) unawaited(_pushLookupToServer(LookupItemModel.fromMap(rows.first)));
+      if (rows.isNotEmpty && _enableCentralSync) unawaited(_pushLookupToServer(LookupItemModel.fromMap(rows.first)));
       return true;
     }
     return false;
@@ -298,7 +301,7 @@ class LookupRepository implements ILookupRepository {
               detailsJson: '{"deletedId":"$id","campId":"$campId"}',
               deviceId: deviceId,
             );
-            unawaited(_pushLookupDeleteToServer(id));
+            if (_enableCentralSync) unawaited(_pushLookupDeleteToServer(id));
             return true;
           }
           return false;
@@ -344,7 +347,7 @@ class LookupRepository implements ILookupRepository {
         deviceId: deviceId,
       );
       // Notify server of deletion by pushing a tombstone item
-      unawaited(_pushLookupDeleteToServer(id));
+      if (_enableCentralSync) unawaited(_pushLookupDeleteToServer(id));
       return true;
     }
     return false;
@@ -398,7 +401,7 @@ class LookupRepository implements ILookupRepository {
         lookupItems: [item],
       );
       await apiService.pushDelta(payload);
-    } catch (_) {}
+    } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
   }
 
   /// Fire-and-forget: notify server that a lookup item was deleted.
@@ -422,7 +425,7 @@ class LookupRepository implements ILookupRepository {
         lookupItems: [tombstone],
       );
       await apiService.pushDelta(payload);
-    } catch (_) {}
+    } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
   }
 
   @override
@@ -449,7 +452,7 @@ class LookupRepository implements ILookupRepository {
           whereArgs: ['medicine', entry.key],
         );
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
 
     // 2. Check one-time seed gate in app_metadata
     try {
@@ -462,7 +465,7 @@ class LookupRepository implements ILookupRepository {
         // Defaults have already been seeded. Do not resurrect user deletions!
         return;
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
 
     // 3. Check & seed referral hospitals if empty
     final hospitals = await getItemsByCategory('referral_hospital', tenantId: targetTenant);
@@ -620,6 +623,6 @@ class LookupRepository implements ILookupRepository {
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-    } catch (_) {}
+    } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
   }
 }

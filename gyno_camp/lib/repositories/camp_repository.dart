@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
@@ -128,7 +129,7 @@ class CampRepository implements ICampRepository {
             }
           }
         }
-      } catch (_) {}
+      } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     });
   }
 
@@ -168,7 +169,7 @@ class CampRepository implements ICampRepository {
           }
         }
         if (matched != null) return matched;
-      } catch (_) {}
+      } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 
     return null;
@@ -222,7 +223,7 @@ class CampRepository implements ICampRepository {
     if (enableCentralSync) {
       try {
         HttpCentralApiService().broadcastCamp(newCamp);
-      } catch (_) {}
+      } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 
     return newCamp;
@@ -273,7 +274,7 @@ class CampRepository implements ICampRepository {
     if (enableCentralSync) {
       try {
         await HttpCentralApiService().broadcastCamp(updated);
-      } catch (_) {}
+      } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 
     return true;
@@ -313,7 +314,7 @@ class CampRepository implements ICampRepository {
     if (enableCentralSync) {
       try {
         await HttpCentralApiService().broadcastCamp(updated);
-      } catch (_) {}
+      } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 
     return true;
@@ -353,7 +354,7 @@ class CampRepository implements ICampRepository {
     if (enableCentralSync) {
       try {
         await HttpCentralApiService().broadcastCamp(updated);
-      } catch (_) {}
+      } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 
     return true;
@@ -386,7 +387,7 @@ class CampRepository implements ICampRepository {
     if (enableCentralSync) {
       try {
         HttpCentralApiService().broadcastCamp(updated);
-      } catch (_) {}
+      } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 
     return updated;
@@ -418,7 +419,7 @@ class CampRepository implements ICampRepository {
     try {
       await db.rawDelete('DELETE FROM ${DatabaseTables.tablePatients} WHERE camp_id NOT IN (SELECT id FROM ${DatabaseTables.tableCamps});');
       await db.rawDelete('DELETE FROM ${DatabaseTables.tableClinicalVisits} WHERE camp_id NOT IN (SELECT id FROM ${DatabaseTables.tableCamps});');
-    } catch (_) {}
+    } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
 
     // Prune deleted campId from all staff assigned_camp_ids
     try {
@@ -439,7 +440,7 @@ class CampRepository implements ICampRepository {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
 
     await _auditRepository.logActivity(
       userId: adminUserId,
@@ -455,7 +456,7 @@ class CampRepository implements ICampRepository {
     if (enableCentralSync) {
       try {
         await HttpCentralApiService().deleteCentralCamp(campId);
-      } catch (_) {}
+      } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 
     return true;
@@ -483,7 +484,7 @@ class CampRepository implements ICampRepository {
     if (enableCentralSync) {
       try {
         HttpCentralApiService().broadcastCamp(updated);
-      } catch (_) {}
+      } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 
     // 2. Also update each assigned staff's user record with this campId
@@ -513,7 +514,7 @@ class CampRepository implements ICampRepository {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
 
     await _auditRepository.logActivity(
       userId: adminUserId,

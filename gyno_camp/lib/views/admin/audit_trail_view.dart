@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/audit_log_model.dart';
 import '../../viewmodels/audit_log_viewmodel.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/sync_viewmodel.dart';
 import '../admin/camp_management_view.dart';
 import '../admin/device_management_view.dart';
 import '../admin/master_config_view.dart';
@@ -78,6 +79,12 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<SyncState>(syncStateProvider, (previous, next) {
+      if (previous?.lastSyncedAt != next.lastSyncedAt && next.lastSyncedAt != null) {
+        ref.read(auditLogProvider.notifier).loadRecentLogs();
+      }
+    });
+
     final auditState = ref.watch(auditLogProvider);
     final vm = ref.read(auditLogProvider.notifier);
     final currentUser = ref.watch(authStateProvider).currentUser;

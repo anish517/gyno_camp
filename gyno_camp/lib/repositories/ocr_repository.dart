@@ -35,6 +35,7 @@ abstract class IOcrRepository {
     required String campCode,
     required String userId,
     required String userName,
+    String userRole = 'NURSE',
     required String deviceId,
   });
 }
@@ -195,6 +196,7 @@ class OcrRepository implements IOcrRepository {
     required String campCode,
     required String userId,
     required String userName,
+    String userRole = 'NURSE',
     required String deviceId,
   }) async {
     final demo = verifiedScan.demographics;
@@ -238,7 +240,7 @@ class OcrRepository implements IOcrRepository {
       patient,
       createdByUserId: userId,
       createdByUserName: userName,
-      createdByUserRole: AppConstants.roleDataTaker,
+      createdByUserRole: userRole,
       deviceId: deviceId,
     );
 
@@ -307,7 +309,7 @@ class OcrRepository implements IOcrRepository {
     await _auditRepository.logActivity(
       userId: userId,
       userName: userName,
-      userRole: AppConstants.roleDataTaker,
+      userRole: userRole,
       action: AppConstants.auditActionPatientRegisteredViaOcr,
       entityType: 'PATIENT',
       entityId: registeredPatient.id,

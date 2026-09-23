@@ -1115,6 +1115,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             campCode: activeCamp.campCode,
                             userId: authState.currentUser?.id ?? 'usr-local',
                             userName: authState.currentUser?.name ?? 'Field Staff',
+                            userRole: authState.currentUser?.role.toString() ?? 'DataTaker',
                             deviceId: deviceState.device?.deviceId ?? 'dev-local',
                           );
 

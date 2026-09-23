@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../core/database/database_service.dart';
@@ -53,7 +54,7 @@ class AuditRepository implements IAuditRepository {
         if (latest.isNotEmpty) {
           _lastLogHash = latest.first['log_hash'] as String?;
         }
-      } catch (_) {}
+      } catch (e) { debugPrint('[AuditRepo] Failed to fetch last hash: $e'); }
     }
 
     final log = AuditLogModel.create(

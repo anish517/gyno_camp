@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/central_api_service.dart';
+import '../core/services/http_central_api_service.dart';
 import '../core/services/network_connectivity_service.dart';
+import '../core/services/sse_sync_service.dart';
 import '../models/sync_payload_model.dart';
 import '../repositories/sync_repository.dart';
 import 'camp_viewmodel.dart';
@@ -67,6 +69,7 @@ class SyncViewModel extends StateNotifier<SyncState> {
   final INetworkConnectivityService _connectivityService;
   StreamSubscription<bool>? _connectivitySub;
   Timer? _periodicSyncTimer;
+  final SseSyncService? _sseSyncService;
 
   String _lastKnownDeviceId = 'dev-field';
   String _lastKnownUserId = 'usr-sync';
@@ -77,6 +80,7 @@ class SyncViewModel extends StateNotifier<SyncState> {
     required this.syncRepository,
     required INetworkConnectivityService connectivityService,
     this.ref,
+    this._sseSyncService,
   })  : _connectivityService = connectivityService,
         super(SyncState(isOnline: connectivityService.isOnline)) {
     _init();
@@ -106,12 +110,16 @@ class SyncViewModel extends StateNotifier<SyncState> {
         });
       }
 
-      // Periodic auto-sync every 30 seconds while app is active and online
-      _periodicSyncTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      // Periodic fallback sync every 15 seconds (reduced from 30s)
+      // SSE provides instant updates when available; this is the safety net
+      _periodicSyncTimer = Timer.periodic(const Duration(seconds: 15), (_) {
         if (mounted && state.isOnline && !state.isSyncing) {
           syncNow(deviceId: _lastKnownDeviceId, userId: _lastKnownUserId);
         }
       });
+
+      // Connect SSE for real-time push notifications
+      _sseSyncService?.connect();
     }
   }
 
@@ -203,6 +211,7 @@ class SyncViewModel extends StateNotifier<SyncState> {
   void dispose() {
     _periodicSyncTimer?.cancel();
     _connectivitySub?.cancel();
+    _sseSyncService?.dispose();
     super.dispose();
   }
 }
@@ -226,9 +235,25 @@ final syncRepositoryProvider = Provider<ISyncRepository>((ref) {
 final syncStateProvider = StateNotifierProvider<SyncViewModel, SyncState>((ref) {
   final repo = ref.watch(syncRepositoryProvider);
   final net = ref.watch(networkConnectivityProvider);
-  return SyncViewModel(
+
+  // Create SSE service that triggers instant sync on server events
+  late final SyncViewModel vm;
+  final sseService = SseSyncService(
+    apiService: HttpCentralApiService(),
+    deviceId: 'dev-field',
+    onSyncEvent: (eventData) {
+      debugPrint('[SyncVM] SSE event received, triggering instant sync...');
+      vm.syncNow(deviceId: vm._lastKnownDeviceId, userId: vm._lastKnownUserId);
+    },
+  );
+
+  vm = SyncViewModel(
     syncRepository: repo,
     connectivityService: net,
     ref: ref,
+    sseSyncService: sseService,
   );
+
+  ref.onDispose(() => sseService.dispose());
+  return vm;
 });
