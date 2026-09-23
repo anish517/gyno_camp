@@ -1,17 +1,34 @@
-# gyno_camp
+# GynoCamp (स्त्रीरोग स्वास्थ्य शिविर व्यवस्थापन प्रणाली)
+### Enterprise Production Server Deployment & DevOps Engineering Guide
 
-A new Flutter project.
+Please refer to the primary repository documentation:
+[Root Production Server & DevOps Deployment Guide (README.md)](../README.md)
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## Quick Reference Commands
 
-A few resources to get you started if this is your first Flutter project:
+### Start Sync Server (Development)
+```bash
+dart run bin/server.dart
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+### Build Web for Dedicated Server (Nginx)
+```bash
+flutter build web --release --no-wasm-dry-run \
+  --dart-define=CENTRAL_SERVER_URL=https://api.yourdomain.org \
+  --dart-define=GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Build Android APK for Field Tablets
+```bash
+flutter build apk --release \
+  --dart-define=CENTRAL_SERVER_URL=https://api.yourdomain.org \
+  --dart-define=GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+```
+
+### Code Quality Gates
+```bash
+flutter analyze
+flutter test
+```
