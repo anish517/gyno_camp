@@ -10,7 +10,7 @@ import 'audit_repository.dart';
 import 'sync_repository.dart';
 
 abstract class ICampRepository {
-  Future<List<CampModel>> getAllCamps();
+  Future<List<CampModel>> getAllCamps({String? tenantId});
   Future<CampModel?> getCampById(String id);
   Future<CampModel?> getActiveCamp();
   Future<CampModel> createCamp(CampModel camp, {required String createdByUserId, required String deviceId});
@@ -36,7 +36,7 @@ class CampRepository implements ICampRepository {
         _auditRepository = auditRepository ?? AuditRepository();
 
   @override
-  Future<List<CampModel>> getAllCamps() async {
+  Future<List<CampModel>> getAllCamps({String? tenantId}) async {
     final db = await _databaseService.database;
 
     // 1. Sync latest camps from Central Cloud in background without blocking local return
@@ -64,10 +64,12 @@ class CampRepository implements ICampRepository {
       }
     }
 
-    final maps = await db.rawQuery('''
+    final hasTenant = tenantId != null && tenantId.isNotEmpty && tenantId != 'tenant_default' && tenantId != 'global';
+    final sql = '''
       SELECT c.*,
              COALESCE((SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} p WHERE p.camp_id = c.id), 0) AS live_patient_count
       FROM ${DatabaseTables.tableCamps} c
+      ${hasTenant ? "WHERE c.tenant_id = ? OR c.tenant_id = 'tenant_default' OR c.tenant_id = 'global'" : ""}
       ORDER BY 
         CASE 
           WHEN c.status = 'OPEN' THEN 1
@@ -78,7 +80,8 @@ class CampRepository implements ICampRepository {
           ELSE 6
         END ASC,
         COALESCE(c.updated_at, c.created_at) DESC
-    ''');
+    ''';
+    final maps = await db.rawQuery(sql, hasTenant ? [tenantId] : null);
     final localCamps = maps.map((m) {
       final map = Map<String, dynamic>.from(m);
       if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
@@ -411,6 +414,27 @@ class CampRepository implements ICampRepository {
       where: 'id = ?',
       whereArgs: [campId],
     );
+
+    // Prune deleted campId from all staff assigned_camp_ids
+    try {
+      final userRows = await db.query(DatabaseTables.tableUsers);
+      for (final row in userRows) {
+        final user = UserModel.fromMap(row);
+        if (user.assignedCampIds.contains(campId)) {
+          final updatedCamps = List<String>.from(user.assignedCampIds)..remove(campId);
+          final updatedUser = user.copyWith(assignedCampIds: updatedCamps);
+          await db.update(
+            DatabaseTables.tableUsers,
+            updatedUser.toMap(),
+            where: 'id = ?',
+            whereArgs: [user.id],
+          );
+          if (enableCentralSync) {
+            HttpCentralApiService().broadcastUser(updatedUser);
+          }
+        }
+      }
+    } catch (_) {}
 
     await _auditRepository.logActivity(
       userId: adminUserId,

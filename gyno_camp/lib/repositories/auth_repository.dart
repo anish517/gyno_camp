@@ -5,6 +5,7 @@ import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
 import '../core/security/security_service.dart';
 import '../core/services/http_central_api_service.dart';
+import '../core/services/session_service.dart';
 import '../models/user_model.dart';
 import 'audit_repository.dart';
 
@@ -37,6 +38,7 @@ abstract class IAuthRepository {
     required String deviceId,
   });
   Future<void> logout({required String deviceId});
+  Future<List<String>> getValidCampsForUser(List<String> assignedCampIds);
   UserModel? get currentUser;
   void setCurrentUser(UserModel? user);
 }
@@ -66,12 +68,30 @@ class AuthRepository implements IAuthRepository {
   Future<List<UserModel>> getAllUsers({bool includeInactive = false}) async {
     final db = await _databaseService.database;
 
+    // Load tombstoned deleted user IDs to prevent deleted users from being resurrected
+    Set<String> deletedUserIds = {};
+    try {
+      final meta = await db.query(
+        DatabaseTables.tableMetadata,
+        where: "key = 'deleted_user_ids'",
+      );
+      if (meta.isNotEmpty) {
+        final val = meta.first['value'] as String? ?? '';
+        deletedUserIds = val.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+      }
+    } catch (_) {}
+
     // 1. Merge latest users from Central Cloud if available
     if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
       try {
         final centralUsers = await HttpCentralApiService().fetchCentralUsers();
         if (centralUsers.isNotEmpty) {
           for (final u in centralUsers) {
+            if (deletedUserIds.contains(u.id)) {
+              // User was deleted locally; inform central cloud and skip
+              HttpCentralApiService().deleteCentralUser(u.id);
+              continue;
+            }
             await db.insert(
               DatabaseTables.tableUsers,
               u.toMap(),
@@ -88,19 +108,59 @@ class AuthRepository implements IAuthRepository {
       whereArgs: includeInactive ? null : [1],
       orderBy: 'name ASC',
     );
-    return maps.map((m) => UserModel.fromMap(m)).toList();
+
+    final savedOrg = SessionService.current?.getOrganizationName();
+    return maps
+        .map((m) => UserModel.fromMap(m))
+        .where((u) => !deletedUserIds.contains(u.id))
+        .map((u) {
+          if (savedOrg != null &&
+              savedOrg.trim().isNotEmpty &&
+              u.isSuperAdmin &&
+              (u.tenantName == 'Outreach Health Center' ||
+                  u.tenantName == 'Nepal Health Outreach Network')) {
+            return u.copyWith(tenantName: savedOrg);
+          }
+          return u;
+        })
+        .toList();
   }
 
   @override
   Future<UserModel?> getUserById(String id) async {
     final db = await _databaseService.database;
+
+    // Check tombstone
+    try {
+      final meta = await db.query(
+        DatabaseTables.tableMetadata,
+        where: "key = 'deleted_user_ids'",
+      );
+      if (meta.isNotEmpty) {
+        final val = meta.first['value'] as String? ?? '';
+        final deletedUserIds = val.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+        if (deletedUserIds.contains(id)) return null;
+      }
+    } catch (_) {}
+
     final maps = await db.query(
       DatabaseTables.tableUsers,
       where: 'id = ?',
       whereArgs: [id],
       limit: 1,
     );
-    if (maps.isNotEmpty) return UserModel.fromMap(maps.first);
+    if (maps.isNotEmpty) {
+      final user = UserModel.fromMap(maps.first);
+      final savedOrg = SessionService.current?.getOrganizationName();
+      if (savedOrg != null &&
+          savedOrg.trim().isNotEmpty &&
+          user.isSuperAdmin &&
+          (user.tenantName == 'Outreach Health Center' ||
+              user.tenantName == 'Nepal Health Outreach Network')) {
+        return user.copyWith(tenantName: savedOrg);
+      }
+      return user;
+    }
 
     // Try central cloud if enabled
     if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
@@ -164,6 +224,32 @@ class AuthRepository implements IAuthRepository {
     required String deviceId,
   }) async {
     final db = await _databaseService.database;
+
+    // Remove from deleted_user_ids tombstone if re-created
+    try {
+      final meta = await db.query(
+        DatabaseTables.tableMetadata,
+        where: "key = 'deleted_user_ids'",
+      );
+      if (meta.isNotEmpty) {
+        final val = meta.first['value'] as String? ?? '';
+        final remaining = val
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty && s != user.id)
+            .toList();
+        await db.insert(
+          DatabaseTables.tableMetadata,
+          {
+            'key': 'deleted_user_ids',
+            'value': remaining.join(','),
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    } catch (_) {}
+
     await db.insert(
       DatabaseTables.tableUsers,
       user.toMap(),
@@ -202,6 +288,28 @@ class AuthRepository implements IAuthRepository {
       where: 'id = ?',
       whereArgs: [user.id],
     );
+
+    // If organization / tenant name was updated, persist across SaaS session and camps
+    if (user.tenantName.trim().isNotEmpty && user.tenantName != 'Outreach Health Center') {
+      await SessionService.current?.saveOrganizationName(user.tenantName.trim());
+      try {
+        await db.insert(
+          DatabaseTables.tableMetadata,
+          {
+            'key': 'saas_organization_name',
+            'value': user.tenantName.trim(),
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        await db.update(
+          DatabaseTables.tableCamps,
+          {'organization_name': user.tenantName.trim()},
+          where: 'tenant_id = ?',
+          whereArgs: [user.tenantId],
+        );
+      } catch (_) {}
+    }
 
     await _auditRepository.logActivity(
       userId: adminUserId,
@@ -248,6 +356,34 @@ class AuthRepository implements IAuthRepository {
       whereArgs: [userId],
     );
 
+    // Save tombstone in app_metadata
+    try {
+      final meta = await db.query(
+        DatabaseTables.tableMetadata,
+        where: "key = 'deleted_user_ids'",
+      );
+      final existing = meta.isNotEmpty
+          ? (meta.first['value'] as String? ?? '').split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet()
+          : <String>{};
+      existing.add(userId);
+      await db.insert(
+        DatabaseTables.tableMetadata,
+        {
+          'key': 'deleted_user_ids',
+          'value': existing.join(','),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (_) {}
+
+    // Tell Central Cloud Server to delete user immediately
+    if (enableCentralSync) {
+      try {
+        await HttpCentralApiService().deleteCentralUser(userId);
+      } catch (_) {}
+    }
+
     await _auditRepository.logActivity(
       userId: adminUserId,
       userName: _currentUser?.name ?? 'Super Admin',
@@ -259,6 +395,18 @@ class AuthRepository implements IAuthRepository {
           '{"name":"${target.name}","email":"${target.email}","role":"${target.role.toDbString()}"}',
       deviceId: deviceId,
     );
+  }
+
+  @override
+  Future<List<String>> getValidCampsForUser(List<String> assignedCampIds) async {
+    if (assignedCampIds.isEmpty) return [];
+    final db = await _databaseService.database;
+    final placeholders = List.filled(assignedCampIds.length, '?').join(',');
+    final rows = await db.rawQuery(
+      'SELECT id FROM ${DatabaseTables.tableCamps} WHERE id IN ($placeholders)',
+      assignedCampIds,
+    );
+    return rows.map((r) => r['id'] as String).toList();
   }
 
   @override

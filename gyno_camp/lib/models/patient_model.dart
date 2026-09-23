@@ -75,7 +75,7 @@ class PatientModel {
     this.updatedAt,
     required this.createdByUserId,
     required this.createdByDeviceId,
-    this.tenantId = 'tenant_bir_hospital',
+    this.tenantId = 'tenant_default',
     this.isSynced = false,
     this.syncedAt,
     this.hasClinicalVisit = false,
@@ -278,7 +278,7 @@ class PatientModel {
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
       createdByUserId: map['created_by_user_id'] as String? ?? '',
       createdByDeviceId: map['created_by_device_id'] as String? ?? '',
-      tenantId: map['tenant_id'] as String? ?? 'tenant_bir_hospital',
+      tenantId: map['tenant_id'] as String? ?? 'tenant_default',
       isSynced: (map['is_synced'] is int)
           ? (map['is_synced'] as int) == 1
           : (map['is_synced'] as bool? ?? false),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/security/security_service.dart';
+import '../../core/services/session_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/user_model.dart';
@@ -698,28 +699,37 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                         'All Camps (Universal Super Admin)',
                         style: TextStyle(fontSize: 12, color: Color(0xFF4338CA), fontStyle: FontStyle.italic),
                       )
-                    else if (staff.assignedCampIds.isEmpty)
-                      const Text(
-                        'None assigned (Field intake restricted)',
-                        style: TextStyle(fontSize: 12, color: AppTheme.dangerRose),
-                      )
-                    else
-                      ...staff.assignedCampIds.map((cId) {
-                        final matchedCamp = camps.where((c) => c.id == cId).firstOrNull;
-                        final code = matchedCamp?.campCode ?? cId;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFCBD5E1)),
-                          ),
-                          child: Text(
-                            code,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                          ),
+                    else ...[
+                      () {
+                        final validAssigned = staff.assignedCampIds.where((cId) => camps.any((c) => c.id == cId)).toList();
+                        if (validAssigned.isEmpty) {
+                          return const Text(
+                            'None assigned (Field intake restricted)',
+                            style: TextStyle(fontSize: 12, color: AppTheme.dangerRose),
+                          );
+                        }
+                        return Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: validAssigned.map((cId) {
+                            final matchedCamp = camps.where((c) => c.id == cId).firstOrNull;
+                            final code = matchedCamp?.campCode ?? cId;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFCBD5E1)),
+                              ),
+                              child: Text(
+                                code,
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                              ),
+                            );
+                          }).toList(),
                         );
-                      }),
+                      }(),
+                    ],
                   ],
                 ),
                 Wrap(
@@ -1286,7 +1296,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
   }
 
   Future<void> _showAssignCampsDialog(BuildContext context, UserModel staff, List<CampModel> camps) async {
-    final assigned = Set<String>.from(staff.assignedCampIds);
+    final validCampIds = camps.map((c) => c.id).toSet();
+    final assigned = staff.assignedCampIds.where((id) => validCampIds.contains(id)).toSet();
     final messenger = ScaffoldMessenger.of(context);
     bool isSubmitting = false;
 
@@ -1392,7 +1403,11 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
 
   Future<void> _showEditProfileDialog(BuildContext context, UserModel staff) async {
     final nameCtrl = TextEditingController(text: staff.name);
-    final tenantCtrl = TextEditingController(text: staff.tenantName);
+    final savedOrg = SessionService.current?.getOrganizationName();
+    final initialTenant = (staff.isSuperAdmin && savedOrg != null && savedOrg.trim().isNotEmpty)
+        ? savedOrg
+        : staff.tenantName;
+    final tenantCtrl = TextEditingController(text: initialTenant);
     final phoneCtrl = TextEditingController(text: staff.phone);
     final messenger = ScaffoldMessenger.of(context);
     bool isActive = staff.isActive;

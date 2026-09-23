@@ -224,32 +224,6 @@ class GynoCampSyncServer {
       ''');
 
       await _connection!.execute('''
-        CREATE TABLE IF NOT EXISTS lookup_items (
-          id TEXT PRIMARY KEY,
-          category TEXT NOT NULL,
-          sub_category TEXT,
-          code TEXT NOT NULL,
-          label_en TEXT NOT NULL,
-          label_ne TEXT,
-          is_active INTEGER NOT NULL DEFAULT 1,
-          sort_order INTEGER NOT NULL DEFAULT 0,
-          tenant_id TEXT DEFAULT 'tenant_default',
-          is_deleted INTEGER NOT NULL DEFAULT 0
-        );
-      ''');
-
-      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_done INTEGER DEFAULT 0;');
-      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_type TEXT;');
-      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS sub_category TEXT;');
-      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS is_deleted INTEGER NOT NULL DEFAULT 0;');
-      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS label_ne TEXT;');
-      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;');
-      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT \'tenant_default\';');
-      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS province TEXT DEFAULT \'Bagmati\';');
-      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_name TEXT DEFAULT \'\';');
-      await _connection!.execute('ALTER TABLE devices ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT \'tenant_default\';');
-
-      await _connection!.execute('''
         CREATE TABLE IF NOT EXISTS audit_logs (
           id TEXT PRIMARY KEY,
           timestamp TIMESTAMPTZ NOT NULL,
@@ -285,6 +259,37 @@ class GynoCampSyncServer {
           tenant_id TEXT DEFAULT 'tenant_default'
         );
       ''');
+
+      await _connection!.execute('''
+        CREATE TABLE IF NOT EXISTS lookup_items (
+          id TEXT PRIMARY KEY,
+          category TEXT NOT NULL,
+          sub_category TEXT,
+          code TEXT NOT NULL,
+          label_en TEXT NOT NULL,
+          label_ne TEXT,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          tenant_id TEXT DEFAULT 'tenant_default',
+          camp_id TEXT,
+          excluded_camp_ids TEXT,
+          is_deleted INTEGER NOT NULL DEFAULT 0
+        );
+      ''');
+
+      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_done INTEGER DEFAULT 0;');
+      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_type TEXT;');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS sub_category TEXT;');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS is_deleted INTEGER NOT NULL DEFAULT 0;');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS label_ne TEXT;');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT \'tenant_default\';');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS camp_id TEXT;');
+      await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS excluded_camp_ids TEXT;');
+      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS province TEXT DEFAULT \'Bagmati\';');
+      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_name TEXT DEFAULT \'\';');
+      await _connection!.execute('ALTER TABLE devices ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT \'tenant_default\';');
+      await _connection!.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_patient_id ON patients(patient_id);');
       print('✓ Verified and initialized all PostgreSQL schema tables.');
     } catch (e) {
       print('! Schema verification note: $e');
@@ -322,6 +327,8 @@ class GynoCampSyncServer {
         await _handleGetUsers(request);
       } else if (request.method == 'POST' && path == '/api/users') {
         await _handlePostUser(request);
+      } else if (request.method == 'DELETE' && path == '/api/users') {
+        await _handleDeleteUser(request);
       } else if (request.method == 'GET' && path == '/api/devices') {
         await _handleGetDevices(request);
       } else if (request.method == 'GET' && path == '/api/devices/check') {
@@ -403,14 +410,19 @@ class GynoCampSyncServer {
         try {
           await _connection!.execute(
             Sql.named('''
-              INSERT INTO lookup_items (id, category, sub_category, code, label_en, label_ne, is_active, sort_order, tenant_id, is_deleted)
-              VALUES (@id, @category, @sub_category, @code, @label_en, @label_ne, @is_active, @sort_order, @tenant_id, @is_deleted)
+              INSERT INTO lookup_items (id, category, sub_category, code, label_en, label_ne, is_active, sort_order, tenant_id, camp_id, excluded_camp_ids, is_deleted)
+              VALUES (@id, @category, @sub_category, @code, @label_en, @label_ne, @is_active, @sort_order, @tenant_id, @camp_id, @excluded_camp_ids, @is_deleted)
               ON CONFLICT (id) DO UPDATE SET
                 category = EXCLUDED.category,
+                sub_category = EXCLUDED.sub_category,
                 code = EXCLUDED.code,
                 label_en = EXCLUDED.label_en,
                 label_ne = EXCLUDED.label_ne,
                 is_active = EXCLUDED.is_active,
+                sort_order = EXCLUDED.sort_order,
+                tenant_id = EXCLUDED.tenant_id,
+                camp_id = EXCLUDED.camp_id,
+                excluded_camp_ids = EXCLUDED.excluded_camp_ids,
                 is_deleted = EXCLUDED.is_deleted;
             '''),
             parameters: {
@@ -423,6 +435,8 @@ class GynoCampSyncServer {
               'is_active': map['is_active'] ?? 1,
               'sort_order': map['sort_order'] ?? 0,
               'tenant_id': map['tenant_id'] ?? 'tenant_default',
+              'camp_id': map['camp_id'],
+              'excluded_camp_ids': map['excluded_camp_ids'],
               'is_deleted': map['is_deleted'] ?? 0,
             },
           );
@@ -489,7 +503,12 @@ class GynoCampSyncServer {
                 phone = EXCLUDED.phone,
                 role = EXCLUDED.role,
                 is_active = EXCLUDED.is_active,
-                assigned_camp_ids = EXCLUDED.assigned_camp_ids;
+                last_login_at = COALESCE(EXCLUDED.last_login_at, users.last_login_at),
+                assigned_camp_ids = EXCLUDED.assigned_camp_ids,
+                tenant_id = EXCLUDED.tenant_id,
+                tenant_name = EXCLUDED.tenant_name,
+                password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+                pin_hash = COALESCE(EXCLUDED.pin_hash, users.pin_hash);
             '''),
             parameters: {
               'id': id,
@@ -515,7 +534,6 @@ class GynoCampSyncServer {
       final map = p as Map<String, dynamic>;
       final id = map['id']?.toString() ?? '';
       _memPatients[id] = map;
-      syncedPatientIds.add(id);
 
       if (_isPgConnected && _connection != null) {
         try {
@@ -554,9 +572,12 @@ class GynoCampSyncServer {
               'tenant_id': map['tenant_id'] ?? 'tenant_default',
             },
           );
+          syncedPatientIds.add(id);
         } catch (e) {
           print('Error inserting patient $id: $e');
         }
+      } else {
+        syncedPatientIds.add(id);
       }
     }
 
@@ -577,7 +598,6 @@ class GynoCampSyncServer {
       final map = v as Map<String, dynamic>;
       final id = map['id']?.toString() ?? '';
       _memVisits[id] = map;
-      syncedVisitIds.add(id);
 
       if (_isPgConnected && _connection != null) {
         try {
@@ -667,18 +687,56 @@ class GynoCampSyncServer {
               'tenant_id': map['tenant_id'] ?? 'tenant_default',
             },
           );
+          syncedVisitIds.add(id);
         } catch (e) {
           print('Error inserting clinical visit $id: $e');
         }
+      } else {
+        syncedVisitIds.add(id);
       }
     }
 
-    // 5. Process Audit Logs
+    // 5. Process Audit Logs (persisted to PostgreSQL)
     for (final a in auditLogs) {
       final map = a as Map<String, dynamic>;
       final id = map['id']?.toString() ?? '';
+      if (id.isEmpty) continue;
       _memAuditLogs.add(map);
-      syncedAuditLogIds.add(id);
+
+      if (_isPgConnected && _connection != null) {
+        try {
+          await _connection!.execute(
+            Sql.named('''
+              INSERT INTO audit_logs (
+                id, timestamp, user_id, user_name, user_role, action, entity_type, entity_id, details_json, device_id, record_hash, previous_hash, tenant_id
+              ) VALUES (
+                @id, @timestamp, @user_id, @user_name, @user_role, @action, @entity_type, @entity_id, @details_json, @device_id, @record_hash, @previous_hash, @tenant_id
+              )
+              ON CONFLICT (id) DO NOTHING;
+            '''),
+            parameters: {
+              'id': id,
+              'timestamp': map['timestamp'] ?? DateTime.now().toIso8601String(),
+              'user_id': map['user_id'] ?? '',
+              'user_name': map['user_name'] ?? '',
+              'user_role': map['user_role'] ?? '',
+              'action': map['action'] ?? '',
+              'entity_type': map['entity_type'] ?? '',
+              'entity_id': map['entity_id'] ?? '',
+              'details_json': map['details_json'],
+              'device_id': map['device_id'] ?? '',
+              'record_hash': map['record_hash'] ?? map['log_hash'] ?? '',
+              'previous_hash': map['previous_hash'],
+              'tenant_id': map['tenant_id'] ?? 'tenant_default',
+            },
+          );
+          syncedAuditLogIds.add(id);
+        } catch (e) {
+          print('Error inserting audit log $id: $e');
+        }
+      } else {
+        syncedAuditLogIds.add(id);
+      }
     }
 
     request.response.statusCode = HttpStatus.ok;
@@ -699,15 +757,46 @@ class GynoCampSyncServer {
       await _tryConnectPostgres();
     }
 
+    final tenantId = request.uri.queryParameters['tenant_id'];
+    final since = request.uri.queryParameters['since'];
+
     final campsList = <Map<String, dynamic>>[];
     final usersList = <Map<String, dynamic>>[];
     final lookupList = <Map<String, dynamic>>[];
     final patientsList = <Map<String, dynamic>>[];
     final visitsList = <Map<String, dynamic>>[];
 
+    final hasTenant = tenantId != null && tenantId.isNotEmpty && tenantId != 'global';
+    final hasSince = since != null && since.isNotEmpty;
+
     if (_isPgConnected && _connection != null) {
       try {
-        final campRows = await _connection!.execute('SELECT * FROM camps ORDER BY updated_at DESC NULLS LAST, created_at DESC;');
+        // Camps
+        String campSql = '''
+          SELECT id, camp_code, name, district, municipality, ward, venue,
+                 start_date, end_date, status, assigned_staff_ids, total_patients_registered,
+                 tenant_id, organization_name, created_at, updated_at, province, doctor_name
+          FROM camps
+        ''';
+        final campConditions = <String>[];
+        final campParams = <String, dynamic>{};
+        if (hasTenant) {
+          campConditions.add("(tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global')");
+          campParams['tenant_id'] = tenantId;
+        }
+        if (hasSince) {
+          campConditions.add("(updated_at >= @since::timestamptz OR created_at >= @since::timestamptz)");
+          campParams['since'] = since;
+        }
+        if (campConditions.isNotEmpty) {
+          campSql += ' WHERE ${campConditions.join(' AND ')}';
+        }
+        campSql += ' ORDER BY updated_at DESC NULLS LAST, created_at DESC;';
+
+        final campRows = await _connection!.execute(
+          Sql.named(campSql),
+          parameters: campParams,
+        );
         for (final row in campRows) {
           campsList.add({
             'id': row[0],
@@ -726,10 +815,28 @@ class GynoCampSyncServer {
             'organization_name': row[13],
             'created_at': row[14]?.toString(),
             'updated_at': row[15]?.toString(),
+            'province': row[16] ?? 'Bagmati',
+            'doctor_name': row[17] ?? '',
           });
         }
 
-        final userRows = await _connection!.execute('SELECT * FROM users ORDER BY name ASC;');
+        // Users (omit raw password and PIN hashes for security - Defect S5)
+        String userSql = '''
+          SELECT id, name, email, phone, role, is_active, last_login_at,
+                 assigned_camp_ids, tenant_id, tenant_name
+          FROM users
+        ''';
+        final userParams = <String, dynamic>{};
+        if (hasTenant) {
+          userSql += " WHERE (tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global')";
+          userParams['tenant_id'] = tenantId;
+        }
+        userSql += ' ORDER BY name ASC;';
+
+        final userRows = await _connection!.execute(
+          Sql.named(userSql),
+          parameters: userParams,
+        );
         for (final row in userRows) {
           usersList.add({
             'id': row[0],
@@ -742,11 +849,13 @@ class GynoCampSyncServer {
             'assigned_camp_ids': row[7],
             'tenant_id': row[8],
             'tenant_name': row[9],
-            'password_hash': row[10],
-            'pin_hash': row[11],
+            'password_hash': null,
+            'pin_hash': null,
           });
         }
-        final patientRows = await _connection!.execute('''
+
+        // Patients
+        String patientSql = '''
           SELECT id, patient_id, camp_id, camp_code, intake_date,
                  first_name, surname, age, spouse_or_father_name, relationship_type,
                  mobile, district, municipality, ward, contact_person, contact_mobile,
@@ -754,8 +863,27 @@ class GynoCampSyncServer {
                  consent_treatment, consent_store_medical_info,
                  created_at, updated_at, created_by_user_id, created_by_device_id,
                  tenant_id, is_synced, synced_at
-          FROM patients ORDER BY intake_date DESC;
-        ''');
+          FROM patients
+        ''';
+        final patientConditions = <String>[];
+        final patientParams = <String, dynamic>{};
+        if (hasTenant) {
+          patientConditions.add("(tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global')");
+          patientParams['tenant_id'] = tenantId;
+        }
+        if (hasSince) {
+          patientConditions.add("(updated_at >= @since::timestamptz OR created_at >= @since::timestamptz)");
+          patientParams['since'] = since;
+        }
+        if (patientConditions.isNotEmpty) {
+          patientSql += ' WHERE ${patientConditions.join(' AND ')}';
+        }
+        patientSql += ' ORDER BY intake_date DESC;';
+
+        final patientRows = await _connection!.execute(
+          Sql.named(patientSql),
+          parameters: patientParams,
+        );
         for (final row in patientRows) {
           patientsList.add({
             'id': row[0],
@@ -789,7 +917,8 @@ class GynoCampSyncServer {
           });
         }
 
-        final visitRows = await _connection!.execute('''
+        // Clinical Visits
+        String visitSql = '''
           SELECT id, patient_id, camp_id, visit_date, deliveries, living_children, abortions,
                  anamnesis_json, uterus_inside, vulva_remarks, vagina_remarks, cervix_remarks,
                  uterus_remarks, pelvic_floor_tone, pop_anterior_stage, pop_middle_stage,
@@ -799,8 +928,27 @@ class GynoCampSyncServer {
                  custom_medication, follow_up_needed, follow_up_destination, outtake_notes,
                  created_at, updated_at, created_by_user_id, tenant_id,
                  COALESCE(surgery_done, 0), surgery_type
-          FROM clinical_visits ORDER BY visit_date DESC;
-        ''');
+          FROM clinical_visits
+        ''';
+        final visitConditions = <String>[];
+        final visitParams = <String, dynamic>{};
+        if (hasTenant) {
+          visitConditions.add("(tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global')");
+          visitParams['tenant_id'] = tenantId;
+        }
+        if (hasSince) {
+          visitConditions.add("(updated_at >= @since::timestamptz OR created_at >= @since::timestamptz)");
+          visitParams['since'] = since;
+        }
+        if (visitConditions.isNotEmpty) {
+          visitSql += ' WHERE ${visitConditions.join(' AND ')}';
+        }
+        visitSql += ' ORDER BY visit_date DESC;';
+
+        final visitRows = await _connection!.execute(
+          Sql.named(visitSql),
+          parameters: visitParams,
+        );
         for (final row in visitRows) {
           visitsList.add({
             'id': row[0],
@@ -848,9 +996,23 @@ class GynoCampSyncServer {
             'is_synced': 1,
           });
         }
-        // Lookup items
+
+        // Lookup items (now fully includes camp_id and excluded_camp_ids!)
+        String lookupSql = '''
+          SELECT id, category, sub_category, code, label_en, label_ne,
+                 is_active, sort_order, tenant_id, is_deleted, camp_id, excluded_camp_ids
+          FROM lookup_items
+        ''';
+        final lookupParams = <String, dynamic>{};
+        if (hasTenant) {
+          lookupSql += " WHERE (tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global')";
+          lookupParams['tenant_id'] = tenantId;
+        }
+        lookupSql += ' ORDER BY category ASC, sort_order ASC;';
+
         final lookupRows = await _connection!.execute(
-          'SELECT id, category, sub_category, code, label_en, label_ne, is_active, sort_order, tenant_id, is_deleted FROM lookup_items ORDER BY category ASC, sort_order ASC;'
+          Sql.named(lookupSql),
+          parameters: lookupParams,
         );
         for (final row in lookupRows) {
           lookupList.add({
@@ -864,6 +1026,8 @@ class GynoCampSyncServer {
             'sort_order': row[7],
             'tenant_id': row[8],
             'is_deleted': row[9],
+            'camp_id': row[10],
+            'excluded_camp_ids': row[11],
           });
         }
       } catch (e) {
@@ -873,19 +1037,19 @@ class GynoCampSyncServer {
 
     // Merge in-memory records
     if (campsList.isEmpty) {
-      campsList.addAll(_memCamps.values);
+      campsList.addAll(hasTenant ? _memCamps.values.where((c) => c['tenant_id'] == tenantId || c['tenant_id'] == 'tenant_default' || c['tenant_id'] == 'global') : _memCamps.values);
     }
     if (usersList.isEmpty) {
-      usersList.addAll(_memUsers.values);
+      usersList.addAll(hasTenant ? _memUsers.values.where((u) => u['tenant_id'] == tenantId || u['tenant_id'] == 'tenant_default' || u['tenant_id'] == 'global') : _memUsers.values);
     }
     if (patientsList.isEmpty) {
-      patientsList.addAll(_memPatients.values);
+      patientsList.addAll(hasTenant ? _memPatients.values.where((p) => p['tenant_id'] == tenantId || p['tenant_id'] == 'tenant_default' || p['tenant_id'] == 'global') : _memPatients.values);
     }
     if (visitsList.isEmpty) {
-      visitsList.addAll(_memVisits.values);
+      visitsList.addAll(hasTenant ? _memVisits.values.where((v) => v['tenant_id'] == tenantId || v['tenant_id'] == 'tenant_default' || v['tenant_id'] == 'global') : _memVisits.values);
     }
     if (lookupList.isEmpty) {
-      lookupList.addAll(_memLookups.values);
+      lookupList.addAll(hasTenant ? _memLookups.values.where((l) => l['tenant_id'] == tenantId || l['tenant_id'] == 'tenant_default' || l['tenant_id'] == 'global') : _memLookups.values);
     }
 
     request.response.statusCode = HttpStatus.ok;
@@ -903,14 +1067,25 @@ class GynoCampSyncServer {
   }
 
   Future<void> _handleGetCamps(HttpRequest request) async {
+    final tenantId = request.uri.queryParameters['tenant_id'];
+    final hasTenant = tenantId != null && tenantId.isNotEmpty && tenantId != 'global';
     final list = <Map<String, dynamic>>[];
     if (_isPgConnected && _connection != null) {
       try {
+        String sql = 'SELECT id, camp_code, name, district, municipality, ward, venue, '
+            'start_date, end_date, status, assigned_staff_ids, total_patients_registered, '
+            'tenant_id, organization_name, created_at, updated_at, province, doctor_name '
+            'FROM camps ';
+        final params = <String, dynamic>{};
+        if (hasTenant) {
+          sql += "WHERE (tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global') ";
+          params['tenant_id'] = tenantId;
+        }
+        sql += 'ORDER BY updated_at DESC NULLS LAST, created_at DESC;';
+
         final rows = await _connection!.execute(
-          'SELECT id, camp_code, name, district, municipality, ward, venue, '
-          'start_date, end_date, status, assigned_staff_ids, total_patients_registered, '
-          'tenant_id, organization_name, created_at, updated_at, province, doctor_name '
-          'FROM camps ORDER BY updated_at DESC NULLS LAST, created_at DESC;'
+          Sql.named(sql),
+          parameters: params,
         );
         for (final row in rows) {
           list.add({
@@ -939,7 +1114,7 @@ class GynoCampSyncServer {
       }
     }
     if (list.isEmpty) {
-      list.addAll(_memCamps.values);
+      list.addAll(hasTenant ? _memCamps.values.where((c) => c['tenant_id'] == tenantId || c['tenant_id'] == 'tenant_default' || c['tenant_id'] == 'global') : _memCamps.values);
     }
 
     // Ensure at most 1 camp is OPEN across the system
@@ -1079,10 +1254,23 @@ class GynoCampSyncServer {
   }
 
   Future<void> _handleGetUsers(HttpRequest request) async {
+    final tenantId = request.uri.queryParameters['tenant_id'];
+    final hasTenant = tenantId != null && tenantId.isNotEmpty && tenantId != 'global';
     final list = <Map<String, dynamic>>[];
     if (_isPgConnected && _connection != null) {
       try {
-        final rows = await _connection!.execute('SELECT * FROM users ORDER BY name ASC;');
+        String sql = 'SELECT id, name, email, phone, role, is_active, last_login_at, assigned_camp_ids, tenant_id, tenant_name FROM users ';
+        final params = <String, dynamic>{};
+        if (hasTenant) {
+          sql += "WHERE (tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global') ";
+          params['tenant_id'] = tenantId;
+        }
+        sql += 'ORDER BY name ASC;';
+
+        final rows = await _connection!.execute(
+          Sql.named(sql),
+          parameters: params,
+        );
         for (final row in rows) {
           list.add({
             'id': row[0],
@@ -1095,14 +1283,20 @@ class GynoCampSyncServer {
             'assigned_camp_ids': row[7],
             'tenant_id': row[8],
             'tenant_name': row[9],
-            'password_hash': row[10],
-            'pin_hash': row[11],
+            'password_hash': null,
+            'pin_hash': null,
           });
         }
       } catch (_) {}
     }
     if (list.isEmpty) {
-      list.addAll(_memUsers.values);
+      final memList = hasTenant ? _memUsers.values.where((u) => u['tenant_id'] == tenantId || u['tenant_id'] == 'tenant_default' || u['tenant_id'] == 'global') : _memUsers.values;
+      for (final u in memList) {
+        final sanitized = Map<String, dynamic>.from(u);
+        sanitized['password_hash'] = null;
+        sanitized['pin_hash'] = null;
+        list.add(sanitized);
+      }
     }
 
     request.response.statusCode = HttpStatus.ok;
@@ -1129,7 +1323,12 @@ class GynoCampSyncServer {
               phone = EXCLUDED.phone,
               role = EXCLUDED.role,
               is_active = EXCLUDED.is_active,
-              assigned_camp_ids = EXCLUDED.assigned_camp_ids;
+              last_login_at = COALESCE(EXCLUDED.last_login_at, users.last_login_at),
+              assigned_camp_ids = EXCLUDED.assigned_camp_ids,
+              tenant_id = EXCLUDED.tenant_id,
+              tenant_name = EXCLUDED.tenant_name,
+              password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+              pin_hash = COALESCE(EXCLUDED.pin_hash, users.pin_hash);
           '''),
           parameters: {
             'id': id,
@@ -1154,15 +1353,51 @@ class GynoCampSyncServer {
     await request.response.close();
   }
 
+  Future<void> _handleDeleteUser(HttpRequest request) async {
+    final userId = request.uri.queryParameters['id'] ?? '';
+    if (userId.isEmpty) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'error': 'Missing user id parameter'}));
+      await request.response.close();
+      return;
+    }
+
+    _memUsers.remove(userId);
+
+    if (_isPgConnected && _connection != null) {
+      try {
+        await _connection!.execute(
+          Sql.named('DELETE FROM users WHERE id = @id;'),
+          parameters: {'id': userId},
+        );
+      } catch (_) {}
+    }
+
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode({'success': true, 'deleted_user_id': userId}));
+    await request.response.close();
+  }
+
   Future<void> _handleGetDevices(HttpRequest request) async {
+    final tenantId = request.uri.queryParameters['tenant_id'];
+    final hasTenant = tenantId != null && tenantId.isNotEmpty && tenantId != 'global';
     final list = <Map<String, dynamic>>[];
     if (_isPgConnected && _connection != null) {
       try {
+        String sql = 'SELECT device_id, device_name, model, hardware_fingerprint, status, '
+            'registered_by_user_id, registered_by_name, otp_hash, otp_expires_at, '
+            'registered_at, approved_at, approved_by_user_id, pin_hash, tenant_id '
+            'FROM devices ';
+        final params = <String, dynamic>{};
+        if (hasTenant) {
+          sql += "WHERE (tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global') ";
+          params['tenant_id'] = tenantId;
+        }
+        sql += 'ORDER BY registered_at DESC;';
+
         final rows = await _connection!.execute(
-          'SELECT device_id, device_name, model, hardware_fingerprint, status, '
-          'registered_by_user_id, registered_by_name, otp_hash, otp_expires_at, '
-          'registered_at, approved_at, approved_by_user_id, pin_hash, tenant_id '
-          'FROM devices ORDER BY registered_at DESC;'
+          Sql.named(sql),
+          parameters: params,
         );
         for (final row in rows) {
           list.add({
@@ -1187,7 +1422,8 @@ class GynoCampSyncServer {
       }
     }
     // Merge any memory devices if not already present
-    for (final memDev in _memDevices.values) {
+    final memList = hasTenant ? _memDevices.values.where((d) => d['tenant_id'] == tenantId || d['tenant_id'] == 'tenant_default' || d['tenant_id'] == 'global') : _memDevices.values;
+    for (final memDev in memList) {
       if (!list.any((d) => d['device_id'] == memDev['device_id'])) {
         list.add(memDev);
       }

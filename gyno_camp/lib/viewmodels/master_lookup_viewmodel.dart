@@ -225,22 +225,24 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
     required String userId,
     required String userName,
     required String deviceId,
+    String? campId,
   }) async {
     state = state.copyWith(clearError: true, clearSuccess: true);
     try {
+      final effectiveCampId = campId ?? _campId;
       final success = await _repository.toggleItemStatus(
         id,
         isActive,
         userId: userId,
         userName: userName,
         deviceId: deviceId,
-        campId: _campId,
+        campId: effectiveCampId,
       );
       if (success) {
         await loadAll();
         if (!mounted) return true;
         state = state.copyWith(
-          successMessage: _campId != null && !isActive
+          successMessage: effectiveCampId != null && !isActive
               ? 'Item disabled for this camp'
               : (isActive ? 'Item activated' : 'Item deactivated'),
         );
@@ -259,21 +261,23 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
     required String userId,
     required String userName,
     required String deviceId,
+    String? campId,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
     try {
+      final effectiveCampId = campId ?? _campId;
       final success = await _repository.deleteItem(
         id,
         userId: userId,
         userName: userName,
         deviceId: deviceId,
-        campId: _campId,
+        campId: effectiveCampId,
       );
       if (success) {
         await loadAll();
         if (!mounted) return true;
         state = state.copyWith(
-          successMessage: _campId != null ? 'Item removed from this camp' : 'Item deleted permanently',
+          successMessage: effectiveCampId != null ? 'Item removed from this camp' : 'Item deleted permanently',
         );
         return true;
       }

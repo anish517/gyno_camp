@@ -1540,6 +1540,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 userId: adminUserId,
                 userName: user?.name ?? 'Super Admin',
                 deviceId: deviceId,
+                campId: state.selectedCampId,
               );
               if (mounted) {
                 messenger.clearSnackBars();
@@ -1563,6 +1564,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 userId: adminUserId,
                 userName: user?.name ?? 'Super Admin',
                 deviceId: deviceId,
+                campId: state.selectedCampId,
               );
               if (mounted) {
                 messenger.clearSnackBars();

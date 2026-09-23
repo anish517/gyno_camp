@@ -54,7 +54,7 @@ class FakeCampRepoForReports implements ICampRepository {
   ];
 
   @override
-  Future<List<CampModel>> getAllCamps() async => testCamps;
+  Future<List<CampModel>> getAllCamps({String? tenantId}) async => testCamps;
   @override
   Future<CampModel?> getActiveCamp() async => testCamps.first;
   @override
@@ -102,6 +102,8 @@ class FakeAuthRepoForReports implements IAuthRepository {
   Future<UserModel> updateUser({required UserModel user, required String adminUserId, required String deviceId}) async => user;
   @override
   Future<void> deleteUser({required String userId, required String adminUserId, required String deviceId}) async {}
+  @override
+  Future<List<String>> getValidCampsForUser(List<String> assignedCampIds) async => assignedCampIds;
 }
 
 class FakePatientRepoForReports implements IPatientRepository {

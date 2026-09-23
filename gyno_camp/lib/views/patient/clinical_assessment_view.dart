@@ -184,7 +184,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 attendingDoctorNames: state.attendingDoctorNames,
                 primaryDoctorName: state.primaryDoctorName,
                 createdByUserId: user?.id ?? 'usr-doc',
-                tenantId: 'tenant_bir_hospital',
+                tenantId: user?.tenantId ?? 'tenant_default',
                 isSynced: false,
                 createdAt: DateTime.now(),
               );

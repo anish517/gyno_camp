@@ -132,6 +132,9 @@ class FakeAuthRepo implements IAuthRepository {
   Future<void> logout({required String deviceId}) async {
     _current = null;
   }
+
+  @override
+  Future<List<String>> getValidCampsForUser(List<String> assignedCampIds) async => assignedCampIds;
 }
 
 class FakeDeviceRepo implements IDeviceSecurityRepository {

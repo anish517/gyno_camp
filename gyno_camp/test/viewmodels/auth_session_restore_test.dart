@@ -18,6 +18,7 @@ class MockAuthRepository implements IAuthRepository {
       phone: '9841234567',
       role: UserRole.dataTaker,
       isActive: true,
+      assignedCampIds: ['camp-101'],
     ),
   ];
 
@@ -73,6 +74,9 @@ class MockAuthRepository implements IAuthRepository {
 
   @override
   Future<void> deleteUser({required String userId, required String adminUserId, required String deviceId}) async {}
+
+  @override
+  Future<List<String>> getValidCampsForUser(List<String> assignedCampIds) async => assignedCampIds;
 }
 
 class MockCampRepository implements ICampRepository {
@@ -106,7 +110,7 @@ class MockCampRepository implements ICampRepository {
   ];
 
   @override
-  Future<List<CampModel>> getAllCamps() async => _camps;
+  Future<List<CampModel>> getAllCamps({String? tenantId}) async => _camps;
 
   @override
   Future<CampModel?> getActiveCamp() async => null; // No camp explicitly marked 'active' in DB

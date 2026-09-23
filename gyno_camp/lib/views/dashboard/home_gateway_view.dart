@@ -5,6 +5,7 @@ import '../../core/database/database_service.dart';
 import '../../core/database/database_tables.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../core/services/file_download_helper.dart';
+import '../../core/services/session_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/audit_log_model.dart';
 import '../../models/user_model.dart';
@@ -233,7 +234,10 @@ class HomeGatewayView extends ConsumerWidget {
                         ),
                         Builder(
                           builder: (context) {
-                            final tenantName = user?.tenantName;
+                            final savedOrg = SessionService.current?.getOrganizationName();
+                            final tenantName = (savedOrg != null && savedOrg.trim().isNotEmpty)
+                                ? savedOrg
+                                : user?.tenantName;
                             final orgName = (tenantName != null &&
                                     tenantName.trim().isNotEmpty &&
                                     tenantName != 'Outreach Health Center')
@@ -3389,7 +3393,11 @@ class HomeGatewayView extends ConsumerWidget {
   void _showEditProfileDialog(BuildContext context, WidgetRef ref, UserModel? user) {
     if (user == null) return;
     final nameCtrl = TextEditingController(text: user.name);
-    final tenantCtrl = TextEditingController(text: user.tenantName);
+    final savedOrg = SessionService.current?.getOrganizationName();
+    final initialTenant = (savedOrg != null && savedOrg.trim().isNotEmpty)
+        ? savedOrg
+        : user.tenantName;
+    final tenantCtrl = TextEditingController(text: initialTenant);
     final phoneCtrl = TextEditingController(text: user.phone);
     final deviceState = ref.read(deviceSecurityProvider);
 
@@ -3517,6 +3525,7 @@ class HomeGatewayView extends ConsumerWidget {
 
               if (success) {
                 if (newTenant.isNotEmpty) {
+                  await SessionService.current?.saveOrganizationName(newTenant);
                   final activeCamp = ref.read(campStateProvider).activeCamp;
                   if (activeCamp != null) {
                     try {
@@ -3532,6 +3541,15 @@ class HomeGatewayView extends ConsumerWidget {
                   }
                   try {
                     final db = await DatabaseService().database;
+                    await db.insert(
+                      DatabaseTables.tableMetadata,
+                      {
+                        'key': 'saas_organization_name',
+                        'value': newTenant,
+                        'updated_at': DateTime.now().toIso8601String(),
+                      },
+                      conflictAlgorithm: ConflictAlgorithm.replace,
+                    );
                     await db.insert(
                       DatabaseTables.tableMetadata,
                       {

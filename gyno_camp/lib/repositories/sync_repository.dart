@@ -60,6 +60,7 @@ class SyncRepository implements ISyncRepository {
   @override
   Future<SyncPushResponse> pushDelta({required String deviceId, required String userId}) async {
     final db = await _databaseService.database;
+    final lastSynced = await getLastSyncedAt();
 
     // 1. Fetch unsynced patients
     final patientRows = await db.query(
@@ -77,19 +78,41 @@ class SyncRepository implements ISyncRepository {
     );
     final visits = visitRows.map((r) => ClinicalVisitModel.fromMap(r)).toList();
 
-    // 3. Fetch all camps to ensure central server is up to date
-    final campRows = await db.query(DatabaseTables.tableCamps);
-    final camps = campRows.map((r) => CampModel.fromMap(r)).toList();
+    // 3. Fetch modified camps since last sync (R2 & R4 fix: avoid pushing full camp table every cycle)
+    final List<CampModel> camps;
+    if (lastSynced != null) {
+      final iso = lastSynced.toIso8601String();
+      final campRows = await db.query(
+        DatabaseTables.tableCamps,
+        where: 'updated_at > ? OR created_at > ?',
+        whereArgs: [iso, iso],
+      );
+      camps = campRows.map((r) => CampModel.fromMap(r)).toList();
+    } else {
+      final campRows = await db.query(DatabaseTables.tableCamps);
+      camps = campRows.map((r) => CampModel.fromMap(r)).toList();
+    }
 
-    // 4. Fetch recent audit logs to archive to cloud
-    final logRows = await db.query(
-      DatabaseTables.tableAuditLogs,
-      limit: 50,
-      orderBy: 'timestamp DESC',
-    );
+    // 4. Fetch recent unsynced audit logs since last sync (R5 fix)
+    final List<Map<String, dynamic>> logRows;
+    if (lastSynced != null) {
+      logRows = await db.query(
+        DatabaseTables.tableAuditLogs,
+        where: 'timestamp > ?',
+        whereArgs: [lastSynced.toIso8601String()],
+        limit: 50,
+        orderBy: 'timestamp DESC',
+      );
+    } else {
+      logRows = await db.query(
+        DatabaseTables.tableAuditLogs,
+        limit: 50,
+        orderBy: 'timestamp DESC',
+      );
+    }
     final logs = logRows.map((r) => AuditLogModel.fromMap(r)).toList();
 
-    if (patients.isEmpty && visits.isEmpty && camps.isEmpty) {
+    if (patients.isEmpty && visits.isEmpty && camps.isEmpty && logs.isEmpty) {
       return SyncPushResponse(
         success: true,
         serverTimestamp: DateTime.now(),
@@ -106,10 +129,10 @@ class SyncRepository implements ISyncRepository {
       auditLogs: logs,
     );
 
-    // 4. Send delta to central server (single path for all platforms)
+    // 5. Send delta to central server (single path for all platforms)
     final response = await _centralApiService.pushDelta(payload);
 
-    // 5. Update local SQLite records to synced
+    // 6. Update local SQLite records to synced
     if (response.success) {
       final syncIso = response.serverTimestamp.toIso8601String();
       await db.transaction((txn) async {
@@ -128,7 +151,7 @@ class SyncRepository implements ISyncRepository {
         }
       });
 
-      // 6. Audit log
+      // 7. Audit log
       await _auditRepository.logActivity(
         userId: userId,
         userName: 'Sync Engine',
@@ -185,8 +208,20 @@ class SyncRepository implements ISyncRepository {
 
         final pullSyncIso = DateTime.now().toIso8601String();
 
-        // Upsert patients from central cloud (marked as synced to prevent echo-push loops)
+        // Upsert patients from central cloud (R1 fix: guard local unsynced edits)
         for (final patient in response.patients) {
+          final unsyncedLocal = await txn.query(
+            DatabaseTables.tablePatients,
+            columns: ['id'],
+            where: 'id = ? AND is_synced = 0',
+            whereArgs: [patient.id],
+            limit: 1,
+          );
+          if (unsyncedLocal.isNotEmpty) {
+            // Local record has unsynced modifications: do not overwrite with remote copy
+            continue;
+          }
+
           final patientMap = patient.toMap();
           patientMap['is_synced'] = 1;
           patientMap['synced_at'] = pullSyncIso;
@@ -197,8 +232,20 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
-        // Upsert clinical visits from central cloud (marked as synced to prevent echo-push loops)
+        // Upsert clinical visits from central cloud (R1 fix: guard local unsynced edits)
         for (final visit in response.clinicalVisits) {
+          final unsyncedLocal = await txn.query(
+            DatabaseTables.tableClinicalVisits,
+            columns: ['id'],
+            where: 'id = ? AND is_synced = 0',
+            whereArgs: [visit.id],
+            limit: 1,
+          );
+          if (unsyncedLocal.isNotEmpty) {
+            // Local visit has unsynced modifications: do not overwrite with remote copy
+            continue;
+          }
+
           final visitMap = visit.toMap();
           visitMap['is_synced'] = 1;
           await txn.insert(
@@ -231,11 +278,11 @@ class SyncRepository implements ISyncRepository {
   }) async {
     final cycleStart = DateTime.now();
     try {
-      // Step 1: Push local deltas
-      final pushRes = await pushDelta(deviceId: deviceId, userId: userId);
-
-      // Step 2: Pull remote deltas from central server
+      // Step 1: Pull remote deltas from central server first (R3 fix: pull before push)
       final pullRes = await pullDelta(deviceId: deviceId, userId: userId);
+
+      // Step 2: Push local deltas to central server
+      final pushRes = await pushDelta(deviceId: deviceId, userId: userId);
 
       final totalPatients = pushRes.syncedPatientIds.length;
       final totalVisits = pushRes.syncedVisitIds.length;

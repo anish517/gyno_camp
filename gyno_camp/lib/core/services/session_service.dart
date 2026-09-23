@@ -57,6 +57,7 @@ class SessionService {
   static const String _keyUserEmail = 'gynocamp_session_user_email';
   static const String _keyUserRole = 'gynocamp_session_user_role';
   static const String _keyActiveCampId = 'gynocamp_session_active_camp_id';
+  static const String _keyOrganizationName = 'gynocamp_organization_name';
 
   static const String _keyPgHost = 'gynocamp_pg_host';
   static const String _keyPgPort = 'gynocamp_pg_port';
@@ -125,6 +126,14 @@ class SessionService {
     if (_prefs == null) return;
     await _prefs.remove(_keyActiveCampId);
   }
+
+  // Organization / Tenant Name
+  Future<void> saveOrganizationName(String orgName) async {
+    if (_prefs == null) return;
+    await _prefs.setString(_keyOrganizationName, orgName);
+  }
+
+  String? getOrganizationName() => _prefs?.getString(_keyOrganizationName);
 
   // Device Hardware Token
   String getOrCreateDeviceInstallToken() {

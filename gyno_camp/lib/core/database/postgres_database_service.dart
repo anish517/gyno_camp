@@ -198,7 +198,7 @@ class PostgresDatabaseService {
         updated_at TEXT,
         created_by_user_id TEXT NOT NULL,
         created_by_device_id TEXT NOT NULL,
-        tenant_id TEXT DEFAULT 'tenant_bir_hospital',
+        tenant_id TEXT DEFAULT 'tenant_default',
         is_synced INTEGER NOT NULL DEFAULT 1,
         synced_at TEXT
       );
@@ -246,7 +246,7 @@ class PostgresDatabaseService {
         created_at TEXT NOT NULL,
         updated_at TEXT,
         created_by_user_id TEXT NOT NULL,
-        tenant_id TEXT DEFAULT 'tenant_bir_hospital',
+        tenant_id TEXT DEFAULT 'tenant_default',
         is_synced INTEGER NOT NULL DEFAULT 1
       );
     ''');
@@ -255,6 +255,7 @@ class PostgresDatabaseService {
     await conn.execute('''
       CREATE TABLE IF NOT EXISTS audit_logs (
         id TEXT PRIMARY KEY,
+        timestamp TIMESTAMPTZ NOT NULL,
         user_id TEXT NOT NULL,
         user_name TEXT NOT NULL,
         user_role TEXT NOT NULL,
@@ -263,8 +264,28 @@ class PostgresDatabaseService {
         entity_id TEXT,
         details_json TEXT NOT NULL,
         device_id TEXT NOT NULL,
-        timestamp TEXT NOT NULL,
-        log_hash TEXT NOT NULL
+        record_hash TEXT,
+        log_hash TEXT,
+        previous_hash TEXT,
+        tenant_id TEXT DEFAULT 'tenant_default'
+      );
+    ''');
+
+    // Lookup Items table
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS lookup_items (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        sub_category TEXT,
+        code TEXT NOT NULL,
+        label_en TEXT NOT NULL,
+        label_ne TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        tenant_id TEXT DEFAULT 'tenant_default',
+        camp_id TEXT,
+        excluded_camp_ids TEXT,
+        is_deleted INTEGER NOT NULL DEFAULT 0
       );
     ''');
 
@@ -323,7 +344,12 @@ class PostgresDatabaseService {
               phone = EXCLUDED.phone,
               role = EXCLUDED.role,
               is_active = EXCLUDED.is_active,
-              last_login_at = EXCLUDED.last_login_at;
+              last_login_at = EXCLUDED.last_login_at,
+              assigned_camp_ids = EXCLUDED.assigned_camp_ids,
+              tenant_id = EXCLUDED.tenant_id,
+              tenant_name = EXCLUDED.tenant_name,
+              password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+              pin_hash = COALESCE(EXCLUDED.pin_hash, users.pin_hash);
           '''),
           parameters: {
             'id': u['id']?.toString() ?? '',
@@ -441,7 +467,7 @@ class PostgresDatabaseService {
             'updated_at': p['updated_at']?.toString(),
             'created_by_user_id': p['created_by_user_id']?.toString() ?? '',
             'created_by_device_id': p['created_by_device_id']?.toString() ?? '',
-            'tenant_id': p['tenant_id']?.toString() ?? 'tenant_bir_hospital',
+            'tenant_id': p['tenant_id']?.toString() ?? 'tenant_default',
             'synced_at': DateTime.now().toIso8601String(),
           },
         );
@@ -544,7 +570,7 @@ class PostgresDatabaseService {
                 v['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': v['updated_at']?.toString(),
             'created_by_user_id': v['created_by_user_id']?.toString() ?? '',
-            'tenant_id': v['tenant_id']?.toString() ?? 'tenant_bir_hospital',
+            'tenant_id': v['tenant_id']?.toString() ?? 'tenant_default',
           },
         );
 
@@ -640,7 +666,7 @@ class PostgresDatabaseService {
         'updated_at': p['updated_at']?.toString(),
         'created_by_user_id': p['created_by_user_id']?.toString() ?? '',
         'created_by_device_id': p['created_by_device_id']?.toString() ?? '',
-        'tenant_id': p['tenant_id']?.toString() ?? 'tenant_bir_hospital',
+        'tenant_id': p['tenant_id']?.toString() ?? 'tenant_default',
         'synced_at': DateTime.now().toIso8601String(),
       },
     );

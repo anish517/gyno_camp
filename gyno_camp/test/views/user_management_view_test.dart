@@ -91,6 +91,9 @@ class FakeAuthRepository implements IAuthRepository {
 
   @override
   void setCurrentUser(UserModel? user) {}
+
+  @override
+  Future<List<String>> getValidCampsForUser(List<String> assignedCampIds) async => assignedCampIds;
 }
 
 void main() {
@@ -292,5 +295,41 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'Edit'), findsNWidgets(3));
     expect(find.widgetWithText(OutlinedButton, 'Security'), findsNWidgets(3));
     expect(find.widgetWithText(OutlinedButton, 'Assign Camps'), findsNWidgets(3));
+  });
+
+  testWidgets('Delete Staff permanently removes staff member from directory', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final fakeRepo = FakeAuthRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Verify Rita Sharma exists
+    expect(find.text('Rita Sharma (Nurse)'), findsOneWidget);
+
+    // Open popup menu on Rita's card (index 0 among non-root users)
+    final popupButtons = find.byType(PopupMenuButton<String>);
+    expect(popupButtons, findsWidgets);
+    await tester.tap(popupButtons.first);
+    await tester.pumpAndSettle();
+
+    // Tap 'Delete Staff...'
+    expect(find.text('Delete Staff...'), findsOneWidget);
+    await tester.tap(find.text('Delete Staff...'));
+    await tester.pumpAndSettle();
+
+    // Verify confirmation dialog
+    expect(find.text('Delete Staff Member'), findsOneWidget);
+    expect(find.text('Delete Permanently'), findsOneWidget);
+
+    // Tap 'Delete Permanently'
+    await tester.tap(find.text('Delete Permanently'));
+    await tester.pumpAndSettle();
+
+    // Verify user is deleted from repo and removed from list
+    expect(fakeRepo.users.any((u) => u.id == 'usr-nurse-01'), isFalse);
+    expect(find.text('Rita Sharma (Nurse)'), findsNothing);
   });
 }

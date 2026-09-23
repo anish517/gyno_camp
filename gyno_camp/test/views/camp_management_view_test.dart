@@ -41,7 +41,7 @@ class FakeCampRepository implements ICampRepository {
   ];
 
   @override
-  Future<List<CampModel>> getAllCamps() async => camps;
+  Future<List<CampModel>> getAllCamps({String? tenantId}) async => camps;
 
   @override
   Future<CampModel?> getActiveCamp() async {

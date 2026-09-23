@@ -18,7 +18,7 @@ class SyncPushPayload {
   const SyncPushPayload({
     required this.deviceId,
     required this.generatedAt,
-    this.tenantId = 'tenant_bir_hospital',
+    this.tenantId = 'tenant_default',
     this.camps = const [],
     this.patients = const [],
     this.clinicalVisits = const [],
@@ -46,7 +46,7 @@ class SyncPushPayload {
     return SyncPushPayload(
       deviceId: map['device_id'] as String? ?? '',
       generatedAt: DateTime.tryParse(map['generated_at'] as String? ?? '') ?? DateTime.now(),
-      tenantId: map['tenant_id'] as String? ?? 'tenant_bir_hospital',
+      tenantId: map['tenant_id'] as String? ?? 'tenant_default',
       camps: (map['camps'] as List<dynamic>?)
               ?.map((c) => CampModel.fromMap(c as Map<String, dynamic>))
               .toList() ??

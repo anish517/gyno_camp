@@ -40,7 +40,7 @@ class FakeCampRepoForResponsive implements ICampRepository {
   ];
 
   @override
-  Future<List<CampModel>> getAllCamps() async => testCamps;
+  Future<List<CampModel>> getAllCamps({String? tenantId}) async => testCamps;
 
   @override
   Future<CampModel?> getActiveCamp() async => testCamps.first;
@@ -106,6 +106,9 @@ class FakeAuthRepoForResponsive implements IAuthRepository {
 
   @override
   Future<void> deleteUser({required String userId, required String adminUserId, required String deviceId}) async {}
+
+  @override
+  Future<List<String>> getValidCampsForUser(List<String> assignedCampIds) async => assignedCampIds;
 }
 
 class FakePatientRepoForResponsive implements IPatientRepository {
@@ -389,6 +392,7 @@ void main() {
 
       FlutterError.onError = FlutterError.presentError;
       await tester.pumpWidget(createResponsiveApp(user: dataTakerUser, patients: samplePatients));
+      await tester.pump(const Duration(milliseconds: 2000));
       await tester.pumpAndSettle();
 
       final dataTakerErr = tester.takeException();
@@ -418,6 +422,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
 
       await tester.pumpWidget(createResponsiveApp(user: dataTakerUser, patients: samplePatients));
+      await tester.pump(const Duration(milliseconds: 2000));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -451,6 +456,8 @@ void main() {
       expect(find.text('Stage I (Mild)'), findsOneWidget);
       expect(find.text('Stage II (Moderate)'), findsOneWidget);
       expect(find.text('Stage III-IV (Severe)'), findsOneWidget);
+      await tester.tap(find.textContaining('Camp-Wise Patients'));
+      await tester.pumpAndSettle();
       expect(find.text('Maya Devi Shrestha'), findsOneWidget);
       expect(find.text('PDF Dossier'), findsWidgets);
     });

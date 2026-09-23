@@ -61,7 +61,7 @@ class FakeCampRepoForHome implements ICampRepository {
   ];
 
   @override
-  Future<List<CampModel>> getAllCamps() async => testCamps;
+  Future<List<CampModel>> getAllCamps({String? tenantId}) async => testCamps;
 
   @override
   Future<CampModel?> getActiveCamp() async =>
@@ -404,4 +404,7 @@ class FakeAuthRepositorySimple implements IAuthRepository {
     required String adminUserId,
     required String deviceId,
   }) async {}
+
+  @override
+  Future<List<String>> getValidCampsForUser(List<String> assignedCampIds) async => assignedCampIds;
 }

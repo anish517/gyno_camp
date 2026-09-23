@@ -133,6 +133,9 @@ class FakeAuthRepo implements IAuthRepository {
   Future<void> logout({required String deviceId}) async {
     _current = null;
   }
+
+  @override
+  Future<List<String>> getValidCampsForUser(List<String> assignedCampIds) async => assignedCampIds;
 }
 
 class FakeDeviceRepo implements IDeviceSecurityRepository {
@@ -210,7 +213,7 @@ class FakeCampRepo implements ICampRepository {
   final List<CampModel> camps = [];
 
   @override
-  Future<List<CampModel>> getAllCamps() async => camps;
+  Future<List<CampModel>> getAllCamps({String? tenantId}) async => camps;
 
   @override
   Future<CampModel?> getActiveCamp() async => null;
@@ -272,6 +275,7 @@ void main() {
         allUsersProvider.overrideWith((ref) => authRepo.getAllUsers(includeInactive: true)),
       ],
     );
+    addTearDown(container.dispose);
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -325,5 +329,6 @@ void main() {
 
     // Verify we are back on LoginView
     expect(find.byType(LoginView), findsOneWidget);
+    container.dispose();
   });
 }

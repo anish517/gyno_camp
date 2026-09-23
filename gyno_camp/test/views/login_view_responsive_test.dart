@@ -57,6 +57,9 @@ class _FakeAuthRepo implements IAuthRepository {
   Future<void> logout({required String deviceId}) async {
     _currentUser = null;
   }
+
+  @override
+  Future<List<String>> getValidCampsForUser(List<String> assignedCampIds) async => assignedCampIds;
 }
 
 void main() {

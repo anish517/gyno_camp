@@ -101,7 +101,7 @@ class DatabaseTables {
       updated_at TEXT,
       created_by_user_id TEXT NOT NULL,
       created_by_device_id TEXT NOT NULL,
-      tenant_id TEXT DEFAULT 'tenant_bir_hospital',
+      tenant_id TEXT DEFAULT 'tenant_default',
       is_synced INTEGER NOT NULL DEFAULT 0,
       synced_at TEXT
     );
@@ -155,7 +155,7 @@ class DatabaseTables {
       created_at TEXT NOT NULL,
       updated_at TEXT,
       created_by_user_id TEXT NOT NULL,
-      tenant_id TEXT DEFAULT 'tenant_bir_hospital',
+      tenant_id TEXT DEFAULT 'tenant_default',
       is_synced INTEGER NOT NULL DEFAULT 0,
       FOREIGN KEY(patient_id) REFERENCES $tablePatients(patient_id)
     );
