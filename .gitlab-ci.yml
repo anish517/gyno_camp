@@ -1,0 +1,68 @@
+# MR -> build. Push to main -> build, then deploy:dev to https://gynocamp.omwaytechnologies.com
+#
+# Two shell-executor runners, picked by tag (neither accepts untagged jobs):
+#   flutter-build   omway-gitlab. The Flutter web build peaks at ~1.8 GB, which
+#                   omway-internal does not have. Capped at 2 GB and low CPU
+#                   priority so GitLab itself always wins (deploy/omway-gitlab/).
+#   omway-internal  the dev host. Only installs the prebuilt artifacts.
+#
+# CI/CD variables (Settings > CI/CD > Variables):
+#   GEMINI_API_KEY  optional, masked. Compiled into the web bundle, so it is public
+#                   to anyone who opens the site: use a dev key restricted to
+#                   gynocamp.omwaytechnologies.com.
+#
+# Server-side scripts, unit, nginx site and sudoers rule are installed by
+# deploy/omway-internal/provision.sh and are not updated by this pipeline.
+
+stages:
+  - build
+  - deploy
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+    - when: never
+
+default:
+  interruptible: true
+
+build:
+  stage: build
+  tags:
+    - flutter-build
+  variables:
+    CI: "true"
+    FLUTTER: /home/gitlab-runner/flutter/bin/flutter
+    DART: /home/gitlab-runner/flutter/bin/dart
+    CENTRAL_SERVER_URL: https://gynocamp.omwaytechnologies.com
+  script:
+    - bash deploy/omway-internal/build.sh dist
+  artifacts:
+    name: "gynocamp-$CI_COMMIT_SHORT_SHA"
+    expire_in: 1 day
+    paths:
+      - dist/
+
+deploy:dev:
+  stage: deploy
+  tags:
+    - omway-internal
+  needs:
+    - build
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  interruptible: false
+  resource_group: gynocamp-dev
+  environment:
+    name: development
+    url: https://gynocamp.omwaytechnologies.com
+  variables:
+    # Only the artifacts are needed here; ci-deploy.sh checks dist/BUILD_SHA instead.
+    GIT_STRATEGY: none
+  script:
+    - |
+      case "$CI_COMMIT_SHA" in
+        *[!0-9a-f]*|"") echo "refusing to deploy: CI_COMMIT_SHA is not a hex sha"; exit 1 ;;
+      esac
+    - sudo /srv/gynocamp/deploy/ci-deploy.sh "$CI_PROJECT_DIR/dist" "$CI_COMMIT_SHA"

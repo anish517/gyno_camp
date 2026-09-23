@@ -1,0 +1,26 @@
+# /etc/systemd/system/gynocamp-api.service  (installed by provision.sh)
+# GynoCamp dev sync API: compiled gyno_camp/bin/server.dart. Logs: journalctl -u gynocamp-api
+# Runs as its own system user, not omway: the API has no authentication yet, so a
+# compromise must not reach the other apps on this box.
+[Unit]
+Description=GynoCamp dev sync API (Dart)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+User=gynocamp
+Group=gynocamp
+# PORT, HOST=127.0.0.1 and PG* credentials. Root-only file, read by systemd.
+EnvironmentFile=/srv/gynocamp/gynocamp.env
+ExecStart=/srv/gynocamp/bin/gynocamp_server
+Restart=always
+RestartSec=3
+# The box has 1.8 GB shared with several apps; the binary idles at well under 100 MB.
+MemoryMax=192M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
