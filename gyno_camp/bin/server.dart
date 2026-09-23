@@ -7,7 +7,8 @@ import 'package:postgres/postgres.dart';
 /// Bridges Central PostgreSQL with Web Browsers (Chrome, Opera) and Android Tablets.
 void main(List<String> args) async {
   final port = int.tryParse(Platform.environment['PORT'] ?? '8080') ?? 8080;
-  final host = InternetAddress.anyIPv4;
+  // HOST=127.0.0.1 keeps the API reachable only through the reverse proxy.
+  final host = InternetAddress.tryParse(Platform.environment['HOST'] ?? '') ?? InternetAddress.anyIPv4;
 
   final pgHost = Platform.environment['PGHOST'] ?? 'localhost';
   final pgPort = int.tryParse(Platform.environment['PGPORT'] ?? '5432') ?? 5432;

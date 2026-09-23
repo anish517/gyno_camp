@@ -1,0 +1,12 @@
+# Standalone package used only to compile gyno_camp/bin/server.dart for deployment
+# (see ../build.sh). The app's own pubspec pulls in Flutter plugins with native
+# build hooks (sqlite3, objective_c), which `dart compile exe` refuses to build;
+# the server itself only imports dart:io, dart:convert and postgres.
+name: gynocamp_server
+publish_to: none
+
+environment:
+  sdk: ^3.13.1
+
+dependencies:
+  postgres: 3.5.12   # keep in step with gyno_camp/pubspec.lock
