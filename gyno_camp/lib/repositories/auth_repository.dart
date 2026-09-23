@@ -286,9 +286,11 @@ class AuthRepository implements IAuthRepository {
       deviceId: deviceId,
     );
 
-    try {
-      HttpCentralApiService().broadcastUser(user);
-    } catch (_) {}
+    if (enableCentralSync) {
+      try {
+        HttpCentralApiService().broadcastUser(user);
+      } catch (_) {}
+    }
 
     return user;
   }
@@ -374,9 +376,11 @@ class AuthRepository implements IAuthRepository {
       deviceId: deviceId,
     );
 
-    try {
-      HttpCentralApiService().broadcastUser(user);
-    } catch (_) {}
+    if (enableCentralSync) {
+      try {
+        HttpCentralApiService().broadcastUser(user);
+      } catch (_) {}
+    }
 
     if (_currentUser?.id == user.id) {
       _currentUser = user;

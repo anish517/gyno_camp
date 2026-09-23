@@ -22,7 +22,11 @@ void main() {
       dbService = DatabaseService();
       await dbService.initializeTestDb(testDb);
       auditRepo = AuditRepository(databaseService: dbService);
-      authRepo = AuthRepository(databaseService: dbService, auditRepository: auditRepo);
+      authRepo = AuthRepository(
+        databaseService: dbService,
+        auditRepository: auditRepo,
+        enableCentralSync: false,
+      );
     });
 
     tearDown(() async {

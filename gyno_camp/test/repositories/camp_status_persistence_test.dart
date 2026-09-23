@@ -25,7 +25,11 @@ void main() {
       dbService = DatabaseService();
       await dbService.initializeTestDb(testDb);
       auditRepo = AuditRepository(databaseService: dbService);
-      campRepo = CampRepository(databaseService: dbService, auditRepository: auditRepo);
+      campRepo = CampRepository(
+        databaseService: dbService,
+        auditRepository: auditRepo,
+        enableCentralSync: false,
+      );
     });
 
     tearDown(() async {

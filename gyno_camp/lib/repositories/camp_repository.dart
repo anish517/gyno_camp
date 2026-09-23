@@ -219,9 +219,11 @@ class CampRepository implements ICampRepository {
       deviceId: deviceId,
     );
 
-    try {
-      HttpCentralApiService().broadcastCamp(newCamp);
-    } catch (_) {}
+    if (enableCentralSync) {
+      try {
+        HttpCentralApiService().broadcastCamp(newCamp);
+      } catch (_) {}
+    }
 
     return newCamp;
   }
@@ -381,9 +383,11 @@ class CampRepository implements ICampRepository {
       deviceId: deviceId,
     );
 
-    try {
-      HttpCentralApiService().broadcastCamp(updated);
-    } catch (_) {}
+    if (enableCentralSync) {
+      try {
+        HttpCentralApiService().broadcastCamp(updated);
+      } catch (_) {}
+    }
 
     return updated;
   }
@@ -476,9 +480,11 @@ class CampRepository implements ICampRepository {
     );
 
     // 1. Broadcast the updated camp to Central Cloud
-    try {
-      HttpCentralApiService().broadcastCamp(updated);
-    } catch (_) {}
+    if (enableCentralSync) {
+      try {
+        HttpCentralApiService().broadcastCamp(updated);
+      } catch (_) {}
+    }
 
     // 2. Also update each assigned staff's user record with this campId
     try {
