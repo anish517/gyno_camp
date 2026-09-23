@@ -8,7 +8,23 @@ import 'package:gyno_camp/repositories/camp_repository.dart';
 import 'package:gyno_camp/repositories/auth_repository.dart';
 import 'package:gyno_camp/viewmodels/auth_viewmodel.dart';
 import 'package:gyno_camp/viewmodels/camp_viewmodel.dart';
+import 'package:gyno_camp/viewmodels/device_security_viewmodel.dart';
+import 'package:gyno_camp/viewmodels/sync_viewmodel.dart';
 import 'package:gyno_camp/views/dashboard/home_gateway_view.dart';
+
+class _FakeSyncViewModel extends StateNotifier<SyncState> implements SyncViewModel {
+  _FakeSyncViewModel() : super(const SyncState(isOnline: false));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeDeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> implements DeviceSecurityViewModel {
+  _FakeDeviceSecurityViewModel() : super(const DeviceSecurityState(hardwareFingerprint: 'test-fp', isInitialized: true, isChecking: false, isAppLocked: false));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class FakeCampRepoForHome implements ICampRepository {
   List<CampModel> testCamps = [
@@ -115,6 +131,8 @@ void main() {
     return ProviderScope(
       overrides: [
         campRepositoryProvider.overrideWithValue(fakeRepo),
+        syncStateProvider.overrideWith((ref) => _FakeSyncViewModel()),
+        deviceSecurityProvider.overrideWith((ref) => _FakeDeviceSecurityViewModel()),
         authStateProvider.overrideWith((ref) {
           final vm = AuthViewModel(FakeAuthRepositorySimple(testAdmin));
           return vm;
@@ -228,6 +246,8 @@ void main() {
         ProviderScope(
           overrides: [
             campRepositoryProvider.overrideWithValue(fakeRepo),
+            syncStateProvider.overrideWith((ref) => _FakeSyncViewModel()),
+            deviceSecurityProvider.overrideWith((ref) => _FakeDeviceSecurityViewModel()),
             authStateProvider.overrideWith((ref) {
               return AuthViewModel(FakeAuthRepositorySimple(testDataAnalyst));
             }),
@@ -275,6 +295,8 @@ void main() {
         ProviderScope(
           overrides: [
             campRepositoryProvider.overrideWithValue(fakeRepo),
+            syncStateProvider.overrideWith((ref) => _FakeSyncViewModel()),
+            deviceSecurityProvider.overrideWith((ref) => _FakeDeviceSecurityViewModel()),
             authStateProvider.overrideWith((ref) {
               return AuthViewModel(FakeAuthRepositorySimple(testDataTaker));
             }),

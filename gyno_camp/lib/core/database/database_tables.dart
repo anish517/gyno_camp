@@ -66,6 +66,7 @@ class DatabaseTables {
       tenant_id TEXT DEFAULT 'tenant_default',
       organization_name TEXT DEFAULT 'Community Health Outreach Mission',
       doctor_name TEXT DEFAULT '',
+      doctor_names TEXT DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT
     );
@@ -149,6 +150,8 @@ class DatabaseTables {
       follow_up_notes TEXT,
       surgery_done INTEGER DEFAULT 0,
       surgery_type TEXT,
+      attending_doctor_names TEXT DEFAULT '',
+      primary_doctor_name TEXT DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT,
       created_by_user_id TEXT NOT NULL,
@@ -189,7 +192,9 @@ class DatabaseTables {
       is_active INTEGER NOT NULL DEFAULT 1,
       sort_order INTEGER NOT NULL DEFAULT 0,
       tenant_id TEXT NOT NULL DEFAULT 'tenant_default',
-      is_deleted INTEGER NOT NULL DEFAULT 0
+      is_deleted INTEGER NOT NULL DEFAULT 0,
+      camp_id TEXT,
+      excluded_camp_ids TEXT
     );
   ''';
 

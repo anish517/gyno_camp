@@ -8,6 +8,7 @@ import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
+import '../../models/camp_model.dart';
 import '../../viewmodels/clinical_assessment_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
@@ -109,6 +110,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     final vm = ref.read(clinicalAssessmentProvider.notifier);
     final user = ref.watch(authStateProvider).currentUser;
     final device = ref.watch(deviceSecurityProvider).device;
+    final campState = ref.watch(campStateProvider);
+
+    // CAMP LOCK CHECK
+    CampModel? patientCamp;
+    try {
+      patientCamp = campState.camps.firstWhere((c) => c.id == widget.patient.campId);
+    } catch (_) {}
+    final isLockedCamp = patientCamp != null && patientCamp.status.isLocked;
 
     return Scaffold(
       appBar: AppBar(
@@ -172,6 +181,8 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 followUpNeeded: state.followUpNeeded,
                 followUpDestination: state.followUpDestination,
                 outtakeNotes: state.outtakeNotes,
+                attendingDoctorNames: state.attendingDoctorNames,
+                primaryDoctorName: state.primaryDoctorName,
                 createdByUserId: user?.id ?? 'usr-doc',
                 tenantId: 'tenant_bir_hospital',
                 isSynced: false,
@@ -221,6 +232,29 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             ),
           ),
           const Divider(height: 1),
+
+          // CAMP LOCKED BANNER
+          if (isLockedCamp)
+            Builder(builder: (context) {
+              // patientCamp is non-null whenever isLockedCamp is true
+              final lockedCamp = patientCamp!;
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                color: const Color(0xFFFEF2F2),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lock_rounded, color: Color(0xFFDC2626), size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Camp Closed — Read-Only View. Camp "${lockedCamp.name}" (${lockedCamp.campCode}) is ${lockedCamp.status.displayNameEn}. Clinical data cannot be edited.',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
 
           // Main Station Form Area
           Expanded(
@@ -284,7 +318,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          onPressed: state.isSaving
+                          onPressed: state.isSaving || isLockedCamp
                             ? null
                             : () async {
                                 final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -725,46 +759,52 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13.5,
-                      color: hasActiveSelections ? AppTheme.primaryTeal : const Color(0xFF1E293B),
-                    ),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                    color: hasActiveSelections ? AppTheme.primaryTeal : const Color(0xFF1E293B),
                   ),
                 ),
-                if (subCategory != null && subCategory.isNotEmpty) ...[
-                  Container(
-                    margin: const EdgeInsets.only(right: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
-                    ),
-                    child: Text(
-                      subCategory,
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
-                    ),
+                if ((subCategory != null && subCategory.isNotEmpty) || isIntakeReason) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      if (subCategory != null && subCategory.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                          ),
+                          child: Text(
+                            subCategory,
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                          ),
+                        ),
+                      if (isIntakeReason)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                          ),
+                          child: const Text(
+                            'Reported in Intake',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
-                if (isIntakeReason)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
-                    ),
-                    child: const Text(
-                      'Reported in Intake',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
-                    ),
-                  ),
               ],
             ),
             if (hasDuration) ...[
@@ -1204,7 +1244,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                         {'val': 'pos', 'label': 'Positive (पोजिटिभ)'},
                         {'val': 'not_done', 'label': 'Not Done (जाँच नगरिएको)'},
                       ].map((item) {
-                        final isSelected = (state.pregnancyTest ?? 'neg').toLowerCase() == item['val'];
+                        final rawPreg = (state.pregnancyTest ?? 'neg').toLowerCase().trim();
+                        final isSelected = rawPreg == item['val'] ||
+                            (item['val'] == 'neg' && (rawPreg == 'negative' || rawPreg.startsWith('neg'))) ||
+                            (item['val'] == 'pos' && (rawPreg == 'positive' || rawPreg.startsWith('pos'))) ||
+                            (item['val'] == 'not_done' && (rawPreg.contains('not') || rawPreg.contains('done')));
                         return ChoiceChip(
                           label: Text(item['label']!),
                           selected: isSelected,
@@ -1992,6 +2036,48 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             hintText: 'Enter clinical impressions, patient instructions, or surgical notes...',
           ),
           onChanged: (val) => vm.setOuttake(notes: val),
+        ),
+        const SizedBox(height: 20),
+        const Text('Attending / Examining Doctor(s) (जाँच गर्ने चिकित्सकहरू)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Builder(
+          builder: (context) {
+            final campState = ref.watch(campStateProvider);
+            CampModel? pCamp;
+            try {
+              pCamp = campState.camps.firstWhere((c) => c.id == widget.patient.campId);
+            } catch (_) {}
+            final doctors = pCamp?.doctorNames.isNotEmpty == true
+                ? pCamp!.doctorNames
+                : (pCamp?.doctorName.isNotEmpty == true ? [pCamp!.doctorName] : <String>[]);
+
+            if (doctors.isEmpty) {
+              return const Text(
+                'No doctors assigned to this camp in camp settings.',
+                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+              );
+            }
+
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: doctors.map((doc) {
+                final isSelected = state.attendingDoctorNames.contains(doc);
+                return FilterChip(
+                  avatar: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: isSelected ? Colors.white : AppTheme.primaryTeal.withValues(alpha: 0.2),
+                    child: Icon(Icons.person, size: 14, color: isSelected ? AppTheme.primaryTeal : Colors.blueGrey),
+                  ),
+                  label: Text(doc, style: TextStyle(fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                  selected: isSelected,
+                  selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                  checkmarkColor: AppTheme.primaryTeal,
+                  onSelected: (_) => vm.toggleAttendingDoctor(doc),
+                );
+              }).toList(),
+            );
+          },
         ),
       ],
     );

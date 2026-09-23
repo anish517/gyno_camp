@@ -2609,7 +2609,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       {'val': 'pos', 'label': 'Positive (पोजिटिभ)'},
                       {'val': 'not_done', 'label': 'Not Done (जाँच नगरिएको)'},
                     ].map((item) {
-                      final isSelected = (vitals['pregnancyTest'] as String? ?? 'neg').toLowerCase() == item['val'];
+                      final rawPreg = (vitals['pregnancyTest'] as String? ?? 'neg').toLowerCase().trim();
+                      final isSelected = rawPreg == item['val'] ||
+                          (item['val'] == 'neg' && (rawPreg == 'negative' || rawPreg.startsWith('neg'))) ||
+                          (item['val'] == 'pos' && (rawPreg == 'positive' || rawPreg.startsWith('pos'))) ||
+                          (item['val'] == 'not_done' && (rawPreg.contains('not') || rawPreg.contains('done')));
                       return ChoiceChip(
                         label: Text(item['label']!),
                         selected: isSelected,

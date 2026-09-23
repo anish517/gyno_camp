@@ -67,6 +67,7 @@ class DatabaseService {
         {'name': 'organization_name', 'def': "organization_name TEXT DEFAULT 'Outreach Health Center'"},
         {'name': 'province', 'def': "province TEXT DEFAULT 'Bagmati'"},
         {'name': 'doctor_name', 'def': "doctor_name TEXT DEFAULT ''"},
+        {'name': 'doctor_names', 'def': "doctor_names TEXT DEFAULT ''"},
       ],
       DatabaseTables.tablePatients: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
@@ -78,6 +79,8 @@ class DatabaseService {
         {'name': 'follow_up_notes', 'def': 'follow_up_notes TEXT'},
         {'name': 'surgery_done', 'def': 'surgery_done INTEGER DEFAULT 0'},
         {'name': 'surgery_type', 'def': 'surgery_type TEXT'},
+        {'name': 'attending_doctor_names', 'def': "attending_doctor_names TEXT DEFAULT ''"},
+        {'name': 'primary_doctor_name', 'def': "primary_doctor_name TEXT DEFAULT ''"},
       ],
       DatabaseTables.tableAuditLogs: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
@@ -87,6 +90,8 @@ class DatabaseService {
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
         {'name': 'is_deleted', 'def': 'is_deleted INTEGER DEFAULT 0'},
         {'name': 'sub_category', 'def': 'sub_category TEXT'},
+        {'name': 'camp_id', 'def': 'camp_id TEXT'},
+        {'name': 'excluded_camp_ids', 'def': 'excluded_camp_ids TEXT'},
       ],
     };
 

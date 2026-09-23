@@ -20,10 +20,10 @@ class FakeLookupRepository implements ILookupRepository {
   ];
 
   @override
-  Future<List<LookupItemModel>> getAllItems({String? tenantId}) async => items;
+  Future<List<LookupItemModel>> getAllItems({String? campId, String? tenantId}) async => items;
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, bool activeOnly = false}) async {
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? campId, String? tenantId, bool activeOnly = false}) async {
     return items.where((i) => i.category == category && (!activeOnly || i.isActive)).toList();
   }
 
@@ -37,10 +37,13 @@ class FakeLookupRepository implements ILookupRepository {
   Future<LookupItemModel> updateItem(LookupItemModel item, {required String userId, required String userName, required String deviceId}) async => item;
 
   @override
-  Future<bool> toggleItemStatus(String id, bool isActive, {required String userId, required String userName, required String deviceId}) async => true;
+  Future<bool> toggleItemStatus(String id, bool isActive, {String? campId, required String userId, required String userName, required String deviceId}) async => true;
 
   @override
-  Future<bool> deleteItem(String id, {required String userId, required String userName, required String deviceId}) async => true;
+  Future<bool> deleteItem(String id, {String? campId, required String userId, required String userName, required String deviceId}) async => true;
+
+  @override
+  Future<bool> restoreItemToCamp(String id, {required String campId, required String userId, required String userName, required String deviceId}) async => true;
 
   @override
   Future<void> ensureDefaultsSeeded({String? tenantId}) async {}

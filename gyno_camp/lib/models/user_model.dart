@@ -12,8 +12,12 @@ enum UserRole {
       case 'DATAANALYST':
         return UserRole.dataAnalyst;
       case 'DATATAKER':
-      default:
         return UserRole.dataTaker;
+      default:
+        // Do NOT silently default to dataTaker for unknown roles.
+        // Return dataTaker only for the exact 'DATATAKER' string above.
+        // Unknown roles must be caught by login validation.
+        throw ArgumentError('Unknown user role: "$role"');
     }
   }
 
@@ -113,7 +117,14 @@ class UserModel {
       name: map['name'] as String,
       email: map['email'] as String,
       phone: map['phone'] as String? ?? '',
-      role: UserRole.fromString(map['role'] as String? ?? ''),
+      role: () {
+        try {
+          return UserRole.fromString(map['role'] as String? ?? '');
+        } catch (_) {
+          // Gracefully handle unknown/legacy roles from DB without crashing
+          return UserRole.dataTaker;
+        }
+      }(),
       isActive: (map['is_active'] is int)
           ? (map['is_active'] as int) == 1
           : (map['is_active'] as bool? ?? true),

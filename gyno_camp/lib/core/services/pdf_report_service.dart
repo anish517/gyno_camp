@@ -501,6 +501,105 @@ class PdfReportService {
       ),
     );
 
+    // ── ATTACHMENT: COMPREHENSIVE PATIENT REGISTER (15 COLUMNS MATCHING EXCEL) ──
+    if (summary.patients.isNotEmpty) {
+      final visitByPatientId = <String, ClinicalVisitModel>{};
+      for (final v in summary.visits) {
+        visitByPatientId[v.patientId] = v;
+      }
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          header: (context) => pw.Container(
+            padding: const pw.EdgeInsets.only(bottom: 6),
+            margin: const pw.EdgeInsets.only(bottom: 6),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide(color: PdfColors.teal, width: 1)),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  '${PdfReportService.sanitizeText(summary.campName)} — Comprehensive Patient Register (${summary.patients.length} Registered Patients)',
+                  style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: primaryColor),
+                ),
+                pw.Text(
+                  'Page ${context.pageNumber} of ${context.pagesCount}',
+                  style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+                ),
+              ],
+            ),
+          ),
+          build: (context) => [
+            pw.TableHelper.fromTextArray(
+              border: pw.TableBorder.all(color: borderGray, width: 0.5),
+              headerStyle: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+              headerDecoration: pw.BoxDecoration(color: primaryColor),
+              cellStyle: pw.TextStyle(fontSize: 6.0, color: darkTextColor),
+              cellAlignment: pw.Alignment.centerLeft,
+              cellPadding: const pw.EdgeInsets.symmetric(horizontal: 2.5, vertical: 2.0),
+              headers: [
+                'ID',
+                'Name',
+                'Age',
+                'Mobile',
+                'Ward',
+                'Marital',
+                'Guardian',
+                'Complaints',
+                'POP',
+                'Diagnoses',
+                'Meds',
+                'Pessary',
+                'Referral',
+                'Destination',
+                'Date',
+              ],
+              columnWidths: {
+                0: const pw.FlexColumnWidth(1.2), // ID
+                1: const pw.FlexColumnWidth(1.8), // Name
+                2: const pw.FlexColumnWidth(0.6), // Age
+                3: const pw.FlexColumnWidth(1.3), // Mobile
+                4: const pw.FlexColumnWidth(0.7), // Ward
+                5: const pw.FlexColumnWidth(1.0), // Marital
+                6: const pw.FlexColumnWidth(1.5), // Guardian
+                7: const pw.FlexColumnWidth(2.0), // Complaints
+                8: const pw.FlexColumnWidth(0.8), // POP
+                9: const pw.FlexColumnWidth(2.2), // Diagnoses
+                10: const pw.FlexColumnWidth(2.2), // Meds
+                11: const pw.FlexColumnWidth(1.1), // Pessary
+                12: const pw.FlexColumnWidth(1.4), // Referral
+                13: const pw.FlexColumnWidth(1.4), // Destination
+                14: const pw.FlexColumnWidth(1.1), // Date
+              },
+              data: summary.patients.map((p) {
+                final v = visitByPatientId[p.patientId];
+                return [
+                  PdfReportService.sanitizeText(p.patientId),
+                  PdfReportService.sanitizeText('${p.firstName} ${p.surname}'),
+                  p.age.toString(),
+                  PdfReportService.sanitizeText(p.mobile),
+                  PdfReportService.sanitizeText(p.ward),
+                  PdfReportService.sanitizeText(p.maritalStatus),
+                  PdfReportService.sanitizeText(p.spouseOrFatherName ?? '-'),
+                  PdfReportService.sanitizeText(p.reasonsForVisit.isNotEmpty ? p.reasonsForVisit.join(', ') : '-'),
+                  v != null ? 'Stage ${v.highestPopStage}' : '-',
+                  PdfReportService.sanitizeText(v?.diagnoses.isNotEmpty == true ? v!.diagnoses.join(', ') : 'None'),
+                  PdfReportService.sanitizeText(v?.medications.isNotEmpty == true ? v!.medications.join(', ') : 'None'),
+                  PdfReportService.sanitizeText(v?.pessaryType ?? '-'),
+                  PdfReportService.sanitizeText(v?.surgicalReferral ?? '-'),
+                  PdfReportService.sanitizeText(v?.followUpDestination ?? '-'),
+                  dateFormatter.format(p.intakeDate),
+                ];
+              }).toList(),
+            ),
+          ],
+        ),
+      );
+    }
+
     return pdf.save();
   }
 
@@ -1322,9 +1421,43 @@ class PdfReportService {
           ),
           pw.SizedBox(height: 7),
 
+          // ── Chief Complaints & Reasons to Visit ──────────────────────────
+          _buildPdfSectionHeader('2. CHIEF COMPLAINTS & REASONS TO VISIT', encounterColor),
+          pw.SizedBox(height: 3),
+          pw.Container(
+            padding: const pw.EdgeInsets.all(7),
+            decoration: pw.BoxDecoration(border: pw.Border.all(color: gray, width: 0.8), borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4))),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _buildPdfField(
+                  'Initial Intake Reasons (प्रारम्भिक समस्या)',
+                  patient.reasonsForVisit.isNotEmpty ? patient.reasonsForVisit.join(' • ') : 'Routine Follow-Up / Consultation',
+                  isBold: patient.reasonsForVisit.isNotEmpty,
+                ),
+                if (visit.anamnesisComplaints.isNotEmpty && visit.anamnesisComplaints['reasons'] is List && (visit.anamnesisComplaints['reasons'] as List).isNotEmpty) ...[
+                  pw.SizedBox(height: 3),
+                  _buildPdfField(
+                    'Active Encounter Complaints',
+                    (visit.anamnesisComplaints['reasons'] as List).join(' • '),
+                  ),
+                ],
+                if (visit.anamnesisComplaints.isNotEmpty && visit.anamnesisComplaints['new_issues'] != null && (visit.anamnesisComplaints['new_issues'] as String).trim().isNotEmpty) ...[
+                  pw.SizedBox(height: 3),
+                  _buildPdfField(
+                    'New Reported Issues / Symptoms',
+                    sanitizeText(visit.anamnesisComplaints['new_issues'] as String),
+                    isBold: true,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 7),
+
           // ── Obstetric History ────────────────────────────────────────────
           if (visit.deliveries != null || visit.anamnesisComplaints.isNotEmpty) ...[
-            _buildPdfSectionHeader('2. OBSTETRIC HISTORY & EXAMINATION', encounterColor),
+            _buildPdfSectionHeader('3. OBSTETRIC HISTORY & EXAMINATION', encounterColor),
             pw.SizedBox(height: 3),
             pw.Container(
               padding: const pw.EdgeInsets.all(7),
@@ -1350,7 +1483,7 @@ class PdfReportService {
           ],
 
           // ── Clinical Vitals ──────────────────────────────────────────────
-          _buildPdfSectionHeader('3. CLINICAL VITALS & SCREENING LABS', encounterColor),
+          _buildPdfSectionHeader('4. CLINICAL VITALS & SCREENING LABS', encounterColor),
           pw.SizedBox(height: 3),
           pw.Container(
             padding: const pw.EdgeInsets.all(7),
@@ -1383,7 +1516,7 @@ class PdfReportService {
           pw.SizedBox(height: 7),
 
           // ── POP Staging ──────────────────────────────────────────────────
-          _buildPdfSectionHeader('4. BADEN-WALKER POP STAGING', encounterColor),
+          _buildPdfSectionHeader('5. BADEN-WALKER POP STAGING', encounterColor),
           pw.SizedBox(height: 3),
           pw.Container(
             padding: const pw.EdgeInsets.all(7),
@@ -1405,7 +1538,7 @@ class PdfReportService {
           pw.SizedBox(height: 7),
 
           // ── Diagnoses & Treatment ────────────────────────────────────────
-          _buildPdfSectionHeader('5. CONFIRMED DIAGNOSES & TREATMENT', encounterColor),
+          _buildPdfSectionHeader('6. CONFIRMED DIAGNOSES & TREATMENT', encounterColor),
           pw.SizedBox(height: 3),
           pw.Container(
             padding: const pw.EdgeInsets.all(7),
@@ -1419,11 +1552,11 @@ class PdfReportService {
                 _buildPdfField('Prescribed Medications', visit.medications.isNotEmpty ? visit.medications.join(' | ') : 'None dispensed'),
                 if (visit.customMedication?.isNotEmpty == true) ...[
                   pw.SizedBox(height: 2),
-                  _buildPdfField('Special Prescriptions', sanitizeText(visit.customMedication!)),
+                  _buildPdfField('Other Prescriptions', sanitizeText(visit.customMedication!)),
                 ],
-                if (visit.pessarySize?.isNotEmpty == true) ...[
+                if (visit.pessaryType != null) ...[
                   pw.SizedBox(height: 2),
-                  _buildPdfField('Ring Pessary Fitted', '${visit.pessaryType ?? "Ring Pessary"} — Size: ${visit.pessarySize}', isBold: true),
+                  _buildPdfField('Ring Pessary', '${sanitizeText(visit.pessaryType!)} (${visit.pessarySize ?? "Standard"} mm)', isBold: true),
                 ],
                 if (visit.surgeryDone) ...[
                   pw.SizedBox(height: 2),
@@ -1439,7 +1572,7 @@ class PdfReportService {
           pw.SizedBox(height: 7),
 
           // ── Continuity of Care ────────────────────────────────────────────
-          _buildPdfSectionHeader('6. CONTINUITY OF CARE & REFERRAL', encounterColor),
+          _buildPdfSectionHeader('7. CONTINUITY OF CARE & REFERRAL', encounterColor),
           pw.SizedBox(height: 3),
           pw.Container(
             padding: const pw.EdgeInsets.all(7),
@@ -1480,7 +1613,27 @@ class PdfReportService {
                 ],
               ),
               pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
+                  if (visit.attendingDoctorNames.isNotEmpty) ...[
+                    pw.Text(
+                      sanitizeText(visit.attendingDoctorNames.map((d) => d.toLowerCase().startsWith('dr') ? d : 'Dr. $d').join(' & ')),
+                      style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: encounterColor),
+                    ),
+                    pw.SizedBox(height: 2),
+                  ] else if (camp != null && camp.doctorNames.isNotEmpty) ...[
+                    pw.Text(
+                      sanitizeText(camp.doctorNames.map((d) => d.toLowerCase().startsWith('dr') ? d : 'Dr. $d').join(' & ')),
+                      style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: encounterColor),
+                    ),
+                    pw.SizedBox(height: 2),
+                  ] else if (camp != null && camp.doctorName.trim().isNotEmpty) ...[
+                    pw.Text(
+                      sanitizeText(camp.doctorName.trim().toLowerCase().startsWith('dr') ? camp.doctorName.trim() : 'Dr. ${camp.doctorName.trim()}'),
+                      style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: encounterColor),
+                    ),
+                    pw.SizedBox(height: 2),
+                  ],
                   pw.Container(width: 150, height: 0.8, color: PdfColors.black),
                   pw.SizedBox(height: 3),
                   pw.Text('Medical Officer / Attending Gynecologist', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
@@ -1529,7 +1682,7 @@ class PdfReportService {
     List<String> effectiveDiagnoses = diagnoses?.where((d) => d.isActive).map((d) => d.labelEn).toList() ?? [];
     if (effectiveDiagnoses.isEmpty) {
       try {
-        final repoItems = await LookupRepository().getItemsByCategory('diagnosis');
+        final repoItems = await LookupRepository().getItemsByCategory('diagnosis', campId: camp?.id);
         if (repoItems.isNotEmpty) {
           effectiveDiagnoses = repoItems.where((i) => i.isActive).map((i) => i.labelEn).toList();
         }
@@ -1546,7 +1699,7 @@ class PdfReportService {
     List<String> effectiveMedications = medications?.where((m) => m.isActive).map((m) => m.labelEn).toList() ?? [];
     if (effectiveMedications.isEmpty) {
       try {
-        final repoItems = await LookupRepository().getItemsByCategory('medicine');
+        final repoItems = await LookupRepository().getItemsByCategory('medicine', campId: camp?.id);
         if (repoItems.isNotEmpty) {
           effectiveMedications = repoItems.where((i) => i.isActive).map((i) => i.labelEn).toList();
         }
@@ -1563,7 +1716,7 @@ class PdfReportService {
     List<String> effectiveHospitals = referralHospitals?.where((h) => h.isActive).map((h) => h.labelEn).toList() ?? [];
     if (effectiveHospitals.isEmpty) {
       try {
-        final repoItems = await LookupRepository().getItemsByCategory('referral_hospital');
+        final repoItems = await LookupRepository().getItemsByCategory('referral_hospital', campId: camp?.id);
         if (repoItems.isNotEmpty) {
           effectiveHospitals = repoItems.where((i) => i.isActive).map((i) => i.labelEn).toList();
         }
@@ -1588,7 +1741,7 @@ class PdfReportService {
     }
     if (effectiveVisitReasons.isEmpty) {
       try {
-        final repoItems = await LookupRepository().getItemsByCategory('visit_reason');
+        final repoItems = await LookupRepository().getItemsByCategory('visit_reason', campId: camp?.id);
         if (repoItems.isNotEmpty) {
           for (final vr in repoItems.where((v) => v.isActive)) {
             final label = (vr.labelNe.isNotEmpty && vr.labelNe != vr.labelEn)
@@ -1620,7 +1773,7 @@ class PdfReportService {
     }
     if (effectiveComplaints.isEmpty) {
       try {
-        final repoItems = await LookupRepository().getItemsByCategory('chief_complaint');
+        final repoItems = await LookupRepository().getItemsByCategory('chief_complaint', campId: camp?.id);
         if (repoItems.isNotEmpty) {
           effectiveComplaints = repoItems.where((i) => i.isActive).map((c) => {
             'code': c.code,
@@ -1791,12 +1944,9 @@ class PdfReportService {
             children: [
               secHdr('SECTION A: PATIENT DEMOGRAPHICS / बिरामी विवरण'),
 
-              // Name row
-              pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Expanded(child: field('First Name', 'पहिलो नाम', patient?.firstName ?? '', minBoxes: 8, maxBoxes: 8, boxSize: 13.0, boxMargin: 2.0)),
-                pw.SizedBox(width: 8),
-                pw.Expanded(child: field('Surname', 'थर', patient?.surname ?? '', minBoxes: 8, maxBoxes: 8, boxSize: 13.0, boxMargin: 2.0)),
-              ]),
+              // Name rows (14 character boxes each)
+              field('First Name', 'पहिलो नाम', patient?.firstName ?? '', minBoxes: 14, maxBoxes: 14, boxSize: 12.0, boxMargin: 1.5),
+              field('Surname', 'थर', patient?.surname ?? '', minBoxes: 14, maxBoxes: 14, boxSize: 12.0, boxMargin: 1.5),
 
               // Patient Age label & Marital status
               pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -2263,49 +2413,83 @@ class PdfReportService {
             children: [
               // ── STATION 4: DIAGNOSES ─────────────────────────────────────
               sectionHeader('STATION 4: CONFIRMED DIAGNOSES / निदान'),
-              pw.Wrap(
-                spacing: 0, runSpacing: 1,
-                children: effectiveDiagnoses
-                    .map((d) {
-                      final isChecked = visit?.diagnoses.any((diag) {
-                        final dNorm = d.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-                        final diagNorm = diag.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-                        return dNorm == diagNorm ||
-                            dNorm.contains(diagNorm) ||
-                            diagNorm.contains(dNorm) ||
-                            (diagNorm.contains('candid') && dNorm.contains('candid')) ||
-                            (diagNorm.contains('vaginosis') && dNorm.contains('vaginosis'));
-                      }) ?? false;
-                      return cb(sanitizeText(d), isChecked);
-                    })
-                    .toList(),
-              ),
-              pw.SizedBox(height: 2),
+              ...ClinicalConstants.diagnosisCategories.map((category) {
+                final catItems = effectiveDiagnoses.where((d) {
+                  final cat = ClinicalConstants.diagnosisCategoryMap[d.toLowerCase()] ?? 'General / Other';
+                  return cat == category;
+                }).toList();
+                if (catItems.isEmpty) return pw.SizedBox();
+
+                return pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.only(top: 1.5, bottom: 0.5),
+                      child: pw.Text(
+                        category.toUpperCase(),
+                        style: pw.TextStyle(fontSize: 5.6, fontWeight: pw.FontWeight.bold, color: primary),
+                      ),
+                    ),
+                    pw.Wrap(
+                      spacing: 0, runSpacing: 0.5,
+                      children: catItems.map((d) {
+                        final isChecked = visit?.diagnoses.any((diag) {
+                          final dNorm = d.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                          final diagNorm = diag.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                          return dNorm == diagNorm ||
+                              dNorm.contains(diagNorm) ||
+                              diagNorm.contains(dNorm) ||
+                              (diagNorm.contains('candid') && dNorm.contains('candid')) ||
+                              (diagNorm.contains('vaginosis') && dNorm.contains('vaginosis'));
+                        }) ?? false;
+                        return cb(sanitizeText(d), isChecked);
+                      }).toList(),
+                    ),
+                  ],
+                );
+              }),
+              pw.SizedBox(height: 1.5),
               pw.Text('Other: ', style: bold(size: fsSmall)),
-              line(h: 12),
-              pw.SizedBox(height: 5),
+              line(h: 10),
+              pw.SizedBox(height: 3),
 
               // ── STATION 5: TREATMENT ─────────────────────────────────────
               sectionHeader('STATION 5: TREATMENT & PRESCRIPTIONS / उपचार'),
-              pw.Text('Medications Dispensed:', style: bold(size: fsSmall)),
-              pw.SizedBox(height: 2),
-              pw.Wrap(
-                spacing: 0, runSpacing: 1,
-                children: effectiveMedications
-                    .map((m) {
-                      final isChecked = visit?.medications.any((med) {
-                        final mNorm = m.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-                        final medNorm = med.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-                        return mNorm == medNorm ||
-                            mNorm.contains(medNorm) ||
-                            medNorm.contains(mNorm) ||
-                            (medNorm.contains('metronid') && mNorm.contains('metronid')) ||
-                            (medNorm.contains('clotrim') && mNorm.contains('clotrim'));
-                      }) ?? false;
-                      return cb(sanitizeText(m), isChecked);
-                    })
-                    .toList(),
-              ),
+              ...ClinicalConstants.medicationCategories.map((category) {
+                final catItems = effectiveMedications.where((m) {
+                  final cat = ClinicalConstants.medicationCategoryMap[m.toLowerCase()] ?? 'Other / Custom';
+                  return cat == category;
+                }).toList();
+                if (catItems.isEmpty) return pw.SizedBox();
+
+                return pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.only(top: 1.5, bottom: 0.5),
+                      child: pw.Text(
+                        category.toUpperCase(),
+                        style: pw.TextStyle(fontSize: 5.6, fontWeight: pw.FontWeight.bold, color: primary),
+                      ),
+                    ),
+                    pw.Wrap(
+                      spacing: 0, runSpacing: 0.5,
+                      children: catItems.map((m) {
+                        final isChecked = visit?.medications.any((med) {
+                          final mNorm = m.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                          final medNorm = med.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                          return mNorm == medNorm ||
+                              mNorm.contains(medNorm) ||
+                              medNorm.contains(mNorm) ||
+                              (medNorm.contains('metronid') && mNorm.contains('metronid')) ||
+                              (medNorm.contains('clotrim') && mNorm.contains('clotrim'));
+                        }) ?? false;
+                        return cb(sanitizeText(m), isChecked);
+                      }).toList(),
+                    ),
+                  ],
+                );
+              }),
               pw.SizedBox(height: 3),
               pw.Row(children: [
                 pw.Text('Ring Pessary: ', style: bold()),

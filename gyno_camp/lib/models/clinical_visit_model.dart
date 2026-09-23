@@ -58,6 +58,10 @@ class ClinicalVisitModel {
   final bool surgeryDone;
   final String? surgeryType; // 'Open surgery', 'Laparoscopy', 'Vaginal route'
 
+  // Examining / Attending Doctors
+  final List<String> attendingDoctorNames;
+  final String? primaryDoctorName;
+
   // Metadata
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -106,6 +110,8 @@ class ClinicalVisitModel {
     this.followUpNotes,
     this.surgeryDone = false,
     this.surgeryType,
+    this.attendingDoctorNames = const [],
+    this.primaryDoctorName,
     required this.createdAt,
     this.updatedAt,
     required this.createdByUserId,
@@ -118,8 +124,7 @@ class ClinicalVisitModel {
     int highest = anterior;
     if (middle > highest) highest = middle;
     if (posterior > highest) highest = posterior;
-    if (highest > ClinicalConstants.maxStageHighest) highest = ClinicalConstants.maxStageHighest;
-    return highest;
+    return highest.clamp(0, 4);
   }
 
   Map<String, dynamic> toMap() {
@@ -164,6 +169,8 @@ class ClinicalVisitModel {
       'follow_up_notes': followUpNotes,
       'surgery_done': surgeryDone ? 1 : 0,
       'surgery_type': surgeryType,
+      'attending_doctor_names': attendingDoctorNames.join(','),
+      'primary_doctor_name': primaryDoctorName,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'created_by_user_id': createdByUserId,
@@ -235,6 +242,10 @@ class ClinicalVisitModel {
           ? (map['surgery_done'] as int) == 1
           : (map['surgery_done'] as bool? ?? false),
       surgeryType: map['surgery_type'] as String?,
+      attendingDoctorNames: map['attending_doctor_names'] != null && (map['attending_doctor_names'] as String).isNotEmpty
+          ? (map['attending_doctor_names'] as String).split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+          : (map['primary_doctor_name'] != null && (map['primary_doctor_name'] as String).isNotEmpty ? [(map['primary_doctor_name'] as String).trim()] : const []),
+      primaryDoctorName: map['primary_doctor_name'] as String?,
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
       createdByUserId: map['created_by_user_id'] as String? ?? '',
@@ -242,6 +253,106 @@ class ClinicalVisitModel {
       isSynced: (map['is_synced'] is int)
           ? (map['is_synced'] as int) == 1
           : (map['is_synced'] as bool? ?? false),
+    );
+  }
+
+  ClinicalVisitModel copyWith({
+    String? id,
+    String? patientId,
+    String? campId,
+    DateTime? visitDate,
+    int? deliveries,
+    int? livingChildren,
+    int? abortions,
+    Map<String, dynamic>? anamnesisComplaints,
+    bool? uterusInside,
+    String? vulvaRemarks,
+    String? vaginaRemarks,
+    String? cervixRemarks,
+    String? uterusRemarks,
+    String? pelvicFloorTone,
+    int? popAnteriorStage,
+    int? popMiddleStage,
+    int? popPosteriorStage,
+    int? highestPopStage,
+    String? urineTest,
+    String? pregnancyTest,
+    int? systolicBp,
+    int? diastolicBp,
+    int? pulse,
+    int? spo2,
+    int? glucose,
+    String? ecgNotes,
+    List<String>? diagnoses,
+    List<String>? counseling,
+    String? pessaryType,
+    String? pessarySize,
+    String? surgicalReferral,
+    List<String>? medications,
+    String? customMedication,
+    bool? followUpNeeded,
+    String? followUpDestination,
+    String? outtakeNotes,
+    bool? isFollowUp,
+    String? followUpNotes,
+    bool? surgeryDone,
+    String? surgeryType,
+    List<String>? attendingDoctorNames,
+    String? primaryDoctorName,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? createdByUserId,
+    String? tenantId,
+    bool? isSynced,
+  }) {
+    return ClinicalVisitModel(
+      id: id ?? this.id,
+      patientId: patientId ?? this.patientId,
+      campId: campId ?? this.campId,
+      visitDate: visitDate ?? this.visitDate,
+      deliveries: deliveries ?? this.deliveries,
+      livingChildren: livingChildren ?? this.livingChildren,
+      abortions: abortions ?? this.abortions,
+      anamnesisComplaints: anamnesisComplaints ?? this.anamnesisComplaints,
+      uterusInside: uterusInside ?? this.uterusInside,
+      vulvaRemarks: vulvaRemarks ?? this.vulvaRemarks,
+      vaginaRemarks: vaginaRemarks ?? this.vaginaRemarks,
+      cervixRemarks: cervixRemarks ?? this.cervixRemarks,
+      uterusRemarks: uterusRemarks ?? this.uterusRemarks,
+      pelvicFloorTone: pelvicFloorTone ?? this.pelvicFloorTone,
+      popAnteriorStage: popAnteriorStage ?? this.popAnteriorStage,
+      popMiddleStage: popMiddleStage ?? this.popMiddleStage,
+      popPosteriorStage: popPosteriorStage ?? this.popPosteriorStage,
+      highestPopStage: highestPopStage ?? this.highestPopStage,
+      urineTest: urineTest ?? this.urineTest,
+      pregnancyTest: pregnancyTest ?? this.pregnancyTest,
+      systolicBp: systolicBp ?? this.systolicBp,
+      diastolicBp: diastolicBp ?? this.diastolicBp,
+      pulse: pulse ?? this.pulse,
+      spo2: spo2 ?? this.spo2,
+      glucose: glucose ?? this.glucose,
+      ecgNotes: ecgNotes ?? this.ecgNotes,
+      diagnoses: diagnoses ?? this.diagnoses,
+      counseling: counseling ?? this.counseling,
+      pessaryType: pessaryType ?? this.pessaryType,
+      pessarySize: pessarySize ?? this.pessarySize,
+      surgicalReferral: surgicalReferral ?? this.surgicalReferral,
+      medications: medications ?? this.medications,
+      customMedication: customMedication ?? this.customMedication,
+      followUpNeeded: followUpNeeded ?? this.followUpNeeded,
+      followUpDestination: followUpDestination ?? this.followUpDestination,
+      outtakeNotes: outtakeNotes ?? this.outtakeNotes,
+      isFollowUp: isFollowUp ?? this.isFollowUp,
+      followUpNotes: followUpNotes ?? this.followUpNotes,
+      surgeryDone: surgeryDone ?? this.surgeryDone,
+      surgeryType: surgeryType ?? this.surgeryType,
+      attendingDoctorNames: attendingDoctorNames ?? this.attendingDoctorNames,
+      primaryDoctorName: primaryDoctorName ?? this.primaryDoctorName,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      createdByUserId: createdByUserId ?? this.createdByUserId,
+      tenantId: tenantId ?? this.tenantId,
+      isSynced: isSynced ?? this.isSynced,
     );
   }
 }

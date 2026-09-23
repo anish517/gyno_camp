@@ -37,6 +37,7 @@ class ReportingState {
     bool? isExportingPdf,
     bool? isExportingExcel,
     String? selectedCampId,
+    bool clearSelectedCampId = false,
     CampReportSummaryModel? summary,
     String? lastExportPath,
     String? lastExportFormat,
@@ -48,7 +49,7 @@ class ReportingState {
       isLoading: isLoading ?? this.isLoading,
       isExportingPdf: isExportingPdf ?? this.isExportingPdf,
       isExportingExcel: isExportingExcel ?? this.isExportingExcel,
-      selectedCampId: selectedCampId ?? this.selectedCampId,
+      selectedCampId: clearSelectedCampId ? null : (selectedCampId ?? this.selectedCampId),
       summary: summary ?? this.summary,
       lastExportPath: lastExportPath ?? this.lastExportPath,
       lastExportFormat: lastExportFormat ?? this.lastExportFormat,
@@ -82,6 +83,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
       state = state.copyWith(
         isLoading: false,
         selectedCampId: campId,
+        clearSelectedCampId: campId == null || campId == 'all',
         summary: res,
       );
     } catch (e) {

@@ -9,6 +9,8 @@ class LookupItemModel {
   final int sortOrder;
   final String tenantId;
   final bool isDeleted;
+  final String? campId; // null or empty means global default; otherwise camp-specific
+  final List<String> excludedCampIds; // Camp IDs where this global default item has been excluded/removed
 
   const LookupItemModel({
     required this.id,
@@ -21,6 +23,8 @@ class LookupItemModel {
     this.sortOrder = 0,
     this.tenantId = 'tenant_default',
     this.isDeleted = false,
+    this.campId,
+    this.excludedCampIds = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -35,10 +39,17 @@ class LookupItemModel {
       'sort_order': sortOrder,
       'tenant_id': tenantId,
       'is_deleted': isDeleted ? 1 : 0,
+      'camp_id': campId,
+      'excluded_camp_ids': excludedCampIds.join(','),
     };
   }
 
   factory LookupItemModel.fromMap(Map<String, dynamic> map) {
+    final excludedRaw = map['excluded_camp_ids'] as String?;
+    final excludedList = (excludedRaw != null && excludedRaw.isNotEmpty)
+        ? excludedRaw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+        : const <String>[];
+
     return LookupItemModel(
       id: map['id'] as String,
       category: map['category'] as String,
@@ -54,6 +65,8 @@ class LookupItemModel {
       isDeleted: (map['is_deleted'] is int)
           ? (map['is_deleted'] as int) == 1
           : (map['is_deleted'] as bool? ?? false),
+      campId: map['camp_id'] as String?,
+      excludedCampIds: excludedList,
     );
   }
 
@@ -68,6 +81,9 @@ class LookupItemModel {
     int? sortOrder,
     String? tenantId,
     bool? isDeleted,
+    String? campId,
+    bool clearCampId = false,
+    List<String>? excludedCampIds,
   }) {
     return LookupItemModel(
       id: id ?? this.id,
@@ -80,6 +96,8 @@ class LookupItemModel {
       sortOrder: sortOrder ?? this.sortOrder,
       tenantId: tenantId ?? this.tenantId,
       isDeleted: isDeleted ?? this.isDeleted,
+      campId: clearCampId ? null : (campId ?? this.campId),
+      excludedCampIds: excludedCampIds ?? this.excludedCampIds,
     );
   }
 }

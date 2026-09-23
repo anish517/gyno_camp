@@ -426,7 +426,12 @@ class GeminiOcrService {
       'bloodGlucose': (rawVitals['bloodGlucose'] as num?)?.toInt() ?? (rawVitals['glucose'] as num?)?.toInt() ?? (rawVitals['bloodSugar'] as num?)?.toInt(),
       'glucose': (rawVitals['bloodGlucose'] as num?)?.toInt() ?? (rawVitals['glucose'] as num?)?.toInt() ?? (rawVitals['bloodSugar'] as num?)?.toInt(),
       'urineTest': rawVitals['urineTest']?.toString().trim() ?? 'normal',
-      'pregnancyTest': rawVitals['pregnancyTest']?.toString().trim() ?? 'neg',
+      'pregnancyTest': () {
+        final raw = rawVitals['pregnancyTest']?.toString().trim().toLowerCase() ?? '';
+        if (raw.contains('pos')) return 'pos';
+        if (raw.contains('not') || raw.contains('done')) return 'not_done';
+        return 'neg';
+      }(),
     };
 
     // Normalize POP Staging (strictly Yellow Form Station 2 fields)
@@ -688,7 +693,7 @@ Extract the information accurately into this EXACT JSON structure:
     "spo2": number or null,
     "bloodGlucose": number or null,
     "urineTest": "Normal or Protein+ or Glucose+ or Blood+ or combined string",
-    "pregnancyTest": "Negative or Positive or Not Done"
+    "pregnancyTest": "neg or pos or not_done"
   },
   "diagnoses": ["List of checked diagnoses from Station 4, plus Other if filled"],
   "medications": ["List of checked medications from Station 5"],

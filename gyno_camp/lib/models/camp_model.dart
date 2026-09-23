@@ -54,6 +54,9 @@ enum CampStatus {
   }
 
   bool get isOpenForDataEntry => this == CampStatus.open;
+
+  /// A camp is locked (read-only) once it is closed or archived.
+  bool get isLocked => this == CampStatus.closed || this == CampStatus.archived;
 }
 
 class CampModel {
@@ -72,7 +75,8 @@ class CampModel {
   final int totalPatientsRegistered;
   final String tenantId;
   final String organizationName;
-  final String doctorName;
+  final String doctorName; // Legacy scalar (kept for backward compat)
+  final List<String> doctorNames; // Multi-doctor list (preferred)
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -93,6 +97,7 @@ class CampModel {
     this.tenantId = 'tenant_default',
     this.organizationName = 'Community Health Outreach Mission',
     this.doctorName = '',
+    this.doctorNames = const [],
     required this.createdAt,
     this.updatedAt,
   });
@@ -118,6 +123,7 @@ class CampModel {
       'tenant_id': tenantId,
       'organization_name': organizationName,
       'doctor_name': doctorName,
+      'doctor_names': doctorNames.join(','),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -143,6 +149,15 @@ class CampModel {
       tenantId: map['tenant_id'] as String? ?? 'tenant_default',
       organizationName: map['organization_name'] as String? ?? 'Community Health Outreach Mission',
       doctorName: map['doctor_name'] as String? ?? '',
+      doctorNames: () {
+        // Try new comma-separated list first, fall back to legacy scalar
+        final raw = map['doctor_names'] as String?;
+        if (raw != null && raw.trim().isNotEmpty) {
+          return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        }
+        final legacy = map['doctor_name'] as String? ?? '';
+        return legacy.trim().isNotEmpty ? [legacy.trim()] : <String>[];
+      }(),
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
     );
@@ -165,6 +180,7 @@ class CampModel {
     String? tenantId,
     String? organizationName,
     String? doctorName,
+    List<String>? doctorNames,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -185,6 +201,7 @@ class CampModel {
       tenantId: tenantId ?? this.tenantId,
       organizationName: organizationName ?? this.organizationName,
       doctorName: doctorName ?? this.doctorName,
+      doctorNames: doctorNames ?? this.doctorNames,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

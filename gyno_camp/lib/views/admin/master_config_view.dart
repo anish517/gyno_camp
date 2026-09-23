@@ -5,11 +5,13 @@ import '../../core/theme/app_theme.dart';
 import '../../models/lookup_item_model.dart';
 import '../../repositories/lookup_repository.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
 
 class MasterConfigView extends ConsumerStatefulWidget {
-  const MasterConfigView({super.key});
+  final String? initialCampId;
+  const MasterConfigView({super.key, this.initialCampId});
 
   @override
   ConsumerState<MasterConfigView> createState() => _MasterConfigViewState();
@@ -32,6 +34,11 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
         ref.read(masterLookupProvider.notifier).setCategory(category);
       }
     });
+    if (widget.initialCampId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(masterLookupProvider.notifier).setCampScope(widget.initialCampId);
+      });
+    }
   }
 
   @override
@@ -124,6 +131,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
     final state = ref.watch(masterLookupProvider);
     final user = ref.watch(authStateProvider).currentUser;
     final deviceState = ref.watch(deviceSecurityProvider);
+    final campState = ref.watch(campStateProvider);
 
     final totalEntities = state.diagnoses.length +
         state.medicines.length +
@@ -297,6 +305,60 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 ),
                 child: Column(
                   children: [
+                    // Camp Scope Selector
+                    Row(
+                      children: [
+                        const Icon(Icons.domain_outlined, size: 18, color: AppTheme.primaryTeal),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Configuration Scope:',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Container(
+                            height: 36,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.borderLight),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String?>(
+                                value: state.selectedCampId,
+                                isExpanded: true,
+                                icon: const Icon(Icons.arrow_drop_down, size: 20),
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
+                                items: [
+                                  const DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text('🌐 Global Defaults (All Camps)'),
+                                  ),
+                                  ...campState.camps.map(
+                                    (c) => DropdownMenuItem<String?>(
+                                      value: c.id,
+                                      child: Text('🏕️ ${c.campCode} - ${c.name}'),
+                                    ),
+                                  ),
+                                  if (state.selectedCampId != null &&
+                                      !campState.camps.any((c) => c.id == state.selectedCampId))
+                                    DropdownMenuItem<String?>(
+                                      value: state.selectedCampId,
+                                      child: Text('🏕️ Selected Camp (${state.selectedCampId})'),
+                                    ),
+                                ],
+                                onChanged: (val) {
+                                  ref.read(masterLookupProvider.notifier).setCampScope(val);
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
                     // Search Bar
                     TextField(
                       controller: _searchController,
@@ -346,6 +408,11 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                         _buildStatusChip('ALL', 'All Items'),
                         _buildStatusChip('ACTIVE', 'Active Only'),
                         _buildStatusChip('INACTIVE', 'Disabled'),
+                        if (state.selectedCampId != null && state.excludedFromCurrentCamp.isNotEmpty)
+                          _buildStatusChip(
+                            'EXCLUDED',
+                            'Excluded (${state.excludedFromCurrentCamp.where((i) => i.category == _getCategoryForIndex(_tabController.index)).length})',
+                          ),
                         if (_tabController.index != 2)
                           ActionChip(
                             avatar: Icon(
@@ -648,12 +715,18 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
     String deviceId, {
     required int categoryIndex,
   }) {
-    // Apply local status filter (ALL, ACTIVE, INACTIVE)
-    final filtered = items.where((i) {
-      if (_statusFilter == 'ACTIVE' && !i.isActive) return false;
-      if (_statusFilter == 'INACTIVE' && i.isActive) return false;
-      return true;
-    }).toList();
+    final state = ref.watch(masterLookupProvider);
+    final categoryName = _getCategoryForIndex(categoryIndex);
+    final isExcludedMode = _statusFilter == 'EXCLUDED';
+
+    // Apply local status filter (ALL, ACTIVE, INACTIVE, EXCLUDED)
+    final filtered = isExcludedMode
+        ? state.excludedFromCurrentCamp.where((i) => i.category == categoryName).toList()
+        : items.where((i) {
+            if (_statusFilter == 'ACTIVE' && !i.isActive) return false;
+            if (_statusFilter == 'INACTIVE' && i.isActive) return false;
+            return true;
+          }).toList();
 
     final vm = ref.read(masterLookupProvider.notifier);
     final user = ref.read(authStateProvider).currentUser;
@@ -1002,43 +1075,71 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
             ),
             const SizedBox(width: 8),
 
-            // Trailing Controls: Switch, Edit, Delete
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Switch(
-                  value: isActive,
-                  activeTrackColor: categoryColor,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  onChanged: (val) {
-                    vm.toggleItemStatus(
-                      item.id,
-                      val,
-                      userId: adminUserId,
-                      userName: user?.name ?? 'Super Admin',
-                      deviceId: deviceId,
+            // Trailing Controls: Switch, Edit, Delete / Restore
+            if (_statusFilter == 'EXCLUDED') ...[
+              OutlinedButton.icon(
+                icon: const Icon(Icons.restore_from_trash, size: 14, color: Color(0xFF059669)),
+                label: const Text('Restore', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF059669)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () async {
+                  await vm.restoreItemToCamp(
+                    item.id,
+                    userId: adminUserId,
+                    userName: user?.name ?? 'Super Admin',
+                    deviceId: deviceId,
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Restored "${item.labelEn}" to this camp.'),
+                        backgroundColor: AppTheme.successGreen,
+                      ),
                     );
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  color: AppTheme.primaryDark,
-                  tooltip: 'Edit Master Record',
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  padding: EdgeInsets.zero,
-                  onPressed: () => _showAddEditDialog(context, item, item.category),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerRose),
-                  tooltip: 'Delete Master Record',
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  padding: EdgeInsets.zero,
-                  onPressed: () => _confirmDelete(context, item, adminUserId, deviceId),
-                ),
-              ],
-            ),
+                  }
+                },
+              ),
+            ] else ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Switch(
+                    value: isActive,
+                    activeTrackColor: categoryColor,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    onChanged: (val) {
+                      vm.toggleItemStatus(
+                        item.id,
+                        val,
+                        userId: adminUserId,
+                        userName: user?.name ?? 'Super Admin',
+                        deviceId: deviceId,
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    color: AppTheme.primaryDark,
+                    tooltip: 'Edit Master Record',
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => _showAddEditDialog(context, item, item.category),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerRose),
+                    tooltip: 'Delete Master Record',
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => _confirmDelete(context, item, adminUserId, deviceId),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -1335,6 +1436,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                       labelNe: neCtrl.text.trim(),
                       isActive: true,
                       tenantId: user?.tenantId ?? 'tenant_default',
+                      campId: lookupState.selectedCampId,
                     );
                     await vm.addItem(
                       newItem,
@@ -1366,16 +1468,41 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
   void _confirmDelete(BuildContext context, LookupItemModel item, String adminUserId, String deviceId) {
     final vm = ref.read(masterLookupProvider.notifier);
     final user = ref.read(authStateProvider).currentUser;
+    final state = ref.read(masterLookupProvider);
+    final isScopedToCamp = state.selectedCampId != null;
+    final isCampSpecific = item.campId == state.selectedCampId;
+
+    final String title;
+    final String body;
+    final String actionText;
+    final String successText;
+
+    if (isScopedToCamp && !isCampSpecific) {
+      title = 'Remove from Selected Camp?';
+      body = 'Remove "${item.labelEn}" from this camp roster?\n\nThis will ONLY remove it for this specific camp. It will remain active and untouched as a global default for all other camps.';
+      actionText = 'Remove from Camp';
+      successText = 'Removed "${item.labelEn}" from this camp.';
+    } else if (isScopedToCamp && isCampSpecific) {
+      title = 'Delete Camp-Specific Item?';
+      body = 'Are you sure you want to permanently delete "${item.labelEn}" from this camp?';
+      actionText = 'Delete Permanently';
+      successText = 'Deleted "${item.labelEn}" from this camp.';
+    } else {
+      title = 'Delete Master Item?';
+      body = 'Are you sure you want to permanently delete "${item.labelEn}" from all camps?';
+      actionText = 'Delete Permanently';
+      successText = 'Deleted "${item.labelEn}" permanently.';
+    }
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRose, size: 24),
-            SizedBox(width: 8),
-            Text('Delete Master Item?'),
+            const Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRose, size: 24),
+            const SizedBox(width: 8),
+            Text(title, style: const TextStyle(fontSize: 16)),
           ],
         ),
         content: Column(
@@ -1383,8 +1510,8 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Are you sure you want to permanently delete "${item.labelEn}"?',
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              body,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
             ),
             const SizedBox(height: 10),
             Container(
@@ -1418,7 +1545,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 messenger.clearSnackBars();
                 messenger.showSnackBar(
                   SnackBar(
-                    content: Text('Deactivated "${item.labelEn}" to preserve clinical history.'),
+                    content: Text('Disabled "${item.labelEn}".'),
                     backgroundColor: const Color(0xFFD97706),
                   ),
                 );
@@ -1441,13 +1568,13 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 messenger.clearSnackBars();
                 messenger.showSnackBar(
                   SnackBar(
-                    content: Text('Deleted "${item.labelEn}".'),
+                    content: Text(successText),
                     backgroundColor: AppTheme.dangerRose,
                   ),
                 );
               }
             },
-            child: const Text('Delete Permanently'),
+            child: Text(actionText),
           ),
         ],
       ),

@@ -705,15 +705,21 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   ),
                 ],
               ),
-              if (camp.doctorName.isNotEmpty) ...[
+              if (camp.doctorNames.isNotEmpty || camp.doctorName.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.medical_services_outlined, size: 15, color: Color(0xFF0F766E)),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(Icons.medical_services_outlined, size: 15, color: Color(0xFF0F766E)),
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Dr. ${camp.doctorName}',
+                        camp.doctorNames.isNotEmpty
+                            ? camp.doctorNames.map((d) => d.startsWith('Dr.') ? d : 'Dr. $d').join(' • ')
+                            : (camp.doctorName.startsWith('Dr.') ? camp.doctorName : 'Dr. ${camp.doctorName}'),
                         style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
                       ),
                     ),
@@ -856,7 +862,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => PatientListView(initialQuery: camp.campCode),
+                              builder: (_) => PatientListView(campId: camp.id),
                             ),
                           );
                         },
@@ -1764,15 +1770,21 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         '🇳🇵 ${NepaliDateHelper.formatBsRange(c.startDate, c.endDate, pureNepali: true)}   •   🌐 ${_formatDate(c.startDate)} to ${_formatDate(c.endDate)}',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.primaryDark),
                       ),
-                      if (c.doctorName.isNotEmpty) ...[
+                      if (c.doctorNames.isNotEmpty || c.doctorName.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.medical_services_outlined, size: 14, color: Color(0xFF0F766E)),
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.medical_services_outlined, size: 14, color: Color(0xFF0F766E)),
+                            ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                'Dr. ${c.doctorName}',
+                                c.doctorNames.isNotEmpty
+                                    ? c.doctorNames.map((d) => d.startsWith('Dr.') ? d : 'Dr. $d').join(' • ')
+                                    : (c.doctorName.startsWith('Dr.') ? c.doctorName : 'Dr. ${c.doctorName}'),
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
                               ),
                             ),
@@ -1935,7 +1947,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => PatientListView(initialQuery: camp.campCode),
+                          builder: (_) => PatientListView(campId: camp.id),
                         ),
                       );
                     },
@@ -2611,8 +2623,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 TextField(
                                   controller: doctorCtrl,
                                   decoration: const InputDecoration(
-                                    labelText: 'Examining Doctor / Medical Officer (डाक्टरको नाम)',
-                                    hintText: 'e.g. Dr. Sita Sharma, MD',
+                                    labelText: 'Examining Doctors (डाक्टरहरूको नाम - अल्पविरामले छुट्याउनुहोस्)',
+                                    hintText: 'e.g. Dr. Sita Sharma, Dr. Rita Karki, Dr. Anish Tiwari',
+                                    helperText: 'Separate multiple doctors with commas',
                                     isDense: true,
                                     prefixIcon: Icon(Icons.medical_services_outlined, size: 18),
                                   ),
@@ -3117,6 +3130,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     required String code,
     required String name,
     String doctorName = '',
+    List<String>? doctorNames,
     required String province,
     required String district,
     required String municipality,
@@ -3143,11 +3157,18 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       return;
     }
 
+    final parsedDocList = doctorNames ??
+        (doctorName.isNotEmpty
+            ? doctorName.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+            : <String>[]);
+    final primaryDoc = parsedDocList.isNotEmpty ? parsedDocList.first : doctorName;
+
     final newCamp = CampModel(
       id: 'camp-${DateTime.now().millisecondsSinceEpoch}',
       campCode: code.toUpperCase(),
       name: name,
-      doctorName: doctorName,
+      doctorName: primaryDoc,
+      doctorNames: parsedDocList,
       province: province,
       district: district.isNotEmpty ? district : 'Bagmati',
       municipality: municipality,
@@ -3210,7 +3231,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
   void _showEditCampDialog(BuildContext context, CampModel camp) {
     final nameCtrl = TextEditingController(text: camp.name);
-    final doctorCtrl = TextEditingController(text: camp.doctorName);
+    final doctorCtrl = TextEditingController(
+      text: camp.doctorNames.isNotEmpty ? camp.doctorNames.join(', ') : camp.doctorName,
+    );
     String selectedProvince = camp.province.isNotEmpty ? camp.province : 'Bagmati';
     final availableDistricts = NepalGeodata.districtsFor(selectedProvince);
     String selectedDistrict = availableDistricts.contains(camp.district)
@@ -3510,9 +3533,15 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 return;
                               }
 
+                              final parsedDocs = doctorCtrl.text.trim().isNotEmpty
+                                  ? doctorCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+                                  : <String>[];
+                              final primaryDoc = parsedDocs.isNotEmpty ? parsedDocs.first : '';
+
                               final updated = camp.copyWith(
                                 name: nameCtrl.text.trim(),
-                                doctorName: doctorCtrl.text.trim(),
+                                doctorName: primaryDoc,
+                                doctorNames: parsedDocs,
                                 province: selectedProvince,
                                 district: selectedDistrict,
                                 municipality: munCtrl.text.trim(),

@@ -26,8 +26,9 @@ import 'patient_follow_up_slip_modal.dart';
 import 'patient_registration_view.dart';
 
 class PatientListView extends ConsumerStatefulWidget {
+  final String? campId;
   final String? initialQuery;
-  const PatientListView({super.key, this.initialQuery});
+  const PatientListView({super.key, this.campId, this.initialQuery});
 
   @override
   ConsumerState<PatientListView> createState() => _PatientListViewState();
@@ -46,17 +47,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final activeCamp = ref.read(campStateProvider).activeCamp;
-      if (activeCamp != null) {
-        if (widget.initialQuery != null &&
-            widget.initialQuery!.trim().isNotEmpty) {
-          _searchController.text = widget.initialQuery!.trim();
-          ref
-              .read(patientListProvider.notifier)
-              .search(activeCamp.id, widget.initialQuery!.trim());
-        } else {
-          ref.read(patientListProvider.notifier).loadPatients(activeCamp.id);
-        }
+      final targetCampId = widget.campId ?? ref.read(campStateProvider).activeCamp?.id;
+      if (widget.initialQuery != null &&
+          widget.initialQuery!.trim().isNotEmpty) {
+        _searchController.text = widget.initialQuery!.trim();
+        ref
+            .read(patientListProvider.notifier)
+            .search(targetCampId, widget.initialQuery!.trim());
+      } else {
+        ref.read(patientListProvider.notifier).loadPatients(targetCampId);
       }
     });
   }
@@ -76,48 +75,42 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     final patientState = ref.watch(patientListProvider);
     final vm = ref.read(patientListProvider.notifier);
     final activeCamp = campState.activeCamp;
+    final effectiveCamp = widget.campId != null
+        ? campState.camps.cast<CampModel?>().firstWhere(
+              (c) => c?.id == widget.campId,
+              orElse: () => activeCamp,
+            )
+        : activeCamp;
+    final effectiveCampId = effectiveCamp?.id;
 
-    ref.listen<CampState>(campStateProvider, (previous, next) {
-      final active = next.activeCamp;
-      if (active != null &&
-          (previous?.activeCamp?.id != active.id || !patientState.hasLoaded)) {
-        if (_searchController.text.trim().isNotEmpty) {
-          ref
-              .read(patientListProvider.notifier)
-              .search(active.id, _searchController.text.trim());
-        } else {
-          ref.read(patientListProvider.notifier).loadPatients(active.id);
-        }
-      }
-    });
-
-    ref.listen<SyncState>(syncStateProvider, (previous, next) {
-      if (previous?.lastSyncedAt != next.lastSyncedAt && next.lastSyncedAt != null) {
-        final currentCamp = ref.read(campStateProvider).activeCamp;
-        if (currentCamp != null) {
+    // Only auto-switch patient roll on activeCamp change if not explicitly bound to a campId
+    if (widget.campId == null) {
+      ref.listen<CampState>(campStateProvider, (previous, next) {
+        final active = next.activeCamp;
+        if (active != null &&
+            (previous?.activeCamp?.id != active.id || !patientState.hasLoaded)) {
           if (_searchController.text.trim().isNotEmpty) {
-            ref.read(patientListProvider.notifier).search(currentCamp.id, _searchController.text.trim());
+            ref
+                .read(patientListProvider.notifier)
+                .search(active.id, _searchController.text.trim());
           } else {
-            ref.read(patientListProvider.notifier).loadPatients(currentCamp.id);
-          }
-        }
-      }
-    });
-
-    if (activeCamp != null &&
-        !patientState.isLoading &&
-        (!patientState.hasLoaded ||
-            patientState.loadedCampId != activeCamp.id)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          if (_searchController.text.trim().isNotEmpty) {
-            vm.search(activeCamp.id, _searchController.text.trim());
-          } else {
-            vm.loadPatients(activeCamp.id);
+            ref.read(patientListProvider.notifier).loadPatients(active.id);
           }
         }
       });
     }
+
+    ref.listen<SyncState>(syncStateProvider, (previous, next) {
+      if (previous?.lastSyncedAt != next.lastSyncedAt && next.lastSyncedAt != null) {
+        if (effectiveCampId != null) {
+          if (_searchController.text.trim().isNotEmpty) {
+            ref.read(patientListProvider.notifier).search(effectiveCampId, _searchController.text.trim());
+          } else {
+            ref.read(patientListProvider.notifier).loadPatients(effectiveCampId);
+          }
+        }
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -125,9 +118,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Camp Patient Roll'),
-            if (activeCamp != null)
+            if (effectiveCamp != null)
               Text(
-                '${activeCamp.name} (${activeCamp.campCode})',
+                '${effectiveCamp.name} (${effectiveCamp.campCode})',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.normal,
@@ -140,23 +133,23 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh Patient List',
-            onPressed: activeCamp == null
+            onPressed: effectiveCampId == null
                 ? null
-                : () => vm.loadPatients(activeCamp.id),
+                : () => vm.loadPatients(effectiveCampId),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: activeCamp == null
+        backgroundColor: effectiveCamp == null
             ? Colors.grey
             : AppTheme.primaryTeal,
         icon: const Icon(Icons.person_add, color: Colors.white),
         label: const Text('New Patient', style: TextStyle(color: Colors.white)),
-        onPressed: activeCamp == null
+        onPressed: effectiveCamp == null
             ? () => ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text(
-                    'No active camp. Please activate a camp from the dashboard first.',
+                    'No camp selected. Please select a camp first.',
                   ),
                   behavior: SnackBarBehavior.floating,
                 ),
@@ -168,12 +161,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     builder: (_) => const PatientRegistrationView(),
                   ),
                 );
-                if (mounted) {
-                  vm.loadPatients(activeCamp.id);
+                if (mounted && effectiveCampId != null) {
+                  vm.loadPatients(effectiveCampId);
                 }
               },
       ),
-      body: activeCamp == null
+      body: effectiveCamp == null
           ? const Center(
               child: Text(
                 'No active camp selected. Please activate a camp first.',
@@ -205,7 +198,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                   tooltip: 'Clear Search',
                                   onPressed: () {
                                     _searchController.clear();
-                                    vm.search(activeCamp.id, '');
+                                    vm.search(effectiveCampId, '');
                                   },
                                 )
                               : null,
@@ -214,7 +207,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             horizontal: 16,
                           ),
                         ),
-                        onChanged: (val) => vm.search(activeCamp.id, val),
+                        onChanged: (val) => vm.search(effectiveCampId, val),
                       );
 
                       final filterButton = OutlinedButton.icon(
@@ -279,12 +272,14 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             fontSize: 13,
                           ),
                         ),
-                        onPressed: () => _showScanTokenDialog(
-                          context,
-                          activeCamp.id,
-                          vm,
-                          patientState.rawPatients,
-                        ),
+                        onPressed: effectiveCampId == null
+                            ? null
+                            : () => _showScanTokenDialog(
+                                context,
+                                effectiveCampId,
+                                vm,
+                                patientState.rawPatients,
+                              ),
                       );
 
                       if (isWide) {
@@ -454,9 +449,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   child: patientState.isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : patientState.patients.isEmpty
-                      ? _buildEmptyState(context, activeCamp.id, vm)
+                      ? _buildEmptyState(context, effectiveCampId, vm)
                       : RefreshIndicator(
-                          onRefresh: () => vm.loadPatients(activeCamp.id),
+                          onRefresh: () async {
+                            if (effectiveCampId != null) {
+                              await vm.loadPatients(effectiveCampId);
+                            }
+                          },
                           child: ListView.separated(
                             padding: const EdgeInsets.all(16),
                             itemCount: patientState.patients.length,
@@ -467,8 +466,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               return _buildPatientCard(
                                 context,
                                 patient,
-                                activeCamp,
+                                effectiveCamp,
                                 vm,
+                                campState,
                               );
                             },
                           ),
@@ -494,6 +494,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
   ) {
     final filters = patientState.filters;
     final screenHeight = MediaQuery.of(context).size.height;
+    // Scope visible camps: Super Admin sees all; Data Takers only see assigned camps
+    final currentUser = ref.watch(authStateProvider).currentUser;
+    final visibleCamps = (currentUser?.isSuperAdmin ?? true)
+        ? campState.camps
+        : campState.camps
+            .where((c) =>
+                c.isStaffAssigned(currentUser!.id) ||
+                currentUser.assignedCampIds.contains(c.id))
+            .toList();
 
     return Container(
       color: const Color(0xFFF8FAFC),
@@ -649,7 +658,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               value: 'all',
                               child: Text('All Camps (सबै क्याम्पहरू)'),
                             ),
-                            ...campState.camps.map(
+                            ...visibleCamps.map(
                               (c) => DropdownMenuItem(
                                 value: c.id,
                                 child: Text(
@@ -1146,7 +1155,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
   Widget _buildEmptyState(
     BuildContext context,
-    String campId,
+    String? campId,
     PatientListViewModel vm,
   ) {
     return Center(
@@ -1184,7 +1193,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     builder: (_) => const PatientRegistrationView(),
                   ),
                 );
-                if (mounted) {
+                if (mounted && campId != null) {
                   vm.loadPatients(campId);
                 }
               },
@@ -1200,7 +1209,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     PatientModel patient,
     CampModel? activeCamp,
     PatientListViewModel vm,
+    CampState campState,
   ) {
+    // CAMP LOCK CHECK: check if this patient's specific camp is closed/archived
+    CampModel? patientCamp;
+    try {
+      patientCamp = campState.camps.firstWhere((c) => c.id == patient.campId);
+    } catch (_) {}
+    final isCampLocked = patientCamp != null && patientCamp.status.isLocked;
+
     // Determine clinical completion status
     final hasReasons = patient.reasonsForVisit.isNotEmpty;
     final hasPhone = patient.mobile.isNotEmpty;
@@ -1809,7 +1826,29 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             activeCamp,
                           ),
                         ),
-                        OutlinedButton.icon(
+                        // Show lock badge for closed camp patients instead of Edit button
+                        if (isCampLocked)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFF87171)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.lock_rounded, size: 13, color: Color(0xFFDC2626)),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Camp Closed — Read Only',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF0F766E),
                             side: const BorderSide(color: Color(0xFF0F766E)),

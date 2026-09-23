@@ -11,6 +11,8 @@ class MasterLookupState {
   final List<LookupItemModel> chiefComplaints;
   final String selectedCategory;
   final String searchQuery;
+  final String? selectedCampId;
+  final List<LookupItemModel> excludedFromCurrentCamp;
   final bool isLoading;
   final String? errorMessage;
   final String? successMessage;
@@ -21,8 +23,10 @@ class MasterLookupState {
     this.referralHospitals = const [],
     this.visitReasons = const [],
     this.chiefComplaints = const [],
+    this.excludedFromCurrentCamp = const [],
     this.selectedCategory = 'diagnosis',
     this.searchQuery = '',
+    this.selectedCampId,
     this.isLoading = false,
     this.errorMessage,
     this.successMessage,
@@ -71,8 +75,11 @@ class MasterLookupState {
     List<LookupItemModel>? referralHospitals,
     List<LookupItemModel>? visitReasons,
     List<LookupItemModel>? chiefComplaints,
+    List<LookupItemModel>? excludedFromCurrentCamp,
     String? selectedCategory,
     String? searchQuery,
+    String? selectedCampId,
+    bool clearCampId = false,
     bool? isLoading,
     String? errorMessage,
     String? successMessage,
@@ -85,8 +92,10 @@ class MasterLookupState {
       referralHospitals: referralHospitals ?? this.referralHospitals,
       visitReasons: visitReasons ?? this.visitReasons,
       chiefComplaints: chiefComplaints ?? this.chiefComplaints,
+      excludedFromCurrentCamp: excludedFromCurrentCamp ?? this.excludedFromCurrentCamp,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       searchQuery: searchQuery ?? this.searchQuery,
+      selectedCampId: clearCampId ? null : (selectedCampId ?? this.selectedCampId),
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       successMessage: clearSuccess ? null : (successMessage ?? this.successMessage),
@@ -97,6 +106,7 @@ class MasterLookupState {
 class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
   final ILookupRepository _repository;
   String _tenantId;
+  String? _campId;
 
   MasterLookupViewModel(this._repository, {String? tenantId})
       : _tenantId = tenantId ?? 'tenant_default',
@@ -112,15 +122,30 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
     }
   }
 
+  void setCampScope(String? campId) {
+    final cleanCampId = (campId == null || campId == 'all' || campId.trim().isEmpty) ? null : campId.trim();
+    if (cleanCampId != _campId) {
+      _campId = cleanCampId;
+      state = state.copyWith(selectedCampId: cleanCampId, clearCampId: cleanCampId == null);
+      loadAll();
+    }
+  }
+
   Future<void> loadAll() async {
     state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
     try {
       await _repository.ensureDefaultsSeeded(tenantId: _tenantId);
-      final diag = await _repository.getItemsByCategory('diagnosis', tenantId: _tenantId);
-      final med = await _repository.getItemsByCategory('medicine', tenantId: _tenantId);
-      final hosp = await _repository.getItemsByCategory('referral_hospital', tenantId: _tenantId);
-      final reasons = await _repository.getItemsByCategory('visit_reason', tenantId: _tenantId);
-      final complaints = await _repository.getItemsByCategory('chief_complaint', tenantId: _tenantId);
+      final diag = await _repository.getItemsByCategory('diagnosis', tenantId: _tenantId, campId: _campId);
+      final med = await _repository.getItemsByCategory('medicine', tenantId: _tenantId, campId: _campId);
+      final hosp = await _repository.getItemsByCategory('referral_hospital', tenantId: _tenantId, campId: _campId);
+      final reasons = await _repository.getItemsByCategory('visit_reason', tenantId: _tenantId, campId: _campId);
+      final complaints = await _repository.getItemsByCategory('chief_complaint', tenantId: _tenantId, campId: _campId);
+
+      List<LookupItemModel> excluded = [];
+      if (_campId != null) {
+        final all = await _repository.getAllItems(tenantId: _tenantId);
+        excluded = all.where((i) => i.excludedCampIds.contains(_campId)).toList();
+      }
 
       if (!mounted) return;
       state = state.copyWith(
@@ -129,6 +154,9 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
         referralHospitals: hosp,
         visitReasons: reasons,
         chiefComplaints: complaints,
+        excludedFromCurrentCamp: excluded,
+        selectedCampId: _campId,
+        clearCampId: _campId == null,
         isLoading: false,
       );
     } catch (e) {
@@ -157,8 +185,8 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
     state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
     try {
       final itemToSave = (item.tenantId.isEmpty || item.tenantId == 'tenant_default') && _tenantId != 'tenant_default'
-          ? item.copyWith(tenantId: _tenantId)
-          : item;
+          ? item.copyWith(tenantId: _tenantId, campId: item.campId ?? _campId)
+          : item.copyWith(campId: item.campId ?? _campId);
       await _repository.addItem(itemToSave, userId: userId, userName: userName, deviceId: deviceId);
       await loadAll();
       if (!mounted) return true;
@@ -206,12 +234,15 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
         userId: userId,
         userName: userName,
         deviceId: deviceId,
+        campId: _campId,
       );
       if (success) {
         await loadAll();
         if (!mounted) return true;
         state = state.copyWith(
-          successMessage: isActive ? 'Item activated' : 'Item deactivated',
+          successMessage: _campId != null && !isActive
+              ? 'Item disabled for this camp'
+              : (isActive ? 'Item activated' : 'Item deactivated'),
         );
         return true;
       }
@@ -236,11 +267,14 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
         userId: userId,
         userName: userName,
         deviceId: deviceId,
+        campId: _campId,
       );
       if (success) {
         await loadAll();
         if (!mounted) return true;
-        state = state.copyWith(successMessage: 'Item deleted permanently');
+        state = state.copyWith(
+          successMessage: _campId != null ? 'Item removed from this camp' : 'Item deleted permanently',
+        );
         return true;
       }
       if (!mounted) return false;
@@ -249,6 +283,38 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
     } catch (e) {
       if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: 'Failed to delete item: $e');
+      return false;
+    }
+  }
+
+  Future<bool> restoreItemToCamp(
+    String id, {
+    required String userId,
+    required String userName,
+    required String deviceId,
+  }) async {
+    if (_campId == null) return false;
+    state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
+    try {
+      final success = await _repository.restoreItemToCamp(
+        id,
+        campId: _campId!,
+        userId: userId,
+        userName: userName,
+        deviceId: deviceId,
+      );
+      if (success) {
+        await loadAll();
+        if (!mounted) return true;
+        state = state.copyWith(successMessage: 'Item restored to this camp');
+        return true;
+      }
+      if (!mounted) return false;
+      state = state.copyWith(isLoading: false, errorMessage: 'Failed to restore item');
+      return false;
+    } catch (e) {
+      if (!mounted) return false;
+      state = state.copyWith(isLoading: false, errorMessage: 'Failed to restore item: $e');
       return false;
     }
   }

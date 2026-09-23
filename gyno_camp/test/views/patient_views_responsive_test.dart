@@ -17,6 +17,14 @@ import 'package:gyno_camp/views/patient/clinical_assessment_view.dart';
 import 'package:gyno_camp/views/patient/patient_follow_up_slip_modal.dart';
 import 'package:gyno_camp/views/patient/patient_list_view.dart';
 import 'package:gyno_camp/views/patient/patient_registration_view.dart';
+import 'package:gyno_camp/viewmodels/sync_viewmodel.dart';
+
+class _FakeSyncViewModel extends StateNotifier<SyncState> implements SyncViewModel {
+  _FakeSyncViewModel() : super(const SyncState(isOnline: false));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _FakeLookupRepository implements ILookupRepository {
   List<LookupItemModel> items = [
@@ -26,10 +34,10 @@ class _FakeLookupRepository implements ILookupRepository {
   ];
 
   @override
-  Future<List<LookupItemModel>> getAllItems({String? tenantId}) async => items;
+  Future<List<LookupItemModel>> getAllItems({String? campId, String? tenantId}) async => items;
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, bool activeOnly = false}) async {
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? campId, String? tenantId, bool activeOnly = false}) async {
     return items.where((i) => i.category == category && (!activeOnly || i.isActive)).toList();
   }
 
@@ -43,10 +51,13 @@ class _FakeLookupRepository implements ILookupRepository {
   Future<LookupItemModel> updateItem(LookupItemModel item, {required String userId, required String userName, required String deviceId}) async => item;
 
   @override
-  Future<bool> toggleItemStatus(String id, bool isActive, {required String userId, required String userName, required String deviceId}) async => true;
+  Future<bool> toggleItemStatus(String id, bool isActive, {String? campId, required String userId, required String userName, required String deviceId}) async => true;
 
   @override
-  Future<bool> deleteItem(String id, {required String userId, required String userName, required String deviceId}) async => true;
+  Future<bool> deleteItem(String id, {String? campId, required String userId, required String userName, required String deviceId}) async => true;
+
+  @override
+  Future<bool> restoreItemToCamp(String id, {required String campId, required String userId, required String userName, required String deviceId}) async => true;
 
   @override
   Future<void> ensureDefaultsSeeded({String? tenantId}) async {}
@@ -409,6 +420,7 @@ void main() {
             patientRepositoryProvider.overrideWithValue(fakePatientRepo),
             campStateProvider.overrideWith((ref) => _FakeCampViewModel(sampleCamp)),
             authStateProvider.overrideWith((ref) => _FakeAuthViewModel(sampleUser)),
+            syncStateProvider.overrideWith((ref) => _FakeSyncViewModel()),
           ],
           child: const MaterialApp(
             home: PatientListView(),

@@ -64,6 +64,9 @@ class ClinicalAssessmentState {
   final bool surgeryDone;
   final String? surgeryType;
 
+  final List<String> attendingDoctorNames;
+  final String? primaryDoctorName;
+
   final bool isSaving;
   final String? errorMessage;
   final ClinicalVisitModel? savedVisit;
@@ -113,6 +116,8 @@ class ClinicalAssessmentState {
     this.followUpNotes,
     this.surgeryDone = false,
     this.surgeryType,
+    this.attendingDoctorNames = const [],
+    this.primaryDoctorName,
     this.isSaving = false,
     this.errorMessage,
     this.savedVisit,
@@ -172,6 +177,8 @@ class ClinicalAssessmentState {
     bool? surgeryDone,
     String? surgeryType,
     bool clearSurgeryType = false,
+    List<String>? attendingDoctorNames,
+    String? primaryDoctorName,
     bool? isSaving,
     String? errorMessage,
     ClinicalVisitModel? savedVisit,
@@ -223,6 +230,8 @@ class ClinicalAssessmentState {
       followUpNotes: followUpNotes ?? this.followUpNotes,
       surgeryDone: surgeryDone ?? this.surgeryDone,
       surgeryType: clearSurgeryType ? null : (surgeryType ?? this.surgeryType),
+      attendingDoctorNames: attendingDoctorNames ?? this.attendingDoctorNames,
+      primaryDoctorName: primaryDoctorName ?? this.primaryDoctorName,
       isSaving: isSaving ?? this.isSaving,
       errorMessage: errorMessage,
       savedVisit: clearSaved ? null : (savedVisit ?? this.savedVisit),
@@ -236,6 +245,26 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
 
   ClinicalAssessmentViewModel(this._patientRepository)
       : super(const ClinicalAssessmentState());
+
+  void setAttendingDoctors(List<String> doctors) {
+    state = state.copyWith(
+      attendingDoctorNames: doctors,
+      primaryDoctorName: doctors.isNotEmpty ? doctors.first : null,
+    );
+  }
+
+  void toggleAttendingDoctor(String doctor) {
+    final list = List<String>.from(state.attendingDoctorNames);
+    if (list.contains(doctor)) {
+      list.remove(doctor);
+    } else {
+      list.add(doctor);
+    }
+    state = state.copyWith(
+      attendingDoctorNames: list,
+      primaryDoctorName: list.isNotEmpty ? list.first : null,
+    );
+  }
 
   void setStation(int index) {
     state = state.copyWith(currentStationIndex: index.clamp(0, 5));
@@ -523,6 +552,8 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
           followUpNotes: visit.followUpNotes,
           surgeryDone: visit.surgeryDone,
           surgeryType: visit.surgeryType,
+          attendingDoctorNames: visit.attendingDoctorNames,
+          primaryDoctorName: visit.primaryDoctorName,
           isSaving: false,
           savedVisit: visit,
           systolicValidation: visit.systolicBp != null
@@ -620,6 +651,9 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         followUpNotes: state.followUpNotes,
         surgeryDone: state.surgeryDone,
         surgeryType: state.surgeryDone ? state.surgeryType : null,
+        attendingDoctorNames: state.attendingDoctorNames,
+        primaryDoctorName: state.primaryDoctorName ??
+            (state.attendingDoctorNames.isNotEmpty ? state.attendingDoctorNames.first : null),
         createdAt: DateTime.now(),
         createdByUserId: staffUserId,
       );

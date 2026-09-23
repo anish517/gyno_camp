@@ -13,6 +13,7 @@ import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
 
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
@@ -79,6 +80,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   // Treatment / Follow-Up Outtake (Station 5 & 6)
   final Set<String> _selectedMedications = {};
   final Set<String> _selectedCounseling = {};
+  final Set<String> _selectedDoctors = {};
   String? _pessaryType;
   String? _pessarySize;
   String? _followUpDestination;
@@ -146,6 +148,9 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             }
             if (_latestVisit!.ecgNotes != null && _latestVisit!.ecgNotes!.isNotEmpty) {
               _ecgNotesController.text = _latestVisit!.ecgNotes!;
+            }
+            if (_latestVisit!.attendingDoctorNames.isNotEmpty) {
+              _selectedDoctors.addAll(_latestVisit!.attendingDoctorNames);
             }
           }
           _isLoadingHistory = false;
@@ -257,6 +262,8 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
       followUpNotes: _newIssuesController.text.trim().toUpperCase(),
       surgeryDone: _surgeryDone,
       surgeryType: _surgeryDone ? _selectedSurgeryType : null,
+      attendingDoctorNames: _selectedDoctors.toList(),
+      primaryDoctorName: _selectedDoctors.isNotEmpty ? _selectedDoctors.first : null,
       createdAt: DateTime.now(),
       createdByUserId: auth?.id ?? 'usr-staff',
     );
@@ -290,6 +297,14 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
 
   @override
   Widget build(BuildContext context) {
+    final campState = ref.watch(campStateProvider);
+    final currentCamp = widget.camp ??
+        campState.camps.cast<CampModel?>().firstWhere(
+          (c) => c?.id == widget.patient.campId,
+          orElse: () => null,
+        );
+    final bool isLockedCamp = currentCamp?.status.isLocked ?? false;
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -310,6 +325,49 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // CAMP LOCKED / READ-ONLY BANNER
+              if (isLockedCamp) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerRose.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.dangerRose, width: 1.5),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.lock_rounded, color: AppTheme.dangerRose, size: 22),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'CAMP CLOSED & LOCKED — RECORD IS READ-ONLY',
+                              style: TextStyle(
+                                color: AppTheme.dangerRose,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'This camp has concluded and is closed. New follow-up submissions or edits are disabled.',
+                              style: TextStyle(
+                                color: Color(0xFF991B1B),
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               // 1. Mandatory Instruction Banner (Block Letters)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -407,10 +465,14 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                       )
                     : const Icon(Icons.save_rounded),
                 label: Text(
-                  _isSaving ? 'Saving Record...' : 'Save Follow-Up Record (फलो-अप सुरक्षित गर्नुहोस्)',
+                  _isSaving
+                      ? 'Saving Record...'
+                      : (isLockedCamp
+                          ? 'Camp Locked (Closed) — Edits Disabled'
+                          : 'Save Follow-Up Record (फलो-अप सुरक्षित गर्नुहोस्)'),
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
-                onPressed: _isSaving ? null : _submitFollowUp,
+                onPressed: (_isSaving || isLockedCamp) ? null : _submitFollowUp,
               ),
               const SizedBox(height: 32),
             ],
@@ -429,52 +491,91 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
       ),
       child: Padding(
         padding: const EdgeInsets.all(14.0),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.12),
-              child: Text(
-                widget.patient.firstName.isNotEmpty ? widget.patient.firstName[0].toUpperCase() : 'P',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                  child: Text(
+                    widget.patient.firstName.isNotEmpty ? widget.patient.firstName[0].toUpperCase() : 'P',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Text(
-                          widget.patient.fullName,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              widget.patient.fullName,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryLight,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              widget.patient.patientId,
+                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryLight,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          widget.patient.patientId,
-                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                        ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Age: ${widget.patient.age}y • Ward: ${widget.patient.ward} • ${widget.patient.district}, ${widget.patient.province}',
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Age: ${widget.patient.age}y • Ward: ${widget.patient.ward} • ${widget.patient.district}, ${widget.patient.province}',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+                ),
+              ],
+            ),
+            if (widget.patient.reasonsForVisit.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.assignment_outlined, size: 16, color: AppTheme.primaryTeal),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Initial Intake Reasons (प्रारम्भिक समस्या): ',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                  ),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: widget.patient.reasonsForVisit.map((r) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          r,
+                          style: const TextStyle(fontSize: 11, color: AppTheme.primaryDark, fontWeight: FontWeight.w500),
+                        ),
+                      )).toList(),
+                    ),
                   ),
                 ],
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -1796,6 +1897,62 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            const Text(
+              'Attending / Examining Doctor(s) (जाँच गर्ने चिकित्सकहरू):',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+            ),
+            const SizedBox(height: 6),
+            Builder(
+              builder: (context) {
+                final campState = ref.watch(campStateProvider);
+                final cCamp = widget.camp ??
+                    campState.camps.cast<CampModel?>().firstWhere(
+                      (c) => c?.id == widget.patient.campId,
+                      orElse: () => null,
+                    );
+                final doctors = cCamp?.doctorNames.isNotEmpty == true
+                    ? cCamp!.doctorNames
+                    : (cCamp?.doctorName.isNotEmpty == true ? [cCamp!.doctorName] : <String>[]);
+
+                if (doctors.isEmpty) {
+                  return const Text(
+                    'No specific doctors assigned to this camp. Default staff record will be logged.',
+                    style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+                  );
+                }
+
+                return Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: doctors.map((doc) {
+                    final isSelected = _selectedDoctors.contains(doc);
+                    return FilterChip(
+                      avatar: CircleAvatar(
+                        radius: 10,
+                        backgroundColor: isSelected ? Colors.white : AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        child: Icon(Icons.person, size: 12, color: isSelected ? AppTheme.primaryTeal : Colors.blueGrey),
+                      ),
+                      label: Text(doc, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                      checkmarkColor: AppTheme.primaryTeal,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedDoctors.add(doc);
+                          } else {
+                            _selectedDoctors.remove(doc);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                );
+              },
             ),
           ],
         ),

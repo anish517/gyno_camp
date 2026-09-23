@@ -17,10 +17,10 @@ class FakeLookupRepository implements ILookupRepository {
   ];
 
   @override
-  Future<List<LookupItemModel>> getAllItems({String? tenantId}) async => items;
+  Future<List<LookupItemModel>> getAllItems({String? campId, String? tenantId}) async => items;
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, bool activeOnly = false}) async {
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? campId, String? tenantId, bool activeOnly = false}) async {
     return items.where((i) => i.category == category && (!activeOnly || i.isActive)).toList();
   }
 
@@ -38,7 +38,7 @@ class FakeLookupRepository implements ILookupRepository {
   }
 
   @override
-  Future<bool> toggleItemStatus(String id, bool isActive, {required String userId, required String userName, required String deviceId}) async {
+  Future<bool> toggleItemStatus(String id, bool isActive, {String? campId, required String userId, required String userName, required String deviceId}) async {
     final idx = items.indexWhere((i) => i.id == id);
     if (idx != -1) {
       items[idx] = items[idx].copyWith(isActive: isActive);
@@ -48,9 +48,30 @@ class FakeLookupRepository implements ILookupRepository {
   }
 
   @override
-  Future<bool> deleteItem(String id, {required String userId, required String userName, required String deviceId}) async {
+  Future<bool> deleteItem(String id, {String? campId, required String userId, required String userName, required String deviceId}) async {
+    if (campId != null) {
+      final idx = items.indexWhere((i) => i.id == id);
+      if (idx != -1 && items[idx].campId == null) {
+        items[idx] = items[idx].copyWith(
+          excludedCampIds: [...items[idx].excludedCampIds, campId],
+        );
+        return true;
+      }
+    }
     items.removeWhere((i) => i.id == id);
     return true;
+  }
+
+  @override
+  Future<bool> restoreItemToCamp(String id, {required String campId, required String userId, required String userName, required String deviceId}) async {
+    final idx = items.indexWhere((i) => i.id == id);
+    if (idx != -1) {
+      items[idx] = items[idx].copyWith(
+        excludedCampIds: items[idx].excludedCampIds.where((c) => c != campId).toList(),
+      );
+      return true;
+    }
+    return false;
   }
 
   @override
@@ -268,5 +289,41 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(fakeRepo.items.any((i) => i.labelEn == 'Candid Infection'), isFalse);
+  });
+
+  testWidgets('Scoped to camp: deleting a global item shows Remove from Selected Camp dialog without deleting globally', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeLookupRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          lookupRepositoryProvider.overrideWithValue(fakeRepo),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const MasterConfigView(initialCampId: 'camp-testing-01'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Tap delete on Candid Infection (first delete icon)
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Remove from Selected Camp?'), findsOneWidget);
+    expect(find.text('Remove from Camp'), findsOneWidget);
+    expect(find.textContaining('This will ONLY remove it for this specific camp'), findsOneWidget);
+
+    // Tap Remove from Camp
+    await tester.tap(find.text('Remove from Camp'));
+    await tester.pumpAndSettle();
+
+    // Verify it is NOT deleted from fakeRepo.items, but its excludedCampIds now includes 'camp-testing-01'
+    final candid = fakeRepo.items.firstWhere((i) => i.labelEn == 'Candid Infection');
+    expect(candid.excludedCampIds, contains('camp-testing-01'));
   });
 }

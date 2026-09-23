@@ -512,10 +512,19 @@ class _PatientRegistrationViewState
   Widget build(BuildContext context) {
     final state = ref.watch(patientRegistrationProvider);
     final vm = ref.read(patientRegistrationProvider.notifier);
-    final camp = ref.watch(campStateProvider).activeCamp;
+    final campState = ref.watch(campStateProvider);
+    final camp = campState.activeCamp;
     final user = ref.watch(authStateProvider).currentUser;
     final device = ref.watch(deviceSecurityProvider).device;
 
+    // CAMP LOCK CHECK: if editing a patient whose camp is closed/archived, block edits
+    CampModel? patientCamp;
+    if (widget.patientToEdit != null) {
+      try {
+        patientCamp = campState.camps.firstWhere((c) => c.id == widget.patientToEdit!.campId);
+      } catch (_) {}
+    }
+    final isLockedCamp = patientCamp != null && patientCamp.status.isLocked;
 
     return Scaffold(
       appBar: AppBar(
@@ -576,6 +585,41 @@ class _PatientRegistrationViewState
                     // 0. Form Step Progress Indicator
                     _buildFormStepBar(state, isMobile: isMobile),
                     const SizedBox(height: 14),
+
+                    // CAMP LOCKED BANNER
+                    if (isLockedCamp) ...[  
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFF87171), width: 1.5),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lock_rounded, color: Color(0xFFDC2626), size: 22),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Camp Closed — Read-Only View',
+                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Camp "${patientCamp!.name}" (${patientCamp.campCode}) is ${patientCamp.status.displayNameEn}. Patient records cannot be edited once a camp is closed. Contact your Super Admin if edits are required.',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
 
                     // Instruction Banner: Block Letters
                     Container(
@@ -1871,7 +1915,7 @@ class _PatientRegistrationViewState
                             ),
                             textAlign: TextAlign.center,
                           ),
-                          onPressed: state.isSubmitting || camp == null
+                          onPressed: state.isSubmitting || camp == null || isLockedCamp
                               ? null
                               : () => _submitRegistrationForm(
                                   context: context,
@@ -1949,7 +1993,7 @@ class _PatientRegistrationViewState
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          onPressed: state.isSubmitting || camp == null
+                          onPressed: state.isSubmitting || camp == null || isLockedCamp
                               ? null
                               : () => _submitRegistrationForm(
                                   context: context,

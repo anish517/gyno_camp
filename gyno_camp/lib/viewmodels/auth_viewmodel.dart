@@ -63,6 +63,12 @@ class AuthViewModel extends StateNotifier<AuthState> {
         if (userId != null && userId.isNotEmpty) {
           final user = await _authRepository.getUserById(userId);
           if (user != null && user.isActive) {
+            if (user.role != UserRole.superAdmin && user.assignedCampIds.isEmpty) {
+              await session.clearSession();
+              await _authRepository.logout(deviceId: 'session-restore');
+              state = state.copyWith(currentUser: null, isRestoringSession: false);
+              return;
+            }
             _authRepository.setCurrentUser(user);
             state = state.copyWith(currentUser: user, isRestoringSession: false);
             return;
@@ -102,6 +108,17 @@ class AuthViewModel extends StateNotifier<AuthState> {
           );
           return false;
         }
+        // CAMP ASSIGNMENT GATE: Non-superAdmin staff must have at least one assigned camp
+        if (user.role != UserRole.superAdmin && user.assignedCampIds.isEmpty) {
+          await _authRepository.logout(deviceId: deviceId);
+          state = state.copyWith(
+            currentUser: null,
+            isLoading: false,
+            errorMessage:
+                'Access Denied: Your staff profile ("${user.name}") has no assigned camps. Please contact your Super Admin to assign you to an active camp before logging in.',
+          );
+          return false;
+        }
         await SessionService.current?.saveUserSession(
           userId: user.id,
           email: user.email,
@@ -109,6 +126,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
         );
         state = state.copyWith(currentUser: user, isLoading: false);
         return true;
+
       } else {
         state = state.copyWith(
           isLoading: false,
@@ -130,6 +148,16 @@ class AuthViewModel extends StateNotifier<AuthState> {
     try {
       final user = await _authRepository.loginAsRole(role: role, deviceId: deviceId);
       if (user != null) {
+        if (user.role != UserRole.superAdmin && user.assignedCampIds.isEmpty) {
+          await _authRepository.logout(deviceId: deviceId);
+          state = state.copyWith(
+            currentUser: null,
+            isLoading: false,
+            errorMessage:
+                'Access Denied: Staff profile "${user.name}" has no assigned camps. Please assign a camp in Admin before switching.',
+          );
+          return false;
+        }
         await SessionService.current?.saveUserSession(
           userId: user.id,
           email: user.email,

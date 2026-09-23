@@ -499,6 +499,14 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required UserModel? user,
     required String deviceId,
   }) {
+    final isSuperAdmin = user?.role == UserRole.superAdmin;
+    final visibleCamps = !isSuperAdmin && user != null
+        ? campState.camps.where((c) => user.assignedCampIds.contains(c.id)).toList()
+        : campState.camps;
+    final allCampsLabel = isSuperAdmin
+        ? 'All Camp Records (समग्र क्याम्प)'
+        : 'All My Assigned Camps (${visibleCamps.length})';
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 640;
@@ -534,13 +542,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       child: DropdownButton<String>(
                         isExpanded: true,
                         value: reportState.selectedCampId,
-                        hint: const Text('All Camp Records (समग्र क्याम्प)'),
+                        hint: Text(allCampsLabel),
                         items: [
-                          const DropdownMenuItem<String>(
+                          DropdownMenuItem<String>(
                             value: null,
-                            child: Text('All Camp Records (समग्र क्याम्प)', overflow: TextOverflow.ellipsis),
+                            child: Text(allCampsLabel, overflow: TextOverflow.ellipsis),
                           ),
-                          ...campState.camps.map(
+                          ...visibleCamps.map(
                             (c) => DropdownMenuItem<String>(
                               value: c.id,
                               child: Text('${c.campCode} - ${c.name}', overflow: TextOverflow.ellipsis),
@@ -572,13 +580,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                             child: DropdownButton<String>(
                               isExpanded: true,
                               value: reportState.selectedCampId,
-                              hint: const Text('All Camp Records (समग्र क्याम्प)'),
+                              hint: Text(allCampsLabel),
                               items: [
-                                const DropdownMenuItem<String>(
+                                DropdownMenuItem<String>(
                                   value: null,
-                                  child: Text('All Camp Records (समग्र क्याम्प)', overflow: TextOverflow.ellipsis),
+                                  child: Text(allCampsLabel, overflow: TextOverflow.ellipsis),
                                 ),
-                                ...campState.camps.map(
+                                ...visibleCamps.map(
                                   (c) => DropdownMenuItem<String>(
                                     value: c.id,
                                     child: Text('${c.campCode} - ${c.name}', overflow: TextOverflow.ellipsis),

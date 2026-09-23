@@ -163,13 +163,6 @@ class HomeGatewayView extends ConsumerWidget {
     final auditLogs = ref.watch(auditLogProvider);
     final patientState = ref.watch(patientListProvider);
 
-    if (campState.hasActiveCamp &&
-        (!patientState.hasLoaded || patientState.loadedCampId != campState.activeCamp!.id) &&
-        !patientState.isLoading) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(patientListProvider.notifier).loadPatients(campState.activeCamp!.id);
-      });
-    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
@@ -183,15 +176,18 @@ class HomeGatewayView extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF042F2E), Color(0xFF0F766E), Color(0xFF134E4A)],
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).colorScheme.primary,
+                      Theme.of(context).colorScheme.secondary,
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF042F2E).withValues(alpha: 0.25),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
@@ -238,15 +234,15 @@ class HomeGatewayView extends ConsumerWidget {
                         Builder(
                           builder: (context) {
                             final tenantName = user?.tenantName;
-                            final tenantId = user?.tenantId;
-                            final orgName = (tenantName != null && tenantName.trim().isNotEmpty)
+                            final orgName = (tenantName != null &&
+                                    tenantName.trim().isNotEmpty &&
+                                    tenantName != 'Outreach Health Center')
                                 ? tenantName
-                                : (campState.activeCamp?.organizationName ?? "Nepal Health Outreach Network");
-                            final tenantTag = (tenantId != null && tenantId.isNotEmpty) ? tenantId : "tenant_default";
+                                : (campState.activeCamp?.organizationName ?? 'Nepal Health Outreach Network');
                             return Text(
-                              '$orgName • Tenant: $tenantTag',
+                              orgName,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.8),
+                                color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.3,
@@ -2103,13 +2099,6 @@ class HomeGatewayView extends ConsumerWidget {
                 (campState.activeCamp!.isStaffAssigned(user.id) ||
                     user.assignedCampIds.contains(campState.activeCamp!.id))));
 
-    if (campState.hasActiveCamp &&
-        (!patientState.hasLoaded || patientState.loadedCampId != campState.activeCamp!.id) &&
-        !patientState.isLoading) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(patientListProvider.notifier).loadPatients(campState.activeCamp!.id);
-      });
-    }
 
     final recentPatients = patientState.patients.take(4).toList();
     final now = DateTime.now();
@@ -2127,53 +2116,57 @@ class HomeGatewayView extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // 1. Elevated Active Camp Field Station Banner
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0F766E), Color(0xFF134E4A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Dynamic Organization / Tenant Badge
-                    Row(
-                      children: [
-                        const Icon(Icons.corporate_fare_rounded, color: Colors.tealAccent, size: 14),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            '${campState.activeCamp?.organizationName ?? user?.tenantName ?? "Community Health Outreach"} • Tenant: ${user?.tenantId ?? "tenant_default"}',
-                            style: const TextStyle(
-                              color: Colors.tealAccent,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+              Builder(
+                builder: (context) {
+                  final colorScheme = Theme.of(context).colorScheme;
+                  final orgName = (campState.activeCamp?.organizationName ?? user?.tenantName ?? 'Community Health Outreach');
+                  return Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [colorScheme.primary, colorScheme.secondary],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.primary.withValues(alpha: 0.18),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 6,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Organization Badge (no tenant ID)
+                        Row(
+                          children: [
+                            const Icon(Icons.corporate_fare_rounded, color: Colors.white70, size: 14),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                orgName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
@@ -2381,6 +2374,8 @@ class HomeGatewayView extends ConsumerWidget {
                     ],
                   ],
                 ),
+              );
+                },
               ),
               const SizedBox(height: 18),
 
@@ -3600,10 +3595,12 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   String _selectedSurgery = 'all'; // 'all', 'yes', 'no', 'referral'
   String _selectedAgeBracket = 'all'; // 'all', '<20', '20-35', '36-50', '51-65', '>65'
   String _selectedIntakeStatus = 'all'; // 'all', 'completed', 'pending', 'followup'
+  String _selectedDoctor = 'all'; // 'all' or doctor name
   bool _highBpOnly = false;
   String _activeTab = 'overview'; // 'overview', 'charts', 'patients', 'camps'
   bool _filtersExpanded = true;
   String? _exportingPatientId;
+  int _registryPage = 0; // pagination: current page for patient registry
   final Map<String, ClinicalVisitModel> _patientVisits = {};
   bool _isLoadingVisits = false;
 
@@ -3681,6 +3678,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     if (_selectedSurgery != 'all') count++;
     if (_selectedAgeBracket != 'all') count++;
     if (_selectedIntakeStatus != 'all') count++;
+    if (_selectedDoctor != 'all') count++;
     if (_highBpOnly) count++;
     if (_searchController.text.trim().isNotEmpty) count++;
     return count;
@@ -3694,7 +3692,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       _selectedSurgery = 'all';
       _selectedAgeBracket = 'all';
       _selectedIntakeStatus = 'all';
+      _selectedDoctor = 'all';
       _highBpOnly = false;
+      _registryPage = 0;
     });
   }
 
@@ -3819,8 +3819,26 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final reportingState = ref.watch(reportingViewModelProvider);
     final patientState = ref.watch(patientListProvider);
 
+    final isSuperAdmin = user?.role == UserRole.superAdmin;
+    final visibleCamps = !isSuperAdmin && user != null
+        ? campState.camps.where((c) => user.assignedCampIds.contains(c.id)).toList()
+        : campState.camps;
+
     final summary = reportingState.summary;
-    final allPatients = patientState.rawPatients.isNotEmpty ? patientState.rawPatients : patientState.patients;
+    final rawPatients = patientState.rawPatients.isNotEmpty ? patientState.rawPatients : patientState.patients;
+    final allPatients = !isSuperAdmin && user != null
+        ? rawPatients.where((p) => user.assignedCampIds.contains(p.campId)).toList()
+        : rawPatients;
+
+    // Collect all unique doctor names across visible camps for doctor filter dropdown
+    final allDoctors = <String>{};
+    for (final camp in visibleCamps) {
+      if (camp.doctorNames.isNotEmpty) {
+        allDoctors.addAll(camp.doctorNames);
+      } else if (camp.doctorName.trim().isNotEmpty) {
+        allDoctors.add(camp.doctorName.trim());
+      }
+    }
 
     // Seed visits from summary if available
     if (summary != null && summary.visits.isNotEmpty) {
@@ -3930,6 +3948,16 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         if (sys < 140 && dia < 90) return false;
       }
 
+      // 9. Doctor filter — match by camp's doctorNames list
+      if (_selectedDoctor != 'all') {
+        final patientCamp = campState.camps.where((c) => c.id == p.campId).firstOrNull;
+        if (patientCamp == null) return false;
+        final campDoctors = patientCamp.doctorNames.isNotEmpty
+            ? patientCamp.doctorNames
+            : (patientCamp.doctorName.trim().isNotEmpty ? [patientCamp.doctorName.trim()] : <String>[]);
+        if (!campDoctors.any((d) => d.toLowerCase() == _selectedDoctor.toLowerCase())) return false;
+      }
+
       return true;
     }).toList();
 
@@ -3956,6 +3984,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
               _buildExecutiveCommandHeader(
                 user: user,
                 campState: campState,
+                visibleCamps: visibleCamps,
                 currentCampName: campDisplayName,
               ),
 
@@ -3975,6 +4004,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 campState: campState,
                 totalPatients: allPatients.length,
                 filteredCount: filteredPatients.length,
+                allDoctors: allDoctors.toList()..sort(),
               ),
 
               const SizedBox(height: 18),
@@ -4015,6 +4045,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   filteredPatients: filteredPatients,
                   allPatientsCount: allPatients.length,
                   campState: campState,
+                  currentPage: _registryPage,
+                  onPageChanged: (p) => setState(() => _registryPage = p),
                 ),
               ],
             ],
@@ -4030,21 +4062,26 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   Widget _buildExecutiveCommandHeader({
     required UserModel? user,
     required CampState campState,
+    required List<CampModel> visibleCamps,
     required String currentCampName,
   }) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final secondary = theme.colorScheme.secondary;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F766E)],
+        gradient: LinearGradient(
+          colors: [primary, secondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 14,
+            color: primary.withValues(alpha: 0.28),
+            blurRadius: 16,
             offset: const Offset(0, 6),
           ),
         ],
@@ -4159,23 +4196,25 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     value: _selectedCampId,
                     icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
                     items: [
-                      const DropdownMenuItem<String>(
+                      DropdownMenuItem<String>(
                         value: 'all',
                         child: Row(
                           children: [
-                            Icon(Icons.public_rounded, color: Color(0xFF2DD4BF), size: 16),
-                            SizedBox(width: 8),
+                            const Icon(Icons.public_rounded, color: Color(0xFF2DD4BF), size: 16),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'All Camps (Cross-Camp Intelligence)',
-                                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                (user?.role == UserRole.superAdmin)
+                                    ? 'All Camps (Cross-Camp Intelligence)'
+                                    : 'All Assigned Camps (${visibleCamps.length})',
+                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      ...campState.camps.map((c) => DropdownMenuItem<String>(
+                      ...visibleCamps.map((c) => DropdownMenuItem<String>(
                             value: c.id,
                             child: Row(
                               children: [
@@ -4354,6 +4393,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     required CampState campState,
     required int totalPatients,
     required int filteredCount,
+    required List<String> allDoctors,
   }) {
     return Card(
       elevation: 1,
@@ -4524,6 +4564,30 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     onChanged: (v) => setState(() => _selectedAgeBracket = v ?? 'all'),
                   );
 
+                  // Doctor filter dropdown (only shown if any doctors are defined)
+                  final doctorDropdown = allDoctors.isEmpty
+                      ? const SizedBox.shrink()
+                      : DropdownButtonFormField<String>(
+                          key: ValueKey('doctor_filter_$_selectedDoctor'),
+                          initialValue: _selectedDoctor,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Attending Doctor',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            isDense: true,
+                            prefixIcon: Icon(Icons.person_pin_rounded, size: 18),
+                          ),
+                          items: [
+                            const DropdownMenuItem(value: 'all', child: Text('All Doctors', style: TextStyle(fontSize: 12.5))),
+                            ...allDoctors.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 12.5)))),
+                          ],
+                          onChanged: (v) => setState(() {
+                            _selectedDoctor = v ?? 'all';
+                            _registryPage = 0;
+                          }),
+                        );
+
                   if (isWide) {
                     return Column(
                       children: [
@@ -4538,6 +4602,16 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                             Expanded(child: ageDropdown),
                           ],
                         ),
+                        if (allDoctors.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(flex: 2, child: doctorDropdown),
+                              const SizedBox(width: 8),
+                              const Expanded(flex: 2, child: SizedBox.shrink()),
+                            ],
+                          ),
+                        ],
                       ],
                     );
                   }
@@ -4559,6 +4633,10 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           Expanded(child: ageDropdown),
                         ],
                       ),
+                      if (allDoctors.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        doctorDropdown,
+                      ],
                     ],
                   );
                 },
@@ -5397,7 +5475,16 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     required List<PatientModel> filteredPatients,
     required int allPatientsCount,
     required CampState campState,
+    required int currentPage,
+    required ValueChanged<int> onPageChanged,
   }) {
+    const int pageSize = 25;
+    final int totalPages = (filteredPatients.length / pageSize).ceil().clamp(1, 9999);
+    final int safePage = currentPage.clamp(0, totalPages - 1);
+    final int startIdx = safePage * pageSize;
+    final int endIdx = (startIdx + pageSize).clamp(0, filteredPatients.length);
+    final pagePatients = filteredPatients.sublist(startIdx, endIdx);
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -5417,18 +5504,18 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   child: const Icon(Icons.folder_shared_rounded, color: Color(0xFF0F766E), size: 24),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Camp-Wise Individual Patient Clinical Dossiers (बिरामी कागजात)',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        '1-tap tamper-evident clinical export containing anamnesis, vitals, POP-Q, and prescriptions.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        '${filteredPatients.length} patients${filteredPatients.length != allPatientsCount ? " (filtered from $allPatientsCount)" : ""} · Showing ${startIdx + 1}–$endIdx',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -5464,10 +5551,10 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredPatients.length,
+                itemCount: pagePatients.length,
                 separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 itemBuilder: (context, index) {
-                  final patient = filteredPatients[index];
+                  final patient = pagePatients[index];
                   final visit = _patientVisits[patient.patientId];
                   final isExporting = _exportingPatientId == patient.patientId;
 
@@ -5656,6 +5743,52 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   );
                 },
               ),
+
+            // Pagination controls (only if more than one page)
+            if (filteredPatients.length > pageSize) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0F766E),
+                      side: BorderSide(color: safePage > 0 ? const Color(0xFF0F766E) : Colors.grey.shade300),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                    label: const Text('Previous', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    onPressed: safePage > 0 ? () => onPageChanged(safePage - 1) : null,
+                  ),
+                  Column(
+                    children: [
+                      Text(
+                        'Page ${safePage + 1} of $totalPages',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      ),
+                      Text(
+                        '${filteredPatients.length} total results',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0F766E),
+                      side: BorderSide(color: safePage < totalPages - 1 ? const Color(0xFF0F766E) : Colors.grey.shade300),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                    label: const Text('Next', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    onPressed: safePage < totalPages - 1 ? () => onPageChanged(safePage + 1) : null,
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

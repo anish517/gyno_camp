@@ -11,12 +11,13 @@ import '../models/sync_payload_model.dart';
 import 'audit_repository.dart';
 
 abstract class ILookupRepository {
-  Future<List<LookupItemModel>> getAllItems({String? tenantId});
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, bool activeOnly = false});
+  Future<List<LookupItemModel>> getAllItems({String? tenantId, String? campId});
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, String? campId, bool activeOnly = false});
   Future<LookupItemModel> addItem(LookupItemModel item, {required String userId, required String userName, required String deviceId});
   Future<LookupItemModel> updateItem(LookupItemModel item, {required String userId, required String userName, required String deviceId});
-  Future<bool> toggleItemStatus(String id, bool isActive, {required String userId, required String userName, required String deviceId});
-  Future<bool> deleteItem(String id, {required String userId, required String userName, required String deviceId});
+  Future<bool> toggleItemStatus(String id, bool isActive, {required String userId, required String userName, required String deviceId, String? campId});
+  Future<bool> deleteItem(String id, {required String userId, required String userName, required String deviceId, String? campId});
+  Future<bool> restoreItemToCamp(String id, {required String campId, required String userId, required String userName, required String deviceId});
   Future<void> ensureDefaultsSeeded({String? tenantId});
 }
 
@@ -56,7 +57,7 @@ class LookupRepository implements ILookupRepository {
   }
 
   @override
-  Future<List<LookupItemModel>> getAllItems({String? tenantId}) async {
+  Future<List<LookupItemModel>> getAllItems({String? tenantId, String? campId}) async {
     final db = await _databaseService.database;
     final whereClauses = <String>['is_deleted = 0'];
     final whereArgs = <dynamic>[];
@@ -66,17 +67,26 @@ class LookupRepository implements ILookupRepository {
       whereArgs.add(tenantId);
     }
 
+    if (campId != null && campId.isNotEmpty && campId != 'all') {
+      whereClauses.add("(camp_id = ? OR camp_id IS NULL OR camp_id = '')");
+      whereArgs.add(campId);
+    }
+
     final maps = await db.query(
       DatabaseTables.tableLookupItems,
       where: whereClauses.join(' AND '),
       whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
       orderBy: 'category ASC, sort_order ASC, label_en ASC',
     );
-    return maps.map((m) => LookupItemModel.fromMap(m)).toList();
+    var items = maps.map((m) => LookupItemModel.fromMap(m)).toList();
+    if (campId != null && campId.isNotEmpty && campId != 'all') {
+      items = items.where((i) => !i.excludedCampIds.contains(campId)).toList();
+    }
+    return items;
   }
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, bool activeOnly = false}) async {
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, String? campId, bool activeOnly = false}) async {
     final db = await _databaseService.database;
     final whereClauses = <String>['category = ?', 'is_deleted = 0'];
     final whereArgs = <dynamic>[category];
@@ -84,6 +94,11 @@ class LookupRepository implements ILookupRepository {
     if (tenantId != null && tenantId.isNotEmpty) {
       whereClauses.add("(tenant_id = ? OR tenant_id = 'global' OR tenant_id = 'tenant_default')");
       whereArgs.add(tenantId);
+    }
+
+    if (campId != null && campId.isNotEmpty && campId != 'all') {
+      whereClauses.add("(camp_id = ? OR camp_id IS NULL OR camp_id = '')");
+      whereArgs.add(campId);
     }
 
     if (activeOnly) {
@@ -96,7 +111,11 @@ class LookupRepository implements ILookupRepository {
       whereArgs: whereArgs,
       orderBy: 'sort_order ASC, label_en ASC',
     );
-    return maps.map((m) => LookupItemModel.fromMap(m)).toList();
+    var items = maps.map((m) => LookupItemModel.fromMap(m)).toList();
+    if (campId != null && campId.isNotEmpty && campId != 'all') {
+      items = items.where((i) => !i.excludedCampIds.contains(campId)).toList();
+    }
+    return items;
   }
 
   @override
@@ -176,8 +195,40 @@ class LookupRepository implements ILookupRepository {
     required String userId,
     required String userName,
     required String deviceId,
+    String? campId,
   }) async {
     final db = await _databaseService.database;
+
+    // If campId is specified, check if item is global
+    if (campId != null && campId.isNotEmpty && campId != 'all') {
+      final rows = await db.query(
+        DatabaseTables.tableLookupItems,
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        final existingItem = LookupItemModel.fromMap(rows.first);
+        if (existingItem.campId != campId) {
+          // Global default item: toggling off in a specific camp excludes it for that camp
+          if (!isActive) {
+            if (!existingItem.excludedCampIds.contains(campId)) {
+              final updatedExcluded = [...existingItem.excludedCampIds, campId];
+              final updatedItem = existingItem.copyWith(excludedCampIds: updatedExcluded);
+              await updateItem(updatedItem, userId: userId, userName: userName, deviceId: deviceId);
+            }
+            return true;
+          } else {
+            // Re-enabling in camp removes camp from excludedCampIds
+            final updatedExcluded = existingItem.excludedCampIds.where((c) => c != campId).toList();
+            final updatedItem = existingItem.copyWith(excludedCampIds: updatedExcluded);
+            await updateItem(updatedItem, userId: userId, userName: userName, deviceId: deviceId);
+            return true;
+          }
+        }
+      }
+    }
+
     final count = await db.update(
       DatabaseTables.tableLookupItems,
       {'is_active': isActive ? 1 : 0},
@@ -215,8 +266,66 @@ class LookupRepository implements ILookupRepository {
     required String userId,
     required String userName,
     required String deviceId,
+    String? campId,
   }) async {
     final db = await _databaseService.database;
+
+    // If campId is specified, check if the item is camp-specific or global
+    if (campId != null && campId.isNotEmpty && campId != 'all') {
+      final rows = await db.query(
+        DatabaseTables.tableLookupItems,
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        final existingItem = LookupItemModel.fromMap(rows.first);
+        if (existingItem.campId == campId) {
+          // Item was created specifically for this camp -> permanently delete from DB
+          final count = await db.delete(
+            DatabaseTables.tableLookupItems,
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+          if (count > 0) {
+            await _auditRepository.logActivity(
+              userId: userId,
+              userName: userName,
+              userRole: AppConstants.roleSuperAdmin,
+              action: AppConstants.auditActionLookupDelete,
+              entityType: 'LookupItem',
+              entityId: id,
+              detailsJson: '{"deletedId":"$id","campId":"$campId"}',
+              deviceId: deviceId,
+            );
+            unawaited(_pushLookupDeleteToServer(id));
+            return true;
+          }
+          return false;
+        } else {
+          // Item is a Global Default -> DO NOT DELETE GLOBALLY! Exclude from this camp only.
+          if (!existingItem.excludedCampIds.contains(campId)) {
+            final updatedExcluded = [...existingItem.excludedCampIds, campId];
+            final updatedItem = existingItem.copyWith(excludedCampIds: updatedExcluded);
+            await updateItem(updatedItem, userId: userId, userName: userName, deviceId: deviceId);
+            await _auditRepository.logActivity(
+              userId: userId,
+              userName: userName,
+              userRole: AppConstants.roleSuperAdmin,
+              action: 'LOOKUP_EXCLUDE_FROM_CAMP',
+              entityType: 'LookupItem',
+              entityId: id,
+              detailsJson: '{"excludedFromCamp":"$campId","labelEn":"${existingItem.labelEn}"}',
+              deviceId: deviceId,
+            );
+            return true;
+          }
+          return true;
+        }
+      }
+    }
+
+    // Global deletion (campId == null or 'all')
     final count = await db.delete(
       DatabaseTables.tableLookupItems,
       where: 'id = ?',
@@ -237,6 +346,43 @@ class LookupRepository implements ILookupRepository {
       // Notify server of deletion by pushing a tombstone item
       unawaited(_pushLookupDeleteToServer(id));
       return true;
+    }
+    return false;
+  }
+
+  @override
+  Future<bool> restoreItemToCamp(
+    String id, {
+    required String campId,
+    required String userId,
+    required String userName,
+    required String deviceId,
+  }) async {
+    final db = await _databaseService.database;
+    final rows = await db.query(
+      DatabaseTables.tableLookupItems,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      final existingItem = LookupItemModel.fromMap(rows.first);
+      if (existingItem.excludedCampIds.contains(campId)) {
+        final updatedExcluded = existingItem.excludedCampIds.where((c) => c != campId).toList();
+        final updatedItem = existingItem.copyWith(excludedCampIds: updatedExcluded);
+        await updateItem(updatedItem, userId: userId, userName: userName, deviceId: deviceId);
+        await _auditRepository.logActivity(
+          userId: userId,
+          userName: userName,
+          userRole: AppConstants.roleSuperAdmin,
+          action: 'LOOKUP_RESTORE_TO_CAMP',
+          entityType: 'LookupItem',
+          entityId: id,
+          detailsJson: '{"restoredToCamp":"$campId","labelEn":"${existingItem.labelEn}"}',
+          deviceId: deviceId,
+        );
+        return true;
+      }
     }
     return false;
   }
