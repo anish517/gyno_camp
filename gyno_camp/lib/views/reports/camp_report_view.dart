@@ -26,9 +26,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   final TextEditingController _patientSearchController = TextEditingController();
   String? _exportingPatientId;
 
-  // ── Date Range Filter ────────────────────────────────────────────────────────
+  // ── Date Range & Doctor Filters ───────────────────────────────────────────
   DateTime? _startDate;
   DateTime? _endDate;
+  String? _selectedDoctor;
 
   @override
   void initState() {
@@ -38,7 +39,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       final campState = ref.read(campStateProvider);
       final activeCamp = campState.activeCamp ?? (campState.camps.isNotEmpty ? campState.camps.first : null);
       final targetCampId = widget.initialCampId ?? activeCamp?.id;
-      ref.read(reportingViewModelProvider.notifier).loadSummary(campId: targetCampId);
+      ref.read(reportingViewModelProvider.notifier).loadSummary(
+        campId: targetCampId,
+        doctorFilter: _selectedDoctor,
+      );
       if (targetCampId != null) {
         ref.read(patientListProvider.notifier).loadPatients(targetCampId);
       }
@@ -56,31 +60,26 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   }
 
   void _onCampChanged(String? campId) {
-    ref.read(reportingViewModelProvider.notifier).loadSummary(campId: campId);
-    final campState = ref.read(campStateProvider);
-    final targetCampId = campId ??
-        campState.activeCamp?.id ??
-        (campState.camps.isNotEmpty ? campState.camps.first.id : null);
-    if (targetCampId != null) {
-      ref.read(patientListProvider.notifier).loadPatients(targetCampId);
-    }
+    ref.read(reportingViewModelProvider.notifier).loadSummary(
+      campId: campId,
+      startDate: _startDate,
+      endDate: _endDate,
+      doctorFilter: _selectedDoctor,
+    );
+    // When null or 'all', load all patients across all camps without filtering
+    ref.read(patientListProvider.notifier).loadPatients(campId == 'all' ? null : campId);
   }
 
   void _onRefresh() {
     final reportState = ref.read(reportingViewModelProvider);
-    final campState = ref.read(campStateProvider);
     final currentCampId = reportState.selectedCampId;
     ref.read(reportingViewModelProvider.notifier).loadSummary(
       campId: currentCampId,
       startDate: _startDate,
       endDate: _endDate,
+      doctorFilter: _selectedDoctor,
     );
-    final targetCampId = currentCampId ??
-        campState.activeCamp?.id ??
-        (campState.camps.isNotEmpty ? campState.camps.first.id : null);
-    if (targetCampId != null) {
-      ref.read(patientListProvider.notifier).loadPatients(targetCampId);
-    }
+    ref.read(patientListProvider.notifier).loadPatients(currentCampId == 'all' ? null : currentCampId);
   }
 
   Future<void> _pickStartDate(BuildContext context) async {
@@ -107,8 +106,12 @@ class _CampReportViewState extends ConsumerState<CampReportView>
 
   void _applyDateFilter() => _onRefresh();
 
-  void _clearDateFilter() {
-    setState(() { _startDate = null; _endDate = null; });
+  void _clearAllFilters() {
+    setState(() {
+      _startDate = null;
+      _endDate = null;
+      _selectedDoctor = null;
+    });
     _onRefresh();
   }
 
@@ -182,6 +185,32 @@ class _CampReportViewState extends ConsumerState<CampReportView>
 
     final user = authState.currentUser;
     final deviceId = deviceState.device?.deviceId ?? 'dev-field';
+
+    final isSuperAdmin = user?.role == UserRole.superAdmin;
+    final visibleCamps = !isSuperAdmin && user != null
+        ? campState.camps.where((c) => user.assignedCampIds.contains(c.id)).toList()
+        : campState.camps;
+
+    final allDoctors = <String>{};
+    for (final camp in visibleCamps) {
+      if (camp.doctorNames.isNotEmpty) {
+        allDoctors.addAll(camp.doctorNames.map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim()).where((d) => d.isNotEmpty));
+      } else if (camp.doctorName.trim().isNotEmpty) {
+        allDoctors.add(camp.doctorName.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim());
+      }
+    }
+    if (reportState.summary != null) {
+      for (final v in reportState.summary!.visits) {
+        if (v.primaryDoctorName != null && v.primaryDoctorName!.trim().isNotEmpty) {
+          final clean = v.primaryDoctorName!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
+          if (clean.isNotEmpty) allDoctors.add(clean);
+        }
+        for (final d in v.attendingDoctorNames) {
+          final clean = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
+          if (clean.isNotEmpty) allDoctors.add(clean);
+        }
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -399,12 +428,57 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                                 icon: const Icon(Icons.filter_alt_outlined, size: 14),
                                 label: const Text('Apply', style: TextStyle(fontSize: 12)),
                               ),
-                              if (_startDate != null || _endDate != null)
+                              // Doctor Filter Dropdown
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                constraints: const BoxConstraints(maxWidth: 160),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: _selectedDoctor != null ? AppTheme.primaryTeal : const Color(0xFFCBD5E1)),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String?>(
+                                    value: _selectedDoctor,
+                                    isDense: true,
+                                    isExpanded: true,
+                                    hint: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.medical_services_outlined, size: 13, color: AppTheme.primaryTeal),
+                                        SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            'All Doctors',
+                                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    items: [
+                                      const DropdownMenuItem<String?>(
+                                        value: null,
+                                        child: Text('All Doctors', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                                      ),
+                                      ...allDoctors.map((doc) => DropdownMenuItem<String?>(
+                                        value: doc,
+                                        child: Text('Dr. $doc', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                                      )),
+                                    ],
+                                    onChanged: (val) {
+                                      setState(() => _selectedDoctor = val);
+                                      _onRefresh();
+                                    },
+                                  ),
+                                ),
+                              ),
+                              if (_startDate != null || _endDate != null || _selectedDoctor != null)
                                 TextButton.icon(
-                                  onPressed: _clearDateFilter,
+                                  onPressed: _clearAllFilters,
                                   style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                                   icon: const Icon(Icons.close, size: 13),
-                                  label: const Text('Clear', style: TextStyle(fontSize: 12)),
+                                  label: const Text('Clear All', style: TextStyle(fontSize: 12)),
                                 ),
                             ],
                           ),

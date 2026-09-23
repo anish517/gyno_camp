@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/security/security_service.dart';
 import '../models/device_model.dart';
@@ -68,6 +70,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
   }
 
   void _startPollingApproval() {
+    if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) return;
     if (_approvalPollTimer != null && _approvalPollTimer!.isActive) return;
     _approvalPollTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
       if (!mounted) {

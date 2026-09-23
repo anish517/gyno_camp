@@ -195,7 +195,11 @@ class DatabaseService {
         );
       } else {
         await db.rawUpdate(
-          "UPDATE ${DatabaseTables.tableUsers} SET password_hash = ?, pin_hash = ?, is_active = 1 WHERE (LOWER(email) = 'admin@gynocamp.org' OR id = 'usr-superadmin-01') AND (password_hash IS NULL OR password_hash = '' OR pin_hash IS NULL OR pin_hash = '')",
+          "UPDATE ${DatabaseTables.tableUsers} SET role = ?, is_active = 1 WHERE (LOWER(email) = 'admin@gynocamp.org' OR id = 'usr-superadmin-01')",
+          [AppConstants.roleSuperAdmin],
+        );
+        await db.rawUpdate(
+          "UPDATE ${DatabaseTables.tableUsers} SET password_hash = ?, pin_hash = ? WHERE (LOWER(email) = 'admin@gynocamp.org' OR id = 'usr-superadmin-01') AND (password_hash IS NULL OR password_hash = '' OR pin_hash IS NULL OR pin_hash = '')",
           [adminPassHash, adminPinHash],
         );
       }

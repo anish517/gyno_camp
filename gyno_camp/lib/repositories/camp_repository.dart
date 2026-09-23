@@ -7,7 +7,6 @@ import '../core/services/http_central_api_service.dart';
 import '../models/camp_model.dart';
 import '../models/user_model.dart';
 import 'audit_repository.dart';
-import 'sync_repository.dart';
 
 abstract class ICampRepository {
   Future<List<CampModel>> getAllCamps({String? tenantId});
@@ -50,7 +49,7 @@ class CampRepository implements ICampRepository {
       DatabaseTables.tableCamps,
       where: 'status = ?',
       whereArgs: [AppConstants.campStatusOpen],
-      orderBy: 'updated_at DESC, created_at DESC',
+      orderBy: 'updated_at DESC, created_at DESC, start_date DESC',
     );
     if (openRows.length > 1) {
       for (int i = 1; i < openRows.length; i++) {
@@ -129,10 +128,6 @@ class CampRepository implements ICampRepository {
             }
           }
         }
-        // Automatically pull latest patient records & visits into local database
-        try {
-          await SyncRepository().pullDelta(deviceId: 'dev-auto', userId: 'usr-auto');
-        } catch (_) {}
       } catch (_) {}
     });
   }
@@ -414,6 +409,12 @@ class CampRepository implements ICampRepository {
       where: 'id = ?',
       whereArgs: [campId],
     );
+
+    // Cascade safety: delete any orphaned patient or visit records
+    try {
+      await db.rawDelete('DELETE FROM ${DatabaseTables.tablePatients} WHERE camp_id NOT IN (SELECT id FROM ${DatabaseTables.tableCamps});');
+      await db.rawDelete('DELETE FROM ${DatabaseTables.tableClinicalVisits} WHERE camp_id NOT IN (SELECT id FROM ${DatabaseTables.tableCamps});');
+    } catch (_) {}
 
     // Prune deleted campId from all staff assigned_camp_ids
     try {

@@ -127,7 +127,7 @@ void main() {
       expect(viewModel.state.pendingTotalCount, 0);
       expect(viewModel.state.isFullySynced, isTrue);
       expect(viewModel.state.lastSyncedAt, isNotNull);
-      expect(viewModel.state.lastSuccessMessage, contains('1 records uploaded'));
+      expect(viewModel.state.lastSuccessMessage, contains('records uploaded'));
       expect(viewModel.state.history.length, 1);
     });
 

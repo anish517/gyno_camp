@@ -64,6 +64,32 @@ class AuthRepository implements IAuthRepository {
     _currentUser = user;
   }
 
+  Future<void> _upsertUserPreservingCredentials(DatabaseExecutor db, UserModel u) async {
+    final existing = await db.query(
+      DatabaseTables.tableUsers,
+      columns: ['password_hash', 'pin_hash'],
+      where: 'id = ?',
+      whereArgs: [u.id],
+      limit: 1,
+    );
+    final map = u.toMap();
+    if (existing.isNotEmpty) {
+      final localPass = existing.first['password_hash'] as String?;
+      final localPin = existing.first['pin_hash'] as String?;
+      if ((u.passwordHash == null || u.passwordHash!.isEmpty) && localPass != null && localPass.isNotEmpty) {
+        map['password_hash'] = localPass;
+      }
+      if ((u.pinHash == null || u.pinHash!.isEmpty) && localPin != null && localPin.isNotEmpty) {
+        map['pin_hash'] = localPin;
+      }
+    }
+    await db.insert(
+      DatabaseTables.tableUsers,
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   @override
   Future<List<UserModel>> getAllUsers({bool includeInactive = false}) async {
     final db = await _databaseService.database;
@@ -92,11 +118,7 @@ class AuthRepository implements IAuthRepository {
               HttpCentralApiService().deleteCentralUser(u.id);
               continue;
             }
-            await db.insert(
-              DatabaseTables.tableUsers,
-              u.toMap(),
-              conflictAlgorithm: ConflictAlgorithm.replace,
-            );
+            await _upsertUserPreservingCredentials(db, u);
           }
         }
       } catch (_) {}
@@ -167,11 +189,7 @@ class AuthRepository implements IAuthRepository {
       try {
         final centralUsers = await HttpCentralApiService().fetchCentralUsers();
         for (final u in centralUsers) {
-          await db.insert(
-            DatabaseTables.tableUsers,
-            u.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+          await _upsertUserPreservingCredentials(db, u);
           if (u.id == id) return u;
         }
       } catch (_) {}
@@ -185,7 +203,11 @@ class AuthRepository implements IAuthRepository {
     final db = await _databaseService.database;
     final trimmed = email.trim();
     final lower = trimmed.toLowerCase();
-    final isSuperAdminAlias = lower == 'admin';
+    final isSuperAdminAlias = lower == 'admin' ||
+        lower == 'superadmin' ||
+        lower == 'admin@gynocamp.org' ||
+        lower == 'super administrator' ||
+        lower == 'root';
     
     final maps = await db.query(
       DatabaseTables.tableUsers,
@@ -202,11 +224,7 @@ class AuthRepository implements IAuthRepository {
       try {
         final centralUsers = await HttpCentralApiService().fetchCentralUsers();
         for (final u in centralUsers) {
-          await db.insert(
-            DatabaseTables.tableUsers,
-            u.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+          await _upsertUserPreservingCredentials(db, u);
           if (u.email.trim().toLowerCase() == lower || u.phone == trimmed) {
             return u;
           }
@@ -310,6 +328,39 @@ class AuthRepository implements IAuthRepository {
         );
       } catch (_) {}
     }
+
+    // Synchronize camp assigned_staff_ids with user.assignedCampIds (Issue 1)
+    try {
+      final campRows = await db.query(DatabaseTables.tableCamps);
+      for (final r in campRows) {
+        final cId = r['id'] as String;
+        final rawStaff = (r['assigned_staff_ids'] as String? ?? '')
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toSet();
+        bool changed = false;
+        if (user.assignedCampIds.contains(cId)) {
+          if (!rawStaff.contains(user.id)) {
+            rawStaff.add(user.id);
+            changed = true;
+          }
+        } else {
+          if (rawStaff.contains(user.id)) {
+            rawStaff.remove(user.id);
+            changed = true;
+          }
+        }
+        if (changed) {
+          await db.update(
+            DatabaseTables.tableCamps,
+            {'assigned_staff_ids': rawStaff.join(',')},
+            where: 'id = ?',
+            whereArgs: [cId],
+          );
+        }
+      }
+    } catch (_) {}
 
     await _auditRepository.logActivity(
       userId: adminUserId,

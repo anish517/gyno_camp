@@ -63,7 +63,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
         if (userId != null && userId.isNotEmpty) {
           final user = await _authRepository.getUserById(userId);
           if (user != null && user.isActive) {
-            if (user.role != UserRole.superAdmin) {
+            if (!user.isSuperAdmin && user.role != UserRole.superAdmin) {
               final validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
               if (validCamps.isEmpty) {
                 await session.clearSession();
@@ -120,7 +120,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
           return false;
         }
         // CAMP ASSIGNMENT GATE: Non-superAdmin staff must have at least one assigned camp that exists
-        if (user.role != UserRole.superAdmin) {
+        if (!user.isSuperAdmin && user.role != UserRole.superAdmin) {
           final validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
           if (validCamps.isEmpty) {
             await _authRepository.logout(deviceId: deviceId);
@@ -162,7 +162,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
     try {
       final user = await _authRepository.loginAsRole(role: role, deviceId: deviceId);
       if (user != null) {
-        if (user.role != UserRole.superAdmin) {
+        if (!user.isSuperAdmin && user.role != UserRole.superAdmin) {
           final validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
           if (validCamps.isEmpty) {
             await _authRepository.logout(deviceId: deviceId);

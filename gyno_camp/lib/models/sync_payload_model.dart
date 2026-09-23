@@ -123,6 +123,9 @@ class SyncPullResponse {
   final List<UserModel> users;
   final List<PatientModel> patients;
   final List<ClinicalVisitModel> clinicalVisits;
+  final List<String> deletedCampIds;
+  final List<String> deletedLookupIds;
+  final List<String> deletedUserIds;
   final String? message;
 
   const SyncPullResponse({
@@ -133,6 +136,9 @@ class SyncPullResponse {
     this.users = const [],
     this.patients = const [],
     this.clinicalVisits = const [],
+    this.deletedCampIds = const [],
+    this.deletedLookupIds = const [],
+    this.deletedUserIds = const [],
     this.message,
   });
 
@@ -145,6 +151,9 @@ class SyncPullResponse {
       'users': users.map((u) => u.toMap()).toList(),
       'patients': patients.map((p) => p.toMap()).toList(),
       'clinical_visits': clinicalVisits.map((v) => v.toMap()).toList(),
+      'deleted_camp_ids': deletedCampIds,
+      'deleted_lookup_ids': deletedLookupIds,
+      'deleted_user_ids': deletedUserIds,
       'message': message,
     };
   }
@@ -171,6 +180,18 @@ class SyncPullResponse {
           [],
       clinicalVisits: (map['clinical_visits'] as List<dynamic>?)
               ?.map((v) => ClinicalVisitModel.fromMap(v as Map<String, dynamic>))
+              .toList() ??
+          [],
+      deletedCampIds: (map['deleted_camp_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      deletedLookupIds: (map['deleted_lookup_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      deletedUserIds: (map['deleted_user_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
               .toList() ??
           [],
       message: map['message'] as String?,

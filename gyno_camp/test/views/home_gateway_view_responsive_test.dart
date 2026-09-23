@@ -151,6 +151,7 @@ class FakeReportingRepoForResponsive implements IReportingRepository {
   @override
   Future<CampReportSummaryModel> getCampSummary({
     String? campId,
+    String? doctorFilter,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
@@ -223,6 +224,7 @@ void main() {
     role: UserRole.dataAnalyst,
     tenantId: 'tenant_bir',
     tenantName: 'Kathmandu Outreach Center',
+    assignedCampIds: const ['camp-1'],
     isActive: true,
   );
 

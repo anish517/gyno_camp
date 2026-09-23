@@ -990,7 +990,13 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     bool isSubmitting = false;
 
     final currentUser = ref.read(authStateProvider).currentUser;
-    final tenantCtrl = TextEditingController(text: currentUser?.tenantName ?? 'Community Health Outreach Mission');
+    final savedOrg = SessionService.current?.getOrganizationName();
+    final defaultTenant = (savedOrg != null && savedOrg.trim().isNotEmpty)
+        ? savedOrg.trim()
+        : (currentUser?.tenantName.trim().isNotEmpty == true && currentUser?.tenantName != 'Outreach Health Center'
+            ? currentUser!.tenantName.trim()
+            : 'Nepal Health Outreach Network');
+    final tenantCtrl = TextEditingController(text: defaultTenant);
 
     await showDialog(
       context: context,
@@ -1072,88 +1078,48 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                             },
                     ),
                     const SizedBox(height: 14),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isNarrow = constraints.maxWidth < 440;
-                        if (isNarrow) {
-                          return Column(
-                            children: [
-                              TextField(
-                                controller: passwordCtrl,
-                                obscureText: obscurePassword,
-                                decoration: InputDecoration(
-                                  labelText: 'Initial Password *',
-                                  hintText: 'Min 6 characters',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                  suffixIcon: IconButton(
-                                    icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18),
-                                    onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: pinCtrl,
-                                keyboardType: TextInputType.number,
-                                maxLength: 6,
-                                obscureText: obscurePin,
-                                decoration: InputDecoration(
-                                  labelText: 'Station PIN (4-6 digits) *',
-                                  counterText: '',
-                                  hintText: '1234',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                  suffixIcon: IconButton(
-                                    icon: Icon(obscurePin ? Icons.visibility_off : Icons.visibility, size: 18),
-                                    onPressed: () => setDialogState(() => obscurePin = !obscurePin),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }
-                        return Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: passwordCtrl,
-                                obscureText: obscurePassword,
-                                decoration: InputDecoration(
-                                  labelText: 'Initial Password *',
-                                  hintText: 'Min 6 characters',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                  suffixIcon: IconButton(
-                                    icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18),
-                                    onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
-                                  ),
-                                ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: const ValueKey('add_staff_password_field'),
+                            controller: passwordCtrl,
+                            obscureText: obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Initial Password *',
+                              hintText: 'Min 6 characters',
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                              suffixIcon: IconButton(
+                                icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18),
+                                onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextField(
-                                controller: pinCtrl,
-                                keyboardType: TextInputType.number,
-                                maxLength: 6,
-                                obscureText: obscurePin,
-                                decoration: InputDecoration(
-                                  labelText: 'Station PIN (4-6 digits) *',
-                                  counterText: '',
-                                  hintText: '1234',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                  suffixIcon: IconButton(
-                                    icon: Icon(obscurePin ? Icons.visibility_off : Icons.visibility, size: 18),
-                                    onPressed: () => setDialogState(() => obscurePin = !obscurePin),
-                                  ),
-                                ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            key: const ValueKey('add_staff_pin_field'),
+                            controller: pinCtrl,
+                            keyboardType: TextInputType.number,
+                            maxLength: 6,
+                            obscureText: obscurePin,
+                            decoration: InputDecoration(
+                              labelText: 'Station PIN (4-6 digits) *',
+                              counterText: '',
+                              hintText: '1234',
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                              suffixIcon: IconButton(
+                                icon: Icon(obscurePin ? Icons.visibility_off : Icons.visibility, size: 18),
+                                onPressed: () => setDialogState(() => obscurePin = !obscurePin),
                               ),
                             ),
-                          ],
-                        );
-                      },
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 14),
                     const Text('Assign to Field Camps (Optional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -1416,6 +1382,12 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
 
     final currentUser = ref.read(authStateProvider).currentUser;
     final isSelf = staff.id == currentUser?.id;
+    final isProtectedRoot = staff.id == 'usr-superadmin-01' ||
+        staff.email.trim().toLowerCase() == 'admin@gynocamp.org' ||
+        staff.isSuperAdmin;
+    if (isProtectedRoot) {
+      selectedRole = UserRole.superAdmin;
+    }
 
     await showDialog(
       context: context,
@@ -1494,11 +1466,15 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                     const SizedBox(height: 6),
                     DropdownButtonFormField<UserRole>(
                       initialValue: selectedRole,
-                      decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                        helperText: isProtectedRoot ? 'Super Administrator role is protected and locked.' : null,
+                      ),
                       items: UserRole.values.map((r) {
                         return DropdownMenuItem(value: r, child: Text(r.displayNameEn));
                       }).toList(),
-                      onChanged: isSubmitting
+                      onChanged: (isSubmitting || isProtectedRoot)
                           ? null
                           : (val) {
                               if (val != null) setDialogState(() => selectedRole = val);

@@ -273,6 +273,7 @@ void main() {
         tenantName: 'Nepal Health Outreach Network',
         passwordHash: SecurityService.hashSha256('anitaPass123'),
         pinHash: SecurityService.hashPin('7788'),
+        assignedCampIds: const ['camp-pokhara-01'],
       );
       await authRepo.createUser(
         user: anitaUser,

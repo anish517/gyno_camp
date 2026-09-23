@@ -179,7 +179,42 @@ class SyncRepository implements ISyncRepository {
 
     if (response.success) {
       await db.transaction((txn) async {
-        // Upsert camps
+        // 1. Process entity deletions from central server
+        for (final campId in response.deletedCampIds) {
+          await txn.delete(
+            DatabaseTables.tableCamps,
+            where: 'id = ?',
+            whereArgs: [campId],
+          );
+          await txn.delete(
+            DatabaseTables.tablePatients,
+            where: 'camp_id = ?',
+            whereArgs: [campId],
+          );
+          await txn.delete(
+            DatabaseTables.tableClinicalVisits,
+            where: 'camp_id = ?',
+            whereArgs: [campId],
+          );
+        }
+
+        for (final lookupId in response.deletedLookupIds) {
+          await txn.delete(
+            DatabaseTables.tableLookupItems,
+            where: 'id = ?',
+            whereArgs: [lookupId],
+          );
+        }
+
+        for (final userId in response.deletedUserIds) {
+          await txn.delete(
+            DatabaseTables.tableUsers,
+            where: 'id = ?',
+            whereArgs: [userId],
+          );
+        }
+
+        // 2. Upsert camps
         for (final camp in response.camps) {
           await txn.insert(
             DatabaseTables.tableCamps,
@@ -188,7 +223,7 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
-        // Upsert lookup items
+        // 3. Upsert lookup items
         for (final item in response.lookupItems) {
           await txn.insert(
             DatabaseTables.tableLookupItems,
@@ -197,11 +232,32 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
-        // Upsert users
+        // 4. Upsert users with local credential preservation
         for (final user in response.users) {
+          final existingRows = await txn.query(
+            DatabaseTables.tableUsers,
+            columns: ['password_hash', 'pin_hash'],
+            where: 'id = ?',
+            whereArgs: [user.id],
+            limit: 1,
+          );
+          final userMap = user.toMap();
+          if (existingRows.isNotEmpty) {
+            final existing = existingRows.first;
+            if ((userMap['password_hash'] == null || userMap['password_hash'].toString().isEmpty) &&
+                existing['password_hash'] != null &&
+                existing['password_hash'].toString().isNotEmpty) {
+              userMap['password_hash'] = existing['password_hash'];
+            }
+            if ((userMap['pin_hash'] == null || userMap['pin_hash'].toString().isEmpty) &&
+                existing['pin_hash'] != null &&
+                existing['pin_hash'].toString().isNotEmpty) {
+              userMap['pin_hash'] = existing['pin_hash'];
+            }
+          }
           await txn.insert(
             DatabaseTables.tableUsers,
-            user.toMap(),
+            userMap,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }

@@ -70,6 +70,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
+    String? doctorFilter,
   }) async {
     state = state.copyWith(isLoading: true, clearFeedback: true);
     try {
@@ -78,6 +79,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
         generatedBy: generatedBy,
         startDate: startDate,
         endDate: endDate,
+        doctorFilter: doctorFilter,
       );
       if (!mounted) return;
       state = state.copyWith(

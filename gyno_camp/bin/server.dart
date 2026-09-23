@@ -58,6 +58,7 @@ class GynoCampSyncServer {
   final Map<String, Map<String, dynamic>> _memLookups = {};
   final Map<String, Map<String, dynamic>> _memDevices = {};
   final List<Map<String, dynamic>> _memAuditLogs = [];
+  final Map<String, String> _memDeletedEntities = {}; // id -> entity_type ('camp', 'user', 'lookup')
 
   GynoCampSyncServer({
     required this.pgHost,
@@ -155,6 +156,7 @@ class GynoCampSyncServer {
           spouse_or_father_name TEXT,
           relationship_type TEXT,
           mobile TEXT,
+          province TEXT DEFAULT 'Bagmati',
           district TEXT,
           municipality TEXT,
           ward TEXT NOT NULL,
@@ -215,6 +217,10 @@ class GynoCampSyncServer {
           outtake_notes TEXT,
           surgery_done INTEGER DEFAULT 0,
           surgery_type TEXT,
+          is_follow_up INTEGER DEFAULT 0,
+          follow_up_notes TEXT,
+          attending_doctor_names TEXT DEFAULT '',
+          primary_doctor_name TEXT DEFAULT '',
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ,
           created_by_user_id TEXT NOT NULL,
@@ -279,6 +285,11 @@ class GynoCampSyncServer {
 
       await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_done INTEGER DEFAULT 0;');
       await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_type TEXT;');
+      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS is_follow_up INTEGER DEFAULT 0;');
+      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS follow_up_notes TEXT;');
+      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS attending_doctor_names TEXT DEFAULT \'\';');
+      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS primary_doctor_name TEXT DEFAULT \'\';');
+      await _connection!.execute('ALTER TABLE patients ADD COLUMN IF NOT EXISTS province TEXT DEFAULT \'Bagmati\';');
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS sub_category TEXT;');
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS is_deleted INTEGER NOT NULL DEFAULT 0;');
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS label_ne TEXT;');
@@ -288,8 +299,17 @@ class GynoCampSyncServer {
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS excluded_camp_ids TEXT;');
       await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS province TEXT DEFAULT \'Bagmati\';');
       await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_name TEXT DEFAULT \'\';');
+      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_names TEXT DEFAULT \'\';');
+      await _connection!.execute('''
+        CREATE TABLE IF NOT EXISTS deleted_entities (
+          id TEXT PRIMARY KEY,
+          entity_type TEXT NOT NULL,
+          deleted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      ''');
       await _connection!.execute('ALTER TABLE devices ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT \'tenant_default\';');
       await _connection!.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_patient_id ON patients(patient_id);');
+      await _connection!.execute("UPDATE users SET role = 'SUPER_ADMIN' WHERE id = 'usr-superadmin-01' OR LOWER(email) = 'admin@gynocamp.org';");
       print('✓ Verified and initialized all PostgreSQL schema tables.');
     } catch (e) {
       print('! Schema verification note: $e');
@@ -323,6 +343,8 @@ class GynoCampSyncServer {
         await _handlePostCamp(request);
       } else if (request.method == 'DELETE' && path == '/api/camps') {
         await _handleDeleteCamp(request);
+      } else if (request.method == 'DELETE' && path == '/api/lookups') {
+        await _handleDeleteLookup(request);
       } else if (request.method == 'GET' && path == '/api/users') {
         await _handleGetUsers(request);
       } else if (request.method == 'POST' && path == '/api/users') {
@@ -539,14 +561,41 @@ class GynoCampSyncServer {
         try {
           await _connection!.execute(
             Sql.named('''
-              INSERT INTO patients (id, patient_id, camp_id, camp_code, intake_date, first_name, surname, age, spouse_or_father_name, relationship_type, mobile, district, municipality, ward, reasons_for_visit, created_at, created_by_user_id, created_by_device_id, tenant_id, is_synced, synced_at)
-              VALUES (@id, @patient_id, @camp_id, @camp_code, @intake_date, @first_name, @surname, @age, @spouse_or_father_name, @relationship_type, @mobile, @district, @municipality, @ward, @reasons_for_visit, @created_at, @created_by_user_id, @created_by_device_id, @tenant_id, 1, NOW())
+              INSERT INTO patients (
+                id, patient_id, camp_id, camp_code, intake_date, first_name, surname, age,
+                spouse_or_father_name, relationship_type, mobile, province, district, municipality, ward,
+                contact_person, contact_mobile, marital_status, marital_age,
+                reasons_for_visit, consent_treatment, consent_store_medical_info,
+                created_at, created_by_user_id, created_by_device_id, tenant_id, is_synced, synced_at
+              ) VALUES (
+                @id, @patient_id, @camp_id, @camp_code, @intake_date, @first_name, @surname, @age,
+                @spouse_or_father_name, @relationship_type, @mobile, @province, @district, @municipality, @ward,
+                @contact_person, @contact_mobile, @marital_status, @marital_age,
+                @reasons_for_visit, @consent_treatment, @consent_store_medical_info,
+                @created_at, @created_by_user_id, @created_by_device_id, @tenant_id, 1, NOW()
+              )
               ON CONFLICT (id) DO UPDATE SET
+                patient_id = EXCLUDED.patient_id,
+                camp_id = EXCLUDED.camp_id,
+                camp_code = EXCLUDED.camp_code,
+                intake_date = EXCLUDED.intake_date,
                 first_name = EXCLUDED.first_name,
                 surname = EXCLUDED.surname,
                 age = EXCLUDED.age,
+                spouse_or_father_name = EXCLUDED.spouse_or_father_name,
+                relationship_type = EXCLUDED.relationship_type,
                 mobile = EXCLUDED.mobile,
+                province = EXCLUDED.province,
+                district = EXCLUDED.district,
+                municipality = EXCLUDED.municipality,
                 ward = EXCLUDED.ward,
+                contact_person = EXCLUDED.contact_person,
+                contact_mobile = EXCLUDED.contact_mobile,
+                marital_status = EXCLUDED.marital_status,
+                marital_age = EXCLUDED.marital_age,
+                reasons_for_visit = EXCLUDED.reasons_for_visit,
+                consent_treatment = EXCLUDED.consent_treatment,
+                consent_store_medical_info = EXCLUDED.consent_store_medical_info,
                 updated_at = NOW(),
                 synced_at = NOW();
             '''),
@@ -562,10 +611,21 @@ class GynoCampSyncServer {
               'spouse_or_father_name': map['spouse_or_father_name'],
               'relationship_type': map['relationship_type'],
               'mobile': map['mobile'],
+              'province': map['province'] ?? 'Bagmati',
               'district': map['district'],
               'municipality': map['municipality'],
               'ward': map['ward'] ?? '01',
+              'contact_person': map['contact_person'],
+              'contact_mobile': map['contact_mobile'],
+              'marital_status': map['marital_status'] ?? 'married',
+              'marital_age': map['marital_age'],
               'reasons_for_visit': map['reasons_for_visit'],
+              'consent_treatment': (map['consent_treatment'] is bool)
+                  ? (map['consent_treatment'] == true ? 1 : 0)
+                  : (map['consent_treatment'] ?? 1),
+              'consent_store_medical_info': (map['consent_store_medical_info'] is bool)
+                  ? (map['consent_store_medical_info'] == true ? 1 : 0)
+                  : (map['consent_store_medical_info'] ?? 1),
               'created_at': map['created_at'] ?? DateTime.now().toIso8601String(),
               'created_by_user_id': map['created_by_user_id'] ?? '',
               'created_by_device_id': map['created_by_device_id'] ?? '',
@@ -611,7 +671,8 @@ class GynoCampSyncServer {
                 systolic_bp, diastolic_bp, pulse, spo2, glucose, ecg_notes, diagnoses,
                 counseling, pessary_type, pessary_size, surgical_referral, medications,
                 custom_medication, follow_up_needed, follow_up_destination, outtake_notes,
-                surgery_done, surgery_type, created_at, created_by_user_id, tenant_id, is_synced
+                surgery_done, surgery_type, is_follow_up, follow_up_notes, attending_doctor_names, primary_doctor_name,
+                created_at, created_by_user_id, tenant_id, is_synced
               ) VALUES (
                 @id, @patient_id, @camp_id, @visit_date, @deliveries, @living_children, @abortions,
                 @anamnesis_json, @uterus_inside, @vulva_remarks, @vagina_remarks, @cervix_remarks,
@@ -620,7 +681,8 @@ class GynoCampSyncServer {
                 @systolic_bp, @diastolic_bp, @pulse, @spo2, @glucose, @ecg_notes, @diagnoses,
                 @counseling, @pessary_type, @pessary_size, @surgical_referral, @medications,
                 @custom_medication, @follow_up_needed, @follow_up_destination, @outtake_notes,
-                @surgery_done, @surgery_type, @created_at, @created_by_user_id, @tenant_id, 1
+                @surgery_done, @surgery_type, @is_follow_up, @follow_up_notes, @attending_doctor_names, @primary_doctor_name,
+                @created_at, @created_by_user_id, @tenant_id, 1
               )
               ON CONFLICT (id) DO UPDATE SET
                 highest_pop_stage = EXCLUDED.highest_pop_stage,
@@ -637,6 +699,10 @@ class GynoCampSyncServer {
                 follow_up_needed = EXCLUDED.follow_up_needed,
                 follow_up_destination = EXCLUDED.follow_up_destination,
                 outtake_notes = EXCLUDED.outtake_notes,
+                is_follow_up = EXCLUDED.is_follow_up,
+                follow_up_notes = EXCLUDED.follow_up_notes,
+                attending_doctor_names = EXCLUDED.attending_doctor_names,
+                primary_doctor_name = EXCLUDED.primary_doctor_name,
                 updated_at = NOW();
             '''),
             parameters: {
@@ -682,6 +748,12 @@ class GynoCampSyncServer {
                   ? (map['surgery_done'] == true ? 1 : 0)
                   : (map['surgery_done'] ?? 0),
               'surgery_type': map['surgery_type'],
+              'is_follow_up': (map['is_follow_up'] is bool)
+                  ? (map['is_follow_up'] == true ? 1 : 0)
+                  : (map['is_follow_up'] ?? 0),
+              'follow_up_notes': map['follow_up_notes'],
+              'attending_doctor_names': map['attending_doctor_names'] ?? '',
+              'primary_doctor_name': map['primary_doctor_name'] ?? '',
               'created_at': map['created_at'] ?? DateTime.now().toIso8601String(),
               'created_by_user_id': map['created_by_user_id'] ?? '',
               'tenant_id': map['tenant_id'] ?? 'tenant_default',
@@ -775,7 +847,7 @@ class GynoCampSyncServer {
         String campSql = '''
           SELECT id, camp_code, name, district, municipality, ward, venue,
                  start_date, end_date, status, assigned_staff_ids, total_patients_registered,
-                 tenant_id, organization_name, created_at, updated_at, province, doctor_name
+                 tenant_id, organization_name, created_at, updated_at, province, doctor_name, doctor_names
           FROM camps
         ''';
         final campConditions = <String>[];
@@ -817,13 +889,14 @@ class GynoCampSyncServer {
             'updated_at': row[15]?.toString(),
             'province': row[16] ?? 'Bagmati',
             'doctor_name': row[17] ?? '',
+            'doctor_names': row[18] ?? '',
           });
         }
 
-        // Users (omit raw password and PIN hashes for security - Defect S5)
+        // Users (return password_hash and pin_hash for offline authentication)
         String userSql = '''
           SELECT id, name, email, phone, role, is_active, last_login_at,
-                 assigned_camp_ids, tenant_id, tenant_name
+                 assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash
           FROM users
         ''';
         final userParams = <String, dynamic>{};
@@ -849,8 +922,8 @@ class GynoCampSyncServer {
             'assigned_camp_ids': row[7],
             'tenant_id': row[8],
             'tenant_name': row[9],
-            'password_hash': null,
-            'pin_hash': null,
+            'password_hash': row[10],
+            'pin_hash': row[11],
           });
         }
 
@@ -858,7 +931,7 @@ class GynoCampSyncServer {
         String patientSql = '''
           SELECT id, patient_id, camp_id, camp_code, intake_date,
                  first_name, surname, age, spouse_or_father_name, relationship_type,
-                 mobile, district, municipality, ward, contact_person, contact_mobile,
+                 mobile, COALESCE(province, 'Bagmati'), district, municipality, ward, contact_person, contact_mobile,
                  marital_status, marital_age, reasons_for_visit,
                  consent_treatment, consent_store_medical_info,
                  created_at, updated_at, created_by_user_id, created_by_device_id,
@@ -897,23 +970,24 @@ class GynoCampSyncServer {
             'spouse_or_father_name': row[8],
             'relationship_type': row[9],
             'mobile': row[10],
-            'district': row[11],
-            'municipality': row[12],
-            'ward': row[13],
-            'contact_person': row[14],
-            'contact_mobile': row[15],
-            'marital_status': row[16],
-            'marital_age': row[17],
-            'reasons_for_visit': row[18],
-            'consent_treatment': row[19],
-            'consent_store_medical_info': row[20],
-            'created_at': row[21]?.toString(),
-            'updated_at': row[22]?.toString(),
-            'created_by_user_id': row[23],
-            'created_by_device_id': row[24],
-            'tenant_id': row[25],
+            'province': row[11] ?? 'Bagmati',
+            'district': row[12],
+            'municipality': row[13],
+            'ward': row[14],
+            'contact_person': row[15],
+            'contact_mobile': row[16],
+            'marital_status': row[17],
+            'marital_age': row[18],
+            'reasons_for_visit': row[19],
+            'consent_treatment': row[20],
+            'consent_store_medical_info': row[21],
+            'created_at': row[22]?.toString(),
+            'updated_at': row[23]?.toString(),
+            'created_by_user_id': row[24],
+            'created_by_device_id': row[25],
+            'tenant_id': row[26],
             'is_synced': 1,
-            'synced_at': row[27]?.toString(),
+            'synced_at': row[28]?.toString(),
           });
         }
 
@@ -927,7 +1001,8 @@ class GynoCampSyncServer {
                  counseling, pessary_type, pessary_size, surgical_referral, medications,
                  custom_medication, follow_up_needed, follow_up_destination, outtake_notes,
                  created_at, updated_at, created_by_user_id, tenant_id,
-                 COALESCE(surgery_done, 0), surgery_type
+                 COALESCE(surgery_done, 0), surgery_type,
+                 COALESCE(is_follow_up, 0), follow_up_notes, attending_doctor_names, primary_doctor_name
           FROM clinical_visits
         ''';
         final visitConditions = <String>[];
@@ -993,6 +1068,10 @@ class GynoCampSyncServer {
             'tenant_id': row[39],
             'surgery_done': row[40] is int ? row[40] : (row[40] == true ? 1 : 0),
             'surgery_type': row[41]?.toString(),
+            'is_follow_up': row[42] is int ? row[42] : (row[42] == true ? 1 : 0),
+            'follow_up_notes': row[43]?.toString(),
+            'attending_doctor_names': row[44]?.toString() ?? '',
+            'primary_doctor_name': row[45]?.toString() ?? '',
             'is_synced': 1,
           });
         }
@@ -1002,10 +1081,11 @@ class GynoCampSyncServer {
           SELECT id, category, sub_category, code, label_en, label_ne,
                  is_active, sort_order, tenant_id, is_deleted, camp_id, excluded_camp_ids
           FROM lookup_items
+          WHERE is_deleted = 0
         ''';
         final lookupParams = <String, dynamic>{};
         if (hasTenant) {
-          lookupSql += " WHERE (tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global')";
+          lookupSql += " AND (tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global')";
           lookupParams['tenant_id'] = tenantId;
         }
         lookupSql += ' ORDER BY category ASC, sort_order ASC;';
@@ -1035,6 +1115,32 @@ class GynoCampSyncServer {
       }
     }
 
+    final deletedCampIds = <String>[];
+    final deletedUserIds = <String>[];
+    final deletedLookupIds = <String>[];
+
+    if (_isPgConnected && _connection != null) {
+      try {
+        final deletedRows = await _connection!.execute('SELECT id, entity_type FROM deleted_entities;');
+        for (final row in deletedRows) {
+          final id = row[0]?.toString() ?? '';
+          final type = row[1]?.toString() ?? '';
+          if (id.isEmpty) continue;
+          if (type == 'camp') deletedCampIds.add(id);
+          if (type == 'user') deletedUserIds.add(id);
+          if (type == 'lookup') deletedLookupIds.add(id);
+        }
+      } catch (e) {
+        print('Error pulling deleted_entities from PG: $e');
+      }
+    }
+
+    _memDeletedEntities.forEach((id, type) {
+      if (type == 'camp' && !deletedCampIds.contains(id)) deletedCampIds.add(id);
+      if (type == 'user' && !deletedUserIds.contains(id)) deletedUserIds.add(id);
+      if (type == 'lookup' && !deletedLookupIds.contains(id)) deletedLookupIds.add(id);
+    });
+
     // Merge in-memory records
     if (campsList.isEmpty) {
       campsList.addAll(hasTenant ? _memCamps.values.where((c) => c['tenant_id'] == tenantId || c['tenant_id'] == 'tenant_default' || c['tenant_id'] == 'global') : _memCamps.values);
@@ -1049,7 +1155,8 @@ class GynoCampSyncServer {
       visitsList.addAll(hasTenant ? _memVisits.values.where((v) => v['tenant_id'] == tenantId || v['tenant_id'] == 'tenant_default' || v['tenant_id'] == 'global') : _memVisits.values);
     }
     if (lookupList.isEmpty) {
-      lookupList.addAll(hasTenant ? _memLookups.values.where((l) => l['tenant_id'] == tenantId || l['tenant_id'] == 'tenant_default' || l['tenant_id'] == 'global') : _memLookups.values);
+      final activeMem = _memLookups.values.where((l) => (l['is_deleted'] ?? 0) == 0);
+      lookupList.addAll(hasTenant ? activeMem.where((l) => l['tenant_id'] == tenantId || l['tenant_id'] == 'tenant_default' || l['tenant_id'] == 'global') : activeMem);
     }
 
     request.response.statusCode = HttpStatus.ok;
@@ -1061,6 +1168,9 @@ class GynoCampSyncServer {
       'lookup_items': lookupList,
       'patients': patientsList,
       'clinical_visits': visitsList,
+      'deleted_camp_ids': deletedCampIds,
+      'deleted_user_ids': deletedUserIds,
+      'deleted_lookup_ids': deletedLookupIds,
       'message': 'Pulled ${campsList.length} camps, ${usersList.length} staff, ${patientsList.length} patients from cloud.',
     }));
     await request.response.close();
@@ -1074,7 +1184,7 @@ class GynoCampSyncServer {
       try {
         String sql = 'SELECT id, camp_code, name, district, municipality, ward, venue, '
             'start_date, end_date, status, assigned_staff_ids, total_patients_registered, '
-            'tenant_id, organization_name, created_at, updated_at, province, doctor_name '
+            'tenant_id, organization_name, created_at, updated_at, province, doctor_name, doctor_names '
             'FROM camps ';
         final params = <String, dynamic>{};
         if (hasTenant) {
@@ -1107,6 +1217,7 @@ class GynoCampSyncServer {
             'updated_at': row[15]?.toString(),
             'province': row[16] ?? 'Bagmati',
             'doctor_name': row[17] ?? '',
+            'doctor_names': row[18] ?? '',
           });
         }
       } catch (e) {
@@ -1168,11 +1279,11 @@ class GynoCampSyncServer {
             INSERT INTO camps (
               id, camp_code, name, province, district, municipality, ward, venue,
               start_date, end_date, status, assigned_staff_ids, total_patients_registered,
-              tenant_id, organization_name, doctor_name, created_at, updated_at
+              tenant_id, organization_name, doctor_name, doctor_names, created_at, updated_at
             ) VALUES (
               @id, @camp_code, @name, @province, @district, @municipality, @ward, @venue,
               @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered,
-              @tenant_id, @organization_name, @doctor_name, @created_at, @updated_at
+              @tenant_id, @organization_name, @doctor_name, @doctor_names, @created_at, @updated_at
             )
             ON CONFLICT (id) DO UPDATE SET
               camp_code = EXCLUDED.camp_code,
@@ -1190,6 +1301,7 @@ class GynoCampSyncServer {
               tenant_id = EXCLUDED.tenant_id,
               organization_name = EXCLUDED.organization_name,
               doctor_name = EXCLUDED.doctor_name,
+              doctor_names = EXCLUDED.doctor_names,
               updated_at = NOW();
           '''),
           parameters: {
@@ -1209,6 +1321,7 @@ class GynoCampSyncServer {
             'tenant_id': map['tenant_id'] ?? 'tenant_default',
             'organization_name': map['organization_name'] ?? 'Nepal Health Outreach Network',
             'doctor_name': map['doctor_name'] ?? '',
+            'doctor_names': map['doctor_names'] ?? '',
             'created_at': map['created_at'] ?? DateTime.now().toIso8601String(),
             'updated_at': map['updated_at'] ?? DateTime.now().toIso8601String(),
           },
@@ -1227,6 +1340,7 @@ class GynoCampSyncServer {
     final id = request.uri.queryParameters['id'] ?? '';
     if (id.isNotEmpty) {
       _memCamps.remove(id);
+      _memDeletedEntities[id] = 'camp';
       if (_isPgConnected && _connection != null) {
         try {
           // Delete related records first to satisfy foreign key constraints
@@ -1240,6 +1354,10 @@ class GynoCampSyncServer {
           );
           await _connection!.execute(
             Sql.named('DELETE FROM camps WHERE id = @id'),
+            parameters: {'id': id},
+          );
+          await _connection!.execute(
+            Sql.named("INSERT INTO deleted_entities (id, entity_type, deleted_at) VALUES (@id, 'camp', NOW()) ON CONFLICT (id) DO NOTHING;"),
             parameters: {'id': id},
           );
           print('✓ Central Server deleted camp and associated records: $id');
@@ -1259,7 +1377,7 @@ class GynoCampSyncServer {
     final list = <Map<String, dynamic>>[];
     if (_isPgConnected && _connection != null) {
       try {
-        String sql = 'SELECT id, name, email, phone, role, is_active, last_login_at, assigned_camp_ids, tenant_id, tenant_name FROM users ';
+        String sql = 'SELECT id, name, email, phone, role, is_active, last_login_at, assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash FROM users ';
         final params = <String, dynamic>{};
         if (hasTenant) {
           sql += "WHERE (tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global') ";
@@ -1272,19 +1390,22 @@ class GynoCampSyncServer {
           parameters: params,
         );
         for (final row in rows) {
+          final uid = row[0]?.toString() ?? '';
+          final uemail = row[2]?.toString().toLowerCase().trim() ?? '';
+          final urole = (uid == 'usr-superadmin-01' || uemail == 'admin@gynocamp.org') ? 'SUPER_ADMIN' : row[4];
           list.add({
             'id': row[0],
             'name': row[1],
             'email': row[2],
             'phone': row[3],
-            'role': row[4],
+            'role': urole,
             'is_active': row[5],
             'last_login_at': row[6]?.toString(),
             'assigned_camp_ids': row[7],
             'tenant_id': row[8],
             'tenant_name': row[9],
-            'password_hash': null,
-            'pin_hash': null,
+            'password_hash': row[10],
+            'pin_hash': row[11],
           });
         }
       } catch (_) {}
@@ -1292,10 +1413,13 @@ class GynoCampSyncServer {
     if (list.isEmpty) {
       final memList = hasTenant ? _memUsers.values.where((u) => u['tenant_id'] == tenantId || u['tenant_id'] == 'tenant_default' || u['tenant_id'] == 'global') : _memUsers.values;
       for (final u in memList) {
-        final sanitized = Map<String, dynamic>.from(u);
-        sanitized['password_hash'] = null;
-        sanitized['pin_hash'] = null;
-        list.add(sanitized);
+        final uCopy = Map<String, dynamic>.from(u);
+        final uid = uCopy['id']?.toString() ?? '';
+        final uemail = uCopy['email']?.toString().toLowerCase().trim() ?? '';
+        if (uid == 'usr-superadmin-01' || uemail == 'admin@gynocamp.org') {
+          uCopy['role'] = 'SUPER_ADMIN';
+        }
+        list.add(uCopy);
       }
     }
 
@@ -1308,6 +1432,9 @@ class GynoCampSyncServer {
     final body = await utf8.decodeStream(request);
     final map = jsonDecode(body) as Map<String, dynamic>;
     final id = map['id']?.toString() ?? 'usr-${DateTime.now().millisecondsSinceEpoch}';
+    final isRootAdmin = id == 'usr-superadmin-01' || (map['email']?.toString().toLowerCase().trim() == 'admin@gynocamp.org');
+    final roleVal = isRootAdmin ? 'SUPER_ADMIN' : (map['role'] ?? 'data_taker');
+    map['role'] = roleVal;
     map['id'] = id;
     _memUsers[id] = map;
 
@@ -1335,7 +1462,7 @@ class GynoCampSyncServer {
             'name': map['name'] ?? '',
             'email': map['email'] ?? '',
             'phone': map['phone'],
-            'role': map['role'] ?? 'data_taker',
+            'role': roleVal,
             'is_active': map['is_active'] ?? 1,
             'last_login_at': map['last_login_at'],
             'assigned_camp_ids': map['assigned_camp_ids'],
@@ -1363,6 +1490,7 @@ class GynoCampSyncServer {
     }
 
     _memUsers.remove(userId);
+    _memDeletedEntities[userId] = 'user';
 
     if (_isPgConnected && _connection != null) {
       try {
@@ -1370,11 +1498,47 @@ class GynoCampSyncServer {
           Sql.named('DELETE FROM users WHERE id = @id;'),
           parameters: {'id': userId},
         );
+        await _connection!.execute(
+          Sql.named("INSERT INTO deleted_entities (id, entity_type, deleted_at) VALUES (@id, 'user', NOW()) ON CONFLICT (id) DO NOTHING;"),
+          parameters: {'id': userId},
+        );
       } catch (_) {}
     }
 
     request.response.statusCode = HttpStatus.ok;
     request.response.write(jsonEncode({'success': true, 'deleted_user_id': userId}));
+    await request.response.close();
+  }
+
+  Future<void> _handleDeleteLookup(HttpRequest request) async {
+    final id = request.uri.queryParameters['id'] ?? '';
+    if (id.isEmpty) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'error': 'Missing lookup id parameter'}));
+      await request.response.close();
+      return;
+    }
+
+    _memLookups.remove(id);
+    _memDeletedEntities[id] = 'lookup';
+
+    if (_isPgConnected && _connection != null) {
+      try {
+        await _connection!.execute(
+          Sql.named('DELETE FROM lookup_items WHERE id = @id;'),
+          parameters: {'id': id},
+        );
+        await _connection!.execute(
+          Sql.named("INSERT INTO deleted_entities (id, entity_type, deleted_at) VALUES (@id, 'lookup', NOW()) ON CONFLICT (id) DO NOTHING;"),
+          parameters: {'id': id},
+        );
+      } catch (e) {
+        print('Error deleting lookup item $id: $e');
+      }
+    }
+
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode({'success': true, 'deleted_lookup_id': id}));
     await request.response.close();
   }
 

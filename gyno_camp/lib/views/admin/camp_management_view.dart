@@ -55,11 +55,36 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     super.dispose();
   }
 
+  static String _cleanDoctorName(String raw) {
+    return raw.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
+  }
+
+  static List<String> _sanitizeDoctorList(String input) {
+    if (input.trim().isEmpty) return <String>[];
+    return input
+        .split(',')
+        .map((e) => _cleanDoctorName(e.trim()))
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  int _computeAssignedStaffCount(CampModel camp) {
+    final staffUsers = ref.read(staffUsersProvider).value ?? const <UserModel>[];
+    final staffIds = Set<String>.from(camp.assignedStaffIds);
+    for (final u in staffUsers) {
+      if (u.assignedCampIds.contains(camp.id)) {
+        staffIds.add(u.id);
+      }
+    }
+    return staffIds.length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final campState = ref.watch(campStateProvider);
     final user = ref.watch(authStateProvider).currentUser;
     final deviceState = ref.watch(deviceSecurityProvider);
+    ref.watch(staffUsersProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -718,8 +743,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     Expanded(
                       child: Text(
                         camp.doctorNames.isNotEmpty
-                            ? camp.doctorNames.map((d) => d.startsWith('Dr.') ? d : 'Dr. $d').join(' • ')
-                            : (camp.doctorName.startsWith('Dr.') ? camp.doctorName : 'Dr. ${camp.doctorName}'),
+                            ? camp.doctorNames.map((d) {
+                                final clean = _cleanDoctorName(d);
+                                return clean.isNotEmpty ? 'Dr. $clean' : '';
+                              }).where((d) => d.isNotEmpty).join(' • ')
+                            : (_cleanDoctorName(camp.doctorName).isNotEmpty ? 'Dr. ${_cleanDoctorName(camp.doctorName)}' : ''),
                         style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
                       ),
                     ),
@@ -794,24 +822,29 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 spacing: 8,
                 runSpacing: 4,
                 children: [
-                  Text.rich(
-                    TextSpan(
-                      text: 'Staff Team: ',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
-                      children: [
+                  Builder(
+                    builder: (context) {
+                      final effectiveStaffCount = _computeAssignedStaffCount(camp);
+                      return Text.rich(
                         TextSpan(
-                          text: camp.assignedStaffIds.isEmpty
-                              ? 'None assigned'
-                              : '${camp.assignedStaffIds.length} Staff Member(s)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: camp.assignedStaffIds.isEmpty ? FontWeight.normal : FontWeight.w600,
-                            fontStyle: camp.assignedStaffIds.isEmpty ? FontStyle.italic : FontStyle.normal,
-                            color: camp.assignedStaffIds.isEmpty ? Colors.grey : AppTheme.primaryDark,
-                          ),
+                          text: 'Staff Team: ',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                          children: [
+                            TextSpan(
+                              text: effectiveStaffCount == 0
+                                  ? 'None assigned'
+                                  : '$effectiveStaffCount Staff Member(s)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: effectiveStaffCount == 0 ? FontWeight.normal : FontWeight.w600,
+                                fontStyle: effectiveStaffCount == 0 ? FontStyle.italic : FontStyle.normal,
+                                color: effectiveStaffCount == 0 ? Colors.grey : AppTheme.primaryDark,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                   TextButton.icon(
                     style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 6)),
@@ -1783,8 +1816,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             Expanded(
                               child: Text(
                                 c.doctorNames.isNotEmpty
-                                    ? c.doctorNames.map((d) => d.startsWith('Dr.') ? d : 'Dr. $d').join(' • ')
-                                    : (c.doctorName.startsWith('Dr.') ? c.doctorName : 'Dr. ${c.doctorName}'),
+                                    ? c.doctorNames.map((d) {
+                                        final clean = _cleanDoctorName(d);
+                                        return clean.isNotEmpty ? 'Dr. $clean' : '';
+                                      }).where((d) => d.isNotEmpty).join(' • ')
+                                    : (_cleanDoctorName(c.doctorName).isNotEmpty ? 'Dr. ${_cleanDoctorName(c.doctorName)}' : ''),
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
                               ),
                             ),
@@ -1797,10 +1833,15 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           const Icon(Icons.people_alt_outlined, size: 16, color: AppTheme.primaryTeal),
                           const SizedBox(width: 6),
                           Expanded(
-                            child: Text(
-                              '${c.assignedStaffIds.length} Staff Assigned  •  ${c.totalPatientsRegistered} Intakes',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryLight),
-                              overflow: TextOverflow.ellipsis,
+                            child: Builder(
+                              builder: (context) {
+                                final staffCount = _computeAssignedStaffCount(c);
+                                return Text(
+                                  '$staffCount Staff Assigned  •  ${c.totalPatientsRegistered} Intakes',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryLight),
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              },
                             ),
                           ),
                         ],
@@ -3157,11 +3198,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       return;
     }
 
-    final parsedDocList = doctorNames ??
-        (doctorName.isNotEmpty
-            ? doctorName.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
-            : <String>[]);
-    final primaryDoc = parsedDocList.isNotEmpty ? parsedDocList.first : doctorName;
+    final parsedDocList = doctorNames ?? _sanitizeDoctorList(doctorName);
+    final primaryDoc = parsedDocList.isNotEmpty ? parsedDocList.first : _cleanDoctorName(doctorName);
 
     final newCamp = CampModel(
       id: 'camp-${DateTime.now().millisecondsSinceEpoch}',
@@ -3228,12 +3266,12 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       }
     }
   }
-
   void _showEditCampDialog(BuildContext context, CampModel camp) {
     final nameCtrl = TextEditingController(text: camp.name);
-    final doctorCtrl = TextEditingController(
-      text: camp.doctorNames.isNotEmpty ? camp.doctorNames.join(', ') : camp.doctorName,
-    );
+    final initialDocs = camp.doctorNames.isNotEmpty
+        ? camp.doctorNames.map(_cleanDoctorName).where((d) => d.isNotEmpty).join(', ')
+        : _cleanDoctorName(camp.doctorName);
+    final doctorCtrl = TextEditingController(text: initialDocs);
     String selectedProvince = camp.province.isNotEmpty ? camp.province : 'Bagmati';
     final availableDistricts = NepalGeodata.districtsFor(selectedProvince);
     String selectedDistrict = availableDistricts.contains(camp.district)
@@ -3533,9 +3571,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 return;
                               }
 
-                              final parsedDocs = doctorCtrl.text.trim().isNotEmpty
-                                  ? doctorCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
-                                  : <String>[];
+                              final parsedDocs = _sanitizeDoctorList(doctorCtrl.text);
                               final primaryDoc = parsedDocs.isNotEmpty ? parsedDocs.first : '';
 
                               final updated = camp.copyWith(

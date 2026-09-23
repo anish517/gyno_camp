@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/central_api_service.dart';
 import '../core/services/network_connectivity_service.dart';
@@ -93,21 +95,24 @@ class SyncViewModel extends StateNotifier<SyncState> {
       }
     });
 
-    // Auto-trigger initial sync on app startup if connected
-    if (state.isOnline) {
-      Future.delayed(const Duration(milliseconds: 1500), () {
+    final isTesting = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (!isTesting) {
+      // Auto-trigger initial sync on app startup if connected
+      if (state.isOnline) {
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted && state.isOnline && !state.isSyncing) {
+            syncNow(deviceId: _lastKnownDeviceId, userId: _lastKnownUserId);
+          }
+        });
+      }
+
+      // Periodic auto-sync every 30 seconds while app is active and online
+      _periodicSyncTimer = Timer.periodic(const Duration(seconds: 30), (_) {
         if (mounted && state.isOnline && !state.isSyncing) {
           syncNow(deviceId: _lastKnownDeviceId, userId: _lastKnownUserId);
         }
       });
     }
-
-    // Periodic auto-sync every 30 seconds while app is active and online
-    _periodicSyncTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted && state.isOnline && !state.isSyncing) {
-        syncNow(deviceId: _lastKnownDeviceId, userId: _lastKnownUserId);
-      }
-    });
   }
 
   Future<void> refreshPendingCounts() async {

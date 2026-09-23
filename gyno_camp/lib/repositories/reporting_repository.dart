@@ -13,7 +13,13 @@ import '../models/patient_model.dart';
 import 'audit_repository.dart';
 
 abstract class IReportingRepository {
-  Future<CampReportSummaryModel> getCampSummary({String? campId, String generatedBy = 'Data Analyst', DateTime? startDate, DateTime? endDate});
+  Future<CampReportSummaryModel> getCampSummary({
+    String? campId,
+    String generatedBy = 'Data Analyst',
+    DateTime? startDate,
+    DateTime? endDate,
+    String? doctorFilter,
+  });
   Future<Uint8List> generatePdfReport(CampReportSummaryModel summary);
   Future<Uint8List> generateIndividualPatientPdf({
     required PatientModel patient,
@@ -65,6 +71,7 @@ class ReportingRepository implements IReportingRepository {
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
+    String? doctorFilter,
   }) async {
     final db = await _databaseService.database;
 
@@ -105,37 +112,61 @@ class ReportingRepository implements IReportingRepository {
         whereArgs: campArgs,
         orderBy: 'created_at ASC',
       );
-    } else if (dateWhere != null) {
-      patientRows = await db.query(
-        DatabaseTables.tablePatients,
-        where: dateWhere,
-        whereArgs: dateArgs,
-        orderBy: 'created_at ASC',
-      );
     } else {
+      final baseFilter = 'camp_id IN (SELECT id FROM ${DatabaseTables.tableCamps})';
+      final fullFilter = dateWhere != null ? '$baseFilter AND $dateWhere' : baseFilter;
       patientRows = await db.query(
         DatabaseTables.tablePatients,
+        where: fullFilter,
+        whereArgs: dateArgs.isNotEmpty ? dateArgs : null,
         orderBy: 'created_at ASC',
       );
     }
-    final patients = patientRows.map((r) => PatientModel.fromMap(r)).toList();
+    List<PatientModel> patients = patientRows.map((r) => PatientModel.fromMap(r)).toList();
 
     // Fetch Clinical Visits
     final List<Map<String, dynamic>> visitRows;
     if (campId != null && campId != 'all') {
+      final visitFilter = dateWhere != null ? 'camp_id = ? AND $dateWhere' : 'camp_id = ?';
+      final visitArgs = [campId, ...dateArgs];
       visitRows = await db.query(
         DatabaseTables.tableClinicalVisits,
-        where: 'camp_id = ?',
-        whereArgs: [campId],
+        where: visitFilter,
+        whereArgs: visitArgs,
         orderBy: 'created_at ASC',
       );
     } else {
+      final baseFilter = 'camp_id IN (SELECT id FROM ${DatabaseTables.tableCamps})';
+      final fullFilter = dateWhere != null ? '$baseFilter AND $dateWhere' : baseFilter;
       visitRows = await db.query(
         DatabaseTables.tableClinicalVisits,
+        where: fullFilter,
+        whereArgs: dateArgs.isNotEmpty ? dateArgs : null,
         orderBy: 'created_at ASC',
       );
     }
-    final visits = visitRows.map((r) => ClinicalVisitModel.fromMap(r)).toList();
+    List<ClinicalVisitModel> visits = visitRows.map((r) => ClinicalVisitModel.fromMap(r)).toList();
+
+    // Apply Doctor Filter if requested
+    if (doctorFilter != null && doctorFilter.trim().isNotEmpty && doctorFilter != 'all') {
+      final docLower = doctorFilter.trim().toLowerCase();
+      final matchingVisits = visits.where((v) {
+        final primaryMatch = v.primaryDoctorName?.toLowerCase().contains(docLower) ?? false;
+        final attendingMatch = v.attendingDoctorNames.any((d) => d.toLowerCase().contains(docLower));
+        return primaryMatch || attendingMatch;
+      }).toList();
+
+      final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+      final campDoctorMatch = camp != null && (
+        camp.doctorNames.any((d) => d.toLowerCase().contains(docLower)) ||
+        camp.doctorName.toLowerCase().contains(docLower)
+      );
+
+      if (!campDoctorMatch) {
+        visits = matchingVisits;
+        patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
+      }
+    }
 
     return _aggregationService.aggregate(
       camp: camp,

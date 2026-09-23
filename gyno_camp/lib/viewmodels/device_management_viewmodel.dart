@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/device_model.dart';
 import '../repositories/device_security_repository.dart';
@@ -58,6 +60,7 @@ class DeviceManagementViewModel extends StateNotifier<DeviceManagementState> {
   }
 
   void _startPeriodicRefresh() {
+    if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) return;
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) {

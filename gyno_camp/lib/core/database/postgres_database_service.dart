@@ -154,6 +154,7 @@ class PostgresDatabaseService {
         id TEXT PRIMARY KEY,
         camp_code TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
+        province TEXT DEFAULT 'Bagmati',
         district TEXT NOT NULL,
         municipality TEXT,
         ward TEXT,
@@ -165,6 +166,8 @@ class PostgresDatabaseService {
         total_patients_registered INTEGER NOT NULL DEFAULT 0,
         tenant_id TEXT DEFAULT 'tenant_default',
         organization_name TEXT DEFAULT 'Community Health Outreach Mission',
+        doctor_name TEXT DEFAULT '',
+        doctor_names TEXT DEFAULT '',
         created_at TEXT NOT NULL,
         updated_at TEXT
       );
@@ -184,6 +187,7 @@ class PostgresDatabaseService {
         spouse_or_father_name TEXT,
         relationship_type TEXT,
         mobile TEXT,
+        province TEXT DEFAULT 'Bagmati',
         district TEXT,
         municipality TEXT,
         ward TEXT NOT NULL,
@@ -243,6 +247,12 @@ class PostgresDatabaseService {
         follow_up_needed INTEGER,
         follow_up_destination TEXT,
         outtake_notes TEXT,
+        is_follow_up INTEGER DEFAULT 0,
+        follow_up_notes TEXT,
+        surgery_done INTEGER DEFAULT 0,
+        surgery_type TEXT,
+        attending_doctor_names TEXT DEFAULT '',
+        primary_doctor_name TEXT DEFAULT '',
         created_at TEXT NOT NULL,
         updated_at TEXT,
         created_by_user_id TEXT NOT NULL,
@@ -250,6 +260,20 @@ class PostgresDatabaseService {
         is_synced INTEGER NOT NULL DEFAULT 1
       );
     ''');
+
+    // Column migrations for backward compatibility
+    try {
+      await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS province TEXT DEFAULT 'Bagmati';");
+      await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_name TEXT DEFAULT '';");
+      await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_names TEXT DEFAULT '';");
+      await conn.execute("ALTER TABLE patients ADD COLUMN IF NOT EXISTS province TEXT DEFAULT 'Bagmati';");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS is_follow_up INTEGER DEFAULT 0;");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS follow_up_notes TEXT;");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_done INTEGER DEFAULT 0;");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_type TEXT;");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS attending_doctor_names TEXT DEFAULT '';");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS primary_doctor_name TEXT DEFAULT '';");
+    } catch (_) {}
 
     // Audit Logs table
     await conn.execute('''
@@ -374,18 +398,38 @@ class PostgresDatabaseService {
       for (final c in localCamps) {
         await conn.execute(
           Sql.named('''
-            INSERT INTO camps (id, camp_code, name, district, municipality, ward, venue, start_date, end_date, status, assigned_staff_ids, total_patients_registered, tenant_id, organization_name, created_at, updated_at)
-            VALUES (@id, @camp_code, @name, @district, @municipality, @ward, @venue, @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered, @tenant_id, @organization_name, @created_at, @updated_at)
+            INSERT INTO camps (
+              id, camp_code, name, province, district, municipality, ward, venue,
+              start_date, end_date, status, assigned_staff_ids, total_patients_registered,
+              tenant_id, organization_name, doctor_name, doctor_names, created_at, updated_at
+            ) VALUES (
+              @id, @camp_code, @name, @province, @district, @municipality, @ward, @venue,
+              @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered,
+              @tenant_id, @organization_name, @doctor_name, @doctor_names, @created_at, @updated_at
+            )
             ON CONFLICT (id) DO UPDATE SET
               name = EXCLUDED.name,
+              province = EXCLUDED.province,
+              district = EXCLUDED.district,
+              municipality = EXCLUDED.municipality,
+              ward = EXCLUDED.ward,
+              venue = EXCLUDED.venue,
+              start_date = EXCLUDED.start_date,
+              end_date = EXCLUDED.end_date,
               status = EXCLUDED.status,
+              assigned_staff_ids = EXCLUDED.assigned_staff_ids,
               total_patients_registered = EXCLUDED.total_patients_registered,
+              tenant_id = EXCLUDED.tenant_id,
+              organization_name = EXCLUDED.organization_name,
+              doctor_name = EXCLUDED.doctor_name,
+              doctor_names = EXCLUDED.doctor_names,
               updated_at = EXCLUDED.updated_at;
           '''),
           parameters: {
             'id': c['id']?.toString() ?? '',
             'camp_code': c['camp_code']?.toString() ?? '',
             'name': c['name']?.toString() ?? '',
+            'province': c['province']?.toString() ?? 'Bagmati',
             'district': c['district']?.toString() ?? '',
             'municipality': c['municipality']?.toString(),
             'ward': c['ward']?.toString(),
@@ -399,6 +443,8 @@ class PostgresDatabaseService {
                 : 0,
             'tenant_id': c['tenant_id']?.toString(),
             'organization_name': c['organization_name']?.toString(),
+            'doctor_name': c['doctor_name']?.toString() ?? '',
+            'doctor_names': c['doctor_names']?.toString() ?? '',
             'created_at':
                 c['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': c['updated_at']?.toString(),
@@ -414,13 +460,13 @@ class PostgresDatabaseService {
           Sql.named('''
             INSERT INTO patients (
               id, patient_id, camp_id, camp_code, intake_date, first_name, surname, age,
-              spouse_or_father_name, relationship_type, mobile, district, municipality, ward,
+              spouse_or_father_name, relationship_type, mobile, province, district, municipality, ward,
               contact_person, contact_mobile, marital_status, marital_age, reasons_for_visit,
               consent_treatment, consent_store_medical_info, created_at, updated_at,
               created_by_user_id, created_by_device_id, tenant_id, is_synced, synced_at
             ) VALUES (
               @id, @patient_id, @camp_id, @camp_code, @intake_date, @first_name, @surname, @age,
-              @spouse_or_father_name, @relationship_type, @mobile, @district, @municipality, @ward,
+              @spouse_or_father_name, @relationship_type, @mobile, @province, @district, @municipality, @ward,
               @contact_person, @contact_mobile, @marital_status, @marital_age, @reasons_for_visit,
               @consent_treatment, @consent_store_medical_info, @created_at, @updated_at,
               @created_by_user_id, @created_by_device_id, @tenant_id, 1, @synced_at
@@ -429,9 +475,20 @@ class PostgresDatabaseService {
               first_name = EXCLUDED.first_name,
               surname = EXCLUDED.surname,
               age = EXCLUDED.age,
+              spouse_or_father_name = EXCLUDED.spouse_or_father_name,
+              relationship_type = EXCLUDED.relationship_type,
               mobile = EXCLUDED.mobile,
+              province = EXCLUDED.province,
+              district = EXCLUDED.district,
+              municipality = EXCLUDED.municipality,
               ward = EXCLUDED.ward,
+              contact_person = EXCLUDED.contact_person,
+              contact_mobile = EXCLUDED.contact_mobile,
+              marital_status = EXCLUDED.marital_status,
+              marital_age = EXCLUDED.marital_age,
               reasons_for_visit = EXCLUDED.reasons_for_visit,
+              consent_treatment = EXCLUDED.consent_treatment,
+              consent_store_medical_info = EXCLUDED.consent_store_medical_info,
               updated_at = EXCLUDED.updated_at,
               is_synced = 1,
               synced_at = EXCLUDED.synced_at;
@@ -448,6 +505,7 @@ class PostgresDatabaseService {
             'spouse_or_father_name': p['spouse_or_father_name']?.toString(),
             'relationship_type': p['relationship_type']?.toString(),
             'mobile': p['mobile']?.toString() ?? '',
+            'province': p['province']?.toString() ?? 'Bagmati',
             'district': p['district']?.toString(),
             'municipality': p['municipality']?.toString(),
             'ward': p['ward']?.toString() ?? '',
@@ -497,6 +555,8 @@ class PostgresDatabaseService {
               systolic_bp, diastolic_bp, pulse, spo2, glucose, ecg_notes, diagnoses,
               counseling, pessary_type, pessary_size, surgical_referral, medications,
               custom_medication, follow_up_needed, follow_up_destination, outtake_notes,
+              is_follow_up, follow_up_notes, surgery_done, surgery_type,
+              attending_doctor_names, primary_doctor_name,
               created_at, updated_at, created_by_user_id, tenant_id, is_synced
             ) VALUES (
               @id, @patient_id, @camp_id, @visit_date, @deliveries, @living_children, @abortions,
@@ -506,14 +566,49 @@ class PostgresDatabaseService {
               @systolic_bp, @diastolic_bp, @pulse, @spo2, @glucose, @ecg_notes, @diagnoses,
               @counseling, @pessary_type, @pessary_size, @surgical_referral, @medications,
               @custom_medication, @follow_up_needed, @follow_up_destination, @outtake_notes,
+              @is_follow_up, @follow_up_notes, @surgery_done, @surgery_type,
+              @attending_doctor_names, @primary_doctor_name,
               @created_at, @updated_at, @created_by_user_id, @tenant_id, 1
             )
             ON CONFLICT (id) DO UPDATE SET
+              deliveries = EXCLUDED.deliveries,
+              living_children = EXCLUDED.living_children,
+              abortions = EXCLUDED.abortions,
+              anamnesis_json = EXCLUDED.anamnesis_json,
+              uterus_inside = EXCLUDED.uterus_inside,
+              vulva_remarks = EXCLUDED.vulva_remarks,
+              vagina_remarks = EXCLUDED.vagina_remarks,
+              cervix_remarks = EXCLUDED.cervix_remarks,
+              uterus_remarks = EXCLUDED.uterus_remarks,
+              pelvic_floor_tone = EXCLUDED.pelvic_floor_tone,
+              pop_anterior_stage = EXCLUDED.pop_anterior_stage,
+              pop_middle_stage = EXCLUDED.pop_middle_stage,
+              pop_posterior_stage = EXCLUDED.pop_posterior_stage,
               highest_pop_stage = EXCLUDED.highest_pop_stage,
+              urine_test = EXCLUDED.urine_test,
+              pregnancy_test = EXCLUDED.pregnancy_test,
+              systolic_bp = EXCLUDED.systolic_bp,
+              diastolic_bp = EXCLUDED.diastolic_bp,
+              pulse = EXCLUDED.pulse,
+              spo2 = EXCLUDED.spo2,
+              glucose = EXCLUDED.glucose,
+              ecg_notes = EXCLUDED.ecg_notes,
               diagnoses = EXCLUDED.diagnoses,
               counseling = EXCLUDED.counseling,
               pessary_type = EXCLUDED.pessary_type,
+              pessary_size = EXCLUDED.pessary_size,
+              surgical_referral = EXCLUDED.surgical_referral,
               medications = EXCLUDED.medications,
+              custom_medication = EXCLUDED.custom_medication,
+              follow_up_needed = EXCLUDED.follow_up_needed,
+              follow_up_destination = EXCLUDED.follow_up_destination,
+              outtake_notes = EXCLUDED.outtake_notes,
+              is_follow_up = EXCLUDED.is_follow_up,
+              follow_up_notes = EXCLUDED.follow_up_notes,
+              surgery_done = EXCLUDED.surgery_done,
+              surgery_type = EXCLUDED.surgery_type,
+              attending_doctor_names = EXCLUDED.attending_doctor_names,
+              primary_doctor_name = EXCLUDED.primary_doctor_name,
               updated_at = EXCLUDED.updated_at,
               is_synced = 1;
           '''),
@@ -566,6 +661,12 @@ class PostgresDatabaseService {
                 : null,
             'follow_up_destination': v['follow_up_destination']?.toString(),
             'outtake_notes': v['outtake_notes']?.toString(),
+            'is_follow_up': v['is_follow_up'] is int ? v['is_follow_up'] : 0,
+            'follow_up_notes': v['follow_up_notes']?.toString(),
+            'surgery_done': v['surgery_done'] is int ? v['surgery_done'] : 0,
+            'surgery_type': v['surgery_type']?.toString(),
+            'attending_doctor_names': v['attending_doctor_names']?.toString() ?? '',
+            'primary_doctor_name': v['primary_doctor_name']?.toString() ?? '',
             'created_at':
                 v['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': v['updated_at']?.toString(),
@@ -613,13 +714,13 @@ class PostgresDatabaseService {
       Sql.named('''
         INSERT INTO patients (
           id, patient_id, camp_id, camp_code, intake_date, first_name, surname, age,
-          spouse_or_father_name, relationship_type, mobile, district, municipality, ward,
+          spouse_or_father_name, relationship_type, mobile, province, district, municipality, ward,
           contact_person, contact_mobile, marital_status, marital_age, reasons_for_visit,
           consent_treatment, consent_store_medical_info, created_at, updated_at,
           created_by_user_id, created_by_device_id, tenant_id, is_synced, synced_at
         ) VALUES (
           @id, @patient_id, @camp_id, @camp_code, @intake_date, @first_name, @surname, @age,
-          @spouse_or_father_name, @relationship_type, @mobile, @district, @municipality, @ward,
+          @spouse_or_father_name, @relationship_type, @mobile, @province, @district, @municipality, @ward,
           @contact_person, @contact_mobile, @marital_status, @marital_age, @reasons_for_visit,
           @consent_treatment, @consent_store_medical_info, @created_at, @updated_at,
           @created_by_user_id, @created_by_device_id, @tenant_id, 1, @synced_at
@@ -628,9 +729,20 @@ class PostgresDatabaseService {
           first_name = EXCLUDED.first_name,
           surname = EXCLUDED.surname,
           age = EXCLUDED.age,
+          spouse_or_father_name = EXCLUDED.spouse_or_father_name,
+          relationship_type = EXCLUDED.relationship_type,
           mobile = EXCLUDED.mobile,
+          province = EXCLUDED.province,
+          district = EXCLUDED.district,
+          municipality = EXCLUDED.municipality,
           ward = EXCLUDED.ward,
+          contact_person = EXCLUDED.contact_person,
+          contact_mobile = EXCLUDED.contact_mobile,
+          marital_status = EXCLUDED.marital_status,
+          marital_age = EXCLUDED.marital_age,
           reasons_for_visit = EXCLUDED.reasons_for_visit,
+          consent_treatment = EXCLUDED.consent_treatment,
+          consent_store_medical_info = EXCLUDED.consent_store_medical_info,
           updated_at = EXCLUDED.updated_at,
           is_synced = 1,
           synced_at = EXCLUDED.synced_at;
@@ -647,6 +759,7 @@ class PostgresDatabaseService {
         'spouse_or_father_name': p['spouse_or_father_name']?.toString(),
         'relationship_type': p['relationship_type']?.toString(),
         'mobile': p['mobile']?.toString() ?? '',
+        'province': p['province']?.toString() ?? 'Bagmati',
         'district': p['district']?.toString(),
         'municipality': p['municipality']?.toString(),
         'ward': p['ward']?.toString() ?? '',

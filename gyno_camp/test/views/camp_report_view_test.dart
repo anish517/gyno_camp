@@ -52,6 +52,7 @@ class FakeReportingRepository implements IReportingRepository {
   @override
   Future<CampReportSummaryModel> getCampSummary({
     String? campId,
+    String? doctorFilter,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,

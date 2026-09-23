@@ -77,7 +77,7 @@ class HomeGatewayView extends ConsumerWidget {
               maxLines: 1,
             ),
             Text(
-              '${user.role.displayNameEn} • ${deviceState.device?.deviceName ?? "Authorized Device"}',
+              '${(user.isSuperAdmin ? UserRole.superAdmin : user.role).displayNameEn} • ${deviceState.device?.deviceName ?? "Authorized Device"}',
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.normal, color: Colors.white70),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
@@ -146,7 +146,7 @@ class HomeGatewayView extends ConsumerWidget {
           ),
         ],
       ),
-      body: switch (user.role) {
+      body: switch (user.isSuperAdmin ? UserRole.superAdmin : user.role) {
         UserRole.superAdmin => _buildSuperAdminDashboard(context, ref),
         UserRole.dataAnalyst => _buildDataAnalystDashboard(context, ref),
         UserRole.dataTaker => _buildDataTakerDashboard(context, ref),
@@ -3848,13 +3848,23 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         ? rawPatients.where((p) => user.assignedCampIds.contains(p.campId)).toList()
         : rawPatients;
 
-    // Collect all unique doctor names across visible camps for doctor filter dropdown
+    // Collect all unique doctor names across visible camps and visits for doctor filter dropdown
     final allDoctors = <String>{};
     for (final camp in visibleCamps) {
       if (camp.doctorNames.isNotEmpty) {
-        allDoctors.addAll(camp.doctorNames);
+        allDoctors.addAll(camp.doctorNames.map((d) => d.trim()).where((d) => d.isNotEmpty));
       } else if (camp.doctorName.trim().isNotEmpty) {
         allDoctors.add(camp.doctorName.trim());
+      }
+    }
+    for (final v in _patientVisits.values) {
+      if (v.primaryDoctorName != null && v.primaryDoctorName!.trim().isNotEmpty) {
+        allDoctors.add(v.primaryDoctorName!.trim());
+      }
+      for (final doc in v.attendingDoctorNames) {
+        if (doc.trim().isNotEmpty) {
+          allDoctors.add(doc.trim());
+        }
       }
     }
 
@@ -3966,14 +3976,19 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         if (sys < 140 && dia < 90) return false;
       }
 
-      // 9. Doctor filter — match by camp's doctorNames list
+      // 9. Doctor filter — match by camp doctors, primaryDoctorName, or attendingDoctorNames
       if (_selectedDoctor != 'all') {
+        final docLower = _selectedDoctor.trim().toLowerCase();
+        final primaryMatch = visit?.primaryDoctorName?.toLowerCase().contains(docLower) ?? false;
+        final attendingMatch = visit?.attendingDoctorNames.any((d) => d.toLowerCase().contains(docLower)) ?? false;
+
         final patientCamp = campState.camps.where((c) => c.id == p.campId).firstOrNull;
-        if (patientCamp == null) return false;
-        final campDoctors = patientCamp.doctorNames.isNotEmpty
-            ? patientCamp.doctorNames
-            : (patientCamp.doctorName.trim().isNotEmpty ? [patientCamp.doctorName.trim()] : <String>[]);
-        if (!campDoctors.any((d) => d.toLowerCase() == _selectedDoctor.toLowerCase())) return false;
+        final campDoctors = patientCamp?.doctorNames.isNotEmpty == true
+            ? patientCamp!.doctorNames
+            : (patientCamp?.doctorName.trim().isNotEmpty == true ? [patientCamp!.doctorName.trim()] : <String>[]);
+        final campMatch = campDoctors.any((d) => d.toLowerCase().contains(docLower));
+
+        if (!primaryMatch && !attendingMatch && !campMatch) return false;
       }
 
       return true;
