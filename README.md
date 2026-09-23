@@ -29,6 +29,9 @@
 9. [DevOps Code Review & Automated Quality Gates](#9-devops-code-review--automated-quality-gates)
 10. [Environment Variables & Configuration Matrix](#10-environment-variables--configuration-matrix)
 11. [DevOps Operational Runbook & Troubleshooting](#11-devops-operational-runbook--troubleshooting)
+12. [Disaster Recovery & Automated PostgreSQL Backups](#12-disaster-recovery--automated-postgresql-backups)
+13. [Live Log Monitoring & Observability](#13-live-log-monitoring--observability)
+14. [Zero-Downtime Application Update Procedure](#14-zero-downtime-application-update-procedure)
 
 ---
 
@@ -99,12 +102,12 @@ sudo apt update && sudo apt install -y curl git ufw nginx postgresql postgresql-
 
 ## 3. Google Gemini OCR API Setup & Verification
 
-GynoCamp features a built-in **AI Multimodal Optical Scanner** (`lib/core/services/gemini_ocr_service.dart`) that parses photographs of Ministry of Health and Population (MoHP) paper **Yellow Forms**, extracting demographics, vitals, pelvic examination findings, POP stages, and prescribed medications.
+GynoCamp features an advanced, built-in **AI Multimodal Optical Scanner** (`lib/core/services/gemini_ocr_service.dart`) that parses photographs of Ministry of Health and Population (MoHP) paper **Yellow Forms** (स्त्रीरोग स्वास्थ्य परीक्षण फारम), digitizing paper clinical records directly into structured electronic patient profiles.
 
 ### Step 3.1: Obtain Your Google Gemini API Key
 1. Navigate to **[Google AI Studio](https://aistudio.google.com/)** and log in with your organization's Google account.
 2. Click **"Get API key"** in the left sidebar.
-3. Select **"Create API key in new project"** (or select your existing Google Cloud Project).
+3. Select **"Create API key in new project"** (or choose an existing Google Cloud Project).
 4. Copy the generated key string (format: `AIzaSy...` or `AQ.Ab8RN6Ku...`).
 
 ### Step 3.2: Verify the API Key with a Quick Curl Test
@@ -121,14 +124,34 @@ curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:g
 ```
 *Expected Output*: A JSON response containing `"GynoCamp OCR System Online"`.
 
-### Step 3.3: How the Key is Consumed by GynoCamp
+### Step 3.3: OCR Architecture & Model Cascade
+The GynoCamp OCR service incorporates carrier-grade resilience designed for remote field deployments:
+- **Model Fallback Cascade**: Automatically queries `gemini-flash-lite-latest`, falling back gracefully to `gemini-3-flash-preview` and `gemini-flash-latest` if quotas or latency thresholds require.
+- **Client-Side Image Pre-Processing**: High-resolution camera captures (often 8–15 MB) are automatically resized down to a maximum boundary of `1600px` and encoded at `85% JPEG quality` on-device before transmission. This shrinks upload payloads to under ~250 KB, ensuring rapid performance over 2G/3G/4G rural mobile links.
+- **Network Resilience & Backoff**: Automatically intercepts HTTP 429 (Rate Limit) and HTTP 503 (Overloaded) responses, performing exponential backoff retries with jitter.
+- **Offline Fallback Guarantee**: If cellular connectivity is completely absent, clinical workers can bypass OCR and enter paper yellow form records manually with full offline validation.
+
+### Step 3.4: Clinical Fields Extracted by the AI Engine
+The AI OCR engine outputs a validated JSON schema parsing:
+1. **Demographics**: Patient Name, Age, Caste/Ethnicity, Marital Status, District/VDC/Ward, Phone Number.
+2. **Obstetric History**: Gravida, Para, Living Children, Abortion History, Age at First Delivery, Home Delivery vs. Facility.
+3. **Presenting Complaints**: White discharge, burning micturition, lower abdominal pain, mass per vaginam (POP feeling), duration in months/years.
+4. **Vitals**: Blood Pressure (Systolic/Diastolic), Pulse, Temperature, Weight.
+5. **Pelvic & POP-Q Staging**: POP Stage (Stage I, II, III, or IV / Procidentia), Cystocele, Rectocele, Cervical status, Perineal tears.
+6. **Treatment & Disposition**: Ring pessary insertion, conservative pelvic floor exercises, medication orders (antibiotics, analgesics, multivitamins), or referral for surgical vaginal hysterectomy.
+
+### Step 3.5: How the Key is Injected into GynoCamp
 - **At Build Time (Web & Android)**:
-  Injected securely using the compile-time flag:
+  Injected into the compiled client binary using the compile-time flag:
   ```bash
   --dart-define=GEMINI_API_KEY=YOUR_GEMINI_API_KEY
   ```
-- **At Runtime (Dynamic Override)**:
-  Medical directors can dynamically enter or rotate the Gemini key at any time in the app under **Settings / Session Service**, without requiring an app rebuild.
+- **At Runtime (Dynamic In-App Override)**:
+  Super Admins and Medical Directors can enter or rotate the Gemini key dynamically at any time without rebuilding the application:
+  1. Open GynoCamp on Web or Android.
+  2. Navigate to **Settings** (or tap the gear icon in the navigation bar).
+  3. Enter the new Gemini API Key in the **AI Scanner / Session Service** field and tap **Save**.
+  4. The key is securely persisted to local encrypted storage and takes effect immediately.
 
 ---
 
@@ -504,6 +527,124 @@ flutter test test/services/gemini_ocr_service_test.dart
 - **Symptom**: Field nurse attempts to login from a new tablet and sees a security hold.
 - **Cause**: GynoCamp enforces zero-trust hardware whitelisting for all clinical field devices.
 - **Remedy**: Log into the Web Console as Super Admin (`admin@gynocamp.org`), go to **Device Security & Whitelist**, and click **Authorize Device**. The tablet will auto-detect approval within 2–3 seconds.
+
+---
+
+## 12. Disaster Recovery & Automated PostgreSQL Backups
+
+In clinical environments handling sensitive reproductive health and POP-Q surgical triage records, automated daily database backups are mandatory.
+
+### Step 12.1: Automated Backup Script
+Create `/usr/local/bin/backup_gynocamp.sh` on your server:
+
+```bash
+#!/usr/bin/env bash
+set -eo pipefail
+
+BACKUP_DIR="/var/backups/gynocamp"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+BACKUP_FILE="${BACKUP_DIR}/gynocamp_db_${TIMESTAMP}.sql.gz"
+RETENTION_DAYS=14
+
+mkdir -p "${BACKUP_DIR}"
+
+# Run pg_dump and compress on the fly
+PGPASSWORD="YourStrongDbPassword123!" pg_dump \
+  -h 127.0.0.1 \
+  -U gynoadmin \
+  -d gynocamp_db \
+  --clean --if-exists --no-owner | gzip > "${BACKUP_FILE}"
+
+# Secure file permissions (root only)
+chmod 600 "${BACKUP_FILE}"
+
+# Prune archives older than retention window
+find "${BACKUP_DIR}" -type f -name "gynocamp_db_*.sql.gz" -mtime +${RETENTION_DAYS} -delete
+
+echo "[$(date)] Backup completed successfully: ${BACKUP_FILE}"
+```
+
+Make the script executable:
+```bash
+sudo chmod +x /usr/local/bin/backup_gynocamp.sh
+```
+
+### Step 12.2: Automated Nightly Cron Job
+Schedule the backup to execute every night at 02:00 AM:
+```bash
+sudo crontab -e
+```
+Add the following line:
+```cron
+0 2 * * * /usr/local/bin/backup_gynocamp.sh >> /var/log/gynocamp_backup.log 2>&1
+```
+
+### Step 12.3: Database Restoration Procedure
+In the event of hardware failure or server migration:
+```bash
+# Decompress and stream SQL restore into PostgreSQL
+gunzip -c /var/backups/gynocamp/gynocamp_db_20260923_020000.sql.gz | \
+  PGPASSWORD="YourStrongDbPassword123!" psql -h 127.0.0.1 -U gynoadmin -d gynocamp_db
+```
+
+---
+
+## 13. Live Log Monitoring & Observability
+
+Keep track of sync health, incoming camp synchronization requests, and Nginx proxy traffic in real-time.
+
+### Check Central Sync API Daemon Status & Logs
+```bash
+# Check service status
+sudo systemctl status gynocamp-api
+
+# Stream real-time sync server logs (stdout & stderr)
+sudo journalctl -u gynocamp-api -f
+
+# Check last 100 lines of sync logs
+sudo journalctl -u gynocamp-api -n 100 --no-pager
+```
+
+### Monitor Nginx Web Proxy Logs
+```bash
+# Monitor live web client & sync requests
+sudo tail -f /var/log/nginx/access.log
+
+# Monitor any proxy or SSL errors
+sudo tail -f /var/log/nginx/error.log
+```
+
+### Automated Uptime Health Check Probe
+You can integrate this lightweight endpoint into UptimeRobot, BetterUptime, or Prometheus:
+```bash
+curl -f https://api.yourdomain.org/health || exit 1
+```
+
+---
+
+## 14. Zero-Downtime Application Update Procedure
+
+When new updates or bugfixes are pushed to GitHub, follow this standard DevOps update sequence:
+
+```bash
+# 1. Navigate to repository root
+cd /opt/gynocamp
+sudo git pull origin main
+
+# 2. Update dependencies & recompile native Dart binary
+cd /opt/gynocamp/gyno_camp
+sudo dart pub get
+sudo dart compile exe bin/server.dart -o /opt/gynocamp/gyno_camp/bin/gynocamp_server
+
+# 3. Hot-restart the Systemd service (typically completes in < 300ms)
+sudo systemctl restart gynocamp-api
+sudo systemctl status gynocamp-api
+
+# 4. If Flutter Web was updated, copy new compiled web build
+# (Run on build machine, then rsync)
+rsync -avz --delete build/web/ user@your-server-ip:/var/www/gynocamp-web/
+sudo nginx -t && sudo systemctl reload nginx
+```
 
 ---
 
