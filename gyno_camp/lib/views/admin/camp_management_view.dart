@@ -2580,54 +2580,93 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
                 return Dialog(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  clipBehavior: Clip.antiAlias,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxWidth: 620,
-                      maxHeight: MediaQuery.of(context).size.height * 0.9,
+                      maxWidth: 680,
+                      maxHeight: MediaQuery.of(context).size.height * 0.92,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Header
+                        // Professional Teal Header with Accent
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
                           decoration: const BoxDecoration(
-                            color: Color(0xFF0F766E),
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                           ),
                           child: Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(9),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                                 ),
-                                child: const Icon(Icons.add_location_alt, color: Colors.white, size: 20),
+                                child: const Icon(Icons.add_location_alt_rounded, color: Colors.white, size: 22),
                               ),
-                              const SizedBox(width: 12),
-                              const Expanded(
+                              const SizedBox(width: 14),
+                              Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      'Schedule Community Outreach Camp',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                    Row(
+                                      children: [
+                                        const Flexible(
+                                          child: Text(
+                                            'Schedule Community Outreach Camp',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: -0.2,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.accentCyan.withValues(alpha: 0.35),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                                          ),
+                                          child: const Text(
+                                            'NEW DISPATCH',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      'नयाँ स्वास्थ्य शिविर तालिका र कर्मचारी परिचालन',
+                                    const SizedBox(height: 3),
+                                    const Text(
+                                      'नयाँ स्वास्थ्य शिविर तालिका, स्थान र कर्मचारी परिचालन',
                                       style: TextStyle(color: Color(0xFFCCFBF1), fontSize: 12),
                                     ),
                                   ],
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.close, color: Colors.white70),
+                                icon: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, color: Colors.white, size: 18),
+                                ),
+                                tooltip: 'Close',
                                 visualDensity: VisualDensity.compact,
                                 onPressed: () => Navigator.pop(ctx),
                               ),
@@ -2638,26 +2677,25 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         // Scrollable Form Body
                         Flexible(
                           child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(20.0),
+                            padding: const EdgeInsets.all(22.0),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // SECTION 1: Camp Identity
                                 _buildSectionHeader(Icons.badge_outlined, 'Camp Identity (शिविर पहिचान)'),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 10),
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     SizedBox(
-                                      width: 140,
+                                      width: 150,
                                       child: TextField(
                                         controller: codeCtrl,
                                         textCapitalization: TextCapitalization.characters,
-                                        decoration: const InputDecoration(
+                                        decoration: _dialogInputDecoration(
                                           labelText: 'Camp Code *',
                                           hintText: 'e.g. KTM02',
-                                          isDense: true,
-                                          prefixIcon: Icon(Icons.tag, size: 18),
+                                          prefixIcon: const Icon(Icons.tag, size: 18, color: AppTheme.primaryDark),
                                         ),
                                       ),
                                     ),
@@ -2665,86 +2703,90 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     Expanded(
                                       child: TextField(
                                         controller: nameCtrl,
-                                        decoration: const InputDecoration(
+                                        decoration: _dialogInputDecoration(
                                           labelText: 'Official Camp Name *',
                                           hintText: 'e.g. Nilkantha Women Health Camp',
-                                          isDense: true,
-                                          prefixIcon: Icon(Icons.health_and_safety_outlined, size: 18),
+                                          prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: 12),
                                 TextField(
                                   controller: doctorCtrl,
-                                  decoration: const InputDecoration(
+                                  decoration: _dialogInputDecoration(
                                     labelText: 'Examining Doctors (डाक्टरहरूको नाम - अल्पविरामले छुट्याउनुहोस्)',
                                     hintText: 'e.g. Dr. Sita Sharma, Dr. Rita Karki, Dr. Anish Tiwari',
                                     helperText: 'Separate multiple doctors with commas',
-                                    isDense: true,
-                                    prefixIcon: Icon(Icons.medical_services_outlined, size: 18),
+                                    prefixIcon: const Icon(Icons.medical_services_outlined, size: 18, color: AppTheme.primaryDark),
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 20),
 
                                 // SECTION 2: Geographic Location
                                 _buildSectionHeader(Icons.place_outlined, 'Geographic Location (नेपाल स्थान विवरण)'),
-                                const SizedBox(height: 8),
-                                DropdownButtonFormField<String>(
-                                  key: ValueKey('create_prov_$selectedProvince'),
-                                  initialValue: selectedProvince,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Province * (प्रदेश)',
-                                    isDense: true,
-                                    prefixIcon: Icon(Icons.account_balance_outlined, size: 18),
-                                  ),
-                                  items: ClinicalConstants.nepalProvinces.map((prov) {
-                                    return DropdownMenuItem(value: prov, child: Text(prov));
-                                  }).toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setDialogState(() {
-                                        selectedProvince = val;
-                                        final dists = NepalGeodata.districtsFor(val);
-                                        if (!dists.contains(selectedDistrict)) {
-                                          selectedDistrict = dists.isNotEmpty ? dists.first : '';
-                                        }
-                                      });
-                                    }
-                                  },
-                                ),
-                                const SizedBox(height: 10),
-                                DropdownButtonFormField<String>(
-                                  key: ValueKey('create_dist_${selectedProvince}_$selectedDistrict'),
-                                  initialValue: NepalGeodata.districtsFor(selectedProvince).contains(selectedDistrict)
-                                      ? selectedDistrict
-                                      : (NepalGeodata.districtsFor(selectedProvince).isNotEmpty ? NepalGeodata.districtsFor(selectedProvince).first : null),
-                                  decoration: const InputDecoration(
-                                    labelText: 'District * (जिल्ला)',
-                                    isDense: true,
-                                    prefixIcon: Icon(Icons.map_outlined, size: 18),
-                                  ),
-                                  items: NepalGeodata.districtsFor(selectedProvince).map((dist) {
-                                    return DropdownMenuItem(value: dist, child: Text(dist));
-                                  }).toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setDialogState(() {
-                                        selectedDistrict = val;
-                                        final palikas = NepalGeodata.palikasFor(val);
-                                        if (!palikas.contains(munCtrl.text)) {
-                                          munCtrl.text = palikas.isNotEmpty ? palikas.first : '';
-                                        }
-                                      });
-                                    }
-                                  },
-                                ),
                                 const SizedBox(height: 10),
                                 Row(
                                   children: [
                                     Expanded(
-                                      flex: 2,
+                                      child: DropdownButtonFormField<String>(
+                                        key: ValueKey('create_prov_$selectedProvince'),
+                                        initialValue: selectedProvince,
+                                        decoration: _dialogInputDecoration(
+                                          labelText: 'Province * (प्रदेश)',
+                                          prefixIcon: const Icon(Icons.account_balance_outlined, size: 18, color: AppTheme.primaryDark),
+                                        ),
+                                        items: ClinicalConstants.nepalProvinces.map((prov) {
+                                          return DropdownMenuItem(value: prov, child: Text(prov, style: const TextStyle(fontSize: 13)));
+                                        }).toList(),
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            setDialogState(() {
+                                              selectedProvince = val;
+                                              final dists = NepalGeodata.districtsFor(val);
+                                              if (!dists.contains(selectedDistrict)) {
+                                                selectedDistrict = dists.isNotEmpty ? dists.first : '';
+                                              }
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        key: ValueKey('create_dist_${selectedProvince}_$selectedDistrict'),
+                                        initialValue: NepalGeodata.districtsFor(selectedProvince).contains(selectedDistrict)
+                                            ? selectedDistrict
+                                            : (NepalGeodata.districtsFor(selectedProvince).isNotEmpty ? NepalGeodata.districtsFor(selectedProvince).first : null),
+                                        decoration: _dialogInputDecoration(
+                                          labelText: 'District * (जिल्ला)',
+                                          prefixIcon: const Icon(Icons.map_outlined, size: 18, color: AppTheme.primaryDark),
+                                        ),
+                                        items: NepalGeodata.districtsFor(selectedProvince).map((dist) {
+                                          return DropdownMenuItem(value: dist, child: Text(dist, style: const TextStyle(fontSize: 13)));
+                                        }).toList(),
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            setDialogState(() {
+                                              selectedDistrict = val;
+                                              final palikas = NepalGeodata.palikasFor(val);
+                                              if (!palikas.contains(munCtrl.text)) {
+                                                munCtrl.text = palikas.isNotEmpty ? palikas.first : '';
+                                              }
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
                                       child: Builder(
                                         builder: (context) {
                                           final availablePalikas = NepalGeodata.palikasFor(
@@ -2761,10 +2803,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                             key: ValueKey('create_palika_${selectedDistrict}_${munCtrl.text}'),
                                             initialValue: currentPalika,
                                             isExpanded: true,
-                                            decoration: const InputDecoration(
+                                            decoration: _dialogInputDecoration(
                                               labelText: 'Palika / Municipality * (पालिका)',
-                                              isDense: true,
-                                              prefixIcon: Icon(Icons.location_city_outlined, size: 18),
+                                              prefixIcon: const Icon(Icons.location_city_outlined, size: 18, color: AppTheme.primaryDark),
                                             ),
                                             items: availablePalikas.map((p) {
                                               return DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)));
@@ -2778,35 +2819,35 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         },
                                       ),
                                     ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
+                                    const SizedBox(width: 12),
+                                    SizedBox(
+                                      width: 140,
                                       child: TextField(
                                         controller: wardCtrl,
                                         keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(
+                                        decoration: _dialogInputDecoration(
                                           labelText: 'Ward No.',
                                           hintText: 'e.g. 03',
-                                          isDense: true,
+                                          prefixIcon: const Icon(Icons.numbers_outlined, size: 18, color: AppTheme.primaryDark),
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: 12),
                                 TextField(
                                   controller: venueCtrl,
-                                  decoration: const InputDecoration(
+                                  decoration: _dialogInputDecoration(
                                     labelText: 'Venue / Health Post Facility *',
-                                    hintText: 'e.g. Primary Health Care Center',
-                                    isDense: true,
-                                    prefixIcon: Icon(Icons.business_outlined, size: 18),
+                                    hintText: 'e.g. Primary Health Care Center, Community Hall',
+                                    prefixIcon: const Icon(Icons.business_outlined, size: 18, color: AppTheme.primaryDark),
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 20),
 
                                 // SECTION 3: Operational Timeline (Bilingual)
-                                _buildSectionHeader(Icons.calendar_today_outlined, 'Operational Timeline (सञ्चालन मिति तथा अवधि)'),
-                                const SizedBox(height: 8),
+                                _buildSectionHeader(Icons.calendar_month_outlined, 'Operational Timeline (सञ्चालन मिति तथा अवधि)'),
+                                const SizedBox(height: 10),
                                 LayoutBuilder(
                                   builder: (context, constraints) {
                                     final isStacked = constraints.maxWidth < 440;
@@ -2818,6 +2859,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                             labelEn: 'Start Date',
                                             labelNp: 'सुरु मिति',
                                             date: startDate,
+                                            accentColor: AppTheme.primaryTeal,
                                             onDateSelected: (d) => setDialogState(() => startDate = d),
                                           ),
                                           const SizedBox(height: 8),
@@ -2826,6 +2868,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                             labelEn: 'End Date',
                                             labelNp: 'समापन मिति',
                                             date: endDate,
+                                            accentColor: AppTheme.accentCyan,
                                             onDateSelected: (d) => setDialogState(() => endDate = d),
                                           ),
                                         ],
@@ -2839,16 +2882,18 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                             labelEn: 'Start Date',
                                             labelNp: 'सुरु मिति',
                                             date: startDate,
+                                            accentColor: AppTheme.primaryTeal,
                                             onDateSelected: (d) => setDialogState(() => startDate = d),
                                           ),
                                         ),
-                                        const SizedBox(width: 10),
+                                        const SizedBox(width: 12),
                                         Expanded(
                                           child: _buildBilingualDateField(
                                             context: context,
                                             labelEn: 'End Date',
                                             labelNp: 'समापन मिति',
                                             date: endDate,
+                                            accentColor: AppTheme.accentCyan,
                                             onDateSelected: (d) => setDialogState(() => endDate = d),
                                           ),
                                         ),
@@ -2856,28 +2901,35 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     );
                                   },
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 10),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                   decoration: BoxDecoration(
                                     color: isDateValid ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
-                                      color: isDateValid ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA),
+                                      color: isDateValid ? const Color(0xFF86EFAC) : const Color(0xFFFECACA),
                                     ),
                                   ),
                                   child: Row(
                                     children: [
-                                      Icon(
-                                        isDateValid ? Icons.timer_outlined : Icons.error_outline,
-                                        size: 16,
-                                        color: isDateValid ? AppTheme.successGreen : AppTheme.dangerRose,
+                                      Container(
+                                        padding: const EdgeInsets.all(5),
+                                        decoration: BoxDecoration(
+                                          color: (isDateValid ? AppTheme.successGreen : AppTheme.dangerRose).withValues(alpha: 0.12),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          isDateValid ? Icons.schedule_rounded : Icons.error_outline_rounded,
+                                          size: 16,
+                                          color: isDateValid ? AppTheme.successGreen : AppTheme.dangerRose,
+                                        ),
                                       ),
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
                                           isDateValid
-                                              ? '⏱️ Deployment: $durationDays Day(s)  •  🇳🇵 ${NepaliDateHelper.formatBsRange(startDate, endDate, pureNepali: true)}'
+                                              ? '⏱️ Mission Duration: $durationDays Day(s)  •  🇳🇵 BS Range: ${NepaliDateHelper.formatBsRange(startDate, endDate, pureNepali: true)}'
                                               : 'End date cannot precede the start date. Please adjust the deployment period.',
                                           style: TextStyle(
                                             fontSize: 12,
@@ -2889,48 +2941,80 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 20),
 
                                 // SECTION 4: Status Configuration
                                 _buildSectionHeader(Icons.flag_outlined, 'Deployment Lifecycle Status (शिविर स्थिति)'),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 10),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: InkWell(
                                         onTap: () => setDialogState(() => selectedStatus = CampStatus.scheduled),
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 180),
+                                          padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
-                                            color: selectedStatus == CampStatus.scheduled ? Colors.indigo.withValues(alpha: 0.1) : Colors.white,
-                                            borderRadius: BorderRadius.circular(8),
+                                            color: selectedStatus == CampStatus.scheduled
+                                                ? const Color(0xFFF0FDFA)
+                                                : Colors.white,
+                                            borderRadius: BorderRadius.circular(12),
                                             border: Border.all(
-                                              color: selectedStatus == CampStatus.scheduled ? Colors.indigo : AppTheme.borderLight,
-                                              width: selectedStatus == CampStatus.scheduled ? 1.5 : 1,
+                                              color: selectedStatus == CampStatus.scheduled
+                                                  ? AppTheme.primaryTeal
+                                                  : const Color(0xFFE2E8F0),
+                                              width: selectedStatus == CampStatus.scheduled ? 1.8 : 1,
                                             ),
+                                            boxShadow: selectedStatus == CampStatus.scheduled
+                                                ? [
+                                                    BoxShadow(
+                                                      color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                                                      blurRadius: 8,
+                                                      offset: const Offset(0, 2),
+                                                    )
+                                                  ]
+                                                : null,
                                           ),
                                           child: Row(
                                             children: [
                                               Container(
-                                                width: 18,
-                                                height: 18,
-                                                margin: const EdgeInsets.symmetric(horizontal: 8),
+                                                width: 32,
+                                                height: 32,
                                                 decoration: BoxDecoration(
+                                                  color: selectedStatus == CampStatus.scheduled
+                                                      ? AppTheme.primaryTeal
+                                                      : const Color(0xFFF1F5F9),
                                                   shape: BoxShape.circle,
-                                                  border: Border.all(
-                                                    color: selectedStatus == CampStatus.scheduled ? Colors.indigo : Colors.grey.shade400,
-                                                    width: selectedStatus == CampStatus.scheduled ? 5 : 1.5,
-                                                  ),
+                                                ),
+                                                child: Icon(
+                                                  selectedStatus == CampStatus.scheduled
+                                                      ? Icons.check_circle_rounded
+                                                      : Icons.event_available_outlined,
+                                                  color: selectedStatus == CampStatus.scheduled
+                                                      ? Colors.white
+                                                      : const Color(0xFF64748B),
+                                                  size: 18,
                                                 ),
                                               ),
-                                              const SizedBox(width: 4),
+                                              const SizedBox(width: 10),
                                               const Expanded(
                                                 child: Column(
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
-                                                    Text('Scheduled', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                                    Text('तालिकाबद्ध (Ready to open)', style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
+                                                    Text(
+                                                      'Scheduled',
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.w700,
+                                                        fontSize: 13,
+                                                        color: Color(0xFF0F172A),
+                                                      ),
+                                                    ),
+                                                    SizedBox(height: 1),
+                                                    Text(
+                                                      'तालिकाबद्ध (Ready to open)',
+                                                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                                    ),
                                                   ],
                                                 ),
                                               ),
@@ -2939,42 +3023,74 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 12),
                                     Expanded(
                                       child: InkWell(
                                         onTap: () => setDialogState(() => selectedStatus = CampStatus.draft),
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 180),
+                                          padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
-                                            color: selectedStatus == CampStatus.draft ? AppTheme.warningAmber.withValues(alpha: 0.12) : Colors.white,
-                                            borderRadius: BorderRadius.circular(8),
+                                            color: selectedStatus == CampStatus.draft
+                                                ? const Color(0xFFFFFBEB)
+                                                : Colors.white,
+                                            borderRadius: BorderRadius.circular(12),
                                             border: Border.all(
-                                              color: selectedStatus == CampStatus.draft ? AppTheme.warningAmber : AppTheme.borderLight,
-                                              width: selectedStatus == CampStatus.draft ? 1.5 : 1,
+                                              color: selectedStatus == CampStatus.draft
+                                                  ? AppTheme.warningAmber
+                                                  : const Color(0xFFE2E8F0),
+                                              width: selectedStatus == CampStatus.draft ? 1.8 : 1,
                                             ),
+                                            boxShadow: selectedStatus == CampStatus.draft
+                                                ? [
+                                                    BoxShadow(
+                                                      color: AppTheme.warningAmber.withValues(alpha: 0.15),
+                                                      blurRadius: 8,
+                                                      offset: const Offset(0, 2),
+                                                    )
+                                                  ]
+                                                : null,
                                           ),
                                           child: Row(
                                             children: [
                                               Container(
-                                                width: 18,
-                                                height: 18,
-                                                margin: const EdgeInsets.symmetric(horizontal: 8),
+                                                width: 32,
+                                                height: 32,
                                                 decoration: BoxDecoration(
+                                                  color: selectedStatus == CampStatus.draft
+                                                      ? AppTheme.warningAmber
+                                                      : const Color(0xFFF1F5F9),
                                                   shape: BoxShape.circle,
-                                                  border: Border.all(
-                                                    color: selectedStatus == CampStatus.draft ? AppTheme.warningAmber : Colors.grey.shade400,
-                                                    width: selectedStatus == CampStatus.draft ? 5 : 1.5,
-                                                  ),
+                                                ),
+                                                child: Icon(
+                                                  selectedStatus == CampStatus.draft
+                                                      ? Icons.check_circle_rounded
+                                                      : Icons.edit_note_rounded,
+                                                  color: selectedStatus == CampStatus.draft
+                                                      ? Colors.white
+                                                      : const Color(0xFF64748B),
+                                                  size: 18,
                                                 ),
                                               ),
-                                              const SizedBox(width: 4),
+                                              const SizedBox(width: 10),
                                               const Expanded(
                                                 child: Column(
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
-                                                    Text('Draft', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                                    Text('मस्यौदा (Planning stage)', style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
+                                                    Text(
+                                                      'Draft',
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.w700,
+                                                        fontSize: 13,
+                                                        color: Color(0xFF0F172A),
+                                                      ),
+                                                    ),
+                                                    SizedBox(height: 1),
+                                                    Text(
+                                                      'मस्यौदा (Planning stage)',
+                                                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                                    ),
                                                   ],
                                                 ),
                                               ),
@@ -2985,108 +3101,207 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 20),
 
-                                // SECTION 5: Staff Dispatch (Starts 100% EMPTY!)
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildSectionHeader(Icons.people_alt_outlined, 'Staff Dispatch (कर्मचारी परिचालन)'),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: selectedStaffIds.isEmpty ? Colors.grey.shade200 : AppTheme.primaryLight,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        '${selectedStaffIds.length} selected',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: selectedStaffIds.isEmpty ? Colors.grey.shade700 : AppTheme.primaryDark,
-                                        ),
+                                // SECTION 5: Staff Dispatch
+                                _buildSectionHeader(
+                                  Icons.people_alt_outlined,
+                                  'Staff Dispatch (कर्मचारी परिचालन)',
+                                  trailing: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: selectedStaffIds.isEmpty ? const Color(0xFFF1F5F9) : const Color(0xFFCCFBF1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: selectedStaffIds.isEmpty ? const Color(0xFFCBD5E1) : const Color(0xFF5EEAD4),
                                       ),
                                     ),
-                                  ],
+                                    child: Text(
+                                      selectedStaffIds.isEmpty ? 'Optional (0 selected)' : '${selectedStaffIds.length} Assigned',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: selectedStaffIds.isEmpty ? const Color(0xFF64748B) : AppTheme.primaryDark,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 10),
                                 staffAsync.when(
                                   loading: () => const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator())),
                                   error: (e, _) => Text('Error loading staff: $e', style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12)),
                                   data: (staffList) {
                                     if (staffList.isEmpty) {
-                                      return const Text('No registered staff members found. Staff can be registered later.', style: TextStyle(fontSize: 12, color: Colors.grey));
+                                      return Container(
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF8FAFC),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                                        ),
+                                        child: const Row(
+                                          children: [
+                                            Icon(Icons.info_outline, size: 16, color: Color(0xFF94A3B8)),
+                                            SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'No registered staff members found. Staff can be registered later and dispatched to this camp.',
+                                                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
                                     }
                                     return Container(
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFF8FAFC),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: AppTheme.borderLight),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: const Color(0xFFE2E8F0)),
                                       ),
                                       child: Column(
                                         children: [
                                           Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                             child: Row(
                                               children: [
+                                                const Icon(Icons.info_outline, size: 14, color: Color(0xFF64748B)),
+                                                const SizedBox(width: 6),
                                                 const Expanded(
                                                   child: Text(
                                                     'Starts empty — select staff explicitly:',
-                                                    style: TextStyle(fontSize: 11, color: Colors.blueGrey),
+                                                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                                                     overflow: TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 6),
                                                 TextButton(
-                                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 6)),
+                                                  style: TextButton.styleFrom(
+                                                    visualDensity: VisualDensity.compact,
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                    foregroundColor: AppTheme.primaryTeal,
+                                                  ),
                                                   onPressed: () {
                                                     setDialogState(() {
                                                       selectedStaffIds.addAll(staffList.map((s) => s.id));
                                                     });
                                                   },
-                                                  child: const Text('Select All', style: TextStyle(fontSize: 11)),
+                                                  child: const Text('Select All', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                                 ),
                                                 TextButton(
-                                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 6)),
+                                                  style: TextButton.styleFrom(
+                                                    visualDensity: VisualDensity.compact,
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                    foregroundColor: AppTheme.dangerRose,
+                                                  ),
                                                   onPressed: () {
                                                     setDialogState(() {
                                                       selectedStaffIds.clear();
                                                     });
                                                   },
-                                                  child: const Text('Clear', style: TextStyle(fontSize: 11, color: AppTheme.dangerRose)),
+                                                  child: const Text('Clear', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                                 ),
                                               ],
                                             ),
                                           ),
-                                          const Divider(height: 1),
+                                          const Divider(height: 1, color: Color(0xFFE2E8F0)),
                                           ConstrainedBox(
                                             constraints: const BoxConstraints(maxHeight: 180),
                                             child: ListView.separated(
                                               shrinkWrap: true,
                                               itemCount: staffList.length,
-                                              separatorBuilder: (_, _) => const Divider(height: 1),
+                                              separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
                                               itemBuilder: (_, idx) {
                                                 final s = staffList[idx];
                                                 final isChecked = selectedStaffIds.contains(s.id);
+                                                final roleColor = s.role == UserRole.superAdmin
+                                                    ? Colors.indigo
+                                                    : (s.role == UserRole.dataAnalyst ? AppTheme.accentCyan : AppTheme.primaryTeal);
+
                                                 return Material(
                                                   type: MaterialType.transparency,
-                                                  child: CheckboxListTile(
-                                                    dense: true,
-                                                    visualDensity: VisualDensity.compact,
-                                                    title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                                    subtitle: Text('${s.role.displayNameEn} • ${s.email}', style: const TextStyle(fontSize: 11)),
-                                                    value: isChecked,
-                                                    onChanged: (val) {
+                                                  child: InkWell(
+                                                    onTap: () {
                                                       setDialogState(() {
-                                                        if (val == true) {
-                                                          selectedStaffIds.add(s.id);
-                                                        } else {
+                                                        if (isChecked) {
                                                           selectedStaffIds.remove(s.id);
+                                                        } else {
+                                                          selectedStaffIds.add(s.id);
                                                         }
                                                       });
                                                     },
+                                                    child: Padding(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                      child: Row(
+                                                        children: [
+                                                          Container(
+                                                            width: 32,
+                                                            height: 32,
+                                                            decoration: BoxDecoration(
+                                                              color: roleColor.withValues(alpha: 0.12),
+                                                              shape: BoxShape.circle,
+                                                            ),
+                                                            child: Icon(
+                                                              s.role == UserRole.superAdmin
+                                                                  ? Icons.admin_panel_settings_rounded
+                                                                  : (s.role == UserRole.dataAnalyst ? Icons.insights_rounded : Icons.assignment_ind_rounded),
+                                                              color: roleColor,
+                                                              size: 16,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 10),
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                              children: [
+                                                                Text(
+                                                                  s.name,
+                                                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF0F172A)),
+                                                                ),
+                                                                const SizedBox(height: 2),
+                                                                Row(
+                                                                  children: [
+                                                                    Container(
+                                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                                      decoration: BoxDecoration(
+                                                                        color: roleColor.withValues(alpha: 0.1),
+                                                                        borderRadius: BorderRadius.circular(4),
+                                                                      ),
+                                                                      child: Text(
+                                                                        s.role.displayNameEn,
+                                                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: roleColor),
+                                                                      ),
+                                                                    ),
+                                                                    const SizedBox(width: 6),
+                                                                    Expanded(
+                                                                      child: Text(
+                                                                        s.email,
+                                                                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                                                        overflow: TextOverflow.ellipsis,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          Checkbox(
+                                                            value: isChecked,
+                                                            activeColor: AppTheme.primaryTeal,
+                                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                                            onChanged: (val) {
+                                                              setDialogState(() {
+                                                                if (val == true) {
+                                                                  selectedStaffIds.add(s.id);
+                                                                } else {
+                                                                  selectedStaffIds.remove(s.id);
+                                                                }
+                                                              });
+                                                            },
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
                                                   ),
                                                 );
                                               },
@@ -3104,25 +3319,36 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
                         // Dialog Footer Actions
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
                           decoration: const BoxDecoration(
                             color: Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
-                            border: Border(top: BorderSide(color: AppTheme.borderLight)),
+                            border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                           ),
                           child: Wrap(
                             alignment: WrapAlignment.end,
                             crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
+                            spacing: 10,
                             runSpacing: 8,
                             children: [
-                              TextButton(
+                              OutlinedButton(
                                 onPressed: () => Navigator.pop(ctx),
-                                child: const Text('Cancel'),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                                ),
+                                child: const Text('Cancel', style: TextStyle(color: Color(0xFF475569), fontWeight: FontWeight.w600)),
                               ),
                               OutlinedButton.icon(
-                                icon: const Icon(Icons.edit_note, size: 16),
+                                icon: const Icon(Icons.bookmark_border_rounded, size: 16),
                                 label: const Text('Save as Draft'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.warningAmber,
+                                  side: const BorderSide(color: Color(0xFFF59E0B)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                                ),
                                 onPressed: () => _submitCampForm(
                                   ctx: ctx,
                                   code: codeCtrl.text.trim(),
@@ -3142,11 +3368,17 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 ),
                               ),
                               ElevatedButton.icon(
-                                icon: const Icon(Icons.check, size: 16),
-                                label: Text(selectedStatus == CampStatus.draft ? 'Save Draft' : 'Schedule Camp'),
+                                icon: const Icon(Icons.check_circle_outline_rounded, size: 17),
+                                label: Text(
+                                  selectedStatus == CampStatus.draft ? 'Save Draft' : 'Schedule Camp',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: selectedStatus == CampStatus.draft ? AppTheme.warningAmber : AppTheme.primaryTeal,
                                   foregroundColor: selectedStatus == CampStatus.draft ? Colors.black87 : Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  elevation: 1,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
                                 onPressed: () => _submitCampForm(
                                   ctx: ctx,
@@ -3311,113 +3543,190 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              clipBehavior: Clip.antiAlias,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: 580,
-                  maxHeight: MediaQuery.of(context).size.height * 0.88,
+                  maxWidth: 640,
+                  maxHeight: MediaQuery.of(context).size.height * 0.90,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Header
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
                       decoration: const BoxDecoration(
-                        color: Color(0xFF0F766E),
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.edit_location_alt_outlined, color: Colors.white, size: 20),
-                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                            ),
+                            child: const Icon(Icons.edit_location_alt_rounded, color: Colors.white, size: 22),
+                          ),
+                          const SizedBox(width: 14),
                           Expanded(
-                            child: Text(
-                              'Edit Camp (${camp.campCode})',
-                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text(
+                                      'Edit Camp Mission',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.accentCyan.withValues(alpha: 0.35),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                                      ),
+                                      child: Text(
+                                        camp.campCode,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                const Text(
+                                  'शिविर विवरण, स्थान र सञ्चालन तालिका परिमार्जन गर्नुहोस्',
+                                  style: TextStyle(color: Color(0xFFCCFBF1), fontSize: 12),
+                                ),
+                              ],
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white70),
+                            icon: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white, size: 18),
+                            ),
+                            tooltip: 'Close',
                             visualDensity: VisualDensity.compact,
                             onPressed: () => Navigator.pop(ctx),
                           ),
                         ],
                       ),
                     ),
+
+                    // Scrollable Form Body
                     Flexible(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(20.0),
+                        padding: const EdgeInsets.all(22.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // SECTION 1: Camp Identity
+                            _buildSectionHeader(Icons.badge_outlined, 'Camp Identity (शिविर पहिचान)'),
+                            const SizedBox(height: 10),
                             TextField(
                               controller: nameCtrl,
-                              decoration: const InputDecoration(labelText: 'Camp Name *', isDense: true),
+                              decoration: _dialogInputDecoration(
+                                labelText: 'Camp Name *',
+                                hintText: 'e.g. Nilkantha Women Health Camp',
+                                prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
+                              ),
                             ),
                             const SizedBox(height: 12),
                             TextField(
                               controller: doctorCtrl,
-                              decoration: const InputDecoration(
+                              decoration: _dialogInputDecoration(
                                 labelText: 'Examining Doctor / Medical Officer (डाक्टरको नाम)',
                                 hintText: 'e.g. Dr. Sita Sharma, MD',
-                                isDense: true,
-                                prefixIcon: Icon(Icons.medical_services_outlined, size: 18),
+                                helperText: 'Separate multiple doctors with commas',
+                                prefixIcon: const Icon(Icons.medical_services_outlined, size: 18, color: AppTheme.primaryDark),
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            DropdownButtonFormField<String>(
-                              key: ValueKey('edit_prov_$selectedProvince'),
-                              initialValue: selectedProvince,
-                              decoration: const InputDecoration(
-                                labelText: 'Province * (प्रदेश)',
-                                isDense: true,
-                                prefixIcon: Icon(Icons.account_balance_outlined, size: 18),
-                              ),
-                              items: ClinicalConstants.nepalProvinces.map((prov) {
-                                return DropdownMenuItem(value: prov, child: Text(prov));
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setDialogState(() {
-                                    selectedProvince = val;
-                                    final dists = NepalGeodata.districtsFor(val);
-                                    if (!dists.contains(selectedDistrict)) {
-                                      selectedDistrict = dists.isNotEmpty ? dists.first : '';
-                                    }
-                                  });
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            DropdownButtonFormField<String>(
-                              key: ValueKey('edit_dist_${selectedProvince}_$selectedDistrict'),
-                              initialValue: NepalGeodata.districtsFor(selectedProvince).contains(selectedDistrict)
-                                  ? selectedDistrict
-                                  : (NepalGeodata.districtsFor(selectedProvince).isNotEmpty ? NepalGeodata.districtsFor(selectedProvince).first : null),
-                              decoration: const InputDecoration(
-                                labelText: 'District * (जिल्ला)',
-                                isDense: true,
-                                prefixIcon: Icon(Icons.map_outlined, size: 18),
-                              ),
-                              items: NepalGeodata.districtsFor(selectedProvince).map((dist) {
-                                return DropdownMenuItem(value: dist, child: Text(dist));
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setDialogState(() {
-                                    selectedDistrict = val;
-                                    final palikas = NepalGeodata.palikasFor(val);
-                                    if (!palikas.contains(munCtrl.text)) {
-                                      munCtrl.text = palikas.isNotEmpty ? palikas.first : '';
-                                    }
-                                  });
-                                }
-                              },
+                            const SizedBox(height: 20),
+
+                            // SECTION 2: Geographic Location
+                            _buildSectionHeader(Icons.place_outlined, 'Geographic Location (नेपाल स्थान विवरण)'),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    key: ValueKey('edit_prov_$selectedProvince'),
+                                    initialValue: selectedProvince,
+                                    decoration: _dialogInputDecoration(
+                                      labelText: 'Province * (प्रदेश)',
+                                      prefixIcon: const Icon(Icons.account_balance_outlined, size: 18, color: AppTheme.primaryDark),
+                                    ),
+                                    items: ClinicalConstants.nepalProvinces.map((prov) {
+                                      return DropdownMenuItem(value: prov, child: Text(prov, style: const TextStyle(fontSize: 13)));
+                                    }).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setDialogState(() {
+                                          selectedProvince = val;
+                                          final dists = NepalGeodata.districtsFor(val);
+                                          if (!dists.contains(selectedDistrict)) {
+                                            selectedDistrict = dists.isNotEmpty ? dists.first : '';
+                                          }
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    key: ValueKey('edit_dist_${selectedProvince}_$selectedDistrict'),
+                                    initialValue: NepalGeodata.districtsFor(selectedProvince).contains(selectedDistrict)
+                                        ? selectedDistrict
+                                        : (NepalGeodata.districtsFor(selectedProvince).isNotEmpty ? NepalGeodata.districtsFor(selectedProvince).first : null),
+                                    decoration: _dialogInputDecoration(
+                                      labelText: 'District * (जिल्ला)',
+                                      prefixIcon: const Icon(Icons.map_outlined, size: 18, color: AppTheme.primaryDark),
+                                    ),
+                                    items: NepalGeodata.districtsFor(selectedProvince).map((dist) {
+                                      return DropdownMenuItem(value: dist, child: Text(dist, style: const TextStyle(fontSize: 13)));
+                                    }).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setDialogState(() {
+                                          selectedDistrict = val;
+                                          final palikas = NepalGeodata.palikasFor(val);
+                                          if (!palikas.contains(munCtrl.text)) {
+                                            munCtrl.text = palikas.isNotEmpty ? palikas.first : '';
+                                          }
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 12),
                             Row(
                               children: [
                                 Expanded(
-                                  flex: 2,
+                                  flex: 3,
                                   child: Builder(
                                     builder: (context) {
                                       final availablePalikas = NepalGeodata.palikasFor(
@@ -3434,10 +3743,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         key: ValueKey('edit_palika_${selectedDistrict}_${munCtrl.text}'),
                                         initialValue: currentPalika,
                                         isExpanded: true,
-                                        decoration: const InputDecoration(
+                                        decoration: _dialogInputDecoration(
                                           labelText: 'Palika / Municipality * (पालिका)',
-                                          isDense: true,
-                                          prefixIcon: Icon(Icons.location_city_outlined, size: 18),
+                                          prefixIcon: const Icon(Icons.location_city_outlined, size: 18, color: AppTheme.primaryDark),
                                         ),
                                         items: availablePalikas.map((p) {
                                           return DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)));
@@ -3451,12 +3759,17 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     },
                                   ),
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  width: 140,
                                   child: TextField(
                                     controller: wardCtrl,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'Ward', isDense: true),
+                                    decoration: _dialogInputDecoration(
+                                      labelText: 'Ward No.',
+                                      hintText: 'e.g. 03',
+                                      prefixIcon: const Icon(Icons.numbers_outlined, size: 18, color: AppTheme.primaryDark),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -3464,11 +3777,17 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             const SizedBox(height: 12),
                             TextField(
                               controller: venueCtrl,
-                              decoration: const InputDecoration(labelText: 'Venue / Facility *', isDense: true),
+                              decoration: _dialogInputDecoration(
+                                labelText: 'Venue / Health Post Facility *',
+                                hintText: 'e.g. Primary Health Care Center, Community Hall',
+                                prefixIcon: const Icon(Icons.business_outlined, size: 18, color: AppTheme.primaryDark),
+                              ),
                             ),
-                            const SizedBox(height: 16),
-                            _buildSectionHeader(Icons.calendar_today_outlined, 'Bilingual Dates (नेपाली र अंग्रेजी मिति)'),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 20),
+
+                            // SECTION 3: Operational Timeline
+                            _buildSectionHeader(Icons.calendar_month_outlined, 'Operational Timeline (सञ्चालन मिति तथा अवधि)'),
+                            const SizedBox(height: 10),
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final isStacked = constraints.maxWidth < 440;
@@ -3480,6 +3799,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         labelEn: 'Start Date',
                                         labelNp: 'सुरु मिति',
                                         date: startDate,
+                                        accentColor: AppTheme.primaryTeal,
                                         onDateSelected: (d) => setDialogState(() => startDate = d),
                                       ),
                                       const SizedBox(height: 8),
@@ -3488,6 +3808,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         labelEn: 'End Date',
                                         labelNp: 'समापन मिति',
                                         date: endDate,
+                                        accentColor: AppTheme.accentCyan,
                                         onDateSelected: (d) => setDialogState(() => endDate = d),
                                       ),
                                     ],
@@ -3501,16 +3822,18 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         labelEn: 'Start Date',
                                         labelNp: 'सुरु मिति',
                                         date: startDate,
+                                        accentColor: AppTheme.primaryTeal,
                                         onDateSelected: (d) => setDialogState(() => startDate = d),
                                       ),
                                     ),
-                                    const SizedBox(width: 10),
+                                    const SizedBox(width: 12),
                                     Expanded(
                                       child: _buildBilingualDateField(
                                         context: context,
                                         labelEn: 'End Date',
                                         labelNp: 'समापन मिति',
                                         date: endDate,
+                                        accentColor: AppTheme.accentCyan,
                                         onDateSelected: (d) => setDialogState(() => endDate = d),
                                       ),
                                     ),
@@ -3518,29 +3841,36 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 );
                               },
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 10),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
                                 color: isDateValid ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: isDateValid ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA),
+                                  color: isDateValid ? const Color(0xFF86EFAC) : const Color(0xFFFECACA),
                                 ),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(
-                                    isDateValid ? Icons.timer_outlined : Icons.error_outline,
-                                    size: 16,
-                                    color: isDateValid ? AppTheme.successGreen : AppTheme.dangerRose,
+                                  Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: (isDateValid ? AppTheme.successGreen : AppTheme.dangerRose).withValues(alpha: 0.12),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      isDateValid ? Icons.schedule_rounded : Icons.error_outline_rounded,
+                                      size: 16,
+                                      color: isDateValid ? AppTheme.successGreen : AppTheme.dangerRose,
+                                    ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       isDateValid
-                                          ? '⏱️ Deployment: $durationDays Day(s)  •  🇳🇵 ${NepaliDateHelper.formatBsRange(startDate, endDate, pureNepali: true)}'
-                                          : 'End date cannot precede the start date.',
+                                          ? '⏱️ Mission Duration: $durationDays Day(s)  •  🇳🇵 BS Range: ${NepaliDateHelper.formatBsRange(startDate, endDate, pureNepali: true)}'
+                                          : 'End date cannot precede the start date. Please adjust the deployment period.',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -3555,22 +3885,38 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         ),
                       ),
                     ),
+
+                    // Dialog Footer Actions
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
                       decoration: const BoxDecoration(
                         color: Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
-                        border: Border(top: BorderSide(color: AppTheme.borderLight)),
+                        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                          const SizedBox(width: 8),
+                          OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                            ),
+                            child: const Text('Cancel', style: TextStyle(color: Color(0xFF475569), fontWeight: FontWeight.w600)),
+                          ),
+                          const SizedBox(width: 10),
                           ElevatedButton.icon(
-                            icon: const Icon(Icons.check, size: 16),
-                            label: const Text('Save Changes'),
-                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryTeal, foregroundColor: Colors.white),
+                            icon: const Icon(Icons.check_circle_outline_rounded, size: 17),
+                            label: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryTeal,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              elevation: 1,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
                             onPressed: () async {
                               if (nameCtrl.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -3817,40 +4163,78 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           onDateSelected(picked);
         }
       },
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.borderLight),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.calendar_month, size: 15, color: accentColor),
-                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(Icons.calendar_month_rounded, size: 14, color: accentColor),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '$labelEn ($labelNp)',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade700),
+                    labelEn.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                      color: Colors.blueGrey.shade700,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    labelNp,
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 8),
             Text(
               bsFormatted,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryLight),
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
+              ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              '🌐 $adFormatted',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.public, size: 12, color: Colors.blueGrey.shade400),
+                const SizedBox(width: 4),
+                Text(
+                  adFormatted,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.blueGrey.shade600),
+                ),
+              ],
             ),
           ],
         ),
@@ -4409,20 +4793,87 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   // ==========================================
   // HELPERS
   // ==========================================
-  Widget _buildSectionHeader(IconData icon, String title) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: AppTheme.primaryTeal),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            title,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryLight),
-            overflow: TextOverflow.ellipsis,
+  Widget _buildSectionHeader(IconData icon, String title, {Widget? trailing, String? subtitle}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0, top: 2.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDFA),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFCCFBF1)),
+            ),
+            child: Icon(icon, size: 16, color: AppTheme.primaryTeal),
           ),
-        ),
-      ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    color: Color(0xFF0F172A),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _dialogInputDecoration({
+    required String labelText,
+    String? hintText,
+    String? helperText,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      helperText: helperText,
+      helperMaxLines: 1,
+      isDense: true,
+      filled: true,
+      fillColor: const Color(0xFFF8FAFC),
+      labelStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+      floatingLabelStyle: const TextStyle(fontSize: 12.5, color: AppTheme.primaryDark, fontWeight: FontWeight.w600),
+      hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+      prefixIcon: prefixIcon,
+      suffixIcon: suffixIcon,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.5),
+      ),
     );
   }
 
