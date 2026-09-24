@@ -251,7 +251,7 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
 
               // 4. Activity Logs List or Contextual Empty State
               Expanded(
-                child: auditState.isLoading
+                child: (auditState.isLoading && auditState.logs.isEmpty)
                     ? const Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -265,17 +265,32 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
                           ],
                         ),
                       )
-                    : filteredLogs.isEmpty
-                        ? _buildContextualEmptyState(context, _selectedCategory)
-                        : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                            itemCount: filteredLogs.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 10),
-                            itemBuilder: (context, index) {
-                              final log = filteredLogs[index];
-                              return _buildLogCard(context, log, isDesktop);
-                            },
-                          ),
+                    : Stack(
+                        children: [
+                          filteredLogs.isEmpty
+                              ? _buildContextualEmptyState(context, _selectedCategory)
+                              : ListView.separated(
+                                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                                  itemCount: filteredLogs.length,
+                                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                                  itemBuilder: (context, index) {
+                                    final log = filteredLogs[index];
+                                    return _buildLogCard(context, log, isDesktop);
+                                  },
+                                ),
+                          if (auditState.isLoading)
+                            const Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: LinearProgressIndicator(
+                                minHeight: 2.5,
+                                color: AppTheme.primaryTeal,
+                                backgroundColor: Colors.transparent,
+                              ),
+                            ),
+                        ],
+                      ),
               ),
             ],
           ),

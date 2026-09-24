@@ -109,7 +109,7 @@ class _FakeCampViewModel extends StateNotifier<CampState> implements CampViewMod
   _FakeCampViewModel(CampModel camp) : super(CampState(activeCamp: camp, camps: [camp]));
 
   @override
-  Future<void> loadCamps() async {}
+  Future<void> loadCamps({bool silent = false}) async {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

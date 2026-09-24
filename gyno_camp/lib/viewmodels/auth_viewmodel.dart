@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/session_service.dart';
 import '../models/user_model.dart';
@@ -87,8 +88,8 @@ class AuthViewModel extends StateNotifier<AuthState> {
             await session.clearSession();
           }
         }
-      } catch (_) {
-        // Fallback gracefully on read error
+      } catch (e) {
+        debugPrint('[AuthViewModel] restoreSession error: $e');
       }
       state = state.copyWith(isRestoringSession: false);
     }

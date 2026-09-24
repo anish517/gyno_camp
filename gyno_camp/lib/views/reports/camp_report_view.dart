@@ -47,7 +47,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         ref.read(patientListProvider.notifier).loadPatients(targetCampId);
       }
       if (campState.camps.isEmpty) {
-        ref.read(campStateProvider.notifier).loadCamps();
+        ref.read(campStateProvider.notifier).loadCamps(silent: true);
       }
     });
   }

@@ -58,8 +58,10 @@ class AuditLogViewModel extends StateNotifier<AuditLogState> {
     loadRecentLogs();
   }
 
-  Future<void> loadRecentLogs() async {
-    state = state.copyWith(isLoading: true);
+  Future<void> loadRecentLogs({bool silent = false}) async {
+    if (!silent) {
+      state = state.copyWith(isLoading: true);
+    }
     try {
       final logs = await _repository.getRecentLogs(limit: 100);
       if (!mounted) return;

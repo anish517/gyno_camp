@@ -338,7 +338,8 @@ class GynoCampSyncServer {
     // 1. Universal CORS Configuration for Cross-Browser & Cross-Origin Requests
     request.response.headers.set('Access-Control-Allow-Origin', '*');
     request.response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    request.response.headers.set('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, Authorization, X-Device-Id');
+    request.response.headers.set('Access-Control-Allow-Headers', '*');
+    request.response.headers.set('Access-Control-Max-Age', '86400');
     request.response.headers.set('Content-Type', 'application/json; charset=utf-8');
 
     if (request.method == 'OPTIONS') {
@@ -1843,10 +1844,12 @@ class GynoCampSyncServer {
     final deviceId = request.uri.queryParameters['deviceId'] ?? 'unknown';
     print('→ SSE client connected: deviceId=$deviceId');
 
-    request.response.headers.set('Content-Type', 'text/event-stream');
-    request.response.headers.set('Cache-Control', 'no-cache');
+    request.response.headers.set('Content-Type', 'text/event-stream; charset=utf-8');
+    request.response.headers.set('Cache-Control', 'no-cache, no-transform');
     request.response.headers.set('Connection', 'keep-alive');
     request.response.headers.set('Access-Control-Allow-Origin', '*');
+    request.response.headers.set('Access-Control-Allow-Headers', '*');
+    request.response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
 
     // Send initial heartbeat
     request.response.write('event: connected\ndata: {"status":"connected","server_time":"${DateTime.now().toIso8601String()}"}\n\n');

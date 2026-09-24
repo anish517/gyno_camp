@@ -74,10 +74,12 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
           ),
         ],
       ),
-      body: deviceState.isLoading
+      body: (deviceState.isLoading && deviceState.devices.isEmpty)
           ? const Center(child: CircularProgressIndicator())
-          : Center(
-              child: ConstrainedBox(
+          : Stack(
+              children: [
+                Center(
+                  child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1080),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16.0),
@@ -241,6 +243,19 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
                 ),
               ),
             ),
+              if (deviceState.isLoading)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: LinearProgressIndicator(
+                    minHeight: 2.5,
+                    color: AppTheme.primaryTeal,
+                    backgroundColor: Colors.transparent,
+                  ),
+                ),
+            ],
+          ),
     );
   }
 

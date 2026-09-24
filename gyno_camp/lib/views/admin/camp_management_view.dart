@@ -194,13 +194,28 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
         backgroundColor: AppTheme.primaryTeal,
         onPressed: () => _showCreateCampDialog(context),
       ),
-      body: campState.isLoading
+      body: (campState.isLoading && campState.camps.isEmpty)
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
+          : Stack(
               children: [
-                _buildCampRosterTab(context, campState, user, deviceState),
-                _buildInteractiveCalendarTab(context, campState),
+                TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildCampRosterTab(context, campState, user, deviceState),
+                    _buildInteractiveCalendarTab(context, campState),
+                  ],
+                ),
+                if (campState.isLoading)
+                  const Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: LinearProgressIndicator(
+                      minHeight: 2.5,
+                      color: AppTheme.primaryTeal,
+                      backgroundColor: Colors.transparent,
+                    ),
+                  ),
               ],
             ),
     );

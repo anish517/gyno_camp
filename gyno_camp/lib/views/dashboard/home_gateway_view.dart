@@ -41,7 +41,7 @@ class HomeGatewayView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen<SyncState>(syncStateProvider, (previous, next) {
       if (previous?.lastSyncedAt != next.lastSyncedAt && next.lastSyncedAt != null) {
-        ref.read(campStateProvider.notifier).loadCamps();
+        ref.read(campStateProvider.notifier).loadCamps(silent: true);
       }
     });
 
@@ -49,7 +49,7 @@ class HomeGatewayView extends ConsumerWidget {
     final user = authState.currentUser;
     final deviceState = ref.watch(deviceSecurityProvider);
 
-    if (authState.isLoading) {
+    if (authState.isLoading && user == null) {
       return const Scaffold(
         body: Center(
           child: Column(

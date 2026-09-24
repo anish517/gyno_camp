@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/duplicate_detection_service.dart';
 import '../models/patient_model.dart';
@@ -219,7 +220,9 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
 
       if (!mounted) return;
       state = state.copyWith(duplicateResult: result);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[PatientRegVM] duplicate check error: $e');
+    }
   }
 
   Future<PatientModel?> submitRegistration({

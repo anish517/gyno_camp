@@ -42,7 +42,7 @@ class SseSyncService {
     final baseUrl = _apiService.baseUrl;
     final url = '$baseUrl/api/events?deviceId=${Uri.encodeComponent(deviceId)}';
 
-    if (kDebugMode) {
+    if (kDebugMode && (_reconnectAttempts <= 2 || _reconnectAttempts % 10 == 0)) {
       debugPrint('[SSE] Connecting to $url ...');
     }
 
@@ -57,7 +57,7 @@ class SseSyncService {
       );
 
       if (response.statusCode != 200) {
-        if (kDebugMode) {
+        if (kDebugMode && (_reconnectAttempts <= 2 || _reconnectAttempts % 10 == 0)) {
           debugPrint('[SSE] Server returned ${response.statusCode}, will retry');
         }
         _scheduleReconnect();
@@ -108,7 +108,7 @@ class SseSyncService {
         cancelOnError: false,
       );
     } catch (e) {
-      if (kDebugMode) {
+      if (kDebugMode && (_reconnectAttempts <= 2 || _reconnectAttempts % 10 == 0)) {
         debugPrint('[SSE] Connection failed: $e');
       }
       _isConnected = false;
@@ -118,7 +118,7 @@ class SseSyncService {
 
   void _handleEvent(String eventType, String data) {
     if (eventType == 'heartbeat') {
-      // Server keepalive \u2014 ignore silently
+      // Server keepalive — ignore silently
       return;
     }
 
@@ -131,7 +131,7 @@ class SseSyncService {
 
     if (eventType == 'sync_update') {
       if (kDebugMode) {
-        debugPrint('[SSE] \ud83d\udce1 Received sync_update: $data');
+        debugPrint('[SSE] 📡 Received sync_update: $data');
       }
       try {
         final parsed = jsonDecode(data) as Map<String, dynamic>;
@@ -159,7 +159,7 @@ class SseSyncService {
         : _maxReconnectDelaySec;
     _reconnectAttempts++;
 
-    if (kDebugMode) {
+    if (kDebugMode && (_reconnectAttempts <= 2 || _reconnectAttempts % 10 == 0)) {
       debugPrint('[SSE] Reconnecting in ${delaySec}s (attempt $_reconnectAttempts)...');
     }
 

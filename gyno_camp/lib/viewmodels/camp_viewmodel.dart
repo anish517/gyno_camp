@@ -46,8 +46,10 @@ class CampViewModel extends StateNotifier<CampState> {
     loadCamps();
   }
 
-  Future<void> loadCamps() async {
-    state = state.copyWith(isLoading: true, clearError: true);
+  Future<void> loadCamps({bool silent = false}) async {
+    if (!silent) {
+      state = state.copyWith(isLoading: true, clearError: true);
+    }
     try {
       final camps = await _campRepository.getAllCamps();
       var active = await _campRepository.getActiveCamp();

@@ -438,46 +438,61 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
 
               // Tab View Content
               Expanded(
-                child: state.isLoading
+                child: (state.isLoading && state.diagnoses.isEmpty)
                     ? const Center(child: CircularProgressIndicator())
-                    : TabBarView(
-                        controller: _tabController,
+                    : Stack(
                         children: [
-                          _buildItemsList(
-                            context,
-                            state.filteredDiagnoses,
-                            user?.id ?? 'admin-user',
-                            deviceState.device?.deviceId ?? 'dev-admin',
-                            categoryIndex: 0,
+                          TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildItemsList(
+                                context,
+                                state.filteredDiagnoses,
+                                user?.id ?? 'admin-user',
+                                deviceState.device?.deviceId ?? 'dev-admin',
+                                categoryIndex: 0,
+                              ),
+                              _buildItemsList(
+                                context,
+                                state.filteredMedicines,
+                                user?.id ?? 'admin-user',
+                                deviceState.device?.deviceId ?? 'dev-admin',
+                                categoryIndex: 1,
+                              ),
+                              _buildItemsList(
+                                context,
+                                state.filteredReferralHospitals,
+                                user?.id ?? 'admin-user',
+                                deviceState.device?.deviceId ?? 'dev-admin',
+                                categoryIndex: 2,
+                              ),
+                              _buildItemsList(
+                                context,
+                                state.filteredVisitReasons,
+                                user?.id ?? 'admin-user',
+                                deviceState.device?.deviceId ?? 'dev-admin',
+                                categoryIndex: 3,
+                              ),
+                              _buildItemsList(
+                                context,
+                                state.filteredChiefComplaints,
+                                user?.id ?? 'admin-user',
+                                deviceState.device?.deviceId ?? 'dev-admin',
+                                categoryIndex: 4,
+                              ),
+                            ],
                           ),
-                          _buildItemsList(
-                            context,
-                            state.filteredMedicines,
-                            user?.id ?? 'admin-user',
-                            deviceState.device?.deviceId ?? 'dev-admin',
-                            categoryIndex: 1,
-                          ),
-                          _buildItemsList(
-                            context,
-                            state.filteredReferralHospitals,
-                            user?.id ?? 'admin-user',
-                            deviceState.device?.deviceId ?? 'dev-admin',
-                            categoryIndex: 2,
-                          ),
-                          _buildItemsList(
-                            context,
-                            state.filteredVisitReasons,
-                            user?.id ?? 'admin-user',
-                            deviceState.device?.deviceId ?? 'dev-admin',
-                            categoryIndex: 3,
-                          ),
-                          _buildItemsList(
-                            context,
-                            state.filteredChiefComplaints,
-                            user?.id ?? 'admin-user',
-                            deviceState.device?.deviceId ?? 'dev-admin',
-                            categoryIndex: 4,
-                          ),
+                          if (state.isLoading)
+                            const Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: LinearProgressIndicator(
+                                minHeight: 2.5,
+                                color: AppTheme.primaryTeal,
+                                backgroundColor: Colors.transparent,
+                              ),
+                            ),
                         ],
                       ),
               ),

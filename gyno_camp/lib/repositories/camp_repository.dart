@@ -35,9 +35,74 @@ class CampRepository implements ICampRepository {
   })  : _databaseService = databaseService ?? DatabaseService(),
         _auditRepository = auditRepository ?? AuditRepository();
 
+  Future<Set<String>> _getDeletedCampIds(Database db) async {
+    try {
+      final meta = await db.query(
+        DatabaseTables.tableMetadata,
+        where: "key = 'deleted_camp_ids'",
+      );
+      if (meta.isNotEmpty) {
+        final val = meta.first['value'] as String? ?? '';
+        return val.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+      }
+    } catch (e) {
+      debugPrint('[CampRepo] Error reading deleted_camp_ids: $e');
+    }
+    return {};
+  }
+
+  Future<void> _addDeletedCampId(Database db, String campId) async {
+    try {
+      final existing = await _getDeletedCampIds(db);
+      existing.add(campId);
+      await db.insert(
+        DatabaseTables.tableMetadata,
+        {
+          'key': 'deleted_camp_ids',
+          'value': existing.join(','),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      debugPrint('[CampRepo] Error saving deleted_camp_ids: $e');
+    }
+  }
+
+  Future<void> _removeDeletedCampId(Database db, String campId) async {
+    try {
+      final meta = await db.query(
+        DatabaseTables.tableMetadata,
+        where: "key = 'deleted_camp_ids'",
+      );
+      if (meta.isNotEmpty) {
+        final val = meta.first['value'] as String? ?? '';
+        final remaining = val
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty && s != campId)
+            .toList();
+        await db.insert(
+          DatabaseTables.tableMetadata,
+          {
+            'key': 'deleted_camp_ids',
+            'value': remaining.join(','),
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    } catch (e) {
+      debugPrint('[CampRepo] Error clearing deleted_camp_ids: $e');
+    }
+  }
+
   @override
   Future<List<CampModel>> getAllCamps({String? tenantId}) async {
     final db = await _databaseService.database;
+
+    // Load tombstoned deleted camp IDs to guarantee deleted camps are never displayed or re-inserted
+    final deletedCampIds = await _getDeletedCampIds(db);
 
     // 1. Sync latest camps from Central Cloud in background without blocking local return
     if (enableCentralSync && !HttpCentralApiService.isServerCooldownActive) {
@@ -82,24 +147,42 @@ class CampRepository implements ICampRepository {
         COALESCE(c.updated_at, c.created_at) DESC
     ''';
     final maps = await db.rawQuery(sql, hasTenant ? [tenantId] : null);
-    final localCamps = maps.map((m) {
-      final map = Map<String, dynamic>.from(m);
-      if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
-        map['total_patients_registered'] = map['live_patient_count'];
+
+    // Self-healing: if any local SQLite row is in deletedCampIds, purge it immediately
+    if (deletedCampIds.isNotEmpty) {
+      for (final id in deletedCampIds) {
+        db.delete(DatabaseTables.tableCamps, where: 'id = ?', whereArgs: [id]);
       }
-      return CampModel.fromMap(map);
-    }).toList();
+    }
+
+    final localCamps = maps
+        .map((m) {
+          final map = Map<String, dynamic>.from(m);
+          if (map.containsKey('live_patient_count') && map['live_patient_count'] != null) {
+            map['total_patients_registered'] = map['live_patient_count'];
+          }
+          return CampModel.fromMap(map);
+        })
+        .where((c) => !deletedCampIds.contains(c.id))
+        .toList();
 
     return localCamps;
   }
 
-  void _syncCentralCampsInBackground(dynamic db) {
+  void _syncCentralCampsInBackground(Database db) {
     if (!HttpCentralApiService.isServerConfigured) return;
     Future<void>(() async {
       try {
+        final deletedCampIds = await _getDeletedCampIds(db);
         final centralCamps = await HttpCentralApiService().fetchCentralCamps();
         if (centralCamps.isEmpty) return;
         for (final c in centralCamps) {
+          // If camp was deleted locally, inform central server to delete and skip re-insertion
+          if (deletedCampIds.contains(c.id)) {
+            HttpCentralApiService().deleteCentralCamp(c.id);
+            continue;
+          }
+
           final existingRows = await db.query(
             DatabaseTables.tableCamps,
             where: 'id = ?',
@@ -202,6 +285,9 @@ class CampRepository implements ICampRepository {
     final db = await _databaseService.database;
     final campId = camp.id.isEmpty ? 'camp-${_uuid.v4().substring(0, 8)}' : camp.id;
     final newCamp = camp.copyWith(id: campId, createdAt: DateTime.now());
+
+    // Remove from deleted_camp_ids tombstone if re-created
+    await _removeDeletedCampId(db, campId);
 
     await db.insert(
       DatabaseTables.tableCamps,
@@ -396,9 +482,12 @@ class CampRepository implements ICampRepository {
   @override
   Future<bool> deleteCamp(String campId, {required String adminUserId, required String deviceId}) async {
     final camp = await getCampById(campId);
-    if (camp == null) return false;
-
     final db = await _databaseService.database;
+
+    // 1. Immediately save to tombstone so background sync cannot resurrect it
+    await _addDeletedCampId(db, campId);
+
+    // 2. Cascade delete in local database
     await db.delete(
       DatabaseTables.tableClinicalVisits,
       where: 'camp_id = ?',
@@ -449,7 +538,7 @@ class CampRepository implements ICampRepository {
       action: 'CAMP_DELETED',
       entityType: 'Camp',
       entityId: campId,
-      detailsJson: '{"campCode":"${camp.campCode}"}',
+      detailsJson: '{"campCode":"${camp?.campCode ?? campId}"}',
       deviceId: deviceId,
     );
 

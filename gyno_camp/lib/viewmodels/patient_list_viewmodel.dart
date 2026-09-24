@@ -160,8 +160,10 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
 
   PatientListViewModel(this._patientRepository) : super(const PatientListState());
 
-  Future<void> loadPatients([String? campId]) async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+  Future<void> loadPatients([String? campId, bool silent = false]) async {
+    if (!silent) {
+      state = state.copyWith(isLoading: true, errorMessage: null);
+    }
     try {
       final list = await _patientRepository.getPatientsByCamp(campId);
       if (!mounted) return;

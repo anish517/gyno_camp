@@ -112,6 +112,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
         ],
       ),
       body: usersAsync.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
           child: Column(

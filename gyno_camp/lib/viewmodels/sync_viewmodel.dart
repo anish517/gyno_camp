@@ -137,8 +137,13 @@ class SyncViewModel extends StateNotifier<SyncState> {
         lastSyncedAt: lastSync,
         history: hist,
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[SyncVM] refreshPendingCounts error: $e');
+    }
   }
+
+  String get lastKnownDeviceId => _lastKnownDeviceId;
+  String get lastKnownUserId => _lastKnownUserId;
 
   Future<bool> syncNow({required String deviceId, required String userId}) async {
     _lastKnownDeviceId = deviceId;
@@ -177,16 +182,16 @@ class SyncViewModel extends StateNotifier<SyncState> {
         lastSuccessMessage: 'Synced ${result.totalPushed} records uploaded, ${result.campsPulled} updates received.',
       );
 
-      // Instantly refresh UI state across all screens
+      // Instantly refresh UI state across all screens silently without tearing down views
       final r = ref;
       if (r != null) {
         try {
-          r.read(campStateProvider.notifier).loadCamps();
+          r.read(campStateProvider.notifier).loadCamps(silent: true);
           final activeCamp = r.read(campStateProvider).activeCamp;
           if (activeCamp != null) {
-            r.read(patientListProvider.notifier).loadPatients(activeCamp.id);
+            r.read(patientListProvider.notifier).loadPatients(activeCamp.id, true);
           }
-          r.read(masterLookupProvider.notifier).loadAll();
+          r.read(masterLookupProvider.notifier).loadAll(silent: true);
         } catch (_) {}
       }
 
@@ -243,7 +248,7 @@ final syncStateProvider = StateNotifierProvider<SyncViewModel, SyncState>((ref) 
     deviceId: 'dev-field',
     onSyncEvent: (eventData) {
       debugPrint('[SyncVM] SSE event received, triggering instant sync...');
-      vm.syncNow(deviceId: vm._lastKnownDeviceId, userId: vm._lastKnownUserId);
+      vm.syncNow(deviceId: vm.lastKnownDeviceId, userId: vm.lastKnownUserId);
     },
   );
 

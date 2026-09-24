@@ -131,8 +131,10 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
     }
   }
 
-  Future<void> loadAll() async {
-    state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
+  Future<void> loadAll({bool silent = false}) async {
+    if (!silent) {
+      state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
+    }
     try {
       await _repository.ensureDefaultsSeeded(tenantId: _tenantId);
       final diag = await _repository.getItemsByCategory('diagnosis', tenantId: _tenantId, campId: _campId);

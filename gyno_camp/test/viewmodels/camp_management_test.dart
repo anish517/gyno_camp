@@ -141,5 +141,42 @@ void main() {
       expect(deleted, isTrue);
       expect(vm.state.camps.any((c) => c.id == 'camp-to-delete'), isFalse);
     });
+
+    test('deleted camp is preserved in tombstone and filtered out even upon resurrection attempt', () async {
+      final tempCamp = CampModel(
+        id: 'camp-tombstone-test',
+        campCode: 'TMB01',
+        name: 'Tombstone Camp',
+        district: 'Kavre',
+        municipality: 'Banepa',
+        ward: '1',
+        venue: 'Clinic',
+        startDate: DateTime.now(),
+        endDate: DateTime.now(),
+        status: CampStatus.draft,
+        createdAt: DateTime.now(),
+      );
+
+      await vm.createCamp(tempCamp, adminUserId: 'adm', deviceId: 'dev');
+      expect(vm.state.camps.any((c) => c.id == 'camp-tombstone-test'), isTrue);
+
+      final deleted = await vm.deleteCamp('camp-tombstone-test', adminUserId: 'adm', deviceId: 'dev');
+      expect(deleted, isTrue);
+
+      // Verify getAllCamps filters it
+      final campsAfterDelete = await campRepo.getAllCamps();
+      expect(campsAfterDelete.any((c) => c.id == 'camp-tombstone-test'), isFalse);
+
+      // Simulate rogue re-insertion into SQLite
+      await testDb.insert(
+        'camps',
+        tempCamp.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // Verify that getAllCamps self-heals and filters out tombstoned camp
+      final campsAfterRogueInsert = await campRepo.getAllCamps();
+      expect(campsAfterRogueInsert.any((c) => c.id == 'camp-tombstone-test'), isFalse);
+    });
   });
 }

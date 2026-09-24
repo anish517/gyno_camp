@@ -446,32 +446,47 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
                 // Patient Cards List
                 Expanded(
-                  child: patientState.isLoading
+                  child: (patientState.isLoading && patientState.patients.isEmpty)
                       ? const Center(child: CircularProgressIndicator())
-                      : patientState.patients.isEmpty
-                      ? _buildEmptyState(context, effectiveCampId, vm)
-                      : RefreshIndicator(
-                          onRefresh: () async {
-                            if (effectiveCampId != null) {
-                              await vm.loadPatients(effectiveCampId);
-                            }
-                          },
-                          child: ListView.separated(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: patientState.patients.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 10),
-                            itemBuilder: (context, index) {
-                              final patient = patientState.patients[index];
-                              return _buildPatientCard(
-                                context,
-                                patient,
-                                effectiveCamp,
-                                vm,
-                                campState,
-                              );
-                            },
-                          ),
+                      : Stack(
+                          children: [
+                            patientState.patients.isEmpty
+                                ? _buildEmptyState(context, effectiveCampId, vm)
+                                : RefreshIndicator(
+                                    onRefresh: () async {
+                                      if (effectiveCampId != null) {
+                                        await vm.loadPatients(effectiveCampId);
+                                      }
+                                    },
+                                    child: ListView.separated(
+                                      padding: const EdgeInsets.all(16),
+                                      itemCount: patientState.patients.length,
+                                      separatorBuilder: (_, _) =>
+                                          const SizedBox(height: 10),
+                                      itemBuilder: (context, index) {
+                                        final patient = patientState.patients[index];
+                                        return _buildPatientCard(
+                                          context,
+                                          patient,
+                                          effectiveCamp,
+                                          vm,
+                                          campState,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                            if (patientState.isLoading)
+                              const Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                child: LinearProgressIndicator(
+                                  minHeight: 2.5,
+                                  color: AppTheme.primaryTeal,
+                                  backgroundColor: Colors.transparent,
+                                ),
+                              ),
+                          ],
                         ),
                 ),
               ],

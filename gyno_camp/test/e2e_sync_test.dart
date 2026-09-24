@@ -6,6 +6,16 @@ void main() {
   const baseUrl = 'http://localhost:8080';
 
   group('Live E2E Central Server & PostgreSQL Sync Verification', () {
+    final createdCampIds = <String>[];
+
+    tearDownAll(() async {
+      for (final cid in createdCampIds) {
+        try {
+          await http.delete(Uri.parse('$baseUrl/api/camps?id=$cid'));
+        } catch (_) {}
+      }
+    });
+
     test('1. Server status is online and connected to PostgreSQL', () async {
       final res = await http.get(Uri.parse('$baseUrl/api/status'));
       expect(res.statusCode, 200);
@@ -19,6 +29,7 @@ void main() {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final testPatientId = 'pat-e2e-$timestamp';
       final testCampId = 'camp-e2e-$timestamp';
+      createdCampIds.add(testCampId);
 
       // 2a. Broadcast camp
       final campRes = await http.post(
@@ -113,6 +124,7 @@ void main() {
       final testVisitId = 'visit-e2e-$timestamp';
 
       final testCampId = 'camp-v-$timestamp';
+      createdCampIds.add(testCampId);
 
       // 3a-0. Broadcast valid camp first
       final campRes = await http.post(
