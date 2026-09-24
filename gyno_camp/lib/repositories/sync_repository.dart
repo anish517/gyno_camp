@@ -249,11 +249,36 @@ class SyncRepository implements ISyncRepository {
         // Upsert camps (skipping any tombstoned / locally deleted camps)
         for (final camp in response.camps) {
           if (allDeletedCampIds.contains(camp.id)) continue;
-          await txn.insert(
+          final existing = await txn.query(
             DatabaseTables.tableCamps,
-            camp.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace,
+            where: 'id = ?',
+            whereArgs: [camp.id],
+            limit: 1,
           );
+          if (existing.isEmpty) {
+            await txn.insert(
+              DatabaseTables.tableCamps,
+              camp.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          } else {
+            final local = CampModel.fromMap(existing.first);
+            final localUpdated = (local.updatedAt ?? local.createdAt).toUtc();
+            final incomingUpdated = (camp.updatedAt ?? camp.createdAt).toUtc();
+            // Guard: Never downgrade an active OPEN camp to CLOSED from background pullDelta
+            if (local.status == CampStatus.open && camp.status != CampStatus.open) {
+              continue;
+            }
+            // Only update local SQLite if the pulled central camp is strictly newer
+            if (incomingUpdated.isAfter(localUpdated)) {
+              await txn.update(
+                DatabaseTables.tableCamps,
+                camp.toMap(),
+                where: 'id = ?',
+                whereArgs: [camp.id],
+              );
+            }
+          }
         }
 
         // 3. Upsert lookup items (marked as synced)

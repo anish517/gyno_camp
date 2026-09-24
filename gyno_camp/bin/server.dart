@@ -325,7 +325,7 @@ class GynoCampSyncServer {
           deleted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       ''');
-      await _connection!.execute('ALTER TABLE devices ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT \'tenant_default\';');
+      await _connection!.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT 'tenant_default';");
       await _connection!.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS record_hash TEXT DEFAULT '';");
       await _connection!.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS previous_hash TEXT;");
       await _connection!.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_patient_id ON patients(patient_id);');
@@ -580,38 +580,82 @@ class GynoCampSyncServer {
     for (final c in camps) {
       final map = c as Map<String, dynamic>;
       final id = map['id']?.toString() ?? '';
+      final status = (map['status']?.toString() ?? 'DRAFT').toUpperCase();
+      map['status'] = status;
       _memCamps[id] = map;
+
+      if (status == 'OPEN') {
+        _memCamps.forEach((key, val) {
+          if (key != id && (val['status']?.toString() ?? '').toUpperCase() == 'OPEN') {
+            val['status'] = 'CLOSED';
+            val['updated_at'] = DateTime.now().toUtc().toIso8601String();
+          }
+        });
+        if (_isPgConnected && _connection != null) {
+          try {
+            await _connection!.execute(
+              Sql.named("UPDATE camps SET status = 'CLOSED', updated_at = NOW() WHERE id != @id AND status = 'OPEN'"),
+              parameters: {'id': id},
+            );
+          } catch (_) {}
+        }
+      }
+
       if (_isPgConnected && _connection != null) {
         try {
           await _connection!.execute(
             Sql.named('''
-              INSERT INTO camps (id, camp_code, name, district, municipality, ward, venue, start_date, end_date, status, assigned_staff_ids, total_patients_registered, tenant_id, organization_name, created_at, updated_at)
-              VALUES (@id, @camp_code, @name, @district, @municipality, @ward, @venue, @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered, @tenant_id, @organization_name, @created_at, @updated_at)
+              INSERT INTO camps (
+                id, camp_code, name, province, district, municipality, ward, venue,
+                start_date, end_date, status, assigned_staff_ids, total_patients_registered,
+                tenant_id, organization_name, doctor_name, doctor_names, created_at, updated_at
+              ) VALUES (
+                @id, @camp_code, @name, @province, @district, @municipality, @ward, @venue,
+                @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered,
+                @tenant_id, @organization_name, @doctor_name, @doctor_names, @created_at, @updated_at
+              )
               ON CONFLICT (id) DO UPDATE SET
+                camp_code = EXCLUDED.camp_code,
                 name = EXCLUDED.name,
+                province = EXCLUDED.province,
                 district = EXCLUDED.district,
-                status = EXCLUDED.status,
+                municipality = EXCLUDED.municipality,
+                ward = EXCLUDED.ward,
+                venue = EXCLUDED.venue,
+                start_date = EXCLUDED.start_date,
+                end_date = EXCLUDED.end_date,
+                status = CASE 
+                  WHEN camps.status = 'OPEN' AND EXCLUDED.status = 'CLOSED' AND EXCLUDED.updated_at < camps.updated_at THEN camps.status
+                  ELSE EXCLUDED.status
+                END,
                 assigned_staff_ids = EXCLUDED.assigned_staff_ids,
                 total_patients_registered = EXCLUDED.total_patients_registered,
+                tenant_id = EXCLUDED.tenant_id,
+                organization_name = EXCLUDED.organization_name,
+                doctor_name = EXCLUDED.doctor_name,
+                doctor_names = EXCLUDED.doctor_names,
                 updated_at = NOW();
             '''),
             parameters: {
               'id': id,
               'camp_code': map['camp_code'] ?? 'KTM01',
               'name': map['name'] ?? '',
+              'province': map['province'] ?? 'Bagmati',
               'district': map['district'] ?? '',
               'municipality': map['municipality'],
               'ward': map['ward'],
               'venue': map['venue'],
-              'start_date': map['start_date'] ?? DateTime.now().toIso8601String(),
-              'end_date': map['end_date'] ?? DateTime.now().toIso8601String(),
-              'status': map['status'] ?? 'open',
+              'start_date': map['start_date'] ?? DateTime.now().toUtc().toIso8601String(),
+              'end_date': map['end_date'] ?? DateTime.now().toUtc().toIso8601String(),
+              'status': (map['status']?.toString() ?? 'DRAFT').toUpperCase(),
               'assigned_staff_ids': map['assigned_staff_ids'],
               'total_patients_registered': map['total_patients_registered'] ?? 0,
               'tenant_id': map['tenant_id'] ?? 'tenant_default',
               'organization_name': map['organization_name'] ?? 'Nepal Health Outreach Network',
-              'created_at': map['created_at'] ?? DateTime.now().toIso8601String(),
-              'updated_at': map['updated_at'] ?? DateTime.now().toIso8601String(),
+              'doctor_name': map['doctor_name'] ?? '',
+              'doctor_names': map['doctor_names'] ?? '',
+              'created_at': map['created_at'] ?? DateTime.now().toUtc().toIso8601String(),
+              'updated_at': map['updated_at'] ?? DateTime.now().toUtc().toIso8601String(),
             },
           );
         } catch (e) {
@@ -1357,18 +1401,6 @@ class GynoCampSyncServer {
       list.addAll(hasTenant ? _memCamps.values.where((c) => c['tenant_id'] == tenantId || c['tenant_id'] == 'tenant_default' || c['tenant_id'] == 'global') : _memCamps.values);
     }
 
-    // Ensure at most 1 camp is OPEN across the system
-    bool foundOpen = false;
-    for (final c in list) {
-      if ((c['status']?.toString() ?? '').toUpperCase() == 'OPEN') {
-        if (foundOpen) {
-          c['status'] = 'CLOSED';
-        } else {
-          foundOpen = true;
-        }
-      }
-    }
-
     request.response.statusCode = HttpStatus.ok;
     request.response.write(jsonEncode(list));
     await request.response.close();
@@ -1388,7 +1420,7 @@ class GynoCampSyncServer {
       _memCamps.forEach((key, val) {
         if (key != id && (val['status']?.toString() ?? '').toUpperCase() == 'OPEN') {
           val['status'] = 'CLOSED';
-          val['updated_at'] = DateTime.now().toIso8601String();
+          val['updated_at'] = DateTime.now().toUtc().toIso8601String();
         }
       });
       if (_isPgConnected && _connection != null) {
@@ -1400,6 +1432,9 @@ class GynoCampSyncServer {
         } catch (_) {}
       }
     }
+
+    final utcNow = DateTime.now().toUtc().toIso8601String();
+    map['updated_at'] = utcNow;
 
     if (_isPgConnected && _connection != null) {
       try {
@@ -1442,8 +1477,8 @@ class GynoCampSyncServer {
             'municipality': map['municipality'],
             'ward': map['ward'],
             'venue': map['venue'],
-            'start_date': map['start_date'] ?? DateTime.now().toIso8601String(),
-            'end_date': map['end_date'] ?? DateTime.now().toIso8601String(),
+            'start_date': map['start_date'] ?? utcNow,
+            'end_date': map['end_date'] ?? utcNow,
             'status': status,
             'assigned_staff_ids': map['assigned_staff_ids'],
             'total_patients_registered': map['total_patients_registered'] ?? 0,
@@ -1451,8 +1486,8 @@ class GynoCampSyncServer {
             'organization_name': map['organization_name'] ?? 'Nepal Health Outreach Network',
             'doctor_name': map['doctor_name'] ?? '',
             'doctor_names': map['doctor_names'] ?? '',
-            'created_at': map['created_at'] ?? DateTime.now().toIso8601String(),
-            'updated_at': map['updated_at'] ?? DateTime.now().toIso8601String(),
+            'created_at': map['created_at'] ?? utcNow,
+            'updated_at': utcNow,
           },
         );
       } catch (e) {

@@ -215,14 +215,32 @@ class CampViewModel extends StateNotifier<CampState> {
       );
       if (!mounted) return true;
       // ✅ Optimistically update the in-memory list immediately so UI refreshes
-      final updatedList = state.camps.map((c) => c.id == savedCamp.id ? savedCamp : c).toList();
+      final updatedList = state.camps.map((c) {
+        if (c.id == savedCamp.id) return savedCamp;
+        if (savedCamp.status == CampStatus.open && c.status == CampStatus.open) {
+          return c.copyWith(status: CampStatus.closed);
+        }
+        return c;
+      }).toList();
+
+      final newActive = savedCamp.status == CampStatus.open
+          ? savedCamp
+          : (state.activeCamp?.id == savedCamp.id ? null : state.activeCamp);
+
       state = state.copyWith(
         camps: updatedList,
         isLoading: false,
-        // Update activeCamp if this was the active camp
-        activeCamp: state.activeCamp?.id == savedCamp.id ? savedCamp : state.activeCamp,
+        activeCamp: newActive,
+        clearActiveCamp: newActive == null,
         selectedCamp: state.selectedCamp?.id == savedCamp.id ? savedCamp : state.selectedCamp,
       );
+
+      if (savedCamp.status == CampStatus.open) {
+        await SessionService.current?.saveActiveCampId(savedCamp.id);
+      } else if (state.activeCamp?.id == savedCamp.id) {
+        await SessionService.current?.clearActiveCampId();
+      }
+
       return true;
     } catch (e) {
       if (!mounted) return false;

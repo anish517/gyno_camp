@@ -140,21 +140,6 @@ class DatabaseService {
       }
     } catch (_) {}
 
-    // Enforce single active camp invariant: ensure at most 1 camp is OPEN in local SQLite
-    try {
-      final openCamps = await db.rawQuery(
-        "SELECT id FROM ${DatabaseTables.tableCamps} WHERE status = 'OPEN' ORDER BY start_date DESC",
-      );
-      if (openCamps.length > 1) {
-        for (int i = 1; i < openCamps.length; i++) {
-          final staleId = openCamps[i]['id'] as String;
-          await db.rawUpdate(
-            "UPDATE ${DatabaseTables.tableCamps} SET status = 'CLOSED' WHERE id = ?",
-            [staleId],
-          );
-        }
-      }
-    } catch (_) {}
 
     // Migrate legacy hardcoded doctor name to generic SaaS Admin identity
     try {

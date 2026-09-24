@@ -109,20 +109,26 @@ class CampRepository implements ICampRepository {
       _syncCentralCampsInBackground(db);
     }
 
-    // 2. Enforce single active camp invariant locally:
-    // If multiple camps somehow are marked 'OPEN', keep only the most recent one OPEN, and close the others.
+    // 2. Enforce single active camp invariant: keep only the most recent open camp
     final openRows = await db.query(
       DatabaseTables.tableCamps,
       where: 'status = ?',
       whereArgs: [AppConstants.campStatusOpen],
-      orderBy: 'updated_at DESC, created_at DESC, start_date DESC',
     );
     if (openRows.length > 1) {
-      for (int i = 1; i < openRows.length; i++) {
-        final staleId = openRows[i]['id'] as String;
+      final openCamps = openRows.map((r) => CampModel.fromMap(r)).toList();
+      openCamps.sort((a, b) {
+        final aTime = (a.updatedAt ?? a.createdAt).toUtc();
+        final bTime = (b.updatedAt ?? b.createdAt).toUtc();
+        final cmp = bTime.compareTo(aTime);
+        if (cmp != 0) return cmp;
+        return b.startDate.compareTo(a.startDate);
+      });
+      for (int i = 1; i < openCamps.length; i++) {
+        final staleId = openCamps[i].id;
         await db.update(
           DatabaseTables.tableCamps,
-          {'status': AppConstants.campStatusClosed, 'updated_at': DateTime.now().toIso8601String()},
+          {'status': AppConstants.campStatusClosed, 'updated_at': DateTime.now().toUtc().toIso8601String()},
           where: 'id = ?',
           whereArgs: [staleId],
         );
@@ -197,8 +203,14 @@ class CampRepository implements ICampRepository {
             );
           } else {
             final local = CampModel.fromMap(existingRows.first);
-            final localUpdated = local.updatedAt ?? local.createdAt;
-            final centralUpdated = c.updatedAt ?? c.createdAt;
+            final localUpdated = (local.updatedAt ?? local.createdAt).toUtc();
+            final centralUpdated = (c.updatedAt ?? c.createdAt).toUtc();
+
+            // Guard: Never downgrade an OPEN local camp if central has stale CLOSED status
+            if (local.status == CampStatus.open && c.status != CampStatus.open) {
+              await HttpCentralApiService().broadcastCamp(local);
+              continue;
+            }
 
             if (centralUpdated.isAfter(localUpdated)) {
               await db.update(
@@ -284,7 +296,8 @@ class CampRepository implements ICampRepository {
   Future<CampModel> createCamp(CampModel camp, {required String createdByUserId, required String deviceId}) async {
     final db = await _databaseService.database;
     final campId = camp.id.isEmpty ? 'camp-${_uuid.v4().substring(0, 8)}' : camp.id;
-    final newCamp = camp.copyWith(id: campId, createdAt: DateTime.now());
+    final now = DateTime.now().toUtc();
+    final newCamp = camp.copyWith(id: campId, createdAt: now, updatedAt: now);
 
     // Remove from deleted_camp_ids tombstone if re-created
     await _removeDeletedCampId(db, campId);
@@ -308,7 +321,7 @@ class CampRepository implements ICampRepository {
 
     if (enableCentralSync) {
       try {
-        HttpCentralApiService().broadcastCamp(newCamp);
+        await HttpCentralApiService().broadcastCamp(newCamp);
       } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 
@@ -321,7 +334,7 @@ class CampRepository implements ICampRepository {
     if (camp == null) return false;
 
     final db = await _databaseService.database;
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     // Enforce single active camp rule: close all other currently open camps
     final otherOpenCamps = await db.query(
@@ -372,7 +385,7 @@ class CampRepository implements ICampRepository {
     if (camp == null) return false;
 
     final db = await _databaseService.database;
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     final updated = camp.copyWith(
       status: CampStatus.closed,
@@ -412,7 +425,7 @@ class CampRepository implements ICampRepository {
     if (camp == null) return false;
 
     final db = await _databaseService.database;
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     final updated = camp.copyWith(
       status: CampStatus.archived,
@@ -449,8 +462,21 @@ class CampRepository implements ICampRepository {
   @override
   Future<CampModel> updateCamp(CampModel camp, {required String adminUserId, required String deviceId}) async {
     final db = await _databaseService.database;
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final updated = camp.copyWith(updatedAt: now);
+
+    // If camp is being set to OPEN, enforce single active camp rule by closing all other open camps
+    if (camp.status == CampStatus.open) {
+      final otherOpenCamps = await db.query(
+        DatabaseTables.tableCamps,
+        where: 'status = ? AND id != ?',
+        whereArgs: [AppConstants.campStatusOpen, camp.id],
+      );
+      for (final m in otherOpenCamps) {
+        final oldId = m['id'] as String;
+        await closeCamp(oldId, adminUserId: adminUserId, deviceId: deviceId);
+      }
+    }
 
     await db.update(
       DatabaseTables.tableCamps,
@@ -466,13 +492,13 @@ class CampRepository implements ICampRepository {
       action: AppConstants.auditActionCampUpdate,
       entityType: 'Camp',
       entityId: camp.id,
-      detailsJson: '{"campCode":"${camp.campCode}","name":"${camp.name}"}',
+      detailsJson: '{"campCode":"${camp.campCode}","name":"${camp.name}","status":"${camp.status.toDbString()}"}',
       deviceId: deviceId,
     );
 
     if (enableCentralSync) {
       try {
-        HttpCentralApiService().broadcastCamp(updated);
+        await HttpCentralApiService().broadcastCamp(updated);
       } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 

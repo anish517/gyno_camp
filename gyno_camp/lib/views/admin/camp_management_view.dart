@@ -3458,7 +3458,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       assignedStaffIds: assignedStaffIds,
       tenantId: user?.tenantId ?? 'tenant_default',
       organizationName: user?.tenantName ?? 'Community Health Outreach Mission',
-      createdAt: DateTime.now(),
+      createdAt: DateTime.now().toUtc(),
     );
 
     final messenger = ScaffoldMessenger.of(context);
@@ -3522,6 +3522,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     final venueCtrl = TextEditingController(text: camp.venue);
     DateTime startDate = camp.startDate;
     DateTime endDate = camp.endDate;
+    CampStatus editStatus = camp.status;
 
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
@@ -3864,6 +3865,79 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 20),
+
+                            // SECTION 4: Mission Operational Status
+                            _buildSectionHeader(Icons.toggle_on_outlined, 'Mission Operational Status (शिविर सञ्चालन स्थिति)'),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _buildEditStatusChip(
+                                  label: 'Open for Data Entry (सञ्चालनमा)',
+                                  icon: Icons.play_circle_fill_rounded,
+                                  status: CampStatus.open,
+                                  current: editStatus,
+                                  activeColor: AppTheme.successGreen,
+                                  onTap: () => setDialogState(() => editStatus = CampStatus.open),
+                                ),
+                                _buildEditStatusChip(
+                                  label: 'Scheduled (तयारी / तालिका)',
+                                  icon: Icons.event_available_rounded,
+                                  status: CampStatus.scheduled,
+                                  current: editStatus,
+                                  activeColor: AppTheme.primaryTeal,
+                                  onTap: () => setDialogState(() => editStatus = CampStatus.scheduled),
+                                ),
+                                _buildEditStatusChip(
+                                  label: 'Draft (मस्यौदा)',
+                                  icon: Icons.edit_note_rounded,
+                                  status: CampStatus.draft,
+                                  current: editStatus,
+                                  activeColor: const Color(0xFFD97706),
+                                  onTap: () => setDialogState(() => editStatus = CampStatus.draft),
+                                ),
+                                _buildEditStatusChip(
+                                  label: 'Closed (समाप्त)',
+                                  icon: Icons.stop_circle_rounded,
+                                  status: CampStatus.closed,
+                                  current: editStatus,
+                                  activeColor: AppTheme.dangerRose,
+                                  onTap: () => setDialogState(() => editStatus = CampStatus.closed),
+                                ),
+                                _buildEditStatusChip(
+                                  label: 'Archived (अभिलेख)',
+                                  icon: Icons.archive_rounded,
+                                  status: CampStatus.archived,
+                                  current: editStatus,
+                                  activeColor: const Color(0xFF64748B),
+                                  onTap: () => setDialogState(() => editStatus = CampStatus.archived),
+                                ),
+                              ],
+                            ),
+                            if (editStatus == CampStatus.open && camp.status != CampStatus.open)
+                              Container(
+                                margin: const EdgeInsets.only(top: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0FDF4),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFF86EFAC)),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.info_outline, size: 16, color: Color(0xFF166534)),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Setting status to Open will set this camp as active and close other open camps.',
+                                        style: TextStyle(fontSize: 11.5, color: Color(0xFF166534), fontWeight: FontWeight.w500),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -3929,10 +4003,12 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 venue: venueCtrl.text.trim(),
                                 startDate: startDate,
                                 endDate: endDate,
+                                status: editStatus,
                               );
 
                               final messenger = ScaffoldMessenger.of(context);
                               Navigator.pop(ctx);
+
                               final success = await ref.read(campStateProvider.notifier).updateCamp(
                                     updated,
                                     adminUserId: user?.id ?? 'admin-user',
@@ -3966,6 +4042,52 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           },
         );
       },
+    );
+  }
+
+  Widget _buildEditStatusChip({
+    required String label,
+    required IconData icon,
+    required CampStatus status,
+    required CampStatus current,
+    required Color activeColor,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = current == status;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor.withValues(alpha: 0.12) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? activeColor : const Color(0xFFCBD5E1),
+            width: isSelected ? 1.8 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle_rounded : icon,
+              size: 16,
+              color: isSelected ? activeColor : const Color(0xFF64748B),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? activeColor : const Color(0xFF334155),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
