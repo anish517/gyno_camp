@@ -1013,6 +1013,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           return Dialog(
+            backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             clipBehavior: Clip.antiAlias,
             insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -1022,19 +1023,25 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header Banner
+                  // Clean White Header Banner
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    color: const Color(0xFF0F766E),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                      ),
+                    ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
+                            color: const Color(0xFFF0FDFA),
                             borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFCCFBF1)),
                           ),
-                          child: const Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 20),
+                          child: const Icon(Icons.person_add_alt_1_rounded, color: AppTheme.primaryTeal, size: 20),
                         ),
                         const SizedBox(width: 12),
                         const Expanded(
@@ -1044,7 +1051,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                               Text(
                                 'Register Staff Member',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: Color(0xFF0F172A),
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: -0.2,
@@ -1052,8 +1059,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                               ),
                               SizedBox(height: 2),
                               Text(
-                                'Assign credentials, operational role & field outreach deployments',
-                                style: TextStyle(color: Color(0xFFCCFBF1), fontSize: 11),
+                                'Role permissions, station credentials & field camp roster',
+                                style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
                               ),
                             ],
                           ),
@@ -1061,14 +1068,14 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
+                            color: const Color(0xFFF0FDFA),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                            border: Border.all(color: const Color(0xFFCCFBF1)),
                           ),
                           child: const Text(
                             'NEW STAFF',
                             style: TextStyle(
-                              color: Color(0xFFCCFBF1),
+                              color: Color(0xFF0F766E),
                               fontSize: 9.5,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
@@ -1077,7 +1084,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                         ),
                         const SizedBox(width: 8),
                         IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                          icon: const Icon(Icons.close, color: Color(0xFF64748B), size: 20),
                           tooltip: 'Close',
                           onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
                         ),
@@ -1098,7 +1105,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                             controller: nameCtrl,
                             decoration: InputDecoration(
                               labelText: 'Full Name *',
-                              hintText: 'e.g. Maya Shrestha (Staff Nurse)',
                               prefixIcon: const Icon(Icons.person_outline, size: 18, color: Color(0xFF64748B)),
                               floatingLabelBehavior: FloatingLabelBehavior.always,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
@@ -1115,7 +1121,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                   keyboardType: TextInputType.emailAddress,
                                   decoration: InputDecoration(
                                     labelText: 'Email Address *',
-                                    hintText: 'e.g. maya@gynocamp.org',
                                     prefixIcon: const Icon(Icons.email_outlined, size: 18, color: Color(0xFF64748B)),
                                     floatingLabelBehavior: FloatingLabelBehavior.always,
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
@@ -1130,7 +1135,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                   keyboardType: TextInputType.phone,
                                   decoration: InputDecoration(
                                     labelText: 'Mobile Phone *',
-                                    hintText: 'e.g. 9841998877',
                                     prefixIcon: const Icon(Icons.phone_outlined, size: 18, color: Color(0xFF64748B)),
                                     floatingLabelBehavior: FloatingLabelBehavior.always,
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
@@ -1145,7 +1149,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                             controller: tenantCtrl,
                             decoration: InputDecoration(
                               labelText: 'Organization / Tenant Name',
-                              hintText: 'e.g. Nepal Health Outreach Network',
                               prefixIcon: const Icon(Icons.corporate_fare_outlined, size: 18, color: Color(0xFF64748B)),
                               floatingLabelBehavior: FloatingLabelBehavior.always,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
@@ -1188,7 +1191,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                   obscureText: obscurePassword,
                                   decoration: InputDecoration(
                                     labelText: 'Initial Password *',
-                                    hintText: 'Min 6 characters',
                                     prefixIcon: const Icon(Icons.lock_outline, size: 18, color: Color(0xFF64748B)),
                                     floatingLabelBehavior: FloatingLabelBehavior.always,
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
@@ -1211,7 +1213,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                   decoration: InputDecoration(
                                     labelText: 'Station PIN (4-6 digits) *',
                                     counterText: '',
-                                    hintText: '1234',
                                     prefixIcon: const Icon(Icons.dialpad_outlined, size: 18, color: Color(0xFF64748B)),
                                     floatingLabelBehavior: FloatingLabelBehavior.always,
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
@@ -1338,7 +1339,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                     decoration: const BoxDecoration(
-                      color: Color(0xFFF8FAFC),
+                      color: Colors.white,
                       border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                     ),
                     child: Row(
@@ -1635,7 +1636,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                       controller: nameCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Full Name / Staff Title *',
-                        hintText: 'e.g. Dr. Jane Doe or Sita Sharma',
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -1645,7 +1645,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                       controller: tenantCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Organization / Tenant Name',
-                        hintText: 'e.g. Nepal Health Outreach Network',
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -1656,7 +1655,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                       keyboardType: TextInputType.phone,
                       decoration: const InputDecoration(
                         labelText: 'Phone Number',
-                        hintText: 'e.g. 9841234567',
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -1835,7 +1833,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                       obscureText: obscurePassword,
                       decoration: InputDecoration(
                         labelText: 'New Password',
-                        hintText: 'Min 6 characters',
                         border: const OutlineInputBorder(),
                         isDense: true,
                         suffixIcon: IconButton(
@@ -1855,7 +1852,6 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                       decoration: InputDecoration(
                         labelText: 'Station PIN (4-6 digits)',
                         counterText: '',
-                        hintText: 'e.g. 1234',
                         border: const OutlineInputBorder(),
                         isDense: true,
                         suffixIcon: IconButton(
