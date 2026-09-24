@@ -215,8 +215,22 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
-        // 2. Upsert camps
+        // 2. Read deleted camp tombstone to prevent resurrecting deleted camps
+        final deletedMeta = await txn.query(
+          DatabaseTables.tableMetadata,
+          where: "key = 'deleted_camp_ids'",
+        );
+        final tombstonedCampIds = <String>{};
+        if (deletedMeta.isNotEmpty) {
+          final val = deletedMeta.first['value'] as String? ?? '';
+          tombstonedCampIds.addAll(
+            val.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty),
+          );
+        }
+
+        // Upsert camps (skipping any tombstoned / locally deleted camps)
         for (final camp in response.camps) {
+          if (tombstonedCampIds.contains(camp.id)) continue;
           await txn.insert(
             DatabaseTables.tableCamps,
             camp.toMap(),

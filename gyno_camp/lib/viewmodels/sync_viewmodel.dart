@@ -229,6 +229,9 @@ final networkConnectivityProvider = Provider<INetworkConnectivityService>((ref) 
 });
 
 final centralApiServiceProvider = Provider<ICentralApiService>((ref) {
+  if (HttpCentralApiService.isServerConfigured) {
+    return HttpCentralApiService();
+  }
   return CentralApiService();
 });
 

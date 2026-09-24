@@ -921,8 +921,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         tooltip: 'Edit Camp Details',
                         onPressed: () => _showEditCampDialog(context, camp),
                       ),
-                      // Safe Delete Camp (only if not active/open)
-                      if (!camp.isOpen)
+                      // Safe Delete Camp (allow deleting if closed or empty with 0 patients)
+                      if (!camp.isOpen || camp.totalPatientsRegistered == 0)
                         IconButton(
                           icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerRose),
                           tooltip: 'Delete Camp',
