@@ -2440,7 +2440,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           obscureText: true,
                           decoration: const InputDecoration(
                             labelText: 'Initial Password',
-                            hintText: 'Min 6 characters',
                             prefixIcon: Icon(Icons.lock_outline),
                           ),
                         ),
@@ -2453,7 +2452,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           maxLength: 6,
                           decoration: const InputDecoration(
                             labelText: 'Station PIN',
-                            hintText: '4-6 digits',
                             counterText: '',
                             prefixIcon: Icon(Icons.pin),
                           ),
@@ -2467,6 +2465,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryTeal,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () async {
                   final name = nameCtrl.text.trim();
                   final email = emailCtrl.text.trim().toLowerCase();
@@ -2582,6 +2584,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 final isDateValid = !endDate.isBefore(startDate);
 
                 return Dialog(
+                  backgroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   clipBehavior: Clip.antiAlias,
                   child: ConstrainedBox(
@@ -2592,39 +2595,38 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Professional Teal Header with Accent
+                        // Clean White Header Banner
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                           decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                            color: Colors.white,
+                            border: Border(
+                              bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
                             ),
                           ),
                           child: Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(9),
+                                padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.16),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                                  color: const Color(0xFFF0FDFA),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFCCFBF1)),
                                 ),
-                                child: const Icon(Icons.add_location_alt_rounded, color: Colors.white, size: 22),
+                                child: const Icon(Icons.add_location_alt_rounded, color: AppTheme.primaryTeal, size: 20),
                               ),
-                              const SizedBox(width: 14),
-                              Expanded(
+                              const SizedBox(width: 12),
+                              const Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       children: [
-                                        const Flexible(
+                                        Flexible(
                                           child: Text(
                                             'Schedule Community Outreach Camp',
                                             style: TextStyle(
-                                              color: Colors.white,
+                                              color: Color(0xFF0F172A),
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
                                               letterSpacing: -0.2,
@@ -2632,43 +2634,36 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: 0.18),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-                                          ),
-                                          child: const Text(
-                                            'NEW DISPATCH',
-                                            style: TextStyle(
-                                              color: Color(0xFFCCFBF1),
-                                              fontSize: 9.5,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 0.5,
-                                            ),
-                                          ),
-                                        ),
                                       ],
                                     ),
-                                    const SizedBox(height: 3),
-                                    const Text(
+                                    SizedBox(height: 2),
+                                    Text(
                                       'नयाँ स्वास्थ्य शिविर तालिका, स्थान र कर्मचारी परिचालन',
-                                      style: TextStyle(color: Color(0xFFCCFBF1), fontSize: 12),
+                                      style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
                                     ),
                                   ],
                                 ),
                               ),
-                              IconButton(
-                                icon: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.12),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.close, color: Colors.white, size: 18),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0FDFA),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFCCFBF1)),
                                 ),
+                                child: const Text(
+                                  'NEW DISPATCH',
+                                  style: TextStyle(
+                                    color: Color(0xFF0F766E),
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.close, color: Color(0xFF64748B), size: 20),
                                 tooltip: 'Close',
                                 visualDensity: VisualDensity.compact,
                                 onPressed: () => Navigator.pop(ctx),
@@ -2697,7 +2692,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         textCapitalization: TextCapitalization.characters,
                                         decoration: _dialogInputDecoration(
                                           labelText: 'Camp Code *',
-                                          hintText: 'e.g. KTM02',
                                           prefixIcon: const Icon(Icons.tag, size: 18, color: AppTheme.primaryDark),
                                         ),
                                       ),
@@ -2708,7 +2702,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         controller: nameCtrl,
                                         decoration: _dialogInputDecoration(
                                           labelText: 'Official Camp Name *',
-                                          hintText: 'e.g. Nilkantha Women Health Camp',
                                           prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
                                         ),
                                       ),
@@ -2720,7 +2713,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   controller: doctorCtrl,
                                   decoration: _dialogInputDecoration(
                                     labelText: 'Examining Doctors (डाक्टरहरूको नाम - अल्पविरामले छुट्याउनुहोस्)',
-                                    hintText: 'e.g. Dr. Sita Sharma, Dr. Rita Karki, Dr. Anish Tiwari',
                                     helperText: 'Separate multiple doctors with commas',
                                     prefixIcon: const Icon(Icons.medical_services_outlined, size: 18, color: AppTheme.primaryDark),
                                   ),
@@ -2830,7 +2822,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         keyboardType: TextInputType.number,
                                         decoration: _dialogInputDecoration(
                                           labelText: 'Ward No.',
-                                          hintText: 'e.g. 03',
                                           prefixIcon: const Icon(Icons.numbers_outlined, size: 18, color: AppTheme.primaryDark),
                                         ),
                                       ),
@@ -2842,7 +2833,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   controller: venueCtrl,
                                   decoration: _dialogInputDecoration(
                                     labelText: 'Venue / Health Post Facility *',
-                                    hintText: 'e.g. Primary Health Care Center, Community Hall',
                                     prefixIcon: const Icon(Icons.business_outlined, size: 18, color: AppTheme.primaryDark),
                                   ),
                                 ),
@@ -3324,7 +3314,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
                           decoration: const BoxDecoration(
-                            color: Color(0xFFF8FAFC),
+                            color: Colors.white,
                             borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
                             border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                           ),
@@ -3338,7 +3328,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 onPressed: () => Navigator.pop(ctx),
                                 style: OutlinedButton.styleFrom(
                                   side: const BorderSide(color: Color(0xFFCBD5E1)),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                                 ),
                                 child: const Text('Cancel', style: TextStyle(color: Color(0xFF475569), fontWeight: FontWeight.w600)),
@@ -3349,7 +3339,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppTheme.warningAmber,
                                   side: const BorderSide(color: Color(0xFFF59E0B)),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                                 ),
                                 onPressed: () => _submitCampForm(
@@ -3371,17 +3361,17 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 ),
                               ),
                               ElevatedButton.icon(
-                                icon: const Icon(Icons.check_circle_outline_rounded, size: 17),
+                                icon: const Icon(Icons.check_circle_outline_rounded, size: 17, color: Colors.white),
                                 label: Text(
                                   selectedStatus == CampStatus.draft ? 'Save Draft' : 'Schedule Camp',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: selectedStatus == CampStatus.draft ? AppTheme.warningAmber : AppTheme.primaryTeal,
-                                  foregroundColor: selectedStatus == CampStatus.draft ? Colors.black87 : Colors.white,
+                                  foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                  elevation: 1,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
                                 onPressed: () => _submitCampForm(
                                   ctx: ctx,
@@ -3545,6 +3535,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             final isDateValid = !endDate.isBefore(startDate);
 
             return Dialog(
+              backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               clipBehavior: Clip.antiAlias,
               child: ConstrainedBox(
@@ -3555,28 +3546,27 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Header
+                    // Clean White Header Banner
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                       decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                        color: Colors.white,
+                        border: Border(
+                          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
                         ),
                       ),
                       child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(9),
+                            padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.16),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                              color: const Color(0xFFF0FDFA),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFCCFBF1)),
                             ),
-                            child: const Icon(Icons.edit_location_alt_rounded, color: Colors.white, size: 22),
+                            child: const Icon(Icons.edit_location_alt_rounded, color: AppTheme.primaryTeal, size: 20),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3586,7 +3576,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     const Text(
                                       'Edit Camp Mission',
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: Color(0xFF0F172A),
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                         letterSpacing: -0.2,
@@ -3594,16 +3584,16 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     ),
                                     const SizedBox(width: 8),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.18),
+                                        color: const Color(0xFFF0FDFA),
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                                        border: Border.all(color: const Color(0xFFCCFBF1)),
                                       ),
                                       child: Text(
                                         camp.campCode,
                                         style: const TextStyle(
-                                          color: Colors.white,
+                                          color: Color(0xFF0F766E),
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.bold,
                                           letterSpacing: 0.5,
@@ -3612,23 +3602,17 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 3),
+                                const SizedBox(height: 2),
                                 const Text(
                                   'शिविर विवरण, स्थान र सञ्चालन तालिका परिमार्जन गर्नुहोस्',
-                                  style: TextStyle(color: Color(0xFFCCFBF1), fontSize: 12),
+                                  style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
                                 ),
                               ],
                             ),
                           ),
+                          const SizedBox(width: 8),
                           IconButton(
-                            icon: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.12),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close, color: Colors.white, size: 18),
-                            ),
+                            icon: const Icon(Icons.close, color: Color(0xFF64748B), size: 20),
                             tooltip: 'Close',
                             visualDensity: VisualDensity.compact,
                             onPressed: () => Navigator.pop(ctx),
@@ -3651,7 +3635,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               controller: nameCtrl,
                               decoration: _dialogInputDecoration(
                                 labelText: 'Camp Name *',
-                                hintText: 'e.g. Nilkantha Women Health Camp',
                                 prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
                               ),
                             ),
@@ -3660,7 +3643,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               controller: doctorCtrl,
                               decoration: _dialogInputDecoration(
                                 labelText: 'Examining Doctor / Medical Officer (डाक्टरको नाम)',
-                                hintText: 'e.g. Dr. Sita Sharma, MD',
                                 helperText: 'Separate multiple doctors with commas',
                                 prefixIcon: const Icon(Icons.medical_services_outlined, size: 18, color: AppTheme.primaryDark),
                               ),
@@ -3770,7 +3752,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     keyboardType: TextInputType.number,
                                     decoration: _dialogInputDecoration(
                                       labelText: 'Ward No.',
-                                      hintText: 'e.g. 03',
                                       prefixIcon: const Icon(Icons.numbers_outlined, size: 18, color: AppTheme.primaryDark),
                                     ),
                                   ),
@@ -3782,7 +3763,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               controller: venueCtrl,
                               decoration: _dialogInputDecoration(
                                 labelText: 'Venue / Health Post Facility *',
-                                hintText: 'e.g. Primary Health Care Center, Community Hall',
                                 prefixIcon: const Icon(Icons.business_outlined, size: 18, color: AppTheme.primaryDark),
                               ),
                             ),
@@ -3893,7 +3873,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
                       decoration: const BoxDecoration(
-                        color: Color(0xFFF8FAFC),
+                        color: Colors.white,
                         borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
                         border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                       ),
@@ -3904,21 +3884,21 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             onPressed: () => Navigator.pop(ctx),
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: Color(0xFFCBD5E1)),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                             ),
                             child: const Text('Cancel', style: TextStyle(color: Color(0xFF475569), fontWeight: FontWeight.w600)),
                           ),
                           const SizedBox(width: 10),
                           ElevatedButton.icon(
-                            icon: const Icon(Icons.check_circle_outline_rounded, size: 17),
-                            label: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+                            icon: const Icon(Icons.check_circle_outline_rounded, size: 17, color: Colors.white),
+                            label: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primaryTeal,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                              elevation: 1,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             onPressed: () async {
                               if (nameCtrl.text.trim().isEmpty) {
@@ -4847,7 +4827,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       helperMaxLines: 1,
       isDense: true,
       filled: true,
-      fillColor: const Color(0xFFF8FAFC),
+      fillColor: Colors.white,
       labelStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
       floatingLabelStyle: const TextStyle(fontSize: 12.5, color: AppTheme.primaryDark, fontWeight: FontWeight.w600),
       hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
