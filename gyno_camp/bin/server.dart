@@ -328,9 +328,88 @@ class GynoCampSyncServer {
       await _connection!.execute('ALTER TABLE devices ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT \'tenant_default\';');
       await _connection!.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_patient_id ON patients(patient_id);');
       await _connection!.execute("UPDATE users SET role = 'SUPER_ADMIN' WHERE id = 'usr-superadmin-01' OR LOWER(email) = 'admin@gynocamp.org';");
+      // Auto-cleanup any orphaned patients or clinical visits in PostgreSQL
+      await _connection!.execute('DELETE FROM patients WHERE camp_id NOT IN (SELECT id FROM camps);');
+      await _connection!.execute('DELETE FROM clinical_visits WHERE camp_id NOT IN (SELECT id FROM camps);');
+      await _seedDefaultLookupsIfEmpty();
       print('✓ Verified and initialized all PostgreSQL schema tables.');
     } catch (e) {
       print('! Schema verification note: $e');
+    }
+  }
+
+  Future<void> _seedDefaultLookupsIfEmpty() async {
+    if (!_isPgConnected || _connection == null) return;
+    try {
+      final complaintRow = await _connection!.execute("SELECT COUNT(*) FROM lookup_items WHERE category = 'chief_complaint';");
+      if ((complaintRow.first[0] as int? ?? 0) == 0) {
+        final defaultComplaints = [
+          {'en': 'Lower Abdominal Pain', 'ne': 'तल्लो पेट दुख्ने', 'sub': 'Pelvic & Abdominal'},
+          {'en': 'White / Foul Discharge', 'ne': 'सेतो वा गन्हाउने पानी बग्ने', 'sub': 'Infections & Discharge'},
+          {'en': 'Pelvic Heaviness', 'ne': 'तल्लो पेट भारी हुने', 'sub': 'Pelvic Floor & Prolapse'},
+          {'en': 'Burning Micturition', 'ne': 'पिसाब पोल्ने', 'sub': 'Urinary Symptoms'},
+          {'en': 'Urinary Incontinence', 'ne': 'पिसाब चुहिने', 'sub': 'Urinary Symptoms'},
+          {'en': 'Dyspareunia', 'ne': 'यौन सम्पर्कमा दुखाई', 'sub': 'Reproductive & Sexual'},
+          {'en': 'Coital Bleeding', 'ne': 'सम्पर्कपछि रगत बग्ने', 'sub': 'Bleeding & Neoplasms'},
+          {'en': 'Mass Per Vagina', 'ne': 'पाठेघर / मासु खस्ने', 'sub': 'Pelvic Floor & Prolapse'},
+          {'en': 'Severe Backache', 'ne': 'कम्मर दुख्ने', 'sub': 'Musculoskeletal & General'},
+        ];
+        int idx = 0;
+        for (final c in defaultComplaints) {
+          idx++;
+          final code = c['en']!.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+          await _connection!.execute(
+            Sql.named('''
+              INSERT INTO lookup_items (id, category, sub_category, code, label_en, label_ne, is_active, sort_order, tenant_id, is_deleted)
+              VALUES (@id, 'chief_complaint', @sub, @code, @en, @ne, 1, @sort, 'tenant_default', 0)
+              ON CONFLICT (id) DO NOTHING;
+            '''),
+            parameters: {
+              'id': 'complaint-default-$idx',
+              'sub': c['sub'],
+              'code': code,
+              'en': c['en'],
+              'ne': c['ne'],
+              'sort': idx,
+            },
+          );
+        }
+        print('✓ Seeded default chief complaints in PostgreSQL.');
+      }
+
+      final reasonCount = await _connection!.execute("SELECT COUNT(*) FROM lookup_items WHERE category = 'visit_reason';");
+      if ((reasonCount.first[0] as int? ?? 0) == 0) {
+        final defaultReasons = [
+          {'en': 'Routine Checkup', 'ne': 'नियमित जाँच'},
+          {'en': 'Pelvic Organ Prolapse', 'ne': 'पाठेघर खसेको'},
+          {'en': 'Menstrual Disorder', 'ne': 'महिनावारी गडबडी'},
+          {'en': 'Infertility Screening', 'ne': 'निःसन्तान जाँच'},
+          {'en': 'Gynaecological Oncology', 'ne': 'स्त्री क्यान्सर जाँच'},
+          {'en': 'Postnatal Follow-up', 'ne': 'सुत्केरीपछिको जाँच'},
+        ];
+        int idx = 0;
+        for (final r in defaultReasons) {
+          idx++;
+          final code = r['en']!.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+          await _connection!.execute(
+            Sql.named('''
+              INSERT INTO lookup_items (id, category, sub_category, code, label_en, label_ne, is_active, sort_order, tenant_id, is_deleted)
+              VALUES (@id, 'visit_reason', 'Reason for Visit', @code, @en, @ne, 1, @sort, 'tenant_default', 0)
+              ON CONFLICT (id) DO NOTHING;
+            '''),
+            parameters: {
+              'id': 'reason-default-$idx',
+              'code': code,
+              'en': r['en'],
+              'ne': r['ne'],
+              'sort': idx,
+            },
+          );
+        }
+        print('✓ Seeded default visit reasons in PostgreSQL.');
+      }
+    } catch (e) {
+      print('! Seeding lookups note: $e');
     }
   }
 
@@ -440,6 +519,7 @@ class GynoCampSyncServer {
     final syncedPatientIds = <String>[];
     final syncedVisitIds = <String>[];
     final syncedAuditLogIds = <String>[];
+    final syncedLookupIds = <String>[];
 
     // Ensure DB connection
     if (!_isPgConnected) {
@@ -487,7 +567,10 @@ class GynoCampSyncServer {
               'is_deleted': map['is_deleted'] ?? 0,
             },
           );
+          syncedLookupIds.add(id);
         } catch (_) {}
+      } else {
+        syncedLookupIds.add(id);
       }
     }
 
@@ -849,8 +932,9 @@ class GynoCampSyncServer {
       'synced_patient_ids': syncedPatientIds,
       'synced_visit_ids': syncedVisitIds,
       'synced_audit_log_ids': syncedAuditLogIds,
+      'synced_lookup_ids': syncedLookupIds,
       'conflict_entity_ids': [],
-      'message': 'Successfully committed ${syncedPatientIds.length} patients and ${syncedVisitIds.length} visits to central cloud.',
+      'message': 'Successfully committed ${syncedPatientIds.length} patients, ${syncedVisitIds.length} visits, and ${syncedLookupIds.length} lookups to central cloud.',
     }));
     await request.response.close();
 
@@ -979,7 +1063,7 @@ class GynoCampSyncServer {
                  tenant_id, is_synced, synced_at
           FROM patients
         ''';
-        final patientConditions = <String>[];
+        final patientConditions = <String>['camp_id IN (SELECT id FROM camps)'];
         final patientParams = <String, dynamic>{};
         if (hasTenant) {
           patientConditions.add("(tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global')");
@@ -1046,7 +1130,7 @@ class GynoCampSyncServer {
                  COALESCE(is_follow_up, 0), follow_up_notes, attending_doctor_names, primary_doctor_name
           FROM clinical_visits
         ''';
-        final visitConditions = <String>[];
+        final visitConditions = <String>['camp_id IN (SELECT id FROM camps)'];
         final visitParams = <String, dynamic>{};
         if (hasTenant) {
           visitConditions.add("(tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global')");
@@ -1182,22 +1266,24 @@ class GynoCampSyncServer {
       if (type == 'lookup' && !deletedLookupIds.contains(id)) deletedLookupIds.add(id);
     });
 
-    // Merge in-memory records
-    if (campsList.isEmpty) {
-      campsList.addAll(hasTenant ? _memCamps.values.where((c) => c['tenant_id'] == tenantId || c['tenant_id'] == 'tenant_default' || c['tenant_id'] == 'global') : _memCamps.values);
-    }
-    if (usersList.isEmpty) {
-      usersList.addAll(hasTenant ? _memUsers.values.where((u) => u['tenant_id'] == tenantId || u['tenant_id'] == 'tenant_default' || u['tenant_id'] == 'global') : _memUsers.values);
-    }
-    if (patientsList.isEmpty) {
-      patientsList.addAll(hasTenant ? _memPatients.values.where((p) => p['tenant_id'] == tenantId || p['tenant_id'] == 'tenant_default' || p['tenant_id'] == 'global') : _memPatients.values);
-    }
-    if (visitsList.isEmpty) {
-      visitsList.addAll(hasTenant ? _memVisits.values.where((v) => v['tenant_id'] == tenantId || v['tenant_id'] == 'tenant_default' || v['tenant_id'] == 'global') : _memVisits.values);
-    }
-    if (lookupList.isEmpty) {
-      final activeMem = _memLookups.values.where((l) => (l['is_deleted'] ?? 0) == 0);
-      lookupList.addAll(hasTenant ? activeMem.where((l) => l['tenant_id'] == tenantId || l['tenant_id'] == 'tenant_default' || l['tenant_id'] == 'global') : activeMem);
+    // Merge in-memory records only if PostgreSQL is not connected
+    if (!_isPgConnected) {
+      if (campsList.isEmpty) {
+        campsList.addAll(hasTenant ? _memCamps.values.where((c) => c['tenant_id'] == tenantId || c['tenant_id'] == 'tenant_default' || c['tenant_id'] == 'global') : _memCamps.values);
+      }
+      if (usersList.isEmpty) {
+        usersList.addAll(hasTenant ? _memUsers.values.where((u) => u['tenant_id'] == tenantId || u['tenant_id'] == 'tenant_default' || u['tenant_id'] == 'global') : _memUsers.values);
+      }
+      if (patientsList.isEmpty) {
+        patientsList.addAll(hasTenant ? _memPatients.values.where((p) => p['tenant_id'] == tenantId || p['tenant_id'] == 'tenant_default' || p['tenant_id'] == 'global') : _memPatients.values);
+      }
+      if (visitsList.isEmpty) {
+        visitsList.addAll(hasTenant ? _memVisits.values.where((v) => v['tenant_id'] == tenantId || v['tenant_id'] == 'tenant_default' || v['tenant_id'] == 'global') : _memVisits.values);
+      }
+      if (lookupList.isEmpty) {
+        final activeMem = _memLookups.values.where((l) => (l['is_deleted'] ?? 0) == 0);
+        lookupList.addAll(hasTenant ? activeMem.where((l) => l['tenant_id'] == tenantId || l['tenant_id'] == 'tenant_default' || l['tenant_id'] == 'global') : activeMem);
+      }
     }
 
     request.response.statusCode = HttpStatus.ok;
@@ -1265,7 +1351,7 @@ class GynoCampSyncServer {
         print('Error fetching camps from Postgres: $e');
       }
     }
-    if (list.isEmpty) {
+    if (!_isPgConnected && list.isEmpty) {
       list.addAll(hasTenant ? _memCamps.values.where((c) => c['tenant_id'] == tenantId || c['tenant_id'] == 'tenant_default' || c['tenant_id'] == 'global') : _memCamps.values);
     }
 
@@ -1383,6 +1469,8 @@ class GynoCampSyncServer {
     if (id.isNotEmpty) {
       _memCamps.remove(id);
       _memDeletedEntities[id] = 'camp';
+      _memPatients.removeWhere((_, p) => p['camp_id'] == id);
+      _memVisits.removeWhere((_, v) => v['camp_id'] == id);
       if (_isPgConnected && _connection != null) {
         try {
           // Delete related records first to satisfy foreign key constraints
@@ -1402,6 +1490,9 @@ class GynoCampSyncServer {
             Sql.named("INSERT INTO deleted_entities (id, entity_type, deleted_at) VALUES (@id, 'camp', NOW()) ON CONFLICT (id) DO NOTHING;"),
             parameters: {'id': id},
           );
+          // Auto-cleanup any orphaned patients or clinical visits in PG
+          await _connection!.execute('DELETE FROM patients WHERE camp_id NOT IN (SELECT id FROM camps);');
+          await _connection!.execute('DELETE FROM clinical_visits WHERE camp_id NOT IN (SELECT id FROM camps);');
           print('✓ Central Server deleted camp and associated records: $id');
         } catch (e) {
           print('Error deleting camp $id in Postgres: $e');
@@ -1453,7 +1544,7 @@ class GynoCampSyncServer {
         }
       } catch (_) {}
     }
-    if (list.isEmpty) {
+    if (!_isPgConnected && list.isEmpty) {
       final memList = hasTenant ? _memUsers.values.where((u) => u['tenant_id'] == tenantId || u['tenant_id'] == 'tenant_default' || u['tenant_id'] == 'global') : _memUsers.values;
       for (final u in memList) {
         final uCopy = Map<String, dynamic>.from(u);

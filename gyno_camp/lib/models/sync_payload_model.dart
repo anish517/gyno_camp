@@ -77,6 +77,7 @@ class SyncPushResponse {
   final List<String> syncedPatientIds;
   final List<String> syncedVisitIds;
   final List<String> syncedAuditLogIds;
+  final List<String> syncedLookupIds;
   final List<String> conflictEntityIds;
   final String? message;
 
@@ -86,6 +87,7 @@ class SyncPushResponse {
     this.syncedPatientIds = const [],
     this.syncedVisitIds = const [],
     this.syncedAuditLogIds = const [],
+    this.syncedLookupIds = const [],
     this.conflictEntityIds = const [],
     this.message,
   });
@@ -97,6 +99,7 @@ class SyncPushResponse {
       'synced_patient_ids': syncedPatientIds,
       'synced_visit_ids': syncedVisitIds,
       'synced_audit_log_ids': syncedAuditLogIds,
+      'synced_lookup_ids': syncedLookupIds,
       'conflict_entity_ids': conflictEntityIds,
       'message': message,
     };
@@ -109,6 +112,7 @@ class SyncPushResponse {
       syncedPatientIds: List<String>.from(map['synced_patient_ids'] as List? ?? []),
       syncedVisitIds: List<String>.from(map['synced_visit_ids'] as List? ?? []),
       syncedAuditLogIds: List<String>.from(map['synced_audit_log_ids'] as List? ?? []),
+      syncedLookupIds: List<String>.from(map['synced_lookup_ids'] as List? ?? []),
       conflictEntityIds: List<String>.from(map['conflict_entity_ids'] as List? ?? []),
       message: map['message'] as String?,
     );

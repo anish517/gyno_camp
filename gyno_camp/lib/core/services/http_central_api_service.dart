@@ -100,7 +100,8 @@ class HttpCentralApiService implements ICentralApiService {
     } catch (_) {}
 
     if (!kIsWeb) {
-      return 'http://192.168.110.108:8080';
+      // Prioritize 127.0.0.1 (works instantly with adb reverse over USB cable)
+      return 'http://127.0.0.1:8080';
     }
     return 'http://localhost:8080';
   }
@@ -127,12 +128,13 @@ class HttpCentralApiService implements ICentralApiService {
       return true;
     }
 
-    // 2. On Android/native devices, automatically probe standard emulator & local LAN hosts
+    // 2. On Android/native devices, automatically probe USB bridge, Wi-Fi LAN, and emulator
     if (!kIsWeb) {
       final candidates = [
+        'http://127.0.0.1:8080',      // USB ADB Reverse (Primary & fastest)
+        'http://localhost:8080',      // Localhost alias
+        'http://192.168.1.110:8080',  // Development machine Wi-Fi host IP
         'http://10.0.2.2:8080',       // Android Emulator host bridge
-        'http://192.168.110.108:8080', // Local development Wi-Fi network host
-        'http://localhost:8080',      // Localhost via adb reverse
       ];
       for (final candidate in candidates) {
         if (candidate != baseUrl && await _testEndpoint(candidate)) {

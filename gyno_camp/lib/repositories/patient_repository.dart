@@ -265,7 +265,7 @@ class PatientRepository implements IPatientRepository {
           WHERE cv2.patient_id = cv1.patient_id
         )
       ) cv ON cv.patient_id = p.patient_id OR cv.patient_id = p.id
-      ${filterCamp ? 'WHERE p.camp_id = ?' : ''}
+      ${filterCamp ? 'WHERE p.camp_id = ?' : 'WHERE p.camp_id IN (SELECT id FROM ${DatabaseTables.tableCamps})'}
       ORDER BY p.created_at DESC
     ''';
     final maps = await db.rawQuery(query, filterCamp ? [campId] : []);

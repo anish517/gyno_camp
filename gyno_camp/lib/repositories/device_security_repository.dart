@@ -135,6 +135,17 @@ class DeviceSecurityRepository implements IDeviceSecurityRepository {
             }
           }
         }
+
+        // Also upload any local devices that do not exist on the central server yet
+        final allLocalMaps = await db.query(DatabaseTables.tableDevices);
+        for (final lMap in allLocalMaps) {
+          final lDev = DeviceModel.fromMap(lMap);
+          if (!centralDevices.any((c) => c.deviceId == lDev.deviceId)) {
+            try {
+              await _centralApiService.broadcastDevice(lDev);
+            } catch (_) {}
+          }
+        }
       } catch (e) {
         // graceful offline fallback
       }

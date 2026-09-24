@@ -188,9 +188,7 @@ class SyncViewModel extends StateNotifier<SyncState> {
         try {
           r.read(campStateProvider.notifier).loadCamps(silent: true);
           final activeCamp = r.read(campStateProvider).activeCamp;
-          if (activeCamp != null) {
-            r.read(patientListProvider.notifier).loadPatients(activeCamp.id, true);
-          }
+          r.read(patientListProvider.notifier).loadPatients(activeCamp?.id, true);
           r.read(masterLookupProvider.notifier).loadAll(silent: true);
         } catch (_) {}
       }

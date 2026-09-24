@@ -194,7 +194,9 @@ class DatabaseTables {
       tenant_id TEXT NOT NULL DEFAULT 'tenant_default',
       is_deleted INTEGER NOT NULL DEFAULT 0,
       camp_id TEXT,
-      excluded_camp_ids TEXT
+      excluded_camp_ids TEXT,
+      is_synced INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT
     );
   ''';
 

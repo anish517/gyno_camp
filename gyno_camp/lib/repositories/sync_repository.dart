@@ -9,6 +9,7 @@ import '../core/services/http_central_api_service.dart';
 import '../models/audit_log_model.dart';
 import '../models/camp_model.dart';
 import '../models/clinical_visit_model.dart';
+import '../models/lookup_item_model.dart';
 import '../models/patient_model.dart';
 import '../models/sync_payload_model.dart';
 import 'audit_repository.dart';
@@ -113,7 +114,15 @@ class SyncRepository implements ISyncRepository {
     }
     final logs = logRows.map((r) => AuditLogModel.fromMap(r)).toList();
 
-    if (patients.isEmpty && visits.isEmpty && camps.isEmpty && logs.isEmpty) {
+    // 5. Fetch unsynced lookup items (medicines, diagnoses, chief complaints, reasons for visit)
+    final lookupRows = await db.query(
+      DatabaseTables.tableLookupItems,
+      where: 'is_synced = ?',
+      whereArgs: [0],
+    );
+    final lookups = lookupRows.map((r) => LookupItemModel.fromMap(r)).toList();
+
+    if (patients.isEmpty && visits.isEmpty && camps.isEmpty && logs.isEmpty && lookups.isEmpty) {
       return SyncPushResponse(
         success: true,
         serverTimestamp: DateTime.now(),
@@ -128,12 +137,13 @@ class SyncRepository implements ISyncRepository {
       patients: patients,
       clinicalVisits: visits,
       auditLogs: logs,
+      lookupItems: lookups,
     );
 
-    // 5. Send delta to central server (single path for all platforms)
+    // 6. Send delta to central server (single path for all platforms)
     final response = await _centralApiService.pushDelta(payload);
 
-    // 6. Update local SQLite records to synced
+    // 7. Update local SQLite records to synced
     if (response.success) {
       final syncIso = response.serverTimestamp.toIso8601String();
       await db.transaction((txn) async {
@@ -150,9 +160,16 @@ class SyncRepository implements ISyncRepository {
             [vId],
           );
         }
+
+        for (final lId in response.syncedLookupIds) {
+          await txn.rawUpdate(
+            'UPDATE ${DatabaseTables.tableLookupItems} SET is_synced = 1 WHERE id = ?',
+            [lId],
+          );
+        }
       });
 
-      // 7. Audit log
+      // 8. Audit log
       await _auditRepository.logActivity(
         userId: userId,
         userName: 'Sync Engine',
@@ -160,7 +177,7 @@ class SyncRepository implements ISyncRepository {
         action: AppConstants.auditActionSyncUpload,
         entityType: 'SyncPayload',
         entityId: deviceId,
-        detailsJson: '{"patientsPushed":${response.syncedPatientIds.length},"visitsPushed":${response.syncedVisitIds.length}}',
+        detailsJson: '{"patientsPushed":${response.syncedPatientIds.length},"visitsPushed":${response.syncedVisitIds.length},"lookupsPushed":${response.syncedLookupIds.length}}',
         deviceId: deviceId,
       );
     }
@@ -227,10 +244,11 @@ class SyncRepository implements ISyncRepository {
             val.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty),
           );
         }
+        final allDeletedCampIds = <String>{...tombstonedCampIds, ...response.deletedCampIds};
 
         // Upsert camps (skipping any tombstoned / locally deleted camps)
         for (final camp in response.camps) {
-          if (tombstonedCampIds.contains(camp.id)) continue;
+          if (allDeletedCampIds.contains(camp.id)) continue;
           await txn.insert(
             DatabaseTables.tableCamps,
             camp.toMap(),
@@ -238,11 +256,13 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
-        // 3. Upsert lookup items
+        // 3. Upsert lookup items (marked as synced)
         for (final item in response.lookupItems) {
+          final itemMap = item.toMap();
+          itemMap['is_synced'] = 1;
           await txn.insert(
             DatabaseTables.tableLookupItems,
-            item.toMap(),
+            itemMap,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
@@ -279,8 +299,10 @@ class SyncRepository implements ISyncRepository {
 
         final pullSyncIso = DateTime.now().toIso8601String();
 
-        // Upsert patients from central cloud (R1 fix: guard local unsynced edits)
+        // Upsert patients from central cloud (R1 fix: guard local unsynced edits, skip deleted camps)
         for (final patient in response.patients) {
+          if (allDeletedCampIds.contains(patient.campId)) continue;
+
           final unsyncedLocal = await txn.query(
             DatabaseTables.tablePatients,
             columns: ['id'],
@@ -303,8 +325,10 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
-        // Upsert clinical visits from central cloud (R1 fix: guard local unsynced edits)
+        // Upsert clinical visits from central cloud (R1 fix: guard local unsynced edits, skip deleted camps)
         for (final visit in response.clinicalVisits) {
+          if (allDeletedCampIds.contains(visit.campId)) continue;
+
           final unsyncedLocal = await txn.query(
             DatabaseTables.tableClinicalVisits,
             columns: ['id'],
@@ -325,6 +349,14 @@ class SyncRepository implements ISyncRepository {
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
+
+        // Cascade purge any orphaned records whose camps were deleted
+        await txn.rawDelete(
+          'DELETE FROM ${DatabaseTables.tablePatients} WHERE camp_id NOT IN (SELECT id FROM ${DatabaseTables.tableCamps})',
+        );
+        await txn.rawDelete(
+          'DELETE FROM ${DatabaseTables.tableClinicalVisits} WHERE camp_id NOT IN (SELECT id FROM ${DatabaseTables.tableCamps})',
+        );
       });
 
       await _auditRepository.logActivity(

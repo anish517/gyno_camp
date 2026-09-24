@@ -92,6 +92,8 @@ class DatabaseService {
         {'name': 'sub_category', 'def': 'sub_category TEXT'},
         {'name': 'camp_id', 'def': 'camp_id TEXT'},
         {'name': 'excluded_camp_ids', 'def': 'excluded_camp_ids TEXT'},
+        {'name': 'is_synced', 'def': 'is_synced INTEGER DEFAULT 0'},
+        {'name': 'updated_at', 'def': 'updated_at TEXT'},
       ],
     };
 

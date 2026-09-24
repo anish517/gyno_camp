@@ -133,9 +133,13 @@ class LookupRepository implements ILookupRepository {
     final cleanCode = sanitizeCode(item.code, item.labelEn, item.category);
     final newItem = item.copyWith(id: id, code: cleanCode, isDeleted: false);
 
+    final map = newItem.toMap();
+    map['is_synced'] = 0;
+    map['updated_at'] = DateTime.now().toIso8601String();
+
     await db.insert(
       DatabaseTables.tableLookupItems,
-      newItem.toMap(),
+      map,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
 
@@ -167,9 +171,13 @@ class LookupRepository implements ILookupRepository {
     final cleanCode = sanitizeCode(item.code, item.labelEn, item.category);
     final updatedItem = item.copyWith(code: cleanCode);
 
+    final map = updatedItem.toMap();
+    map['is_synced'] = 0;
+    map['updated_at'] = DateTime.now().toIso8601String();
+
     await db.update(
       DatabaseTables.tableLookupItems,
-      updatedItem.toMap(),
+      map,
       where: 'id = ?',
       whereArgs: [updatedItem.id],
     );
@@ -234,7 +242,11 @@ class LookupRepository implements ILookupRepository {
 
     final count = await db.update(
       DatabaseTables.tableLookupItems,
-      {'is_active': isActive ? 1 : 0},
+      {
+        'is_active': isActive ? 1 : 0,
+        'is_synced': 0,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -400,7 +412,14 @@ class LookupRepository implements ILookupRepository {
         generatedAt: DateTime.now(),
         lookupItems: [item],
       );
-      await apiService.pushDelta(payload);
+      final res = await apiService.pushDelta(payload);
+      if (res.success) {
+        final db = await _databaseService.database;
+        await db.rawUpdate(
+          'UPDATE ${DatabaseTables.tableLookupItems} SET is_synced = 1 WHERE id = ?',
+          [item.id],
+        );
+      }
     } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
   }
 
@@ -514,6 +533,8 @@ class LookupRepository implements ILookupRepository {
             'sort_order': idx,
             'tenant_id': targetTenant,
             'is_deleted': 0,
+            'is_synced': 0,
+            'updated_at': DateTime.now().toIso8601String(),
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
@@ -541,6 +562,8 @@ class LookupRepository implements ILookupRepository {
             'sort_order': idx,
             'tenant_id': targetTenant,
             'is_deleted': 0,
+            'is_synced': 0,
+            'updated_at': DateTime.now().toIso8601String(),
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
@@ -569,6 +592,8 @@ class LookupRepository implements ILookupRepository {
             'sort_order': ClinicalConstants.visitReasonOptions.keys.toList().indexOf(entry.key) + 1,
             'tenant_id': targetTenant,
             'is_deleted': 0,
+            'is_synced': 0,
+            'updated_at': DateTime.now().toIso8601String(),
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
@@ -606,6 +631,8 @@ class LookupRepository implements ILookupRepository {
             'sort_order': idx,
             'tenant_id': targetTenant,
             'is_deleted': 0,
+            'is_synced': 0,
+            'updated_at': DateTime.now().toIso8601String(),
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
