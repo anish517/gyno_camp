@@ -5,7 +5,7 @@ class AppTheme {
   static const Color primaryTeal = Color(0xFF0D9488); // Teal 600
   static const Color primaryDark = Color(0xFF0F766E); // Teal 700
   static const Color primaryLight = Color(0xFFCCFBF1); // Teal 100
-  static const Color accentCyan = Color(0xFF0891B2);
+  static const Color accentCyan = Color(0xFF0F766E); // Secondary deep teal
   static const Color successGreen = Color(0xFF16A34A);
   static const Color warningAmber = Color(0xFFD97706);
   static const Color dangerRose = Color(0xFFE11D48);
@@ -24,7 +24,7 @@ class AppTheme {
         seedColor: primaryTeal,
         primary: primaryTeal,
         onPrimary: Colors.white,
-        secondary: accentCyan,
+        secondary: primaryDark,
         surface: cardSurfaceLight,
         error: dangerRose,
       ),

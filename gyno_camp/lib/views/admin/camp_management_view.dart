@@ -143,13 +143,16 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               icon: const Icon(Icons.add_location_alt, size: 16),
               label: const Text('New Camp'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF042F2E),
-                foregroundColor: Colors.white,
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF0F766E),
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
-                  side: const BorderSide(color: Color(0xFF14B8A6)),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
                 ),
               ),
               onPressed: () => _showCreateCampDialog(context),
@@ -160,20 +163,26 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           preferredSize: const Size.fromHeight(48),
           child: Container(
             width: double.infinity,
-            color: const Color(0xFF042F2E),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+              ),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TabBar(
               controller: _tabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
               indicatorSize: TabBarIndicatorSize.tab,
-              indicator: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: AppTheme.primaryTeal,
+              indicator: const UnderlineTabIndicator(
+                borderSide: BorderSide(color: Color(0xFF0F766E), width: 3),
+                insets: EdgeInsets.symmetric(horizontal: 8),
               ),
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              labelColor: const Color(0xFF0F766E),
+              unselectedLabelColor: const Color(0xFF64748B),
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5),
               tabs: const [
                 Tab(
                   icon: Icon(Icons.list_alt, size: 18),
@@ -187,12 +196,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             ),
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add_location_alt),
-        label: const Text('New Camp'),
-        backgroundColor: AppTheme.primaryTeal,
-        onPressed: () => _showCreateCampDialog(context),
       ),
       body: (campState.isLoading && campState.camps.isEmpty)
           ? const Center(child: CircularProgressIndicator())
@@ -311,9 +314,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       _buildMetricDivider(),
                       _buildMetricItem(Icons.play_circle_filled, 'Active Field Camps', '$openCount', AppTheme.successGreen, isPulse: openCount > 0),
                       _buildMetricDivider(),
-                      _buildMetricItem(Icons.calendar_month, 'Scheduled', '$scheduledCount', Colors.indigo),
+                      _buildMetricItem(Icons.calendar_month, 'Scheduled', '$scheduledCount', const Color(0xFF0F766E)),
                       _buildMetricDivider(),
-                      _buildMetricItem(Icons.how_to_reg, 'Total Patients Screened', '$totalIntakes', const Color(0xFF0284C7)),
+                      _buildMetricItem(Icons.how_to_reg, 'Total Patients Screened', '$totalIntakes', AppTheme.primaryTeal),
                     ],
                   ),
                 );
@@ -330,7 +333,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       controller: _searchController,
                       decoration: InputDecoration(
                         hintText: 'Search by camp code, name, district, municipality, or venue...',
-                        hintStyle: const TextStyle(fontSize: 13, color: Colors.blueGrey),
+                        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                         prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.primaryTeal),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
@@ -522,10 +525,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: Colors.blueGrey.withValues(alpha: 0.1),
+                  color: const Color(0xFF64748B).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.search_off_rounded, size: 30, color: Colors.blueGrey),
+                child: const Icon(Icons.search_off_rounded, size: 30, color: Color(0xFF64748B)),
               ),
               const SizedBox(height: 14),
               Text(
@@ -735,7 +738,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               // Location Row
               Row(
                 children: [
-                  const Icon(Icons.place_outlined, size: 16, color: Colors.blueGrey),
+                  const Icon(Icons.place_outlined, size: 16, color: Color(0xFF64748B)),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -843,7 +846,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       return Text.rich(
                         TextSpan(
                           text: 'Staff Team: ',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                           children: [
                             TextSpan(
                               text: effectiveStaffCount == 0
@@ -1180,7 +1183,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? AppTheme.primaryTeal : Colors.blueGrey,
+            color: isSelected ? AppTheme.primaryTeal : const Color(0xFF64748B),
           ),
         ),
       ),
@@ -1278,7 +1281,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           const SizedBox(height: 6),
           Text(
             activeCamps.isNotEmpty
-                ? 'Highlighted green date boxes indicate active field outreach camps in progress (${activeCamps.map((c) => "${c.name} [${c.campCode}]").join(", ")}). Blue indicates upcoming scheduled deployments. Tap any date to inspect full facility and roster details.'
+                ? 'Highlighted green date boxes indicate active field outreach camps in progress (${activeCamps.map((c) => "${c.name} [${c.campCode}]").join(", ")}). Teal indicates upcoming scheduled deployments. Tap any date to inspect full facility and roster details.'
                 : (scheduledCamps.isNotEmpty
                     ? 'Highlighted date boxes indicate upcoming scheduled outreach missions. Tap any highlighted date to inspect camp details.'
                     : 'No camps active in this calendar window. Highlighted blocks show operational date windows.'),
@@ -1290,7 +1293,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             runSpacing: 6,
             children: [
               _buildLegendPill(AppTheme.primaryTeal, 'Active / Open Camp'),
-              _buildLegendPill(Colors.indigo, 'Scheduled Mission'),
+              _buildLegendPill(AppTheme.primaryDark, 'Scheduled Mission'),
               _buildLegendPill(Colors.grey.shade400, 'Available Date'),
             ],
           ),
@@ -1314,7 +1317,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.blueGrey),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF64748B)),
         ),
       ],
     );
@@ -1405,7 +1408,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           : (hasActiveCamp
                               ? AppTheme.primaryTeal.withValues(alpha: 0.15)
                               : (hasScheduledCamp
-                                  ? Colors.blue.withValues(alpha: 0.1)
+                                  ? const Color(0xFFCCFBF1).withValues(alpha: 0.5)
                                   : Colors.transparent)),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
@@ -1413,7 +1416,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             ? AppTheme.primaryTeal
                             : (hasActiveCamp
                                 ? AppTheme.primaryTeal
-                                : (hasScheduledCamp ? Colors.indigo.shade200 : Colors.transparent)),
+                                : (hasScheduledCamp ? const Color(0xFF99F6E4) : Colors.transparent)),
                         width: isSelected ? 2 : (hasActiveCamp ? 1.5 : 1),
                       ),
                     ),
@@ -1448,7 +1451,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 height: 5,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: hasActiveCamp ? AppTheme.primaryTeal : Colors.indigo,
+                                  color: hasActiveCamp ? AppTheme.primaryTeal : AppTheme.primaryDark,
                                 ),
                               ),
                           ],
@@ -1548,7 +1551,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           : (hasActiveCamp
                               ? AppTheme.primaryTeal.withValues(alpha: 0.15)
                               : (hasScheduledCamp
-                                  ? Colors.blue.withValues(alpha: 0.1)
+                                  ? const Color(0xFFCCFBF1).withValues(alpha: 0.5)
                                   : Colors.transparent)),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
@@ -1556,7 +1559,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             ? AppTheme.primaryTeal
                             : (hasActiveCamp
                                 ? AppTheme.primaryTeal
-                                : (hasScheduledCamp ? Colors.indigo.shade200 : Colors.transparent)),
+                                : (hasScheduledCamp ? const Color(0xFF99F6E4) : Colors.transparent)),
                         width: isSelected ? 2 : (hasActiveCamp ? 1.5 : 1),
                       ),
                     ),
@@ -1589,7 +1592,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 height: 5,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: hasActiveCamp ? AppTheme.primaryTeal : Colors.indigo,
+                                  color: hasActiveCamp ? AppTheme.primaryTeal : AppTheme.primaryDark,
                                 ),
                               ),
                           ],
@@ -1615,7 +1618,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
-            color: isHoliday ? const Color(0xFFDC2626) : Colors.blueGrey,
+            color: isHoliday ? const Color(0xFFDC2626) : const Color(0xFF64748B),
           ),
         ),
       ),
@@ -1705,12 +1708,12 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         const Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.event_available, color: Colors.blueGrey, size: 20),
+                            Icon(Icons.event_available, color: Color(0xFF64748B), size: 20),
                             SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 'No camp scheduled on this date. This date is open for new field deployments.',
-                                style: TextStyle(color: Colors.blueGrey, fontSize: 13),
+                                style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
                               ),
                             ),
                           ],
@@ -1734,12 +1737,12 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   }
                   return Row(
                     children: [
-                      const Icon(Icons.event_available, color: Colors.blueGrey),
+                      const Icon(Icons.event_available, color: Color(0xFF64748B)),
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
                           'No camp scheduled on this date. This date is open for new field deployments.',
-                          style: TextStyle(color: Colors.blueGrey),
+                          style: TextStyle(color: Color(0xFF64748B)),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -2633,14 +2636,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.accentCyan.withValues(alpha: 0.35),
+                                            color: Colors.white.withValues(alpha: 0.18),
                                             borderRadius: BorderRadius.circular(6),
                                             border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                                           ),
                                           child: const Text(
                                             'NEW DISPATCH',
                                             style: TextStyle(
-                                              color: Colors.white,
+                                              color: Color(0xFFCCFBF1),
                                               fontSize: 9.5,
                                               fontWeight: FontWeight.bold,
                                               letterSpacing: 0.5,
@@ -2868,7 +2871,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                             labelEn: 'End Date',
                                             labelNp: 'समापन मिति',
                                             date: endDate,
-                                            accentColor: AppTheme.accentCyan,
+                                            accentColor: AppTheme.primaryTeal,
                                             onDateSelected: (d) => setDialogState(() => endDate = d),
                                           ),
                                         ],
@@ -2893,7 +2896,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                             labelEn: 'End Date',
                                             labelNp: 'समापन मिति',
                                             date: endDate,
-                                            accentColor: AppTheme.accentCyan,
+                                            accentColor: AppTheme.primaryTeal,
                                             onDateSelected: (d) => setDialogState(() => endDate = d),
                                           ),
                                         ),
@@ -3215,8 +3218,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                                 final s = staffList[idx];
                                                 final isChecked = selectedStaffIds.contains(s.id);
                                                 final roleColor = s.role == UserRole.superAdmin
-                                                    ? Colors.indigo
-                                                    : (s.role == UserRole.dataAnalyst ? AppTheme.accentCyan : AppTheme.primaryTeal);
+                                                    ? AppTheme.primaryDark
+                                                    : (s.role == UserRole.dataAnalyst ? const Color(0xFF334155) : AppTheme.primaryTeal);
 
                                                 return Material(
                                                   type: MaterialType.transparency,
@@ -3593,7 +3596,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.accentCyan.withValues(alpha: 0.35),
+                                        color: Colors.white.withValues(alpha: 0.18),
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                                       ),
@@ -3808,7 +3811,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         labelEn: 'End Date',
                                         labelNp: 'समापन मिति',
                                         date: endDate,
-                                        accentColor: AppTheme.accentCyan,
+                                        accentColor: AppTheme.primaryTeal,
                                         onDateSelected: (d) => setDialogState(() => endDate = d),
                                       ),
                                     ],
@@ -3833,7 +3836,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         labelEn: 'End Date',
                                         labelNp: 'समापन मिति',
                                         date: endDate,
-                                        accentColor: AppTheme.accentCyan,
+                                        accentColor: AppTheme.primaryTeal,
                                         onDateSelected: (d) => setDialogState(() => endDate = d),
                                       ),
                                     ),
@@ -4009,7 +4012,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             ElevatedButton.icon(
               icon: const Icon(Icons.archive_outlined, size: 16),
               label: const Text('Archive Camp'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF475569), foregroundColor: Colors.white),
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
                 Navigator.pop(ctx);
@@ -4195,11 +4198,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 Expanded(
                   child: Text(
                     labelEn.toUpperCase(),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.5,
-                      color: Colors.blueGrey.shade700,
+                      color: Color(0xFF334155),
                     ),
                   ),
                 ),
@@ -4228,11 +4231,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             const SizedBox(height: 4),
             Row(
               children: [
-                Icon(Icons.public, size: 12, color: Colors.blueGrey.shade400),
+                const Icon(Icons.public, size: 12, color: Color(0xFF94A3B8)),
                 const SizedBox(width: 4),
                 Text(
                   adFormatted,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.blueGrey.shade600),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF64748B)),
                 ),
               ],
             ),
@@ -4276,7 +4279,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF0F766E), Color(0xFF042F2E)],
+                            colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -4671,20 +4674,12 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
       case AppConstants.campStatusScheduled:
         icon = Icons.event_available_outlined;
-        accentColor = Colors.indigo;
+        accentColor = const Color(0xFF0F766E);
         titleEn = 'No Scheduled Camps';
         titleNp = 'कुनै तालिकाबद्ध शिविर छैन';
         description =
-            'Scheduled camps are planned outreach deployments ready to be dispatched. Once field personnel arrive at the venue, administrators can open the camp for clinical patient intake.';
-        actionWidget = ElevatedButton.icon(
-          icon: const Icon(Icons.add_location_alt, size: 16),
-          label: const Text('Schedule Outreach Camp'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.indigo,
-            foregroundColor: Colors.white,
-          ),
-          onPressed: () => _showCreateCampDialog(context, initialStatus: CampStatus.scheduled),
-        );
+            'Scheduled camps are planned outreach deployments ready to be dispatched. Use the "+ New Camp" button in the top navigation bar to schedule a new deployment.';
+        actionWidget = null;
         break;
 
       case AppConstants.campStatusClosed:
@@ -4711,7 +4706,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
         actionWidget = ElevatedButton.icon(
           icon: const Icon(Icons.event_available, size: 16),
           label: const Text('View Scheduled Camps'),
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F766E), foregroundColor: Colors.white),
           onPressed: () => setState(() => _statusFilter = AppConstants.campStatusScheduled),
         );
         break;
@@ -4722,13 +4717,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
         titleEn = 'No Camps Found';
         titleNp = 'शिविर सूची खाली छ';
         description =
-            'No outreach camps match the current filter. Schedule a new healthcare outreach camp to organize patient registration and field workflows.';
-        actionWidget = ElevatedButton.icon(
-          icon: const Icon(Icons.add_location_alt, size: 16),
-          label: const Text('Schedule First Camp'),
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryTeal, foregroundColor: Colors.white),
-          onPressed: () => _showCreateCampDialog(context),
-        );
+            'No outreach camps match the current filter. Use the "+ New Camp" button in the top navigation bar to schedule an outreach camp.';
+        actionWidget = null;
     }
 
     return Center(
@@ -4771,7 +4761,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 const SizedBox(height: 2),
                 Text(
                   titleNp,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade600),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
@@ -4780,8 +4770,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   style: const TextStyle(fontSize: 13, height: 1.45, color: AppTheme.textSecondaryLight),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 20),
-                actionWidget,
+                if (actionWidget != null) ...[
+                  const SizedBox(height: 20),
+                  actionWidget,
+                ],
               ],
             ),
           ),
@@ -4913,7 +4905,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       case CampStatus.open:
         return AppTheme.successGreen;
       case CampStatus.scheduled:
-        return Colors.indigo;
+        return AppTheme.primaryDark;
       case CampStatus.draft:
         return AppTheme.warningAmber;
       case CampStatus.closed:
