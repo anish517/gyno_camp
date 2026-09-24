@@ -82,10 +82,12 @@ class HttpCentralApiService implements ICentralApiService {
       return activeUrl;
     }
 
-    const envUrl = String.fromEnvironment('CENTRAL_SERVER_URL', defaultValue: '');
-    if (envUrl.isNotEmpty) {
-      return envUrl;
-    }
+    try {
+      final savedUrl = SessionService.current?.getCentralServerUrl();
+      if (savedUrl != null && savedUrl.isNotEmpty) {
+        return savedUrl;
+      }
+    } catch (_) {}
 
     try {
       final configuredHost = SessionService.current?.getPostgresConfig().host;
@@ -99,9 +101,14 @@ class HttpCentralApiService implements ICentralApiService {
       }
     } catch (_) {}
 
+    const envUrl = String.fromEnvironment('CENTRAL_SERVER_URL', defaultValue: '');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
+
     if (!kIsWeb) {
-      // Prioritize 127.0.0.1 (works instantly with adb reverse over USB cable)
-      return 'http://127.0.0.1:8080';
+      // Prioritize current Wi-Fi host IP for field Android tablets and phones
+      return 'http://192.168.1.4:8080';
     }
     return 'http://localhost:8080';
   }
@@ -125,20 +132,33 @@ class HttpCentralApiService implements ICentralApiService {
     // 1. Check current baseUrl
     if (await _testEndpoint(baseUrl)) {
       markServerOnline(baseUrl);
+      try {
+        SessionService.current?.saveCentralServerUrl(baseUrl);
+      } catch (_) {}
       return true;
     }
 
-    // 2. On Android/native devices, automatically probe USB bridge, Wi-Fi LAN, and emulator
+    // 2. On Android/native devices, probe Wi-Fi LAN host, USB bridge, and fallbacks
     if (!kIsWeb) {
-      final candidates = [
-        'http://127.0.0.1:8080',      // USB ADB Reverse (Primary & fastest)
+      final candidates = <String>[
+        'http://192.168.1.4:8080',    // Development machine Wi-Fi host IP
+        'http://127.0.0.1:8080',      // USB ADB Reverse (Primary & fastest over cable)
+        'http://192.168.1.110:8080',  // Alternative Wi-Fi host IP
         'http://localhost:8080',      // Localhost alias
-        'http://192.168.1.110:8080',  // Development machine Wi-Fi host IP
         'http://10.0.2.2:8080',       // Android Emulator host bridge
       ];
+
+      final saved = SessionService.current?.getCentralServerUrl();
+      if (saved != null && saved.isNotEmpty && !candidates.contains(saved)) {
+        candidates.insert(0, saved);
+      }
+
       for (final candidate in candidates) {
         if (candidate != baseUrl && await _testEndpoint(candidate)) {
           markServerOnline(candidate);
+          try {
+            SessionService.current?.saveCentralServerUrl(candidate);
+          } catch (_) {}
           return true;
         }
       }

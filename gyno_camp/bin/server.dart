@@ -326,6 +326,8 @@ class GynoCampSyncServer {
         );
       ''');
       await _connection!.execute('ALTER TABLE devices ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT \'tenant_default\';');
+      await _connection!.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS record_hash TEXT DEFAULT '';");
+      await _connection!.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS previous_hash TEXT;");
       await _connection!.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_patient_id ON patients(patient_id);');
       await _connection!.execute("UPDATE users SET role = 'SUPER_ADMIN' WHERE id = 'usr-superadmin-01' OR LOWER(email) = 'admin@gynocamp.org';");
       // Auto-cleanup any orphaned patients or clinical visits in PostgreSQL

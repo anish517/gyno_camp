@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import '../../core/services/http_central_api_service.dart';
 import '../../core/services/session_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../viewmodels/postgres_config_viewmodel.dart';
@@ -12,6 +14,7 @@ class PostgresSettingsView extends ConsumerStatefulWidget {
 }
 
 class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
+  late TextEditingController _centralApiUrlController;
   late TextEditingController _hostController;
   late TextEditingController _portController;
   late TextEditingController _databaseController;
@@ -21,9 +24,15 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
   bool _useSsl = false;
   bool _directMode = false;
 
+  bool _isTestingCentralApi = false;
+  String? _centralApiStatus;
+  bool? _centralApiOnline;
+
   @override
   void initState() {
     super.initState();
+    final savedCentral = SessionService.current?.getCentralServerUrl() ?? 'http://192.168.1.4:8080';
+    _centralApiUrlController = TextEditingController(text: savedCentral);
     final config = ref.read(postgresConfigProvider).config;
     _hostController = TextEditingController(text: config.host);
     _portController = TextEditingController(text: config.port.toString());
@@ -38,10 +47,87 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
   void dispose() {
     _hostController.dispose();
     _portController.dispose();
+    _centralApiUrlController.dispose();
     _databaseController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _testCentralApi() async {
+    final target = _centralApiUrlController.text.trim();
+    if (target.isEmpty) return;
+    setState(() {
+      _isTestingCentralApi = true;
+      _centralApiStatus = 'Pinging $target/health...';
+      _centralApiOnline = null;
+    });
+    final stopwatch = Stopwatch()..start();
+    try {
+      final uri = Uri.parse('$target/health');
+      final client = http.Client();
+      final res = await client.get(uri).timeout(const Duration(seconds: 4));
+      stopwatch.stop();
+      if (res.statusCode == 200) {
+        setState(() {
+          _isTestingCentralApi = false;
+          _centralApiOnline = true;
+          _centralApiStatus = 'Central Cloud Sync API is ONLINE! (${stopwatch.elapsedMilliseconds} ms latency)';
+        });
+        HttpCentralApiService.markServerOnline(target);
+        await SessionService.current?.saveCentralServerUrl(target);
+      } else {
+        setState(() {
+          _isTestingCentralApi = false;
+          _centralApiOnline = false;
+          _centralApiStatus = 'Server reachable but returned HTTP ${res.statusCode}';
+        });
+      }
+    } catch (e) {
+      stopwatch.stop();
+      setState(() {
+        _isTestingCentralApi = false;
+        _centralApiOnline = false;
+        _centralApiStatus = 'Connection failed: Cannot reach $target. Check IP and Wi-Fi connection.';
+      });
+    }
+  }
+
+  Future<void> _autoDetectCentralApi() async {
+    setState(() {
+      _isTestingCentralApi = true;
+      _centralApiStatus = 'Probing candidate host IPs...';
+      _centralApiOnline = null;
+    });
+    final candidates = [
+      'http://192.168.1.4:8080',
+      'http://127.0.0.1:8080',
+      'http://192.168.1.110:8080',
+      'http://localhost:8080',
+      'http://10.0.2.2:8080',
+    ];
+    for (final c in candidates) {
+      try {
+        final uri = Uri.parse('$c/health');
+        final res = await http.Client().get(uri).timeout(const Duration(milliseconds: 1500));
+        if (res.statusCode == 200) {
+          _centralApiUrlController.text = c;
+          setState(() {
+            _isTestingCentralApi = false;
+            _centralApiOnline = true;
+            _centralApiStatus = 'Auto-detected online server at $c!';
+          });
+          HttpCentralApiService.markServerOnline(c);
+          await SessionService.current?.saveCentralServerUrl(c);
+          return;
+        }
+      } catch (_) {}
+    }
+    setState(() {
+      _isTestingCentralApi = false;
+      _centralApiOnline = false;
+      _centralApiStatus = 'No active server found. Ensure bin/server.dart is running on PC!';
+    });
   }
 
   void _saveCurrentForm() {
@@ -56,6 +142,7 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
       isDirectModeEnabled: _directMode,
     );
     ref.read(postgresConfigProvider.notifier).updateConfig(updated);
+    SessionService.current?.saveCentralServerUrl(_centralApiUrlController.text.trim());
   }
 
   @override
@@ -105,6 +192,152 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Central Cloud Sync REST API Card (Port 8080)
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.cloud_sync_rounded, color: AppTheme.primaryTeal, size: 28),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'Central Cloud REST API (Port 8080)',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryLight),
+                              ),
+                            ),
+                            if (_centralApiOnline == true)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.green.shade300),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                                    const SizedBox(width: 6),
+                                    const Text('ONLINE', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                                  ],
+                                ),
+                              )
+                            else if (_centralApiOnline == false)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.red.shade300),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle)),
+                                    const SizedBox(width: 6),
+                                    const Text('OFFLINE', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Primary sync endpoint used by Android Tablets & Chrome to share camps, patients, medicines, and clinical visits.',
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _centralApiUrlController,
+                          decoration: const InputDecoration(
+                            labelText: 'Central Server API URL',
+                            hintText: 'http://192.168.1.4:8080 or http://127.0.0.1:8080',
+                            prefixIcon: Icon(Icons.wifi_rounded),
+                          ),
+                          onChanged: (_) => _saveCurrentForm(),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryTeal,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              ),
+                              icon: _isTestingCentralApi
+                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : const Icon(Icons.network_check_rounded, size: 18),
+                              label: Text(_isTestingCentralApi ? 'Checking...' : 'Ping Central API'),
+                              onPressed: _isTestingCentralApi ? null : _testCentralApi,
+                            ),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              ),
+                              icon: const Icon(Icons.radar_rounded, size: 18),
+                              label: const Text('Auto-Detect Server'),
+                              onPressed: _isTestingCentralApi ? null : _autoDetectCentralApi,
+                            ),
+                          ],
+                        ),
+                        if (_centralApiStatus != null) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: _centralApiOnline == true
+                                  ? Colors.green.shade50
+                                  : (_centralApiOnline == false ? Colors.red.shade50 : Colors.blue.shade50),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: _centralApiOnline == true
+                                    ? Colors.green.shade300
+                                    : (_centralApiOnline == false ? Colors.red.shade300 : Colors.blue.shade300),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _centralApiOnline == true
+                                      ? Icons.check_circle_outline_rounded
+                                      : (_centralApiOnline == false ? Icons.error_outline_rounded : Icons.info_outline_rounded),
+                                  color: _centralApiOnline == true
+                                      ? Colors.green.shade700
+                                      : (_centralApiOnline == false ? Colors.red.shade700 : Colors.blue.shade700),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _centralApiStatus!,
+                                    style: TextStyle(
+                                      color: _centralApiOnline == true
+                                          ? Colors.green.shade900
+                                          : (_centralApiOnline == false ? Colors.red.shade900 : Colors.blue.shade900),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),

@@ -69,6 +69,7 @@ class SessionService {
   static const String _keyDeviceInstallToken = 'gynocamp_device_install_token';
   static const String _keyOcrEngineMode = 'gynocamp_ocr_engine_mode';
   static const String _keyGeminiApiKey = 'gynocamp_gemini_api_key';
+  static const String _keyCentralServerUrl = 'gynocamp_central_server_url';
 
   static SessionService? _instance;
   final SharedPreferences? _prefs;
@@ -185,4 +186,12 @@ class SessionService {
   }
 
   String? getGeminiApiKey() => _prefs?.getString(_keyGeminiApiKey);
+
+  // Central Server URL (REST on port 8080)
+  Future<void> saveCentralServerUrl(String url) async {
+    if (_prefs == null) return;
+    await _prefs.setString(_keyCentralServerUrl, url.trim());
+  }
+
+  String? getCentralServerUrl() => _prefs?.getString(_keyCentralServerUrl);
 }
