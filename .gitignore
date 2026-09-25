@@ -2,3 +2,5 @@
 .vscode/
 /dist/
 .playwright-mcp/
+.dart_tool/
+**/.dart_tool/
