@@ -31,10 +31,17 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
   @override
   void initState() {
     super.initState();
-    final savedCentral = SessionService.current?.getCentralServerUrl() ?? 'http://192.168.16.113:8080';
+    const envUrl = String.fromEnvironment('CENTRAL_SERVER_URL', defaultValue: '');
+    String savedCentral = envUrl.isNotEmpty
+        ? envUrl
+        : (SessionService.current?.getCentralServerUrl() ?? 'http://192.168.16.113:8080');
+    if (savedCentral == 'http://192.168.1.4:8080') {
+      savedCentral = 'http://192.168.16.113:8080';
+    }
     _centralApiUrlController = TextEditingController(text: savedCentral);
     final config = ref.read(postgresConfigProvider).config;
-    _hostController = TextEditingController(text: config.host);
+    final initialHost = config.host == '192.168.1.4' ? '192.168.16.113' : config.host;
+    _hostController = TextEditingController(text: initialHost);
     _portController = TextEditingController(text: config.port.toString());
     _databaseController = TextEditingController(text: config.database);
     _usernameController = TextEditingController(text: config.username);

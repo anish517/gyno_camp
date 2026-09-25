@@ -28,6 +28,7 @@ import '../../models/camp_model.dart';
 import '../../models/camp_report_summary_model.dart';
 import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
+import '../../core/constants/clinical_constants.dart';
 import '../reports/camp_report_view.dart';
 import '../scanner/form_scan_view.dart';
 import '../sync/sync_status_view.dart';
@@ -3620,10 +3621,13 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   String _selectedAgeBracket = 'all'; // 'all', '<20', '20-35', '36-50', '51-65', '>65'
   String _selectedIntakeStatus = 'all'; // 'all', 'completed', 'pending', 'followup'
   String _selectedDoctor = 'all'; // 'all' or doctor name
+  String _selectedDiagnosis = 'all'; // 'all' or specific dynamic diagnosis
+  String _selectedTreatment = 'all'; // 'all', 'pessary', 'surgery', 'counseling', 'medications'
   bool _highBpOnly = false;
-  String _activeTab = 'overview'; // 'overview', 'charts', 'patients', 'camps'
+  String _activeTab = 'overview'; // 'overview', 'patients', 'charts', 'camps'
   bool _filtersExpanded = true;
   String? _exportingPatientId;
+  bool _isExportingExcel = false;
   int _registryPage = 0; // pagination: current page for patient registry
   final Map<String, ClinicalVisitModel> _patientVisits = {};
   bool _isLoadingVisits = false;
@@ -3645,13 +3649,15 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   }
 
   void _fetchDataForCamp(String campId) {
-    if (campId == 'all') {
-      ref.read(patientListProvider.notifier).loadPatients(null);
-      ref.read(reportingViewModelProvider.notifier).loadSummary(campId: null);
-    } else {
-      ref.read(patientListProvider.notifier).loadPatients(campId);
-      ref.read(reportingViewModelProvider.notifier).loadSummary(campId: campId);
-    }
+    final effectiveCampId = campId == 'all' ? null : campId;
+    ref.read(patientListProvider.notifier).loadPatients(effectiveCampId);
+    ref.read(reportingViewModelProvider.notifier).loadSummary(
+          campId: effectiveCampId,
+          diagnosisFilter: _selectedDiagnosis == 'all' ? null : _selectedDiagnosis,
+          popStageFilter: _selectedPopStage == 'all' ? null : _selectedPopStage,
+          treatmentFilter: _selectedTreatment == 'all' ? null : _selectedTreatment,
+          doctorFilter: _selectedDoctor == 'all' ? null : _selectedDoctor,
+        );
   }
 
   void _onCampChanged(String? newCampId) {
@@ -3701,6 +3707,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     if (_selectedComplaint != 'all') count++;
     if (_selectedSurgery != 'all') count++;
     if (_selectedAgeBracket != 'all') count++;
+    if (_selectedDiagnosis != 'all') count++;
+    if (_selectedTreatment != 'all') count++;
     if (_selectedIntakeStatus != 'all') count++;
     if (_selectedDoctor != 'all') count++;
     if (_highBpOnly) count++;
@@ -3715,11 +3723,84 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       _selectedComplaint = 'all';
       _selectedSurgery = 'all';
       _selectedAgeBracket = 'all';
+      _selectedDiagnosis = 'all';
+      _selectedTreatment = 'all';
       _selectedIntakeStatus = 'all';
       _selectedDoctor = 'all';
       _highBpOnly = false;
       _registryPage = 0;
     });
+    _fetchDataForCamp(_selectedCampId);
+  }
+
+  Future<void> _exportExcel(UserModel? user, String deviceId) async {
+    setState(() => _isExportingExcel = true);
+    try {
+      final savedPath = await ref.read(reportingViewModelProvider.notifier).exportExcel(
+            userId: user?.id ?? 'usr-analyst',
+            userName: user?.name ?? 'Data Analyst',
+            userRole: user?.role.toDbString() ?? 'DATA_ANALYST',
+            deviceId: deviceId,
+          );
+      if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        if (savedPath != null) {
+          messenger.showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF0F766E),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Excel Workbook Exported Successfully',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          savedPath,
+                          style: const TextStyle(fontSize: 11, color: Colors.white70),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else {
+          messenger.showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.red.shade700,
+              content: const Text('Failed to export Excel report.'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text('Error generating Excel: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isExportingExcel = false);
+      }
+    }
   }
 
   @override
@@ -3842,6 +3923,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final campState = ref.watch(campStateProvider);
     final reportingState = ref.watch(reportingViewModelProvider);
     final patientState = ref.watch(patientListProvider);
+    final deviceState = ref.watch(deviceSecurityProvider);
 
     final isSuperAdmin = user?.role == UserRole.superAdmin;
     final visibleCamps = !isSuperAdmin && user != null
@@ -3873,6 +3955,17 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         }
       }
     }
+
+    // Collect dynamic diagnoses from ClinicalConstants, visits, and summary
+    final dynamicDiagnoses = <String>{};
+    dynamicDiagnoses.addAll(ClinicalConstants.defaultDiagnoses);
+    for (final v in _patientVisits.values) {
+      dynamicDiagnoses.addAll(v.diagnoses.where((d) => d.trim().isNotEmpty));
+    }
+    if (summary != null && summary.diagnosisCounts.isNotEmpty) {
+      dynamicDiagnoses.addAll(summary.diagnosisCounts.keys.where((d) => d.trim().isNotEmpty));
+    }
+    final sortedDiagnoses = dynamicDiagnoses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     // Seed visits from summary if available
     if (summary != null && summary.visits.isNotEmpty) {
@@ -3997,6 +4090,36 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         if (!primaryMatch && !attendingMatch && !campMatch) return false;
       }
 
+      // 10. Dynamic Diagnosis filter
+      if (_selectedDiagnosis != 'all') {
+        final targetDiag = _selectedDiagnosis.toLowerCase().trim();
+        final visitDiags = (visit?.diagnoses ?? []).map((d) => d.toLowerCase().trim()).toList();
+        final matchesDiag = visitDiags.any((d) => d == targetDiag || d.contains(targetDiag));
+        if (!matchesDiag) return false;
+      }
+
+      // 11. Fixed Treatment filter
+      if (_selectedTreatment != 'all') {
+        switch (_selectedTreatment) {
+          case 'pessary':
+            final hasPessary = (visit != null && ((visit.pessaryType != null && visit.pessaryType!.isNotEmpty) || (visit.pessarySize != null && visit.pessarySize!.isNotEmpty)));
+            if (!hasPessary) return false;
+            break;
+          case 'surgery':
+            final hasSurgery = (p.surgeryDone == true || (visit != null && (visit.surgeryDone == true || (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty))));
+            if (!hasSurgery) return false;
+            break;
+          case 'counseling':
+            final hasCounseling = (visit != null && visit.counseling.isNotEmpty);
+            if (!hasCounseling) return false;
+            break;
+          case 'medications':
+            final hasMeds = (visit != null && (visit.medications.isNotEmpty || (visit.customMedication != null && visit.customMedication!.isNotEmpty)));
+            if (!hasMeds) return false;
+            break;
+        }
+      }
+
       return true;
     }).toList();
 
@@ -4025,69 +4148,118 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 campState: campState,
                 visibleCamps: visibleCamps,
                 currentCampName: campDisplayName,
+                deviceState: deviceState,
               ),
 
               const SizedBox(height: 18),
 
-              // 2. REAL-TIME KPI METRICS (4 TELEMETRY CARDS)
-              _buildKpiMetricsRow(
-                summary: summary,
-                allPatientsCount: allPatients.length,
-                filteredPatientsCount: filteredPatients.length,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isDesktop = constraints.maxWidth >= 960;
+
+                  final mainContent = Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // REAL-TIME KPI METRICS (4 TELEMETRY CARDS)
+                      _buildKpiMetricsRow(
+                        summary: summary,
+                        allPatientsCount: allPatients.length,
+                        filteredPatientsCount: filteredPatients.length,
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // VIEW MODE TABS NAVIGATION
+                      _buildViewModeTabs(filteredCount: filteredPatients.length),
+
+                      const SizedBox(height: 16),
+
+                      // 1. PATIENT REGISTRY AT THE TOP OF CONTENT!
+                      // When in overview or patients tab, the patient dossiers are displayed first
+                      // so users immediately see filtered cohort records without scrolling to bottom!
+                      if (_activeTab == 'overview' || _activeTab == 'patients') ...[
+                        _buildCampWisePatientRegistry(
+                          filteredPatients: filteredPatients,
+                          allPatientsCount: allPatients.length,
+                          campState: campState,
+                          currentPage: _registryPage,
+                          onPageChanged: (p) => setState(() => _registryPage = p),
+                        ),
+                        const SizedBox(height: 18),
+                      ],
+
+                      // 2. EPIDEMIOLOGICAL CHARTS
+                      if (_activeTab == 'overview' || _activeTab == 'charts') ...[
+                        // POP-Q Staging Spectrum Bar Chart
+                        _buildPopStagingBarChart(summary, filteredPatients),
+                        const SizedBox(height: 18),
+
+                        // Chief Clinical Complaints Distribution Chart
+                        _buildChiefComplaintsChart(filteredPatients),
+                        const SizedBox(height: 18),
+
+                        // Demographic Age Cohort Chart
+                        _buildAgeDistributionChart(summary, filteredPatients),
+                        const SizedBox(height: 18),
+
+                        // Clinical Interventions & Modalities Chart
+                        _buildTreatmentModalityChart(summary, filteredPatients),
+                        const SizedBox(height: 18),
+                      ],
+
+                      // 3. CROSS-CAMP COMPARISON
+                      if (_activeTab == 'overview' || _activeTab == 'camps') ...[
+                        // Cross-Camp Comparison Chart
+                        _buildCampWiseComparisonChart(campState.camps, allPatients),
+                        const SizedBox(height: 18),
+                      ],
+                    ],
+                  );
+
+                  if (isDesktop) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left Sidebar (320px) with Dropdowns, Toggles, and Export Actions
+                        SizedBox(
+                          width: 320,
+                          child: _buildAnalyticsFilterBar(
+                            isSidebar: true,
+                            campState: campState,
+                            totalPatients: allPatients.length,
+                            filteredCount: filteredPatients.length,
+                            allDoctors: allDoctors.toList()..sort(),
+                            allDiagnoses: sortedDiagnoses,
+                            user: user,
+                            deviceState: deviceState,
+                          ),
+                        ),
+                        const SizedBox(width: 18),
+                        // Right Main Content
+                        Expanded(child: mainContent),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildAnalyticsFilterBar(
+                          isSidebar: false,
+                          campState: campState,
+                          totalPatients: allPatients.length,
+                          filteredCount: filteredPatients.length,
+                          allDoctors: allDoctors.toList()..sort(),
+                          allDiagnoses: sortedDiagnoses,
+                          user: user,
+                          deviceState: deviceState,
+                        ),
+                        const SizedBox(height: 18),
+                        mainContent,
+                      ],
+                    );
+                  }
+                },
               ),
-
-              const SizedBox(height: 18),
-
-              // 3. MULTI-DIMENSIONAL ANALYTICS FILTER BAR
-              _buildAnalyticsFilterBar(
-                campState: campState,
-                totalPatients: allPatients.length,
-                filteredCount: filteredPatients.length,
-                allDoctors: allDoctors.toList()..sort(),
-              ),
-
-              const SizedBox(height: 18),
-
-              // 4. VIEW MODE TABS NAVIGATION
-              _buildViewModeTabs(filteredCount: filteredPatients.length),
-
-              const SizedBox(height: 16),
-
-              // 5. VIEW CONTENT ACCORDING TO ACTIVE TAB
-              if (_activeTab == 'overview' || _activeTab == 'charts') ...[
-                // POP-Q Staging Spectrum Bar Chart
-                _buildPopStagingBarChart(summary, filteredPatients),
-                const SizedBox(height: 18),
-
-                // Chief Clinical Complaints Distribution Chart
-                _buildChiefComplaintsChart(filteredPatients),
-                const SizedBox(height: 18),
-
-                // Demographic Age Cohort Chart
-                _buildAgeDistributionChart(summary, filteredPatients),
-                const SizedBox(height: 18),
-
-                // Clinical Interventions & Modalities Chart
-                _buildTreatmentModalityChart(summary, filteredPatients),
-                const SizedBox(height: 18),
-              ],
-
-              if (_activeTab == 'overview' || _activeTab == 'camps') ...[
-                // Cross-Camp Comparison Chart
-                _buildCampWiseComparisonChart(campState.camps, allPatients),
-                const SizedBox(height: 18),
-              ],
-
-              if (_activeTab == 'overview' || _activeTab == 'patients') ...[
-                // Camp-Wise Patients Registry with Individual Dossier Export
-                _buildCampWisePatientRegistry(
-                  filteredPatients: filteredPatients,
-                  allPatientsCount: allPatients.length,
-                  campState: campState,
-                  currentPage: _registryPage,
-                  onPageChanged: (p) => setState(() => _registryPage = p),
-                ),
-              ],
             ],
           ),
         ),
@@ -4103,6 +4275,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     required CampState campState,
     required List<CampModel> visibleCamps,
     required String currentCampName,
+    required DeviceSecurityState deviceState,
   }) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
@@ -4325,6 +4498,28 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   );
                 },
               ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF047857),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: _isExportingExcel
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.table_view_rounded, size: 16),
+                label: Text(
+                  _isExportingExcel ? 'Exporting...' : 'Export Excel (एक्सेल)',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                onPressed: _isExportingExcel
+                    ? null
+                    : () => _exportExcel(user, deviceState.device?.deviceId ?? 'dev-field'),
+              ),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
@@ -4429,11 +4624,270 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   // COMPONENT 3: MULTI-DIMENSIONAL FILTER BAR
   // ==========================================
   Widget _buildAnalyticsFilterBar({
+    required bool isSidebar,
     required CampState campState,
     required int totalPatients,
     required int filteredCount,
     required List<String> allDoctors,
+    required List<String> allDiagnoses,
+    required UserModel? user,
+    required DeviceSecurityState deviceState,
   }) {
+    final popDropdown = DropdownButtonFormField<String>(
+      initialValue: _selectedPopStage,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'POP Severity',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        isDense: true,
+      ),
+      items: const [
+        DropdownMenuItem(value: 'all', child: Text('All POP Stages', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: '0', child: Text('Stage 0 (Normal)', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: '1', child: Text('Stage I (Mild)', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: '2', child: Text('Stage II (Moderate)', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: '3', child: Text('Stage III (Severe)', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: '4', child: Text('Stage IV (Procidentia)', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'significant', child: Text('Stages II-IV (Significant POP)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold))),
+      ],
+      onChanged: (v) {
+        setState(() {
+          _selectedPopStage = v ?? 'all';
+          _registryPage = 0;
+          if (_activeTab == 'charts' || _activeTab == 'camps') _activeTab = 'overview';
+        });
+        _fetchDataForCamp(_selectedCampId);
+      },
+    );
+
+    final complaintDropdown = DropdownButtonFormField<String>(
+      initialValue: _selectedComplaint,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Chief Complaint',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        isDense: true,
+      ),
+      items: const [
+        DropdownMenuItem(value: 'all', child: Text('All Complaints', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'prolapse', child: Text('Prolapse / Something Hanging', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'discharge', child: Text('Discharge / Itching', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'urine', child: Text('Urinary Issues', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'stool', child: Text('Bowel / Stool Issues', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'pain', child: Text('Pelvic / Abdominal Pain', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'menstrual', child: Text('Menstrual Problems', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'infertility', child: Text('Infertility Issues', style: TextStyle(fontSize: 12.5))),
+      ],
+      onChanged: (v) => setState(() {
+        _selectedComplaint = v ?? 'all';
+        _registryPage = 0;
+        if (_activeTab == 'charts' || _activeTab == 'camps') _activeTab = 'overview';
+      }),
+    );
+
+    final surgeryDropdown = DropdownButtonFormField<String>(
+      initialValue: _selectedSurgery,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Surgery Status',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        isDense: true,
+      ),
+      items: const [
+        DropdownMenuItem(value: 'all', child: Text('All / Any', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'yes', child: Text('Surgery Performed', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'no', child: Text('No Surgery', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'referral', child: Text('Hospital Referral', style: TextStyle(fontSize: 12.5))),
+      ],
+      onChanged: (v) => setState(() {
+        _selectedSurgery = v ?? 'all';
+        _registryPage = 0;
+        if (_activeTab == 'charts' || _activeTab == 'camps') _activeTab = 'overview';
+      }),
+    );
+
+    final ageDropdown = DropdownButtonFormField<String>(
+      initialValue: _selectedAgeBracket,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Age Cohort',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        isDense: true,
+      ),
+      items: const [
+        DropdownMenuItem(value: 'all', child: Text('All Age Cohorts', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: '<20', child: Text('< 20 Years', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: '20-35', child: Text('20 - 35 Years', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: '36-50', child: Text('36 - 50 Years', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: '51-65', child: Text('51 - 65 Years', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: '>65', child: Text('> 65 Years', style: TextStyle(fontSize: 12.5))),
+      ],
+      onChanged: (v) => setState(() {
+        _selectedAgeBracket = v ?? 'all';
+        _registryPage = 0;
+        if (_activeTab == 'charts' || _activeTab == 'camps') _activeTab = 'overview';
+      }),
+    );
+
+    final diagnosisDropdown = DropdownButtonFormField<String>(
+      key: ValueKey('diag_filter_$_selectedDiagnosis'),
+      initialValue: _selectedDiagnosis,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Clinical Diagnosis',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        isDense: true,
+      ),
+      items: [
+        const DropdownMenuItem(value: 'all', child: Text('All Diagnoses', style: TextStyle(fontSize: 12.5))),
+        ...allDiagnoses.map((d) => DropdownMenuItem(
+              value: d,
+              child: Text(
+                d.isNotEmpty ? '${d[0].toUpperCase()}${d.substring(1)}' : d,
+                style: const TextStyle(fontSize: 12.5),
+                overflow: TextOverflow.ellipsis,
+              ),
+            )),
+      ],
+      onChanged: (v) {
+        setState(() {
+          _selectedDiagnosis = v ?? 'all';
+          _registryPage = 0;
+          if (_activeTab == 'charts' || _activeTab == 'camps') _activeTab = 'overview';
+        });
+        _fetchDataForCamp(_selectedCampId);
+      },
+    );
+
+    final treatmentDropdown = DropdownButtonFormField<String>(
+      key: ValueKey('treat_filter_$_selectedTreatment'),
+      initialValue: _selectedTreatment,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Treatment Modality',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        isDense: true,
+      ),
+      items: const [
+        DropdownMenuItem(value: 'all', child: Text('All Treatments', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'pessary', child: Text('Pessary Fitted (रिङ पेसरी)', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'surgery', child: Text('Surgical Candidate / Referral', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'counseling', child: Text('Counseling / Physiotherapy', style: TextStyle(fontSize: 12.5))),
+        DropdownMenuItem(value: 'medications', child: Text('Medications Prescribed', style: TextStyle(fontSize: 12.5))),
+      ],
+      onChanged: (v) {
+        setState(() {
+          _selectedTreatment = v ?? 'all';
+          _registryPage = 0;
+          if (_activeTab == 'charts' || _activeTab == 'camps') _activeTab = 'overview';
+        });
+        _fetchDataForCamp(_selectedCampId);
+      },
+    );
+
+    final doctorDropdown = allDoctors.isEmpty
+        ? const SizedBox.shrink()
+        : DropdownButtonFormField<String>(
+            key: ValueKey('doctor_filter_$_selectedDoctor'),
+            initialValue: _selectedDoctor,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Attending Doctor',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              isDense: true,
+              prefixIcon: Icon(Icons.person_pin_rounded, size: 18),
+            ),
+            items: [
+              const DropdownMenuItem(value: 'all', child: Text('All Doctors', style: TextStyle(fontSize: 12.5))),
+              ...allDoctors.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 12.5)))),
+            ],
+            onChanged: (v) => setState(() {
+              _selectedDoctor = v ?? 'all';
+              _registryPage = 0;
+              if (_activeTab == 'charts' || _activeTab == 'camps') _activeTab = 'overview';
+              _fetchDataForCamp(_selectedCampId);
+            }),
+          );
+
+    final togglesWrap = Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        FilterChip(
+          label: const Text('Hypertension Alert (HTN >= 140/90)', style: TextStyle(fontSize: 11.5)),
+          selected: _highBpOnly,
+          selectedColor: const Color(0xFFFEE2E2),
+          checkmarkColor: const Color(0xFFDC2626),
+          labelStyle: TextStyle(
+            color: _highBpOnly ? const Color(0xFFDC2626) : const Color(0xFF334155),
+            fontWeight: _highBpOnly ? FontWeight.bold : FontWeight.normal,
+          ),
+          onSelected: (val) => setState(() => _highBpOnly = val),
+        ),
+        FilterChip(
+          label: const Text('Clinical Intake Completed', style: TextStyle(fontSize: 11.5)),
+          selected: _selectedIntakeStatus == 'completed',
+          selectedColor: const Color(0xFFCCFBF1),
+          checkmarkColor: const Color(0xFF0F766E),
+          labelStyle: TextStyle(
+            color: _selectedIntakeStatus == 'completed' ? const Color(0xFF0F766E) : const Color(0xFF334155),
+            fontWeight: _selectedIntakeStatus == 'completed' ? FontWeight.bold : FontWeight.normal,
+          ),
+          onSelected: (val) => setState(() => _selectedIntakeStatus = val ? 'completed' : 'all'),
+        ),
+        FilterChip(
+          label: const Text('Intake Pending', style: TextStyle(fontSize: 11.5)),
+          selected: _selectedIntakeStatus == 'pending',
+          selectedColor: const Color(0xFFFEF3C7),
+          checkmarkColor: const Color(0xFFD97706),
+          labelStyle: TextStyle(
+            color: _selectedIntakeStatus == 'pending' ? const Color(0xFFD97706) : const Color(0xFF334155),
+            fontWeight: _selectedIntakeStatus == 'pending' ? FontWeight.bold : FontWeight.normal,
+          ),
+          onSelected: (val) => setState(() => _selectedIntakeStatus = val ? 'pending' : 'all'),
+        ),
+        FilterChip(
+          label: const Text('Follow-Up Visits', style: TextStyle(fontSize: 11.5)),
+          selected: _selectedIntakeStatus == 'followup',
+          selectedColor: const Color(0xFFEDE9FE),
+          checkmarkColor: const Color(0xFF7C3AED),
+          labelStyle: TextStyle(
+            color: _selectedIntakeStatus == 'followup' ? const Color(0xFF7C3AED) : const Color(0xFF334155),
+            fontWeight: _selectedIntakeStatus == 'followup' ? FontWeight.bold : FontWeight.normal,
+          ),
+          onSelected: (val) => setState(() => _selectedIntakeStatus = val ? 'followup' : 'all'),
+        ),
+      ],
+    );
+
+    final resultsBar = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, size: 14, color: Color(0xFF475569)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Displaying $filteredCount of $totalPatients registered cohort records',
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
@@ -4457,7 +4911,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     children: [
                       const Text(
                         'Multi-Dimensional Analytics Filters',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B)),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF1E293B)),
                       ),
                       if (_activeFilterCount > 0)
                         Container(
@@ -4478,20 +4932,21 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   TextButton.icon(
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFFDC2626),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                       visualDensity: VisualDensity.compact,
                     ),
                     icon: const Icon(Icons.clear_all_rounded, size: 16),
                     label: const Text('Reset All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     onPressed: _resetFilters,
                   ),
-                IconButton(
-                  icon: Icon(_filtersExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 20),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => setState(() => _filtersExpanded = !_filtersExpanded),
-                  tooltip: _filtersExpanded ? 'Collapse Filters' : 'Expand Filters',
-                ),
+                if (!isSidebar)
+                  IconButton(
+                    icon: Icon(_filtersExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => setState(() => _filtersExpanded = !_filtersExpanded),
+                    tooltip: _filtersExpanded ? 'Collapse Filters' : 'Expand Filters',
+                  ),
               ],
             ),
 
@@ -4515,119 +4970,133 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
               onChanged: (_) => setState(() {}),
             ),
 
-            if (_filtersExpanded) ...[
+            if (isSidebar || _filtersExpanded) ...[
               const SizedBox(height: 12),
-              // Dropdowns Grid
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth >= 700;
-
-                  final popDropdown = DropdownButtonFormField<String>(
-                    initialValue: _selectedPopStage,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'POP Severity',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      isDense: true,
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'all', child: Text('All POP Stages', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: '0', child: Text('Stage 0 (Normal)', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: '1', child: Text('Stage I (Mild)', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: '2', child: Text('Stage II (Moderate)', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: '3', child: Text('Stage III (Severe)', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: '4', child: Text('Stage IV (Procidentia)', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'significant', child: Text('Stages II-IV (Significant POP)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold))),
-                    ],
-                    onChanged: (v) => setState(() => _selectedPopStage = v ?? 'all'),
-                  );
-
-                  final complaintDropdown = DropdownButtonFormField<String>(
-                    initialValue: _selectedComplaint,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Chief Complaint',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      isDense: true,
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'all', child: Text('All Complaints', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'prolapse', child: Text('Prolapse / Something Hanging', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'discharge', child: Text('Discharge / Itching', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'urine', child: Text('Urinary Issues', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'stool', child: Text('Bowel / Stool Issues', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'pain', child: Text('Pelvic / Abdominal Pain', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'menstrual', child: Text('Menstrual Problems', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'infertility', child: Text('Infertility Issues', style: TextStyle(fontSize: 12.5))),
-                    ],
-                    onChanged: (v) => setState(() => _selectedComplaint = v ?? 'all'),
-                  );
-
-                  final surgeryDropdown = DropdownButtonFormField<String>(
-                    initialValue: _selectedSurgery,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Surgery Status',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      isDense: true,
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'all', child: Text('All / Any', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'yes', child: Text('Surgery Performed', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'no', child: Text('No Surgery', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'referral', child: Text('Hospital Referral', style: TextStyle(fontSize: 12.5))),
-                    ],
-                    onChanged: (v) => setState(() => _selectedSurgery = v ?? 'all'),
-                  );
-
-                  final ageDropdown = DropdownButtonFormField<String>(
-                    initialValue: _selectedAgeBracket,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Age Cohort',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      isDense: true,
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'all', child: Text('All Age Cohorts', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: '<20', child: Text('< 20 Years', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: '20-35', child: Text('20 - 35 Years', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: '36-50', child: Text('36 - 50 Years', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: '51-65', child: Text('51 - 65 Years', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: '>65', child: Text('> 65 Years', style: TextStyle(fontSize: 12.5))),
-                    ],
-                    onChanged: (v) => setState(() => _selectedAgeBracket = v ?? 'all'),
-                  );
-
-                  // Doctor filter dropdown (only shown if any doctors are defined)
-                  final doctorDropdown = allDoctors.isEmpty
-                      ? const SizedBox.shrink()
-                      : DropdownButtonFormField<String>(
-                          key: ValueKey('doctor_filter_$_selectedDoctor'),
-                          initialValue: _selectedDoctor,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Attending Doctor',
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            isDense: true,
-                            prefixIcon: Icon(Icons.person_pin_rounded, size: 18),
+              if (isSidebar) ...[
+                // Vertical Stack in Sidebar
+                popDropdown,
+                const SizedBox(height: 10),
+                complaintDropdown,
+                const SizedBox(height: 10),
+                surgeryDropdown,
+                const SizedBox(height: 10),
+                ageDropdown,
+                const SizedBox(height: 10),
+                diagnosisDropdown,
+                const SizedBox(height: 10),
+                treatmentDropdown,
+                if (allDoctors.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  doctorDropdown,
+                ],
+                const SizedBox(height: 14),
+                const Text(
+                  'CLINICAL ALERTS & STATUS',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5),
+                ),
+                const SizedBox(height: 6),
+                togglesWrap,
+                const SizedBox(height: 12),
+                resultsBar,
+                const SizedBox(height: 14),
+                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                const SizedBox(height: 12),
+                const Text(
+                  'REPORTS & DOSSIERS (प्रतिवेदन)',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F766E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 15),
+                  label: const Text('Camp Aggregate PDF', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CampReportView(
+                          initialCampId: _selectedCampId == 'all' ? null : _selectedCampId,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF047857),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: _isExportingExcel
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.table_view_rounded, size: 15),
+                  label: Text(
+                    _isExportingExcel ? 'Exporting...' : 'Export Excel Dataset',
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: _isExportingExcel ? null : () => _exportExcel(user, deviceState.device?.deviceId ?? 'dev-field'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF475569),
+                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.history_edu_rounded, size: 15),
+                  label: const Text('Audit Trail Log', style: TextStyle(fontSize: 11.5)),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AuditTrailView()),
+                    );
+                  },
+                ),
+              ] else ...[
+                // Responsive Grid in Stacked Mobile Mode
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth >= 700;
+                    if (isWide) {
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(child: popDropdown),
+                              const SizedBox(width: 8),
+                              Expanded(child: complaintDropdown),
+                              const SizedBox(width: 8),
+                              Expanded(child: surgeryDropdown),
+                              const SizedBox(width: 8),
+                              Expanded(child: ageDropdown),
+                            ],
                           ),
-                          items: [
-                            const DropdownMenuItem(value: 'all', child: Text('All Doctors', style: TextStyle(fontSize: 12.5))),
-                            ...allDoctors.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 12.5)))),
-                          ],
-                          onChanged: (v) => setState(() {
-                            _selectedDoctor = v ?? 'all';
-                            _registryPage = 0;
-                          }),
-                        );
-
-                  if (isWide) {
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: diagnosisDropdown),
+                              const SizedBox(width: 8),
+                              Expanded(child: treatmentDropdown),
+                              if (allDoctors.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Expanded(child: doctorDropdown),
+                              ] else ...[
+                                const SizedBox(width: 8),
+                                const Expanded(child: SizedBox.shrink()),
+                              ],
+                            ],
+                          ),
+                        ],
+                      );
+                    }
                     return Column(
                       children: [
                         Row(
@@ -4635,129 +5104,38 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                             Expanded(child: popDropdown),
                             const SizedBox(width: 8),
                             Expanded(child: complaintDropdown),
-                            const SizedBox(width: 8),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
                             Expanded(child: surgeryDropdown),
                             const SizedBox(width: 8),
                             Expanded(child: ageDropdown),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(child: diagnosisDropdown),
+                            const SizedBox(width: 8),
+                            Expanded(child: treatmentDropdown),
+                          ],
+                        ),
                         if (allDoctors.isNotEmpty) ...[
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(flex: 2, child: doctorDropdown),
-                              const SizedBox(width: 8),
-                              const Expanded(flex: 2, child: SizedBox.shrink()),
-                            ],
-                          ),
+                          doctorDropdown,
                         ],
                       ],
                     );
-                  }
-
-                  return Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(child: popDropdown),
-                          const SizedBox(width: 8),
-                          Expanded(child: complaintDropdown),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(child: surgeryDropdown),
-                          const SizedBox(width: 8),
-                          Expanded(child: ageDropdown),
-                        ],
-                      ),
-                      if (allDoctors.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        doctorDropdown,
-                      ],
-                    ],
-                  );
-                },
-              ),
-
-              const SizedBox(height: 10),
-
-              // Filter Toggles Row
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  FilterChip(
-                    label: const Text('Hypertension Alert (HTN >= 140/90)', style: TextStyle(fontSize: 11.5)),
-                    selected: _highBpOnly,
-                    selectedColor: const Color(0xFFFEE2E2),
-                    checkmarkColor: const Color(0xFFDC2626),
-                    labelStyle: TextStyle(
-                      color: _highBpOnly ? const Color(0xFFDC2626) : const Color(0xFF334155),
-                      fontWeight: _highBpOnly ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    onSelected: (val) => setState(() => _highBpOnly = val),
-                  ),
-                  FilterChip(
-                    label: const Text('Clinical Intake Completed', style: TextStyle(fontSize: 11.5)),
-                    selected: _selectedIntakeStatus == 'completed',
-                    selectedColor: const Color(0xFFCCFBF1),
-                    checkmarkColor: const Color(0xFF0F766E),
-                    labelStyle: TextStyle(
-                      color: _selectedIntakeStatus == 'completed' ? const Color(0xFF0F766E) : const Color(0xFF334155),
-                      fontWeight: _selectedIntakeStatus == 'completed' ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    onSelected: (val) => setState(() => _selectedIntakeStatus = val ? 'completed' : 'all'),
-                  ),
-                  FilterChip(
-                    label: const Text('Intake Pending', style: TextStyle(fontSize: 11.5)),
-                    selected: _selectedIntakeStatus == 'pending',
-                    selectedColor: const Color(0xFFFEF3C7),
-                    checkmarkColor: const Color(0xFFD97706),
-                    labelStyle: TextStyle(
-                      color: _selectedIntakeStatus == 'pending' ? const Color(0xFFD97706) : const Color(0xFF334155),
-                      fontWeight: _selectedIntakeStatus == 'pending' ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    onSelected: (val) => setState(() => _selectedIntakeStatus = val ? 'pending' : 'all'),
-                  ),
-                  FilterChip(
-                    label: const Text('Follow-Up Visits', style: TextStyle(fontSize: 11.5)),
-                    selected: _selectedIntakeStatus == 'followup',
-                    selectedColor: const Color(0xFFEDE9FE),
-                    checkmarkColor: const Color(0xFF7C3AED),
-                    labelStyle: TextStyle(
-                      color: _selectedIntakeStatus == 'followup' ? const Color(0xFF7C3AED) : const Color(0xFF334155),
-                      fontWeight: _selectedIntakeStatus == 'followup' ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    onSelected: (val) => setState(() => _selectedIntakeStatus = val ? 'followup' : 'all'),
-                  ),
-                ],
-              ),
+                  },
+                ),
+                const SizedBox(height: 10),
+                togglesWrap,
+                const SizedBox(height: 8),
+                resultsBar,
+              ],
             ],
-
-            const SizedBox(height: 8),
-            // Results Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, size: 14, color: Color(0xFF475569)),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Displaying $filteredCount of $totalPatients registered cohort records',
-                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -4779,15 +5157,15 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
           ),
           const SizedBox(width: 8),
           _buildNavTab(
-            id: 'charts',
-            label: 'Epidemiological Charts',
-            icon: Icons.bar_chart_rounded,
-          ),
-          const SizedBox(width: 8),
-          _buildNavTab(
             id: 'patients',
             label: 'Camp-Wise Patients ($filteredCount)',
             icon: Icons.people_outline_rounded,
+          ),
+          const SizedBox(width: 8),
+          _buildNavTab(
+            id: 'charts',
+            label: 'Epidemiological Charts',
+            icon: Icons.bar_chart_rounded,
           ),
           const SizedBox(width: 8),
           _buildNavTab(

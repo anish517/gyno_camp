@@ -765,6 +765,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   onChanged: (val) {
                     setState(() => _selectedDoctor = val);
                     _onRefresh();
+                    if (val != null && _tabController.index != 4) {
+                      _tabController.animateTo(4);
+                    }
                   },
                 ),
               ),
@@ -808,6 +811,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   onChanged: (val) {
                     setState(() => _selectedDiagnosis = val);
                     _onRefresh();
+                    if (val != null && _tabController.index != 4) {
+                      _tabController.animateTo(4);
+                    }
                   },
                 ),
               ),
@@ -863,6 +869,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   onChanged: (val) {
                     setState(() => _selectedPopStage = val);
                     _onRefresh();
+                    if (val != null && _tabController.index != 4) {
+                      _tabController.animateTo(4);
+                    }
                   },
                 ),
               ),
@@ -918,6 +927,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   onChanged: (val) {
                     setState(() => _selectedTreatment = val);
                     _onRefresh();
+                    if (val != null && _tabController.index != 4) {
+                      _tabController.animateTo(4);
+                    }
                   },
                 ),
               ),

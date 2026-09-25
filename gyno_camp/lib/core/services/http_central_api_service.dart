@@ -77,14 +77,25 @@ class HttpCentralApiService implements ICentralApiService {
     if (customUrl != null && customUrl.isNotEmpty) {
       return customUrl;
     }
+
+    // 1. Explicit runtime environment flag (--dart-define=CENTRAL_SERVER_URL=...) MUST take top priority
+    const envUrl = String.fromEnvironment('CENTRAL_SERVER_URL', defaultValue: '');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
+
+    // 2. Verified active URL from dynamic candidate probing
     final activeUrl = _activeBaseUrl;
     if (activeUrl != null && activeUrl.isNotEmpty) {
       return activeUrl;
     }
 
+    // 3. User-configured saved URL from preferences (ignore obsolete 192.168.1.4 if present)
     try {
       final savedUrl = SessionService.current?.getCentralServerUrl();
-      if (savedUrl != null && savedUrl.isNotEmpty) {
+      if (savedUrl != null &&
+          savedUrl.isNotEmpty &&
+          savedUrl != 'http://192.168.1.4:8080') {
         return savedUrl;
       }
     } catch (_) {}
@@ -94,23 +105,15 @@ class HttpCentralApiService implements ICentralApiService {
       if (configuredHost != null &&
           configuredHost.isNotEmpty &&
           configuredHost != 'localhost' &&
-          configuredHost != '127.0.0.1') {
+          configuredHost != '127.0.0.1' &&
+          configuredHost != '192.168.1.4') {
         return configuredHost.startsWith('http')
             ? configuredHost
             : 'http://$configuredHost:8080';
       }
     } catch (_) {}
 
-    const envUrl = String.fromEnvironment('CENTRAL_SERVER_URL', defaultValue: '');
-    if (envUrl.isNotEmpty) {
-      return envUrl;
-    }
-
-    if (!kIsWeb) {
-      // Prioritize current Wi-Fi host IP for field Android tablets and phones
-      return 'http://192.168.16.113:8080';
-    }
-    return 'http://localhost:8080';
+    return 'http://192.168.16.113:8080';
   }
 
   bool simulateNetworkFailure = false;
@@ -138,30 +141,28 @@ class HttpCentralApiService implements ICentralApiService {
       return true;
     }
 
-    // 2. On Android/native devices, probe Wi-Fi LAN host, USB bridge, and fallbacks
-    if (!kIsWeb) {
-      final candidates = <String>[
-        'http://192.168.16.113:8080',  // Development machine Wi-Fi host IP (Home)
-        'http://192.168.1.4:8080',     // Development machine Wi-Fi host IP (Office)
-        'http://127.0.0.1:8080',      // USB ADB Reverse (Primary & fastest over cable)
-        'http://192.168.1.110:8080',  // Alternative Wi-Fi host IP
-        'http://localhost:8080',      // Localhost alias
-        'http://10.0.2.2:8080',       // Android Emulator host bridge
-      ];
+    // 2. Probe Wi-Fi LAN host, localhost, USB bridge, and fallbacks (on both Web and native)
+    final candidates = <String>[
+      'http://192.168.16.113:8080',  // Development machine Wi-Fi host IP (Home)
+      'http://localhost:8080',       // Localhost alias (for Web / desktop)
+      'http://127.0.0.1:8080',      // USB ADB Reverse / loopback
+      'http://192.168.1.4:8080',     // Development machine Wi-Fi host IP (Office)
+      'http://192.168.1.110:8080',  // Alternative Wi-Fi host IP
+      'http://10.0.2.2:8080',       // Android Emulator host bridge
+    ];
 
-      final saved = SessionService.current?.getCentralServerUrl();
-      if (saved != null && saved.isNotEmpty && !candidates.contains(saved)) {
-        candidates.insert(0, saved);
-      }
+    final saved = SessionService.current?.getCentralServerUrl();
+    if (saved != null && saved.isNotEmpty && !candidates.contains(saved)) {
+      candidates.insert(0, saved);
+    }
 
-      for (final candidate in candidates) {
-        if (candidate != baseUrl && await _testEndpoint(candidate)) {
-          markServerOnline(candidate);
-          try {
-            SessionService.current?.saveCentralServerUrl(candidate);
-          } catch (_) {}
-          return true;
-        }
+    for (final candidate in candidates) {
+      if (candidate != baseUrl && await _testEndpoint(candidate)) {
+        markServerOnline(candidate);
+        try {
+          SessionService.current?.saveCentralServerUrl(candidate);
+        } catch (_) {}
+        return true;
       }
     }
 
