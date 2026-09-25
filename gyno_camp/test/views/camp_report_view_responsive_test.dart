@@ -143,6 +143,9 @@ class FakeReportingRepo implements IReportingRepository {
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
+    String? diagnosisFilter,
+    String? popStageFilter,
+    String? treatmentFilter,
   }) async =>
       summary;
 

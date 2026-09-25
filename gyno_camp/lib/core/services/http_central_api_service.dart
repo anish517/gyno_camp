@@ -108,7 +108,7 @@ class HttpCentralApiService implements ICentralApiService {
 
     if (!kIsWeb) {
       // Prioritize current Wi-Fi host IP for field Android tablets and phones
-      return 'http://192.168.1.4:8080';
+      return 'http://192.168.16.113:8080';
     }
     return 'http://localhost:8080';
   }
@@ -141,7 +141,8 @@ class HttpCentralApiService implements ICentralApiService {
     // 2. On Android/native devices, probe Wi-Fi LAN host, USB bridge, and fallbacks
     if (!kIsWeb) {
       final candidates = <String>[
-        'http://192.168.1.4:8080',    // Development machine Wi-Fi host IP
+        'http://192.168.16.113:8080',  // Development machine Wi-Fi host IP (Home)
+        'http://192.168.1.4:8080',     // Development machine Wi-Fi host IP (Office)
         'http://127.0.0.1:8080',      // USB ADB Reverse (Primary & fastest over cable)
         'http://192.168.1.110:8080',  // Alternative Wi-Fi host IP
         'http://localhost:8080',      // Localhost alias

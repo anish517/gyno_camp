@@ -119,6 +119,9 @@ class _FakeReportingRepository implements IReportingRepository {
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
+    String? diagnosisFilter,
+    String? popStageFilter,
+    String? treatmentFilter,
   }) async {
     return customSummary ?? CampReportSummaryModel.empty(
       generatedBy: generatedBy,

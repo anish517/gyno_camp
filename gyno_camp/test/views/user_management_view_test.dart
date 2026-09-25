@@ -235,7 +235,7 @@ void main() {
     expect(find.text('New Station PIN'), findsOneWidget);
 
     // Enter new password and new PIN
-    final passwordField = find.widgetWithText(TextField, 'Min 6 characters');
+    final passwordField = find.widgetWithText(TextField, 'New Password');
     final pinField = find.widgetWithText(TextField, 'Station PIN (4-6 digits)');
 
     await tester.enterText(passwordField, 'NewSecretPass123');
@@ -331,5 +331,61 @@ void main() {
     // Verify user is deleted from repo and removed from list
     expect(fakeRepo.users.any((u) => u.id == 'usr-nurse-01'), isFalse);
     expect(find.text('Rita Sharma (Nurse)'), findsNothing);
+  });
+
+  testWidgets('Add Staff dialog validates password length and allows editing fields', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final fakeRepo = FakeAuthRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    // Tap Add Staff button
+    final addStaffBtn = find.widgetWithText(ElevatedButton, 'Add Staff');
+    expect(addStaffBtn, findsOneWidget);
+    await tester.tap(addStaffBtn);
+    await tester.pumpAndSettle();
+
+    // Verify dialog opened
+    expect(find.text('Register Staff Member'), findsOneWidget);
+
+    // Enter valid Name, Email, Phone
+    final nameField = find.widgetWithText(TextField, 'Full Name *');
+    final emailField = find.widgetWithText(TextField, 'Email Address *');
+    final phoneField = find.widgetWithText(TextField, 'Mobile Phone *');
+
+    await tester.enterText(nameField, 'Gita Thapa');
+    await tester.enterText(emailField, 'gita@gynocamp.org');
+    await tester.enterText(phoneField, '9841000000');
+
+    // Enter short password (< 6 chars)
+    final passwordField = find.byKey(const ValueKey('add_staff_password_field'));
+    final pinField = find.byKey(const ValueKey('add_staff_pin_field'));
+
+    await tester.enterText(passwordField, '12345');
+    await tester.enterText(pinField, '1234');
+    await tester.pumpAndSettle();
+
+    // Tap Register Staff button
+    final registerBtn = find.widgetWithText(ElevatedButton, 'Register Staff');
+    await tester.tap(registerBtn);
+    await tester.pumpAndSettle();
+
+    // Verify inline validation message appears under password field
+    expect(find.text('Initial password must be at least 6 characters (न्यूनतम ६ अक्षर)'), findsOneWidget);
+
+    // Now edit password and pin again
+    await tester.enterText(passwordField, 'SecurePass123');
+    await tester.enterText(pinField, '9876');
+    await tester.pumpAndSettle();
+
+    // Tap Register Staff button
+    await tester.tap(registerBtn);
+    await tester.pumpAndSettle();
+
+    // Verify user was registered
+    expect(fakeRepo.users.any((u) => u.name == 'Gita Thapa'), isTrue);
   });
 }

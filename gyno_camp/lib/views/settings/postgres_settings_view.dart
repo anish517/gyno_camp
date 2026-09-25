@@ -31,7 +31,7 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
   @override
   void initState() {
     super.initState();
-    final savedCentral = SessionService.current?.getCentralServerUrl() ?? 'http://192.168.1.4:8080';
+    final savedCentral = SessionService.current?.getCentralServerUrl() ?? 'http://192.168.16.113:8080';
     _centralApiUrlController = TextEditingController(text: savedCentral);
     final config = ref.read(postgresConfigProvider).config;
     _hostController = TextEditingController(text: config.host);
@@ -100,6 +100,7 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
       _centralApiOnline = null;
     });
     final candidates = [
+      'http://192.168.16.113:8080',
       'http://192.168.1.4:8080',
       'http://127.0.0.1:8080',
       'http://192.168.1.110:8080',
@@ -261,7 +262,7 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
                           controller: _centralApiUrlController,
                           decoration: const InputDecoration(
                             labelText: 'Central Server API URL',
-                            hintText: 'http://192.168.1.4:8080 or http://127.0.0.1:8080',
+                            hintText: 'http://192.168.16.113:8080 or http://127.0.0.1:8080',
                             prefixIcon: Icon(Icons.wifi_rounded),
                           ),
                           onChanged: (_) => _saveCurrentForm(),

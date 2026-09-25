@@ -19,6 +19,9 @@ abstract class IReportingRepository {
     DateTime? startDate,
     DateTime? endDate,
     String? doctorFilter,
+    String? diagnosisFilter,
+    String? popStageFilter,
+    String? treatmentFilter,
   });
   Future<Uint8List> generatePdfReport(CampReportSummaryModel summary);
   Future<Uint8List> generateIndividualPatientPdf({
@@ -72,6 +75,9 @@ class ReportingRepository implements IReportingRepository {
     DateTime? startDate,
     DateTime? endDate,
     String? doctorFilter,
+    String? diagnosisFilter,
+    String? popStageFilter,
+    String? treatmentFilter,
   }) async {
     final db = await _databaseService.database;
 
@@ -166,6 +172,54 @@ class ReportingRepository implements IReportingRepository {
         visits = matchingVisits;
         patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
       }
+    }
+
+    // Apply Diagnosis Filter if requested (dynamic substring match)
+    if (diagnosisFilter != null && diagnosisFilter.trim().isNotEmpty && diagnosisFilter != 'all') {
+      final dxLower = diagnosisFilter.trim().toLowerCase();
+      final matchingVisits = visits.where((v) {
+        return v.diagnoses.any((d) => d.toLowerCase().contains(dxLower));
+      }).toList();
+      final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+      visits = matchingVisits;
+      patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
+    }
+
+    // Apply POP Staging Filter if requested
+    if (popStageFilter != null && popStageFilter.trim().isNotEmpty && popStageFilter != 'all') {
+      final matchingVisits = visits.where((v) {
+        if (popStageFilter == '0') return v.highestPopStage == 0;
+        if (popStageFilter == '1') return v.highestPopStage == 1;
+        if (popStageFilter == '2+' || popStageFilter == 'significant') return v.highestPopStage >= 2;
+        if (popStageFilter == '3+') return v.highestPopStage >= 3;
+        if (popStageFilter == '4') return v.highestPopStage == 4;
+        return true;
+      }).toList();
+      final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+      visits = matchingVisits;
+      patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
+    }
+
+    // Apply Treatment Filter if requested
+    if (treatmentFilter != null && treatmentFilter.trim().isNotEmpty && treatmentFilter != 'all') {
+      final matchingVisits = visits.where((v) {
+        if (treatmentFilter == 'pessary') {
+          return v.pessaryType != null && v.pessaryType!.trim().isNotEmpty;
+        }
+        if (treatmentFilter == 'surgery') {
+          return v.surgicalReferral != null && v.surgicalReferral!.trim().isNotEmpty;
+        }
+        if (treatmentFilter == 'counseling') {
+          return v.counseling.isNotEmpty;
+        }
+        if (treatmentFilter == 'medications') {
+          return v.medications.isNotEmpty || (v.customMedication != null && v.customMedication!.trim().isNotEmpty);
+        }
+        return true;
+      }).toList();
+      final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+      visits = matchingVisits;
+      patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
     }
 
     return _aggregationService.aggregate(

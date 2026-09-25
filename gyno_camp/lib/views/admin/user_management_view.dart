@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/security/security_service.dart';
 import '../../core/services/session_service.dart';
@@ -991,11 +992,19 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     final phoneCtrl = TextEditingController();
     final passwordCtrl = TextEditingController();
     final pinCtrl = TextEditingController();
+
+    String? nameError;
+    String? emailError;
+    String? phoneError;
+    String? passwordError;
+    String? pinError;
+    String? generalError;
+
     final messenger = ScaffoldMessenger.of(context);
     UserRole selectedRole = UserRole.dataTaker;
     final selectedCampIds = <String>{};
-    bool obscurePassword = true;
-    bool obscurePin = true;
+    bool obscurePassword = false;
+    bool obscurePin = false;
     bool isSubmitting = false;
 
     final currentUser = ref.read(authStateProvider).currentUser;
@@ -1008,458 +1017,538 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     final tenantCtrl = TextEditingController(text: defaultTenant);
 
     await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          return Dialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            clipBehavior: Clip.antiAlias,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 580, maxHeight: 760),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Clean White Header Banner
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      border: Border(
-                        bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              clipBehavior: Clip.antiAlias,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 580, maxHeight: 760),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Clean White Header Banner
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0FDFA),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFCCFBF1)),
-                          ),
-                          child: const Icon(Icons.person_add_alt_1_rounded, color: AppTheme.primaryTeal, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Register Staff Member',
-                                style: TextStyle(
-                                  color: Color(0xFF0F172A),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Role permissions, station credentials & field camp roster',
-                                style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0FDFA),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFCCFBF1)),
-                          ),
-                          child: const Text(
-                            'NEW STAFF',
-                            style: TextStyle(
-                              color: Color(0xFF0F766E),
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Color(0xFF64748B), size: 20),
-                          tooltip: 'Close',
-                          onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Form Body
-                  Flexible(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(22),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          _buildFormSectionHeader(Icons.badge_outlined, 'Personal & Contact Details'),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: nameCtrl,
-                            decoration: InputDecoration(
-                              labelText: 'Full Name *',
-                              prefixIcon: const Icon(Icons.person_outline, size: 18, color: Color(0xFF64748B)),
-                              floatingLabelBehavior: FloatingLabelBehavior.always,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                              isDense: true,
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0FDFA),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFCCFBF1)),
                             ),
+                            child: const Icon(Icons.person_add_alt_1_rounded, color: AppTheme.primaryTeal, size: 20),
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: emailCtrl,
-                                  keyboardType: TextInputType.emailAddress,
-                                  decoration: InputDecoration(
-                                    labelText: 'Email Address *',
-                                    prefixIcon: const Icon(Icons.email_outlined, size: 18, color: Color(0xFF64748B)),
-                                    floatingLabelBehavior: FloatingLabelBehavior.always,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                                    isDense: true,
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Register Staff Member',
+                                  style: TextStyle(
+                                    color: Color(0xFF0F172A),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: -0.2,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  controller: phoneCtrl,
-                                  keyboardType: TextInputType.phone,
-                                  decoration: InputDecoration(
-                                    labelText: 'Mobile Phone *',
-                                    prefixIcon: const Icon(Icons.phone_outlined, size: 18, color: Color(0xFF64748B)),
-                                    floatingLabelBehavior: FloatingLabelBehavior.always,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                                    isDense: true,
-                                  ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Role permissions, station credentials & field camp roster',
+                                  style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: tenantCtrl,
-                            decoration: InputDecoration(
-                              labelText: 'Organization / Tenant Name',
-                              prefixIcon: const Icon(Icons.corporate_fare_outlined, size: 18, color: Color(0xFF64748B)),
-                              floatingLabelBehavior: FloatingLabelBehavior.always,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                              isDense: true,
+                              ],
                             ),
                           ),
-
-                          const SizedBox(height: 20),
-                          _buildFormSectionHeader(Icons.security_outlined, 'Designated Role & Station Credentials'),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<UserRole>(
-                            initialValue: selectedRole,
-                            decoration: InputDecoration(
-                              labelText: 'Designated User Role *',
-                              prefixIcon: const Icon(Icons.admin_panel_settings_outlined, size: 18, color: Color(0xFF64748B)),
-                              floatingLabelBehavior: FloatingLabelBehavior.always,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                              isDense: true,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0FDFA),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFCCFBF1)),
                             ),
-                            items: UserRole.values.map((r) {
-                              return DropdownMenuItem(
-                                value: r,
-                                child: Text(r.displayNameEn, style: const TextStyle(fontSize: 13.5)),
-                              );
-                            }).toList(),
-                            onChanged: isSubmitting
-                                ? null
-                                : (val) {
-                                    if (val != null) setDialogState(() => selectedRole = val);
-                                  },
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  key: const ValueKey('add_staff_password_field'),
-                                  controller: passwordCtrl,
-                                  obscureText: obscurePassword,
-                                  decoration: InputDecoration(
-                                    labelText: 'Initial Password *',
-                                    prefixIcon: const Icon(Icons.lock_outline, size: 18, color: Color(0xFF64748B)),
-                                    floatingLabelBehavior: FloatingLabelBehavior.always,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                                    isDense: true,
-                                    suffixIcon: IconButton(
-                                      icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18, color: const Color(0xFF64748B)),
-                                      onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  key: const ValueKey('add_staff_pin_field'),
-                                  controller: pinCtrl,
-                                  keyboardType: TextInputType.number,
-                                  maxLength: 6,
-                                  obscureText: obscurePin,
-                                  decoration: InputDecoration(
-                                    labelText: 'Station PIN (4-6 digits) *',
-                                    counterText: '',
-                                    prefixIcon: const Icon(Icons.dialpad_outlined, size: 18, color: Color(0xFF64748B)),
-                                    floatingLabelBehavior: FloatingLabelBehavior.always,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                                    isDense: true,
-                                    suffixIcon: IconButton(
-                                      icon: Icon(obscurePin ? Icons.visibility_off : Icons.visibility, size: 18, color: const Color(0xFF64748B)),
-                                      onPressed: () => setDialogState(() => obscurePin = !obscurePin),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 20),
-                          _buildFormSectionHeader(Icons.hub_outlined, 'Field Camp Deployment (Optional)'),
-                          const SizedBox(height: 12),
-                          if (camps.isEmpty)
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.info_outline, size: 16, color: Color(0xFF64748B)),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'No camps available. You can assign staff members later.',
-                                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            Container(
-                              constraints: const BoxConstraints(maxHeight: 180),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                itemCount: camps.length,
-                                separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                                itemBuilder: (_, idx) {
-                                  final c = camps[idx];
-                                  final checked = selectedCampIds.contains(c.id);
-                                  return InkWell(
-                                    onTap: isSubmitting
-                                        ? null
-                                        : () {
-                                            setDialogState(() {
-                                              if (checked) {
-                                                selectedCampIds.remove(c.id);
-                                              } else {
-                                                selectedCampIds.add(c.id);
-                                              }
-                                            });
-                                          },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      child: Row(
-                                        children: [
-                                          SizedBox(
-                                            width: 22,
-                                            height: 22,
-                                            child: Checkbox(
-                                              value: checked,
-                                              activeColor: AppTheme.primaryTeal,
-                                              onChanged: isSubmitting
-                                                  ? null
-                                                  : (v) {
-                                                      setDialogState(() {
-                                                        if (v == true) {
-                                                          selectedCampIds.add(c.id);
-                                                        } else {
-                                                          selectedCampIds.remove(c.id);
-                                                        }
-                                                      });
-                                                    },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFCCFBF1),
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              c.campCode,
-                                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(c.name, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                                                Text('${c.venue}, ${c.district}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
+                            child: const Text(
+                              'NEW STAFF',
+                              style: TextStyle(
+                                color: Color(0xFF0F766E),
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
                               ),
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Color(0xFF64748B), size: 20),
+                            tooltip: 'Close',
+                            onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                          ),
                         ],
                       ),
                     ),
-                  ),
 
-                  // Actions Footer
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF475569),
-                            side: const BorderSide(color: Color(0xFFCBD5E1)),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: const Text('Cancel'),
+                    // Form Body
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(22),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (generalError != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        generalError!,
+                                        style: const TextStyle(fontSize: 12.5, color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () => setDialogState(() => generalError = null),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            _buildFormSectionHeader(Icons.badge_outlined, 'Personal & Contact Details'),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: nameCtrl,
+                              onChanged: (_) {
+                                if (nameError != null) setDialogState(() => nameError = null);
+                              },
+                              decoration: InputDecoration(
+                                labelText: 'Full Name *',
+                                errorText: nameError,
+                                prefixIcon: const Icon(Icons.person_outline, size: 18, color: Color(0xFF64748B)),
+                                floatingLabelBehavior: FloatingLabelBehavior.always,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: emailCtrl,
+                                    keyboardType: TextInputType.emailAddress,
+                                    onChanged: (_) {
+                                      if (emailError != null) setDialogState(() => emailError = null);
+                                    },
+                                    decoration: InputDecoration(
+                                      labelText: 'Email Address *',
+                                      errorText: emailError,
+                                      prefixIcon: const Icon(Icons.email_outlined, size: 18, color: Color(0xFF64748B)),
+                                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextField(
+                                    controller: phoneCtrl,
+                                    keyboardType: TextInputType.phone,
+                                    onChanged: (_) {
+                                      if (phoneError != null) setDialogState(() => phoneError = null);
+                                    },
+                                    decoration: InputDecoration(
+                                      labelText: 'Mobile Phone *',
+                                      errorText: phoneError,
+                                      prefixIcon: const Icon(Icons.phone_outlined, size: 18, color: Color(0xFF64748B)),
+                                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: tenantCtrl,
+                              decoration: InputDecoration(
+                                labelText: 'Organization / Tenant Name',
+                                prefixIcon: const Icon(Icons.corporate_fare_outlined, size: 18, color: Color(0xFF64748B)),
+                                floatingLabelBehavior: FloatingLabelBehavior.always,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                                isDense: true,
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+                            _buildFormSectionHeader(Icons.security_outlined, 'Designated Role & Station Credentials'),
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<UserRole>(
+                              initialValue: selectedRole,
+                              decoration: InputDecoration(
+                                labelText: 'Designated User Role *',
+                                prefixIcon: const Icon(Icons.admin_panel_settings_outlined, size: 18, color: Color(0xFF64748B)),
+                                floatingLabelBehavior: FloatingLabelBehavior.always,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                                isDense: true,
+                              ),
+                              items: UserRole.values.map((r) {
+                                return DropdownMenuItem(
+                                  value: r,
+                                  child: Text(r.displayNameEn, style: const TextStyle(fontSize: 13.5)),
+                                );
+                              }).toList(),
+                              onChanged: isSubmitting
+                                  ? null
+                                  : (val) {
+                                      if (val != null) setDialogState(() => selectedRole = val);
+                                    },
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    key: const ValueKey('add_staff_password_field'),
+                                    controller: passwordCtrl,
+                                    obscureText: obscurePassword,
+                                    enableSuggestions: false,
+                                    autocorrect: false,
+                                    onChanged: (_) {
+                                      if (passwordError != null) setDialogState(() => passwordError = null);
+                                    },
+                                    decoration: InputDecoration(
+                                      labelText: 'Initial Password *',
+                                      helperText: 'Minimum 6 characters (न्यूनतम ६ अक्षर)',
+                                      errorText: passwordError,
+                                      prefixIcon: const Icon(Icons.lock_outline, size: 18, color: Color(0xFF64748B)),
+                                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                                      isDense: true,
+                                      suffixIcon: IconButton(
+                                        icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18, color: const Color(0xFF64748B)),
+                                        onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextField(
+                                    key: const ValueKey('add_staff_pin_field'),
+                                    controller: pinCtrl,
+                                    keyboardType: TextInputType.number,
+                                    maxLength: 6,
+                                    obscureText: obscurePin,
+                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                    enableSuggestions: false,
+                                    autocorrect: false,
+                                    onChanged: (_) {
+                                      if (pinError != null) setDialogState(() => pinError = null);
+                                    },
+                                    decoration: InputDecoration(
+                                      labelText: 'Station PIN (4-6 digits) *',
+                                      helperText: '4 to 6 numeric digits (४-६ अंक)',
+                                      counterText: '',
+                                      errorText: pinError,
+                                      prefixIcon: const Icon(Icons.dialpad_outlined, size: 18, color: Color(0xFF64748B)),
+                                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                                      isDense: true,
+                                      suffixIcon: IconButton(
+                                        icon: Icon(obscurePin ? Icons.visibility_off : Icons.visibility, size: 18, color: const Color(0xFF64748B)),
+                                        onPressed: () => setDialogState(() => obscurePin = !obscurePin),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 20),
+                            _buildFormSectionHeader(Icons.hub_outlined, 'Field Camp Deployment (Optional)'),
+                            const SizedBox(height: 12),
+                            if (camps.isEmpty)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.info_outline, size: 16, color: Color(0xFF64748B)),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'No camps available. You can assign staff members later.',
+                                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              Container(
+                                constraints: const BoxConstraints(maxHeight: 180),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: ListView.separated(
+                                  shrinkWrap: true,
+                                  itemCount: camps.length,
+                                  separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                                  itemBuilder: (_, idx) {
+                                    final c = camps[idx];
+                                    final checked = selectedCampIds.contains(c.id);
+                                    return InkWell(
+                                      onTap: isSubmitting
+                                          ? null
+                                          : () {
+                                              setDialogState(() {
+                                                if (checked) {
+                                                  selectedCampIds.remove(c.id);
+                                                } else {
+                                                  selectedCampIds.add(c.id);
+                                                }
+                                              });
+                                            },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        child: Row(
+                                          children: [
+                                            SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: Checkbox(
+                                                value: checked,
+                                                activeColor: AppTheme.primaryTeal,
+                                                onChanged: isSubmitting
+                                                    ? null
+                                                    : (v) {
+                                                        setDialogState(() {
+                                                          if (v == true) {
+                                                            selectedCampIds.add(c.id);
+                                                          } else {
+                                                            selectedCampIds.remove(c.id);
+                                                          }
+                                                        });
+                                                      },
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFCCFBF1),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                c.campCode,
+                                                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(c.name, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                                                  Text('${c.venue}, ${c.district}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          icon: isSubmitting
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.person_add_alt_1_rounded, size: 16),
-                          label: const Text('Register Staff'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryTeal,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+
+                    // Actions Footer
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF475569),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Text('Cancel'),
                           ),
-                          onPressed: isSubmitting
-                              ? null
-                              : () async {
-                                  final name = nameCtrl.text.trim();
-                                  final email = emailCtrl.text.trim().toLowerCase();
-                                  final phone = phoneCtrl.text.trim();
-                                  final password = passwordCtrl.text.trim();
-                                  final pin = pinCtrl.text.trim();
-                                  final tenant = tenantCtrl.text.trim().isNotEmpty
-                                      ? tenantCtrl.text.trim()
-                                      : (currentUser?.tenantName ?? 'Community Health Outreach Mission');
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            icon: isSubmitting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                            label: const Text('Register Staff'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryTeal,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            onPressed: isSubmitting
+                                ? null
+                                : () async {
+                                    final name = nameCtrl.text.trim();
+                                    final email = emailCtrl.text.trim().toLowerCase();
+                                    final phone = phoneCtrl.text.trim();
+                                    final password = passwordCtrl.text.trim();
+                                    final pin = pinCtrl.text.trim();
+                                    final tenant = tenantCtrl.text.trim().isNotEmpty
+                                        ? tenantCtrl.text.trim()
+                                        : (currentUser?.tenantName ?? 'Community Health Outreach Mission');
 
-                                  if (name.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty || pin.isEmpty) {
-                                    messenger.showSnackBar(
-                                      const SnackBar(content: Text('Please complete all required fields.')),
+                                    setDialogState(() {
+                                      nameError = null;
+                                      emailError = null;
+                                      phoneError = null;
+                                      passwordError = null;
+                                      pinError = null;
+                                      generalError = null;
+                                    });
+
+                                    bool hasValidationErrors = false;
+
+                                    if (name.isEmpty) {
+                                      nameError = 'Full name is required';
+                                      hasValidationErrors = true;
+                                    }
+
+                                    if (email.isEmpty || !email.contains('@')) {
+                                      emailError = 'Valid email address is required';
+                                      hasValidationErrors = true;
+                                    }
+
+                                    if (phone.isEmpty) {
+                                      phoneError = 'Mobile phone is required';
+                                      hasValidationErrors = true;
+                                    }
+
+                                    if (password.isEmpty) {
+                                      passwordError = 'Initial password is required (min 6 characters)';
+                                      hasValidationErrors = true;
+                                    } else if (password.length < 6) {
+                                      passwordError = 'Initial password must be at least 6 characters (न्यूनतम ६ अक्षर)';
+                                      hasValidationErrors = true;
+                                    }
+
+                                    if (pin.isEmpty) {
+                                      pinError = 'Station PIN is required';
+                                      hasValidationErrors = true;
+                                    } else if (pin.length < 4 || pin.length > 6) {
+                                      pinError = 'Station PIN must be between 4 and 6 digits';
+                                      hasValidationErrors = true;
+                                    }
+
+                                    if (hasValidationErrors) {
+                                      setDialogState(() {});
+                                      return;
+                                    }
+
+                                    setDialogState(() => isSubmitting = true);
+
+                                    final deviceState = ref.read(deviceSecurityProvider);
+
+                                    final newStaff = UserModel(
+                                      id: 'usr-${DateTime.now().millisecondsSinceEpoch}',
+                                      name: name,
+                                      email: email,
+                                      phone: phone,
+                                      role: selectedRole,
+                                      isActive: true,
+                                      assignedCampIds: selectedCampIds.toList(),
+                                      tenantId: currentUser?.tenantId ?? 'tenant_default',
+                                      tenantName: tenant,
+                                      passwordHash: SecurityService.hashSha256(password),
+                                      pinHash: SecurityService.hashPin(pin),
                                     );
-                                    return;
-                                  }
 
-                                  if (password.length < 6) {
-                                    messenger.showSnackBar(
-                                      const SnackBar(content: Text('Initial password must be at least 6 characters.')),
-                                    );
-                                    return;
-                                  }
-
-                                  if (pin.length < 4 || pin.length > 6) {
-                                    messenger.showSnackBar(
-                                      const SnackBar(content: Text('Station PIN must be between 4 and 6 digits.')),
-                                    );
-                                    return;
-                                  }
-
-                                  setDialogState(() => isSubmitting = true);
-
-                                  final deviceState = ref.read(deviceSecurityProvider);
-
-                                  final newStaff = UserModel(
-                                    id: 'usr-${DateTime.now().millisecondsSinceEpoch}',
-                                    name: name,
-                                    email: email,
-                                    phone: phone,
-                                    role: selectedRole,
-                                    isActive: true,
-                                    assignedCampIds: selectedCampIds.toList(),
-                                    tenantId: currentUser?.tenantId ?? 'tenant_default',
-                                    tenantName: tenant,
-                                    passwordHash: SecurityService.hashSha256(password),
-                                    pinHash: SecurityService.hashPin(pin),
-                                  );
-
-                                  try {
-                                    await ref.read(authRepositoryProvider).createUser(
-                                          user: newStaff,
-                                          adminUserId: currentUser?.id ?? 'admin-root',
-                                          deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                                    try {
+                                      await ref.read(authRepositoryProvider).createUser(
+                                            user: newStaff,
+                                            adminUserId: currentUser?.id ?? 'admin-root',
+                                            deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                                          );
+                                      ref.invalidate(allUsersProvider);
+                                      if (ctx.mounted) {
+                                        Navigator.pop(ctx);
+                                      }
+                                      if (mounted) {
+                                        messenger.showSnackBar(
+                                          SnackBar(content: Text('Staff member "${newStaff.name}" registered successfully.')),
                                         );
-                                    ref.invalidate(allUsersProvider);
-                                    if (ctx.mounted) {
-                                      Navigator.pop(ctx);
+                                      }
+                                    } catch (e) {
+                                      if (ctx.mounted) {
+                                        setDialogState(() {
+                                          isSubmitting = false;
+                                          generalError = 'Failed to register user: $e';
+                                        });
+                                      }
                                     }
-                                    if (mounted) {
-                                      messenger.showSnackBar(
-                                        SnackBar(content: Text('Staff member "${newStaff.name}" registered successfully.')),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (ctx.mounted) {
-                                      setDialogState(() => isSubmitting = false);
-                                    }
-                                    if (mounted) {
-                                      messenger.showSnackBar(
-                                        SnackBar(content: Text('Failed to register user: $e'), backgroundColor: AppTheme.dangerRose),
-                                      );
-                                    }
-                                  }
-                                },
-                        ),
-                      ],
+                                  },
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      ),
-    );
+            );
+          },
+        ),
+      );
   }
 
   Future<void> _showAssignCampsDialog(BuildContext context, UserModel staff, List<CampModel> camps) async {
@@ -1767,6 +1856,9 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
   Future<void> _showSecurityDialog(BuildContext context, UserModel staff) async {
     final passwordCtrl = TextEditingController();
     final pinCtrl = TextEditingController();
+    String? passwordError;
+    String? pinError;
+    String? generalError;
     final messenger = ScaffoldMessenger.of(context);
     bool obscurePassword = true;
     bool obscurePin = true;
@@ -1794,6 +1886,28 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (generalError != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                generalError!,
+                                style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -1831,8 +1945,13 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                     TextField(
                       controller: passwordCtrl,
                       obscureText: obscurePassword,
+                      onChanged: (_) {
+                        if (passwordError != null) setDialogState(() => passwordError = null);
+                      },
                       decoration: InputDecoration(
                         labelText: 'New Password',
+                        helperText: 'Minimum 6 characters (न्यूनतम ६ अक्षर)',
+                        errorText: passwordError,
                         border: const OutlineInputBorder(),
                         isDense: true,
                         suffixIcon: IconButton(
@@ -1849,9 +1968,15 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                       keyboardType: TextInputType.number,
                       maxLength: 6,
                       obscureText: obscurePin,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onChanged: (_) {
+                        if (pinError != null) setDialogState(() => pinError = null);
+                      },
                       decoration: InputDecoration(
                         labelText: 'Station PIN (4-6 digits)',
+                        helperText: '4 to 6 numeric digits (४-६ अंक)',
                         counterText: '',
+                        errorText: pinError,
                         border: const OutlineInputBorder(),
                         isDense: true,
                         suffixIcon: IconButton(
@@ -1881,24 +2006,24 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                         final newPassword = passwordCtrl.text.trim();
                         final newPin = pinCtrl.text.trim();
 
+                        setDialogState(() {
+                          passwordError = null;
+                          pinError = null;
+                          generalError = null;
+                        });
+
                         if (newPassword.isEmpty && newPin.isEmpty) {
-                          messenger.showSnackBar(
-                            const SnackBar(content: Text('No credential changes entered.')),
-                          );
+                          setDialogState(() => generalError = 'No credential changes entered.');
                           return;
                         }
 
                         if (newPassword.isNotEmpty && newPassword.length < 6) {
-                          messenger.showSnackBar(
-                            const SnackBar(content: Text('Password must be at least 6 characters.')),
-                          );
+                          setDialogState(() => passwordError = 'Password must be at least 6 characters (न्यूनतम ६ अक्षर)');
                           return;
                         }
 
                         if (newPin.isNotEmpty && (newPin.length < 4 || newPin.length > 6)) {
-                          messenger.showSnackBar(
-                            const SnackBar(content: Text('Station PIN must be 4 to 6 digits.')),
-                          );
+                          setDialogState(() => pinError = 'Station PIN must be 4 to 6 digits');
                           return;
                         }
 
@@ -1931,12 +2056,10 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                           }
                         } catch (e) {
                           if (ctx.mounted) {
-                            setDialogState(() => isSubmitting = false);
-                          }
-                          if (mounted) {
-                            messenger.showSnackBar(
-                              SnackBar(content: Text('Failed to update credentials: $e'), backgroundColor: AppTheme.dangerRose),
-                            );
+                            setDialogState(() {
+                              isSubmitting = false;
+                              generalError = 'Failed to update credentials: $e';
+                            });
                           }
                         }
                       },

@@ -8,7 +8,7 @@ if exist "%~dp0local_env.bat" call "%~dp0local_env.bat"
 
 echo ==============================================================================
 echo   GynoCamp Dual-Device Launcher (Chrome + Android RMX3269)
-echo   Central Sync Server : http://192.168.1.4:8080 (Wi-Fi / USB / Localhost)
+echo   Central Sync Server : http://192.168.16.113:8080 (Wi-Fi / USB / Localhost)
 if defined GEMINI_API_KEY (
     echo   Gemini Flash OCR    : Active [OK]
 ) else (
@@ -25,6 +25,6 @@ echo 2. Launching GynoCamp on BOTH Chrome and your Android phone...
 echo    (Press 'r' in this terminal to hot-reload BOTH devices simultaneously!)
 echo.
 
-flutter run -d all --web-port=5000 --dart-define=CENTRAL_SERVER_URL=http://192.168.1.4:8080 --dart-define=GEMINI_API_KEY=%GEMINI_API_KEY%
+flutter run -d all --web-port=5000 --dart-define=CENTRAL_SERVER_URL=http://192.168.16.113:8080 --dart-define=GEMINI_API_KEY=%GEMINI_API_KEY%
 
 pause

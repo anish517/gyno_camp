@@ -20,6 +20,9 @@ class MockReportingRepository implements IReportingRepository {
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
+    String? diagnosisFilter,
+    String? popStageFilter,
+    String? treatmentFilter,
   }) async {
     if (shouldThrowOnSummary) throw Exception('Database read error');
     return CampReportSummaryModel.empty(generatedBy: generatedBy);
