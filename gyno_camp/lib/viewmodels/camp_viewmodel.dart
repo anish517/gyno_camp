@@ -52,17 +52,31 @@ class CampViewModel extends StateNotifier<CampState> {
     }
     try {
       final camps = await _campRepository.getAllCamps();
-      var active = await _campRepository.getActiveCamp();
 
-      // If no camp is open in DB, check if the saved active camp from session is still open
-      if (active == null && SessionService.current != null) {
+      // ── Active camp resolution (stable across syncs) ───────────────────
+      // Priority 1: the camp the user explicitly chose (saved in session).
+      //   This prevents sync from flipping the live station every 5 seconds
+      //   just because a background update changed a camp's updatedAt.
+      // Priority 2: the most recently CREATED open camp (first-time fallback).
+      CampModel? active;
+      final openCamps = camps.where((c) => c.status == CampStatus.open).toList();
+
+      if (openCamps.isNotEmpty && SessionService.current != null) {
         final savedCampId = SessionService.current!.getSavedActiveCampId();
         if (savedCampId != null) {
-          final matched = camps.where((c) => c.id == savedCampId && c.status == CampStatus.open).toList();
-          if (matched.isNotEmpty) {
-            active = matched.first;
-          }
+          // Honour the user's explicit choice if it is still open
+          final saved = openCamps.where((c) => c.id == savedCampId).toList();
+          if (saved.isNotEmpty) active = saved.first;
         }
+      }
+
+      // Fallback: pick the most recently CREATED open camp (stable — createdAt never changes)
+      if (active == null && openCamps.isNotEmpty) {
+        active = openCamps.reduce((a, b) {
+          final aTime = a.createdAt.toUtc();
+          final bTime = b.createdAt.toUtc();
+          return bTime.isAfter(aTime) ? b : a;
+        });
       }
 
       if (active != null) {
@@ -76,7 +90,9 @@ class CampViewModel extends StateNotifier<CampState> {
         camps: camps,
         activeCamp: active,
         clearActiveCamp: active == null,
-        selectedCamp: active ?? (camps.isNotEmpty ? camps.first : null),
+        selectedCamp: state.selectedCamp != null
+            ? camps.firstWhere((c) => c.id == state.selectedCamp!.id, orElse: () => active ?? (camps.isNotEmpty ? camps.first : state.selectedCamp!))
+            : (active ?? (camps.isNotEmpty ? camps.first : null)),
         isLoading: false,
       );
     } catch (e) {
@@ -88,29 +104,27 @@ class CampViewModel extends StateNotifier<CampState> {
     }
   }
 
+  /// Selects a camp for inspection/editing in the UI.
+  /// Does NOT change activeCamp — multiple camps can be open simultaneously.
   void selectCamp(CampModel camp) {
-    final isOpen = camp.status == CampStatus.open;
-    state = state.copyWith(
-      selectedCamp: camp,
-      activeCamp: isOpen ? camp : (state.activeCamp?.status == CampStatus.open ? state.activeCamp : null),
-      clearActiveCamp: !isOpen && (state.activeCamp == null || state.activeCamp?.id == camp.id),
-    );
-    if (isOpen) {
+    state = state.copyWith(selectedCamp: camp);
+    // If the selected camp is open, promote it to activeCamp
+    // so that patient registration defaults to this camp.
+    if (camp.status == CampStatus.open) {
+      state = state.copyWith(activeCamp: camp);
       SessionService.current?.saveActiveCampId(camp.id);
     }
   }
 
+  /// Explicitly sets the active camp (e.g. after opening from the dialog).
   void setActiveCamp(CampModel camp) {
-    final isOpen = camp.status == CampStatus.open;
     state = state.copyWith(
-      activeCamp: isOpen ? camp : null,
+      activeCamp: camp.status == CampStatus.open ? camp : state.activeCamp,
       selectedCamp: camp,
-      clearActiveCamp: !isOpen,
+      clearActiveCamp: camp.status != CampStatus.open && state.activeCamp?.id == camp.id,
     );
-    if (isOpen) {
+    if (camp.status == CampStatus.open) {
       SessionService.current?.saveActiveCampId(camp.id);
-    } else {
-      SessionService.current?.clearActiveCampId();
     }
   }
 
@@ -124,7 +138,15 @@ class CampViewModel extends StateNotifier<CampState> {
       );
       if (!mounted) return true;
       final updatedList = [created, ...state.camps];
-      state = state.copyWith(camps: updatedList, isLoading: false);
+      state = state.copyWith(
+        camps: updatedList,
+        isLoading: false,
+        selectedCamp: created,
+        activeCamp: created.status == CampStatus.open ? created : state.activeCamp,
+      );
+      if (created.status == CampStatus.open) {
+        await SessionService.current?.saveActiveCampId(created.id);
+      }
       return true;
     } catch (e) {
       if (!mounted) return false;

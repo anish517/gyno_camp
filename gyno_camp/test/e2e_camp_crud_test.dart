@@ -3,11 +3,20 @@ import 'package:gyno_camp/core/services/http_central_api_service.dart';
 import 'package:gyno_camp/models/camp_model.dart';
 
 void main() {
-  const testServerUrl = 'http://127.0.0.1:8080';
+  const testServerUrl = 'http://localhost:8080';
   final api = HttpCentralApiService(baseUrl: testServerUrl);
 
   group('Full Camp Lifecycle & CRUD Operations Integration Test', () {
+    setUp(() {
+      HttpCentralApiService.markServerOnline(testServerUrl);
+    });
+
     test('Create, Read, Update, Open, Archive, and Cascade Delete Camp', () async {
+      final isOnline = await api.pingServer();
+      if (!isOnline) {
+        // Skip when central live server is not running
+        return;
+      }
       final ts = DateTime.now().millisecondsSinceEpoch;
       final campId = 'camp-crud-$ts';
       final campCode = 'CRUD$ts'.substring(0, 10);

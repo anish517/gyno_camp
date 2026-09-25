@@ -1110,6 +1110,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             if (proceed != true) return;
                           }
 
+                          final resultDoc = ocrState.scanResult?.examiningDoctor ??
+                              (activeCamp.doctorNames.length == 1
+                                  ? activeCamp.doctorNames.first
+                                  : (activeCamp.doctorName.trim().isNotEmpty ? activeCamp.doctorName.trim() : null));
+
                           final savedPatient = await ocrVm.confirmAndCommit(
                             campId: activeCamp.id,
                             campCode: activeCamp.campCode,
@@ -1117,6 +1122,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             userName: authState.currentUser?.name ?? 'Field Staff',
                             userRole: authState.currentUser?.role.toString() ?? 'DataTaker',
                             deviceId: deviceState.device?.deviceId ?? 'dev-local',
+                            primaryDoctorName: resultDoc,
+                            attendingDoctorNames: resultDoc != null ? [resultDoc] : const [],
                           );
 
                           if (savedPatient != null && context.mounted) {
@@ -3188,6 +3195,100 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               ),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // ── 9. EXAMINING DOCTOR ASSIGNMENT (जाँच गर्ने चिकित्सक) ───
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: (result.examiningDoctor != null && result.examiningDoctor!.isNotEmpty)
+                    ? AppTheme.primaryTeal
+                    : Colors.amber.shade400,
+                width: 1.5,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.person_pin_rounded, color: AppTheme.primaryTeal, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Examining / Attending Doctor (जाँच गर्ने चिकित्सक)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                        ),
+                      ),
+                      if (result.examiningDoctor != null && result.examiningDoctor!.isNotEmpty)
+                        Chip(
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: AppTheme.primaryLight,
+                          avatar: const Icon(Icons.check, size: 14, color: AppTheme.primaryDark),
+                          label: Text(
+                            result.examiningDoctor!,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryDark),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Select the clinician who performed Station 2 POP exam & treatment for this patient:',
+                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                  ),
+                  const SizedBox(height: 10),
+                  Builder(
+                    builder: (context) {
+                      final activeCamp = ref.watch(campStateProvider).activeCamp;
+                      final List<String> campDoctors = activeCamp?.doctorNames.isNotEmpty == true
+                          ? activeCamp!.doctorNames
+                          : (activeCamp?.doctorName.trim().isNotEmpty == true
+                              ? [activeCamp!.doctorName.trim()]
+                              : <String>[]);
+
+                      if (campDoctors.isEmpty) {
+                        return const Text(
+                          'No doctors assigned to active camp in settings.',
+                          style: TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+                        );
+                      }
+
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: campDoctors.map((doc) {
+                          final cleanDoc = doc.toLowerCase().startsWith('dr') ? doc : 'Dr. $doc';
+                          final isSelected = result.examiningDoctor == cleanDoc ||
+                              result.attendingDoctors.contains(cleanDoc) ||
+                              (result.examiningDoctor?.toLowerCase().contains(doc.toLowerCase()) ?? false);
+                          return FilterChip(
+                            avatar: CircleAvatar(
+                              radius: 12,
+                              backgroundColor: isSelected ? Colors.white : AppTheme.primaryTeal.withValues(alpha: 0.15),
+                              child: Icon(Icons.medical_services, size: 13, color: isSelected ? AppTheme.primaryTeal : Colors.blueGrey),
+                            ),
+                            label: Text(cleanDoc, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                            selected: isSelected,
+                            selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                            checkmarkColor: AppTheme.primaryTeal,
+                            onSelected: (selected) {
+                              vm.setExaminingDoctor(selected ? cleanDoc : null);
+                            },
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -3248,6 +3349,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       {'key': 'ringPessary',    'label': 'Ring Pessary',     'section': 'Clinical',     'tabIndex': 3, 'value': result.ringPessary ? (result.ringPessarySize != null ? 'Inserted (${result.ringPessarySize}mm)' : 'Inserted') : 'None', 'confKey': 'diagnoses'},
       {'key': 'referral',       'label': 'Surgical Referral','section': 'Clinical',     'tabIndex': 3, 'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
       {'key': 'followUp',       'label': 'Follow-up',        'section': 'Clinical',     'tabIndex': 3, 'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
+      {'key': 'examiningDoctor','label': 'Examining Doctor', 'section': 'Clinical',     'tabIndex': 3, 'value': result.examiningDoctor ?? 'Unassigned', 'confKey': 'diagnoses'},
     ];
 
     final total = fields.length;

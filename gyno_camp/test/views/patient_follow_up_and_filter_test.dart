@@ -345,6 +345,7 @@ void main() {
       // Open and select 'Surgery Done (शल्यक्रिया भएको)' from surgery dropdown
       final surgeryDropdown = find.byKey(const ValueKey('surgery_done_dropdown'));
       expect(surgeryDropdown, findsOneWidget);
+      await tester.ensureVisible(surgeryDropdown);
       await tester.tap(surgeryDropdown);
       await tester.pumpAndSettle();
 

@@ -47,6 +47,8 @@ class PatientModel {
   final List<String> diagnoses;
   final bool? surgeryDone;
   final String? surgeryType;
+  final String? primaryDoctorName;
+  final List<String> attendingDoctorNames;
 
   const PatientModel({
     required this.id,
@@ -84,6 +86,8 @@ class PatientModel {
     this.diagnoses = const [],
     this.surgeryDone,
     this.surgeryType,
+    this.primaryDoctorName,
+    this.attendingDoctorNames = const [],
   });
 
   String get fullName => '$firstName $surname'.trim();
@@ -159,6 +163,8 @@ class PatientModel {
     List<String>? diagnoses,
     bool? surgeryDone,
     String? surgeryType,
+    String? primaryDoctorName,
+    List<String>? attendingDoctorNames,
   }) {
     return PatientModel(
       id: id ?? this.id,
@@ -196,6 +202,8 @@ class PatientModel {
       diagnoses: diagnoses ?? this.diagnoses,
       surgeryDone: surgeryDone ?? this.surgeryDone,
       surgeryType: surgeryType ?? this.surgeryType,
+      primaryDoctorName: primaryDoctorName ?? this.primaryDoctorName,
+      attendingDoctorNames: attendingDoctorNames ?? this.attendingDoctorNames,
     );
   }
 
@@ -300,6 +308,10 @@ class PatientModel {
           : const [],
       surgeryDone: map['surgery_done'] != null ? (map['surgery_done'] == 1 || map['surgery_done'] == true) : null,
       surgeryType: map['surgery_type'] as String?,
+      primaryDoctorName: map['primary_doctor_name'] as String?,
+      attendingDoctorNames: map['attending_doctor_names'] != null && (map['attending_doctor_names'] as String).isNotEmpty
+          ? (map['attending_doctor_names'] as String).split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+          : (map['primary_doctor_name'] != null && (map['primary_doctor_name'] as String).isNotEmpty ? [(map['primary_doctor_name'] as String).trim()] : const []),
     );
   }
 }

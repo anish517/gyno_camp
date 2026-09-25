@@ -68,20 +68,45 @@ class AuthRepository implements IAuthRepository {
   Future<void> _upsertUserPreservingCredentials(DatabaseExecutor db, UserModel u) async {
     final existing = await db.query(
       DatabaseTables.tableUsers,
-      columns: ['password_hash', 'pin_hash'],
+      columns: ['password_hash', 'pin_hash', 'updated_at'],
       where: 'id = ?',
       whereArgs: [u.id],
       limit: 1,
     );
     final map = u.toMap();
     if (existing.isNotEmpty) {
-      final localPass = existing.first['password_hash'] as String?;
-      final localPin = existing.first['pin_hash'] as String?;
-      if ((u.passwordHash == null || u.passwordHash!.isEmpty) && localPass != null && localPass.isNotEmpty) {
+      final row = existing.first;
+      final localPass = row['password_hash'] as String?;
+      final localPin = row['pin_hash'] as String?;
+      final localUpdatedAt = row['updated_at'] as String?;
+
+      DateTime? localTs;
+      DateTime? incomingTs;
+      try {
+        if (localUpdatedAt != null && localUpdatedAt.isNotEmpty) {
+          localTs = DateTime.parse(localUpdatedAt).toUtc();
+        }
+        final incomingUpdatedAt = map['updated_at'] as String?;
+        if (incomingUpdatedAt != null && incomingUpdatedAt.isNotEmpty) {
+          incomingTs = DateTime.parse(incomingUpdatedAt).toUtc();
+        }
+      } catch (_) {}
+
+      // If local record has a timestamp and is newer than (or incoming has no timestamp):
+      // local credentials win!
+      final localIsNewer = localTs != null && (incomingTs == null || localTs.isAfter(incomingTs));
+
+      final incomingPassEmpty = map['password_hash'] == null || map['password_hash'].toString().isEmpty;
+      final incomingPinEmpty = map['pin_hash'] == null || map['pin_hash'].toString().isEmpty;
+
+      if (localIsNewer || (incomingPassEmpty && localPass != null && localPass.isNotEmpty)) {
         map['password_hash'] = localPass;
       }
-      if ((u.pinHash == null || u.pinHash!.isEmpty) && localPin != null && localPin.isNotEmpty) {
+      if (localIsNewer || (incomingPinEmpty && localPin != null && localPin.isNotEmpty)) {
         map['pin_hash'] = localPin;
+      }
+      if (localIsNewer && localUpdatedAt != null) {
+        map['updated_at'] = localUpdatedAt;
       }
     }
     await db.insert(
@@ -191,7 +216,24 @@ class AuthRepository implements IAuthRepository {
         final centralUsers = await HttpCentralApiService().fetchCentralUsers();
         for (final u in centralUsers) {
           await _upsertUserPreservingCredentials(db, u);
-          if (u.id == id) return u;
+        }
+        final refreshed = await db.query(
+          DatabaseTables.tableUsers,
+          where: 'id = ?',
+          whereArgs: [id],
+          limit: 1,
+        );
+        if (refreshed.isNotEmpty) {
+          final user = UserModel.fromMap(refreshed.first);
+          final savedOrg = SessionService.current?.getOrganizationName();
+          if (savedOrg != null &&
+              savedOrg.trim().isNotEmpty &&
+              user.isSuperAdmin &&
+              (user.tenantName == 'Outreach Health Center' ||
+                  user.tenantName == 'Nepal Health Outreach Network')) {
+            return user.copyWith(tenantName: savedOrg);
+          }
+          return user;
         }
       } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
     }
@@ -226,10 +268,16 @@ class AuthRepository implements IAuthRepository {
         final centralUsers = await HttpCentralApiService().fetchCentralUsers();
         for (final u in centralUsers) {
           await _upsertUserPreservingCredentials(db, u);
-          if (u.email.trim().toLowerCase() == lower || u.phone == trimmed) {
-            return u;
-          }
         }
+        final refreshed = await db.query(
+          DatabaseTables.tableUsers,
+          where: isSuperAdminAlias
+              ? "LOWER(email) = ? OR phone = ? OR LOWER(email) = 'admin@gynocamp.org' OR id = 'usr-superadmin-01'"
+              : 'LOWER(email) = ? OR phone = ?',
+          whereArgs: [lower, trimmed],
+          limit: 1,
+        );
+        if (refreshed.isNotEmpty) return UserModel.fromMap(refreshed.first);
       } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
     }
 
@@ -269,9 +317,10 @@ class AuthRepository implements IAuthRepository {
       }
     } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
 
+    final createdUser = user.copyWith(updatedAt: user.updatedAt ?? DateTime.now());
     await db.insert(
       DatabaseTables.tableUsers,
-      user.toMap(),
+      createdUser.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
 
@@ -281,19 +330,19 @@ class AuthRepository implements IAuthRepository {
       userRole: AppConstants.roleSuperAdmin,
       action: 'USER_REGISTERED',
       entityType: 'User',
-      entityId: user.id,
+      entityId: createdUser.id,
       detailsJson:
-          '{"name":"${user.name}","email":"${user.email}","role":"${user.role.toDbString()}"}',
+          '{"name":"${createdUser.name}","email":"${createdUser.email}","role":"${createdUser.role.toDbString()}"}',
       deviceId: deviceId,
     );
 
     if (enableCentralSync) {
       try {
-        HttpCentralApiService().broadcastUser(user);
+        await HttpCentralApiService().broadcastUser(createdUser);
       } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
     }
 
-    return user;
+    return createdUser;
   }
 
   @override
@@ -302,10 +351,12 @@ class AuthRepository implements IAuthRepository {
     required String adminUserId,
     required String deviceId,
   }) async {
+    final now = DateTime.now();
+    final updatedWithTimestamp = user.copyWith(updatedAt: now);
     final db = await _databaseService.database;
     await db.update(
       DatabaseTables.tableUsers,
-      user.toMap(),
+      updatedWithTimestamp.toMap(),
       where: 'id = ?',
       whereArgs: [user.id],
     );
@@ -379,14 +430,14 @@ class AuthRepository implements IAuthRepository {
 
     if (enableCentralSync) {
       try {
-        HttpCentralApiService().broadcastUser(user);
+        await HttpCentralApiService().broadcastUser(updatedWithTimestamp);
       } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
     }
 
-    if (_currentUser?.id == user.id) {
-      _currentUser = user;
+    if (_currentUser?.id == updatedWithTimestamp.id) {
+      _currentUser = updatedWithTimestamp;
     }
-    return user;
+    return updatedWithTimestamp;
   }
 
   @override

@@ -987,6 +987,16 @@ class OcrFormService {
     }
 
     // Calculate overall confidence based on active fields
+    // Examining Doctor (Station 6 / Footer)
+    String? examiningDoctor;
+    final docMatch = RegExp(r'(?:dr\.?|doctor|clinician|gynecologist|examining doctor)[:\s]+([a-zA-Z\s\.]+)', caseSensitive: false).firstMatch(text);
+    if (docMatch != null) {
+      final name = docMatch.group(1)?.split(RegExp(r'[\r\n]')).first.trim();
+      if (name != null && name.length >= 3 && !_isLabel(name) && !name.toLowerCase().contains('certified') && !name.toLowerCase().contains('signature')) {
+        examiningDoctor = name.toLowerCase().startsWith('dr') ? name : 'Dr. $name';
+      }
+    }
+
     final totalConf = confidences.values.fold<double>(0.0, (sum, val) => sum + val);
     final avgConf = confidences.isNotEmpty ? totalConf / confidences.length : 0.80;
 
@@ -1001,6 +1011,8 @@ class OcrFormService {
       medications: medications,
       surgicalReferral: surgicalReferral,
       followUpDestination: followUp,
+      examiningDoctor: examiningDoctor,
+      attendingDoctors: examiningDoctor != null ? [examiningDoctor] : const [],
       fieldConfidences: confidences,
       overallConfidence: double.parse(avgConf.toStringAsFixed(2)),
       rawText: text,

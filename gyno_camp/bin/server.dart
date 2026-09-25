@@ -612,7 +612,7 @@ class GynoCampSyncServer {
               ) VALUES (
                 @id, @camp_code, @name, @province, @district, @municipality, @ward, @venue,
                 @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered,
-                @tenant_id, @organization_name, @doctor_name, @doctor_names, @created_at, @updated_at
+                @tenant_id, @organization_name, @doctor_name, @doctor_names, @created_at::timestamptz, @updated_at::timestamptz
               )
               ON CONFLICT (id) DO UPDATE SET
                 camp_code = EXCLUDED.camp_code,
@@ -673,8 +673,8 @@ class GynoCampSyncServer {
         try {
           await _connection!.execute(
             Sql.named('''
-              INSERT INTO users (id, name, email, phone, role, is_active, last_login_at, assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash)
-              VALUES (@id, @name, @email, @phone, @role, @is_active, @last_login_at, @assigned_camp_ids, @tenant_id, @tenant_name, @password_hash, @pin_hash)
+              INSERT INTO users (id, name, email, phone, role, is_active, last_login_at, assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash, updated_at)
+              VALUES (@id, @name, @email, @phone, @role, @is_active, @last_login_at, @assigned_camp_ids, @tenant_id, @tenant_name, @password_hash, @pin_hash, @updated_at::timestamptz)
               ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
                 email = EXCLUDED.email,
@@ -685,8 +685,9 @@ class GynoCampSyncServer {
                 assigned_camp_ids = EXCLUDED.assigned_camp_ids,
                 tenant_id = EXCLUDED.tenant_id,
                 tenant_name = EXCLUDED.tenant_name,
-                password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
-                pin_hash = COALESCE(EXCLUDED.pin_hash, users.pin_hash);
+                password_hash = COALESCE(NULLIF(EXCLUDED.password_hash, ''), users.password_hash),
+                pin_hash = COALESCE(NULLIF(EXCLUDED.pin_hash, ''), users.pin_hash),
+                updated_at = EXCLUDED.updated_at;
             '''),
             parameters: {
               'id': id,
@@ -701,6 +702,7 @@ class GynoCampSyncServer {
               'tenant_name': map['tenant_name'] ?? 'Nepal Health Outreach Network',
               'password_hash': map['password_hash'],
               'pin_hash': map['pin_hash'],
+              'updated_at': map['updated_at'] ?? DateTime.now().toUtc().toIso8601String(),
             },
           );
         } catch (e) {
@@ -1067,7 +1069,7 @@ class GynoCampSyncServer {
         // Users (return password_hash and pin_hash for offline authentication)
         String userSql = '''
           SELECT id, name, email, phone, role, is_active, last_login_at,
-                 assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash
+                 assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash, updated_at
           FROM users
         ''';
         final userParams = <String, dynamic>{};
@@ -1093,6 +1095,7 @@ class GynoCampSyncServer {
             'assigned_camp_ids': row[7],
             'tenant_id': row[8],
             'tenant_name': row[9],
+            'updated_at': row[12]?.toString(),
             // Security: password_hash and pin_hash are NOT included in pull
             // Devices retain their locally-set credentials
           });
@@ -1447,7 +1450,7 @@ class GynoCampSyncServer {
             ) VALUES (
               @id, @camp_code, @name, @province, @district, @municipality, @ward, @venue,
               @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered,
-              @tenant_id, @organization_name, @doctor_name, @doctor_names, @created_at, @updated_at
+              @tenant_id, @organization_name, @doctor_name, @doctor_names, @created_at::timestamptz, @updated_at::timestamptz
             )
             ON CONFLICT (id) DO UPDATE SET
               camp_code = EXCLUDED.camp_code,
@@ -1548,7 +1551,7 @@ class GynoCampSyncServer {
     final list = <Map<String, dynamic>>[];
     if (_isPgConnected && _connection != null) {
       try {
-        String sql = 'SELECT id, name, email, phone, role, is_active, last_login_at, assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash FROM users ';
+        String sql = 'SELECT id, name, email, phone, role, is_active, last_login_at, assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash, updated_at FROM users ';
         final params = <String, dynamic>{};
         if (hasTenant) {
           sql += "WHERE (tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global') ";
@@ -1577,6 +1580,7 @@ class GynoCampSyncServer {
             'tenant_name': row[9],
             'password_hash': row[10],
             'pin_hash': row[11],
+            'updated_at': row[12]?.toString(),
           });
         }
       } catch (_) {}
@@ -1607,14 +1611,18 @@ class GynoCampSyncServer {
     final roleVal = isRootAdmin ? 'SUPER_ADMIN' : (map['role'] ?? 'data_taker');
     map['role'] = roleVal;
     map['id'] = id;
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+    map['updated_at'] = (map['updated_at'] != null && map['updated_at'].toString().isNotEmpty)
+        ? map['updated_at']
+        : nowIso;
     _memUsers[id] = map;
 
     if (_isPgConnected && _connection != null) {
       try {
         await _connection!.execute(
           Sql.named('''
-            INSERT INTO users (id, name, email, phone, role, is_active, last_login_at, assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash)
-            VALUES (@id, @name, @email, @phone, @role, @is_active, @last_login_at, @assigned_camp_ids, @tenant_id, @tenant_name, @password_hash, @pin_hash)
+            INSERT INTO users (id, name, email, phone, role, is_active, last_login_at, assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash, updated_at)
+            VALUES (@id, @name, @email, @phone, @role, @is_active, @last_login_at, @assigned_camp_ids, @tenant_id, @tenant_name, @password_hash, @pin_hash, @updated_at::timestamptz)
             ON CONFLICT (id) DO UPDATE SET
               name = EXCLUDED.name,
               email = EXCLUDED.email,
@@ -1625,8 +1633,9 @@ class GynoCampSyncServer {
               assigned_camp_ids = EXCLUDED.assigned_camp_ids,
               tenant_id = EXCLUDED.tenant_id,
               tenant_name = EXCLUDED.tenant_name,
-              password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
-              pin_hash = COALESCE(EXCLUDED.pin_hash, users.pin_hash);
+              password_hash = COALESCE(NULLIF(EXCLUDED.password_hash, ''), users.password_hash),
+              pin_hash = COALESCE(NULLIF(EXCLUDED.pin_hash, ''), users.pin_hash),
+              updated_at = EXCLUDED.updated_at;
           '''),
           parameters: {
             'id': id,
@@ -1641,6 +1650,7 @@ class GynoCampSyncServer {
             'tenant_name': map['tenant_name'] ?? 'Nepal Health Outreach Network',
             'password_hash': map['password_hash'],
             'pin_hash': map['pin_hash'],
+            'updated_at': map['updated_at'],
           },
         );
       } catch (_) {}

@@ -177,6 +177,7 @@ class ExcelReportService {
       TextCellValue('Pessary Inserted'),
       TextCellValue('Surgical Referral'),
       TextCellValue('Follow-up Destination'),
+      TextCellValue('Examining Doctor'),
       TextCellValue('Intake Date'),
     ]);
 
@@ -188,6 +189,7 @@ class ExcelReportService {
 
     for (final p in summary.patients) {
       final v = visitByPatientId[p.patientId];
+      final docName = v?.primaryDoctorName ?? (v?.attendingDoctorNames.isNotEmpty == true ? v!.attendingDoctorNames.join(', ') : 'None');
       registerSheet.appendRow([
         TextCellValue(p.patientId),
         TextCellValue(p.firstName),
@@ -203,6 +205,7 @@ class ExcelReportService {
         TextCellValue(v?.pessaryType ?? 'None'),
         TextCellValue(v?.surgicalReferral ?? 'None'),
         TextCellValue(v?.followUpDestination ?? 'None'),
+        TextCellValue(docName),
         TextCellValue(dateFormatter.format(p.intakeDate)),
       ]);
     }

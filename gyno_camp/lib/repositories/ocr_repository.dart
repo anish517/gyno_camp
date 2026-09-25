@@ -37,6 +37,8 @@ abstract class IOcrRepository {
     required String userName,
     String userRole = 'NURSE',
     required String deviceId,
+    String? primaryDoctorName,
+    List<String> attendingDoctorNames = const [],
   });
 }
 
@@ -198,6 +200,8 @@ class OcrRepository implements IOcrRepository {
     required String userName,
     String userRole = 'NURSE',
     required String deviceId,
+    String? primaryDoctorName,
+    List<String> attendingDoctorNames = const [],
   }) async {
     final demo = verifiedScan.demographics;
     final obs = verifiedScan.obstetrics;
@@ -294,6 +298,14 @@ class OcrRepository implements IOcrRepository {
       surgicalReferral: verifiedScan.surgicalReferral,
       followUpNeeded: (pop['highestPopStage'] as int? ?? 0) >= 2,
       followUpDestination: verifiedScan.followUpDestination ?? 'Health Post',
+      primaryDoctorName: primaryDoctorName ?? verifiedScan.examiningDoctor,
+      attendingDoctorNames: attendingDoctorNames.isNotEmpty
+          ? attendingDoctorNames
+          : (verifiedScan.attendingDoctors.isNotEmpty
+              ? verifiedScan.attendingDoctors
+              : ((primaryDoctorName ?? verifiedScan.examiningDoctor) != null
+                  ? [(primaryDoctorName ?? verifiedScan.examiningDoctor)!]
+                  : const [])),
       createdAt: DateTime.now(),
       createdByUserId: userId,
     );

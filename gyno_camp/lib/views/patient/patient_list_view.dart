@@ -172,325 +172,424 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 'No active camp selected. Please activate a camp first.',
               ),
             )
+          : LayoutBuilder(
+              builder: (context, viewportConstraints) {
+                final isDesktop = viewportConstraints.maxWidth >= 900;
+
+                if (isDesktop) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Desktop Left Sidebar for Dedicated Patient Filters
+                      if (_showFilterPanel) ...[
+                        SizedBox(
+                          width: 340,
+                          height: viewportConstraints.maxHeight,
+                          child: _buildDedicatedFilterSection(
+                            context,
+                            campState,
+                            patientState,
+                            vm,
+                            isSidebar: true,
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, thickness: 1),
+                      ],
+
+                      // Desktop Main Patient Workspace (Header, Stats, Patient Cards at Top)
+                      Expanded(
+                        child: Column(
+                          children: [
+                            // Search and Actions Header
+                            _buildSearchAndActionHeader(
+                              effectiveCampId: effectiveCampId,
+                              patientState: patientState,
+                              vm: vm,
+                              isWide: true,
+                            ),
+                            const Divider(height: 1),
+
+                            // Statistics Bar
+                            _buildStatisticsBar(patientState, vm),
+                            const Divider(height: 1),
+
+                            // Patient Cards List (Immediately visible at top)
+                            Expanded(
+                              child: _buildPatientCardsList(
+                                effectiveCampId,
+                                effectiveCamp,
+                                patientState,
+                                vm,
+                                campState,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                // Mobile / Tablet Stacked Layout (< 900px)
+                return Column(
+                  children: [
+                    // Search & Filter Header
+                    _buildSearchAndActionHeader(
+                      effectiveCampId: effectiveCampId,
+                      patientState: patientState,
+                      vm: vm,
+                      isWide: viewportConstraints.maxWidth >= 700,
+                    ),
+                    const Divider(height: 1),
+
+                    // Dedicated Filter Section (Collapsible with safe bounded height)
+                    if (_showFilterPanel) ...[
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: math.min(
+                            viewportConstraints.maxHeight * 0.45,
+                            300.0,
+                          ),
+                        ),
+                        child: _buildDedicatedFilterSection(
+                          context,
+                          campState,
+                          patientState,
+                          vm,
+                          isSidebar: false,
+                        ),
+                      ),
+                      const Divider(height: 1),
+                    ],
+
+                    // Patient Roll Statistics Bar
+                    _buildStatisticsBar(patientState, vm),
+
+                    // Patient Cards List
+                    Expanded(
+                      child: _buildPatientCardsList(
+                        effectiveCampId,
+                        effectiveCamp,
+                        patientState,
+                        vm,
+                        campState,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildSearchAndActionHeader({
+    required String? effectiveCampId,
+    required PatientListState patientState,
+    required PatientListViewModel vm,
+    required bool isWide,
+  }) {
+    final searchField = TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        hintText: 'Search by Patient ID, Name, Phone, Ward, District...',
+        prefixIcon: const Icon(
+          Icons.search,
+          color: AppTheme.primaryTeal,
+        ),
+        suffixIcon: _searchController.text.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 20),
+                tooltip: 'Clear Search',
+                onPressed: () {
+                  _searchController.clear();
+                  vm.search(effectiveCampId, '');
+                },
+              )
+            : null,
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 0,
+          horizontal: 16,
+        ),
+      ),
+      onChanged: (val) => vm.search(effectiveCampId, val),
+    );
+
+    final filterButton = OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: patientState.filters.hasActiveFilters
+            ? Colors.white
+            : AppTheme.primaryTeal,
+        backgroundColor: patientState.filters.hasActiveFilters
+            ? AppTheme.primaryTeal
+            : Colors.transparent,
+        side: const BorderSide(color: AppTheme.primaryTeal),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      icon: Icon(
+        _showFilterPanel
+            ? Icons.filter_alt_off
+            : Icons.filter_alt_outlined,
+        size: 18,
+      ),
+      label: Text(
+        patientState.filters.hasActiveFilters
+            ? 'Filters (${patientState.filters.activeFilterCount})'
+            : 'Filters',
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+        ),
+      ),
+      onPressed: () {
+        setState(() => _showFilterPanel = !_showFilterPanel);
+      },
+    );
+
+    final scanButton = FilledButton.tonalIcon(
+      style: FilledButton.styleFrom(
+        backgroundColor: AppTheme.primaryTeal.withValues(
+          alpha: 0.12,
+        ),
+        foregroundColor: AppTheme.primaryTeal,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      icon: const Icon(
+        Icons.qr_code_scanner_rounded,
+        size: 20,
+      ),
+      label: const Text(
+        'Scan QR / Barcode',
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+        ),
+      ),
+      onPressed: effectiveCampId == null
+          ? null
+          : () => _showScanTokenDialog(
+              context,
+              effectiveCampId,
+              vm,
+              patientState.rawPatients,
+            ),
+    );
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16.0,
+        vertical: 12.0,
+      ),
+      child: isWide
+          ? Row(
+              children: [
+                Expanded(child: searchField),
+                const SizedBox(width: 8),
+                filterButton,
+                const SizedBox(width: 8),
+                scanButton,
+              ],
+            )
           : Column(
               children: [
-                // Search & Filter Header with Prominent Scan Token Action
-                Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 12.0,
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isWide = constraints.maxWidth >= 700;
-                      final searchField = TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search by Patient ID, Name, Phone, Ward, District...',
-                          prefixIcon: const Icon(
-                            Icons.search,
-                            color: AppTheme.primaryTeal,
-                          ),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 20),
-                                  tooltip: 'Clear Search',
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    vm.search(effectiveCampId, '');
-                                  },
-                                )
-                              : null,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 0,
-                            horizontal: 16,
-                          ),
-                        ),
-                        onChanged: (val) => vm.search(effectiveCampId, val),
-                      );
-
-                      final filterButton = OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: patientState.filters.hasActiveFilters
-                              ? Colors.white
-                              : AppTheme.primaryTeal,
-                          backgroundColor: patientState.filters.hasActiveFilters
-                              ? AppTheme.primaryTeal
-                              : Colors.transparent,
-                          side: const BorderSide(color: AppTheme.primaryTeal),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: Icon(
-                          _showFilterPanel
-                              ? Icons.filter_alt_off
-                              : Icons.filter_alt_outlined,
-                          size: 18,
-                        ),
-                        label: Text(
-                          patientState.filters.hasActiveFilters
-                              ? 'Filters (${patientState.filters.activeFilterCount})'
-                              : 'Filters',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                        onPressed: () {
-                          setState(() => _showFilterPanel = !_showFilterPanel);
-                        },
-                      );
-
-                      final scanButton = FilledButton.tonalIcon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.primaryTeal.withValues(
-                            alpha: 0.12,
-                          ),
-                          foregroundColor: AppTheme.primaryTeal,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: const Icon(
-                          Icons.qr_code_scanner_rounded,
-                          size: 20,
-                        ),
-                        label: const Text(
-                          'Scan QR / Barcode',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                        onPressed: effectiveCampId == null
-                            ? null
-                            : () => _showScanTokenDialog(
-                                context,
-                                effectiveCampId,
-                                vm,
-                                patientState.rawPatients,
-                              ),
-                      );
-
-                      if (isWide) {
-                        return Row(
-                          children: [
-                            Expanded(child: searchField),
-                            const SizedBox(width: 8),
-                            filterButton,
-                            const SizedBox(width: 8),
-                            scanButton,
-                          ],
-                        );
-                      } else {
-                        return Column(
-                          children: [
-                            searchField,
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(child: filterButton),
-                                const SizedBox(width: 8),
-                                Expanded(child: scanButton),
-                              ],
-                            ),
-                          ],
-                        );
-                      }
-                    },
-                  ),
-                ),
-                const Divider(height: 1),
-
-                // Dedicated Filter Section (Collapsible)
-                if (_showFilterPanel) ...[
-                  _buildDedicatedFilterSection(
-                    context,
-                    campState,
-                    patientState,
-                    vm,
-                  ),
-                  const Divider(height: 1),
-                ],
-
-                // Patient Roll Statistics Bar
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  color: AppTheme.backgroundLight,
-                  child: LayoutBuilder(
-                    builder: (context, statsConstraints) {
-                      final isNarrow = statsConstraints.maxWidth < 450;
-                      final hasActiveFilters =
-                          patientState.filters.hasActiveFilters;
-
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    hasActiveFilters
-                                        ? 'Showing: ${patientState.patients.length} of ${patientState.rawPatients.length} Patients'
-                                        : 'Total: ${patientState.patients.length} Registered',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: AppTheme.textPrimaryLight,
-                                    ),
-                                  ),
-                                ),
-                                if (hasActiveFilters) ...[
-                                  const SizedBox(width: 6),
-                                  InkWell(
-                                    onTap: () => _clearAllFilters(vm),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.dangerRose.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: AppTheme.dangerRose.withValues(
-                                            alpha: 0.3,
-                                          ),
-                                        ),
-                                      ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.clear,
-                                            size: 12,
-                                            color: AppTheme.dangerRose,
-                                          ),
-                                          SizedBox(width: 2),
-                                          Text(
-                                            'Reset',
-                                            style: TextStyle(
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.dangerRose,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryTeal.withValues(
-                                alpha: 0.1,
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  patientState.patients.isNotEmpty
-                                      ? Icons.shield_rounded
-                                      : Icons.sync_alt,
-                                  size: 12,
-                                  color: AppTheme.primaryTeal,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  isNarrow
-                                      ? 'Encrypted'
-                                      : (patientState.patients.isNotEmpty
-                                            ? 'AES-256 Encrypted • ${patientState.patients.length} Records'
-                                            : 'AES-256 Encrypted'),
-                                  style: const TextStyle(
-                                    fontSize: 10.5,
-                                    color: AppTheme.primaryTeal,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-
-                // Patient Cards List
-                Expanded(
-                  child: (patientState.isLoading && patientState.patients.isEmpty)
-                      ? const Center(child: CircularProgressIndicator())
-                      : Stack(
-                          children: [
-                            patientState.patients.isEmpty
-                                ? _buildEmptyState(context, effectiveCampId, vm)
-                                : RefreshIndicator(
-                                    onRefresh: () async {
-                                      if (effectiveCampId != null) {
-                                        await vm.loadPatients(effectiveCampId);
-                                      }
-                                    },
-                                    child: ListView.separated(
-                                      padding: const EdgeInsets.all(16),
-                                      itemCount: patientState.patients.length,
-                                      separatorBuilder: (_, _) =>
-                                          const SizedBox(height: 10),
-                                      itemBuilder: (context, index) {
-                                        final patient = patientState.patients[index];
-                                        return _buildPatientCard(
-                                          context,
-                                          patient,
-                                          effectiveCamp,
-                                          vm,
-                                          campState,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                            if (patientState.isLoading)
-                              const Positioned(
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                child: LinearProgressIndicator(
-                                  minHeight: 2.5,
-                                  color: AppTheme.primaryTeal,
-                                  backgroundColor: Colors.transparent,
-                                ),
-                              ),
-                          ],
-                        ),
+                searchField,
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: filterButton),
+                    const SizedBox(width: 8),
+                    Expanded(child: scanButton),
+                  ],
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _buildStatisticsBar(
+    PatientListState patientState,
+    PatientListViewModel vm,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 8,
+      ),
+      color: AppTheme.backgroundLight,
+      child: LayoutBuilder(
+        builder: (context, statsConstraints) {
+          final isNarrow = statsConstraints.maxWidth < 450;
+          final hasActiveFilters = patientState.filters.hasActiveFilters;
+
+          return Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        hasActiveFilters
+                            ? 'Showing: ${patientState.patients.length} of ${patientState.rawPatients.length} Patients'
+                            : 'Total: ${patientState.patients.length} Registered',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: AppTheme.textPrimaryLight,
+                        ),
+                      ),
+                    ),
+                    if (hasActiveFilters) ...[
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: () => _clearAllFilters(vm),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.dangerRose.withValues(
+                              alpha: 0.12,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: AppTheme.dangerRose.withValues(
+                                alpha: 0.3,
+                              ),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.clear,
+                                size: 12,
+                                color: AppTheme.dangerRose,
+                              ),
+                              SizedBox(width: 2),
+                              Text(
+                                'Reset',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.dangerRose,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryTeal.withValues(
+                    alpha: 0.1,
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      patientState.patients.isNotEmpty
+                          ? Icons.shield_rounded
+                          : Icons.sync_alt,
+                      size: 12,
+                      color: AppTheme.primaryTeal,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isNarrow
+                          ? 'Encrypted'
+                          : (patientState.patients.isNotEmpty
+                              ? 'AES-256 Encrypted • ${patientState.patients.length} Records'
+                              : 'AES-256 Encrypted'),
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: AppTheme.primaryTeal,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPatientCardsList(
+    String? effectiveCampId,
+    CampModel? effectiveCamp,
+    PatientListState patientState,
+    PatientListViewModel vm,
+    CampState campState,
+  ) {
+    if (patientState.isLoading && patientState.patients.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return Stack(
+      children: [
+        patientState.patients.isEmpty
+            ? _buildEmptyState(context, effectiveCampId, vm)
+            : RefreshIndicator(
+                onRefresh: () async {
+                  if (effectiveCampId != null) {
+                    await vm.loadPatients(effectiveCampId);
+                  }
+                },
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: patientState.patients.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final patient = patientState.patients[index];
+                    return _buildPatientCard(
+                      context,
+                      patient,
+                      effectiveCamp,
+                      vm,
+                      campState,
+                    );
+                  },
+                ),
+              ),
+        if (patientState.isLoading)
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: LinearProgressIndicator(
+              minHeight: 2.5,
+              color: AppTheme.primaryTeal,
+              backgroundColor: Colors.transparent,
+            ),
+          ),
+      ],
     );
   }
 
@@ -505,10 +604,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     BuildContext context,
     CampState campState,
     PatientListState patientState,
-    PatientListViewModel vm,
-  ) {
+    PatientListViewModel vm, {
+    bool isSidebar = false,
+  }) {
     final filters = patientState.filters;
-    final screenHeight = MediaQuery.of(context).size.height;
     // Scope visible camps: Super Admin sees all; Data Takers only see assigned camps
     final currentUser = ref.watch(authStateProvider).currentUser;
     final visibleCamps = (currentUser?.isSuperAdmin ?? true)
@@ -519,13 +618,56 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 currentUser.assignedCampIds.contains(c.id))
             .toList();
 
+    final allDoctors = <String>{};
+    final campDoctorsMap = <String, List<String>>{};
+    for (final camp in visibleCamps) {
+      final docs = camp.doctorNames.isNotEmpty
+          ? camp.doctorNames
+          : (camp.doctorName.trim().isNotEmpty ? [camp.doctorName.trim()] : <String>[]);
+      campDoctorsMap[camp.id] = docs;
+      for (final d in docs) {
+        final clean = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
+        if (clean.isNotEmpty) allDoctors.add(clean);
+      }
+    }
+    for (final p in patientState.rawPatients) {
+      if (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty) {
+        final clean = p.primaryDoctorName!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
+        if (clean.isNotEmpty) allDoctors.add(clean);
+      }
+      for (final doc in p.attendingDoctorNames) {
+        final clean = doc.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
+        if (clean.isNotEmpty) allDoctors.add(clean);
+      }
+    }
+    if (filters.doctor != null && filters.doctor != 'all' && filters.doctor!.trim().isNotEmpty) {
+      final clean = filters.doctor!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
+      if (clean.isNotEmpty) allDoctors.add(clean);
+    }
+    final sortedDoctors = allDoctors.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    // Dynamic Diagnoses: seeded defaults + patient records + current filter
+    final allDiagnoses = <String>{};
+    allDiagnoses.addAll(ClinicalConstants.defaultDiagnoses);
+    for (final p in patientState.rawPatients) {
+      allDiagnoses.addAll(p.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
+    }
+    for (final p in patientState.patients) {
+      allDiagnoses.addAll(p.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
+    }
+    if (filters.disease != null && filters.disease!.trim().isNotEmpty) {
+      allDiagnoses.add(filters.disease!.trim());
+    }
+    final sortedDiagnoses = allDiagnoses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
     return Container(
       color: const Color(0xFFF8FAFC),
-      constraints: BoxConstraints(
-        maxHeight: math.min(screenHeight * 0.52, 450.0),
-      ),
+      height: isSidebar ? double.infinity : null,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: isSidebar ? 12 : 16,
+          vertical: 12,
+        ),
         physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -960,7 +1102,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Row 1: Clinical Intake & Disease / Diagnosis
+                    // Row 1: Clinical Intake & Doctor / Clinician
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final isNarrow = constraints.maxWidth < 450;
@@ -985,12 +1127,70 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           onChanged: (val) => vm.updateFilters(filters.copyWith(clinicalIntake: val)),
                         );
 
+                        final currentDoctorClean = (filters.doctor != null && filters.doctor != 'all' && filters.doctor!.trim().isNotEmpty)
+                            ? filters.doctor!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim()
+                            : null;
+
+                        final doctorDropdown = DropdownButtonFormField<String?>(
+                          key: ValueKey('doctor_filter_$currentDoctorClean'),
+                          initialValue: sortedDoctors.contains(currentDoctorClean) ? currentDoctorClean : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Examining Doctor (जाँच गर्ने चिकित्सक)',
+                            prefixIcon: Icon(Icons.medical_services_outlined, size: 18),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            isDense: true,
+                          ),
+                          isExpanded: true,
+                          items: [
+                            const DropdownMenuItem(value: null, child: Text('All Doctors (सबै डाक्टर)', style: TextStyle(fontSize: 13, color: Colors.grey))),
+                            ...sortedDoctors.map((doc) => DropdownMenuItem(
+                              value: doc,
+                              child: Text('Dr. $doc', style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
+                            )),
+                          ],
+                          onChanged: (val) => vm.updateFilters(
+                            filters.copyWith(
+                              doctor: val,
+                              clearDoctor: val == null,
+                              campDoctorsMap: campDoctorsMap,
+                            ),
+                          ),
+                        );
+
+                        if (isNarrow) {
+                          return Column(
+                            children: [
+                              intakeDropdown,
+                              const SizedBox(height: 8),
+                              doctorDropdown,
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(child: intakeDropdown),
+                            const SizedBox(width: 8),
+                            Expanded(child: doctorDropdown),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Row 2: Disease / Diagnosis & POP Stage
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 450;
+
+                        final currentDisease = (filters.disease?.isNotEmpty == true &&
+                                sortedDiagnoses.contains(filters.disease))
+                            ? filters.disease
+                            : null;
+
                         final diseaseDropdown = DropdownButtonFormField<String?>(
                           key: ValueKey('disease_filter_${filters.disease}'),
-                          initialValue: (filters.disease?.isNotEmpty == true &&
-                                  ClinicalConstants.defaultDiagnoses.contains(filters.disease))
-                              ? filters.disease
-                              : null,
+                          initialValue: currentDisease,
                           decoration: const InputDecoration(
                             labelText: 'Disease / Diagnosis (रोग / निदान)',
                             prefixIcon: Icon(Icons.healing, size: 18),
@@ -1001,38 +1201,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           isExpanded: true,
                           items: [
                             const DropdownMenuItem(value: null, child: Text('All Diagnoses (सबै निदान)', style: TextStyle(fontSize: 13, color: Colors.grey))),
-                            ...ClinicalConstants.defaultDiagnoses.map((d) =>
-                              DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13)))),
+                            ...sortedDiagnoses.map((d) =>
+                              DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis))),
                           ],
                           onChanged: (val) => vm.updateFilters(
                             filters.copyWith(disease: val, clearDisease: val == null),
                           ),
                         );
-
-                        if (isNarrow) {
-                          return Column(
-                            children: [
-                              intakeDropdown,
-                              const SizedBox(height: 8),
-                              diseaseDropdown,
-                            ],
-                          );
-                        }
-                        return Row(
-                          children: [
-                            Expanded(child: intakeDropdown),
-                            const SizedBox(width: 8),
-                            Expanded(child: diseaseDropdown),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Row 2: POP Stage & Surgery Performed
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isNarrow = constraints.maxWidth < 450;
 
                         final popStageDropdown = DropdownButtonFormField<String>(
                           key: const ValueKey('pop_stage_dropdown'),
@@ -1055,6 +1230,31 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           ],
                           onChanged: (val) => vm.updateFilters(filters.copyWith(popStage: val)),
                         );
+
+                        if (isNarrow) {
+                          return Column(
+                            children: [
+                              diseaseDropdown,
+                              const SizedBox(height: 8),
+                              popStageDropdown,
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(child: diseaseDropdown),
+                            const SizedBox(width: 8),
+                            Expanded(child: popStageDropdown),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Row 3: Surgery Performed & Chief Clinical Complaint
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 450;
 
                         final surgeryDoneDropdown = DropdownButtonFormField<String>(
                           key: const ValueKey('surgery_done_dropdown'),
@@ -1080,20 +1280,50 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           ),
                         );
 
+                        final chiefComplaintDropdown = DropdownButtonFormField<String>(
+                          key: const ValueKey('chief_complaint_dropdown'),
+                          initialValue: (filters.chiefComplaint?.isNotEmpty == true) ? filters.chiefComplaint : 'all',
+                          decoration: const InputDecoration(
+                            labelText: 'Chief Clinical Complaint (मुख्य समस्या)',
+                            prefixIcon: Icon(Icons.report_problem_outlined, size: 18),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            isDense: true,
+                          ),
+                          isExpanded: true,
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('All Complaints (सबै मुख्य समस्या)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'something hanging out', child: Text('Prolapse / Something Hanging Out (आङ खस्ने)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'discharge and or itching', child: Text('White Discharge & Itching (सेतो पानी तथा चिलाउने)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'problems passing urine', child: Text('Urinary Problems (पिसाब सम्बन्धी)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'problems passing stool', child: Text('Bowel / Stool Problems (दिसा सम्बन्धी)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'menstrual problem', child: Text('Menstrual Problem (महिनावारी गडबडी)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'infertility', child: Text('Infertility (निःसन्तान)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'pain', child: Text('Pelvic / Lower Abdominal Pain (तल्लो पेट / कम्मर दुख्ने)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'checkup', child: Text('Routine Checkup (सामान्य स्वास्थ्य जाँच)', style: TextStyle(fontSize: 13))),
+                          ],
+                          onChanged: (val) => vm.updateFilters(
+                            filters.copyWith(
+                              chiefComplaint: val == 'all' ? '' : val,
+                              clearChiefComplaint: val == 'all' || val == null || val.isEmpty,
+                            ),
+                          ),
+                        );
+
                         if (isNarrow) {
                           return Column(
                             children: [
-                              popStageDropdown,
-                              const SizedBox(height: 8),
                               surgeryDoneDropdown,
+                              const SizedBox(height: 8),
+                              chiefComplaintDropdown,
                             ],
                           );
                         }
                         return Row(
                           children: [
-                            Expanded(child: popStageDropdown),
-                            const SizedBox(width: 8),
                             Expanded(child: surgeryDoneDropdown),
+                            const SizedBox(width: 8),
+                            Expanded(child: chiefComplaintDropdown),
                           ],
                         );
                       },
@@ -1126,38 +1356,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 8),
-
-                    // Chief Clinical Complaint Dropdown
-                    DropdownButtonFormField<String>(
-                      key: const ValueKey('chief_complaint_dropdown'),
-                      initialValue: (filters.chiefComplaint?.isNotEmpty == true) ? filters.chiefComplaint : 'all',
-                      decoration: const InputDecoration(
-                        labelText: 'Chief Clinical Complaint (मुख्य समस्या)',
-                        prefixIcon: Icon(Icons.report_problem_outlined, size: 18),
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        isDense: true,
-                      ),
-                      isExpanded: true,
-                      items: const [
-                        DropdownMenuItem(value: 'all', child: Text('All Complaints (सबै मुख्य समस्या)', style: TextStyle(fontSize: 13))),
-                        DropdownMenuItem(value: 'something hanging out', child: Text('Prolapse / Something Hanging Out (आङ खस्ने)', style: TextStyle(fontSize: 13))),
-                        DropdownMenuItem(value: 'discharge and or itching', child: Text('White Discharge & Itching (सेतो पानी तथा चिलाउने)', style: TextStyle(fontSize: 13))),
-                        DropdownMenuItem(value: 'problems passing urine', child: Text('Urinary Problems (पिसाब सम्बन्धी)', style: TextStyle(fontSize: 13))),
-                        DropdownMenuItem(value: 'problems passing stool', child: Text('Bowel / Stool Problems (दिसा सम्बन्धी)', style: TextStyle(fontSize: 13))),
-                        DropdownMenuItem(value: 'menstrual problem', child: Text('Menstrual Problem (महिनावारी गडबडी)', style: TextStyle(fontSize: 13))),
-                        DropdownMenuItem(value: 'infertility', child: Text('Infertility (निःसन्तान)', style: TextStyle(fontSize: 13))),
-                        DropdownMenuItem(value: 'pain', child: Text('Pelvic / Lower Abdominal Pain (तल्लो पेट / कम्मर दुख्ने)', style: TextStyle(fontSize: 13))),
-                        DropdownMenuItem(value: 'checkup', child: Text('Routine Checkup (सामान्य स्वास्थ्य जाँच)', style: TextStyle(fontSize: 13))),
-                      ],
-                      onChanged: (val) => vm.updateFilters(
-                        filters.copyWith(
-                          chiefComplaint: val == 'all' ? '' : val,
-                          clearChiefComplaint: val == 'all' || val == null || val.isEmpty,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -1496,15 +1694,58 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       ),
                     ],
 
-                    // Clinical badges: POP Stage, Diagnoses, Surgery Status
+                    // Clinical badges: Doctor, POP Stage, Diagnoses, Surgery Status
                     if (patient.highestPopStage != null ||
                         patient.surgeryDone == true ||
-                        patient.diagnoses.isNotEmpty) ...[
+                        patient.diagnoses.isNotEmpty ||
+                        patient.primaryDoctorName != null ||
+                        patient.attendingDoctorNames.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 6,
                         runSpacing: 4,
                         children: [
+                          if (patient.primaryDoctorName != null ||
+                              patient.attendingDoctorNames.isNotEmpty) ...[
+                            Builder(
+                              builder: (_) {
+                                final docName = patient.primaryDoctorName ?? patient.attendingDoctorNames.first;
+                                final clean = docName.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(
+                                      color: const Color(0xFFBFDBFE),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.medical_services_outlined,
+                                        size: 10.5,
+                                        color: Color(0xFF2563EB),
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'Dr. $clean',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF1E40AF),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                           if (patient.highestPopStage != null)
                             Container(
                               padding: const EdgeInsets.symmetric(

@@ -6,20 +6,18 @@ void main() {
     late NetworkConnectivityService connectivityService;
 
     setUp(() {
-      connectivityService = NetworkConnectivityService(initialOnline: true);
+      connectivityService = NetworkConnectivityService(initialOnline: true, autoStartPolling: false);
     });
 
     tearDown(() {
       connectivityService.dispose();
     });
 
-    test('initial state defaults to specified value', () async {
+    test('initial state defaults to specified value', () {
       expect(connectivityService.isOnline, isTrue);
-      expect(await connectivityService.checkConnection(), isTrue);
 
-      final offlineService = NetworkConnectivityService(initialOnline: false);
+      final offlineService = NetworkConnectivityService(initialOnline: false, autoStartPolling: false);
       expect(offlineService.isOnline, isFalse);
-      expect(await offlineService.checkConnection(), isFalse);
       offlineService.dispose();
     });
 

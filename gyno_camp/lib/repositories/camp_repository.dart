@@ -108,32 +108,11 @@ class CampRepository implements ICampRepository {
     if (enableCentralSync && !HttpCentralApiService.isServerCooldownActive) {
       _syncCentralCampsInBackground(db);
     }
+    // NOTE: Single-active-camp enforcement is intentionally NOT done here.
+    // getAllCamps() is a READ-ONLY path — silently closing camps on every
+    // list load caused unexpected data loss. Enforcement only happens in
+    // openCamp() and updateCamp() when a camp is explicitly activated.
 
-    // 2. Enforce single active camp invariant: keep only the most recent open camp
-    final openRows = await db.query(
-      DatabaseTables.tableCamps,
-      where: 'status = ?',
-      whereArgs: [AppConstants.campStatusOpen],
-    );
-    if (openRows.length > 1) {
-      final openCamps = openRows.map((r) => CampModel.fromMap(r)).toList();
-      openCamps.sort((a, b) {
-        final aTime = (a.updatedAt ?? a.createdAt).toUtc();
-        final bTime = (b.updatedAt ?? b.createdAt).toUtc();
-        final cmp = bTime.compareTo(aTime);
-        if (cmp != 0) return cmp;
-        return b.startDate.compareTo(a.startDate);
-      });
-      for (int i = 1; i < openCamps.length; i++) {
-        final staleId = openCamps[i].id;
-        await db.update(
-          DatabaseTables.tableCamps,
-          {'status': AppConstants.campStatusClosed, 'updated_at': DateTime.now().toUtc().toIso8601String()},
-          where: 'id = ?',
-          whereArgs: [staleId],
-        );
-      }
-    }
 
     final hasTenant = tenantId != null && tenantId.isNotEmpty && tenantId != 'tenant_default' && tenantId != 'global';
     final sql = '''
@@ -206,8 +185,19 @@ class CampRepository implements ICampRepository {
             final localUpdated = (local.updatedAt ?? local.createdAt).toUtc();
             final centralUpdated = (c.updatedAt ?? c.createdAt).toUtc();
 
-            // Guard: Never downgrade an OPEN local camp if central has stale CLOSED status
+            // Guard A: Never downgrade an OPEN local camp to CLOSED/ARCHIVED
+            // from a stale central snapshot — push local state back instead.
             if (local.status == CampStatus.open && c.status != CampStatus.open) {
+              await HttpCentralApiService().broadcastCamp(local);
+              continue;
+            }
+
+            // Guard B: Never re-open a locally CLOSED/ARCHIVED camp just
+            // because central still has it as OPEN but our local close is
+            // more recent. Push the local closed state back to central.
+            if (local.status != CampStatus.open &&
+                c.status == CampStatus.open &&
+                !centralUpdated.isAfter(localUpdated)) {
               await HttpCentralApiService().broadcastCamp(local);
               continue;
             }
@@ -336,16 +326,8 @@ class CampRepository implements ICampRepository {
     final db = await _databaseService.database;
     final now = DateTime.now().toUtc();
 
-    // Enforce single active camp rule: close all other currently open camps
-    final otherOpenCamps = await db.query(
-      DatabaseTables.tableCamps,
-      where: 'status = ? AND id != ?',
-      whereArgs: [AppConstants.campStatusOpen, campId],
-    );
-    for (final m in otherOpenCamps) {
-      final oldId = m['id'] as String;
-      await closeCamp(oldId, adminUserId: adminUserId, deviceId: deviceId);
-    }
+    // Multiple camps can be open simultaneously — no close-cascade needed.
+    // Each camp manages its own lifecycle independently.
 
     final updated = camp.copyWith(
       status: CampStatus.open,
@@ -465,18 +447,8 @@ class CampRepository implements ICampRepository {
     final now = DateTime.now().toUtc();
     final updated = camp.copyWith(updatedAt: now);
 
-    // If camp is being set to OPEN, enforce single active camp rule by closing all other open camps
-    if (camp.status == CampStatus.open) {
-      final otherOpenCamps = await db.query(
-        DatabaseTables.tableCamps,
-        where: 'status = ? AND id != ?',
-        whereArgs: [AppConstants.campStatusOpen, camp.id],
-      );
-      for (final m in otherOpenCamps) {
-        final oldId = m['id'] as String;
-        await closeCamp(oldId, adminUserId: adminUserId, deviceId: deviceId);
-      }
-    }
+    // Multiple camps can be open simultaneously — no close-cascade on update.
+    // Each camp manages its own lifecycle independently.
 
     await db.update(
       DatabaseTables.tableCamps,

@@ -155,23 +155,20 @@ class ReportingRepository implements IReportingRepository {
 
     // Apply Doctor Filter if requested
     if (doctorFilter != null && doctorFilter.trim().isNotEmpty && doctorFilter != 'all') {
-      final docLower = doctorFilter.trim().toLowerCase();
+      final docLower = doctorFilter.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
       final matchingVisits = visits.where((v) {
-        final primaryMatch = v.primaryDoctorName?.toLowerCase().contains(docLower) ?? false;
-        final attendingMatch = v.attendingDoctorNames.any((d) => d.toLowerCase().contains(docLower));
+        final primary = v.primaryDoctorName?.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+        final primaryMatch = primary != null && (primary == docLower || primary.contains(docLower) || docLower.contains(primary));
+        final attendingMatch = v.attendingDoctorNames.any((d) {
+          final cleanD = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+          return cleanD == docLower || cleanD.contains(docLower) || docLower.contains(cleanD);
+        });
         return primaryMatch || attendingMatch;
       }).toList();
 
       final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
-      final campDoctorMatch = camp != null && (
-        camp.doctorNames.any((d) => d.toLowerCase().contains(docLower)) ||
-        camp.doctorName.toLowerCase().contains(docLower)
-      );
-
-      if (!campDoctorMatch) {
-        visits = matchingVisits;
-        patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
-      }
+      visits = matchingVisits;
+      patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
     }
 
     // Apply Diagnosis Filter if requested (dynamic substring match)

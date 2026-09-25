@@ -23,7 +23,8 @@ class DatabaseTables {
       tenant_id TEXT DEFAULT 'tenant_default',
       tenant_name TEXT DEFAULT 'Outreach Health Center',
       password_hash TEXT,
-      pin_hash TEXT
+      pin_hash TEXT,
+      updated_at TEXT
     );
   ''';
 

@@ -360,8 +360,8 @@ class PostgresDatabaseService {
       for (final u in localUsers) {
         await conn.execute(
           Sql.named('''
-            INSERT INTO users (id, name, email, phone, role, is_active, last_login_at, assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash)
-            VALUES (@id, @name, @email, @phone, @role, @is_active, @last_login_at, @assigned_camp_ids, @tenant_id, @tenant_name, @password_hash, @pin_hash)
+            INSERT INTO users (id, name, email, phone, role, is_active, last_login_at, assigned_camp_ids, tenant_id, tenant_name, password_hash, pin_hash, updated_at)
+            VALUES (@id, @name, @email, @phone, @role, @is_active, @last_login_at, @assigned_camp_ids, @tenant_id, @tenant_name, @password_hash, @pin_hash, @updated_at::timestamptz)
             ON CONFLICT (id) DO UPDATE SET
               name = EXCLUDED.name,
               email = EXCLUDED.email,
@@ -372,8 +372,9 @@ class PostgresDatabaseService {
               assigned_camp_ids = EXCLUDED.assigned_camp_ids,
               tenant_id = EXCLUDED.tenant_id,
               tenant_name = EXCLUDED.tenant_name,
-              password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
-              pin_hash = COALESCE(EXCLUDED.pin_hash, users.pin_hash);
+              password_hash = COALESCE(NULLIF(EXCLUDED.password_hash, ''), users.password_hash),
+              pin_hash = COALESCE(NULLIF(EXCLUDED.pin_hash, ''), users.pin_hash),
+              updated_at = EXCLUDED.updated_at;
           '''),
           parameters: {
             'id': u['id']?.toString() ?? '',
@@ -388,6 +389,7 @@ class PostgresDatabaseService {
             'tenant_name': u['tenant_name']?.toString(),
             'password_hash': u['password_hash']?.toString(),
             'pin_hash': u['pin_hash']?.toString(),
+            'updated_at': u['updated_at']?.toString() ?? DateTime.now().toUtc().toIso8601String(),
           },
         );
         syncedUsersCount++;

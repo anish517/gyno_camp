@@ -68,7 +68,7 @@ void main() {
       expect(rows.first['status'], AppConstants.campStatusClosed);
     });
 
-    test('getAllCamps enforces single active camp invariant when duplicate open camps exist', () async {
+    test('getAllCamps supports multiple concurrent open camps without unintended mutations', () async {
       // Manually insert two additional camps with status 'OPEN' in SQLite
       final now = DateTime.now();
       await testDb.insert(DatabaseTables.tableCamps, {
@@ -98,18 +98,15 @@ void main() {
       ));
       expect(countBefore, 3);
 
-      // getAllCamps should automatically clean up duplicate open camps
+      // getAllCamps is read-only and maintains multiple open camps independently
       final camps = await campRepo.getAllCamps();
       final openCamps = camps.where((c) => c.status == CampStatus.open).toList();
-      expect(openCamps.length, 1);
-
-      // The most recent one (DUP02) remains open, older ones become closed
-      expect(openCamps.first.id, 'camp-dup-02');
+      expect(openCamps.length, 3);
 
       final countAfter = Sqflite.firstIntValue(await testDb.rawQuery(
         "SELECT COUNT(*) FROM ${DatabaseTables.tableCamps} WHERE status = 'OPEN'",
       ));
-      expect(countAfter, 1);
+      expect(countAfter, 3);
     });
   });
 }

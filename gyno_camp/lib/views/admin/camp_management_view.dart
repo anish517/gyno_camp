@@ -56,15 +56,16 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   }
 
   static String _cleanDoctorName(String raw) {
-    return raw.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
+    return raw.trim().replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
   }
 
   static List<String> _sanitizeDoctorList(String input) {
     if (input.trim().isEmpty) return <String>[];
     return input
-        .split(',')
-        .map((e) => _cleanDoctorName(e.trim()))
+        .split(RegExp(r'[,;\n/]|(?:\s+and\s+)|\&', caseSensitive: false))
+        .map((e) => _cleanDoctorName(e))
         .where((e) => e.isNotEmpty)
+        .toSet()
         .toList();
   }
 
@@ -2175,7 +2176,20 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
   void _showAssignStaffDialog(BuildContext context, CampModel camp) {
     ref.invalidate(staffUsersProvider);
+
+    // ── Merge both assignment sources so the dialog shows the correct state ──
+    // Source A: camp.assignedStaffIds  (set from the Camp page)
+    // Source B: user.assignedCampIds   (set from the Staff/RBAC page)
+    // Either side may have been updated independently — union them so neither
+    // is lost and the checkboxes reflect the real truth.
+    final staffUsers = ref.read(staffUsersProvider).value ?? const <UserModel>[];
     final assigned = Set<String>.from(camp.assignedStaffIds);
+    for (final u in staffUsers) {
+      if (u.assignedCampIds.contains(camp.id)) {
+        assigned.add(u.id); // staff assigned via RBAC page — show as checked
+      }
+    }
+
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
 
@@ -2713,7 +2727,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   controller: doctorCtrl,
                                   decoration: _dialogInputDecoration(
                                     labelText: 'Examining Doctors (डाक्टरहरूको नाम - अल्पविरामले छुट्याउनुहोस्)',
-                                    helperText: 'Separate multiple doctors with commas',
+                                    helperText: 'Separate multiple doctors with commas (e.g. Dr. Anita Sharma, Dr. Ramesh Karki)',
                                     prefixIcon: const Icon(Icons.medical_services_outlined, size: 18, color: AppTheme.primaryDark),
                                   ),
                                 ),
@@ -3643,8 +3657,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             TextField(
                               controller: doctorCtrl,
                               decoration: _dialogInputDecoration(
-                                labelText: 'Examining Doctor / Medical Officer (डाक्टरको नाम)',
-                                helperText: 'Separate multiple doctors with commas',
+                                labelText: 'Examining Doctors / Medical Officers (डाक्टरहरूको नाम)',
+                                helperText: 'Separate multiple doctors with commas (e.g. Dr. Anita Sharma, Dr. Ramesh Karki)',
                                 prefixIcon: const Icon(Icons.medical_services_outlined, size: 18, color: AppTheme.primaryDark),
                               ),
                             ),

@@ -68,7 +68,7 @@ void main() {
 
     setUp(() {
       fakeSyncRepo = FakeSyncRepository();
-      connectivityService = NetworkConnectivityService(initialOnline: true);
+      connectivityService = NetworkConnectivityService(initialOnline: true, autoStartPolling: false);
     });
 
     tearDown(() {

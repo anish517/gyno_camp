@@ -61,6 +61,7 @@ class DatabaseService {
       DatabaseTables.tableUsers: [
         {'name': 'password_hash', 'def': 'password_hash TEXT'},
         {'name': 'pin_hash', 'def': 'pin_hash TEXT'},
+        {'name': 'updated_at', 'def': 'updated_at TEXT'},
       ],
       DatabaseTables.tableCamps: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
@@ -249,6 +250,7 @@ class DatabaseService {
       'tenant_name': 'Nepal Health Outreach Network',
       'password_hash': SecurityService.hashSha256('admin123'),
       'pin_hash': SecurityService.hashPin('1234'),
+      'updated_at': now,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     await db.insert(DatabaseTables.tableUsers, {
@@ -264,6 +266,7 @@ class DatabaseService {
       'tenant_name': 'Community Health Outreach',
       'password_hash': SecurityService.hashSha256('nurse123'),
       'pin_hash': SecurityService.hashPin('1234'),
+      'updated_at': now,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     await db.insert(DatabaseTables.tableUsers, {
@@ -279,6 +282,7 @@ class DatabaseService {
       'tenant_name': 'Community Health Outreach',
       'password_hash': SecurityService.hashSha256('analyst123'),
       'pin_hash': SecurityService.hashPin('1234'),
+      'updated_at': now,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 2. Seed active sample camp

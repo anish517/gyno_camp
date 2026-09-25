@@ -76,6 +76,7 @@ class UserModel {
   final String tenantName;
   final String? passwordHash;
   final String? pinHash;
+  final DateTime? updatedAt;
 
   const UserModel({
     required this.id,
@@ -90,6 +91,7 @@ class UserModel {
     this.tenantName = 'Outreach Health Center',
     this.passwordHash,
     this.pinHash,
+    this.updatedAt,
   });
 
   bool get isSuperAdmin =>
@@ -121,6 +123,7 @@ class UserModel {
       'tenant_name': tenantName,
       'password_hash': passwordHash,
       'pin_hash': pinHash,
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 
@@ -166,6 +169,9 @@ class UserModel {
       tenantName: map['tenant_name'] as String? ?? 'Outreach Health Center',
       passwordHash: map['password_hash'] as String?,
       pinHash: map['pin_hash'] as String?,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.tryParse(map['updated_at'].toString())
+          : null,
     );
   }
 
@@ -182,6 +188,7 @@ class UserModel {
     String? tenantName,
     String? passwordHash,
     String? pinHash,
+    DateTime? updatedAt,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -196,6 +203,7 @@ class UserModel {
       tenantName: tenantName ?? this.tenantName,
       passwordHash: passwordHash ?? this.passwordHash,
       pinHash: pinHash ?? this.pinHash,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

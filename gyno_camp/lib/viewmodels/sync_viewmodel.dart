@@ -91,10 +91,20 @@ class SyncViewModel extends StateNotifier<SyncState> {
     _connectivitySub = _connectivityService.onConnectivityChanged.listen((online) {
       if (!mounted) return;
       final wasOffline = !state.isOnline;
-      state = state.copyWith(isOnline: online);
+      state = state.copyWith(
+        isOnline: online,
+        // Show a transient status message so the user knows what happened
+        lastSuccessMessage: online
+            ? (wasOffline ? '🟢 Reconnected — syncing data…' : null)
+            : '🔴 Server offline — working locally.',
+      );
 
-    // Auto-trigger sync upon reconnecting to internet
       if (wasOffline && online) {
+        debugPrint('[SyncVM] Network restored — triggering auto-sync.');
+        // Restart the SSE stream so real-time events resume immediately
+        _sseSyncService?.dispose();
+        _sseSyncService?.connect();
+        // Fire a full sync cycle — this also refreshes camps/patients in UI
         syncNow(deviceId: _lastKnownDeviceId, userId: _lastKnownUserId);
       }
     });

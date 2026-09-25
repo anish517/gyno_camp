@@ -29,7 +29,7 @@ void main() {
       await dbService.initializeTestDb(testDb);
       final auditRepo = AuditRepository(databaseService: dbService);
       centralApi = CentralApiService();
-      connectivityService = NetworkConnectivityService(initialOnline: true);
+      connectivityService = NetworkConnectivityService(initialOnline: true, autoStartPolling: false);
       syncRepo = SyncRepository(
         databaseService: dbService,
         centralApiService: centralApi,

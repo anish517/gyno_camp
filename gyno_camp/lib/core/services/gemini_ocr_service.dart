@@ -296,6 +296,10 @@ class GeminiOcrService {
 
     final surgicalRef = parsedData['surgicalReferral']?.toString().trim();
     final followUp = parsedData['followUpDestination']?.toString().trim();
+    final rawExaminingDoctor = parsedData['examiningDoctor']?.toString().trim();
+    final String? examiningDoctor = (rawExaminingDoctor != null && rawExaminingDoctor.isNotEmpty && rawExaminingDoctor.toLowerCase() != 'null')
+        ? (rawExaminingDoctor.toLowerCase().startsWith('dr') ? rawExaminingDoctor : 'Dr. $rawExaminingDoctor')
+        : null;
     final rawSummary = parsedData['rawSummary']?.toString().trim() ?? '';
 
     // Normalize Province (case-insensitive)
@@ -529,6 +533,9 @@ class GeminiOcrService {
     if (followUp != null && followUp.isNotEmpty) {
       buffer.writeln('Follow-up Destination: $followUp');
     }
+    if (examiningDoctor != null && examiningDoctor.isNotEmpty) {
+      buffer.writeln('Examining Doctor: $examiningDoctor');
+    }
     if (rawSummary.isNotEmpty) {
       buffer.writeln('\n--- DETECTED TEXT SUMMARY ---\n$rawSummary');
     }
@@ -551,6 +558,8 @@ class GeminiOcrService {
       surgeryType: normSurgeryType,
       ringPessary: ringPessary,
       ringPessarySize: ringPessarySize,
+      examiningDoctor: examiningDoctor,
+      attendingDoctors: examiningDoctor != null ? [examiningDoctor] : const [],
       fieldConfidences: confidences,
       overallConfidence: overallConf,
       rawText: buffer.toString(),
@@ -646,6 +655,9 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT (STATIONS 1-6):
    - "Follow-up Destination:" (handwritten line text)
    - "Surgical Referral:" [ ] None [ ] Scheer Memorial Hospital [ ] Model Hospital [ ] Local Government Hospital
    - "Clinical Notes:" (multi-line handwritten remarks)
+8. Page 2 Footer / Examining Clinician Sign-off:
+   - Look for the Examining Doctor section / checkboxes: e.g. "[ ] Dr. Sita [ ] Dr. Gita" or signed doctor name under "Medical Officer / Gynecologist"
+   - Extract the identified/checked doctor name into "examiningDoctor" (e.g. "Dr. Sita Karki").
 
 Extract the information accurately into this EXACT JSON structure:
 {
@@ -704,6 +716,7 @@ Extract the information accurately into this EXACT JSON structure:
   "followUpNeeded": true or false,
   "followUpDestination": "Follow-up destination clinic or nurse",
   "surgicalReferral": "Scheer Memorial Hospital or Model Hospital or Local Government Hospital or None",
+  "examiningDoctor": "Examining doctor name or checked doctor checkbox on Page 2 or null",
   "clinicalNotes": "Clinical notes written in Station 6",
   "rawSummary": "A concise summary of all visible handwriting and marked fields on the page."
 }

@@ -292,11 +292,11 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
-        // 4. Upsert users with local credential preservation
+        // 4. Upsert users with timestamp-aware credential preservation
         for (final user in response.users) {
           final existingRows = await txn.query(
             DatabaseTables.tableUsers,
-            columns: ['password_hash', 'pin_hash'],
+            columns: ['password_hash', 'pin_hash', 'updated_at'],
             where: 'id = ?',
             whereArgs: [user.id],
             limit: 1,
@@ -304,15 +304,34 @@ class SyncRepository implements ISyncRepository {
           final userMap = user.toMap();
           if (existingRows.isNotEmpty) {
             final existing = existingRows.first;
-            if ((userMap['password_hash'] == null || userMap['password_hash'].toString().isEmpty) &&
-                existing['password_hash'] != null &&
-                existing['password_hash'].toString().isNotEmpty) {
-              userMap['password_hash'] = existing['password_hash'];
+            final localPass = existing['password_hash']?.toString();
+            final localPin = existing['pin_hash']?.toString();
+            final localUpdatedAt = existing['updated_at']?.toString();
+
+            DateTime? localTs;
+            DateTime? incomingTs;
+            try {
+              if (localUpdatedAt != null && localUpdatedAt.isNotEmpty) {
+                localTs = DateTime.parse(localUpdatedAt).toUtc();
+              }
+              final incUpdAt = userMap['updated_at']?.toString();
+              if (incUpdAt != null && incUpdAt.isNotEmpty) {
+                incomingTs = DateTime.parse(incUpdAt).toUtc();
+              }
+            } catch (_) {}
+
+            final localIsNewer = localTs != null && (incomingTs == null || localTs.isAfter(incomingTs));
+            final incomingPassEmpty = userMap['password_hash'] == null || userMap['password_hash'].toString().isEmpty;
+            final incomingPinEmpty = userMap['pin_hash'] == null || userMap['pin_hash'].toString().isEmpty;
+
+            if (localIsNewer || (incomingPassEmpty && localPass != null && localPass.isNotEmpty)) {
+              userMap['password_hash'] = localPass;
             }
-            if ((userMap['pin_hash'] == null || userMap['pin_hash'].toString().isEmpty) &&
-                existing['pin_hash'] != null &&
-                existing['pin_hash'].toString().isNotEmpty) {
-              userMap['pin_hash'] = existing['pin_hash'];
+            if (localIsNewer || (incomingPinEmpty && localPin != null && localPin.isNotEmpty)) {
+              userMap['pin_hash'] = localPin;
+            }
+            if (localIsNewer && localUpdatedAt != null) {
+              userMap['updated_at'] = localUpdatedAt;
             }
           }
           await txn.insert(

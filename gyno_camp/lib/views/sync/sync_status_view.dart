@@ -15,6 +15,8 @@ class SyncStatusView extends ConsumerStatefulWidget {
 }
 
 class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
+  int _devTapCount = 0;
+  DateTime? _firstTapTime;
   @override
   void initState() {
     super.initState();
@@ -37,16 +39,6 @@ class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
       appBar: AppBar(
         title: const Text('Offline Sync Manager'),
         actions: [
-          IconButton(
-            tooltip: 'PostgreSQL Server Configuration',
-            icon: const Icon(Icons.storage_rounded),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PostgresSettingsView()),
-              );
-            },
-          ),
           IconButton(
             tooltip: 'Refresh Pending Counts',
             icon: const Icon(Icons.refresh),
@@ -325,6 +317,43 @@ class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
                     ),
                   ),
           ],
+        ),
+      ),
+
+      // ── Hidden developer access ──────────────────────────────────────────
+      // Tap the version label 5 times within 4 seconds to open server config.
+      // Not visible to regular users — no icon, no hint.
+      bottomNavigationBar: GestureDetector(
+        onTap: () {
+          final now = DateTime.now();
+          if (_firstTapTime == null ||
+              now.difference(_firstTapTime!) > const Duration(seconds: 4)) {
+            _firstTapTime = now;
+            _devTapCount = 1;
+          } else {
+            _devTapCount++;
+          }
+          if (_devTapCount >= 5) {
+            _devTapCount = 0;
+            _firstTapTime = null;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const PostgresSettingsView()),
+            );
+          }
+        },
+        child: Container(
+          height: 32,
+          color: Colors.transparent,
+          alignment: Alignment.center,
+          child: Text(
+            'GynoCamp v1.0',
+            style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade400,
+                letterSpacing: 0.5),
+          ),
         ),
       ),
     );

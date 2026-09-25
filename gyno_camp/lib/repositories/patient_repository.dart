@@ -254,10 +254,13 @@ class PatientRepository implements IPatientRepository {
              cv.diagnoses,
              cv.surgery_done,
              cv.surgery_type,
-             cv.is_follow_up
+             cv.is_follow_up,
+             cv.primary_doctor_name,
+             cv.attending_doctor_names
       FROM ${DatabaseTables.tablePatients} p
       LEFT JOIN (
-        SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up
+        SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
+               cv1.primary_doctor_name, cv1.attending_doctor_names
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
@@ -291,15 +294,34 @@ class PatientRepository implements IPatientRepository {
     final term = '%${query.trim().toLowerCase()}%';
 
     final maps = await db.rawQuery('''
-      SELECT * FROM ${DatabaseTables.tablePatients}
-      WHERE camp_id = ? AND (
-        LOWER(patient_id) LIKE ? OR
-        LOWER(first_name) LIKE ? OR
-        LOWER(surname) LIKE ? OR
-        mobile LIKE ? OR
-        ward LIKE ?
+      SELECT p.*,
+             CASE WHEN cv.patient_id IS NOT NULL THEN 1 ELSE 0 END AS has_clinical_visit,
+             cv.highest_pop_stage,
+             cv.diagnoses,
+             cv.surgery_done,
+             cv.surgery_type,
+             cv.is_follow_up,
+             cv.primary_doctor_name,
+             cv.attending_doctor_names
+      FROM ${DatabaseTables.tablePatients} p
+      LEFT JOIN (
+        SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
+               cv1.primary_doctor_name, cv1.attending_doctor_names
+        FROM ${DatabaseTables.tableClinicalVisits} cv1
+        WHERE cv1.visit_date = (
+          SELECT MAX(cv2.visit_date)
+          FROM ${DatabaseTables.tableClinicalVisits} cv2
+          WHERE cv2.patient_id = cv1.patient_id
+        )
+      ) cv ON cv.patient_id = p.patient_id OR cv.patient_id = p.id
+      WHERE p.camp_id = ? AND (
+        LOWER(p.patient_id) LIKE ? OR
+        LOWER(p.first_name) LIKE ? OR
+        LOWER(p.surname) LIKE ? OR
+        p.mobile LIKE ? OR
+        p.ward LIKE ?
       )
-      ORDER BY created_at DESC
+      ORDER BY p.created_at DESC
     ''', [campId, term, term, term, term, term]);
 
     return maps.map((m) => PatientModel.fromMap(m)).toList();

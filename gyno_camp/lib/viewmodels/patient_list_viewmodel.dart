@@ -17,6 +17,8 @@ class PatientFilterCriteria {
   final String? popStage; // 'all', '0', '1', '2', '3', '4'
   final String? chiefComplaint; // reason for visit key e.g. 'something hanging out'
   final String? clinicalIntake; // 'all', 'completed', 'pending', 'followup'
+  final String? doctor; // 'all' or specific doctor name
+  final Map<String, List<String>> campDoctorsMap; // campId -> doctorNames list
 
   const PatientFilterCriteria({
     this.campId,
@@ -32,6 +34,8 @@ class PatientFilterCriteria {
     this.popStage,
     this.chiefComplaint,
     this.clinicalIntake,
+    this.doctor,
+    this.campDoctorsMap = const {},
   });
 
   bool get hasActiveFilters =>
@@ -47,7 +51,8 @@ class PatientFilterCriteria {
       (surgeryType != null && surgeryType!.trim().isNotEmpty) ||
       (popStage != null && popStage != 'all') ||
       (chiefComplaint != null && chiefComplaint!.trim().isNotEmpty) ||
-      (clinicalIntake != null && clinicalIntake != 'all');
+      (clinicalIntake != null && clinicalIntake != 'all') ||
+      (doctor != null && doctor != 'all' && doctor!.trim().isNotEmpty);
 
   int get activeFilterCount {
     int count = 0;
@@ -63,6 +68,7 @@ class PatientFilterCriteria {
     if (popStage != null && popStage != 'all') count++;
     if (chiefComplaint != null && chiefComplaint!.trim().isNotEmpty) count++;
     if (clinicalIntake != null && clinicalIntake != 'all') count++;
+    if (doctor != null && doctor != 'all' && doctor!.trim().isNotEmpty) count++;
     return count;
   }
 
@@ -80,6 +86,8 @@ class PatientFilterCriteria {
     String? popStage,
     String? chiefComplaint,
     String? clinicalIntake,
+    String? doctor,
+    Map<String, List<String>>? campDoctorsMap,
     bool clearMinAge = false,
     bool clearMaxAge = false,
     bool clearDistrict = false,
@@ -92,6 +100,7 @@ class PatientFilterCriteria {
     bool clearPopStage = false,
     bool clearChiefComplaint = false,
     bool clearClinicalIntake = false,
+    bool clearDoctor = false,
   }) {
     return PatientFilterCriteria(
       campId: campId ?? this.campId,
@@ -107,6 +116,8 @@ class PatientFilterCriteria {
       popStage: clearPopStage ? null : (popStage ?? this.popStage),
       chiefComplaint: clearChiefComplaint ? null : (chiefComplaint ?? this.chiefComplaint),
       clinicalIntake: clearClinicalIntake ? null : (clinicalIntake ?? this.clinicalIntake),
+      doctor: clearDoctor ? null : (doctor ?? this.doctor),
+      campDoctorsMap: campDoctorsMap ?? this.campDoctorsMap,
     );
   }
 }
@@ -292,9 +303,35 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
       }
 
       // Chief complaint
-      if (filters.chiefComplaint != null && filters.chiefComplaint!.trim().isNotEmpty) {
+      if (filters.chiefComplaint != null && filters.chiefComplaint!.trim().isNotEmpty && filters.chiefComplaint != 'all') {
         final cLower = filters.chiefComplaint!.trim().toLowerCase();
-        final matchesComplaint = p.reasonsForVisit.any((r) => r.toLowerCase() == cLower);
+        final matchesComplaint = p.reasonsForVisit.any((r) {
+          final rLower = r.trim().toLowerCase();
+          if (rLower == cLower) return true;
+          if (rLower.contains(cLower) || cLower.contains(rLower)) return true;
+          if (cLower.contains('hanging') || cLower.contains('prolapse') || cLower == 'prolapse') {
+            return rLower.contains('hanging') || rLower.contains('prolapse') || rLower.contains('खस्ने');
+          }
+          if (cLower.contains('discharge') || cLower.contains('itching') || cLower == 'discharge') {
+            return rLower.contains('discharge') || rLower.contains('itching') || rLower.contains('सेतो') || rLower.contains('चिलाउने');
+          }
+          if (cLower.contains('urine') || cLower == 'urine') {
+            return rLower.contains('urine') || rLower.contains('dysuria') || rLower.contains('पिसाब');
+          }
+          if (cLower.contains('stool') || cLower.contains('bowel') || cLower == 'stool') {
+            return rLower.contains('stool') || rLower.contains('bowel') || rLower.contains('constipation') || rLower.contains('दिसा');
+          }
+          if (cLower.contains('pain') || cLower == 'pain') {
+            return rLower.contains('pain') || rLower.contains('दुख्ने');
+          }
+          if (cLower.contains('menstrual') || cLower == 'menstrual') {
+            return rLower.contains('menstrual') || rLower.contains('महिनावारी') || rLower.contains('bleeding');
+          }
+          if (cLower.contains('infertility') || cLower == 'infertility') {
+            return rLower.contains('infertility') || rLower.contains('निःसन्तान');
+          }
+          return false;
+        });
         if (!matchesComplaint) return false;
       }
 
@@ -303,6 +340,34 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         if (filters.clinicalIntake == 'completed' && !p.hasClinicalVisit) return false;
         if (filters.clinicalIntake == 'pending' && p.hasClinicalVisit) return false;
         if (filters.clinicalIntake == 'followup' && !p.isFollowUp) return false;
+      }
+
+      // 4. Doctor Filter — match strictly by attending/primary doctor when visit exists
+      if (filters.doctor != null && filters.doctor != 'all' && filters.doctor!.trim().isNotEmpty) {
+        final docLower = filters.doctor!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+
+        final visitPrimary = p.primaryDoctorName?.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+        final primaryMatch = visitPrimary != null && (visitPrimary == docLower || visitPrimary.contains(docLower) || docLower.contains(visitPrimary));
+        final attendingMatch = p.attendingDoctorNames.any((d) {
+          final cleanD = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+          return cleanD == docLower || cleanD.contains(docLower) || docLower.contains(cleanD);
+        });
+
+        if (p.hasClinicalVisit) {
+          // Patient has been examined: clinical accountability rests solely on the examining doctor
+          if (!primaryMatch && !attendingMatch) return false;
+        } else {
+          // Patient registered but not yet examined:
+          // If the camp has only a single doctor assigned, the patient belongs to that doctor's queue
+          final campDocs = filters.campDoctorsMap[p.campId] ?? const [];
+          final cleanCampDocs = campDocs.map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase()).toList();
+
+          if (cleanCampDocs.length == 1 && (cleanCampDocs.first == docLower || cleanCampDocs.first.contains(docLower) || docLower.contains(cleanCampDocs.first))) {
+            // Belongs to the solo doctor queue for this camp
+          } else {
+            return false;
+          }
+        }
       }
 
       return true;

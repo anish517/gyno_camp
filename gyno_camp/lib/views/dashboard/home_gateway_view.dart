@@ -576,11 +576,21 @@ class HomeGatewayView extends ConsumerWidget {
                         width: cardWidth,
                         child: _buildExecutiveMetricCard(
                           label: 'Camp Operations',
-                          value: campState.hasActiveCamp ? '1 Live Active' : '0 Live Open',
-                          subtitle: '${campState.camps.length} total scheduled camps',
+                          value: () {
+                             final openCount = campState.camps.where((c) => c.isOpen).length;
+                             if (openCount == 0) return '0 Live Open';
+                             if (openCount == 1) return '1 Live Active';
+                             return '$openCount Live Active';
+                           }(),
+                           subtitle: () {
+                             final openCount = campState.camps.where((c) => c.isOpen).length;
+                             final totalCount = campState.camps.length;
+                             if (openCount == 0) return '$totalCount total camp(s) registered';
+                             return '$openCount active • $totalCount total camp(s)';
+                           }(),
                           icon: Icons.campaign_rounded,
                           accentColor: const Color(0xFF0F766E),
-                          trailingBadge: campState.hasActiveCamp
+                          trailingBadge: campState.camps.any((c) => c.isOpen)
                               ? Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                   decoration: BoxDecoration(
@@ -1603,8 +1613,6 @@ class HomeGatewayView extends ConsumerWidget {
 
   void _showQuickCampSwitchDialog(BuildContext context, WidgetRef ref) {
     final campState = ref.read(campStateProvider);
-    final user = ref.read(authStateProvider).currentUser;
-    final deviceState = ref.read(deviceSecurityProvider);
 
     showDialog(
       context: context,
@@ -1642,12 +1650,18 @@ class HomeGatewayView extends ConsumerWidget {
                     padding: EdgeInsets.all(16.0),
                     child: Text('No camps configured yet. Please schedule a new camp first.'),
                   )
+                : campState.camps.where((c) => c.isOpen).isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text('No camps are currently open. Go to Camp Roster to open one.'),
+                    )
                 : ListView.separated(
                     shrinkWrap: true,
-                    itemCount: campState.camps.length,
+                    itemCount: campState.camps.where((c) => c.isOpen).length,
                     separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (dialogCtx, index) {
-                      final camp = campState.camps[index];
+                      final camp = campState.camps.where((c) => c.isOpen).toList()[index];
+
                       final isCurrent = camp.id == campState.activeCamp?.id;
                       return ListTile(
                         leading: Container(
@@ -1686,17 +1700,15 @@ class HomeGatewayView extends ConsumerWidget {
                                   minimumSize: Size.zero,
                                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 ),
-                                onPressed: () async {
+                                onPressed: () {
+                                  // Explicitly set this camp as the active live station
+                                  // and persist to session — stable across syncs
+                                  ref.read(campStateProvider.notifier).setActiveCamp(camp);
                                   Navigator.pop(ctx);
-                                  final success = await ref.read(campStateProvider.notifier).openCamp(
-                                        camp.id,
-                                        adminUserId: user?.id ?? 'admin-root',
-                                        deviceId: deviceState.device?.deviceId ?? 'dev-admin',
-                                      );
-                                  if (context.mounted && success) {
+                                  if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Switched active camp to "${camp.name}" (${camp.campCode})'),
+                                        content: Text('Live station switched to "${camp.name}" (${camp.campCode})'),
                                         backgroundColor: AppTheme.successGreen,
                                       ),
                                     );
@@ -4075,19 +4087,35 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         if (sys < 140 && dia < 90) return false;
       }
 
-      // 9. Doctor filter — match by camp doctors, primaryDoctorName, or attendingDoctorNames
+      // 9. Doctor filter — match strictly by attending/primary doctor when visit exists
       if (_selectedDoctor != 'all') {
-        final docLower = _selectedDoctor.trim().toLowerCase();
-        final primaryMatch = visit?.primaryDoctorName?.toLowerCase().contains(docLower) ?? false;
-        final attendingMatch = visit?.attendingDoctorNames.any((d) => d.toLowerCase().contains(docLower)) ?? false;
+        final docLower = _selectedDoctor.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
 
-        final patientCamp = campState.camps.where((c) => c.id == p.campId).firstOrNull;
-        final campDoctors = patientCamp?.doctorNames.isNotEmpty == true
-            ? patientCamp!.doctorNames
-            : (patientCamp?.doctorName.trim().isNotEmpty == true ? [patientCamp!.doctorName.trim()] : <String>[]);
-        final campMatch = campDoctors.any((d) => d.toLowerCase().contains(docLower));
+        final visitPrimary = visit?.primaryDoctorName?.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+        final primaryMatch = visitPrimary != null && (visitPrimary == docLower || visitPrimary.contains(docLower) || docLower.contains(visitPrimary));
+        final attendingMatch = visit?.attendingDoctorNames.any((d) {
+          final cleanD = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+          return cleanD == docLower || cleanD.contains(docLower) || docLower.contains(cleanD);
+        }) ?? false;
 
-        if (!primaryMatch && !attendingMatch && !campMatch) return false;
+        if (visit != null) {
+          // Patient has been examined: clinical accountability rests solely on the examining doctor
+          if (!primaryMatch && !attendingMatch) return false;
+        } else {
+          // Patient registered but not yet examined:
+          // If the camp has only a single doctor assigned, the patient belongs to that doctor's queue
+          final patientCamp = campState.camps.where((c) => c.id == p.campId).firstOrNull;
+          final campDoctors = patientCamp?.doctorNames.isNotEmpty == true
+              ? patientCamp!.doctorNames
+              : (patientCamp?.doctorName.trim().isNotEmpty == true ? [patientCamp!.doctorName.trim()] : <String>[]);
+          final cleanCampDocs = campDoctors.map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase()).toList();
+
+          if (cleanCampDocs.length == 1 && (cleanCampDocs.first == docLower || cleanCampDocs.first.contains(docLower) || docLower.contains(cleanCampDocs.first))) {
+            // Belongs to the solo doctor of this camp
+          } else {
+            return false;
+          }
+        }
       }
 
       // 10. Dynamic Diagnosis filter
