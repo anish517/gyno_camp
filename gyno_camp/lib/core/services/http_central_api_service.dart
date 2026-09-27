@@ -1,6 +1,8 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
 import '../../models/camp_model.dart';
 import '../../models/clinical_visit_model.dart';
 import '../../models/lookup_item_model.dart';
@@ -24,11 +26,15 @@ class HttpCentralApiService implements ICentralApiService {
   static bool get isServerConfigured {
     final active = _activeBaseUrl;
     if (active != null && active.isNotEmpty) return true;
-    const envUrl = String.fromEnvironment('CENTRAL_SERVER_URL', defaultValue: '');
+    const envUrl = String.fromEnvironment(
+      'CENTRAL_SERVER_URL',
+      defaultValue: '',
+    );
     if (envUrl.isNotEmpty) return true;
     try {
       final config = SessionService.current?.getPostgresConfig();
-      if (config != null && (config.isDirectModeEnabled || config.host.isNotEmpty)) {
+      if (config != null &&
+          (config.isDirectModeEnabled || config.host.isNotEmpty)) {
         return true;
       }
     } catch (_) {}
@@ -66,11 +72,9 @@ class HttpCentralApiService implements ICentralApiService {
     }
   }
 
-  HttpCentralApiService({
-    String? baseUrl,
-    http.Client? client,
-  })  : _customBaseUrl = baseUrl,
-        _client = client ?? http.Client();
+  HttpCentralApiService({String? baseUrl, http.Client? client})
+    : _customBaseUrl = baseUrl,
+      _client = client ?? http.Client();
 
   String get baseUrl {
     final customUrl = _customBaseUrl;
@@ -79,7 +83,10 @@ class HttpCentralApiService implements ICentralApiService {
     }
 
     // 1. Explicit runtime environment flag (--dart-define=CENTRAL_SERVER_URL=...) MUST take top priority
-    const envUrl = String.fromEnvironment('CENTRAL_SERVER_URL', defaultValue: '');
+    const envUrl = String.fromEnvironment(
+      'CENTRAL_SERVER_URL',
+      defaultValue: '',
+    );
     if (envUrl.isNotEmpty) {
       return envUrl;
     }
@@ -113,7 +120,7 @@ class HttpCentralApiService implements ICentralApiService {
       }
     } catch (_) {}
 
-    return 'http://192.168.16.113:8080';
+    return 'http://192.168.1.6:8080';
   }
 
   bool simulateNetworkFailure = false;
@@ -143,12 +150,12 @@ class HttpCentralApiService implements ICentralApiService {
 
     // 2. Probe Wi-Fi LAN host, localhost, USB bridge, and fallbacks (on both Web and native)
     final candidates = <String>[
-      'http://192.168.16.113:8080',  // Development machine Wi-Fi host IP (Home)
-      'http://localhost:8080',       // Localhost alias (for Web / desktop)
-      'http://127.0.0.1:8080',      // USB ADB Reverse / loopback
-      'http://192.168.1.4:8080',     // Development machine Wi-Fi host IP (Office)
-      'http://192.168.1.110:8080',  // Alternative Wi-Fi host IP
-      'http://10.0.2.2:8080',       // Android Emulator host bridge
+      'http://192.168.16.113:8080', // Development machine Wi-Fi host IP (Home)
+      'http://localhost:8080', // Localhost alias (for Web / desktop)
+      'http://127.0.0.1:8080', // USB ADB Reverse / loopback
+      'http://192.168.1.4:8080', // Development machine Wi-Fi host IP (Office)
+      'http://192.168.1.110:8080', // Alternative Wi-Fi host IP
+      'http://10.0.2.2:8080', // Android Emulator host bridge
     ];
 
     final saved = SessionService.current?.getCentralServerUrl();
@@ -188,18 +195,23 @@ class HttpCentralApiService implements ICentralApiService {
     try {
       final uri = Uri.parse('$baseUrl/api/sync/push');
       final body = jsonEncode(payload.toMap());
-      final res = await _client.post(
-        uri,
-        headers: {'Content-Type': 'application/json; charset=utf-8'},
-        body: body,
-      ).timeout(const Duration(seconds: 15));
+      final res = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: body,
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         markServerOnline();
-        final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+        final data =
+            jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
         return SyncPushResponse.fromMap(data);
       } else {
-        throw Exception('Central server returned HTTP ${res.statusCode}: ${res.body}');
+        throw Exception(
+          'Central server returned HTTP ${res.statusCode}: ${res.body}',
+        );
       }
     } catch (e) {
       markServerOffline();
@@ -209,7 +221,10 @@ class HttpCentralApiService implements ICentralApiService {
   }
 
   @override
-  Future<SyncPullResponse> pullDelta({DateTime? since, required String deviceId}) async {
+  Future<SyncPullResponse> pullDelta({
+    DateTime? since,
+    required String deviceId,
+  }) async {
     if (_activeBaseUrl == null || !_isServerReachable) {
       await pingServer();
     }
@@ -219,17 +234,19 @@ class HttpCentralApiService implements ICentralApiService {
         urlStr += '&since=${Uri.encodeComponent(since.toIso8601String())}';
       }
       final uri = Uri.parse(urlStr);
-      final res = await _client.get(
-        uri,
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 15));
+      final res = await _client
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 200) {
         markServerOnline();
-        final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+        final data =
+            jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
         return SyncPullResponse.fromMap(data);
       } else {
-        throw Exception('Central server returned HTTP ${res.statusCode}: ${res.body}');
+        throw Exception(
+          'Central server returned HTTP ${res.statusCode}: ${res.body}',
+        );
       }
     } catch (e) {
       markServerOffline();
@@ -243,11 +260,13 @@ class HttpCentralApiService implements ICentralApiService {
     if (!isConfigured || isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/camps');
-      final res = await _client.post(
-        uri,
-        headers: {'Content-Type': 'application/json; charset=utf-8'},
-        body: jsonEncode(camp.toMap()),
-      ).timeout(const Duration(seconds: 3));
+      final res = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: jsonEncode(camp.toMap()),
+          )
+          .timeout(const Duration(seconds: 3));
       final ok = res.statusCode == 200 || res.statusCode == 201;
       if (ok) markServerOnline();
       return ok;
@@ -277,11 +296,13 @@ class HttpCentralApiService implements ICentralApiService {
     if (!isConfigured || isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/users');
-      final res = await _client.post(
-        uri,
-        headers: {'Content-Type': 'application/json; charset=utf-8'},
-        body: jsonEncode(user.toMap()),
-      ).timeout(const Duration(seconds: 3));
+      final res = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: jsonEncode(user.toMap()),
+          )
+          .timeout(const Duration(seconds: 3));
       final ok = res.statusCode == 200 || res.statusCode == 201;
       if (ok) markServerOnline();
       return ok;
@@ -311,14 +332,15 @@ class HttpCentralApiService implements ICentralApiService {
     if (!isConfigured || isServerCooldownActive) return [];
     try {
       final uri = Uri.parse('$baseUrl/api/camps');
-      final res = await _client.get(
-        uri,
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 3));
+      final res = await _client
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         markServerOnline();
         final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
-        return list.map((item) => CampModel.fromMap(item as Map<String, dynamic>)).toList();
+        return list
+            .map((item) => CampModel.fromMap(item as Map<String, dynamic>))
+            .toList();
       }
     } catch (e) {
       markServerOffline();
@@ -331,14 +353,15 @@ class HttpCentralApiService implements ICentralApiService {
     if (!isConfigured || isServerCooldownActive) return [];
     try {
       final uri = Uri.parse('$baseUrl/api/users');
-      final res = await _client.get(
-        uri,
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 3));
+      final res = await _client
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         markServerOnline();
         final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
-        return list.map((item) => UserModel.fromMap(item as Map<String, dynamic>)).toList();
+        return list
+            .map((item) => UserModel.fromMap(item as Map<String, dynamic>))
+            .toList();
       }
     } catch (e) {
       markServerOffline();
@@ -351,11 +374,13 @@ class HttpCentralApiService implements ICentralApiService {
     if (!isConfigured || isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/devices');
-      final res = await _client.post(
-        uri,
-        headers: {'Content-Type': 'application/json; charset=utf-8'},
-        body: jsonEncode(device.toMap()),
-      ).timeout(const Duration(seconds: 4));
+      final res = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: jsonEncode(device.toMap()),
+          )
+          .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200 || res.statusCode == 201) {
         markServerOnline();
         return true;
@@ -371,14 +396,15 @@ class HttpCentralApiService implements ICentralApiService {
     if (!isConfigured || isServerCooldownActive) return [];
     try {
       final uri = Uri.parse('$baseUrl/api/devices');
-      final res = await _client.get(
-        uri,
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 3));
+      final res = await _client
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         markServerOnline();
         final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
-        return list.map((item) => DeviceModel.fromMap(item as Map<String, dynamic>)).toList();
+        return list
+            .map((item) => DeviceModel.fromMap(item as Map<String, dynamic>))
+            .toList();
       }
     } catch (e) {
       markServerOffline();
@@ -390,14 +416,16 @@ class HttpCentralApiService implements ICentralApiService {
   Future<DeviceModel?> checkCentralDeviceStatus(String fingerprint) async {
     if (!isConfigured || isServerCooldownActive) return null;
     try {
-      final uri = Uri.parse('$baseUrl/api/devices/check?fingerprint=${Uri.encodeComponent(fingerprint)}');
-      final res = await _client.get(
-        uri,
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 3));
+      final uri = Uri.parse(
+        '$baseUrl/api/devices/check?fingerprint=${Uri.encodeComponent(fingerprint)}',
+      );
+      final res = await _client
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         markServerOnline();
-        final map = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+        final map =
+            jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
         return DeviceModel.fromMap(map);
       }
     } catch (e) {
@@ -411,14 +439,16 @@ class HttpCentralApiService implements ICentralApiService {
     if (!isConfigured || isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/devices/approve');
-      final res = await _client.post(
-        uri,
-        headers: {'Content-Type': 'application/json; charset=utf-8'},
-        body: jsonEncode({
-          'device_id': deviceId,
-          'approved_by_user_id': adminUserId,
-        }),
-      ).timeout(const Duration(seconds: 4));
+      final res = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: jsonEncode({
+              'device_id': deviceId,
+              'approved_by_user_id': adminUserId,
+            }),
+          )
+          .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         markServerOnline();
         return true;
@@ -434,14 +464,16 @@ class HttpCentralApiService implements ICentralApiService {
     if (!isConfigured || isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/devices/revoke');
-      final res = await _client.post(
-        uri,
-        headers: {'Content-Type': 'application/json; charset=utf-8'},
-        body: jsonEncode({
-          'device_id': deviceId,
-          'revoked_by_user_id': adminUserId,
-        }),
-      ).timeout(const Duration(seconds: 4));
+      final res = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: jsonEncode({
+              'device_id': deviceId,
+              'revoked_by_user_id': adminUserId,
+            }),
+          )
+          .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         markServerOnline();
         return true;
@@ -452,4 +484,3 @@ class HttpCentralApiService implements ICentralApiService {
     return false;
   }
 }
-
