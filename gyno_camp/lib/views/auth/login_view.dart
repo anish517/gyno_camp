@@ -23,30 +23,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
   bool _obscurePassword = true;
 
   @override
-  void initState() {
-    super.initState();
-    // Only clear the error message on input change — do NOT call setState().
-    // The widget already rebuilds reactively via ref.watch(authStateProvider)
-    // in build(). Calling setState() here causes an extra rebuild that steals
-    // focus from the active TextField, producing the "can't type" glitch.
-    _emailController.addListener(_onFieldChanged);
-    _passwordController.addListener(_onFieldChanged);
-  }
-
-  void _onFieldChanged() {
-    if (!mounted) return;
-    // Clear stale server/auth errors when user modifies input
-    if (ref.read(authStateProvider).errorMessage != null) {
-      ref.read(authStateProvider.notifier).clearError();
-    }
-    // Do NOT call setState() here — it triggers unnecessary rebuilds that
-    // steal keyboard focus from the active field mid-typing.
-  }
-
-  @override
   void dispose() {
-    _emailController.removeListener(_onFieldChanged);
-    _passwordController.removeListener(_onFieldChanged);
     _emailController.dispose();
     _passwordController.dispose();
     _emailFocusNode.dispose();
@@ -102,11 +79,16 @@ class _LoginViewState extends ConsumerState<LoginView> {
     if (!mounted) return;
 
     if (!success) {
-      // Login failed: restore focus to password field in the next frame
-      // so the user can immediately retype without having to click.
+      // Login failed: explicitly unfocus first to cleanly reset Flutter Web's focus tree,
+      // then requestFocus in the next frame so the browser DOM creates a fresh text connection.
+      _passwordFocusNode.unfocus();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _passwordFocusNode.requestFocus();
+          _passwordController.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: _passwordController.text.length,
+          );
         }
       });
       return;
@@ -132,7 +114,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
 
         if (currentDeviceState.isUnregistered) {
           final staffNameController = TextEditingController(text: user.name);
-          showDialog(
+          await showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -205,9 +187,14 @@ class _LoginViewState extends ConsumerState<LoginView> {
               ],
             ),
           );
+          staffNameController.dispose();
+          if (mounted) {
+            _passwordFocusNode.unfocus();
+            _emailFocusNode.unfocus();
+          }
           return;
         } else if (currentDeviceState.isPendingApproval) {
-          showDialog(
+          await showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -252,6 +239,10 @@ class _LoginViewState extends ConsumerState<LoginView> {
               ],
             ),
           );
+          if (mounted) {
+            _passwordFocusNode.unfocus();
+            _emailFocusNode.unfocus();
+          }
           return;
         } else if (currentDeviceState.isRevoked) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -688,38 +679,45 @@ class _LoginViewState extends ConsumerState<LoginView> {
     String deviceId,
   ) {
     return Column(
+      key: const ValueKey('credential_card_column'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Error Message Banner (if any)
-        if (authState.errorMessage != null)
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.dangerRose.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.4)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.error_outline_rounded, color: AppTheme.dangerRose, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    authState.errorMessage!,
-                    style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, height: 1.3),
+        // Error Message Banner (Always at index 0 of Column, stable layout structure)
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: authState.errorMessage != null
+              ? Container(
+                  key: const ValueKey('login_error_banner_box'),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerRose.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.4)),
                   ),
-                ),
-                InkWell(
-                  onTap: () => ref.read(authStateProvider.notifier).clearError(),
-                  child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.dangerRose),
-                ),
-              ],
-            ),
-          ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.error_outline_rounded, color: AppTheme.dangerRose, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          authState.errorMessage!,
+                          style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, height: 1.3),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => ref.read(authStateProvider.notifier).clearError(),
+                        child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.dangerRose),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(key: ValueKey('login_no_error_placeholder')),
+        ),
 
         Card(
+          key: const ValueKey('login_credential_card'),
           elevation: 2,
           shadowColor: Colors.black.withValues(alpha: 0.05),
           shape: RoundedRectangleBorder(
@@ -729,168 +727,196 @@ class _LoginViewState extends ConsumerState<LoginView> {
           color: Colors.white,
           child: Padding(
             padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Card Header with Wrap to eliminate horizontal overflow on narrow screens
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 10,
-                  runSpacing: 8,
-                  children: [
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Staff Sign-In',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1E293B),
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'अधिकृत कर्मचारी लगइन',
-                          style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryTeal.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
+            child: AutofillGroup(
+              key: const ValueKey('login_autofill_group'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Card Header with Wrap to eliminate horizontal overflow on narrow screens
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.auto_awesome_rounded, size: 12, color: AppTheme.primaryTeal),
-                          SizedBox(width: 4),
                           Text(
-                            'Auto-Detect Role',
+                            'Staff Sign-In',
                             style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryTeal,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1E293B),
+                              letterSpacing: -0.2,
                             ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'अधिकृत कर्मचारी लगइन',
+                            style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Sign in with your staff account. The system will automatically direct you to your designated console.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.35),
-                ),
-                const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.auto_awesome_rounded, size: 12, color: AppTheme.primaryTeal),
+                            SizedBox(width: 4),
+                            Text(
+                              'Auto-Detect Role',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryTeal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Sign in with your staff account. The system will automatically direct you to your designated console.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.35),
+                  ),
+                  const SizedBox(height: 16),
 
-                const SizedBox(height: 18),
+                  const SizedBox(height: 18),
 
-                // Email / Username Field (0th TextField)
-                const Text(
-                  'Staff Email / Username',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                ),
-                const SizedBox(height: 5),
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    hintText: 'Enter registered staff email or phone',
-                    hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
-                    prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18, color: Color(0xFF64748B)),
-                    suffixIcon: _emailController.text.isNotEmpty
-                        ? IconButton(
+                  // Email / Username Field (0th TextField)
+                  const Text(
+                    'Staff Email / Username',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                  ),
+                  const SizedBox(height: 5),
+                  TextField(
+                    key: const ValueKey('login_email_field'),
+                    controller: _emailController,
+                    focusNode: _emailFocusNode,
+                    autofillHints: const [AutofillHints.username, AutofillHints.email],
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    onTap: () {
+                      if (!_emailFocusNode.hasFocus) {
+                        _emailFocusNode.requestFocus();
+                      }
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Enter registered staff email or phone',
+                      hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                      prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18, color: Color(0xFF64748B)),
+                      suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _emailController,
+                        builder: (context, value, _) {
+                          if (value.text.isEmpty) return const SizedBox.shrink();
+                          return IconButton(
                             icon: const Icon(Icons.clear_rounded, size: 16, color: Color(0xFF94A3B8)),
                             onPressed: () => _emailController.clear(),
-                          )
-                        : null,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  ),
-                  focusNode: _emailFocusNode,
-                  onSubmitted: (_) {
-                    _passwordFocusNode.requestFocus();
-                  },
-                ),
-                const SizedBox(height: 14),
-
-                // Password / PIN Field (1st TextField)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Password / Security PIN',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                        overflow: TextOverflow.ellipsis,
+                          );
+                        },
                       ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'PIN or Password',
-                      style: TextStyle(fontSize: 11, color: Colors.teal.shade700, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                TextField(
-                  controller: _passwordController,
-                  focusNode: _passwordFocusNode,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  decoration: InputDecoration(
-                    hintText: 'Enter account password or 4-digit PIN',
-                    hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
-                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: Color(0xFF64748B)),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        size: 18,
-                        color: const Color(0xFF64748B),
-                      ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    onSubmitted: (_) {
+                      _passwordFocusNode.requestFocus();
+                    },
                   ),
-                  onSubmitted: (_) => _handleLogin(deviceId),
-                ),
-                const SizedBox(height: 20),
+                  const SizedBox(height: 14),
 
-                // Submit Action Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryTeal,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      elevation: 1,
-                      shadowColor: AppTheme.primaryTeal.withValues(alpha: 0.3),
-                    ),
-                    icon: authState.isLoading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : const Icon(Icons.login_rounded, size: 18),
-                    label: Text(
-                      authState.isLoading ? 'Authenticating Session...' : 'Sign In to GynoCamp',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, letterSpacing: 0.2),
-                    ),
-                    onPressed: authState.isLoading ? null : () => _handleLogin(deviceId),
+                  // Password / PIN Field (1st TextField)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Password / Security PIN',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'PIN or Password',
+                        style: TextStyle(fontSize: 11, color: Colors.teal.shade700, fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 5),
+                  TextField(
+                    key: const ValueKey('login_password_field'),
+                    controller: _passwordController,
+                    focusNode: _passwordFocusNode,
+                    autofillHints: const [AutofillHints.password],
+                    obscureText: _obscurePassword,
+                    maxLines: 1,
+                    textInputAction: TextInputAction.done,
+                    onTap: () {
+                      // Ensure Flutter Web re-connects the DOM input element if desynced
+                      if (!_passwordFocusNode.hasFocus) {
+                        _passwordFocusNode.requestFocus();
+                      }
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Enter account password or 4-digit PIN',
+                      hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                      prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: Color(0xFF64748B)),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          size: 18,
+                          color: const Color(0xFF64748B),
+                        ),
+                        onPressed: () {
+                          setState(() => _obscurePassword = !_obscurePassword);
+                          _passwordController.selection = TextSelection.fromPosition(
+                            TextPosition(offset: _passwordController.text.length),
+                          );
+                        },
+                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                    onSubmitted: (_) => _handleLogin(deviceId),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Submit Action Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryTeal,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 1,
+                        shadowColor: AppTheme.primaryTeal.withValues(alpha: 0.3),
+                      ),
+                      icon: authState.isLoading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Icon(Icons.login_rounded, size: 18),
+                      label: Text(
+                        authState.isLoading ? 'Authenticating Session...' : 'Sign In to GynoCamp',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, letterSpacing: 0.2),
+                      ),
+                      onPressed: authState.isLoading ? null : () => _handleLogin(deviceId),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
