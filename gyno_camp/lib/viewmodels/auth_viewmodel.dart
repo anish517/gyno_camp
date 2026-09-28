@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/constants/app_constants.dart';
 import '../core/services/session_service.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
@@ -74,13 +75,14 @@ class AuthViewModel extends StateNotifier<AuthState> {
               }
             }
             final savedOrg = SessionService.current?.getOrganizationName();
-            final effectiveUser = (savedOrg != null &&
+            final effectiveTenant = (savedOrg != null &&
                     savedOrg.trim().isNotEmpty &&
-                    user.isSuperAdmin &&
-                    (user.tenantName == 'Outreach Health Center' ||
-                        user.tenantName == 'Nepal Health Outreach Network'))
-                ? user.copyWith(tenantName: savedOrg)
-                : user;
+                    !AppConstants.isLegacyDefaultOrganization(savedOrg))
+                ? savedOrg.trim()
+                : (!AppConstants.isLegacyDefaultOrganization(user.tenantName)
+                    ? user.tenantName.trim()
+                    : AppConstants.defaultOrganizationName);
+            final effectiveUser = user.copyWith(tenantName: effectiveTenant);
             _authRepository.setCurrentUser(effectiveUser);
             state = state.copyWith(currentUser: effectiveUser, isRestoringSession: false);
             return;
@@ -232,6 +234,35 @@ class AuthViewModel extends StateNotifier<AuthState> {
         isLoading: false,
         errorMessage: 'Failed to update profile: $e',
       );
+      return false;
+    }
+  }
+
+  Future<bool> updateTenantOrganization({
+    required String newOrgName,
+    required String tenantId,
+    required String deviceId,
+  }) async {
+    try {
+      final repo = _authRepository;
+      if (repo is AuthRepository) {
+        await repo.updateTenantOrganizationName(
+          newOrgName: newOrgName,
+          tenantId: tenantId,
+          adminUserId: state.currentUser?.id ?? 'admin-root',
+          deviceId: deviceId,
+        );
+      } else {
+        await SessionService.current?.saveOrganizationName(newOrgName.trim());
+      }
+      if (state.currentUser != null) {
+        state = state.copyWith(
+          currentUser: state.currentUser!.copyWith(tenantName: newOrgName.trim()),
+        );
+      }
+      return true;
+    } catch (e) {
+      debugPrint('[AuthViewModel] updateTenantOrganization error: $e');
       return false;
     }
   }

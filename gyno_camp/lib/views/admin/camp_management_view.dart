@@ -4,6 +4,7 @@ import 'package:nepali_utils/nepali_utils.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/clinical_constants.dart';
 import '../../core/constants/nepal_geodata.dart';
+import '../../core/providers/organization_provider.dart';
 import '../../core/security/security_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/nepali_date_helper.dart';
@@ -3471,7 +3472,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       status: status,
       assignedStaffIds: assignedStaffIds,
       tenantId: user?.tenantId ?? 'tenant_default',
-      organizationName: user?.tenantName ?? 'Community Health Outreach Mission',
+      organizationName: ref.read(effectiveOrganizationProvider),
       createdAt: DateTime.now().toUtc(),
     );
 

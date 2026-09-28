@@ -2,10 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/database_service.dart';
-import '../../core/database/database_tables.dart';
-import 'package:sqflite/sqflite.dart';
+import '../../core/providers/organization_provider.dart';
 import '../../core/services/file_download_helper.dart';
-import '../../core/services/session_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/audit_log_model.dart';
 import '../../models/user_model.dart';
@@ -241,15 +239,7 @@ class HomeGatewayView extends ConsumerWidget {
                         ),
                         Builder(
                           builder: (context) {
-                            final savedOrg = SessionService.current?.getOrganizationName();
-                            final tenantName = (savedOrg != null && savedOrg.trim().isNotEmpty)
-                                ? savedOrg
-                                : user?.tenantName;
-                            final orgName = (tenantName != null &&
-                                    tenantName.trim().isNotEmpty &&
-                                    tenantName != 'Outreach Health Center')
-                                ? tenantName
-                                : (campState.activeCamp?.organizationName ?? 'Nepal Health Outreach Network');
+                            final orgName = ref.watch(effectiveOrganizationProvider);
                             return Text(
                               orgName,
                               style: TextStyle(
@@ -2142,7 +2132,7 @@ class HomeGatewayView extends ConsumerWidget {
               Builder(
                 builder: (context) {
                   final colorScheme = Theme.of(context).colorScheme;
-                  final orgName = (campState.activeCamp?.organizationName ?? user?.tenantName ?? 'Community Health Outreach');
+                  final orgName = ref.watch(effectiveOrganizationProvider);
                   return Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -3412,11 +3402,8 @@ class HomeGatewayView extends ConsumerWidget {
   void _showEditProfileDialog(BuildContext context, WidgetRef ref, UserModel? user) {
     if (user == null) return;
     final nameCtrl = TextEditingController(text: user.name);
-    final savedOrg = SessionService.current?.getOrganizationName();
-    final initialTenant = (savedOrg != null && savedOrg.trim().isNotEmpty)
-        ? savedOrg
-        : user.tenantName;
-    final tenantCtrl = TextEditingController(text: initialTenant);
+    final currentOrg = ref.read(effectiveOrganizationProvider);
+    final tenantCtrl = TextEditingController(text: currentOrg);
     final phoneCtrl = TextEditingController(text: user.phone);
     final deviceState = ref.read(deviceSecurityProvider);
 
@@ -3544,41 +3531,12 @@ class HomeGatewayView extends ConsumerWidget {
 
               if (success) {
                 if (newTenant.isNotEmpty) {
-                  await SessionService.current?.saveOrganizationName(newTenant);
-                  final activeCamp = ref.read(campStateProvider).activeCamp;
-                  if (activeCamp != null) {
-                    try {
-                      final db = await DatabaseService().database;
-                      await db.update(
-                        DatabaseTables.tableCamps,
-                        {'organization_name': newTenant},
-                        where: 'id = ?',
-                        whereArgs: [activeCamp.id],
-                      );
-                      await ref.read(campStateProvider.notifier).loadCamps();
-                    } catch (_) {}
-                  }
-                  try {
-                    final db = await DatabaseService().database;
-                    await db.insert(
-                      DatabaseTables.tableMetadata,
-                      {
-                        'key': 'saas_organization_name',
-                        'value': newTenant,
-                        'updated_at': DateTime.now().toIso8601String(),
-                      },
-                      conflictAlgorithm: ConflictAlgorithm.replace,
-                    );
-                    await db.insert(
-                      DatabaseTables.tableMetadata,
-                      {
-                        'key': 'tenant_organization_name',
-                        'value': newTenant,
-                        'updated_at': DateTime.now().toIso8601String(),
-                      },
-                      conflictAlgorithm: ConflictAlgorithm.replace,
-                    );
-                  } catch (_) {}
+                  await ref.read(authStateProvider.notifier).updateTenantOrganization(
+                    newOrgName: newTenant,
+                    tenantId: user.tenantId,
+                    deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                  );
+                  await ref.read(campStateProvider.notifier).loadCamps();
                 }
                 messenger.showSnackBar(
                   SnackBar(content: Text('Updated profile to "$newName" ($newTenant).')),
@@ -4361,15 +4319,20 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   ),
                 ),
               ),
-              Text(
-                '${user?.tenantName ?? "Nepal Health Outreach Network"} • Role: Data Analyst',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                ),
-                overflow: TextOverflow.ellipsis,
+              Builder(
+                builder: (context) {
+                  final orgName = ref.watch(effectiveOrganizationProvider);
+                  return Text(
+                    '$orgName • Role: Data Analyst',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  );
+                },
               ),
             ],
           ),

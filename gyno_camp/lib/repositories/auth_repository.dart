@@ -7,6 +7,7 @@ import '../core/database/database_tables.dart';
 import '../core/security/security_service.dart';
 import '../core/services/http_central_api_service.dart';
 import '../core/services/session_service.dart';
+import '../models/camp_model.dart';
 import '../models/user_model.dart';
 import 'audit_repository.dart';
 
@@ -164,10 +165,9 @@ class AuthRepository implements IAuthRepository {
         .map((u) {
           if (savedOrg != null &&
               savedOrg.trim().isNotEmpty &&
-              u.isSuperAdmin &&
-              (u.tenantName == 'Outreach Health Center' ||
-                  u.tenantName == 'Nepal Health Outreach Network')) {
-            return u.copyWith(tenantName: savedOrg);
+              !AppConstants.isLegacyDefaultOrganization(savedOrg) &&
+              AppConstants.isLegacyDefaultOrganization(u.tenantName)) {
+            return u.copyWith(tenantName: savedOrg.trim());
           }
           return u;
         })
@@ -202,10 +202,9 @@ class AuthRepository implements IAuthRepository {
       final savedOrg = SessionService.current?.getOrganizationName();
       if (savedOrg != null &&
           savedOrg.trim().isNotEmpty &&
-          user.isSuperAdmin &&
-          (user.tenantName == 'Outreach Health Center' ||
-              user.tenantName == 'Nepal Health Outreach Network')) {
-        return user.copyWith(tenantName: savedOrg);
+          !AppConstants.isLegacyDefaultOrganization(savedOrg) &&
+          AppConstants.isLegacyDefaultOrganization(user.tenantName)) {
+        return user.copyWith(tenantName: savedOrg.trim());
       }
       return user;
     }
@@ -228,10 +227,9 @@ class AuthRepository implements IAuthRepository {
           final savedOrg = SessionService.current?.getOrganizationName();
           if (savedOrg != null &&
               savedOrg.trim().isNotEmpty &&
-              user.isSuperAdmin &&
-              (user.tenantName == 'Outreach Health Center' ||
-                  user.tenantName == 'Nepal Health Outreach Network')) {
-            return user.copyWith(tenantName: savedOrg);
+              !AppConstants.isLegacyDefaultOrganization(savedOrg) &&
+              AppConstants.isLegacyDefaultOrganization(user.tenantName)) {
+            return user.copyWith(tenantName: savedOrg.trim());
           }
           return user;
         }
@@ -361,26 +359,15 @@ class AuthRepository implements IAuthRepository {
       whereArgs: [user.id],
     );
 
-    // If organization / tenant name was updated, persist across SaaS session and camps
-    if (user.tenantName.trim().isNotEmpty && user.tenantName != 'Outreach Health Center') {
-      await SessionService.current?.saveOrganizationName(user.tenantName.trim());
-      try {
-        await db.insert(
-          DatabaseTables.tableMetadata,
-          {
-            'key': 'saas_organization_name',
-            'value': user.tenantName.trim(),
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-        await db.update(
-          DatabaseTables.tableCamps,
-          {'organization_name': user.tenantName.trim()},
-          where: 'tenant_id = ?',
-          whereArgs: [user.tenantId],
-        );
-      } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
+    // If organization / tenant name was updated, persist across SaaS session, users, and camps
+    if (user.tenantName.trim().isNotEmpty &&
+        !AppConstants.isLegacyDefaultOrganization(user.tenantName)) {
+      await updateTenantOrganizationName(
+        newOrgName: user.tenantName.trim(),
+        tenantId: user.tenantId,
+        adminUserId: adminUserId,
+        deviceId: deviceId,
+      );
     }
 
     // Synchronize camp assigned_staff_ids with user.assignedCampIds (Issue 1)
@@ -438,6 +425,100 @@ class AuthRepository implements IAuthRepository {
       _currentUser = updatedWithTimestamp;
     }
     return updatedWithTimestamp;
+  }
+
+  Future<void> updateTenantOrganizationName({
+    required String newOrgName,
+    required String tenantId,
+    required String adminUserId,
+    required String deviceId,
+  }) async {
+    final trimmed = newOrgName.trim();
+    if (trimmed.isEmpty) return;
+
+    // 1. Save in SharedPreferences
+    await SessionService.current?.saveOrganizationName(trimmed);
+
+    final db = await _databaseService.database;
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+
+    // 2. Persist in app_metadata
+    try {
+      await db.insert(
+        DatabaseTables.tableMetadata,
+        {
+          'key': 'saas_organization_name',
+          'value': trimmed,
+          'updated_at': nowIso,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await db.insert(
+        DatabaseTables.tableMetadata,
+        {
+          'key': 'tenant_organization_name',
+          'value': trimmed,
+          'updated_at': nowIso,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // 3. Update ALL users in SQLite belonging to this tenant or default
+      await db.rawUpdate(
+        "UPDATE ${DatabaseTables.tableUsers} SET tenant_name = ?, updated_at = ? WHERE tenant_id = ? OR tenant_id = 'tenant_default' OR tenant_id = 'global'",
+        [trimmed, nowIso, tenantId],
+      );
+
+      // 4. Update ALL camps in SQLite belonging to this tenant or default
+      await db.rawUpdate(
+        "UPDATE ${DatabaseTables.tableCamps} SET organization_name = ?, updated_at = ? WHERE tenant_id = ? OR tenant_id = 'tenant_default' OR tenant_id = 'global'",
+        [trimmed, nowIso, tenantId],
+      );
+    } catch (e) {
+      debugPrint('[AuthRepo] SQLite update error: $e');
+    }
+
+    // 5. Update local _currentUser if set
+    if (_currentUser != null) {
+      _currentUser = _currentUser!.copyWith(tenantName: trimmed);
+    }
+
+    // 6. Broadcast to Central Cloud Server
+    if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
+      try {
+        final api = HttpCentralApiService();
+        // Call the atomic tenant rename endpoint on the server
+        await api.renameTenant(tenantId: tenantId, newOrgName: trimmed);
+
+        // Also broadcast all updated camps so PostgreSQL and other devices get full payloads
+        final camps = await db.query(DatabaseTables.tableCamps);
+        for (final row in camps) {
+          final camp = CampModel.fromMap(row);
+          await api.broadcastCamp(camp);
+        }
+
+        // Also broadcast all updated users
+        final users = await db.query(DatabaseTables.tableUsers);
+        for (final row in users) {
+          final u = UserModel.fromMap(row);
+          await api.broadcastUser(u);
+        }
+      } catch (e) {
+        debugPrint('[AuthRepo] Central cloud broadcast error: $e');
+      }
+    }
+
+    // 7. Audit log
+    await _auditRepository.logActivity(
+      userId: adminUserId,
+      userName: _currentUser?.name ?? 'Super Admin',
+      userRole: AppConstants.roleSuperAdmin,
+      action: 'ORGANIZATION_RENAMED',
+      entityType: 'Tenant',
+      entityId: tenantId,
+      detailsJson: '{"newOrganizationName":"$trimmed"}',
+      deviceId: deviceId,
+    );
   }
 
   @override
@@ -556,7 +637,20 @@ class AuthRepository implements IAuthRepository {
       whereArgs: [user.id],
     );
 
-    _currentUser = user.copyWith(lastLoginAt: now);
+    // Apply effective organization name consistently on fresh login
+    final savedOrg = SessionService.current?.getOrganizationName();
+    final effectiveTenant = (savedOrg != null &&
+            savedOrg.trim().isNotEmpty &&
+            !AppConstants.isLegacyDefaultOrganization(savedOrg))
+        ? savedOrg.trim()
+        : (!AppConstants.isLegacyDefaultOrganization(user.tenantName)
+            ? user.tenantName.trim()
+            : AppConstants.defaultOrganizationName);
+
+    _currentUser = user.copyWith(
+      lastLoginAt: now,
+      tenantName: effectiveTenant,
+    );
 
     // Record audit trail
     await _auditRepository.logActivity(
@@ -597,7 +691,20 @@ class AuthRepository implements IAuthRepository {
       whereArgs: [user.id],
     );
 
-    _currentUser = user.copyWith(lastLoginAt: now);
+    // Apply effective organization name consistently on role switch
+    final savedOrgRole = SessionService.current?.getOrganizationName();
+    final effectiveTenantRole = (savedOrgRole != null &&
+            savedOrgRole.trim().isNotEmpty &&
+            !AppConstants.isLegacyDefaultOrganization(savedOrgRole))
+        ? savedOrgRole.trim()
+        : (!AppConstants.isLegacyDefaultOrganization(user.tenantName)
+            ? user.tenantName.trim()
+            : AppConstants.defaultOrganizationName);
+
+    _currentUser = user.copyWith(
+      lastLoginAt: now,
+      tenantName: effectiveTenantRole,
+    );
 
     await _auditRepository.logActivity(
       userId: user.id,

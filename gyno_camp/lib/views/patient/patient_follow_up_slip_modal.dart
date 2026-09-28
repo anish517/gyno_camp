@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import '../../core/constants/app_constants.dart';
 import '../../core/services/file_download_helper.dart';
+import '../../core/services/session_service.dart';
 import '../../core/services/nepali_localization_service.dart';
 import '../../core/services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -19,7 +21,7 @@ class PatientFollowUpSlipModal extends StatelessWidget {
     super.key,
     required this.patient,
     this.camp,
-    this.organizationName = 'Nepal Gyno Health Outreach Network',
+    this.organizationName = AppConstants.defaultOrganizationName,
     this.showProceedButton = true,
   });
 
@@ -30,11 +32,15 @@ class PatientFollowUpSlipModal extends StatelessWidget {
     String? organizationName,
     bool showProceedButton = true,
   }) {
-    final effectiveOrgName = (organizationName?.isNotEmpty == true)
+    final effectiveOrgName = (organizationName?.isNotEmpty == true &&
+            !AppConstants.isLegacyDefaultOrganization(organizationName))
         ? organizationName!
-        : (camp?.organizationName.isNotEmpty == true
-            ? camp!.organizationName
-            : 'Nepal Gyno Health Outreach Network');
+        : (camp?.organizationName.isNotEmpty == true &&
+                !AppConstants.isLegacyDefaultOrganization(camp!.organizationName)
+            ? camp.organizationName
+            : (SessionService.current?.getOrganizationName()?.isNotEmpty == true
+                ? SessionService.current!.getOrganizationName()!
+                : AppConstants.defaultOrganizationName));
 
     return showDialog<bool>(
       context: context,

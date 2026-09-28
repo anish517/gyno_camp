@@ -9,6 +9,7 @@ import 'package:sqflite/sqflite.dart';
 import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
 import '../security/security_service.dart';
+import '../services/session_service.dart';
 import 'database_tables.dart';
 
 class DatabaseService {
@@ -145,7 +146,25 @@ class DatabaseService {
     // Migrate legacy hardcoded doctor name to generic SaaS Admin identity
     try {
       await db.rawUpdate(
-        "UPDATE ${DatabaseTables.tableUsers} SET name = 'System Administrator (Super Admin)', tenant_name = 'Nepal Health Outreach Network' WHERE id = 'usr-superadmin-01' AND name = 'Dr. Aarav Sharma (Lead Gynecologist)'",
+        "UPDATE ${DatabaseTables.tableUsers} SET name = 'System Administrator (Super Admin)' WHERE id = 'usr-superadmin-01' AND name = 'Dr. Aarav Sharma (Lead Gynecologist)'",
+      );
+    } catch (_) {}
+
+    // Migrate legacy hardcoded organization names in SQLite to unified tenant identity
+    try {
+      final savedOrg = SessionService.current?.getOrganizationName();
+      final effectiveOrg = (savedOrg != null &&
+              savedOrg.trim().isNotEmpty &&
+              !AppConstants.isLegacyDefaultOrganization(savedOrg))
+          ? savedOrg.trim()
+          : 'NEPAL';
+      await db.rawUpdate(
+        "UPDATE ${DatabaseTables.tableUsers} SET tenant_name = ? WHERE tenant_name = 'Nepal Health Outreach Network' OR tenant_name = 'Outreach Health Center' OR tenant_name = 'Community Health Outreach'",
+        [effectiveOrg],
+      );
+      await db.rawUpdate(
+        "UPDATE ${DatabaseTables.tableCamps} SET organization_name = ? WHERE organization_name = 'Nepal Health Outreach Network' OR organization_name = 'Community Health Outreach Mission'",
+        [effectiveOrg],
       );
     } catch (_) {}
 

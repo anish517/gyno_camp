@@ -2,8 +2,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/constants/clinical_constants.dart';
 import '../../core/constants/nepal_geodata.dart';
+import '../../core/providers/organization_provider.dart';
 import '../../core/services/document_capture_service.dart';
 import '../../core/services/file_download_helper.dart';
 import '../../core/services/pdf_report_service.dart';
@@ -2029,11 +2031,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               context,
                               patient: patient,
                               camp: activeCamp,
-                              organizationName:
-                                  activeCamp?.organizationName.isNotEmpty ==
-                                      true
-                                  ? activeCamp!.organizationName
-                                  : 'Nepal Gyno Health Outreach Network',
+                              organizationName: (activeCamp?.organizationName.isNotEmpty == true &&
+                                      !AppConstants.isLegacyDefaultOrganization(activeCamp!.organizationName))
+                                  ? activeCamp.organizationName
+                                  : ref.read(effectiveOrganizationProvider),
                               showProceedButton: true,
                             );
                             if (proceed == true) {
@@ -2684,8 +2685,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                       camp: ref
                                           .read(campStateProvider)
                                           .activeCamp,
-                                      organizationName:
-                                          'Nepal Gyno Health Outreach Network',
+                                      organizationName: ref.read(effectiveOrganizationProvider),
                                       showProceedButton: false,
                                     );
                                   },
@@ -2810,9 +2810,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     PatientModel patient,
     CampModel? camp,
   ) async {
-    final orgName = camp?.organizationName.isNotEmpty == true
-        ? camp!.organizationName
-        : 'Nepal Gyno Health Outreach Network';
+    final effectiveOrg = ref.read(effectiveOrganizationProvider);
+    final orgName = (camp?.organizationName.isNotEmpty == true &&
+            !AppConstants.isLegacyDefaultOrganization(camp!.organizationName))
+        ? camp.organizationName
+        : effectiveOrg;
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2867,9 +2869,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     CampModel? camp,
   ) {
     final repo = ref.read(patientRepositoryProvider);
-    final orgName = camp?.organizationName.isNotEmpty == true
-        ? camp!.organizationName
-        : 'Nepal Gyno Health Outreach Network';
+    final effectiveOrg = ref.read(effectiveOrganizationProvider);
+    final orgName = (camp?.organizationName.isNotEmpty == true &&
+            !AppConstants.isLegacyDefaultOrganization(camp!.organizationName))
+        ? camp.organizationName
+        : effectiveOrg;
 
     showGeneralDialog(
       context: context,

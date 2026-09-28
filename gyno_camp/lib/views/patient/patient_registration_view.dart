@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/clinical_constants.dart';
 import '../../core/constants/nepal_geodata.dart';
-
+import '../../core/providers/organization_provider.dart';
 import '../../core/services/file_download_helper.dart';
 import '../../core/services/nepali_localization_service.dart';
 import '../../core/services/pdf_report_service.dart';
@@ -190,9 +190,11 @@ class _PatientRegistrationViewState
     CampModel camp,
   ) async {
     if (!mounted) return;
-    final orgName = camp.organizationName.isNotEmpty
+    final effectiveOrg = ref.read(effectiveOrganizationProvider);
+    final orgName = (camp.organizationName.isNotEmpty &&
+            !AppConstants.isLegacyDefaultOrganization(camp.organizationName))
         ? camp.organizationName
-        : 'Nepal Gyno Health Outreach Network';
+        : effectiveOrg;
 
     final proceedToStation2 = await PatientFollowUpSlipModal.show(
       context,
@@ -223,9 +225,11 @@ class _PatientRegistrationViewState
           duration: Duration(seconds: 2),
         ),
       );
-      final orgName = camp?.organizationName.isNotEmpty == true
-          ? camp!.organizationName
-          : 'Nepal Gyno Health Outreach Network';
+      final effectiveOrg = ref.read(effectiveOrganizationProvider);
+      final orgName = (camp?.organizationName.isNotEmpty == true &&
+              !AppConstants.isLegacyDefaultOrganization(camp!.organizationName))
+          ? camp.organizationName
+          : effectiveOrg;
       final masterState = ref.read(masterLookupProvider);
       final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
         camp: camp,

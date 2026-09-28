@@ -29,7 +29,7 @@ abstract class IReportingRepository {
     ClinicalVisitModel? visit,
     List<ClinicalVisitModel>? allVisits,
     CampModel? camp,
-    String organizationName = 'Nepal Gyno Health Outreach Network',
+    String organizationName = AppConstants.defaultOrganizationName,
   });
   Future<List<int>> generateExcelReport(CampReportSummaryModel summary);
   Future<String> saveReportToFile({
@@ -238,7 +238,7 @@ class ReportingRepository implements IReportingRepository {
     ClinicalVisitModel? visit,
     List<ClinicalVisitModel>? allVisits,
     CampModel? camp,
-    String organizationName = 'Nepal Gyno Health Outreach Network',
+    String organizationName = AppConstants.defaultOrganizationName,
   }) async {
     return _pdfReportService.generateIndividualPatientPdf(
       patient: patient,

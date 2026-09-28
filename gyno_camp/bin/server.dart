@@ -331,6 +331,20 @@ class GynoCampSyncServer {
       await _connection!.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS previous_hash TEXT;");
       await _connection!.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_patient_id ON patients(patient_id);');
       await _connection!.execute("UPDATE users SET role = 'SUPER_ADMIN' WHERE id = 'usr-superadmin-01' OR LOWER(email) = 'admin@gynocamp.org';");
+      // Auto-migrate legacy organization names in PostgreSQL to unified tenant identity
+      await _connection!.execute('''
+        UPDATE users
+        SET tenant_name = 'NEPAL', updated_at = NOW()
+        WHERE tenant_name = 'Nepal Health Outreach Network'
+           OR tenant_name = 'Outreach Health Center'
+           OR tenant_name = 'Community Health Outreach';
+      ''');
+      await _connection!.execute('''
+        UPDATE camps
+        SET organization_name = 'NEPAL', updated_at = NOW()
+        WHERE organization_name = 'Nepal Health Outreach Network'
+           OR organization_name = 'Community Health Outreach Mission';
+      ''');
       // Auto-cleanup any orphaned patients or clinical visits in PostgreSQL
       await _connection!.execute('DELETE FROM patients WHERE camp_id NOT IN (SELECT id FROM camps);');
       await _connection!.execute('DELETE FROM clinical_visits WHERE camp_id NOT IN (SELECT id FROM camps);');
@@ -466,6 +480,8 @@ class GynoCampSyncServer {
         await _handleApproveDevice(request);
       } else if (request.method == 'POST' && path == '/api/devices/revoke') {
         await _handleRevokeDevice(request);
+      } else if (request.method == 'POST' && path == '/api/tenant/rename') {
+        await _handleRenameTenant(request);
       } else if (request.method == 'GET' && path == '/api/events') {
         await _handleSseEvents(request);
       } else {
@@ -1487,7 +1503,7 @@ class GynoCampSyncServer {
             'assigned_staff_ids': map['assigned_staff_ids'],
             'total_patients_registered': map['total_patients_registered'] ?? 0,
             'tenant_id': map['tenant_id'] ?? 'tenant_default',
-            'organization_name': map['organization_name'] ?? 'Nepal Health Outreach Network',
+            'organization_name': map['organization_name'] ?? 'NEPAL',
             'doctor_name': map['doctor_name'] ?? '',
             'doctor_names': map['doctor_names'] ?? '',
             'created_at': map['created_at'] ?? utcNow,
@@ -1648,7 +1664,7 @@ class GynoCampSyncServer {
             'last_login_at': map['last_login_at'],
             'assigned_camp_ids': map['assigned_camp_ids'],
             'tenant_id': map['tenant_id'] ?? 'tenant_default',
-            'tenant_name': map['tenant_name'] ?? 'Nepal Health Outreach Network',
+            'tenant_name': map['tenant_name'] ?? 'NEPAL',
             'password_hash': map['password_hash'],
             'pin_hash': map['pin_hash'],
             'updated_at': map['updated_at'],
@@ -1725,6 +1741,69 @@ class GynoCampSyncServer {
     request.response.write(jsonEncode({'success': true, 'deleted_lookup_id': id}));
     await request.response.close();
     _broadcastSseEvent('sync_update', {'action': 'lookup_delete', 'lookup_id': id, 'timestamp': DateTime.now().toIso8601String()});
+  }
+
+  Future<void> _handleRenameTenant(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    final map = jsonDecode(body) as Map<String, dynamic>;
+    final tenantId = map['tenant_id']?.toString() ?? 'tenant_default';
+    final orgName = (map['organization_name']?.toString() ?? '').trim();
+    if (orgName.isEmpty) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'error': 'organization_name cannot be empty'}));
+      await request.response.close();
+      return;
+    }
+
+    final utcNow = DateTime.now().toUtc().toIso8601String();
+
+    // 1. Update in-memory cache
+    _memUsers.forEach((_, u) {
+      if (u['tenant_id'] == tenantId || u['tenant_id'] == 'tenant_default' || u['tenant_id'] == 'global') {
+        u['tenant_name'] = orgName;
+        u['updated_at'] = utcNow;
+      }
+    });
+    _memCamps.forEach((_, c) {
+      if (c['tenant_id'] == tenantId || c['tenant_id'] == 'tenant_default' || c['tenant_id'] == 'global') {
+        c['organization_name'] = orgName;
+        c['updated_at'] = utcNow;
+      }
+    });
+
+    // 2. Update PostgreSQL database
+    if (_isPgConnected && _connection != null) {
+      try {
+        await _connection!.execute(
+          Sql.named('''
+            UPDATE users
+            SET tenant_name = @org_name, updated_at = NOW()
+            WHERE tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global';
+          '''),
+          parameters: {'org_name': orgName, 'tenant_id': tenantId},
+        );
+        await _connection!.execute(
+          Sql.named('''
+            UPDATE camps
+            SET organization_name = @org_name, updated_at = NOW()
+            WHERE tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global';
+          '''),
+          parameters: {'org_name': orgName, 'tenant_id': tenantId},
+        );
+        print('✓ Central Cloud PostgreSQL: Tenant "$tenantId" renamed to "$orgName" across all users and camps.');
+      } catch (e) {
+        print('! Error in _handleRenameTenant: $e');
+      }
+    }
+
+    // 3. Broadcast SSE update so connected clients refresh
+    _broadcastSseEvent('sync_update', {'entity': 'tenant', 'action': 'rename', 'organization_name': orgName});
+
+    request.response
+      ..statusCode = HttpStatus.ok
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode({'success': true, 'organization_name': orgName}));
+    await request.response.close();
   }
 
   Future<void> _handleGetDevices(HttpRequest request) async {

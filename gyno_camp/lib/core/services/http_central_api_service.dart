@@ -120,7 +120,7 @@ class HttpCentralApiService implements ICentralApiService {
       }
     } catch (_) {}
 
-    return 'http://192.168.1.6:8080';
+    return 'http://192.168.1.7:8080';
   }
 
   bool simulateNetworkFailure = false;
@@ -319,6 +319,33 @@ class HttpCentralApiService implements ICentralApiService {
       final uri = Uri.parse('$baseUrl/api/users?id=$userId');
       final res = await _client.delete(uri).timeout(const Duration(seconds: 3));
       final ok = res.statusCode == 200 || res.statusCode == 204;
+      if (ok) markServerOnline();
+      return ok;
+    } catch (e) {
+      markServerOffline();
+      return false;
+    }
+  }
+
+  /// Atomically updates the organization / tenant name across all camps and users on the Central Cloud Server
+  Future<bool> renameTenant({
+    required String tenantId,
+    required String newOrgName,
+  }) async {
+    if (!isConfigured || isServerCooldownActive) return false;
+    try {
+      final uri = Uri.parse('$baseUrl/api/tenant/rename');
+      final res = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: jsonEncode({
+              'tenant_id': tenantId,
+              'organization_name': newOrgName,
+            }),
+          )
+          .timeout(const Duration(seconds: 4));
+      final ok = res.statusCode == 200 || res.statusCode == 201;
       if (ok) markServerOnline();
       return ok;
     } catch (e) {

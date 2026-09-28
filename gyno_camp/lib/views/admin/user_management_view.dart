@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/providers/organization_provider.dart';
 import '../../core/security/security_service.dart';
-import '../../core/services/session_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/user_model.dart';
@@ -1008,12 +1009,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     bool isSubmitting = false;
 
     final currentUser = ref.read(authStateProvider).currentUser;
-    final savedOrg = SessionService.current?.getOrganizationName();
-    final defaultTenant = (savedOrg != null && savedOrg.trim().isNotEmpty)
-        ? savedOrg.trim()
-        : (currentUser?.tenantName.trim().isNotEmpty == true && currentUser?.tenantName != 'Outreach Health Center'
-            ? currentUser!.tenantName.trim()
-            : 'Nepal Health Outreach Network');
+    final defaultTenant = ref.read(effectiveOrganizationProvider);
     final tenantCtrl = TextEditingController(text: defaultTenant);
 
     await showDialog(
@@ -1659,10 +1655,10 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
 
   Future<void> _showEditProfileDialog(BuildContext context, UserModel staff) async {
     final nameCtrl = TextEditingController(text: staff.name);
-    final savedOrg = SessionService.current?.getOrganizationName();
-    final initialTenant = (staff.isSuperAdmin && savedOrg != null && savedOrg.trim().isNotEmpty)
-        ? savedOrg
-        : staff.tenantName;
+    final initialTenant = staff.tenantName.isNotEmpty &&
+            !AppConstants.isLegacyDefaultOrganization(staff.tenantName)
+        ? staff.tenantName
+        : ref.read(effectiveOrganizationProvider);
     final tenantCtrl = TextEditingController(text: initialTenant);
     final phoneCtrl = TextEditingController(text: staff.phone);
     final messenger = ScaffoldMessenger.of(context);

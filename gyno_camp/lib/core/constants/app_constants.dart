@@ -61,4 +61,21 @@ class AppConstants {
   static const String defaultGeminiApiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
   static const String defaultGeminiModel = 'gemini-flash-lite-latest';
   static const String geminiEndpointUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent';
+
+  // Organization & Tenant Constants
+  static const String defaultOrganizationName = 'Nepal Health Administration';
+  static const Set<String> legacyDefaultOrganizations = {
+    'nepal health outreach network',
+    'nepal gyno health outreach network',
+    'community health outreach mission',
+    'community health outreach',
+    'outreach health center',
+  };
+
+  static bool isLegacyDefaultOrganization(String? org) {
+    if (org == null || org.trim().isEmpty) return true;
+    final lower = org.trim().toLowerCase();
+    return legacyDefaultOrganizations.contains(lower);
+  }
 }
+

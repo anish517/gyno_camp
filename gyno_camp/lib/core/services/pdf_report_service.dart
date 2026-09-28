@@ -10,6 +10,7 @@ import '../../models/clinical_visit_model.dart';
 import '../../models/lookup_item_model.dart';
 import '../../models/patient_model.dart';
 import '../../repositories/lookup_repository.dart';
+import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
 
 class PdfReportService {
@@ -734,7 +735,7 @@ class PdfReportService {
     ClinicalVisitModel? visit,
     List<ClinicalVisitModel>? allVisits,
     CampModel? camp,
-    String organizationName = 'Nepal Gyno Health Outreach Network',
+    String organizationName = AppConstants.defaultOrganizationName,
   }) async {
     final theme = await getPdfTheme();
     final pdf = pw.Document(theme: theme);
@@ -1307,7 +1308,7 @@ class PdfReportService {
     required PatientModel patient,
     required ClinicalVisitModel visit,
     CampModel? camp,
-    String organizationName = 'Nepal Gyno Health Outreach Network',
+    String organizationName = AppConstants.defaultOrganizationName,
   }) async {
     final theme = await getPdfTheme();
     final pdf = pw.Document(theme: theme);
@@ -1608,7 +1609,7 @@ class PdfReportService {
                 children: [
                   pw.Text('Doc Ref: ENCOUNTER-${patient.patientId}-$visitDate', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
                   pw.Text('Generated: ${timeFormatter.format(DateTime.now())}', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600)),
-                  pw.Text('Nepal Gyno Health Outreach Network — Attested Clinical Record',
+                  pw.Text('${sanitizeText(organizationName)} — Attested Clinical Record',
                       style: pw.TextStyle(fontSize: 7.5, color: secondary)),
                 ],
               ),
@@ -1658,7 +1659,7 @@ class PdfReportService {
     PatientModel? patient,
     CampModel? camp,
     ClinicalVisitModel? visit,
-    String organizationName = 'Nepal Gyno Health Outreach Network',
+    String organizationName = AppConstants.defaultOrganizationName,
     List<LookupItemModel>? diagnoses,
     List<LookupItemModel>? medications,
     List<LookupItemModel>? referralHospitals,
