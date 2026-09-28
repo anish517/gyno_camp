@@ -18,16 +18,12 @@ class LoginView extends ConsumerStatefulWidget {
 class _LoginViewState extends ConsumerState<LoginView> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _emailFocusNode = FocusNode();
-  final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _emailFocusNode.dispose();
-    _passwordFocusNode.dispose();
     super.dispose();
   }
 
@@ -47,8 +43,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
-        // Re-focus email field
-        _emailFocusNode.requestFocus();
       }
       return;
     }
@@ -63,8 +57,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
-        // Re-focus password field
-        _passwordFocusNode.requestFocus();
       }
       return;
     }
@@ -76,23 +68,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
       deviceId: deviceId,
     );
 
-    if (!mounted) return;
-
-    if (!success) {
-      // Login failed: explicitly unfocus first to cleanly reset Flutter Web's focus tree,
-      // then requestFocus in the next frame so the browser DOM creates a fresh text connection.
-      _passwordFocusNode.unfocus();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _passwordFocusNode.requestFocus();
-          _passwordController.selection = TextSelection(
-            baseOffset: 0,
-            extentOffset: _passwordController.text.length,
-          );
-        }
-      });
-      return;
-    }
+    if (!mounted || !success) return;
 
     final user = ref.read(authStateProvider).currentUser;
     if (user == null) return;
@@ -188,10 +164,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
             ),
           );
           staffNameController.dispose();
-          if (mounted) {
-            _passwordFocusNode.unfocus();
-            _emailFocusNode.unfocus();
-          }
           return;
         } else if (currentDeviceState.isPendingApproval) {
           await showDialog(
@@ -239,10 +211,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
               ],
             ),
           );
-          if (mounted) {
-            _passwordFocusNode.unfocus();
-            _emailFocusNode.unfocus();
-          }
           return;
         } else if (currentDeviceState.isRevoked) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -727,196 +695,171 @@ class _LoginViewState extends ConsumerState<LoginView> {
           color: Colors.white,
           child: Padding(
             padding: const EdgeInsets.all(20.0),
-            child: AutofillGroup(
-              key: const ValueKey('login_autofill_group'),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Card Header with Wrap to eliminate horizontal overflow on narrow screens
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 10,
-                    runSpacing: 8,
-                    children: [
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Staff Sign-In',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
-                              letterSpacing: -0.2,
-                            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Card Header with Wrap to eliminate horizontal overflow on narrow screens
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Staff Sign-In',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1E293B),
+                            letterSpacing: -0.2,
                           ),
-                          SizedBox(height: 2),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'अधिकृत कर्मचारी लगइन',
+                          style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, size: 12, color: AppTheme.primaryTeal),
+                          SizedBox(width: 4),
                           Text(
-                            'अधिकृत कर्मचारी लगइन',
-                            style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                            'Auto-Detect Role',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryTeal,
+                            ),
                           ),
                         ],
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryTeal.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.auto_awesome_rounded, size: 12, color: AppTheme.primaryTeal),
-                            SizedBox(width: 4),
-                            Text(
-                              'Auto-Detect Role',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryTeal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Sign in with your staff account. The system will automatically direct you to your designated console.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.35),
-                  ),
-                  const SizedBox(height: 16),
-
-                  const SizedBox(height: 18),
-
-                  // Email / Username Field (0th TextField)
-                  const Text(
-                    'Staff Email / Username',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                  ),
-                  const SizedBox(height: 5),
-                  TextField(
-                    key: const ValueKey('login_email_field'),
-                    controller: _emailController,
-                    focusNode: _emailFocusNode,
-                    autofillHints: const [AutofillHints.username, AutofillHints.email],
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    onTap: () {
-                      if (!_emailFocusNode.hasFocus) {
-                        _emailFocusNode.requestFocus();
-                      }
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'Enter registered staff email or phone',
-                      hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
-                      prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18, color: Color(0xFF64748B)),
-                      suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _emailController,
-                        builder: (context, value, _) {
-                          if (value.text.isEmpty) return const SizedBox.shrink();
-                          return IconButton(
-                            icon: const Icon(Icons.clear_rounded, size: 16, color: Color(0xFF94A3B8)),
-                            onPressed: () => _emailController.clear(),
-                          );
-                        },
-                      ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
-                    onSubmitted: (_) {
-                      _passwordFocusNode.requestFocus();
-                    },
-                  ),
-                  const SizedBox(height: 14),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Sign in with your staff account. The system will automatically direct you to your designated console.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.35),
+                ),
+                const SizedBox(height: 16),
 
-                  // Password / PIN Field (1st TextField)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Password / Security PIN',
-                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'PIN or Password',
-                        style: TextStyle(fontSize: 11, color: Colors.teal.shade700, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-                  TextField(
-                    key: const ValueKey('login_password_field'),
-                    controller: _passwordController,
-                    focusNode: _passwordFocusNode,
-                    autofillHints: const [AutofillHints.password],
-                    obscureText: _obscurePassword,
-                    maxLines: 1,
-                    textInputAction: TextInputAction.done,
-                    onTap: () {
-                      // Ensure Flutter Web re-connects the DOM input element if desynced
-                      if (!_passwordFocusNode.hasFocus) {
-                        _passwordFocusNode.requestFocus();
-                      }
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'Enter account password or 4-digit PIN',
-                      hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
-                      prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: Color(0xFF64748B)),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                          size: 18,
-                          color: const Color(0xFF64748B),
-                        ),
-                        onPressed: () {
-                          setState(() => _obscurePassword = !_obscurePassword);
-                          _passwordController.selection = TextSelection.fromPosition(
-                            TextPosition(offset: _passwordController.text.length),
-                          );
-                        },
-                      ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                    onSubmitted: (_) => _handleLogin(deviceId),
-                  ),
-                  const SizedBox(height: 20),
+                const SizedBox(height: 18),
 
-                  // Submit Action Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryTeal,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        elevation: 1,
-                        shadowColor: AppTheme.primaryTeal.withValues(alpha: 0.3),
-                      ),
-                      icon: authState.isLoading
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : const Icon(Icons.login_rounded, size: 18),
-                      label: Text(
-                        authState.isLoading ? 'Authenticating Session...' : 'Sign In to GynoCamp',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, letterSpacing: 0.2),
-                      ),
-                      onPressed: authState.isLoading ? null : () => _handleLogin(deviceId),
+                // Email / Username Field (0th TextField)
+                const Text(
+                  'Staff Email / Username',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                ),
+                const SizedBox(height: 5),
+                TextField(
+                  key: const ValueKey('login_email_field'),
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    hintText: 'Enter registered staff email or phone',
+                    hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                    prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18, color: Color(0xFF64748B)),
+                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _emailController,
+                      builder: (context, value, _) {
+                        if (value.text.isEmpty) return const SizedBox.shrink();
+                        return IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 16, color: Color(0xFF94A3B8)),
+                          onPressed: () => _emailController.clear(),
+                        );
+                      },
                     ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 14),
+
+                // Password / PIN Field (1st TextField)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Password / Security PIN',
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'PIN or Password',
+                      style: TextStyle(fontSize: 11, color: Colors.teal.shade700, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                TextField(
+                  key: const ValueKey('login_password_field'),
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  enableSuggestions: false,
+                  autocorrect: false,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    hintText: 'Enter account password or 4-digit PIN',
+                    hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: Color(0xFF64748B)),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        size: 18,
+                        color: const Color(0xFF64748B),
+                      ),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  onSubmitted: (_) => _handleLogin(deviceId),
+                ),
+                const SizedBox(height: 20),
+
+                // Submit Action Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryTeal,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 1,
+                      shadowColor: AppTheme.primaryTeal.withValues(alpha: 0.3),
+                    ),
+                    icon: authState.isLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Icon(Icons.login_rounded, size: 18),
+                    label: Text(
+                      authState.isLoading ? 'Authenticating Session...' : 'Sign In to GynoCamp',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, letterSpacing: 0.2),
+                    ),
+                    onPressed: authState.isLoading ? null : () => _handleLogin(deviceId),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
