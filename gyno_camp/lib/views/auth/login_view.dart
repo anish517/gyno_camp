@@ -18,23 +18,29 @@ class LoginView extends ConsumerStatefulWidget {
 class _LoginViewState extends ConsumerState<LoginView> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
 
   @override
   void initState() {
     super.initState();
+    // Only clear the error message on input change — do NOT call setState().
+    // The widget already rebuilds reactively via ref.watch(authStateProvider)
+    // in build(). Calling setState() here causes an extra rebuild that steals
+    // focus from the active TextField, producing the "can't type" glitch.
     _emailController.addListener(_onFieldChanged);
     _passwordController.addListener(_onFieldChanged);
   }
 
   void _onFieldChanged() {
     if (!mounted) return;
-    // Clear stale server/auth errors immediately when user modifies input
+    // Clear stale server/auth errors when user modifies input
     if (ref.read(authStateProvider).errorMessage != null) {
       ref.read(authStateProvider.notifier).clearError();
     }
-    setState(() {});
+    // Do NOT call setState() here — it triggers unnecessary rebuilds that
+    // steal keyboard focus from the active field mid-typing.
   }
 
   @override
@@ -43,6 +49,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
     _passwordController.removeListener(_onFieldChanged);
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
     super.dispose();
   }
@@ -63,6 +70,8 @@ class _LoginViewState extends ConsumerState<LoginView> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
+        // Re-focus email field
+        _emailFocusNode.requestFocus();
       }
       return;
     }
@@ -77,6 +86,8 @@ class _LoginViewState extends ConsumerState<LoginView> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
+        // Re-focus password field
+        _passwordFocusNode.requestFocus();
       }
       return;
     }
@@ -88,7 +99,18 @@ class _LoginViewState extends ConsumerState<LoginView> {
       deviceId: deviceId,
     );
 
-    if (!success || !mounted) return;
+    if (!mounted) return;
+
+    if (!success) {
+      // Login failed: restore focus to password field in the next frame
+      // so the user can immediately retype without having to click.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _passwordFocusNode.requestFocus();
+        }
+      });
+      return;
+    }
 
     final user = ref.read(authStateProvider).currentUser;
     if (user == null) return;
@@ -792,8 +814,9 @@ class _LoginViewState extends ConsumerState<LoginView> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
+                  focusNode: _emailFocusNode,
                   onSubmitted: (_) {
-                    FocusScope.of(context).requestFocus(_passwordFocusNode);
+                    _passwordFocusNode.requestFocus();
                   },
                 ),
                 const SizedBox(height: 14),
