@@ -650,39 +650,35 @@ class _LoginViewState extends ConsumerState<LoginView> {
       key: const ValueKey('credential_card_column'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Error Message Banner (Always at index 0 of Column, stable layout structure)
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: authState.errorMessage != null
-              ? Container(
-                  key: const ValueKey('login_error_banner_box'),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.dangerRose.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.4)),
+        // Error Message Banner (if any)
+        if (authState.errorMessage != null)
+          Container(
+            key: const ValueKey('login_error_banner_box'),
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.dangerRose.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.error_outline_rounded, color: AppTheme.dangerRose, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    authState.errorMessage!,
+                    style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, height: 1.3),
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.error_outline_rounded, color: AppTheme.dangerRose, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          authState.errorMessage!,
-                          style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, height: 1.3),
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () => ref.read(authStateProvider.notifier).clearError(),
-                        child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.dangerRose),
-                      ),
-                    ],
-                  ),
-                )
-              : const SizedBox.shrink(key: ValueKey('login_no_error_placeholder')),
-        ),
+                ),
+                InkWell(
+                  onTap: () => ref.read(authStateProvider.notifier).clearError(),
+                  child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.dangerRose),
+                ),
+              ],
+            ),
+          ),
 
         Card(
           key: const ValueKey('login_credential_card'),
@@ -772,16 +768,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
                     hintText: 'Enter registered staff email or phone',
                     hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
                     prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18, color: Color(0xFF64748B)),
-                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _emailController,
-                      builder: (context, value, _) {
-                        if (value.text.isEmpty) return const SizedBox.shrink();
-                        return IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 16, color: Color(0xFF94A3B8)),
-                          onPressed: () => _emailController.clear(),
-                        );
-                      },
-                    ),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
