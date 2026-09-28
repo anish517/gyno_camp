@@ -6,6 +6,7 @@ import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
 import '../core/services/central_api_service.dart';
 import '../core/services/http_central_api_service.dart';
+import '../core/services/session_service.dart';
 import '../models/audit_log_model.dart';
 import '../models/camp_model.dart';
 import '../models/clinical_visit_model.dart';
@@ -342,6 +343,23 @@ class SyncRepository implements ISyncRepository {
         }
 
         final pullSyncIso = DateTime.now().toIso8601String();
+
+        // Synchronize organization name from pulled users/camps to local storage
+        for (final user in response.users) {
+          if (user.tenantName.isNotEmpty && !AppConstants.isLegacyDefaultOrganization(user.tenantName)) {
+            await SessionService.current?.saveOrganizationName(user.tenantName);
+            await txn.insert(
+              DatabaseTables.tableMetadata,
+              {
+                'key': 'organization_name',
+                'value': user.tenantName,
+                'updated_at': pullSyncIso,
+              },
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+            break;
+          }
+        }
 
         // Upsert patients from central cloud (R1 fix: guard local unsynced edits, skip deleted camps)
         for (final patient in response.patients) {
