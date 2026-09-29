@@ -340,6 +340,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                       ),
                     ] else ...[
                       // Doctor Selection Options
+                      // ignore: deprecated_member_use
                       RadioListTile<DoctorSelectionMode>(
                         dense: true,
                         activeColor: const Color(0xFF0F766E),
@@ -377,8 +378,8 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                           ),
                         ),
                       ],
-
                       if (doctors.length > 1) ...[
+                        // ignore: deprecated_member_use
                         RadioListTile<DoctorSelectionMode>(
                           dense: true,
                           activeColor: const Color(0xFF0F766E),
@@ -390,7 +391,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                           onChanged: (val) => setState(() => _doctorMode = val!),
                         ),
                       ],
-
+                      // ignore: deprecated_member_use
                       RadioListTile<DoctorSelectionMode>(
                         dense: true,
                         activeColor: const Color(0xFF0F766E),
@@ -402,6 +403,8 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                         onChanged: (val) => setState(() => _doctorMode = val!),
                       ),
                     ],
+
+
                   ],
                 ),
               ),

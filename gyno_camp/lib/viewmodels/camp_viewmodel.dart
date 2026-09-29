@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/session_service.dart';
 import '../models/camp_model.dart';
+import '../models/user_model.dart';
 import '../repositories/camp_repository.dart';
+import 'auth_viewmodel.dart';
 
 class CampState {
   final List<CampModel> camps;
@@ -337,4 +339,52 @@ final campRepositoryProvider = Provider<ICampRepository>((ref) {
 final campStateProvider = StateNotifierProvider<CampViewModel, CampState>((ref) {
   final repository = ref.watch(campRepositoryProvider);
   return CampViewModel(repository);
+});
+
+/// User-scoped active camp provider.
+///
+/// • SuperAdmin / DataAnalyst → same as [campStateProvider].activeCamp (all camps visible).
+/// • DataTaker / staff → only open camps the user is explicitly assigned to
+///   (via camp.assignedStaffIds OR user.assignedCampIds). Falls back to the
+///   most recently created assigned open camp when no session-saved ID matches.
+///
+/// Using this provider instead of `campState.activeCamp` in Data-Taker views
+/// prevents the "Access Restricted" banner that appeared when a globally
+/// newer camp was auto-selected as the active one despite the staff not being
+/// assigned to it.
+final userActiveCampProvider = Provider<CampModel?>((ref) {
+  final campState = ref.watch(campStateProvider);
+  final user = ref.watch(authStateProvider).currentUser;
+
+  // No camps loaded yet
+  if (!campState.hasActiveCamp && campState.camps.isEmpty) return null;
+
+  // Privileged roles see the global active camp without restriction
+  final isPrivileged = user == null ||
+      user.isSuperAdmin ||
+      user.role == UserRole.dataAnalyst;
+
+  if (isPrivileged) return campState.activeCamp;
+
+  // Data Taker: filter to open camps they are assigned to
+  final assignedOpenCamps = campState.camps
+      .where((c) =>
+          c.status == CampStatus.open &&
+          (c.isStaffAssigned(user.id) ||
+              user.assignedCampIds.contains(c.id)))
+      .toList();
+
+  if (assignedOpenCamps.isEmpty) return null;
+
+  // Honour session-saved camp ID if it is still in the assigned list
+  final savedId = SessionService.current?.getSavedActiveCampId();
+  if (savedId != null) {
+    try {
+      return assignedOpenCamps.firstWhere((c) => c.id == savedId);
+    } catch (_) {}
+  }
+
+  // Fallback: most recently created assigned open camp (stable — createdAt never changes)
+  return assignedOpenCamps.reduce((a, b) =>
+      b.createdAt.toUtc().isAfter(a.createdAt.toUtc()) ? b : a);
 });

@@ -2101,16 +2101,18 @@ class HomeGatewayView extends ConsumerWidget {
   // ==========================================
   Widget _buildDataTakerDashboard(BuildContext context, WidgetRef ref) {
     final campState = ref.watch(campStateProvider);
+    // User-scoped camp: for DataTakers this is only the camp(s) they are
+    // assigned to; for privileged roles it falls through to the global active.
+    final userCamp = ref.watch(userActiveCampProvider);
     final syncState = ref.watch(syncStateProvider);
     final patientState = ref.watch(patientListProvider);
     final user = ref.watch(authStateProvider).currentUser;
 
-    final isSuperAdmin = user?.role == UserRole.superAdmin;
-    final isCampAssigned = campState.hasActiveCamp &&
-        (isSuperAdmin ||
-            (user != null &&
-                (campState.activeCamp!.isStaffAssigned(user.id) ||
-                    user.assignedCampIds.contains(campState.activeCamp!.id))));
+    // isCampAssigned is true when the user has an assigned open camp.
+    // userActiveCampProvider already handles the assignment filtering, so we
+    // only need to check that it returned a non-null result.
+    final isCampAssigned = userCamp != null;
+
 
 
     final recentPatients = patientState.patients.take(4).toList();
@@ -2193,14 +2195,14 @@ class HomeGatewayView extends ConsumerWidget {
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                  color: campState.hasActiveCamp ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
+                                  color: isCampAssigned ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
                                   shape: BoxShape.circle,
                                 ),
                               ),
                               const SizedBox(width: 6),
                               Flexible(
                                 child: Text(
-                                  campState.hasActiveCamp ? 'LIVE FIELD STATION ACTIVE' : 'NO ACTIVE CAMP OPEN',
+                                  isCampAssigned ? 'LIVE FIELD STATION ACTIVE' : 'NO ACTIVE CAMP OPEN',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 11,
@@ -2214,7 +2216,7 @@ class HomeGatewayView extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        if (campState.hasActiveCamp)
+                        if (isCampAssigned)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
@@ -2223,7 +2225,7 @@ class HomeGatewayView extends ConsumerWidget {
                               border: Border.all(color: Colors.white30),
                             ),
                             child: Text(
-                              campState.activeCamp!.campCode,
+                              userCamp!.campCode,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -2235,17 +2237,17 @@ class HomeGatewayView extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      campState.activeCamp?.name ?? 'No Active Field Camp In Session',
+                      userCamp?.name ?? 'No Active Camp Assigned',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    if (!campState.hasActiveCamp) ...[
+                    if (!isCampAssigned) ...[
                       const SizedBox(height: 6),
                       const Text(
-                        'There is currently no open clinical camp scheduled for patient intake. Please contact your Camp Supervisor or Super Admin to activate a camp session.',
+                        'You are not assigned to any currently open camp. Please contact your Camp Supervisor to assign you to an active camp session.',
                         style: TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                     ],
@@ -2264,7 +2266,7 @@ class HomeGatewayView extends ConsumerWidget {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'Access Restricted: Your staff account is not assigned to this field camp roster (${campState.activeCamp!.campCode}). Contact your Camp Lead to update roster assignment before recording data.',
+                                'Access Restricted: Your staff account is not assigned to any currently open camp. Contact your Camp Lead to update your roster assignment before recording data.',
                                 style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ),
@@ -2272,10 +2274,10 @@ class HomeGatewayView extends ConsumerWidget {
                         ),
                       ),
                     ],
-                    if (campState.hasActiveCamp) ...[
+                    if (isCampAssigned) ...[
                       const SizedBox(height: 4),
                       Text(
-                        'Location: ${campState.activeCamp!.venue}, Ward ${campState.activeCamp!.ward}, ${campState.activeCamp!.district}',
+                        'Location: ${userCamp!.venue}, Ward ${userCamp.ward}, ${userCamp.district}',
                         style: const TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                       const SizedBox(height: 16),
@@ -2487,17 +2489,10 @@ class HomeGatewayView extends ConsumerWidget {
                     stationBadge: 'Station 1: Intake',
                     actionPrompt: 'New Patient Intake',
                     onTap: () {
-                      if (!campState.hasActiveCamp) {
+                      if (userCamp == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please open or select an active camp first!')),
-                        );
-                        return;
-                      }
-                      if (!isCampAssigned) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Access Denied: Camp ${campState.activeCamp!.campCode} is not in your assigned camp list.'),
-                            backgroundColor: Colors.redAccent,
+                          const SnackBar(
+                            content: Text('No assigned open camp found. Please ask your Camp Lead to assign you to an active camp.'),
                           ),
                         );
                         return;
@@ -2517,17 +2512,10 @@ class HomeGatewayView extends ConsumerWidget {
                     stationBadge: 'AI OCR Engine',
                     actionPrompt: 'Launch Form Scanner',
                     onTap: () {
-                      if (!campState.hasActiveCamp) {
+                      if (userCamp == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please open or select an active camp first!')),
-                        );
-                        return;
-                      }
-                      if (!isCampAssigned) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Access Denied: Camp ${campState.activeCamp!.campCode} is not in your assigned camp list.'),
-                            backgroundColor: Colors.redAccent,
+                          const SnackBar(
+                            content: Text('No assigned open camp found. Please ask your Camp Lead to assign you to an active camp.'),
                           ),
                         );
                         return;

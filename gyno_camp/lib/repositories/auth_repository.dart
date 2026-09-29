@@ -258,6 +258,37 @@ class AuthRepository implements IAuthRepository {
       whereArgs: [lower, trimmed],
       limit: 1,
     );
+
+    // ── Fix 1A: Always try to refresh from central on login ────────────────
+    // Even if the user exists locally, their assignedCampIds may be stale
+    // (e.g. admin assigned them to a new camp from a different device). We
+    // attempt a background upsert here, which is timestamp-safe: local
+    // credentials always win if the local record is newer.
+    if (maps.isNotEmpty &&
+        enableCentralSync &&
+        !HttpCentralApiService.isServerCooldownActive) {
+      try {
+        final centralUsers = await HttpCentralApiService().fetchCentralUsers();
+        for (final u in centralUsers) {
+          await _upsertUserPreservingCredentials(db, u);
+        }
+        // Re-read after potential update so we return the freshest record
+        final refreshed = await db.query(
+          DatabaseTables.tableUsers,
+          where: isSuperAdminAlias
+              ? "LOWER(email) = ? OR phone = ? OR LOWER(email) = 'admin@gynocamp.org' OR id = 'usr-superadmin-01'"
+              : 'LOWER(email) = ? OR phone = ?',
+          whereArgs: [lower, trimmed],
+          limit: 1,
+        );
+        if (refreshed.isNotEmpty) return UserModel.fromMap(refreshed.first);
+      } catch (e) {
+        debugPrint('[AuthRepo] Login central refresh error (non-fatal): $e');
+      }
+      // Fallback: return the originally found local record
+      return UserModel.fromMap(maps.first);
+    }
+
     if (maps.isNotEmpty) return UserModel.fromMap(maps.first);
 
     // Try central cloud for newly registered staff from other devices

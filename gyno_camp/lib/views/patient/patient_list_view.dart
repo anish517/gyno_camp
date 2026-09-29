@@ -52,7 +52,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final targetCampId = widget.campId ?? ref.read(campStateProvider).activeCamp?.id;
+      final targetCampId = widget.campId ?? ref.read(userActiveCampProvider)?.id;
       if (widget.initialQuery != null &&
           widget.initialQuery!.trim().isNotEmpty) {
         _searchController.text = widget.initialQuery!.trim();
@@ -79,7 +79,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     final campState = ref.watch(campStateProvider);
     final patientState = ref.watch(patientListProvider);
     final vm = ref.read(patientListProvider.notifier);
-    final activeCamp = campState.activeCamp;
+    // Use user-scoped camp so staff see their assigned camp, not the global one
+    final activeCamp = ref.watch(userActiveCampProvider);
     final effectiveCamp = widget.campId != null
         ? campState.camps.cast<CampModel?>().firstWhere(
               (c) => c?.id == widget.campId,
@@ -90,16 +91,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
     // Only auto-switch patient roll on activeCamp change if not explicitly bound to a campId
     if (widget.campId == null) {
-      ref.listen<CampState>(campStateProvider, (previous, next) {
-        final active = next.activeCamp;
-        if (active != null &&
-            (previous?.activeCamp?.id != active.id || !patientState.hasLoaded)) {
+      ref.listen<CampModel?>(userActiveCampProvider, (previous, next) {
+        if (next != null &&
+            (previous?.id != next.id || !patientState.hasLoaded)) {
           if (_searchController.text.trim().isNotEmpty) {
             ref
                 .read(patientListProvider.notifier)
-                .search(active.id, _searchController.text.trim());
+                .search(next.id, _searchController.text.trim());
           } else {
-            ref.read(patientListProvider.notifier).loadPatients(active.id);
+            ref.read(patientListProvider.notifier).loadPatients(next.id);
           }
         }
       });

@@ -8,9 +8,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/constants/clinical_constants.dart';
 import '../../core/constants/nepal_geodata.dart';
 import '../../core/providers/organization_provider.dart';
-import '../../core/services/file_download_helper.dart';
 import '../../core/services/nepali_localization_service.dart';
-import '../../core/services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../viewmodels/auth_viewmodel.dart';
@@ -23,6 +21,7 @@ import '../../viewmodels/patient_list_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
 import 'clinical_assessment_view.dart';
 import 'patient_follow_up_slip_modal.dart';
+import '../shared/blank_form_download_dialog.dart';
 
 class PatientRegistrationView extends ConsumerStatefulWidget {
   final PatientModel? patientToEdit;
@@ -109,7 +108,7 @@ class _PatientRegistrationViewState
     _contactPersonController.clear();
     _contactMobileController.clear();
 
-    final camp = ref.read(campStateProvider).activeCamp;
+    final camp = ref.read(userActiveCampProvider);
     final province = (camp?.province.isNotEmpty == true) ? camp!.province : 'Bagmati';
     final district = camp?.district ?? '';
     final municipality = camp?.municipality ?? '';
@@ -177,7 +176,7 @@ class _PatientRegistrationViewState
   }
 
   void _triggerLiveDuplicateCheck() {
-    final camp = ref.read(campStateProvider).activeCamp;
+    final camp = ref.read(userActiveCampProvider);
     if (camp != null) {
       ref
           .read(patientRegistrationProvider.notifier)
@@ -218,57 +217,25 @@ class _PatientRegistrationViewState
   }
 
   Future<void> _printBlankRegistrationForm(CampModel? camp) async {
-    try {
+    if (camp == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Generating blank block-letter registration form...'),
-          duration: Duration(seconds: 2),
+          content: Text('No active camp selected. Please activate a camp from the dashboard first.'),
+          backgroundColor: Colors.orange,
         ),
       );
-      final effectiveOrg = ref.read(effectiveOrganizationProvider);
-      final orgName = (camp?.organizationName.isNotEmpty == true &&
-              !AppConstants.isLegacyDefaultOrganization(camp!.organizationName))
-          ? camp.organizationName
-          : effectiveOrg;
-      final masterState = ref.read(masterLookupProvider);
-      final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
-        camp: camp,
-        organizationName: orgName,
-        diagnoses: masterState.activeDiagnoses,
-        medications: masterState.activeMedicines,
-        referralHospitals: masterState.activeReferralHospitals,
-        visitReasons: masterState.activeVisitReasons,
-        chiefComplaints: masterState.activeChiefComplaints,
-      );
-      final campCode = camp?.campCode ?? 'OUTREACH';
-      await FileDownloadHelper.saveAndDownloadFile(
-        bytes: bytes,
-        filename: 'Blank_Registration_Form_$campCode.pdf',
-        mimeType: 'application/pdf',
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Blank registration form downloaded: Blank_Registration_Form_$campCode.pdf',
-            ),
-            backgroundColor: AppTheme.successGreen,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error generating blank form: $e'),
-            backgroundColor: AppTheme.dangerRose,
-          ),
-        );
-      }
+      return;
     }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => BlankFormDownloadDialog(camp: camp),
+    );
   }
+
+
 
   /// Interactive block-grid input widget.
   /// When [controller] is provided, tapping the grid focuses the hidden TextField
@@ -453,7 +420,7 @@ class _PatientRegistrationViewState
   }
 
   void _fillSamplePatient() {
-    final camp = ref.read(campStateProvider).activeCamp;
+    final camp = ref.read(userActiveCampProvider);
     final province = (camp?.province.isNotEmpty == true) ? camp!.province : 'Bagmati';
     final ward = (camp?.ward.isNotEmpty == true) ? camp!.ward : '03';
     final district = (camp?.district.isNotEmpty == true)
@@ -517,7 +484,7 @@ class _PatientRegistrationViewState
     final state = ref.watch(patientRegistrationProvider);
     final vm = ref.read(patientRegistrationProvider.notifier);
     final campState = ref.watch(campStateProvider);
-    final camp = campState.activeCamp;
+    final camp = ref.watch(userActiveCampProvider);
     final user = ref.watch(authStateProvider).currentUser;
     final device = ref.watch(deviceSecurityProvider).device;
 
