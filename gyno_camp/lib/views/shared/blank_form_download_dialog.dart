@@ -77,32 +77,24 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
       final campCode = widget.camp?.campCode ?? 'CAMP';
 
       if (_selectedFormType == PrintableFormType.yellowRegistrationForm) {
-        if (_doctorMode == DoctorSelectionMode.allDoctorsBatch && doctors.length > 1) {
-          // Batch download: generate combined PDF with forms for each doctor
+        if (_doctorMode == DoctorSelectionMode.allDoctorsBatch && doctors.isNotEmpty) {
+          // Batch download: generate combined multi-page PDF with 2 pages for each doctor
           messenger.showSnackBar(
             SnackBar(
-              content: Text('Generating batch forms for ${doctors.length} doctors...'),
+              content: Text('Generating batch forms for ${doctors.length} doctors (${doctors.length * 2} pages)...'),
               duration: const Duration(seconds: 2),
             ),
           );
-          // For batch, we generate each doctor's form and combine them (or download multi-doctor forms)
-          // PdfReportService supports doctor parameter per form
-          final docBytesList = <Uint8List>[];
-          for (final doc in doctors) {
-            final b = await pdfService.generatePatientRegistrationFormPdf(
-              camp: widget.camp,
-              doctor: doc,
-              organizationName: orgName,
-              diagnoses: masterState.activeDiagnoses,
-              medications: masterState.activeMedicines,
-              referralHospitals: masterState.activeReferralHospitals,
-              visitReasons: masterState.activeVisitReasons,
-              chiefComplaints: masterState.activeChiefComplaints,
-            );
-            docBytesList.add(b);
-          }
-          // The first one or single download
-          pdfBytes = docBytesList.first;
+          pdfBytes = await pdfService.generateBatchBlankYellowFormsPdf(
+            doctors: doctors,
+            camp: widget.camp,
+            organizationName: orgName,
+            diagnoses: masterState.activeDiagnoses,
+            medications: masterState.activeMedicines,
+            referralHospitals: masterState.activeReferralHospitals,
+            visitReasons: masterState.activeVisitReasons,
+            chiefComplaints: masterState.activeChiefComplaints,
+          );
           filename = 'Blank_YellowForms_${campCode}_AllDoctors.pdf';
         } else {
           final docToUse = _doctorMode == DoctorSelectionMode.specificDoctor ? _selectedDoctor : null;
@@ -121,14 +113,30 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
         }
       } else {
         // Follow-Up Form
-        final docToUse = _doctorMode == DoctorSelectionMode.specificDoctor ? _selectedDoctor : null;
-        pdfBytes = await pdfService.generateBlankFollowUpSlipPdf(
-          camp: widget.camp,
-          doctor: docToUse,
-          organizationName: orgName,
-        );
-        final docSlug = docToUse != null ? '_${docToUse.name.replaceAll(' ', '_')}' : '_Blank';
-        filename = 'Blank_FollowUpSlip_${campCode}_$docSlug.pdf';
+        if (_doctorMode == DoctorSelectionMode.allDoctorsBatch && doctors.isNotEmpty) {
+          // Batch download: generate combined multi-page PDF with 1 page for each doctor
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Generating batch follow-up sheets for ${doctors.length} doctors (${doctors.length} pages)...'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          pdfBytes = await pdfService.generateBatchBlankFollowUpSlipsPdf(
+            doctors: doctors,
+            camp: widget.camp,
+            organizationName: orgName,
+          );
+          filename = 'Blank_FollowUpSlips_${campCode}_AllDoctors.pdf';
+        } else {
+          final docToUse = _doctorMode == DoctorSelectionMode.specificDoctor ? _selectedDoctor : null;
+          pdfBytes = await pdfService.generateBlankFollowUpSlipPdf(
+            camp: widget.camp,
+            doctor: docToUse,
+            organizationName: orgName,
+          );
+          final docSlug = docToUse != null ? '_${docToUse.name.replaceAll(' ', '_')}' : '_Blank';
+          filename = 'Blank_FollowUpSlip_${campCode}_$docSlug.pdf';
+        }
       }
 
       await FileDownloadHelper.saveAndDownloadFile(

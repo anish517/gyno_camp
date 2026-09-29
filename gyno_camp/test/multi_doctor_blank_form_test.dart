@@ -184,6 +184,93 @@ void main() {
     expect(textContent.contains('Sita'), true);
     expect(textContent.contains('12345'), true);
   });
+
+  test('generateBatchBlankYellowFormsPdf generates 6 pages for 3 doctors with all doctor details', () async {
+    final doctors = [
+      const DoctorProfile(name: 'Anish Tiwari', nmcNumber: '11111'),
+      const DoctorProfile(name: 'Sagar Poudel', nmcNumber: '22222'),
+      const DoctorProfile(name: 'Ramesh Karki', nmcNumber: '33333'),
+    ];
+
+    final camp = CampModel(
+      id: 'camp-11',
+      campCode: '11',
+      name: 'ddd',
+      province: 'Bagmati',
+      district: 'Kathmandu',
+      municipality: 'Budhanilkantha',
+      ward: '01',
+      venue: 'Health Post',
+      startDate: DateTime(2026, 9, 25),
+      endDate: DateTime(2026, 9, 29),
+      status: CampStatus.open,
+      doctorName: 'Dr. Anish Tiwari, Dr. Sagar Poudel, Dr. Ramesh Karki',
+      doctorNames: ['Dr. Anish Tiwari (NMC: 11111)', 'Dr. Sagar Poudel (NMC: 22222)', 'Dr. Ramesh Karki (NMC: 33333)'],
+      createdAt: DateTime(2026, 9, 25),
+    );
+
+    final pdfService = PdfReportService();
+    final bytes = await pdfService.generateBatchBlankYellowFormsPdf(
+      doctors: doctors,
+      camp: camp,
+      organizationName: 'Mission Hospital',
+    );
+
+    expect(bytes.isNotEmpty, true);
+    final raw = String.fromCharCodes(bytes);
+    final pageCount = RegExp(r'/Type\s*/Page[^s]').allMatches(raw).length;
+    expect(pageCount, 6); // 2 pages per doctor * 3 doctors = 6 pages
+
+    final text = _extractPdfText(bytes);
+    expect(text.contains('Anish'), true);
+    expect(text.contains('11111'), true);
+    expect(text.contains('Sagar'), true);
+    expect(text.contains('22222'), true);
+    expect(text.contains('Ramesh'), true);
+    expect(text.contains('33333'), true);
+  });
+
+  test('generateBatchBlankFollowUpSlipsPdf generates 3 pages for 3 doctors', () async {
+    final doctors = [
+      const DoctorProfile(name: 'Anish Tiwari', nmcNumber: '11111'),
+      const DoctorProfile(name: 'Sagar Poudel', nmcNumber: '22222'),
+      const DoctorProfile(name: 'Ramesh Karki', nmcNumber: '33333'),
+    ];
+
+    final camp = CampModel(
+      id: 'camp-11',
+      campCode: '11',
+      name: 'ddd',
+      province: 'Bagmati',
+      district: 'Kathmandu',
+      municipality: 'Budhanilkantha',
+      ward: '01',
+      venue: 'Health Post',
+      startDate: DateTime(2026, 9, 25),
+      endDate: DateTime(2026, 9, 29),
+      status: CampStatus.open,
+      doctorName: 'Dr. Anish Tiwari',
+      doctorNames: ['Dr. Anish Tiwari'],
+      createdAt: DateTime(2026, 9, 25),
+    );
+
+    final pdfService = PdfReportService();
+    final bytes = await pdfService.generateBatchBlankFollowUpSlipsPdf(
+      doctors: doctors,
+      camp: camp,
+      organizationName: 'Mission Hospital',
+    );
+
+    expect(bytes.isNotEmpty, true);
+    final raw = String.fromCharCodes(bytes);
+    final pageCount = RegExp(r'/Type\s*/Page[^s]').allMatches(raw).length;
+    expect(pageCount, 3); // 1 page per doctor * 3 doctors = 3 pages
+
+    final text = _extractPdfText(bytes);
+    expect(text.contains('Anish'), true);
+    expect(text.contains('Sagar'), true);
+    expect(text.contains('Ramesh'), true);
+  });
 }
 
 String _extractPdfText(List<int> bytes) {

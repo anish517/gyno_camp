@@ -1653,13 +1653,12 @@ class PdfReportService {
   // ─────────────────────────────────────────────────────────────────────────
   // BLANK FOLLOW-UP ENCOUNTER SLIP PDF (Printable 1-page re-check form)
   // ─────────────────────────────────────────────────────────────────────────
-  Future<Uint8List> generateBlankFollowUpSlipPdf({
+  void _addBlankFollowUpSlipPage(
+    pw.Document pdf, {
     CampModel? camp,
     DoctorProfile? doctor,
     String organizationName = AppConstants.defaultOrganizationName,
-  }) async {
-    final theme = await getPdfTheme();
-    final pdf = pw.Document(theme: theme);
+  }) {
     final dateFormatter = DateFormat('yyyy-MM-dd');
 
     final secondary = PdfColor.fromHex('0D9488');
@@ -1904,7 +1903,39 @@ class PdfReportService {
         },
       ),
     );
+  }
 
+  Future<Uint8List> generateBlankFollowUpSlipPdf({
+    CampModel? camp,
+    DoctorProfile? doctor,
+    String organizationName = AppConstants.defaultOrganizationName,
+  }) async {
+    final theme = await getPdfTheme();
+    final pdf = pw.Document(theme: theme);
+    _addBlankFollowUpSlipPage(
+      pdf,
+      camp: camp,
+      doctor: doctor,
+      organizationName: organizationName,
+    );
+    return pdf.save();
+  }
+
+  Future<Uint8List> generateBatchBlankFollowUpSlipsPdf({
+    required List<DoctorProfile> doctors,
+    CampModel? camp,
+    String organizationName = AppConstants.defaultOrganizationName,
+  }) async {
+    final theme = await getPdfTheme();
+    final pdf = pw.Document(theme: theme);
+    for (final doc in doctors) {
+      _addBlankFollowUpSlipPage(
+        pdf,
+        camp: camp,
+        doctor: doc,
+        organizationName: organizationName,
+      );
+    }
     return pdf.save();
   }
 
@@ -1912,7 +1943,8 @@ class PdfReportService {
   // BLOCK-LETTER REGISTRATION FORM PDF (printable grid with squares per char)
   // Supports both pre-filled (patient != null) and blank physical forms (patient == null)
   // ─────────────────────────────────────────────────────────────────────────
-  Future<Uint8List> generatePatientRegistrationFormPdf({
+  Future<void> _addPatientRegistrationFormPages(
+    pw.Document pdf, {
     PatientModel? patient,
     CampModel? camp,
     ClinicalVisitModel? visit,
@@ -1924,8 +1956,6 @@ class PdfReportService {
     List<LookupItemModel>? visitReasons,
     List<LookupItemModel>? chiefComplaints,
   }) async {
-    final theme = await getPdfTheme();
-    final pdf = pw.Document(theme: theme);
     final dateFormatter = DateFormat('yyyy-MM-dd');
     final hasPatient = patient != null;
     final intakeDate = patient?.intakeDate ?? DateTime.now();
@@ -3001,7 +3031,63 @@ class PdfReportService {
         },
       ),
     );
+  }
 
+  Future<Uint8List> generatePatientRegistrationFormPdf({
+    PatientModel? patient,
+    CampModel? camp,
+    ClinicalVisitModel? visit,
+    DoctorProfile? doctor,
+    String organizationName = AppConstants.defaultOrganizationName,
+    List<LookupItemModel>? diagnoses,
+    List<LookupItemModel>? medications,
+    List<LookupItemModel>? referralHospitals,
+    List<LookupItemModel>? visitReasons,
+    List<LookupItemModel>? chiefComplaints,
+  }) async {
+    final theme = await getPdfTheme();
+    final pdf = pw.Document(theme: theme);
+    await _addPatientRegistrationFormPages(
+      pdf,
+      patient: patient,
+      camp: camp,
+      visit: visit,
+      doctor: doctor,
+      organizationName: organizationName,
+      diagnoses: diagnoses,
+      medications: medications,
+      referralHospitals: referralHospitals,
+      visitReasons: visitReasons,
+      chiefComplaints: chiefComplaints,
+    );
+    return pdf.save();
+  }
+
+  Future<Uint8List> generateBatchBlankYellowFormsPdf({
+    required List<DoctorProfile> doctors,
+    CampModel? camp,
+    String organizationName = AppConstants.defaultOrganizationName,
+    List<LookupItemModel>? diagnoses,
+    List<LookupItemModel>? medications,
+    List<LookupItemModel>? referralHospitals,
+    List<LookupItemModel>? visitReasons,
+    List<LookupItemModel>? chiefComplaints,
+  }) async {
+    final theme = await getPdfTheme();
+    final pdf = pw.Document(theme: theme);
+    for (final doc in doctors) {
+      await _addPatientRegistrationFormPages(
+        pdf,
+        camp: camp,
+        doctor: doc,
+        organizationName: organizationName,
+        diagnoses: diagnoses,
+        medications: medications,
+        referralHospitals: referralHospitals,
+        visitReasons: visitReasons,
+        chiefComplaints: chiefComplaints,
+      );
+    }
     return pdf.save();
   }
 }
