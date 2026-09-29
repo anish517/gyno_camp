@@ -1053,7 +1053,7 @@ class GynoCampSyncServer {
         if (campConditions.isNotEmpty) {
           campSql += ' WHERE ${campConditions.join(' AND ')}';
         }
-        campSql += ' ORDER BY updated_at DESC NULLS LAST, created_at DESC;';
+        campSql += ' ORDER BY created_at DESC, camp_code ASC;';
 
         final campRows = await _connection!.execute(
           Sql.named(campSql),

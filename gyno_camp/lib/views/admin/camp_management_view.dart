@@ -33,6 +33,7 @@ class CampManagementView extends ConsumerStatefulWidget {
 class _CampManagementViewState extends ConsumerState<CampManagementView> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _statusFilter = 'ALL';
+  String _sortOption = 'NEWEST';
   String _searchQuery = '';
   final _searchController = TextEditingController();
   bool _isNepaliCalendarMode = true;
@@ -253,7 +254,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       return true;
     }).toList();
 
-    // Priority Sort: OPEN camps pinned to top, followed by SCHEDULED, DRAFT, CLOSED, ARCHIVED.
+    // Deterministic Multi-Tier Sort:
+    // Tier 1: Camp Lifecycle Priority (OPEN -> SCHEDULED -> DRAFT -> CLOSED -> ARCHIVED)
     filteredCamps.sort((a, b) {
       int statusWeight(CampStatus s) {
         switch (s) {
@@ -274,9 +276,31 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       final wB = statusWeight(b.status);
       if (wA != wB) return wA.compareTo(wB);
 
-      final dateA = a.updatedAt ?? a.createdAt;
-      final dateB = b.updatedAt ?? b.createdAt;
-      return dateB.compareTo(dateA);
+      // Tier 2: Selected secondary sort criteria (never uses volatile background-sync timestamps)
+      int secondaryComp = 0;
+      switch (_sortOption) {
+        case 'START_DATE':
+          secondaryComp = b.startDate.compareTo(a.startDate);
+          break;
+        case 'CODE':
+          secondaryComp = a.campCode.toLowerCase().compareTo(b.campCode.toLowerCase());
+          break;
+        case 'INTAKES':
+          secondaryComp = b.totalPatientsRegistered.compareTo(a.totalPatientsRegistered);
+          break;
+        case 'NEWEST':
+        default:
+          // createdAt is immutable and never altered by background sync pulses
+          secondaryComp = b.createdAt.toUtc().compareTo(a.createdAt.toUtc());
+          break;
+      }
+      if (secondaryComp != 0) return secondaryComp;
+
+      // Tier 3: Absolute deterministic tiebreakers to prevent random UI shifting
+      final codeComp = a.campCode.toLowerCase().compareTo(b.campCode.toLowerCase());
+      if (codeComp != 0) return codeComp;
+
+      return a.id.compareTo(b.id);
     });
 
     final openCount = campState.camps.where((c) => c.status == CampStatus.open).length;
@@ -372,6 +396,74 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           _searchQuery = val;
                         });
                       },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    height: 42,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.borderLight),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _sortOption,
+                        icon: const Icon(Icons.sort_rounded, size: 18, color: AppTheme.primaryTeal),
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'NEWEST',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.access_time_rounded, size: 15, color: Color(0xFF64748B)),
+                                SizedBox(width: 6),
+                                Text('Newest Created'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'START_DATE',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.calendar_today_rounded, size: 15, color: Color(0xFF64748B)),
+                                SizedBox(width: 6),
+                                Text('Start Date'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'CODE',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.tag_rounded, size: 15, color: Color(0xFF64748B)),
+                                SizedBox(width: 6),
+                                Text('Camp Code (A-Z)'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'INTAKES',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.people_outline_rounded, size: 15, color: Color(0xFF64748B)),
+                                SizedBox(width: 6),
+                                Text('Most Intakes'),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _sortOption = val);
+                          }
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -610,6 +702,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     final statusColor = _getStatusColor(camp.status);
 
     return Container(
+      key: ValueKey('camp_card_${camp.id}'),
       margin: const EdgeInsets.only(bottom: 14.0),
       decoration: BoxDecoration(
         color: Colors.white,

@@ -129,7 +129,9 @@ class CampRepository implements ICampRepository {
           WHEN c.status = 'ARCHIVED' THEN 5
           ELSE 6
         END ASC,
-        COALESCE(c.updated_at, c.created_at) DESC
+        c.created_at DESC,
+        c.camp_code ASC,
+        c.id ASC
     ''';
     final maps = await db.rawQuery(sql, hasTenant ? [tenantId] : null);
 
@@ -268,7 +270,7 @@ class CampRepository implements ICampRepository {
              COALESCE((SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} p WHERE p.camp_id = c.id), 0) AS live_patient_count
       FROM ${DatabaseTables.tableCamps} c
       WHERE c.status = ?
-      ORDER BY c.updated_at DESC, c.created_at DESC
+      ORDER BY c.created_at DESC, c.camp_code ASC
       LIMIT 1
     ''', [AppConstants.campStatusOpen]);
     if (maps.isNotEmpty) {
