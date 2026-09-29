@@ -17,6 +17,7 @@ import '../../viewmodels/patient_list_viewmodel.dart';
 import '../patient/patient_registration_view.dart';
 import '../scanner/form_scan_view.dart';
 import '../patient/patient_list_view.dart';
+import '../shared/blank_form_download_dialog.dart';
 
 final staffUsersProvider = FutureProvider<List<UserModel>>((ref) async {
   final authRepo = ref.watch(authRepositoryProvider);
@@ -1012,6 +1013,18 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             ),
                           );
                         },
+                      ),
+                      // Blank Forms (Doctor-Wise & Field Sheets)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.print_outlined, size: 15),
+                        label: const Text('Blank Forms', style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          foregroundColor: const Color(0xFF0F766E),
+                          side: const BorderSide(color: Color(0xFF99F6E4)),
+                        ),
+                        onPressed: () => BlankFormDownloadDialog.show(context, camp: camp),
                       ),
                       // Edit Camp Details
                       IconButton(
@@ -2664,7 +2677,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   void _showCreateCampDialog(BuildContext context, {CampStatus initialStatus = CampStatus.scheduled}) {
     final codeCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
-    final doctorCtrl = TextEditingController();
+    // Doctor & NMC roster state
+    final docNameCtrl = TextEditingController();
+    final docNmcCtrl = TextEditingController();
+    final assignedDoctors = <DoctorProfile>[];
+    bool showDoctorOnForms = true;
     String selectedProvince = 'Bagmati';
     String selectedDistrict = 'Kathmandu';
     final munCtrl = TextEditingController();
@@ -2817,13 +2834,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   ],
                                 ),
                                 const SizedBox(height: 12),
-                                TextField(
-                                  controller: doctorCtrl,
-                                  decoration: _dialogInputDecoration(
-                                    labelText: 'Examining Doctors (डाक्टरहरूको नाम - अल्पविरामले छुट्याउनुहोस्)',
-                                    helperText: 'Separate multiple doctors with commas (e.g. Dr. Anita Sharma, Dr. Ramesh Karki)',
-                                    prefixIcon: const Icon(Icons.medical_services_outlined, size: 18, color: AppTheme.primaryDark),
-                                  ),
+                                _buildDoctorNmcRoster(
+                                  context: context,
+                                  assignedDoctors: assignedDoctors,
+                                  docNameCtrl: docNameCtrl,
+                                  docNmcCtrl: docNmcCtrl,
+                                  showDoctorOnForms: showDoctorOnForms,
+                                  setDialogState: setDialogState,
+                                  onShowDoctorChanged: (val) => setDialogState(() => showDoctorOnForms = val),
                                 ),
                                 const SizedBox(height: 20),
 
@@ -3454,7 +3472,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   ctx: ctx,
                                   code: codeCtrl.text.trim(),
                                   name: nameCtrl.text.trim(),
-                                  doctorName: doctorCtrl.text.trim(),
+                                  doctorNames: assignedDoctors.map((d) => d.toStorageString()).toList(),
+                                  showDoctorOnForms: showDoctorOnForms,
                                   province: selectedProvince,
                                   district: selectedDistrict,
                                   municipality: munCtrl.text.trim(),
@@ -3485,7 +3504,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   ctx: ctx,
                                   code: codeCtrl.text.trim(),
                                   name: nameCtrl.text.trim(),
-                                  doctorName: doctorCtrl.text.trim(),
+                                  doctorNames: assignedDoctors.map((d) => d.toStorageString()).toList(),
+                                  showDoctorOnForms: showDoctorOnForms,
                                   province: selectedProvince,
                                   district: selectedDistrict,
                                   municipality: munCtrl.text.trim(),
@@ -3520,6 +3540,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     required String name,
     String doctorName = '',
     List<String>? doctorNames,
+    bool showDoctorOnForms = true,
     required String province,
     required String district,
     required String municipality,
@@ -3555,6 +3576,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       name: name,
       doctorName: primaryDoc,
       doctorNames: parsedDocList,
+      showDoctorOnForms: showDoctorOnForms,
       province: province,
       district: district.isNotEmpty ? district : 'Bagmati',
       municipality: municipality,
@@ -3616,10 +3638,13 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   }
   void _showEditCampDialog(BuildContext context, CampModel camp) {
     final nameCtrl = TextEditingController(text: camp.name);
-    final initialDocs = camp.doctorNames.isNotEmpty
-        ? camp.doctorNames.map(_cleanDoctorName).where((d) => d.isNotEmpty).join(', ')
-        : _cleanDoctorName(camp.doctorName);
-    final doctorCtrl = TextEditingController(text: initialDocs);
+    // Doctor & NMC roster state — pre-populated from existing camp data
+    final docNameCtrl = TextEditingController();
+    final docNmcCtrl = TextEditingController();
+    final assignedDoctors = camp.doctorProfiles.isNotEmpty
+        ? camp.doctorProfiles.toList()
+        : (camp.doctorName.isNotEmpty ? [DoctorProfile.parse(camp.doctorName)] : <DoctorProfile>[]);
+    bool showDoctorOnForms = camp.showDoctorOnForms;
     String selectedProvince = camp.province.isNotEmpty ? camp.province : 'Bagmati';
     final availableDistricts = NepalGeodata.districtsFor(selectedProvince);
     String selectedDistrict = availableDistricts.contains(camp.district)
@@ -3748,13 +3773,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               ),
                             ),
                             const SizedBox(height: 12),
-                            TextField(
-                              controller: doctorCtrl,
-                              decoration: _dialogInputDecoration(
-                                labelText: 'Examining Doctors / Medical Officers (डाक्टरहरूको नाम)',
-                                helperText: 'Separate multiple doctors with commas (e.g. Dr. Anita Sharma, Dr. Ramesh Karki)',
-                                prefixIcon: const Icon(Icons.medical_services_outlined, size: 18, color: AppTheme.primaryDark),
-                              ),
+                            _buildDoctorNmcRoster(
+                              context: context,
+                              assignedDoctors: assignedDoctors,
+                              docNameCtrl: docNameCtrl,
+                              docNmcCtrl: docNmcCtrl,
+                              showDoctorOnForms: showDoctorOnForms,
+                              setDialogState: setDialogState,
+                              onShowDoctorChanged: (val) => setDialogState(() => showDoctorOnForms = val),
                             ),
                             const SizedBox(height: 20),
 
@@ -4097,13 +4123,16 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 return;
                               }
 
-                              final parsedDocs = _sanitizeDoctorList(doctorCtrl.text);
-                              final primaryDoc = parsedDocs.isNotEmpty ? parsedDocs.first : '';
+                              final storedDoctors = assignedDoctors.map((d) => d.toStorageString()).toList();
+                              final primaryDoc = storedDoctors.isNotEmpty
+                                  ? DoctorProfile.parse(storedDoctors.first).displayName
+                                  : '';
 
                               final updated = camp.copyWith(
                                 name: nameCtrl.text.trim(),
                                 doctorName: primaryDoc,
-                                doctorNames: parsedDocs,
+                                doctorNames: storedDoctors,
+                                showDoctorOnForms: showDoctorOnForms,
                                 province: selectedProvince,
                                 district: selectedDistrict,
                                 municipality: munCtrl.text.trim(),
@@ -4150,6 +4179,274 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           },
         );
       },
+    );
+  }
+
+  /// Builds a premium Doctor & NMC Roster component for camp dialogs.
+  /// Shows chip-based doctor list, pair of inputs (name + NMC), quick-pick
+  /// from previously assigned doctors, and a show-on-forms toggle.
+  Widget _buildDoctorNmcRoster({
+    required BuildContext context,
+    required List<DoctorProfile> assignedDoctors,
+    required TextEditingController docNameCtrl,
+    required TextEditingController docNmcCtrl,
+    required bool showDoctorOnForms,
+    required StateSetter setDialogState,
+    required ValueChanged<bool> onShowDoctorChanged,
+  }) {
+    // Gather previously used doctors across all camps
+    final allCamps = ref.read(campStateProvider).camps;
+    final previousDoctors = <DoctorProfile>{};
+    for (final c in allCamps) {
+      for (final d in c.doctorProfiles) {
+        if (d.isValid) previousDoctors.add(d);
+      }
+    }
+    // Filter out already-assigned ones
+    final suggestions = previousDoctors.where((d) => !assignedDoctors.contains(d)).take(6).toList();
+
+    void addDoctor() {
+      final name = docNameCtrl.text.trim();
+      final nmc = docNmcCtrl.text.trim();
+      if (name.isEmpty) return;
+      final profile = DoctorProfile(name: DoctorProfile.parse(name).name, nmcNumber: nmc);
+      if (!assignedDoctors.contains(profile)) {
+        setDialogState(() => assignedDoctors.add(profile));
+      }
+      docNameCtrl.clear();
+      docNmcCtrl.clear();
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              color: Color(0xFFEFFDF4),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              border: Border(bottom: BorderSide(color: Color(0xFFD1FAE5))),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.medical_services_rounded, color: AppTheme.primaryTeal, size: 16),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Examining Doctors & NMC Numbers',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
+                      ),
+                      Text(
+                        'डाक्टर नाम र NMC नम्बर (प्रत्येक डाक्टरको फरक NMC हुन्छ)',
+                        style: TextStyle(fontSize: 10.5, color: Color(0xFF047857)),
+                      ),
+                    ],
+                  ),
+                ),
+                // Show on forms toggle
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'Show on forms',
+                      style: TextStyle(fontSize: 10, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+                    ),
+                    Transform.scale(
+                      scale: 0.78,
+                      child: Switch(
+                        value: showDoctorOnForms,
+                        onChanged: onShowDoctorChanged,
+                        activeThumbColor: AppTheme.primaryTeal,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Assigned doctor chips
+                if (assignedDoctors.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: assignedDoctors.map((doc) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.primaryTeal.withValues(alpha: 0.08),
+                              AppTheme.primaryTeal.withValues(alpha: 0.14),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.35)),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.person_rounded, size: 14, color: AppTheme.primaryTeal),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      doc.displayName,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF065F46),
+                                      ),
+                                    ),
+                                    if (doc.hasNmc)
+                                      Text(
+                                        'NMC: ${doc.nmcNumber}',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF0F766E),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              InkWell(
+                                onTap: () => setDialogState(() => assignedDoctors.remove(doc)),
+                                borderRadius: BorderRadius.circular(10),
+                                child: const Icon(Icons.close_rounded, size: 14, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // Add new doctor: Name + NMC inputs
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: TextField(
+                        controller: docNameCtrl,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: _dialogInputDecoration(
+                          labelText: 'Doctor Name',
+                          hintText: 'e.g. Anita Sharma',
+                          prefixIcon: const Icon(Icons.person_outline_rounded, size: 17, color: AppTheme.primaryDark),
+                        ),
+                        onSubmitted: (_) => addDoctor(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        controller: docNmcCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: _dialogInputDecoration(
+                          labelText: 'NMC No.',
+                          hintText: 'e.g. 14256',
+                          prefixIcon: const Icon(Icons.badge_outlined, size: 17, color: AppTheme.primaryDark),
+                        ),
+                        onSubmitted: (_) => addDoctor(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: ElevatedButton(
+                        onPressed: addDoctor,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryTeal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Icon(Icons.add_rounded, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Previously used doctor quick-picks
+                if (suggestions.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Previously assigned doctors:',
+                    style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: suggestions.map((doc) {
+                      return InkWell(
+                        onTap: () {
+                          if (!assignedDoctors.contains(doc)) {
+                            setDialogState(() => assignedDoctors.add(doc));
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.add_circle_outline_rounded, size: 13, color: Color(0xFF64748B)),
+                              const SizedBox(width: 4),
+                              Text(
+                                doc.hasNmc ? '${doc.displayName} · ${doc.nmcNumber}' : doc.displayName,
+                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155), fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

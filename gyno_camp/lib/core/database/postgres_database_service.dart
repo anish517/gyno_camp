@@ -266,6 +266,7 @@ class PostgresDatabaseService {
       await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS province TEXT DEFAULT 'Bagmati';");
       await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_name TEXT DEFAULT '';");
       await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_names TEXT DEFAULT '';");
+      await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_doctor_on_forms INTEGER DEFAULT 1;");
       await conn.execute("ALTER TABLE patients ADD COLUMN IF NOT EXISTS province TEXT DEFAULT 'Bagmati';");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS is_follow_up INTEGER DEFAULT 0;");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS follow_up_notes TEXT;");
@@ -403,11 +404,11 @@ class PostgresDatabaseService {
             INSERT INTO camps (
               id, camp_code, name, province, district, municipality, ward, venue,
               start_date, end_date, status, assigned_staff_ids, total_patients_registered,
-              tenant_id, organization_name, doctor_name, doctor_names, created_at, updated_at
+              tenant_id, organization_name, doctor_name, doctor_names, show_doctor_on_forms, created_at, updated_at
             ) VALUES (
               @id, @camp_code, @name, @province, @district, @municipality, @ward, @venue,
               @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered,
-              @tenant_id, @organization_name, @doctor_name, @doctor_names, @created_at, @updated_at
+              @tenant_id, @organization_name, @doctor_name, @doctor_names, @show_doctor_on_forms, @created_at, @updated_at
             )
             ON CONFLICT (id) DO UPDATE SET
               name = EXCLUDED.name,
@@ -425,6 +426,7 @@ class PostgresDatabaseService {
               organization_name = EXCLUDED.organization_name,
               doctor_name = EXCLUDED.doctor_name,
               doctor_names = EXCLUDED.doctor_names,
+              show_doctor_on_forms = EXCLUDED.show_doctor_on_forms,
               updated_at = EXCLUDED.updated_at;
           '''),
           parameters: {
@@ -447,6 +449,7 @@ class PostgresDatabaseService {
             'organization_name': c['organization_name']?.toString(),
             'doctor_name': c['doctor_name']?.toString() ?? '',
             'doctor_names': c['doctor_names']?.toString() ?? '',
+            'show_doctor_on_forms': (c['show_doctor_on_forms'] is int ? c['show_doctor_on_forms'] : 1),
             'created_at':
                 c['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': c['updated_at']?.toString(),

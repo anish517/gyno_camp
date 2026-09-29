@@ -1,4 +1,32 @@
 import '../core/constants/app_constants.dart';
+import 'doctor_profile.dart';
+
+export 'doctor_profile.dart';
+
+/// Splits a comma-separated doctor list while respecting parentheses
+/// (so "Dr. Anita Sharma (NMC: 12345), Dr. Ram Karki" splits correctly).
+List<String> _splitDoctorListRaw(String raw) {
+  final result = <String>[];
+  int depth = 0;
+  final buffer = StringBuffer();
+  for (var i = 0; i < raw.length; i++) {
+    final ch = raw[i];
+    if (ch == '(') {
+      depth++;
+      buffer.write(ch);
+    } else if (ch == ')') {
+      depth--;
+      buffer.write(ch);
+    } else if (ch == ',' && depth == 0) {
+      result.add(buffer.toString());
+      buffer.clear();
+    } else {
+      buffer.write(ch);
+    }
+  }
+  if (buffer.isNotEmpty) result.add(buffer.toString());
+  return result;
+}
 
 enum CampStatus {
   draft,
@@ -76,7 +104,8 @@ class CampModel {
   final String tenantId;
   final String organizationName;
   final String doctorName; // Legacy scalar (kept for backward compat)
-  final List<String> doctorNames; // Multi-doctor list (preferred)
+  final List<String> doctorNames; // Multi-doctor list (preferred, may include NMC in format "Dr. X (NMC: 12345)")
+  final bool showDoctorOnForms; // Camp setting: whether to pre-print doctor name & NMC on generated forms
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -98,12 +127,20 @@ class CampModel {
     this.organizationName = 'Community Health Outreach Mission',
     this.doctorName = '',
     this.doctorNames = const [],
+    this.showDoctorOnForms = true,
     required this.createdAt,
     this.updatedAt,
   });
 
   bool get isOpen => status == CampStatus.open;
   bool isStaffAssigned(String userId) => assignedStaffIds.contains(userId);
+
+  /// Parsed list of DoctorProfiles from the doctorNames list.
+  List<DoctorProfile> get doctorProfiles =>
+      doctorNames.map(DoctorProfile.parse).where((d) => d.isValid).toList();
+
+  /// Whether the camp has any assigned doctors.
+  bool get hasDoctors => doctorNames.isNotEmpty || doctorName.isNotEmpty;
 
   Map<String, dynamic> toMap() {
     return {
@@ -124,6 +161,7 @@ class CampModel {
       'organization_name': organizationName,
       'doctor_name': doctorName,
       'doctor_names': doctorNames.join(','),
+      'show_doctor_on_forms': showDoctorOnForms ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -150,13 +188,24 @@ class CampModel {
       organizationName: map['organization_name'] as String? ?? 'Community Health Outreach Mission',
       doctorName: map['doctor_name'] as String? ?? '',
       doctorNames: () {
-        // Try new comma-separated list first, fall back to legacy scalar
+        // Try new comma-separated list first (may include NMC info), fall back to legacy scalar
         final raw = map['doctor_names'] as String?;
         if (raw != null && raw.trim().isNotEmpty) {
-          return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          // Use parenthesis-aware splitting to avoid splitting within "Name (NMC: 12345)"
+          return _splitDoctorListRaw(raw)
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
         }
         final legacy = map['doctor_name'] as String? ?? '';
         return legacy.trim().isNotEmpty ? [legacy.trim()] : <String>[];
+      }(),
+      showDoctorOnForms: () {
+        final raw = map['show_doctor_on_forms'];
+        if (raw == null) return true; // Default ON for backward compat
+        if (raw is bool) return raw;
+        if (raw is int) return raw != 0;
+        return true;
       }(),
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
@@ -181,6 +230,7 @@ class CampModel {
     String? organizationName,
     String? doctorName,
     List<String>? doctorNames,
+    bool? showDoctorOnForms,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -202,6 +252,7 @@ class CampModel {
       organizationName: organizationName ?? this.organizationName,
       doctorName: doctorName ?? this.doctorName,
       doctorNames: doctorNames ?? this.doctorNames,
+      showDoctorOnForms: showDoctorOnForms ?? this.showDoctorOnForms,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

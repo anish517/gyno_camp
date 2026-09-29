@@ -1651,6 +1651,263 @@ class PdfReportService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // BLANK FOLLOW-UP ENCOUNTER SLIP PDF (Printable 1-page re-check form)
+  // ─────────────────────────────────────────────────────────────────────────
+  Future<Uint8List> generateBlankFollowUpSlipPdf({
+    CampModel? camp,
+    DoctorProfile? doctor,
+    String organizationName = AppConstants.defaultOrganizationName,
+  }) async {
+    final theme = await getPdfTheme();
+    final pdf = pw.Document(theme: theme);
+    final dateFormatter = DateFormat('yyyy-MM-dd');
+
+    final secondary = PdfColor.fromHex('0D9488');
+    final cyan = PdfColor.fromHex('0891B2');
+    final cyanBg = PdfColor.fromHex('ECFEFF');
+    final dark = PdfColor.fromHex('1E293B');
+    final gray = PdfColor.fromHex('CBD5E1');
+    final boxBg = PdfColor.fromHex('FAFAFA');
+
+    final bool showDoctor = camp?.showDoctorOnForms ?? true;
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+        build: (ctx) {
+          pw.Widget secHeader(String title) => pw.Container(
+            margin: const pw.EdgeInsets.only(top: 8, bottom: 4),
+            padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: pw.BoxDecoration(
+              color: cyanBg,
+              border: pw.Border(left: pw.BorderSide(color: cyan, width: 3)),
+            ),
+            child: pw.Text(
+              sanitizeText(title),
+              style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: cyan),
+            ),
+          );
+
+          pw.Widget blankField(String label, {double flex = 1}) => pw.Expanded(
+            flex: flex.toInt(),
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(label, style: const pw.TextStyle(fontSize: 6.8, color: PdfColors.grey700)),
+                  pw.SizedBox(height: 2),
+                  pw.Container(height: 14, decoration: pw.BoxDecoration(border: pw.Border.all(color: gray, width: 0.6), color: boxBg)),
+                ],
+              ),
+            ),
+          );
+
+          pw.Widget cb(String label) => pw.Padding(
+            padding: const pw.EdgeInsets.only(right: 8, bottom: 3),
+            child: pw.Row(
+              mainAxisSize: pw.MainAxisSize.min,
+              children: [
+                pw.Container(width: 9, height: 9, decoration: pw.BoxDecoration(border: pw.Border.all(color: gray, width: 0.8), color: boxBg)),
+                pw.SizedBox(width: 4),
+                pw.Text(label, style: pw.TextStyle(fontSize: 7.2, color: dark)),
+              ],
+            ),
+          );
+
+          pw.Widget buildCharBoxes(
+            String val, {
+            int minBoxes = 10,
+            int maxBoxes = 10,
+            double boxSize = 13,
+            double boxMargin = 1.5,
+          }) {
+            final cleanVal = val.trim().replaceAll(RegExp(r'\s+'), ' ');
+            final chars = cleanVal.toUpperCase().split('');
+            return pw.Row(
+              mainAxisSize: pw.MainAxisSize.min,
+              children: List.generate(maxBoxes, (i) {
+                final char = i < chars.length ? chars[i] : '';
+                return pw.Container(
+                  width: boxSize,
+                  height: boxSize,
+                  margin: pw.EdgeInsets.only(right: boxMargin),
+                  decoration: pw.BoxDecoration(
+                    color: boxBg,
+                    border: pw.Border.all(color: gray, width: 0.7),
+                  ),
+                  child: pw.Center(
+                    child: pw.Text(
+                      char,
+                      style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: dark),
+                    ),
+                  ),
+                );
+              }),
+            );
+          }
+
+          pw.Widget line({double h = 14, String? text}) => pw.Container(
+                height: h,
+                margin: const pw.EdgeInsets.only(top: 2, bottom: 2),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border(bottom: pw.BorderSide(color: gray, width: 0.6)),
+                ),
+                alignment: pw.Alignment.bottomLeft,
+                child: text != null
+                    ? pw.Text(sanitizeText(text), style: pw.TextStyle(fontSize: 7, color: dark))
+                    : null,
+              );
+
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header
+              pw.Container(
+                padding: const pw.EdgeInsets.all(10),
+                decoration: pw.BoxDecoration(
+                  color: cyanBg,
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  border: pw.Border.all(color: cyan, width: 1.2),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(sanitizeText(organizationName.toUpperCase()), style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: cyan)),
+                        pw.Text('FOLLOW-UP CLINICAL ENCOUNTER SHEET', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: dark)),
+                        pw.Text('पुनः जाँच तथा फलो-अप क्लिनिकल स्लिप | Comprehensive Re-check Record', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          'Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? "CAMP"}) | Venue: ${sanitizeText(camp?.venue ?? "Field Station")}',
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: secondary),
+                        ),
+                      ],
+                    ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text('ENCOUNTER TOKEN ID', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: cyan)),
+                        pw.SizedBox(height: 3),
+                        buildCharBoxes(camp?.campCode != null ? '${camp!.campCode}-' : '', minBoxes: 10, maxBoxes: 10, boxSize: 13),
+                        pw.SizedBox(height: 2),
+                        pw.Text('Date: ${dateFormatter.format(DateTime.now())}', style: const pw.TextStyle(fontSize: 6.8, color: PdfColors.grey600)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Section 1: Patient Identity
+              secHeader('1. PATIENT DEMOGRAPHICS / बिरामी परिचय'),
+              pw.Row(children: [
+                blankField('Full Name (बिरामीको नाम)', flex: 2),
+                blankField('Age (उमेर)', flex: 1),
+                blankField('Ward (वडा नं.)', flex: 1),
+                blankField('Phone / Mobile (फोन नं.)', flex: 1.5),
+              ]),
+              pw.Row(children: [
+                blankField('Husband / Guardian Name (श्रीमान् / अभिभावक)', flex: 2),
+                blankField('Palika / Municipality (गाउँ/नगरपालिका)', flex: 2),
+                blankField('District (जिल्ला)', flex: 1.5),
+              ]),
+
+              // Section 2: Vitals
+              secHeader('2. CURRENT VITALS & RE-CHECK / स्वास्थ्य अवस्था'),
+              pw.Row(children: [
+                blankField('BP (रक्तचाप) mmHg', flex: 1),
+                blankField('Pulse (नाडी) bpm', flex: 1),
+                blankField('Temp (°F)', flex: 1),
+                blankField('Weight (तौल) kg', flex: 1),
+                blankField('SpO2 (%)', flex: 1),
+                blankField('Random Glucose (mg/dL)', flex: 1),
+              ]),
+
+              // Section 3: Subjective Symptoms & Response to Treatment
+              secHeader('3. SYMPTOM PROGRESSION & TREATMENT RESPONSE / अघिल्लो उपचारको प्रभाव'),
+              pw.Wrap(children: [
+                cb('Significantly Improved (धेरै सुधार)'),
+                cb('Partially Improved (केही सुधार)'),
+                cb('Unchanged / Same (उस्तै रहेको)'),
+                cb('Worsened / Pain (बिग्रिएको/दुख्ने)'),
+                cb('New Complaints (नयाँ समस्या)'),
+              ]),
+              pw.SizedBox(height: 4),
+              pw.Text('Chief Complaints & Notes (हालको प्रमुख समस्याहरू):', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: dark)),
+              line(h: 18),
+
+              // Section 4: Physical & Ring Pessary Exam
+              secHeader('4. PHYSICAL & PESSARY EXAMINATION / फलो-अप जाँच'),
+              pw.Wrap(children: [
+                cb('Pessary Clean & In-Situ (रिंग ठिक अवस्थामा)'),
+                cb('Pessary Cleaned & Reinserted (सफा गरि पुन: राखिएको)'),
+                cb('Pessary Removed (रिंग निकालिएको)'),
+                cb('Vaginal Ulcer / Erosion (घाउ/खटिरा देखिएको)'),
+                cb('Pelvic Floor Exercises Advised (व्यायाम सिकाइएको)'),
+              ]),
+              pw.SizedBox(height: 4),
+              pw.Text('Exam Findings (जाँचको नतिजा):', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: dark)),
+              line(h: 18),
+
+              // Section 5: Plan & Medication
+              secHeader('5. CLINICAL MANAGEMENT PLAN & MEDICATIONS / थप उपचार र औषधि'),
+              line(h: 18),
+              line(h: 18),
+              pw.SizedBox(height: 4),
+              pw.Row(children: [
+                pw.Text('Referral Required: ', style: pw.TextStyle(fontSize: 7.2, fontWeight: pw.FontWeight.bold)),
+                cb('No (पर्दैन)'),
+                cb('Hospital for Surgery (शल्यक्रियाका लागि)'),
+                cb('Specialist Clinic (विशेषज्ञ डाक्टर)'),
+              ]),
+
+              pw.Spacer(),
+
+              // Signatures
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                    pw.Container(width: 120, height: 0.8, color: PdfColors.black),
+                    pw.SizedBox(height: 2),
+                    pw.Text('Staff Nurse / Health Worker', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Signature & Date:', style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                  ]),
+                  pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+                    if (!showDoctor) ...[
+                      pw.Container(width: 140, height: 0.8, color: PdfColors.black),
+                      pw.SizedBox(height: 2),
+                      pw.Text('Examining Doctor / Gynecologist', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('Doctor Signature & NMC: _________________________', style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                    ] else if (doctor != null) ...[
+                      pw.Container(width: 130, height: 0.8, color: PdfColors.black),
+                      pw.SizedBox(height: 2),
+                      pw.Text(doctor.displayName, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: dark)),
+                      pw.Text('Medical Officer / Gynecologist', style: const pw.TextStyle(fontSize: 6.2, color: PdfColors.grey700)),
+                      pw.Text(doctor.hasNmc ? 'NMC No: ${doctor.nmcNumber}' : 'NMC Certified', style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                    ] else ...[
+                      pw.Container(width: 140, height: 0.8, color: PdfColors.black),
+                      pw.SizedBox(height: 2),
+                      pw.Text('Examining Doctor / Gynecologist', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('Doctor Signature & NMC No. — Date: _______________', style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                    ],
+                  ]),
+                ],
+              ),
+              pw.SizedBox(height: 6),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // BLOCK-LETTER REGISTRATION FORM PDF (printable grid with squares per char)
   // Supports both pre-filled (patient != null) and blank physical forms (patient == null)
@@ -1659,6 +1916,7 @@ class PdfReportService {
     PatientModel? patient,
     CampModel? camp,
     ClinicalVisitModel? visit,
+    DoctorProfile? doctor,
     String organizationName = AppConstants.defaultOrganizationName,
     List<LookupItemModel>? diagnoses,
     List<LookupItemModel>? medications,
@@ -1679,6 +1937,7 @@ class PdfReportService {
     final boxBg = PdfColor.fromHex('FAFAFA');
 
     // ── Resolve Doctor Information ──
+    final bool showDoctor = camp?.showDoctorOnForms ?? true;
     final List<String> campDoctors = camp?.doctorNames.isNotEmpty == true
         ? camp!.doctorNames
             .map((d) => d.trim().replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim())
@@ -1696,13 +1955,19 @@ class PdfReportService {
             : null);
 
     final String doctorHeaderPart;
-    if (assignedDoctor != null) {
+    if (!showDoctor) {
+      doctorHeaderPart = "";
+    } else if (doctor != null) {
+      doctorHeaderPart = doctor.hasNmc
+          ? "${doctor.displayName} | NMC: ${doctor.nmcNumber}"
+          : doctor.displayName;
+    } else if (assignedDoctor != null) {
       final clean = assignedDoctor.trim().replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-      doctorHeaderPart = "Dr: Dr. ${sanitizeText(clean)}";
+      doctorHeaderPart = "Dr. ${sanitizeText(clean)}";
     } else if (campDoctors.length > 1) {
-      doctorHeaderPart = "Drs: ${campDoctors.map((d) => 'Dr. ${sanitizeText(d)}').join(', ')}";
+      doctorHeaderPart = campDoctors.map((d) => DoctorProfile.parse(d).formattedLabel).join(', ');
     } else if (campDoctors.length == 1) {
-      doctorHeaderPart = "Dr: Dr. ${sanitizeText(campDoctors.first)}";
+      doctorHeaderPart = DoctorProfile.parse(campDoctors.first).formattedLabel;
     } else {
       doctorHeaderPart = "";
     }
@@ -2593,7 +2858,26 @@ class PdfReportService {
                   pw.SizedBox(width: 12),
                   pw.Expanded(
                     child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                      if (assignedDoctor != null) ...[
+                      if (!showDoctor) ...[
+                        pw.Container(width: 130, height: 0.8, color: PdfColors.black),
+                        pw.SizedBox(height: 2),
+                        pw.Text('Medical Officer / Gynecologist', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Doctor Signature & NMC: _________________________', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                      ] else if (doctor != null) ...[
+                        pw.Container(width: 120, height: 0.8, color: PdfColors.black),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          doctor.displayName,
+                          style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold, color: dark),
+                        ),
+                        pw.Text('Medical Officer / Gynecologist', style: pw.TextStyle(fontSize: 6.2, color: PdfColors.grey700)),
+                        pw.Text(
+                          doctor.hasNmc
+                              ? 'NMC No: ${doctor.nmcNumber} — Date: ${hasPatient ? dateFormatter.format(visit?.visitDate ?? intakeDate) : "_______________"}'
+                              : 'NMC Certified — Date: ${hasPatient ? dateFormatter.format(visit?.visitDate ?? intakeDate) : "_______________"}',
+                          style: pw.TextStyle(fontSize: 5.8, color: PdfColors.grey600),
+                        ),
+                      ] else if (assignedDoctor != null) ...[
                         pw.Container(width: 120, height: 0.8, color: PdfColors.black),
                         pw.SizedBox(height: 2),
                         pw.Text(
@@ -2612,30 +2896,33 @@ class PdfReportService {
                           runSpacing: 2.5,
                           alignment: pw.WrapAlignment.end,
                           children: [
-                            ...campDoctors.map((doc) => cb(doc.toLowerCase().startsWith('dr') ? sanitizeText(doc) : 'Dr. ${sanitizeText(doc)}', false)),
+                            ...campDoctors.map((doc) => cb(DoctorProfile.parse(doc).formattedLabel, false)),
                             cb('Other: _____', false),
                           ],
                         ),
                         pw.SizedBox(height: 3),
                         pw.Container(width: 130, height: 0.8, color: PdfColors.black),
                         pw.SizedBox(height: 2),
-                        pw.Text('Doctor Signature & NMC No. — Date:', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                        pw.Text('Doctor Signature & NMC No. — Date: _______________', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
                       ] else if (campDoctors.length == 1) ...[
                         pw.Container(width: 120, height: 0.8, color: PdfColors.black),
                         pw.SizedBox(height: 2),
                         pw.Text(
-                          campDoctors.first.toLowerCase().startsWith('dr')
-                              ? sanitizeText(campDoctors.first)
-                              : 'Dr. ${sanitizeText(campDoctors.first)}',
+                          DoctorProfile.parse(campDoctors.first).displayName,
                           style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold, color: dark),
                         ),
                         pw.Text('Medical Officer / Gynecologist', style: pw.TextStyle(fontSize: 6.2, color: PdfColors.grey700)),
-                        pw.Text('NMC Certified — Date: ${hasPatient ? dateFormatter.format(intakeDate) : "_______________"}', style: pw.TextStyle(fontSize: 5.8, color: PdfColors.grey600)),
+                        pw.Text(
+                          DoctorProfile.parse(campDoctors.first).hasNmc
+                              ? 'NMC No: ${DoctorProfile.parse(campDoctors.first).nmcNumber} — Date: ${hasPatient ? dateFormatter.format(intakeDate) : "_______________"}'
+                              : 'NMC Certified — Date: ${hasPatient ? dateFormatter.format(intakeDate) : "_______________"}',
+                          style: pw.TextStyle(fontSize: 5.8, color: PdfColors.grey600),
+                        ),
                       ] else ...[
                         pw.Container(width: 120, height: 0.8, color: PdfColors.black),
                         pw.SizedBox(height: 2),
                         pw.Text('Medical Officer / Gynecologist', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold)),
-                        pw.Text('Doctor Signature & NMC No. — Date:', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                        pw.Text('Doctor Signature & NMC No. — Date: _______________', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
                       ],
                     ]),
                   ),

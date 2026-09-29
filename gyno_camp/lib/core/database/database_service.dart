@@ -70,6 +70,7 @@ class DatabaseService {
         {'name': 'province', 'def': "province TEXT DEFAULT 'Bagmati'"},
         {'name': 'doctor_name', 'def': "doctor_name TEXT DEFAULT ''"},
         {'name': 'doctor_names', 'def': "doctor_names TEXT DEFAULT ''"},
+        {'name': 'show_doctor_on_forms', 'def': 'show_doctor_on_forms INTEGER DEFAULT 1'},
       ],
       DatabaseTables.tablePatients: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},

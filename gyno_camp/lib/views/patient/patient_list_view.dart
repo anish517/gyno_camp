@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -21,6 +23,7 @@ import '../../viewmodels/patient_registration_viewmodel.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
 import '../../viewmodels/sync_viewmodel.dart';
 import '../scanner/form_scan_view.dart';
+import '../shared/blank_form_download_dialog.dart';
 import 'clinical_assessment_view.dart';
 import 'clinical_history_panel.dart';
 import 'patient_follow_up_form_view.dart';
@@ -388,6 +391,42 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             ),
     );
 
+    final blankFormsButton = OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(color: Color(0xFF0F766E), width: 1.2),
+        backgroundColor: const Color(0xFFF0FDFA),
+        foregroundColor: const Color(0xFF0F766E),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      icon: const Icon(
+        Icons.print_outlined,
+        size: 19,
+      ),
+      label: const Text(
+        'Blank Forms',
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+        ),
+      ),
+      onPressed: () {
+        final campState = ref.read(campStateProvider);
+        CampModel? targetCamp;
+        try {
+          targetCamp = campState.camps.firstWhere((c) => c.id == effectiveCampId);
+        } catch (_) {
+          targetCamp = campState.activeCamp;
+        }
+        BlankFormDownloadDialog.show(context, camp: targetCamp);
+      },
+    );
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(
@@ -402,6 +441,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 filterButton,
                 const SizedBox(width: 8),
                 scanButton,
+                const SizedBox(width: 8),
+                blankFormsButton,
               ],
             )
           : Column(
@@ -414,6 +455,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     const SizedBox(width: 8),
                     Expanded(child: scanButton),
                   ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: blankFormsButton,
                 ),
               ],
             ),
@@ -600,6 +646,196 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     _minAgeController.clear();
     _maxAgeController.clear();
     vm.resetFilters();
+  }
+
+  /// Builds the custom age range input row inside the filter panel.
+  Widget _buildCustomAgeRangeRow(
+    BuildContext context,
+    PatientFilterCriteria filters,
+    PatientListViewModel vm,
+  ) {
+    // Check if the current filter is a preset bracket — if so, pre-fill controllers
+    final hasPreset = (filters.minAge == null && filters.maxAge == 19) ||
+        (filters.minAge == 20 && filters.maxAge == 35) ||
+        (filters.minAge == 36 && filters.maxAge == 50) ||
+        (filters.minAge == 51 && filters.maxAge == 65) ||
+        (filters.minAge == 66 && filters.maxAge == null);
+    final hasCustom = (filters.minAge != null || filters.maxAge != null) && !hasPreset;
+
+    // Sync controller text only if the user hasn't typed yet (keep controllers as source-of-truth)
+    if (hasCustom) {
+      if (_minAgeController.text.isEmpty && filters.minAge != null) {
+        _minAgeController.text = filters.minAge.toString();
+      }
+      if (_maxAgeController.text.isEmpty && filters.maxAge != null) {
+        _maxAgeController.text = filters.maxAge.toString();
+      }
+    } else if (!hasCustom) {
+      // Clear if preset or no age filter
+      if (_minAgeController.text.isNotEmpty && !hasPreset) _minAgeController.clear();
+      if (_maxAgeController.text.isNotEmpty && !hasPreset) _maxAgeController.clear();
+    }
+
+    void applyCustomRange() {
+      final minVal = int.tryParse(_minAgeController.text.trim());
+      final maxVal = int.tryParse(_maxAgeController.text.trim());
+      if (minVal == null && maxVal == null) {
+        // Both empty → clear age filter
+        vm.updateFilters(filters.copyWith(clearMinAge: true, clearMaxAge: true));
+        return;
+      }
+      if (minVal != null && maxVal != null && minVal > maxVal) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Min age cannot be greater than max age.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+      vm.updateFilters(filters.copyWith(
+        minAge: minVal,
+        maxAge: maxVal,
+        clearMinAge: minVal == null,
+        clearMaxAge: maxVal == null,
+      ));
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: hasCustom ? const Color(0xFFEFFDF4) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: hasCustom ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+          width: hasCustom ? 1.5 : 1.0,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                size: 14,
+                color: hasCustom ? AppTheme.successGreen : const Color(0xFF64748B),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                hasCustom
+                    ? 'Custom Age Filter Active: ${filters.minAge ?? "∞"} – ${filters.maxAge ?? "∞"} yrs'
+                    : 'Custom Age Range (कस्टम उमेर)',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: hasCustom ? const Color(0xFF065F46) : const Color(0xFF475569),
+                ),
+              ),
+              if (hasCustom) ...[
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () {
+                    _minAgeController.clear();
+                    _maxAgeController.clear();
+                    vm.updateFilters(filters.copyWith(clearMinAge: true, clearMaxAge: true));
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding: EdgeInsets.all(2),
+                    child: Icon(Icons.close_rounded, size: 14, color: Color(0xFF64748B)),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _minAgeController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: 'Min Age (न्यून उमेर)',
+                    hintText: 'e.g. 25',
+                    prefixIcon: const Icon(Icons.person_outline_rounded, size: 16),
+                    isDense: true,
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.5),
+                    ),
+                  ),
+                  onSubmitted: (_) => applyCustomRange(),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  '–',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: hasCustom ? AppTheme.successGreen : const Color(0xFF94A3B8),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _maxAgeController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: 'Max Age (अधिकतम उमेर)',
+                    hintText: 'e.g. 55',
+                    prefixIcon: const Icon(Icons.person_rounded, size: 16),
+                    isDense: true,
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.5),
+                    ),
+                  ),
+                  onSubmitted: (_) => applyCustomRange(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: applyCustomRange,
+                icon: const Icon(Icons.search_rounded, size: 15, color: Colors.white),
+                label: const Text(
+                  'Apply',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryTeal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDedicatedFilterSection(
@@ -1063,6 +1299,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         );
                       },
                     ),
+                    // Custom Age Range Input Row
+                    const SizedBox(height: 8),
+                    _buildCustomAgeRangeRow(context, filters, vm),
                   ],
                 ),
               ),
@@ -1436,818 +1675,814 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     // Determine clinical completion status
     final hasReasons = patient.reasonsForVisit.isNotEmpty;
     final hasPhone = patient.mobile.isNotEmpty;
-    // hasClinicalVisit is populated by the repository LEFT JOIN
     final hasClinical = patient.hasClinicalVisit;
-    // Station 1 = registered, Station 2+ = clinical form
-    const Color stationDone = Color(0xFF10B981);
-    const Color stationPending = Color(0xFFE2E8F0);
 
-    // Colour-code visit reasons: urgent = rose, normal = teal
+    // Status colors: Emerald = Clinical completed, Teal = Registered, Amber = Intake Pending
+    final Color statusColor = hasClinical
+        ? const Color(0xFF10B981)
+        : hasReasons
+            ? const Color(0xFF0F766E)
+            : const Color(0xFFF59E0B);
+
     final urgentReasons = {
       'something hanging out',
+      'something_hanging_out',
       'problems passing urine',
+      'problems_passing_urine',
       'problems passing stool',
+      'problems_passing_stool',
       'pain',
+      'lower_abdominal_pain',
+      'post_menopausal_bleeding',
     };
+
     final clinicalLabelMap = {
-      'something hanging out': 'Uterine Prolapse (PV)',
-      'discharge and or itching': 'Discharge / Pruritus',
-      'problems passing urine': 'Urinary Complaint',
-      'problems passing stool': 'Anorectal / Stool Issue',
-      'menstrual problem': 'Menstrual Disorder',
-      'infertility': 'Infertility',
-      'pain': 'Pelvic / Abdominal Pain',
-      'checkup': 'Routine Checkup',
+      'routine_checkup': 'Routine Checkup (नियमित जाँच)',
+      'checkup': 'Routine Checkup (नियमित जाँच)',
+      'something hanging out': 'Uterine Prolapse / आङ खस्ने',
+      'something_hanging_out': 'Uterine Prolapse / आङ खस्ने',
+      'discharge and or itching': 'Discharge & Itching / सेतो पानी',
+      'discharge_and_or_itching': 'Discharge & Itching / सेतो पानी',
+      'discharge_itching': 'Discharge & Itching / सेतो पानी',
+      'problems passing urine': 'Urinary Issue / पिसाबको समस्या',
+      'problems_passing_urine': 'Urinary Issue / पिसाबको समस्या',
+      'problems passing stool': 'Anorectal Issue / दिसाको समस्या',
+      'problems_passing_stool': 'Anorectal Issue / दिसाको समस्या',
+      'menstrual problem': 'Menstrual Disorder / महिनावारी गडबडी',
+      'menstrual_problem': 'Menstrual Disorder / महिनावारी गडबडी',
+      'infertility': 'Infertility / निसन्तान समस्या',
+      'pain': 'Pelvic / Abdominal Pain / पेट दुख्ने',
+      'lower_abdominal_pain': 'Lower Abdominal Pain / तल्लो पेट दुख्ने',
+      'post_menopausal_bleeding': 'Post-Menopausal Bleeding',
     };
+
+    // Format guardian info gracefully — never print empty "Father: "
+    final guardianName = patient.spouseOrFatherName?.trim() ?? '';
+    final hasGuardian = guardianName.isNotEmpty && guardianName.toLowerCase() != 'null';
+    final relType = patient.relationshipType?.trim() ?? 'Guardian';
+
+    final String subInfoText;
+    final maritalStr = patient.maritalStatus.isNotEmpty ? patient.maritalStatus : 'N/A';
+    if (hasGuardian) {
+      subInfoText = '$relType: $guardianName  •  Age ${patient.age}y  •  $maritalStr';
+    } else {
+      subInfoText = 'Age ${patient.age}y  •  Female  •  $maritalStr';
+    }
+
+    // Resolve location
+    final locationParts = <String>[];
+    if (patient.municipality.isNotEmpty) locationParts.add(patient.municipality);
+    if (patient.district.isNotEmpty) locationParts.add(patient.district);
+    final locationStr = locationParts.isNotEmpty ? locationParts.join(', ') : 'Nepal';
 
     return Card(
       elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE8EDF2), width: 1),
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
       ),
       color: Colors.white,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(color: statusColor, width: 4.5),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Left coloured strip — teal = complete, amber = pending
-            Container(
-              width: 5,
-              decoration: BoxDecoration(
-                color: hasReasons ? stationDone : const Color(0xFFFBBF24),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  bottomLeft: Radius.circular(12),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(14.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top Row: Patient ID + Ward
-                    Row(
+            // ── TOP ROW: Token ID (copyable) + Ward + Location ──
+            Row(
+              children: [
+                // Token ID Badge (tap to copy)
+                InkWell(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: patient.patientId));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_circle_outline, color: Colors.white, size: 16),
+                            const SizedBox(width: 8),
+                            Text('Copied ID: ${patient.patientId}'),
+                          ],
+                        ),
+                        duration: const Duration(seconds: 1),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDFA),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFCCFBF1)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryLight,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+                        Text(
+                          patient.patientId,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11.5,
+                            color: Color(0xFF0F766E),
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.copy_rounded, size: 12, color: Color(0xFF0D9488)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Ward Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Text(
+                    'Ward ${patient.ward}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF334155),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+
+                // Location Icon + Text
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.location_on_outlined, size: 13, color: Color(0xFF64748B)),
+                    const SizedBox(width: 3),
+                    Text(
+                      locationStr,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // ── PATIENT PROFILE ROW: Avatar + Full Name + Demographics + Phone ──
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                  child: Text(
+                    patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                      color: Color(0xFF0F766E),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        patient.fullName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Icon(
+                            hasGuardian
+                                ? (patient.isBelowAdultAge ? Icons.escalator_warning : Icons.favorite_border)
+                                : Icons.person_outline,
+                            size: 13,
+                            color: const Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
                             child: Text(
-                              patient.patientId,
+                              subInfoText,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                                color: AppTheme.primaryDark,
-                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
                               ),
                             ),
                           ),
+                        ],
+                      ),
+                      if (hasPhone) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            const Icon(Icons.phone_outlined, size: 12.5, color: Color(0xFF64748B)),
+                            const SizedBox(width: 4),
+                            Text(
+                              patient.mobile,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // ── REASONS FOR VISIT TAGS (Formatted & Localized) ──
+            if (patient.reasonsForVisit.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 5,
+                children: patient.reasonsForVisit.map((reason) {
+                  final isUrgent = urgentReasons.contains(reason.toLowerCase().trim());
+                  final label = clinicalLabelMap[reason.toLowerCase().trim()] ??
+                      clinicalLabelMap[reason] ??
+                      reason.replaceAll('_', ' ');
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                    decoration: BoxDecoration(
+                      color: isUrgent ? const Color(0xFFFFF1F2) : const Color(0xFFF0FDFA),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isUrgent ? const Color(0xFFFDA4AF) : const Color(0xFFCCFBF1),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isUrgent) ...[
+                          const Icon(Icons.priority_high_rounded, size: 11, color: Color(0xFFE11D48)),
+                          const SizedBox(width: 3),
+                        ],
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: isUrgent ? const Color(0xFFBE123C) : const Color(0xFF0F766E),
                           ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+
+            // ── CLINICAL BADGES: Doctor, POP Stage, Surgery, Diagnoses ──
+            if (patient.highestPopStage != null ||
+                patient.surgeryDone == true ||
+                patient.diagnoses.isNotEmpty ||
+                patient.primaryDoctorName != null ||
+                patient.attendingDoctorNames.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  // Examining Doctor Badge
+                  if (patient.primaryDoctorName != null || patient.attendingDoctorNames.isNotEmpty) ...[
+                    Builder(
+                      builder: (_) {
+                        final docRaw = patient.primaryDoctorName ?? patient.attendingDoctorNames.first;
+                        final docProf = DoctorProfile.parse(docRaw);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(5),
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
                           ),
-                          child: Text(
-                            'Ward ${patient.ward}',
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.medical_services_outlined, size: 11.5, color: Color(0xFF2563EB)),
+                              const SizedBox(width: 4),
+                              Text(
+                                docProf.formattedLabel,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1D4ED8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+
+                  // POP Severity Badge
+                  if (patient.highestPopStage != null)
+                    Builder(
+                      builder: (_) {
+                        final stage = patient.highestPopStage!;
+                        final Color badgeBg = stage >= 3
+                            ? const Color(0xFFFEE2E2)
+                            : stage == 2
+                                ? const Color(0xFFFEF3C7)
+                                : const Color(0xFFF0FDF4);
+                        final Color badgeBorder = stage >= 3
+                            ? const Color(0xFFFCA5A5)
+                            : stage == 2
+                                ? const Color(0xFFFDE68A)
+                                : const Color(0xFFBBF7D0);
+                        final Color badgeText = stage >= 3
+                            ? const Color(0xFF991B1B)
+                            : stage == 2
+                                ? const Color(0xFF92400E)
+                                : const Color(0xFF166534);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: badgeBg,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: badgeBorder),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.healing_rounded, size: 11, color: badgeText),
+                              const SizedBox(width: 4),
+                              Text(
+                                'POP Stage $stage',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: badgeText,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+
+                  // Surgery Done Badge
+                  if (patient.surgeryDone == true)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.check_circle_outline_rounded, size: 11.5, color: Color(0xFF166534)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Surgery: ${patient.surgeryType ?? "Done"}',
                             style: const TextStyle(
                               fontSize: 10.5,
-                              color: Color(0xFF475569),
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF166534),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Diagnosis Pills
+                  ...patient.diagnoses.take(2).map(
+                        (dx) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Text(
+                            dx,
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: Color(0xFF334155),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            patient.district.isNotEmpty
-                                ? patient.district
-                                : 'Nepal',
-                            textAlign: TextAlign.end,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondaryLight,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
+                      ),
+                ],
+              ),
+            ],
 
-                    // Patient Name & Age row
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: AppTheme.primaryTeal.withValues(
-                            alpha: 0.1,
-                          ),
-                          child: Text(
-                            patient.firstName.isNotEmpty
-                                ? patient.firstName[0].toUpperCase()
-                                : 'P',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: AppTheme.primaryTeal,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                patient.fullName,
-                                style: const TextStyle(
-                                  fontSize: 15.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textPrimaryLight,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  Icon(
-                                    patient.isBelowAdultAge
-                                        ? Icons.escalator_warning
-                                        : Icons.favorite_border,
-                                    size: 12,
-                                    color: AppTheme.textSecondaryLight,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Expanded(
-                                    child: Text(
-                                      '${patient.relationshipType ?? "Guardian"}: ${patient.spouseOrFatherName ?? "N/A"}  •  Age ${patient.age}y',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 11.5,
-                                        color: AppTheme.textSecondaryLight,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (hasPhone) ...[
-                                const SizedBox(height: 2),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.phone,
-                                      size: 12,
-                                      color: AppTheme.textSecondaryLight,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Expanded(
-                                      child: Text(
-                                        patient.mobile,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 11.5,
-                                          color: AppTheme.textSecondaryLight,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+            const SizedBox(height: 12),
 
-                    // Colour-coded reason tags
-                    if (patient.reasonsForVisit.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 5,
-                        runSpacing: 4,
-                        children: patient.reasonsForVisit.map((reason) {
-                          final isUrgent = urgentReasons.contains(reason);
-                          final label = clinicalLabelMap[reason] ?? reason;
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isUrgent
-                                  ? const Color(0xFFFFF1F2)
-                                  : AppTheme.primaryTeal.withValues(
-                                      alpha: 0.08,
-                                    ),
-                              borderRadius: BorderRadius.circular(5),
-                              border: Border.all(
-                                color: isUrgent
-                                    ? const Color(0xFFFDA4AF)
-                                    : AppTheme.primaryTeal.withValues(
-                                        alpha: 0.25,
-                                      ),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (isUrgent) ...[
-                                  const Icon(
-                                    Icons.priority_high_rounded,
-                                    size: 10,
-                                    color: Color(0xFFE11D48),
-                                  ),
-                                  const SizedBox(width: 2),
-                                ],
-                                Text(
-                                  label,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: isUrgent
-                                        ? const Color(0xFFBE123C)
-                                        : AppTheme.primaryTeal,
-                                  ),
-                                ),
-                              ],
+            // ── STREAMLINED CLINICAL PROGRESS STEPPER & STATUS BADGE ──
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildStepIndicator(
+                            label: 'S1: Intake',
+                            done: true,
+                            color: const Color(0xFF10B981),
+                          ),
+                          _buildStepConnector(done: true),
+                          _buildStepIndicator(
+                            label: 'S2: Clinical',
+                            done: hasClinical,
+                            color: hasClinical ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+                          ),
+                          _buildStepConnector(done: hasClinical),
+                          _buildStepIndicator(
+                            label: 'S3–6: Specialist',
+                            done: hasClinical,
+                            color: hasClinical ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                    decoration: BoxDecoration(
+                      color: hasClinical
+                          ? const Color(0xFFECFDF5)
+                          : hasReasons
+                              ? const Color(0xFFEFF6FF)
+                              : const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: hasClinical
+                            ? const Color(0xFFA7F3D0)
+                            : hasReasons
+                                ? const Color(0xFFBFDBFE)
+                                : const Color(0xFFFDE68A),
+                      ),
+                    ),
+                    child: Text(
+                      hasClinical
+                          ? 'CLINICAL COMPLETED'
+                          : hasReasons
+                              ? 'REGISTERED'
+                              : 'INTAKE PENDING',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: hasClinical
+                            ? const Color(0xFF047857)
+                            : hasReasons
+                                ? const Color(0xFF1D4ED8)
+                                : const Color(0xFFB45309),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            const SizedBox(height: 10),
+
+            // ── ACTION BAR (Primary CTA + Quick Actions + More Menu) ──
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 500;
+
+                final primaryCta = !hasClinical
+                    ? ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F766E),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.assignment_rounded, size: 16),
+                        label: const Text('Clinical Intake', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => ClinicalAssessmentView(patient: patient)),
+                          );
+                          if (mounted && activeCamp != null) {
+                            vm.loadPatients(activeCamp.id);
+                          }
+                        },
+                      )
+                    : ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D9488),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.replay_rounded, size: 16),
+                        label: const Text('Follow-Up', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          final updated = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PatientFollowUpFormView(patient: patient, camp: activeCamp),
                             ),
                           );
-                        }).toList(),
-                      ),
-                    ],
+                          if (updated == true && mounted && activeCamp != null) {
+                            vm.loadPatients(activeCamp.id);
+                          }
+                        },
+                      );
 
-                    // Clinical badges: Doctor, POP Stage, Diagnoses, Surgery Status
-                    if (patient.highestPopStage != null ||
-                        patient.surgeryDone == true ||
-                        patient.diagnoses.isNotEmpty ||
-                        patient.primaryDoctorName != null ||
-                        patient.attendingDoctorNames.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          if (patient.primaryDoctorName != null ||
-                              patient.attendingDoctorNames.isNotEmpty) ...[
-                            Builder(
-                              builder: (_) {
-                                final docName = patient.primaryDoctorName ?? patient.attendingDoctorNames.first;
-                                final clean = docName.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 7,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEFF6FF),
-                                    borderRadius: BorderRadius.circular(5),
-                                    border: Border.all(
-                                      color: const Color(0xFFBFDBFE),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.medical_services_outlined,
-                                        size: 10.5,
-                                        color: Color(0xFF2563EB),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        'Dr. $clean',
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF1E40AF),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
+                final printBtn = OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF0F766E),
+                    side: const BorderSide(color: Color(0xFF0F766E)),
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.print_outlined, size: 15, color: Color(0xFF0F766E)),
+                  label: const Text('Print Form', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () => _printRegistrationForm(context, patient, activeCamp),
+                );
+
+                final slipBtn = OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF334155),
+                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.qr_code_2_rounded, size: 16, color: Color(0xFF0F766E)),
+                  label: const Text('Slip / QR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () async {
+                    final proceed = await PatientFollowUpSlipModal.show(
+                      context,
+                      patient: patient,
+                      camp: activeCamp,
+                      organizationName: (activeCamp?.organizationName.isNotEmpty == true &&
+                              !AppConstants.isLegacyDefaultOrganization(activeCamp!.organizationName))
+                          ? activeCamp.organizationName
+                          : ref.read(effectiveOrganizationProvider),
+                      showProceedButton: true,
+                    );
+                    if (proceed == true) {
+                      if (!context.mounted) return;
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ClinicalAssessmentView(patient: patient),
+                        ),
+                      );
+                      if (!context.mounted) return;
+                      if (activeCamp != null) {
+                        vm.loadPatients(activeCamp.id);
+                      }
+                    }
+                  },
+                );
+
+                final moreMenu = PopupMenuButton<String>(
+                  icon: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.more_horiz_rounded, size: 17, color: Color(0xFF475569)),
+                        SizedBox(width: 2),
+                        Icon(Icons.arrow_drop_down, size: 14, color: Color(0xFF475569)),
+                      ],
+                    ),
+                  ),
+                  tooltip: 'More Patient Actions',
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  onSelected: (action) async {
+                    switch (action) {
+                      case 'edit':
+                        if (isCampLocked) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Cannot edit: Camp is closed and locked.')),
+                          );
+                          return;
+                        }
+                        final updated = await Navigator.push<PatientModel?>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PatientRegistrationView(patientToEdit: patient),
+                          ),
+                        );
+                        if (context.mounted && updated != null && activeCamp != null) {
+                          vm.loadPatients(activeCamp.id);
+                        }
+                        break;
+                      case 're_exam':
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => ClinicalAssessmentView(patient: patient)),
+                        );
+                        if (mounted && activeCamp != null) {
+                          vm.loadPatients(activeCamp.id);
+                        }
+                        break;
+                      case 'history':
+                        _showClinicalHistoryPanel(context, patient, activeCamp);
+                        break;
+                      case 'pdf_summary':
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Generating ${patient.fullName} health summary PDF...'),
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                        final visit = await ref
+                            .read(clinicalAssessmentProvider.notifier)
+                            .loadPatientAssessment(patient.patientId, patientUuid: patient.id);
+                        final auth = ref.read(authStateProvider).currentUser;
+                        final saved = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(
+                              patient: patient,
+                              visit: visit,
+                              camp: activeCamp,
+                              userId: auth?.id ?? 'usr-data-taker',
+                              userName: auth?.name ?? 'Health Worker',
+                              userRole: auth?.role.toDbString() ?? 'DATA_TAKER',
+                            );
+                        if (context.mounted && saved != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Summary PDF downloaded: $saved'),
+                              backgroundColor: AppTheme.successGreen,
                             ),
+                          );
+                        }
+                        break;
+                      case 'follow_up_slip':
+                        await _downloadFollowUpSlip(context, patient, activeCamp);
+                        break;
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    if (!isCampLocked)
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_note_rounded, size: 17, color: Color(0xFF0F766E)),
+                            SizedBox(width: 10),
+                            Text('Edit Registration (Page 1)', style: TextStyle(fontSize: 13)),
                           ],
-                          if (patient.highestPopStage != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: patient.highestPopStage! >= 2
-                                    ? AppTheme.warningAmber.withValues(
-                                        alpha: 0.18,
-                                      )
-                                    : AppTheme.primaryLight,
-                                borderRadius: BorderRadius.circular(5),
-                                border: Border.all(
-                                  color: patient.highestPopStage! >= 2
-                                      ? AppTheme.warningAmber
-                                      : AppTheme.primaryTeal.withValues(
-                                          alpha: 0.3,
-                                        ),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.healing,
-                                    size: 11,
-                                    color: patient.highestPopStage! >= 2
-                                        ? Colors.brown
-                                        : AppTheme.primaryTeal,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    'POP Stage ${patient.highestPopStage}',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: patient.highestPopStage! >= 2
-                                          ? Colors.brown
-                                          : AppTheme.primaryDark,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          if (patient.surgeryDone == true)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.successGreen.withValues(
-                                  alpha: 0.12,
-                                ),
-                                borderRadius: BorderRadius.circular(5),
-                                border: Border.all(
-                                  color: AppTheme.successGreen.withValues(
-                                    alpha: 0.4,
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.check_circle_outline,
-                                    size: 11,
-                                    color: AppTheme.successGreen,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    'Surgery: ${patient.surgeryType ?? "Done"}',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.successGreen,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ...patient.diagnoses
-                              .take(2)
-                              .map(
-                                (dx) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(5),
-                                  ),
-                                  child: Text(
-                                    dx,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: Color(0xFF334155),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                        ],
+                        ),
                       ),
-                    ],
-
-                    const SizedBox(height: 12),
-
-                    // Clinical Progress Stepper
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
+                    if (hasClinical)
+                      const PopupMenuItem(
+                        value: 're_exam',
+                        child: Row(
+                          children: [
+                            Icon(Icons.assignment_outlined, size: 17, color: Color(0xFF2563EB)),
+                            SizedBox(width: 10),
+                            Text('Review / Edit Clinical Exam', style: TextStyle(fontSize: 13)),
+                          ],
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFEEF2F7)),
-                      ),
+                    const PopupMenuItem(
+                      value: 'history',
                       child: Row(
                         children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _buildStepIndicator(
-                                    label: 'S1: Intake',
-                                    done: true,
-                                    color: stationDone,
-                                  ),
-                                  _buildStepConnector(done: true),
-                                  _buildStepIndicator(
-                                    label: 'S2: Clinical',
-                                    done: hasClinical,
-                                    color: hasClinical
-                                        ? stationDone
-                                        : stationPending,
-                                  ),
-                                  _buildStepConnector(done: hasClinical),
-                                  _buildStepIndicator(
-                                    label: 'S3–6: Specialist',
-                                    done: hasClinical,
-                                    color: hasClinical
-                                        ? stationDone
-                                        : stationPending,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: hasClinical
-                                  ? stationDone.withValues(alpha: 0.12)
-                                  : hasReasons
-                                  ? const Color(0xFFEFF6FF)
-                                  : const Color(0xFFFFF3CD),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: Text(
-                              hasClinical
-                                  ? 'CLINICAL DONE'
-                                  : hasReasons
-                                  ? 'REGISTERED'
-                                  : 'INCOMPLETE',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                                color: hasClinical
-                                    ? stationDone
-                                    : hasReasons
-                                    ? const Color(0xFF1D4ED8)
-                                    : const Color(0xFF92400E),
-                              ),
-                            ),
-                          ),
+                          Icon(Icons.history_rounded, size: 17, color: Color(0xFF0891B2)),
+                          SizedBox(width: 10),
+                          Text('Clinical History & Encounters', style: TextStyle(fontSize: 13)),
                         ],
                       ),
                     ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'pdf_summary',
+                      child: Row(
+                        children: [
+                          Icon(Icons.picture_as_pdf_rounded, size: 17, color: Color(0xFFE11D48)),
+                          SizedBox(width: 10),
+                          Text('Download Health Summary (PDF)', style: TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'follow_up_slip',
+                      child: Row(
+                        children: [
+                          Icon(Icons.receipt_long_rounded, size: 17, color: Color(0xFF0891B2)),
+                          SizedBox(width: 10),
+                          Text('Download Follow-Up Slip (PDF)', style: TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
 
-                    const SizedBox(height: 10),
-                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                    const SizedBox(height: 8),
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      primaryCta,
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(child: printBtn),
+                          const SizedBox(width: 8),
+                          Expanded(child: slipBtn),
+                          const SizedBox(width: 8),
+                          moreMenu,
+                        ],
+                      ),
+                    ],
+                  );
+                }
 
-                    // Action Buttons
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 6,
-                      runSpacing: 6,
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.picture_as_pdf_rounded,
-                            size: 20,
-                            color: AppTheme.dangerRose,
-                          ),
-                          tooltip: 'Download Patient Health Summary (PDF)',
-                          padding: const EdgeInsets.all(6),
-                          constraints: const BoxConstraints(),
-                          onPressed: () async {
-                            ScaffoldMessenger.of(context).clearSnackBars();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Generating ${patient.fullName} (${patient.patientId}) clinical summary PDF...',
-                                ),
-                                duration: const Duration(seconds: 1),
-                              ),
-                            );
-                            final visit = await ref
-                                .read(clinicalAssessmentProvider.notifier)
-                                .loadPatientAssessment(
-                                  patient.patientId,
-                                  patientUuid: patient.id,
-                                );
-                            final auth = ref
-                                .read(authStateProvider)
-                                .currentUser;
-                            final saved = await ref
-                                .read(reportingViewModelProvider.notifier)
-                                .exportIndividualPatientPdf(
-                                  patient: patient,
-                                  visit: visit,
-                                  camp: activeCamp,
-                                  userId: auth?.id ?? 'usr-data-taker',
-                                  userName: auth?.name ?? 'Health Worker',
-                                  userRole:
-                                      auth?.role.toDbString() ?? 'DATA_TAKER',
-                                );
-                            if (context.mounted && saved != null) {
-                              ScaffoldMessenger.of(context).clearSnackBars();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Patient report downloaded: $saved',
-                                  ),
-                                  backgroundColor: AppTheme.successGreen,
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF334155),
-                            side: const BorderSide(color: Color(0xFFCBD5E1)),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          icon: const Icon(
-                            Icons.qr_code_2_rounded,
-                            size: 16,
-                            color: AppTheme.primaryTeal,
-                          ),
-                          label: const Text(
-                            'Slip / QR',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: () async {
-                            final proceed = await PatientFollowUpSlipModal.show(
-                              context,
-                              patient: patient,
-                              camp: activeCamp,
-                              organizationName: (activeCamp?.organizationName.isNotEmpty == true &&
-                                      !AppConstants.isLegacyDefaultOrganization(activeCamp!.organizationName))
-                                  ? activeCamp.organizationName
-                                  : ref.read(effectiveOrganizationProvider),
-                              showProceedButton: true,
-                            );
-                            if (proceed == true) {
-                              if (!context.mounted) return;
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      ClinicalAssessmentView(patient: patient),
-                                ),
-                              );
-                              if (!context.mounted) return;
-                              if (activeCamp != null) {
-                                vm.loadPatients(activeCamp.id);
-                              }
-                            }
-                          },
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF0F766E),
-                            side: const BorderSide(color: Color(0xFF0F766E)),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          icon: const Icon(
-                            Icons.print_outlined,
-                            size: 16,
-                            color: AppTheme.primaryTeal,
-                          ),
-                          label: const Text(
-                            'Print Form',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: () => _printRegistrationForm(
-                            context,
-                            patient,
-                            activeCamp,
-                          ),
-                        ),
-                        // Show lock badge for closed camp patients instead of Edit button
+                        primaryCta,
+                        const SizedBox(width: 8),
+                        printBtn,
+                        const SizedBox(width: 8),
+                        slipBtn,
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         if (isCampLocked)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFEF2F2),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(6),
                               border: Border.all(color: const Color(0xFFF87171)),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.lock_rounded, size: 13, color: Color(0xFFDC2626)),
+                                Icon(Icons.lock_rounded, size: 12, color: Color(0xFFDC2626)),
                                 SizedBox(width: 4),
                                 Text(
-                                  'Camp Closed — Read Only',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                                  'Camp Closed',
+                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
                                 ),
                               ],
                             ),
-                          )
-                        else
-                          OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF0F766E),
-                            side: const BorderSide(color: Color(0xFF0F766E)),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
                           ),
-                          icon: const Icon(
-                            Icons.edit_note_rounded,
-                            size: 17,
-                            color: AppTheme.primaryTeal,
-                          ),
-                          label: const Text(
-                            'Edit Page 1',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: () async {
-                            final updated = await Navigator.push<PatientModel?>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => PatientRegistrationView(
-                                  patientToEdit: patient,
-                                ),
-                              ),
-                            );
-                            if (context.mounted && updated != null && activeCamp != null) {
-                              vm.loadPatients(activeCamp.id);
-                            }
-                          },
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF334155),
-                            side: const BorderSide(color: Color(0xFFCBD5E1)),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          icon: const Icon(
-                            Icons.history_rounded,
-                            size: 16,
-                            color: AppTheme.accentCyan,
-                          ),
-                          label: const Text(
-                            'History',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: () => _showClinicalHistoryPanel(
-                            context,
-                            patient,
-                            activeCamp,
-                          ),
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D9488),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          icon: const Icon(Icons.replay_rounded, size: 15),
-                          label: const Text(
-                            'Follow-Up',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: () async {
-                            final updated = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => PatientFollowUpFormView(
-                                  patient: patient,
-                                  camp: activeCamp,
-                                ),
-                              ),
-                            );
-                            if (updated == true &&
-                                mounted &&
-                                activeCamp != null) {
-                              vm.loadPatients(activeCamp.id);
-                            }
-                          },
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryTeal,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 9,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          icon: const Icon(Icons.assignment, size: 16),
-                          label: const Text(
-                            'Clinical Intake',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    ClinicalAssessmentView(patient: patient),
-                              ),
-                            );
-                            if (mounted && activeCamp != null) {
-                              vm.loadPatients(activeCamp.id);
-                            }
-                          },
-                        ),
+                        moreMenu,
                       ],
                     ),
                   ],
-                ),
-              ),
+                );
+              },
             ),
           ],
         ),
@@ -2815,6 +3050,75 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             !AppConstants.isLegacyDefaultOrganization(camp!.organizationName))
         ? camp.organizationName
         : effectiveOrg;
+
+    DoctorProfile? chosenDoctor;
+    final doctors = camp?.doctorProfiles ?? [];
+    final showDoctor = camp?.showDoctorOnForms ?? true;
+
+    if (showDoctor && doctors.length > 1) {
+      chosenDoctor = await showDialog<DoctorProfile?>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          title: Row(
+            children: [
+              const Icon(Icons.print_outlined, color: Color(0xFF0F766E), size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Select Doctor for ${patient.fullName}',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Choose which doctor\'s name and NMC registration number to stamp on this form:',
+                style: TextStyle(fontSize: 12.5, color: Color(0xFF475569)),
+              ),
+              const SizedBox(height: 12),
+              ...doctors.map(
+                (doc) => ListTile(
+                  dense: true,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  leading: const Icon(Icons.medical_services_outlined, color: Color(0xFF0F766E), size: 18),
+                  title: Text(doc.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  subtitle: Text(doc.hasNmc ? 'NMC: ${doc.nmcNumber}' : 'NMC Certified', style: const TextStyle(fontSize: 11)),
+                  onTap: () => Navigator.pop(ctx, doc),
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                dense: true,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                leading: const Icon(Icons.edit_outlined, color: Color(0xFF64748B), size: 18),
+                title: const Text('Blank Doctor Field', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                subtitle: const Text('Leave doctor & NMC line blank for handwritten on-site signature', style: TextStyle(fontSize: 11)),
+                onTap: () => Navigator.pop(ctx, const DoctorProfile(name: '')),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+
+      if (chosenDoctor == null) return;
+      if (chosenDoctor.name.isEmpty) chosenDoctor = null;
+    } else if (doctors.length == 1) {
+      chosenDoctor = doctors.first;
+    }
+
+    if (!context.mounted) return;
+
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2826,6 +3130,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
         patient: patient,
         camp: camp,
+        doctor: chosenDoctor,
         organizationName: orgName,
         diagnoses: masterState.activeDiagnoses,
         medications: masterState.activeMedicines,
@@ -2859,6 +3164,69 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           ),
         );
       }
+    }
+  }
+
+  // ─── Download Follow-Up Encounter Slip PDF ────────────────────────────────
+  Future<void> _downloadFollowUpSlip(
+    BuildContext context,
+    PatientModel patient,
+    CampModel? camp,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Generating follow-up slip for ${patient.fullName}...'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      final visit = await ref
+          .read(clinicalAssessmentProvider.notifier)
+          .loadPatientAssessment(patient.patientId, patientUuid: patient.id);
+
+      final effectiveOrg = ref.read(effectiveOrganizationProvider);
+      final orgName = (camp?.organizationName.isNotEmpty == true &&
+              !AppConstants.isLegacyDefaultOrganization(camp!.organizationName))
+          ? camp.organizationName
+          : effectiveOrg;
+
+      final Uint8List bytes;
+      if (visit != null) {
+        bytes = await PdfReportService().generateFollowUpEncounterSlipPdf(
+          patient: patient,
+          visit: visit,
+          camp: camp,
+          organizationName: orgName,
+        );
+      } else {
+        bytes = await PdfReportService().generateBlankFollowUpSlipPdf(
+          camp: camp,
+          organizationName: orgName,
+        );
+      }
+
+      await FileDownloadHelper.saveAndDownloadFile(
+        bytes: bytes,
+        filename: 'FollowUpSlip_${patient.patientId}.pdf',
+        mimeType: 'application/pdf',
+      );
+
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Follow-up slip downloaded: FollowUpSlip_${patient.patientId}.pdf'),
+          backgroundColor: AppTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to download follow-up slip: $e'),
+          backgroundColor: AppTheme.dangerRose,
+        ),
+      );
     }
   }
 

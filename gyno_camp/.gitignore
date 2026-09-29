@@ -53,7 +53,8 @@ app.*.map.json
 # Chrome Dev Profile
 .chrome_dev_data/
 
-# Local Secrets
+# Local Secrets & DBs
 local_env.bat
 secrets.json
 *.local.bat
+*.db

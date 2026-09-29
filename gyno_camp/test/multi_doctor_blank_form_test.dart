@@ -133,6 +133,57 @@ void main() {
       ['Anita Sharma', 'Bipin Joshi'],
     );
   });
+
+  test('DoctorProfile parsing and formatted label test', () {
+    final doc1 = DoctorProfile.parse('Dr. Sita Sharma (NMC: 12345)');
+    expect(doc1.name, 'Sita Sharma');
+    expect(doc1.nmcNumber, '12345');
+    expect(doc1.formattedLabel, 'Dr. Sita Sharma (NMC: 12345)');
+
+    final doc2 = DoctorProfile.parse('Ramesh Karki - NMC 9988');
+    expect(doc2.name, 'Ramesh Karki');
+    expect(doc2.nmcNumber, '9988');
+
+    final doc3 = DoctorProfile.parse('Dr. Priya Thapa');
+    expect(doc3.name, 'Priya Thapa');
+    expect(doc3.nmcNumber, '');
+    expect(doc3.hasNmc, false);
+    expect(doc3.formattedLabel, 'Dr. Priya Thapa');
+  });
+
+  test('Blank Follow-Up Slip PDF generation', () async {
+    final camp = CampModel(
+      id: 'camp-fu',
+      campCode: 'FU01',
+      name: 'Sindhupalchok Follow-up Camp',
+      province: 'Bagmati',
+      district: 'Sindhupalchok',
+      municipality: 'Chautara',
+      ward: '02',
+      venue: 'Health Post',
+      startDate: DateTime(2026, 9, 20),
+      endDate: DateTime(2026, 9, 22),
+      status: CampStatus.open,
+      doctorName: 'Dr. Sita Sharma (NMC: 12345)',
+      doctorNames: ['Dr. Sita Sharma (NMC: 12345)'],
+      createdAt: DateTime(2026, 9, 20),
+    );
+
+    final pdfService = PdfReportService();
+    final bytes = await pdfService.generateBlankFollowUpSlipPdf(
+      camp: camp,
+      doctor: const DoctorProfile(name: 'Sita Sharma', nmcNumber: '12345'),
+      organizationName: 'Rural Women Health Project',
+    );
+
+    expect(bytes.isNotEmpty, true);
+    final outFile = File('test_samples/sample_blank_followup.pdf');
+    outFile.writeAsBytesSync(bytes);
+    final textContent = _extractPdfText(bytes);
+    expect(textContent.contains('ENCOUNTER'), true);
+    expect(textContent.contains('Sita'), true);
+    expect(textContent.contains('12345'), true);
+  });
 }
 
 String _extractPdfText(List<int> bytes) {
