@@ -1949,6 +1949,7 @@ class PdfReportService {
     CampModel? camp,
     ClinicalVisitModel? visit,
     DoctorProfile? doctor,
+    bool blankDoctorLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
     List<LookupItemModel>? diagnoses,
     List<LookupItemModel>? medications,
@@ -1985,7 +1986,7 @@ class PdfReportService {
             : null);
 
     final String doctorHeaderPart;
-    if (!showDoctor) {
+    if (!showDoctor || blankDoctorLines) {
       doctorHeaderPart = "";
     } else if (doctor != null) {
       doctorHeaderPart = doctor.hasNmc
@@ -2888,7 +2889,7 @@ class PdfReportService {
                   pw.SizedBox(width: 12),
                   pw.Expanded(
                     child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                      if (!showDoctor) ...[
+                      if (!showDoctor || blankDoctorLines) ...[
                         pw.Container(width: 130, height: 0.8, color: PdfColors.black),
                         pw.SizedBox(height: 2),
                         pw.Text('Medical Officer / Gynecologist', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold)),
@@ -3038,6 +3039,7 @@ class PdfReportService {
     CampModel? camp,
     ClinicalVisitModel? visit,
     DoctorProfile? doctor,
+    bool blankDoctorLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
     List<LookupItemModel>? diagnoses,
     List<LookupItemModel>? medications,
@@ -3053,6 +3055,7 @@ class PdfReportService {
       camp: camp,
       visit: visit,
       doctor: doctor,
+      blankDoctorLines: blankDoctorLines,
       organizationName: organizationName,
       diagnoses: diagnoses,
       medications: medications,

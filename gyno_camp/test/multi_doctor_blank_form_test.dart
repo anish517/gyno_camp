@@ -271,6 +271,44 @@ void main() {
     expect(text.contains('Sagar'), true);
     expect(text.contains('Ramesh'), true);
   });
+
+  test('generatePatientRegistrationFormPdf with blankDoctorLines: true suppresses doctor checkboxes', () async {
+    final camp = CampModel(
+      id: 'camp-11',
+      campCode: '11',
+      name: 'ddd',
+      province: 'Bagmati',
+      district: 'Kathmandu',
+      municipality: 'Budhanilkantha',
+      ward: '01',
+      venue: 'Health Post',
+      startDate: DateTime(2026, 9, 25),
+      endDate: DateTime(2026, 9, 29),
+      status: CampStatus.open,
+      doctorName: 'Dr. Anish Tiwari, Dr. Sagar Poudel, Dr. Rusma Shrestha',
+      doctorNames: ['Dr. Anish Tiwari', 'Dr. Sagar Poudel', 'Dr. Rusma Shrestha'],
+      createdAt: DateTime(2026, 9, 25),
+    );
+
+    final pdfService = PdfReportService();
+    final bytes = await pdfService.generatePatientRegistrationFormPdf(
+      camp: camp,
+      blankDoctorLines: true,
+      organizationName: 'Rural Health Mission',
+    );
+
+    expect(bytes.isNotEmpty, true);
+    final text = _extractPdfText(bytes);
+
+    // Should NOT contain doctor names or examining doctor checkboxes
+    expect(text.contains('Dr. Anish Tiwari'), false);
+    expect(text.contains('Dr. Sagar Poudel'), false);
+    expect(text.contains('Dr. Rusma Shrestha'), false);
+
+    // Should contain clean blank signature line
+    expect(text.contains('Signature'), true);
+    expect(text.contains('Gynecologist'), true);
+  });
 }
 
 String _extractPdfText(List<int> bytes) {

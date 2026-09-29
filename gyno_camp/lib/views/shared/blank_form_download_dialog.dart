@@ -97,10 +97,12 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           );
           filename = 'Blank_YellowForms_${campCode}_AllDoctors.pdf';
         } else {
+          final isBlank = _doctorMode == DoctorSelectionMode.blankDoctorField;
           final docToUse = _doctorMode == DoctorSelectionMode.specificDoctor ? _selectedDoctor : null;
           pdfBytes = await pdfService.generatePatientRegistrationFormPdf(
             camp: widget.camp,
             doctor: docToUse,
+            blankDoctorLines: isBlank,
             organizationName: orgName,
             diagnoses: masterState.activeDiagnoses,
             medications: masterState.activeMedicines,
