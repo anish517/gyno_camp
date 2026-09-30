@@ -4176,20 +4176,11 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         visitReasonDefinitions[item.code] = label;
       }
     }
-    // If no visit reasons configured in master data, fallback to ClinicalConstants
-    if (visitReasonDefinitions.isEmpty) {
+    // Only fallback to ClinicalConstants when viewing All Camps and no visit reasons are configured
+    if (_selectedCampId == 'all' && visitReasonDefinitions.isEmpty) {
       ClinicalConstants.visitReasonOptions.forEach((key, label) {
         visitReasonDefinitions[key] = label;
       });
-    }
-    for (final p in campScopedPatients) {
-      for (final r in p.reasonsForVisit) {
-        final trimmed = r.trim();
-        if (trimmed.isNotEmpty && !visitReasonDefinitions.containsKey(trimmed)) {
-          final cleanLabel = trimmed.replaceAll('_', ' ');
-          visitReasonDefinitions[trimmed] = cleanLabel[0].toUpperCase() + cleanLabel.substring(1);
-        }
-      }
     }
 
     final visitReasonCounts = <String, int>{};
@@ -5137,7 +5128,13 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       items: [
         DropdownMenuItem(
           value: 'all',
-          child: buildOptionRow('All Visit Reasons', campScopedPatientsCount, isBold: true),
+          child: buildOptionRow(
+            visitReasonDefinitions.isEmpty && _selectedCampId != 'all'
+                ? 'No Visit Reasons Configured for Camp'
+                : 'All Visit Reasons',
+            campScopedPatientsCount,
+            isBold: true,
+          ),
         ),
         ...visitReasonDefinitions.entries.map((entry) => DropdownMenuItem(
               value: entry.key,
@@ -5165,7 +5162,13 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       items: [
         DropdownMenuItem(
           value: 'all',
-          child: buildOptionRow('All Chief Complaints', campScopedPatientsCount, isBold: true),
+          child: buildOptionRow(
+            complaintDefinitions.isEmpty && _selectedCampId != 'all'
+                ? 'No Chief Complaints Configured for Camp'
+                : 'All Chief Complaints',
+            campScopedPatientsCount,
+            isBold: true,
+          ),
         ),
         ...complaintDefinitions.entries.map((entry) => DropdownMenuItem(
               value: entry.key,
