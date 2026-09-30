@@ -3617,7 +3617,10 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   Future<void> _fetchDataForCamp(String campId) async {
     final effectiveCampId = campId == 'all' ? null : campId;
     if (mounted) {
-      setState(() => _isLoadingPatients = true);
+      setState(() {
+        _isLoadingPatients = true;
+        _patientVisits.clear();
+      });
     }
     try {
       final repo = ref.read(patientRepositoryProvider);
@@ -3689,14 +3692,12 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final repo = ref.read(patientRepositoryProvider);
     final Map<String, ClinicalVisitModel> loaded = {};
     for (final p in patients) {
-      if (!_patientVisits.containsKey(p.patientId)) {
-        try {
-          final visit = await repo.getLatestClinicalVisit(p.patientId, patientUuid: p.id);
-          if (visit != null) {
-            loaded[p.patientId] = visit;
-          }
-        } catch (_) {}
-      }
+      try {
+        final visit = await repo.getLatestClinicalVisit(p.patientId, patientUuid: p.id);
+        if (visit != null) {
+          loaded[p.patientId] = visit;
+        }
+      } catch (_) {}
     }
     if (mounted && loaded.isNotEmpty) {
       setState(() {
@@ -4080,27 +4081,28 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     if (visit != null) {
       final primaryMatch = visit.primaryDoctorName != null && _doctorNamesMatch(visit.primaryDoctorName!, docLower);
       final attendingMatch = visit.attendingDoctorNames.any((d) => _doctorNamesMatch(d, docLower));
-      return primaryMatch || attendingMatch;
-    } else {
-      if (p.hasClinicalVisit) {
-        final patientPrimaryMatch = p.primaryDoctorName != null && _doctorNamesMatch(p.primaryDoctorName!, docLower);
-        final patientAttendingMatch = p.attendingDoctorNames.any((d) => _doctorNamesMatch(d, docLower));
-        return patientPrimaryMatch || patientAttendingMatch;
-      }
-      final patientCamp = campState.camps.where((c) => c.id == p.campId).firstOrNull;
-      final campDoctors = patientCamp?.doctorNames.isNotEmpty == true
-          ? patientCamp!.doctorNames
-          : (patientCamp?.doctorName.trim().isNotEmpty == true ? [patientCamp!.doctorName.trim()] : <String>[]);
-      final cleanCampDocs = campDoctors
-          .map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim())
-          .where((d) => d.isNotEmpty)
-          .toList();
-
-      if (cleanCampDocs.length == 1 && _doctorNamesMatch(cleanCampDocs.first, docLower)) {
-        return true;
-      }
-      return false;
+      if (primaryMatch || attendingMatch) return true;
     }
+
+    final patientPrimaryMatch = p.primaryDoctorName != null && _doctorNamesMatch(p.primaryDoctorName!, docLower);
+    final patientAttendingMatch = p.attendingDoctorNames.any((d) => _doctorNamesMatch(d, docLower));
+    if (patientPrimaryMatch || patientAttendingMatch) return true;
+
+    if (p.hasClinicalVisit || visit != null) return false;
+
+    final patientCamp = campState.camps.where((c) => c.id == p.campId).firstOrNull;
+    final campDoctors = patientCamp?.doctorNames.isNotEmpty == true
+        ? patientCamp!.doctorNames
+        : (patientCamp?.doctorName.trim().isNotEmpty == true ? [patientCamp!.doctorName.trim()] : <String>[]);
+    final cleanCampDocs = campDoctors
+        .map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim())
+        .where((d) => d.isNotEmpty)
+        .toList();
+
+    if (cleanCampDocs.length == 1 && _doctorNamesMatch(cleanCampDocs.first, docLower)) {
+      return true;
+    }
+    return false;
   }
 
   @override
