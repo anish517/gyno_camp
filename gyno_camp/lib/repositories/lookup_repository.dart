@@ -474,17 +474,32 @@ class LookupRepository implements ILookupRepository {
     } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
 
     // 2. Check one-time seed gate in app_metadata
+    // The gate prevents resurrecting items a user deliberately deleted.
+    // BUT: on a fresh browser/device (empty IndexedDB) we must still seed
+    // even if the gate key exists (e.g. synced from central metadata).
+    // Strategy: only skip if ALL core categories already have at least 1 item.
+    bool gateActive = false;
     try {
       final meta = await db.query(
         DatabaseTables.tableMetadata,
         where: 'key = ?',
         whereArgs: [metaKey],
       );
-      if (meta.isNotEmpty) {
-        // Defaults have already been seeded. Do not resurrect user deletions!
+      gateActive = meta.isNotEmpty;
+    } catch (e) { debugPrint('[LookupRepo] Seed gate check error: $e'); }
+
+    if (gateActive) {
+      // Gate is active — only skip if all core categories have data
+      final existingDiag = await getItemsByCategory('diagnosis', tenantId: targetTenant);
+      final existingMed = await getItemsByCategory('medicine', tenantId: targetTenant);
+      final existingHosp = await getItemsByCategory('referral_hospital', tenantId: targetTenant);
+      if (existingDiag.isNotEmpty && existingMed.isNotEmpty && existingHosp.isNotEmpty) {
+        // All categories populated — safe to skip (respect user customisations)
         return;
       }
-    } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
+      // At least one category is empty → fall through and seed missing ones
+      debugPrint('[LookupRepo] Gate active but some categories empty — seeding missing data.');
+    }
 
     // 3. Check & seed referral hospitals if empty
     final hospitals = await getItemsByCategory('referral_hospital', tenantId: targetTenant);
