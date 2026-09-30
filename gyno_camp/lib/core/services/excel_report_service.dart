@@ -166,15 +166,17 @@ class ExcelReportService {
       TextCellValue('Patient ID'),
       TextCellValue('First Name'),
       TextCellValue('Surname'),
+      TextCellValue('Camp Code'),
       TextCellValue('Age'),
       TextCellValue('Mobile Phone'),
-      TextCellValue('Ward'),
+      TextCellValue('Ward / Municipality'),
       TextCellValue('Marital Status'),
-      TextCellValue('Relative Name'),
+      TextCellValue('Relative / Guardian'),
+      TextCellValue('Complaints / Reasons for Visit'),
       TextCellValue('Highest POP Stage'),
       TextCellValue('Diagnoses List'),
       TextCellValue('Prescribed Medications'),
-      TextCellValue('Pessary Inserted'),
+      TextCellValue('Pessary Fitted'),
       TextCellValue('Surgical Referral'),
       TextCellValue('Follow-up Destination'),
       TextCellValue('Examining Doctor'),
@@ -193,20 +195,43 @@ class ExcelReportService {
           ? v.primaryDoctorName!.trim()
           : (v?.attendingDoctorNames.any((d) => d.trim().isNotEmpty) == true
               ? v!.attendingDoctorNames.where((d) => d.trim().isNotEmpty).join(', ')
-              : 'None');
+              : (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty
+                  ? p.primaryDoctorName!.trim()
+                  : 'None'));
+
+      final campCode = p.campCode.isNotEmpty
+          ? p.campCode
+          : (p.patientId.split('-').length >= 2 ? p.patientId.split('-')[1] : summary.campCode);
+
+      final allMeds = <String>[
+        if (v != null) ...v.medications.where((m) => m.trim().isNotEmpty),
+        if (v?.customMedication != null && v!.customMedication!.trim().isNotEmpty) v.customMedication!.trim(),
+      ];
+      final medsStr = allMeds.isNotEmpty ? allMeds.join(', ') : 'None';
+
+      final pessaryStr = v?.pessaryType != null && v!.pessaryType!.trim().isNotEmpty
+          ? (v.pessarySize != null && v.pessarySize!.trim().isNotEmpty
+              ? '${v.pessaryType!.trim()} (${v.pessarySize!.trim()})'
+              : v.pessaryType!.trim())
+          : 'None';
+
+      final complaintsStr = p.reasonsForVisit.isNotEmpty ? p.reasonsForVisit.join(', ') : 'None';
+
       registerSheet.appendRow([
         TextCellValue(p.patientId),
         TextCellValue(p.firstName),
         TextCellValue(p.surname),
+        TextCellValue(campCode),
         IntCellValue(p.age),
         TextCellValue(p.mobile),
-        TextCellValue(p.ward),
+        TextCellValue(p.ward.isNotEmpty ? 'Ward ${p.ward}' : (p.municipality.isNotEmpty ? p.municipality : '')),
         TextCellValue(p.maritalStatus),
         TextCellValue(p.spouseOrFatherName ?? ''),
+        TextCellValue(complaintsStr),
         IntCellValue(v?.highestPopStage ?? 0),
         TextCellValue(v?.diagnoses.join(', ') ?? 'None'),
-        TextCellValue(v?.medications.join(', ') ?? 'None'),
-        TextCellValue(v?.pessaryType ?? 'None'),
+        TextCellValue(medsStr),
+        TextCellValue(pessaryStr),
         TextCellValue(v?.surgicalReferral ?? 'None'),
         TextCellValue(v?.followUpDestination ?? 'None'),
         TextCellValue(docName),

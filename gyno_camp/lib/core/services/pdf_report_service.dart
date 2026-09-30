@@ -544,6 +544,7 @@ class PdfReportService {
               headers: [
                 'ID',
                 'Name',
+                'Camp',
                 'Age',
                 'Mobile',
                 'Ward',
@@ -556,42 +557,71 @@ class PdfReportService {
                 'Pessary',
                 'Referral',
                 'Destination',
+                'Doctor',
                 'Date',
               ],
               columnWidths: {
                 0: const pw.FlexColumnWidth(1.2), // ID
-                1: const pw.FlexColumnWidth(1.8), // Name
-                2: const pw.FlexColumnWidth(0.6), // Age
-                3: const pw.FlexColumnWidth(1.3), // Mobile
-                4: const pw.FlexColumnWidth(0.7), // Ward
-                5: const pw.FlexColumnWidth(1.0), // Marital
-                6: const pw.FlexColumnWidth(1.5), // Guardian
-                7: const pw.FlexColumnWidth(2.0), // Complaints
-                8: const pw.FlexColumnWidth(0.8), // POP
-                9: const pw.FlexColumnWidth(2.2), // Diagnoses
-                10: const pw.FlexColumnWidth(2.2), // Meds
-                11: const pw.FlexColumnWidth(1.1), // Pessary
-                12: const pw.FlexColumnWidth(1.4), // Referral
-                13: const pw.FlexColumnWidth(1.4), // Destination
-                14: const pw.FlexColumnWidth(1.1), // Date
+                1: const pw.FlexColumnWidth(1.7), // Name
+                2: const pw.FlexColumnWidth(0.8), // Camp
+                3: const pw.FlexColumnWidth(0.5), // Age
+                4: const pw.FlexColumnWidth(1.1), // Mobile
+                5: const pw.FlexColumnWidth(0.9), // Ward
+                6: const pw.FlexColumnWidth(0.8), // Marital
+                7: const pw.FlexColumnWidth(1.2), // Guardian
+                8: const pw.FlexColumnWidth(1.7), // Complaints
+                9: const pw.FlexColumnWidth(0.7), // POP
+                10: const pw.FlexColumnWidth(1.8), // Diagnoses
+                11: const pw.FlexColumnWidth(1.8), // Meds
+                12: const pw.FlexColumnWidth(1.1), // Pessary
+                13: const pw.FlexColumnWidth(1.1), // Referral
+                14: const pw.FlexColumnWidth(1.1), // Destination
+                15: const pw.FlexColumnWidth(1.4), // Doctor
+                16: const pw.FlexColumnWidth(1.0), // Date
               },
               data: summary.patients.map((p) {
                 final v = visitByPatientId[p.patientId];
+                final campCode = p.campCode.isNotEmpty
+                    ? p.campCode
+                    : (p.patientId.split('-').length >= 2 ? p.patientId.split('-')[1] : summary.campCode);
+
+                final allMeds = <String>[
+                  if (v != null) ...v.medications.where((m) => m.trim().isNotEmpty),
+                  if (v?.customMedication != null && v!.customMedication!.trim().isNotEmpty) v.customMedication!.trim(),
+                ];
+                final medsStr = allMeds.isNotEmpty ? allMeds.join(', ') : 'None';
+
+                final pessaryStr = v?.pessaryType != null && v!.pessaryType!.trim().isNotEmpty
+                    ? (v.pessarySize != null && v.pessarySize!.trim().isNotEmpty
+                        ? '${v.pessaryType!.trim()} (${v.pessarySize!.trim()})'
+                        : v.pessaryType!.trim())
+                    : '-';
+
+                final docName = v?.primaryDoctorName != null && v!.primaryDoctorName!.trim().isNotEmpty
+                    ? v.primaryDoctorName!.trim()
+                    : (v?.attendingDoctorNames.any((d) => d.trim().isNotEmpty) == true
+                        ? v!.attendingDoctorNames.where((d) => d.trim().isNotEmpty).join(', ')
+                        : (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty
+                            ? p.primaryDoctorName!.trim()
+                            : '-'));
+
                 return [
                   PdfReportService.sanitizeText(p.patientId),
                   PdfReportService.sanitizeText('${p.firstName} ${p.surname}'),
+                  PdfReportService.sanitizeText(campCode),
                   p.age.toString(),
                   PdfReportService.sanitizeText(p.mobile),
-                  PdfReportService.sanitizeText(p.ward),
+                  PdfReportService.sanitizeText(p.ward.isNotEmpty ? 'Ward ${p.ward}' : (p.municipality.isNotEmpty ? p.municipality : '-')),
                   PdfReportService.sanitizeText(p.maritalStatus),
                   PdfReportService.sanitizeText(p.spouseOrFatherName ?? '-'),
                   PdfReportService.sanitizeText(p.reasonsForVisit.isNotEmpty ? p.reasonsForVisit.join(', ') : '-'),
                   v != null ? 'Stage ${v.highestPopStage}' : '-',
                   PdfReportService.sanitizeText(v?.diagnoses.isNotEmpty == true ? v!.diagnoses.join(', ') : 'None'),
-                  PdfReportService.sanitizeText(v?.medications.isNotEmpty == true ? v!.medications.join(', ') : 'None'),
-                  PdfReportService.sanitizeText(v?.pessaryType ?? '-'),
+                  PdfReportService.sanitizeText(medsStr),
+                  PdfReportService.sanitizeText(pessaryStr),
                   PdfReportService.sanitizeText(v?.surgicalReferral ?? '-'),
                   PdfReportService.sanitizeText(v?.followUpDestination ?? '-'),
+                  PdfReportService.sanitizeText(docName),
                   dateFormatter.format(p.intakeDate),
                 ];
               }).toList(),

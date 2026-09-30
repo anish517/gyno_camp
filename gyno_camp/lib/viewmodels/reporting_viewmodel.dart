@@ -13,6 +13,7 @@ class ReportingState {
   final bool isExportingExcel;
   final String? selectedCampId;
   final CampReportSummaryModel? summary;
+  final CampReportSummaryModel? unfilteredSummary;
   final String? lastExportPath;
   final String? lastExportFormat; // 'PDF' or 'EXCEL'
   final String? errorMessage;
@@ -24,6 +25,7 @@ class ReportingState {
     this.isExportingExcel = false,
     this.selectedCampId,
     this.summary,
+    this.unfilteredSummary,
     this.lastExportPath,
     this.lastExportFormat,
     this.errorMessage,
@@ -39,6 +41,8 @@ class ReportingState {
     String? selectedCampId,
     bool clearSelectedCampId = false,
     CampReportSummaryModel? summary,
+    CampReportSummaryModel? unfilteredSummary,
+    bool clearUnfilteredSummary = false,
     String? lastExportPath,
     String? lastExportFormat,
     String? errorMessage,
@@ -51,6 +55,7 @@ class ReportingState {
       isExportingExcel: isExportingExcel ?? this.isExportingExcel,
       selectedCampId: clearSelectedCampId ? null : (selectedCampId ?? this.selectedCampId),
       summary: summary ?? this.summary,
+      unfilteredSummary: clearUnfilteredSummary ? null : (unfilteredSummary ?? this.unfilteredSummary),
       lastExportPath: lastExportPath ?? this.lastExportPath,
       lastExportFormat: lastExportFormat ?? this.lastExportFormat,
       errorMessage: clearFeedback ? null : (errorMessage ?? this.errorMessage),
@@ -90,11 +95,33 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
         complaintFilter: complaintFilter,
       );
       if (!mounted) return;
+
+      final bool hasFilters = startDate != null ||
+          endDate != null ||
+          (doctorFilter != null && doctorFilter.isNotEmpty && doctorFilter != 'all') ||
+          (diagnosisFilter != null && diagnosisFilter.isNotEmpty && diagnosisFilter != 'all') ||
+          (popStageFilter != null && popStageFilter.isNotEmpty && popStageFilter != 'all') ||
+          (treatmentFilter != null && treatmentFilter.isNotEmpty && treatmentFilter != 'all') ||
+          (complaintFilter != null && complaintFilter.isNotEmpty && complaintFilter != 'all');
+
+      CampReportSummaryModel? newUnfiltered = state.unfilteredSummary;
+      if (!hasFilters || state.selectedCampId != campId || newUnfiltered == null) {
+        if (!hasFilters) {
+          newUnfiltered = res;
+        } else {
+          newUnfiltered = await reportingRepository.getCampSummary(
+            campId: campId,
+            generatedBy: generatedBy,
+          );
+        }
+      }
+
       state = state.copyWith(
         isLoading: false,
         selectedCampId: campId,
         clearSelectedCampId: campId == null || campId == 'all',
         summary: res,
+        unfilteredSummary: newUnfiltered,
       );
     } catch (e) {
       if (!mounted) return;

@@ -36,7 +36,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   String? _selectedDiagnosis;
   String? _selectedPopStage;
   String? _selectedTreatment;
+  String? _selectedComplaint;
   PatientModel? _selectedPatient;
+  final Set<String> _cachedDoctors = {};
 
   @override
   void initState() {
@@ -52,6 +54,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         diagnosisFilter: _selectedDiagnosis,
         popStageFilter: _selectedPopStage,
         treatmentFilter: _selectedTreatment,
+        complaintFilter: _selectedComplaint,
       );
       if (targetCampId != null) {
         ref.read(patientListProvider.notifier).loadPatients(targetCampId);
@@ -78,6 +81,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       diagnosisFilter: _selectedDiagnosis,
       popStageFilter: _selectedPopStage,
       treatmentFilter: _selectedTreatment,
+      complaintFilter: _selectedComplaint,
     );
     // When null or 'all', load all patients across all camps without filtering
     ref.read(patientListProvider.notifier).loadPatients(campId == 'all' ? null : campId);
@@ -94,6 +98,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       diagnosisFilter: _selectedDiagnosis,
       popStageFilter: _selectedPopStage,
       treatmentFilter: _selectedTreatment,
+      complaintFilter: _selectedComplaint,
     );
     ref.read(patientListProvider.notifier).loadPatients(currentCampId == 'all' ? null : currentCampId);
   }
@@ -130,9 +135,90 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _selectedDiagnosis = null;
       _selectedPopStage = null;
       _selectedTreatment = null;
+      _selectedComplaint = null;
       _selectedPatient = null;
     });
     _onRefresh();
+  }
+
+  // ── Dynamic Filter Counts ───────────────────────────────────────────────
+  int _getDoctorCount(String doc, CampReportSummaryModel? summary) {
+    if (summary == null) return 0;
+    bool docMatch(String a, String b) {
+      final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+      final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+      return cleanA.isNotEmpty && cleanB.isNotEmpty && (cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA));
+    }
+    final matchingVisits = summary.visits.where((v) =>
+        (v.primaryDoctorName != null && docMatch(v.primaryDoctorName!, doc)) ||
+        v.attendingDoctorNames.any((d) => docMatch(d, doc)));
+    final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+    final matchingFromPatients = summary.patients.where((p) =>
+        p.primaryDoctorName != null && docMatch(p.primaryDoctorName!, doc)).map((p) => p.patientId);
+    matchingPatientIds.addAll(matchingFromPatients);
+    return matchingPatientIds.length;
+  }
+
+  int _getDiagnosisCount(String dx, CampReportSummaryModel? summary) {
+    if (summary == null) return 0;
+    final dxLower = dx.trim().toLowerCase();
+    final matchingVisits = summary.visits.where((v) =>
+        v.diagnoses.any((d) => d.toLowerCase().contains(dxLower)));
+    return matchingVisits.map((v) => v.patientId).toSet().length;
+  }
+
+  int _getPopStageCount(String stageKey, CampReportSummaryModel? summary) {
+    if (summary == null) return 0;
+    final matchingVisits = summary.visits.where((v) {
+      if (stageKey == '0') return v.highestPopStage == 0;
+      if (stageKey == '1') return v.highestPopStage == 1;
+      if (stageKey == '2+') return v.highestPopStage >= 2;
+      if (stageKey == '3+') return v.highestPopStage >= 3;
+      return true;
+    });
+    return matchingVisits.map((v) => v.patientId).toSet().length;
+  }
+
+  int _getTreatmentCount(String txKey, CampReportSummaryModel? summary) {
+    if (summary == null) return 0;
+    final matchingVisits = summary.visits.where((v) {
+      if (txKey == 'pessary') {
+        return (v.pessaryType != null && v.pessaryType!.trim().isNotEmpty) ||
+            (v.pessarySize != null && v.pessarySize!.trim().isNotEmpty);
+      }
+      if (txKey == 'surgery') {
+        return (v.surgicalReferral != null && v.surgicalReferral!.trim().isNotEmpty) ||
+            v.surgeryDone == true;
+      }
+      if (txKey == 'counseling') {
+        return v.counseling.isNotEmpty;
+      }
+      if (txKey == 'medications') {
+        return v.medications.isNotEmpty ||
+            (v.customMedication != null && v.customMedication!.trim().isNotEmpty);
+      }
+      return true;
+    });
+    return matchingVisits.map((v) => v.patientId).toSet().length;
+  }
+
+  int _getComplaintCount(String compKey, CampReportSummaryModel? summary) {
+    if (summary == null) return 0;
+    final target = compKey.toLowerCase();
+    final visitMap = {for (final v in summary.visits) v.patientId: v};
+    return summary.patients.where((p) {
+      final visit = visitMap[p.patientId];
+      final reasons = p.reasonsForVisit.map((r) => r.toLowerCase()).toList();
+      final anamnesis = visit?.anamnesisComplaints.toString().toLowerCase() ?? '';
+      final combined = [...reasons, anamnesis].join(' ');
+      if (target == 'prolapse') return combined.contains('hanging') || combined.contains('prolapse') || combined.contains('खस्ने');
+      if (target == 'discharge') return combined.contains('discharge') || combined.contains('itching') || combined.contains('स्राव') || combined.contains('चिलाउने');
+      if (target == 'urine') return combined.contains('urine') || combined.contains('dysuria') || combined.contains('पिसाब');
+      if (target == 'stool') return combined.contains('stool') || combined.contains('bowel') || combined.contains('दिसा');
+      if (target == 'pain') return combined.contains('pain') || combined.contains('दुखाई') || combined.contains('तल्लो पेट');
+      if (target == 'menstrual') return combined.contains('menstrual') || combined.contains('महिनावारी') || combined.contains('bleeding');
+      return true;
+    }).length;
   }
 
   void _exportPdf(UserModel? user, String deviceId) {
@@ -211,26 +297,33 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         ? campState.camps.where((c) => user.assignedCampIds.contains(c.id)).toList()
         : campState.camps;
 
-    final allDoctors = <String>{};
     for (final camp in visibleCamps) {
       if (camp.doctorNames.isNotEmpty) {
-        allDoctors.addAll(camp.doctorNames.map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim()).where((d) => d.isNotEmpty));
+        _cachedDoctors.addAll(camp.doctorNames.map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim()).where((d) => d.isNotEmpty));
       } else if (camp.doctorName.trim().isNotEmpty) {
-        allDoctors.add(camp.doctorName.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim());
+        _cachedDoctors.add(camp.doctorName.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim());
       }
     }
-    if (reportState.summary != null) {
-      for (final v in reportState.summary!.visits) {
+    final docSummary = reportState.unfilteredSummary ?? reportState.summary;
+    if (docSummary != null) {
+      for (final v in docSummary.visits) {
         if (v.primaryDoctorName != null && v.primaryDoctorName!.trim().isNotEmpty) {
           final clean = v.primaryDoctorName!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-          if (clean.isNotEmpty) allDoctors.add(clean);
+          if (clean.isNotEmpty) _cachedDoctors.add(clean);
         }
         for (final d in v.attendingDoctorNames) {
           final clean = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-          if (clean.isNotEmpty) allDoctors.add(clean);
+          if (clean.isNotEmpty) _cachedDoctors.add(clean);
+        }
+      }
+      for (final p in docSummary.patients) {
+        if (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty) {
+          final clean = p.primaryDoctorName!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
+          if (clean.isNotEmpty) _cachedDoctors.add(clean);
         }
       }
     }
+    final allDoctors = _cachedDoctors.toSet();
 
     final allDiagnoses = <String>{};
     allDiagnoses.addAll(ClinicalConstants.defaultDiagnoses);
@@ -369,7 +462,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     _buildFeedbackBanner(reportState, reportVm),
                     if (reportState.summary != null) ...[
                       _buildExecutiveKpis(reportState.summary!),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
+                      _buildActiveFiltersBar(reportState),
+                      const SizedBox(height: 4),
                       _buildTabbedAnalysisCard(
                         reportState: reportState,
                         campState: campState,
@@ -436,13 +531,16 @@ class _CampReportViewState extends ConsumerState<CampReportView>
           _buildFeedbackBanner(reportState, reportVm),
           const SizedBox(height: 12),
           _buildMobileFilterBar(
+            reportState: reportState,
             allDoctors: allDoctors,
             sortedDiagnoses: sortedDiagnoses,
           ),
           const SizedBox(height: 16),
           if (reportState.summary != null) ...[
             _buildExecutiveKpis(reportState.summary!),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            _buildActiveFiltersBar(reportState),
+            const SizedBox(height: 4),
             _buildTabbedAnalysisCard(
               reportState: reportState,
               campState: campState,
@@ -542,6 +640,174 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     return const SizedBox.shrink();
   }
 
+  Widget _buildActiveFiltersBar(ReportingState reportState) {
+    final activeFilters = <Widget>[];
+
+    if (_startDate != null || _endDate != null) {
+      final dateText = (_startDate != null && _endDate != null)
+          ? '${_startDate!.day}/${_startDate!.month} - ${_endDate!.day}/${_endDate!.month}'
+          : (_startDate != null ? 'From ${_startDate!.day}/${_startDate!.month}' : 'To ${_endDate!.day}/${_endDate!.month}');
+      activeFilters.add(_buildFilterChip(
+        label: 'Date: $dateText',
+        icon: Icons.calendar_today_outlined,
+        onDeleted: () {
+          setState(() {
+            _startDate = null;
+            _endDate = null;
+          });
+          _onRefresh();
+        },
+      ));
+    }
+
+    if (_selectedDoctor != null) {
+      activeFilters.add(_buildFilterChip(
+        label: 'Dr. $_selectedDoctor',
+        icon: Icons.medical_services_outlined,
+        onDeleted: () {
+          setState(() => _selectedDoctor = null);
+          _onRefresh();
+        },
+      ));
+    }
+
+    if (_selectedDiagnosis != null) {
+      activeFilters.add(_buildFilterChip(
+        label: _selectedDiagnosis!,
+        icon: Icons.healing,
+        onDeleted: () {
+          setState(() => _selectedDiagnosis = null);
+          _onRefresh();
+        },
+      ));
+    }
+
+    if (_selectedPopStage != null) {
+      final stageLabel = _selectedPopStage == '0'
+          ? 'POP: Stage 0'
+          : (_selectedPopStage == '1'
+              ? 'POP: Stage 1'
+              : (_selectedPopStage == '2+' ? 'POP: Stage >= 2' : 'POP: Stage 3-4'));
+      activeFilters.add(_buildFilterChip(
+        label: stageLabel,
+        icon: Icons.straighten_outlined,
+        onDeleted: () {
+          setState(() => _selectedPopStage = null);
+          _onRefresh();
+        },
+      ));
+    }
+
+    if (_selectedTreatment != null) {
+      final txMap = {
+        'pessary': 'Pessary Fitted',
+        'surgery': 'Surgical Referral',
+        'counseling': 'Counseled',
+        'medications': 'Medications',
+      };
+      activeFilters.add(_buildFilterChip(
+        label: txMap[_selectedTreatment] ?? _selectedTreatment!,
+        icon: Icons.local_hospital_outlined,
+        onDeleted: () {
+          setState(() => _selectedTreatment = null);
+          _onRefresh();
+        },
+      ));
+    }
+
+    if (_selectedComplaint != null) {
+      final compMap = {
+        'prolapse': 'Mass / Prolapse',
+        'discharge': 'Discharge / Itching',
+        'urine': 'Urinary Problem',
+        'stool': 'Bowel Problem',
+        'pain': 'Pelvic Pain',
+        'menstrual': 'Menstrual Problem',
+      };
+      activeFilters.add(_buildFilterChip(
+        label: compMap[_selectedComplaint] ?? _selectedComplaint!,
+        icon: Icons.report_problem_outlined,
+        onDeleted: () {
+          setState(() => _selectedComplaint = null);
+          _onRefresh();
+        },
+      ));
+    }
+
+    if (activeFilters.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryTeal.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.filter_alt, size: 16, color: AppTheme.primaryTeal),
+          const SizedBox(width: 8),
+          const Text(
+            'Active Filters:',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: activeFilters,
+            ),
+          ),
+          TextButton(
+            onPressed: _clearAllFilters,
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              foregroundColor: AppTheme.dangerRose,
+            ),
+            child: const Text('Clear All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    IconData? icon,
+    required VoidCallback onDeleted,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: AppTheme.primaryTeal),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: onDeleted,
+            borderRadius: BorderRadius.circular(10),
+            child: const Icon(Icons.close, size: 12, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFilterSidebarCard({
     required ReportingState reportState,
     required CampState campState,
@@ -552,12 +818,16 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required List<CampModel> visibleCamps,
     required String allCampsLabel,
   }) {
-    final hasActiveFilter = _startDate != null ||
-        _endDate != null ||
-        _selectedDoctor != null ||
-        _selectedDiagnosis != null ||
-        _selectedPopStage != null ||
-        _selectedTreatment != null;
+    final activeFiltersCount = (_startDate != null ? 1 : 0) +
+        (_endDate != null ? 1 : 0) +
+        (_selectedDoctor != null ? 1 : 0) +
+        (_selectedDiagnosis != null ? 1 : 0) +
+        (_selectedPopStage != null ? 1 : 0) +
+        (_selectedTreatment != null ? 1 : 0) +
+        (_selectedComplaint != null ? 1 : 0);
+    final hasActiveFilter = activeFiltersCount > 0;
+    final baseSummary = reportState.unfilteredSummary ?? reportState.summary;
+    final totalPatients = baseSummary?.totalPatientsRegistered ?? 0;
 
     return Card(
       elevation: 2,
@@ -571,21 +841,40 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               children: [
                 const Icon(Icons.tune_rounded, color: AppTheme.primaryTeal, size: 20),
                 const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Filters & Export',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryDark),
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Filters & Export',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryDark),
+                      ),
+                      if (hasActiveFilter) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryTeal,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '$activeFiltersCount',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 if (hasActiveFilter)
-                  TextButton(
+                  TextButton.icon(
                     onPressed: _clearAllFilters,
                     style: TextButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                       foregroundColor: AppTheme.dangerRose,
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     ),
-                    child: const Text('Reset', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.clear_all, size: 14),
+                    label: const Text('Reset', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   ),
               ],
             ),
@@ -728,13 +1017,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             ],
             const SizedBox(height: 14),
 
-            // 3. Attending Doctor Filter
+            // 3. Attending Doctor Filter (with dynamic count)
             const Row(
               children: [
                 Icon(Icons.medical_services_outlined, color: AppTheme.primaryTeal, size: 16),
                 SizedBox(width: 6),
                 Expanded(
-                  child: Text('Doctor Filter:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+                  child: Text('Doctor Filter (Dynamic):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
                 ),
               ],
             ),
@@ -753,14 +1042,54 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Doctors', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    const DropdownMenuItem<String?>(
+                    DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('All Doctors', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      child: Row(
+                        children: [
+                          const Expanded(child: Text('All Doctors', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text('$totalPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                          ),
+                        ],
+                      ),
                     ),
-                    ...allDoctors.map((doc) => DropdownMenuItem<String?>(
-                      value: doc,
-                      child: Text('Dr. $doc', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
-                    )),
+                    ...allDoctors.map((doc) {
+                      final count = _getDoctorCount(doc, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: doc,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Dr. $doc',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                   onChanged: (val) {
                     setState(() => _selectedDoctor = val);
@@ -774,7 +1103,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             ),
             const SizedBox(height: 14),
 
-            // 4. Dynamic Diagnosis Filter
+            // 4. Dynamic Diagnosis Filter (with dynamic count)
             const Row(
               children: [
                 Icon(Icons.healing, color: AppTheme.primaryTeal, size: 16),
@@ -799,14 +1128,48 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Diagnoses', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    const DropdownMenuItem<String?>(
+                    DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('All Diagnoses', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      child: Row(
+                        children: [
+                          const Expanded(child: Text('All Diagnoses', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text('$totalPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                          ),
+                        ],
+                      ),
                     ),
-                    ...sortedDiagnoses.map((dx) => DropdownMenuItem<String?>(
-                      value: dx,
-                      child: Text(dx, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                    )),
+                    ...sortedDiagnoses.map((dx) {
+                      final count = _getDiagnosisCount(dx, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: dx,
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(dx, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                   onChanged: (val) {
                     setState(() => _selectedDiagnosis = val);
@@ -820,7 +1183,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             ),
             const SizedBox(height: 14),
 
-            // 5. POP Staging Filter
+            // 5. POP Staging Filter (with dynamic count)
             const Row(
               children: [
                 Icon(Icons.straighten_outlined, color: AppTheme.primaryTeal, size: 16),
@@ -844,27 +1207,47 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isDense: true,
                   isExpanded: true,
                   hint: const Text('All POP Stages', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  items: const [
+                  items: [
                     DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('All POP Stages', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      child: Row(
+                        children: [
+                          const Expanded(child: Text('All POP Stages', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
+                            child: Text('$totalPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                          ),
+                        ],
+                      ),
                     ),
-                    DropdownMenuItem<String?>(
-                      value: '0',
-                      child: Text('Stage 0 (Normal / No Prolapse)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                    ),
-                    DropdownMenuItem<String?>(
-                      value: '1',
-                      child: Text('Stage 1 (Mild Prolapse)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                    ),
-                    DropdownMenuItem<String?>(
-                      value: '2+',
-                      child: Text('Stage >= 2 (Significant Prolapse)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.warningAmber), overflow: TextOverflow.ellipsis),
-                    ),
-                    DropdownMenuItem<String?>(
-                      value: '3+',
-                      child: Text('Stage 3-4 (Severe / Procidentia)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.dangerRose), overflow: TextOverflow.ellipsis),
-                    ),
+                    ...[
+                      {'key': '0', 'label': 'Stage 0 (Normal / No Prolapse)'},
+                      {'key': '1', 'label': 'Stage 1 (Mild Prolapse)'},
+                      {'key': '2+', 'label': 'Stage >= 2 (Significant Prolapse)'},
+                      {'key': '3+', 'label': 'Stage 3-4 (Severe / Procidentia)'},
+                    ].map((item) {
+                      final count = _getPopStageCount(item['key']!, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: item['key'],
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                   onChanged: (val) {
                     setState(() => _selectedPopStage = val);
@@ -878,7 +1261,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             ),
             const SizedBox(height: 14),
 
-            // 6. Treatment Filter
+            // 6. Treatment Filter (with dynamic count)
             const Row(
               children: [
                 Icon(Icons.local_hospital_outlined, color: AppTheme.primaryTeal, size: 16),
@@ -902,27 +1285,47 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isDense: true,
                   isExpanded: true,
                   hint: const Text('All Treatments', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  items: const [
+                  items: [
                     DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('All Treatments', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      child: Row(
+                        children: [
+                          const Expanded(child: Text('All Treatments', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
+                            child: Text('$totalPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                          ),
+                        ],
+                      ),
                     ),
-                    DropdownMenuItem<String?>(
-                      value: 'pessary',
-                      child: Text('Pessary Fitted (रिङ पेसरी)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                    ),
-                    DropdownMenuItem<String?>(
-                      value: 'surgery',
-                      child: Text('Surgical Referral (शल्यक्रिया सिफारिस)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                    ),
-                    DropdownMenuItem<String?>(
-                      value: 'counseling',
-                      child: Text('Pelvic Floor Exercises Counseled', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                    ),
-                    DropdownMenuItem<String?>(
-                      value: 'medications',
-                      child: Text('Medications Dispensed (औषधि)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                    ),
+                    ...[
+                      {'key': 'pessary', 'label': 'Pessary Fitted (रिङ पेसरी)'},
+                      {'key': 'surgery', 'label': 'Surgical Referral (शल्यक्रिया)'},
+                      {'key': 'counseling', 'label': 'Pelvic Floor Exercises'},
+                      {'key': 'medications', 'label': 'Medications Dispensed (औषधि)'},
+                    ].map((item) {
+                      final count = _getTreatmentCount(item['key']!, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: item['key'],
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                   onChanged: (val) {
                     setState(() => _selectedTreatment = val);
@@ -934,10 +1337,90 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                 ),
               ),
             ),
+            const SizedBox(height: 14),
+
+            // 7. Chief Complaints Filter (with dynamic count)
+            const Row(
+              children: [
+                Icon(Icons.report_problem_outlined, color: AppTheme.primaryTeal, size: 16),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text('Chief Complaint (Dynamic):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _selectedComplaint != null ? AppTheme.primaryTeal : const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: _selectedComplaint,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Text('All Complaints', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Row(
+                        children: [
+                          const Expanded(child: Text('All Complaints', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
+                            child: Text('$totalPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ...[
+                      {'key': 'prolapse', 'label': 'Pelvic Organ Prolapse (आङ खस्ने)'},
+                      {'key': 'discharge', 'label': 'Discharge / Itching (स्राव/चिलाउने)'},
+                      {'key': 'urine', 'label': 'Urinary Difficulties (पिसाब समस्या)'},
+                      {'key': 'stool', 'label': 'Bowel / Constipation (दिसा समस्या)'},
+                      {'key': 'pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुखाई)'},
+                      {'key': 'menstrual', 'label': 'Menstrual Disorder (महिनावारी)'},
+                    ].map((item) {
+                      final count = _getComplaintCount(item['key']!, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: item['key'],
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedComplaint = val);
+                    _onRefresh();
+                    if (val != null && _tabController.index != 4) {
+                      _tabController.animateTo(4);
+                    }
+                  },
+                ),
+              ),
+            ),
 
             const Divider(height: 28),
 
-            // 7. Export Action Buttons
+            // 8. Export Action Buttons
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryTeal,
@@ -990,15 +1473,20 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   }
 
   Widget _buildMobileFilterBar({
+    required ReportingState reportState,
     required Set<String> allDoctors,
     required List<String> sortedDiagnoses,
   }) {
-    final hasActiveFilter = _startDate != null ||
-        _endDate != null ||
-        _selectedDoctor != null ||
-        _selectedDiagnosis != null ||
-        _selectedPopStage != null ||
-        _selectedTreatment != null;
+    final activeFiltersCount = (_startDate != null ? 1 : 0) +
+        (_endDate != null ? 1 : 0) +
+        (_selectedDoctor != null ? 1 : 0) +
+        (_selectedDiagnosis != null ? 1 : 0) +
+        (_selectedPopStage != null ? 1 : 0) +
+        (_selectedTreatment != null ? 1 : 0) +
+        (_selectedComplaint != null ? 1 : 0);
+    final hasActiveFilter = activeFiltersCount > 0;
+    final baseSummary = reportState.unfilteredSummary ?? reportState.summary;
+    final totalPatients = baseSummary?.totalPatientsRegistered ?? 0;
 
     return Card(
       elevation: 0,
@@ -1074,9 +1562,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               icon: const Icon(Icons.filter_alt_outlined, size: 14),
               label: const Text('Apply', style: TextStyle(fontSize: 12)),
             ),
+            // Doctor Dropdown
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              constraints: const BoxConstraints(maxWidth: 160),
+              constraints: const BoxConstraints(maxWidth: 170),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
@@ -1102,14 +1591,17 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     ],
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(
+                    DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('All Doctors', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      child: Text('All Doctors ($totalPatients)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
-                    ...allDoctors.map((doc) => DropdownMenuItem<String?>(
-                      value: doc,
-                      child: Text('Dr. $doc', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
-                    )),
+                    ...allDoctors.map((doc) {
+                      final count = _getDoctorCount(doc, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: doc,
+                        child: Text('Dr. $doc ($count)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                      );
+                    }),
                   ],
                   onChanged: (val) {
                     setState(() => _selectedDoctor = val);
@@ -1118,9 +1610,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                 ),
               ),
             ),
+            // Diagnosis Dropdown
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              constraints: const BoxConstraints(maxWidth: 160),
+              constraints: const BoxConstraints(maxWidth: 170),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
@@ -1133,14 +1626,17 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Diagnoses', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    const DropdownMenuItem<String?>(
+                    DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('All Diagnoses', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      child: Text('All Diagnoses ($totalPatients)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
-                    ...sortedDiagnoses.map((dx) => DropdownMenuItem<String?>(
-                      value: dx,
-                      child: Text(dx, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                    )),
+                    ...sortedDiagnoses.map((dx) {
+                      final count = _getDiagnosisCount(dx, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: dx,
+                        child: Text('$dx ($count)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      );
+                    }),
                   ],
                   onChanged: (val) {
                     setState(() => _selectedDiagnosis = val);
@@ -1213,7 +1709,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     _buildDiagnosesTab(reportState.summary!),
                     _buildTreatmentTab(reportState.summary!),
                     _buildPatientRecordsTab(
-                      reportState.selectedCampId ?? campState.activeCamp?.id,
+                      reportState.selectedCampId,
                       summary: reportState.summary,
                       campState: campState,
                       user: user,
@@ -2017,25 +2513,55 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   }) {
     final patientState = ref.watch(patientListProvider);
 
-    final effectiveCampId = campId ??
-        campState.activeCamp?.id ??
-        (campState.camps.isNotEmpty ? campState.camps.first.id : null);
-
+    final effectiveCampId = campId;
     if (effectiveCampId != null &&
         (!patientState.hasLoaded || patientState.loadedCampId != effectiveCampId) &&
         !patientState.isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(patientListProvider.notifier).loadPatients(effectiveCampId);
       });
+    } else if (effectiveCampId == null &&
+        (!patientState.hasLoaded || patientState.loadedCampId != null) &&
+        !patientState.isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(patientListProvider.notifier).loadPatients(null);
+      });
     }
 
+    // Source of truth is summary.patients (which reflects all active filters and camp selection)
+    final sourcePatients = summary?.patients ?? patientState.patients;
+
     final query = _patientSearchController.text.trim().toLowerCase();
-    final patients = patientState.patients.where((p) {
+    final patients = sourcePatients.where((p) {
       if (query.isEmpty) return true;
       return p.fullName.toLowerCase().contains(query) ||
           p.patientId.toLowerCase().contains(query) ||
-          p.mobile.contains(query);
+          p.mobile.contains(query) ||
+          p.ward.toLowerCase().contains(query) ||
+          p.municipality.toLowerCase().contains(query);
     }).toList();
+
+    final visitByPatientId = <String, ClinicalVisitModel>{};
+    if (summary != null) {
+      for (final v in summary.visits) {
+        visitByPatientId[v.patientId] = v;
+      }
+    }
+    final unfilt = ref.watch(reportingViewModelProvider).unfilteredSummary;
+    if (unfilt != null) {
+      for (final v in unfilt.visits) {
+        visitByPatientId.putIfAbsent(v.patientId, () => v);
+      }
+    }
+    final campById = {for (final c in campState.camps) c.id: c};
+
+    final hasActiveFilter = (_startDate != null) ||
+        (_endDate != null) ||
+        (_selectedDoctor != null) ||
+        (_selectedDiagnosis != null) ||
+        (_selectedPopStage != null) ||
+        (_selectedTreatment != null) ||
+        (_selectedComplaint != null);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2052,27 +2578,54 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             children: [
               // ── Master Pane: Patient List (Left) ──
               SizedBox(
-                width: constraints.maxWidth > 900 ? 340 : 290,
+                width: constraints.maxWidth > 900 ? 350 : 300,
                 child: Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-                      child: TextField(
-                        controller: _patientSearchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search patients in this camp by name or ID...',
-                          prefixIcon: const Icon(Icons.search, size: 18),
-                          suffixIcon: _patientSearchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 16),
-                                  onPressed: () => setState(() => _patientSearchController.clear()),
-                                )
-                              : null,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onChanged: (_) => setState(() {}),
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            controller: _patientSearchController,
+                            decoration: InputDecoration(
+                              hintText: 'Search by name, ID, ward, phone...',
+                              prefixIcon: const Icon(Icons.search, size: 18),
+                              suffixIcon: _patientSearchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 16),
+                                      onPressed: () => setState(() => _patientSearchController.clear()),
+                                    )
+                                  : null,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Showing ${patients.length} patient${patients.length == 1 ? '' : 's'}',
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                              ),
+                              if (hasActiveFilter)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.dangerRose.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'Filtered',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.dangerRose),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                     if (patientState.isLoading && patientState.patients.isNotEmpty)
@@ -2085,7 +2638,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         ),
                       ),
                     Expanded(
-                      child: (patientState.isLoading && patientState.patients.isEmpty)
+                      child: (patientState.isLoading && sourcePatients.isEmpty)
                           ? const Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -2101,11 +2654,30 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                             )
                           : patients.isEmpty
                               ? Center(
-                                  child: Text(
-                                    _patientSearchController.text.isNotEmpty
-                                        ? 'No matching patients found.'
-                                        : 'No patient records found in this camp.',
-                                    style: const TextStyle(color: AppTheme.textSecondaryLight),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(20.0),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.person_search_outlined, size: 40, color: Colors.grey),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _patientSearchController.text.isNotEmpty
+                                              ? 'No matching patients found for "${_patientSearchController.text.trim()}".'
+                                              : (hasActiveFilter ? 'No patients match the active filters.' : 'No patient records found in this camp.'),
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(color: AppTheme.textSecondaryLight, fontSize: 12.5),
+                                        ),
+                                        if (hasActiveFilter) ...[
+                                          const SizedBox(height: 8),
+                                          TextButton.icon(
+                                            onPressed: _clearAllFilters,
+                                            icon: const Icon(Icons.clear_all, size: 14),
+                                            label: const Text('Reset All Filters', style: TextStyle(fontSize: 11.5)),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                   ),
                                 )
                               : ListView.builder(
@@ -2116,112 +2688,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                                     final isSelected = currentSelected?.patientId == patient.patientId;
                                     final isExporting = _exportingPatientId == patient.patientId;
 
-                                    return Container(
-                                      margin: const EdgeInsets.symmetric(vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? AppTheme.primaryTeal.withValues(alpha: 0.08)
-                                            : Theme.of(context).cardColor,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: isSelected ? AppTheme.primaryTeal : AppTheme.borderLight,
-                                          width: isSelected ? 1.8 : 1.0,
-                                        ),
-                                      ),
-                                      child: ListTile(
-                                        dense: true,
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        onTap: () {
-                                          setState(() => _selectedPatient = patient);
-                                        },
-                                        leading: CircleAvatar(
-                                          radius: 15,
-                                          backgroundColor: isSelected
-                                              ? AppTheme.primaryTeal
-                                              : AppTheme.primaryTeal.withValues(alpha: 0.15),
-                                          child: Text(
-                                            patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: isSelected ? Colors.white : AppTheme.primaryTeal,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                        title: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                patient.fullName,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 12.5,
-                                                  color: isSelected ? AppTheme.primaryTeal : null,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey.shade200,
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                patient.patientId,
-                                                style: const TextStyle(
-                                                  fontSize: 9.5,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black87,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        subtitle: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Age: ${patient.age}y • Ward: ${patient.ward} • Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"}',
-                                              style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryLight),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 5),
-                                            SizedBox(
-                                              width: double.infinity,
-                                              child: ElevatedButton.icon(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: AppTheme.primaryTeal,
-                                                  foregroundColor: Colors.white,
-                                                  padding: const EdgeInsets.symmetric(vertical: 4),
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                                  visualDensity: VisualDensity.compact,
-                                                ),
-                                                icon: isExporting
-                                                    ? const SizedBox(
-                                                        width: 12,
-                                                        height: 12,
-                                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                                      )
-                                                    : const Icon(Icons.picture_as_pdf, size: 12),
-                                                label: Text(
-                                                  isExporting ? 'Exporting...' : 'PDF Dossier',
-                                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
-                                                ),
-                                                onPressed: isExporting
-                                                    ? null
-                                                    : () => _exportIndividualPatientPdf(
-                                                          patient,
-                                                          campState,
-                                                          user,
-                                                          deviceState,
-                                                        ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                    return _buildPatientCardItem(
+                                      patient: patient,
+                                      visit: visitByPatientId[patient.patientId],
+                                      camp: campById[patient.campId],
+                                      isSelected: isSelected,
+                                      isExporting: isExporting,
+                                      onTap: () => setState(() => _selectedPatient = patient),
+                                      onExportPdf: () => _exportIndividualPatientPdf(
+                                        patient,
+                                        campState,
+                                        user,
+                                        deviceState,
                                       ),
                                     );
                                   },
@@ -2257,22 +2735,49 @@ class _CampReportViewState extends ConsumerState<CampReportView>
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: TextField(
-                controller: _patientSearchController,
-                decoration: InputDecoration(
-                  hintText: 'Search patients in this camp by name or ID...',
-                  prefixIcon: const Icon(Icons.search, size: 18),
-                  suffixIcon: _patientSearchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 16),
-                          onPressed: () => setState(() => _patientSearchController.clear()),
-                        )
-                      : null,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onChanged: (_) => setState(() {}),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: _patientSearchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search patients by name, ID, ward, phone...',
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      suffixIcon: _patientSearchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 16),
+                              onPressed: () => setState(() => _patientSearchController.clear()),
+                            )
+                          : null,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Showing ${patients.length} patient${patients.length == 1 ? '' : 's'}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      ),
+                      if (hasActiveFilter)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.dangerRose.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Filtered',
+                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.dangerRose),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
             if (patientState.isLoading && patientState.patients.isNotEmpty)
@@ -2285,7 +2790,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                 ),
               ),
             Expanded(
-              child: (patientState.isLoading && patientState.patients.isEmpty)
+              child: (patientState.isLoading && sourcePatients.isEmpty)
                   ? const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -2301,134 +2806,71 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     )
                   : patients.isEmpty
                       ? Center(
-                          child: Text(
-                            _patientSearchController.text.isNotEmpty
-                                ? 'No matching patients found.'
-                                : 'No patient records found in this camp.',
-                            style: const TextStyle(color: AppTheme.textSecondaryLight),
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.person_search_outlined, size: 40, color: Colors.grey),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _patientSearchController.text.isNotEmpty
+                                      ? 'No matching patients found for "${_patientSearchController.text.trim()}".'
+                                      : (hasActiveFilter ? 'No patients match the active filters.' : 'No patient records found in this camp.'),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: AppTheme.textSecondaryLight, fontSize: 13),
+                                ),
+                                if (hasActiveFilter) ...[
+                                  const SizedBox(height: 8),
+                                  TextButton.icon(
+                                    onPressed: _clearAllFilters,
+                                    icon: const Icon(Icons.clear_all, size: 14),
+                                    label: const Text('Reset All Filters', style: TextStyle(fontSize: 12)),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         )
-                      : ListView.separated(
+                      : ListView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           itemCount: patients.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
                           itemBuilder: (context, index) {
                             final patient = patients[index];
                             final isExporting = _exportingPatientId == patient.patientId;
 
-                            return Container(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).cardColor,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppTheme.borderLight),
+                            return _buildPatientCardItem(
+                              patient: patient,
+                              visit: visitByPatientId[patient.patientId],
+                              camp: campById[patient.campId],
+                              isSelected: false,
+                              isExporting: isExporting,
+                              onTap: () {
+                                _showPatientDetailModal(
+                                  context: context,
+                                  patient: patient,
+                                  summary: summary,
+                                  campState: campState,
+                                  user: user,
+                                  deviceState: deviceState,
+                                );
+                              },
+                              onExportPdf: () => _exportIndividualPatientPdf(
+                                patient,
+                                campState,
+                                user,
+                                deviceState,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 14,
-                                        backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.15),
-                                        child: Text(
-                                          patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: AppTheme.primaryTeal,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          patient.fullName,
-                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade200,
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          patient.patientId,
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Age: ${patient.age}y • Ward: ${patient.ward} • Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"}',
-                                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppTheme.primaryTeal,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(vertical: 8),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                          ),
-                                          icon: isExporting
-                                              ? const SizedBox(
-                                                  width: 14,
-                                                  height: 14,
-                                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                                )
-                                              : const Icon(Icons.picture_as_pdf, size: 14),
-                                          label: Text(
-                                            isExporting ? 'Exporting...' : 'PDF Dossier',
-                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                          ),
-                                          onPressed: isExporting
-                                              ? null
-                                              : () => _exportIndividualPatientPdf(
-                                                    patient,
-                                                    campState,
-                                                    user,
-                                                    deviceState,
-                                                  ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      OutlinedButton.icon(
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                        ),
-                                        icon: const Icon(Icons.medical_information_outlined, size: 14, color: AppTheme.primaryTeal),
-                                        label: const Text('Clinical View', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                        onPressed: () {
-                                          _showPatientDetailModal(
-                                            context: context,
-                                            patient: patient,
-                                            summary: summary,
-                                            campState: campState,
-                                            user: user,
-                                            deviceState: deviceState,
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                              onViewClinical: () {
+                                _showPatientDetailModal(
+                                  context: context,
+                                  patient: patient,
+                                  summary: summary,
+                                  campState: campState,
+                                  user: user,
+                                  deviceState: deviceState,
+                                );
+                              },
                             );
                           },
                         ),
@@ -2436,6 +2878,244 @@ class _CampReportViewState extends ConsumerState<CampReportView>
           ],
         );
       },
+    );
+  }
+
+  Widget _buildPatientCardItem({
+    required PatientModel patient,
+    required ClinicalVisitModel? visit,
+    required CampModel? camp,
+    required bool isSelected,
+    required bool isExporting,
+    required VoidCallback onTap,
+    required VoidCallback onExportPdf,
+    VoidCallback? onViewClinical,
+  }) {
+    final campCode = camp?.campCode ??
+        (patient.campCode.isNotEmpty
+            ? patient.campCode
+            : (patient.patientId.split('-').length >= 2 ? patient.patientId.split('-')[1] : ''));
+
+    final docName = visit?.primaryDoctorName != null && visit!.primaryDoctorName!.trim().isNotEmpty
+        ? visit.primaryDoctorName!.trim()
+        : (visit?.attendingDoctorNames.any((d) => d.trim().isNotEmpty) == true
+            ? visit!.attendingDoctorNames.firstWhere((d) => d.trim().isNotEmpty)
+            : (patient.primaryDoctorName != null && patient.primaryDoctorName!.trim().isNotEmpty
+                ? patient.primaryDoctorName!.trim()
+                : null));
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: isSelected ? AppTheme.primaryTeal.withValues(alpha: 0.08) : Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isSelected ? AppTheme.primaryTeal : AppTheme.borderLight,
+          width: isSelected ? 1.8 : 1.0,
+        ),
+        boxShadow: isSelected
+            ? [BoxShadow(color: AppTheme.primaryTeal.withValues(alpha: 0.12), blurRadius: 4, offset: const Offset(0, 2))]
+            : null,
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Row 1: Avatar, Name, ID badge
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 15,
+                    backgroundColor: isSelected ? AppTheme.primaryTeal : AppTheme.primaryTeal.withValues(alpha: 0.15),
+                    child: Text(
+                      patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.white : AppTheme.primaryTeal,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      patient.fullName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: isSelected ? AppTheme.primaryTeal : null,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      patient.patientId,
+                      style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+
+              // Row 2: Camp Pill & Doctor Pill
+              Row(
+                children: [
+                  if (campCode.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFBAE6FD)),
+                      ),
+                      child: Text(
+                        'Camp $campCode',
+                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF0369A1)),
+                      ),
+                    ),
+                  if (docName != null)
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFECFDF5),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFFA7F3D0)),
+                        ),
+                        child: Text(
+                          '🩺 Dr. $docName',
+                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF047857)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 5),
+
+              // Row 3: Demographics
+              Text(
+                'Age: ${patient.age}y • Ward: ${patient.ward.isNotEmpty ? patient.ward : "-"} • 📞 ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"}',
+                style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryLight),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 5),
+
+              // Row 4: Clinical Status Pills (if visit available)
+              if (visit != null) ...[
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 3,
+                  children: [
+                    _buildPopStageChip(visit.highestPopStage),
+                    if (visit.pessaryType != null && visit.pessaryType!.isNotEmpty)
+                      _buildSmallStatusChip('💍 Pessary', const Color(0xFF0D9488), const Color(0xFFCCFBF1)),
+                    if (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty)
+                      _buildSmallStatusChip('🏥 Surgery Ref', const Color(0xFF7C3AED), const Color(0xFFEDE9FE)),
+                    if (visit.diagnoses.isNotEmpty)
+                      _buildSmallStatusChip(visit.diagnoses.first, const Color(0xFF2563EB), const Color(0xFFDBEAFE)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+              ],
+
+              // Row 5: Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryTeal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: isExporting
+                          ? const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.picture_as_pdf, size: 12),
+                      label: Text(
+                        isExporting ? 'Exporting...' : 'PDF Dossier',
+                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: isExporting ? null : onExportPdf,
+                    ),
+                  ),
+                  if (onViewClinical != null) ...[
+                    const SizedBox(width: 6),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.medical_information_outlined, size: 12, color: AppTheme.primaryTeal),
+                      label: const Text('Clinical View', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                      onPressed: onViewClinical,
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPopStageChip(int stage) {
+    final Color textColor;
+    final Color bgColor;
+    final String label;
+
+    if (stage == 0) {
+      label = 'POP Stage 0 (Normal)';
+      textColor = const Color(0xFF047857);
+      bgColor = const Color(0xFFD1FAE5);
+    } else if (stage == 1) {
+      label = 'POP Stage 1';
+      textColor = const Color(0xFF0369A1);
+      bgColor = const Color(0xFFE0F2FE);
+    } else if (stage == 2) {
+      label = 'POP Stage 2';
+      textColor = const Color(0xFFB45309);
+      bgColor = const Color(0xFFFEF3C7);
+    } else {
+      label = 'POP Stage $stage';
+      textColor = const Color(0xFFB91C1C);
+      bgColor = const Color(0xFFFEE2E2);
+    }
+
+    return _buildSmallStatusChip(label, textColor, bgColor);
+  }
+
+  Widget _buildSmallStatusChip(String label, Color textColor, Color bgColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: textColor),
+      ),
     );
   }
 
@@ -2515,6 +3195,14 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         ],
                       ),
                       const SizedBox(height: 4),
+                      Builder(builder: (context) {
+                        final campObj = campState.camps.where((c) => c.id == patient.campId).firstOrNull;
+                        final campText = campObj != null ? '${campObj.name} (${campObj.campCode})' : 'Camp ID: ${patient.campId}';
+                        return Text(
+                          '🎪 $campText',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryTeal),
+                        );
+                      }),
                       Text(
                         'Age: ${patient.age}y • Marital: ${patient.maritalStatus.isNotEmpty ? patient.maritalStatus : "N/A"} • Parity: ${visit?.deliveries ?? "N/A"} • Ward: ${patient.ward}',
                         style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
@@ -2740,11 +3428,15 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.dangerRose),
                               ),
                             ),
-                          if (visit.medications.isNotEmpty)
+                          if (visit.medications.isNotEmpty || (visit.customMedication != null && visit.customMedication!.trim().isNotEmpty))
                             Padding(
                               padding: const EdgeInsets.only(bottom: 4),
                               child: Text(
-                                '• Medications: ${visit.medications.join(", ")}',
+                                '• Medications: ${[
+                                  ...visit.medications,
+                                  if (visit.customMedication != null && visit.customMedication!.trim().isNotEmpty)
+                                    visit.customMedication!.trim(),
+                                ].join(", ")}',
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ),
@@ -2759,6 +3451,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                           if (visit.pessaryType == null &&
                               visit.surgicalReferral == null &&
                               visit.medications.isEmpty &&
+                              (visit.customMedication == null || visit.customMedication!.trim().isEmpty) &&
                               visit.counseling.isEmpty)
                             const Text('No specific intervention recorded', style: TextStyle(fontSize: 12, color: Colors.grey)),
                         ],
