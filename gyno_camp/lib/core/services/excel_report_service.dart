@@ -189,7 +189,11 @@ class ExcelReportService {
 
     for (final p in summary.patients) {
       final v = visitByPatientId[p.patientId];
-      final docName = v?.primaryDoctorName ?? (v?.attendingDoctorNames.isNotEmpty == true ? v!.attendingDoctorNames.join(', ') : 'None');
+      final docName = (v?.primaryDoctorName != null && v!.primaryDoctorName!.trim().isNotEmpty)
+          ? v.primaryDoctorName!.trim()
+          : (v?.attendingDoctorNames.any((d) => d.trim().isNotEmpty) == true
+              ? v!.attendingDoctorNames.where((d) => d.trim().isNotEmpty).join(', ')
+              : 'None');
       registerSheet.appendRow([
         TextCellValue(p.patientId),
         TextCellValue(p.firstName),

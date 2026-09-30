@@ -4065,27 +4065,38 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     }
   }
 
+  bool _doctorNamesMatch(String a, String b) {
+    final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+    final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+    if (cleanA.isEmpty || cleanB.isEmpty) return false;
+    return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
+  }
+
   bool _matchesDoctor(PatientModel p, ClinicalVisitModel? visit, String docName, CampState campState) {
     if (docName == 'all') return true;
     final docLower = docName.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
     if (docLower.isEmpty) return false;
 
     if (visit != null) {
-      final visitPrimary = visit.primaryDoctorName?.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-      final primaryMatch = visitPrimary != null && (visitPrimary == docLower || visitPrimary.contains(docLower) || docLower.contains(visitPrimary));
-      final attendingMatch = visit.attendingDoctorNames.any((d) {
-        final cleanD = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-        return cleanD == docLower || cleanD.contains(docLower) || docLower.contains(cleanD);
-      });
+      final primaryMatch = visit.primaryDoctorName != null && _doctorNamesMatch(visit.primaryDoctorName!, docLower);
+      final attendingMatch = visit.attendingDoctorNames.any((d) => _doctorNamesMatch(d, docLower));
       return primaryMatch || attendingMatch;
     } else {
+      if (p.hasClinicalVisit) {
+        final patientPrimaryMatch = p.primaryDoctorName != null && _doctorNamesMatch(p.primaryDoctorName!, docLower);
+        final patientAttendingMatch = p.attendingDoctorNames.any((d) => _doctorNamesMatch(d, docLower));
+        return patientPrimaryMatch || patientAttendingMatch;
+      }
       final patientCamp = campState.camps.where((c) => c.id == p.campId).firstOrNull;
       final campDoctors = patientCamp?.doctorNames.isNotEmpty == true
           ? patientCamp!.doctorNames
           : (patientCamp?.doctorName.trim().isNotEmpty == true ? [patientCamp!.doctorName.trim()] : <String>[]);
-      final cleanCampDocs = campDoctors.map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase()).toList();
+      final cleanCampDocs = campDoctors
+          .map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim())
+          .where((d) => d.isNotEmpty)
+          .toList();
 
-      if (cleanCampDocs.length == 1 && (cleanCampDocs.first == docLower || cleanCampDocs.first.contains(docLower) || docLower.contains(cleanCampDocs.first))) {
+      if (cleanCampDocs.length == 1 && _doctorNamesMatch(cleanCampDocs.first, docLower)) {
         return true;
       }
       return false;

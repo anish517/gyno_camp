@@ -157,14 +157,16 @@ class ReportingRepository implements IReportingRepository {
 
     // Apply Doctor Filter if requested
     if (doctorFilter != null && doctorFilter.trim().isNotEmpty && doctorFilter != 'all') {
-      final docLower = doctorFilter.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+      bool docNamesMatch(String a, String b) {
+        final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+        final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+        if (cleanA.isEmpty || cleanB.isEmpty) return false;
+        return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
+      }
+
       final matchingVisits = visits.where((v) {
-        final primary = v.primaryDoctorName?.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-        final primaryMatch = primary != null && (primary == docLower || primary.contains(docLower) || docLower.contains(primary));
-        final attendingMatch = v.attendingDoctorNames.any((d) {
-          final cleanD = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-          return cleanD == docLower || cleanD.contains(docLower) || docLower.contains(cleanD);
-        });
+        final primaryMatch = v.primaryDoctorName != null && docNamesMatch(v.primaryDoctorName!, doctorFilter);
+        final attendingMatch = v.attendingDoctorNames.any((d) => docNamesMatch(d, doctorFilter));
         return primaryMatch || attendingMatch;
       }).toList();
 

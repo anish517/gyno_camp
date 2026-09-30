@@ -2771,7 +2771,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             const SizedBox(height: 12),
 
             // Attending Doctor Footer
-            if (visit.primaryDoctorName != null || visit.attendingDoctorNames.isNotEmpty)
+            if ((visit.primaryDoctorName != null && visit.primaryDoctorName!.trim().isNotEmpty) ||
+                visit.attendingDoctorNames.any((d) => d.trim().isNotEmpty))
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
@@ -2784,7 +2785,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Attending Clinician: ${visit.primaryDoctorName ?? visit.attendingDoctorNames.join(", ")}',
+                        'Attending Clinician: ${(visit.primaryDoctorName != null && visit.primaryDoctorName!.trim().isNotEmpty) ? visit.primaryDoctorName! : visit.attendingDoctorNames.where((d) => d.trim().isNotEmpty).join(", ")}',
                         style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
                         overflow: TextOverflow.ellipsis,
                       ),

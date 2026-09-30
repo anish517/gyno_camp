@@ -344,14 +344,17 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
 
       // 4. Doctor Filter — match strictly by attending/primary doctor when visit exists
       if (filters.doctor != null && filters.doctor != 'all' && filters.doctor!.trim().isNotEmpty) {
-        final docLower = filters.doctor!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+        final docFilter = filters.doctor!;
 
-        final visitPrimary = p.primaryDoctorName?.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-        final primaryMatch = visitPrimary != null && (visitPrimary == docLower || visitPrimary.contains(docLower) || docLower.contains(visitPrimary));
-        final attendingMatch = p.attendingDoctorNames.any((d) {
-          final cleanD = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-          return cleanD == docLower || cleanD.contains(docLower) || docLower.contains(cleanD);
-        });
+        bool docNamesMatch(String a, String b) {
+          final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+          final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+          if (cleanA.isEmpty || cleanB.isEmpty) return false;
+          return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
+        }
+
+        final primaryMatch = p.primaryDoctorName != null && docNamesMatch(p.primaryDoctorName!, docFilter);
+        final attendingMatch = p.attendingDoctorNames.any((d) => docNamesMatch(d, docFilter));
 
         if (p.hasClinicalVisit) {
           // Patient has been examined: clinical accountability rests solely on the examining doctor
@@ -359,10 +362,12 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         } else {
           // Patient registered but not yet examined:
           // If the camp has only a single doctor assigned, the patient belongs to that doctor's queue
-          final campDocs = filters.campDoctorsMap[p.campId] ?? const [];
-          final cleanCampDocs = campDocs.map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase()).toList();
+          final campDocs = (filters.campDoctorsMap[p.campId] ?? const [])
+              .map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim())
+              .where((d) => d.isNotEmpty)
+              .toList();
 
-          if (cleanCampDocs.length == 1 && (cleanCampDocs.first == docLower || cleanCampDocs.first.contains(docLower) || docLower.contains(cleanCampDocs.first))) {
+          if (campDocs.length == 1 && docNamesMatch(campDocs.first, docFilter)) {
             // Belongs to the solo doctor queue for this camp
           } else {
             return false;

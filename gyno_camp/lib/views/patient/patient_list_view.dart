@@ -1973,10 +1973,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 runSpacing: 4,
                 children: [
                   // Examining Doctor Badge
-                  if (patient.primaryDoctorName != null || patient.attendingDoctorNames.isNotEmpty) ...[
+                  if ((patient.primaryDoctorName != null && patient.primaryDoctorName!.trim().isNotEmpty) ||
+                      patient.attendingDoctorNames.any((d) => d.trim().isNotEmpty)) ...[
                     Builder(
                       builder: (_) {
-                        final docRaw = patient.primaryDoctorName ?? patient.attendingDoctorNames.first;
+                        final docRaw = (patient.primaryDoctorName != null && patient.primaryDoctorName!.trim().isNotEmpty)
+                            ? patient.primaryDoctorName!
+                            : patient.attendingDoctorNames.firstWhere((d) => d.trim().isNotEmpty);
                         final docProf = DoctorProfile.parse(docRaw);
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
