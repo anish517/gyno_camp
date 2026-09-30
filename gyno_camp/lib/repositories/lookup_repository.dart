@@ -447,12 +447,12 @@ class LookupRepository implements ILookupRepository {
     } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
   }
 
-  @override
   // In-memory mutex: prevents concurrent / duplicate seed runs
   // (ensureDefaultsSeeded is called on every loadAll — including the 15-second
   // periodic sync — so without this guard it would re-seed continuously).
   static final Set<String> _seedingInProgress = {};
 
+  @override
   Future<void> ensureDefaultsSeeded({String? tenantId}) async {
     final targetTenant = tenantId ?? 'tenant_default';
     final metaKey = 'lookup_defaults_seeded_$targetTenant';
@@ -494,7 +494,7 @@ class LookupRepository implements ILookupRepository {
     }
   }
 
-  Future<void> _runSeedLogic(dynamic db, String targetTenant, String metaKey) async {
+  Future<void> _runSeedLogic(Database db, String targetTenant, String metaKey) async {
     // Gate check: skip if already seeded AND all categories have data
     // (Protects against re-seeding deleted items while allowing fresh-browser recovery)
     try {
