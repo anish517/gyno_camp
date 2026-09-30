@@ -628,7 +628,7 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT (STATIONS 1-6):
      - "Anterior (Cystocele): [ ]" (0 to 4)
      - "Middle (Uterine): [ ]" (0 to 4)
      - "Posterior (Rectocele): [ ]" (0 to 4)
-     - "Highest Stage: [ ]" (0 to 4)
+     - "Highest Stage: [ ]" (0 to 4, or auto-derived from max of Anterior, Middle, Posterior)
    - "Cervix Appearance:" (handwritten line text -> cervixRemarks)
    - "Vagina / Vulva:" (handwritten line text -> vaginaRemarks)
 4. Station 3: Vitals & Point-of-Care Labs:

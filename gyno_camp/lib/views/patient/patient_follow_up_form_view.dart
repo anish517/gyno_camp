@@ -751,9 +751,9 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             if (v.deliveries != null || v.livingChildren != null || v.abortions != null) ...[
-                              _obsBadge('P', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal),
-                              _obsBadge('L', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
-                              _obsBadge('A', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
+                              _obsBadge('Deliveries (P)', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal),
+                              _obsBadge('Living (L)', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
+                              _obsBadge('Losses (A)', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
                             ],
                             _tb('Tone: ${v.pelvicFloorTone.toUpperCase()}', AppTheme.primaryTeal),
                             _tb(
@@ -827,13 +827,23 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 Row(
                   children: [
                     const Text('Baden-Walker POP: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                    _pb('Highest', 'St ${v.highestPopStage}', ip: true, ic: v.highestPopStage >= 3),
-                    const SizedBox(width: 4),
-                    _pb('Ant', 'St ${v.popAnteriorStage}'),
-                    const SizedBox(width: 4),
-                    _pb('Mid', 'St ${v.popMiddleStage}'),
-                    const SizedBox(width: 4),
-                    _pb('Post', 'St ${v.popPosteriorStage}'),
+                    if (v.highestPopStage == 0) ...[
+                      _pb('', 'Normal (No Prolapse)', isNormal: true),
+                      const SizedBox(width: 4),
+                      _pb('Ant', 'St 0'),
+                      const SizedBox(width: 4),
+                      _pb('Mid', 'St 0'),
+                      const SizedBox(width: 4),
+                      _pb('Post', 'St 0'),
+                    ] else ...[
+                      _pb('Highest', 'St ${v.highestPopStage}', ip: v.highestPopStage == 2, ic: v.highestPopStage >= 3),
+                      const SizedBox(width: 4),
+                      _pb('Ant', 'St ${v.popAnteriorStage}'),
+                      const SizedBox(width: 4),
+                      _pb('Mid', 'St ${v.popMiddleStage}'),
+                      const SizedBox(width: 4),
+                      _pb('Post', 'St ${v.popPosteriorStage}'),
+                    ],
                   ],
                 ),
 
@@ -973,14 +983,14 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   }
 
   Widget _obsBadge(String label, String val, Color bg, Color fg) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
     decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4), border: Border.all(color: fg.withValues(alpha: 0.3))),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: fg)),
-        const SizedBox(width: 3),
-        Text(val, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: fg)),
+        Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: fg.withValues(alpha: 0.85))),
+        const SizedBox(width: 3.5),
+        Text(val, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: fg)),
       ],
     ),
   );
@@ -999,16 +1009,23 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
     ],
   );
 
-  Widget _pb(String label, String val, {bool ip = false, bool ic = false}) {
-    final c = ic ? AppTheme.dangerRose : (ip ? AppTheme.primaryTeal : const Color(0xFF475569));
+  Widget _pb(String label, String val, {bool ip = false, bool ic = false, bool isNormal = false}) {
+    final c = ic
+        ? AppTheme.dangerRose
+        : (isNormal
+            ? const Color(0xFF16A34A)
+            : (ip ? const Color(0xFFD97706) : const Color(0xFF475569)));
+    final bg = isNormal
+        ? const Color(0xFFF0FDF4)
+        : (ip ? const Color(0xFFFEF3C7) : c.withValues(alpha: 0.1));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
       decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.1),
+        color: bg,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: c.withValues(alpha: 0.3)),
+        border: Border.all(color: isNormal ? const Color(0xFF86EFAC) : c.withValues(alpha: 0.3)),
       ),
-      child: Text('$label: $val', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: c)),
+      child: Text(label.isEmpty ? val : '$label: $val', style: TextStyle(fontSize: 9.5, fontWeight: (ip || ic || isNormal) ? FontWeight.bold : FontWeight.w600, color: c)),
     );
   }
 

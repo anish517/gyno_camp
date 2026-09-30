@@ -800,8 +800,14 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                         if (patient.highestPopStage != null) ...[
                           pw.SizedBox(width: 6),
                           pw.Text(
-                            'POP Stage: ${patient.highestPopStage}',
-                            style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900),
+                            patient.highestPopStage == 0
+                                ? 'POP: Normal (No Prolapse)'
+                                : 'POP Stage: ${patient.highestPopStage}',
+                            style: pw.TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: pw.FontWeight.bold,
+                              color: patient.highestPopStage == 0 ? PdfColors.green900 : PdfColors.teal900,
+                            ),
                           ),
                         ],
                       ],

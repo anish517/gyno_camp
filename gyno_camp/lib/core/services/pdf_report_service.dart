@@ -1076,15 +1076,25 @@ class PdfReportService {
               border: pw.Border.all(color: (visit?.highestPopStage ?? 0) >= 2 ? secondaryColor : borderGray, width: 0.8),
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
             ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-              children: [
-                _buildPopBadge('HIGHEST POP STAGE', 'Stage ${visit?.highestPopStage ?? 0}', isHighlight: true, isCritical: (visit?.highestPopStage ?? 0) >= 3),
-                _buildPopBadge('ANTERIOR (Cystocele)', 'Stage ${visit?.popAnteriorStage ?? 0}'),
-                _buildPopBadge('MIDDLE (Uterine)', 'Stage ${visit?.popMiddleStage ?? 0}'),
-                _buildPopBadge('POSTERIOR (Rectocele)', 'Stage ${visit?.popPosteriorStage ?? 0}'),
-              ],
-            ),
+            child: (visit?.highestPopStage ?? 0) == 0
+                ? pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildPopBadge('OVERALL STATUS', 'Normal (No Prolapse)', isNormal: true),
+                      _buildPopBadge('ANTERIOR (Cystocele)', 'Stage 0 (Normal)'),
+                      _buildPopBadge('MIDDLE (Uterine)', 'Stage 0 (Normal)'),
+                      _buildPopBadge('POSTERIOR (Rectocele)', 'Stage 0 (Normal)'),
+                    ],
+                  )
+                : pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildPopBadge('HIGHEST POP STAGE', 'Stage ${visit?.highestPopStage ?? 0}', isHighlight: (visit?.highestPopStage ?? 0) == 2, isCritical: (visit?.highestPopStage ?? 0) >= 3),
+                      _buildPopBadge('ANTERIOR (Cystocele)', 'Stage ${visit?.popAnteriorStage ?? 0}'),
+                      _buildPopBadge('MIDDLE (Uterine)', 'Stage ${visit?.popMiddleStage ?? 0}'),
+                      _buildPopBadge('POSTERIOR (Rectocele)', 'Stage ${visit?.popPosteriorStage ?? 0}'),
+                    ],
+                  ),
           ),
           pw.SizedBox(height: 7),
 
@@ -1306,13 +1316,17 @@ class PdfReportService {
     );
   }
 
-  pw.Widget _buildPopBadge(String label, String value, {bool isHighlight = false, bool isCritical = false}) {
+  pw.Widget _buildPopBadge(String label, String value, {bool isHighlight = false, bool isCritical = false, bool isNormal = false}) {
     final bgColor = isCritical
         ? PdfColor.fromHex('FFE4E6')
-        : (isHighlight ? PdfColor.fromHex('CCFBF1') : PdfColor.fromHex('F1F5F9'));
+        : (isHighlight
+            ? PdfColor.fromHex('FEF3C7')
+            : (isNormal ? PdfColor.fromHex('F0FDF4') : PdfColor.fromHex('F1F5F9')));
     final textColor = isCritical
         ? PdfColor.fromHex('BE123C')
-        : (isHighlight ? PdfColor.fromHex('0F766E') : PdfColor.fromHex('334155'));
+        : (isHighlight
+            ? PdfColor.fromHex('92400E')
+            : (isNormal ? PdfColor.fromHex('166534') : PdfColor.fromHex('334155')));
 
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1556,15 +1570,25 @@ class PdfReportService {
               border: pw.Border.all(color: visit.highestPopStage >= 2 ? secondary : gray, width: 0.8),
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
             ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-              children: [
-                _buildPopBadge('HIGHEST POP STAGE', 'Stage ${visit.highestPopStage}', isHighlight: true, isCritical: visit.highestPopStage >= 3),
-                _buildPopBadge('ANTERIOR (Cystocele)', 'Stage ${visit.popAnteriorStage}'),
-                _buildPopBadge('MIDDLE (Uterine)', 'Stage ${visit.popMiddleStage}'),
-                _buildPopBadge('POSTERIOR (Rectocele)', 'Stage ${visit.popPosteriorStage}'),
-              ],
-            ),
+            child: visit.highestPopStage == 0
+                ? pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildPopBadge('OVERALL STATUS', 'Normal (No Prolapse)', isNormal: true),
+                      _buildPopBadge('ANTERIOR (Cystocele)', 'Stage 0 (Normal)'),
+                      _buildPopBadge('MIDDLE (Uterine)', 'Stage 0 (Normal)'),
+                      _buildPopBadge('POSTERIOR (Rectocele)', 'Stage 0 (Normal)'),
+                    ],
+                  )
+                : pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildPopBadge('HIGHEST POP STAGE', 'Stage ${visit.highestPopStage}', isHighlight: visit.highestPopStage == 2, isCritical: visit.highestPopStage >= 3),
+                      _buildPopBadge('ANTERIOR (Cystocele)', 'Stage ${visit.popAnteriorStage}'),
+                      _buildPopBadge('MIDDLE (Uterine)', 'Stage ${visit.popMiddleStage}'),
+                      _buildPopBadge('POSTERIOR (Rectocele)', 'Stage ${visit.popPosteriorStage}'),
+                    ],
+                  ),
           ),
           pw.SizedBox(height: 7),
 
@@ -2749,27 +2773,21 @@ class PdfReportService {
                   pw.Text('Anterior', style: pw.TextStyle(fontSize: fsSmall)),
                   pw.Text('(Cystocele)', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
                   pw.SizedBox(height: 2),
-                  numBox(visit != null ? '${visit.popAnteriorStage}' : '', w: 26, h: 20),
+                  numBox(visit != null ? '${visit.popAnteriorStage}' : '', w: 32, h: 20),
                 ]),
-                pw.SizedBox(width: 10),
+                pw.SizedBox(width: 14),
                 pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
                   pw.Text('Middle', style: pw.TextStyle(fontSize: fsSmall)),
                   pw.Text('(Uterine)', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
                   pw.SizedBox(height: 2),
-                  numBox(visit != null ? '${visit.popMiddleStage}' : '', w: 26, h: 20),
+                  numBox(visit != null ? '${visit.popMiddleStage}' : '', w: 32, h: 20),
                 ]),
-                pw.SizedBox(width: 10),
+                pw.SizedBox(width: 14),
                 pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
                   pw.Text('Posterior', style: pw.TextStyle(fontSize: fsSmall)),
                   pw.Text('(Rectocele)', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
                   pw.SizedBox(height: 2),
-                  numBox(visit != null ? '${visit.popPosteriorStage}' : '', w: 26, h: 20),
-                ]),
-                pw.SizedBox(width: 10),
-                pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
-                  pw.Text('Highest Stage', style: pw.TextStyle(fontSize: fsSmall, fontWeight: pw.FontWeight.bold, color: primary)),
-                  pw.SizedBox(height: 8),
-                  numBox(visit != null ? '${visit.highestPopStage}' : '', w: 26, h: 20),
+                  numBox(visit != null ? '${visit.popPosteriorStage}' : '', w: 32, h: 20),
                 ]),
               ]),
               pw.SizedBox(height: 3),

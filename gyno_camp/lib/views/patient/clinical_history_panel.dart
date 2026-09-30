@@ -208,8 +208,17 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
       if (p.maritalAge != null)
         _infoRow(Icons.event_outlined, 'Age at Marriage', '${p.maritalAge} yrs'),
       const SizedBox(height: 10), const Divider(color: Color(0xFFE2E8F0)), const SizedBox(height: 6),
-      const Text('Obstetric History (P/L/A)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-      const SizedBox(height: 4),
+      Row(
+        children: [
+          const Text('Obstetric History (प्रसूति विवरण)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+          const SizedBox(width: 4),
+          Tooltip(
+            message: 'P: Parity/Deliveries (सुत्केरी संख्या)\nL: Living Children (जीवित सन्तान)\nA: Abortions/Losses (गर्भपतन)',
+            child: const Icon(Icons.info_outline_rounded, size: 12, color: Color(0xFF94A3B8)),
+          ),
+        ],
+      ),
+      const SizedBox(height: 5),
       // Obstetrics from most recent visit if available
       FutureBuilder<List<ClinicalVisitModel>>(
         future: _visitsFuture,
@@ -222,13 +231,15 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
           if (v.deliveries == null && v.livingChildren == null && v.abortions == null) {
             return const Text('Not recorded', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)));
           }
-          return Row(children: [
-            _obsBadge('P', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal),
-            const SizedBox(width: 4),
-            _obsBadge('L', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
-            const SizedBox(width: 4),
-            _obsBadge('A', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
-          ]);
+          return Wrap(
+            spacing: 5,
+            runSpacing: 4,
+            children: [
+              _obsBadge('Deliveries (P)', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal, tooltip: 'Parity / Total Deliveries (सुत्केरी संख्या)'),
+              _obsBadge('Living (L)', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A), tooltip: 'Living Children (जीवित सन्तान)'),
+              _obsBadge('Losses (A)', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C), tooltip: 'Abortions / Miscarriages (गर्भपतन वा खेर गएको)'),
+            ],
+          );
         },
       ),
       const SizedBox(height: 10), const Divider(color: Color(0xFFE2E8F0)), const SizedBox(height: 6),
@@ -380,9 +391,9 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             if (v.deliveries != null || v.livingChildren != null || v.abortions != null) ...[
-                              _obsBadge('P', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal),
-                              _obsBadge('L', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
-                              _obsBadge('A', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
+                              _obsBadge('Deliveries (P)', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal, tooltip: 'Parity / Total Deliveries (सुत्केरी संख्या)'),
+                              _obsBadge('Living (L)', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A), tooltip: 'Living Children (जीवित सन्तान)'),
+                              _obsBadge('Losses (A)', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C), tooltip: 'Abortions / Miscarriages (गर्भपतन)'),
                             ],
                             _tb('Tone: ${v.pelvicFloorTone.toUpperCase()}', AppTheme.primaryTeal),
                             _tb(
@@ -458,13 +469,23 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                   children: [
                     const Text('Baden-Walker POP:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
                     const SizedBox(width: 6),
-                    _pb('Highest', 'St ${v.highestPopStage}', ip: true, ic: v.highestPopStage >= 3),
-                    const SizedBox(width: 4),
-                    _pb('Ant', 'St ${v.popAnteriorStage}'),
-                    const SizedBox(width: 4),
-                    _pb('Mid', 'St ${v.popMiddleStage}'),
-                    const SizedBox(width: 4),
-                    _pb('Post', 'St ${v.popPosteriorStage}'),
+                    if (v.highestPopStage == 0) ...[
+                      _pb('', 'Normal (No Prolapse)', isNormal: true),
+                      const SizedBox(width: 4),
+                      _pb('Ant', 'St 0'),
+                      const SizedBox(width: 4),
+                      _pb('Mid', 'St 0'),
+                      const SizedBox(width: 4),
+                      _pb('Post', 'St 0'),
+                    ] else ...[
+                      _pb('Highest', 'St ${v.highestPopStage}', ip: v.highestPopStage == 2, ic: v.highestPopStage >= 3),
+                      const SizedBox(width: 4),
+                      _pb('Ant', 'St ${v.popAnteriorStage}'),
+                      const SizedBox(width: 4),
+                      _pb('Mid', 'St ${v.popMiddleStage}'),
+                      const SizedBox(width: 4),
+                      _pb('Post', 'St ${v.popPosteriorStage}'),
+                    ],
                   ],
                 ),
 
@@ -740,11 +761,33 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     TextSpan(text: val, style: const TextStyle(fontWeight: FontWeight.w600)),
   ]));
 
-  Widget _pb(String lbl, String val, {bool ip = false, bool ic = false}) {
-    final bg = ic ? const Color(0xFFFFE4E6) : ip ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9);
-    final fg = ic ? AppTheme.dangerRose : ip ? const Color(0xFF92400E) : const Color(0xFF334155);
-    final bd = ic ? AppTheme.dangerRose : ip ? const Color(0xFFF59E0B) : const Color(0xFFCBD5E1);
-    return Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2), decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4), border: Border.all(color: bd, width: 0.8)), child: Text('$lbl: $val', style: TextStyle(fontSize: 10, fontWeight: ip ? FontWeight.bold : FontWeight.w600, color: fg)));
+  Widget _pb(String lbl, String val, {bool ip = false, bool ic = false, bool isNormal = false}) {
+    final bg = ic
+        ? const Color(0xFFFFE4E6)
+        : ip
+            ? const Color(0xFFFEF3C7)
+            : isNormal
+                ? const Color(0xFFF0FDF4)
+                : const Color(0xFFF1F5F9);
+    final fg = ic
+        ? AppTheme.dangerRose
+        : ip
+            ? const Color(0xFF92400E)
+            : isNormal
+                ? const Color(0xFF166534)
+                : const Color(0xFF334155);
+    final bd = ic
+        ? AppTheme.dangerRose
+        : ip
+            ? const Color(0xFFF59E0B)
+            : isNormal
+                ? const Color(0xFF86EFAC)
+                : const Color(0xFFCBD5E1);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4), border: Border.all(color: bd, width: 0.8)),
+      child: Text(lbl.isEmpty ? val : '$lbl: $val', style: TextStyle(fontSize: 10, fontWeight: (ip || ic || isNormal) ? FontWeight.bold : FontWeight.w600, color: fg)),
+    );
   }
 
   Widget _tb(String text, Color color) => Container(
@@ -753,13 +796,19 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
   );
 
-  Widget _obsBadge(String label, String value, Color bg, Color fg) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(5), border: Border.all(color: fg.withValues(alpha: 0.3))),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: fg.withValues(alpha: 0.7))),
-      const SizedBox(width: 3),
-      Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: fg)),
-    ]),
-  );
+  Widget _obsBadge(String label, String value, Color bg, Color fg, {String? tooltip}) {
+    final badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(5), border: Border.all(color: fg.withValues(alpha: 0.3))),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: fg.withValues(alpha: 0.85))),
+        const SizedBox(width: 4),
+        Text(value, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: fg)),
+      ]),
+    );
+    if (tooltip != null) {
+      return Tooltip(message: tooltip, child: badge);
+    }
+    return badge;
+  }
 }

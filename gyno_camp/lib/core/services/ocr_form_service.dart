@@ -851,8 +851,12 @@ class OcrFormService {
           if (isolatedDigits.length >= 3) {
             ant ??= isolatedDigits[0];
             mid ??= isolatedDigits[1];
-            post ??= isolatedDigits.length >= 4 ? isolatedDigits[2] : 0;
-            explicitHighest ??= isolatedDigits.last;
+            post ??= isolatedDigits[2];
+            if (isolatedDigits.length >= 4) {
+              explicitHighest ??= isolatedDigits[3];
+            } else {
+              explicitHighest ??= [isolatedDigits[0], isolatedDigits[1], isolatedDigits[2]].reduce(max);
+            }
           }
         }
       }
