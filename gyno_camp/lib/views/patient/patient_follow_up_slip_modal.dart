@@ -480,21 +480,6 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0F766E),
-                          side: const BorderSide(color: Color(0xFF0F766E)),
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: const Icon(Icons.grid_view_rounded, size: 18, color: Color(0xFF0F766E)),
-                        label: const Text('Print Reg Form (Grid)', style: TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: () => _printRegistrationFormPdf(context),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF1E293B),
                           padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -526,21 +511,6 @@ class PatientFollowUpSlipModal extends StatelessWidget {
               else
                 Row(
                   children: [
-                    // Print Block Registration Form Button
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0F766E),
-                          side: const BorderSide(color: Color(0xFF0F766E)),
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: const Icon(Icons.grid_view_rounded, size: 18, color: Color(0xFF0F766E)),
-                        label: const Text('Print Reg Form', style: TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: () => _printRegistrationFormPdf(context),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
                     // Print PDF Slip Button
                     Expanded(
                       child: OutlinedButton.icon(
@@ -555,7 +525,7 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                       ),
                     ),
                     if (showProceedButton) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
@@ -648,129 +618,234 @@ class PatientFollowUpSlipModal extends StatelessWidget {
     );
   }
 
-  Future<void> _printRegistrationFormPdf(BuildContext context) async {
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Generating block-letter registration form PDF...'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
-        patient: patient,
-        camp: camp,
-        organizationName: organizationName,
-      );
-      await FileDownloadHelper.saveAndDownloadFile(
-        bytes: bytes,
-        filename: 'RegistrationForm_${patient.patientId}.pdf',
-        mimeType: 'application/pdf',
-      );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Registration form downloaded: RegistrationForm_${patient.patientId}.pdf',
+  pw.Widget _buildPdfStationRow(String title, {required bool isDone}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2.2),
+      child: pw.Row(
+        children: [
+          pw.Container(
+            width: 14,
+            height: 14,
+            decoration: pw.BoxDecoration(
+              color: isDone ? PdfColors.teal700 : PdfColors.white,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
+              border: pw.Border.all(color: isDone ? PdfColors.teal800 : PdfColors.grey400, width: 1),
             ),
-            backgroundColor: AppTheme.successGreen,
-            behavior: SnackBarBehavior.floating,
+            alignment: pw.Alignment.center,
+            child: isDone
+                ? pw.Text('X', style: pw.TextStyle(fontSize: 8.5, color: PdfColors.white, fontWeight: pw.FontWeight.bold))
+                : pw.SizedBox(),
           ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error generating form: $e'),
-            backgroundColor: AppTheme.dangerRose,
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: pw.Text(
+              title,
+              style: pw.TextStyle(
+                fontSize: 9.5,
+                fontWeight: isDone ? pw.FontWeight.bold : pw.FontWeight.normal,
+                color: isDone ? PdfColors.black : PdfColors.grey700,
+              ),
+            ),
           ),
-        );
-      }
-    }
+          pw.Text(
+            isDone ? '[ COMPLETED ]' : '[ PENDING ]',
+            style: pw.TextStyle(
+              fontSize: 8,
+              fontWeight: pw.FontWeight.bold,
+              color: isDone ? PdfColors.teal800 : PdfColors.grey500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _printPdfSlip(BuildContext context) async {
     try {
       final doc = pw.Document();
+      final hasClinical = patient.hasClinicalVisit;
+      final reasonsStr = patient.reasonsForVisit.isNotEmpty
+          ? patient.reasonsForVisit
+              .map((r) => PdfReportService.sanitizeText(r.replaceAll('_', ' ')))
+              .where((s) => s.isNotEmpty)
+              .join(', ')
+          : '';
+      final docRaw = patient.primaryDoctorName?.trim().isNotEmpty == true
+          ? patient.primaryDoctorName!
+          : (patient.attendingDoctorNames.isNotEmpty ? patient.attendingDoctorNames.first : '');
+      final docName = PdfReportService.sanitizeText(docRaw);
+
       doc.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a5,
-          margin: const pw.EdgeInsets.all(20),
+          margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           build: (pw.Context ctx) {
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-                pw.Center(
-                  child: pw.Text(
-                    PdfReportService.sanitizeText(organizationName.toUpperCase()),
-                    style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.teal800),
+                // ── Top Header ──
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.teal50,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                    border: pw.Border.all(color: PdfColors.teal700, width: 1),
+                  ),
+                  child: pw.Column(
+                    children: [
+                      pw.Text(
+                        PdfReportService.sanitizeText(organizationName.toUpperCase()),
+                        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        PdfReportService.sanitizeText(camp?.name, fallback: 'Gynecological Health Outreach Camp'),
+                        style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.black),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                      pw.Text(
+                        'PATIENT FOLLOW-UP TOKEN SLIP & TRIAGE ROUTING PASS',
+                        style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700, letterSpacing: 0.5),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
-                pw.Center(
-                  child: pw.Text(
-                    PdfReportService.sanitizeText(camp?.name, fallback: 'Gynecological Health Outreach Camp'),
-                    style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
-                  ),
-                ),
-                pw.Center(
-                  child: pw.Text(
-                    'PATIENT FOLLOW-UP TOKEN SLIP / Patient Triage Pass',
-                    style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
-                  ),
-                ),
-                pw.SizedBox(height: 10),
-                pw.Divider(),
-                pw.SizedBox(height: 10),
+                pw.SizedBox(height: 8),
 
-                // Barcode and QR
+                // ── Patient Info + Barcodes ──
                 pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Expanded(
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text('PATIENT ID: ${PdfReportService.sanitizeText(patient.patientId)}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-                          pw.SizedBox(height: 4),
-                          pw.Text('Name: ${PdfReportService.sanitizeText(patient.fullName)}', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                          pw.Text('Age: ${patient.age} yrs | Ward: ${PdfReportService.sanitizeText(patient.ward)} | ${PdfReportService.sanitizeText(patient.district)}', style: const pw.TextStyle(fontSize: 10)),
-                          pw.Text('Guardian / Spouse: ${PdfReportService.sanitizeText(patient.spouseOrFatherName, fallback: "N/A")}', style: const pw.TextStyle(fontSize: 10)),
-                          pw.Text('Mobile: ${patient.mobile.isNotEmpty ? PdfReportService.sanitizeText(patient.mobile) : "N/A"}', style: const pw.TextStyle(fontSize: 10)),
-                          pw.Text('Date: ${patient.intakeDate.toString().split(" ")[0]}', style: const pw.TextStyle(fontSize: 10)),
-                        ],
+                      child: pw.Container(
+                        padding: const pw.EdgeInsets.all(8),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: PdfColors.grey300),
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                        ),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Row(
+                              children: [
+                                pw.Text('PATIENT ID: ', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                                pw.Text(PdfReportService.sanitizeText(patient.patientId), style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
+                              ],
+                            ),
+                            pw.SizedBox(height: 3),
+                            pw.Text('Name: ${PdfReportService.sanitizeText(patient.fullName)}', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                            pw.Text('Age: ${patient.age} yrs | Marital: ${PdfReportService.sanitizeText(patient.maritalStatus)}', style: const pw.TextStyle(fontSize: 9.5)),
+                            pw.Text('Guardian/Spouse: ${PdfReportService.sanitizeText(patient.spouseOrFatherName, fallback: "N/A")}', style: const pw.TextStyle(fontSize: 9.5)),
+                            pw.Text('Address: Ward ${PdfReportService.sanitizeText(patient.ward)}, ${PdfReportService.sanitizeText(patient.municipality.isNotEmpty ? patient.municipality : patient.district)}', style: const pw.TextStyle(fontSize: 9.5)),
+                            pw.Text('Mobile: ${patient.mobile.isNotEmpty ? PdfReportService.sanitizeText(patient.mobile) : "N/A"}', style: const pw.TextStyle(fontSize: 9.5)),
+                            pw.Text('Intake Date: ${patient.intakeDate.toString().split(" ")[0]}', style: const pw.TextStyle(fontSize: 9.5)),
+                          ],
+                        ),
                       ),
                     ),
-                    pw.BarcodeWidget(
-                      barcode: pw.Barcode.qrCode(),
-                      data: patient.patientId,
-                      width: 75,
-                      height: 75,
+                    pw.SizedBox(width: 10),
+                    pw.Column(
+                      children: [
+                        pw.BarcodeWidget(
+                          barcode: pw.Barcode.qrCode(),
+                          data: patient.patientId,
+                          width: 72,
+                          height: 72,
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text('Scan at Station', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600)),
+                      ],
                     ),
                   ],
                 ),
-                pw.SizedBox(height: 12),
-                pw.BarcodeWidget(
-                  barcode: pw.Barcode.code128(),
-                  data: patient.patientId,
-                  height: 40,
+                pw.SizedBox(height: 8),
+
+                // ── Linear Barcode ──
+                pw.Center(
+                  child: pw.BarcodeWidget(
+                    barcode: pw.Barcode.code128(),
+                    data: patient.patientId,
+                    width: 220,
+                    height: 34,
+                  ),
                 ),
-                pw.SizedBox(height: 12),
-                pw.Divider(),
+                pw.SizedBox(height: 8),
+
+                // ── Chief Complaints / Doctor / POP Stage Summary ──
+                if (reasonsStr.isNotEmpty || docName.isNotEmpty || patient.highestPopStage != null) ...[
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey100,
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                      border: pw.Border.all(color: PdfColors.grey300),
+                    ),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        if (reasonsStr.isNotEmpty)
+                          pw.Expanded(
+                            child: pw.Text(
+                              'Chief Complaint: $reasonsStr',
+                              style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800),
+                            ),
+                          ),
+                        if (docName.isNotEmpty)
+                          pw.Text(
+                            'Doctor: $docName',
+                            style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900),
+                          ),
+                        if (patient.highestPopStage != null) ...[
+                          pw.SizedBox(width: 6),
+                          pw.Text(
+                            'POP Stage: ${patient.highestPopStage}',
+                            style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: 8),
+                ],
+
+                // ── Clinical Stations Routing Checklist ──
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('CLINICAL STATIONS CHECKLIST', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: pw.BoxDecoration(
+                        color: hasClinical ? PdfColors.teal50 : PdfColors.amber50,
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                        border: pw.Border.all(color: hasClinical ? PdfColors.teal700 : PdfColors.amber700, width: 0.8),
+                      ),
+                      child: pw.Text(
+                        hasClinical ? 'ALL STATIONS COMPLETED' : 'IN PROGRESS / PENDING',
+                        style: pw.TextStyle(
+                          fontSize: 8,
+                          fontWeight: pw.FontWeight.bold,
+                          color: hasClinical ? PdfColors.teal800 : PdfColors.amber900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 pw.SizedBox(height: 6),
-                pw.Text('CLINICAL STATIONS CHECKLIST', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                pw.SizedBox(height: 6),
-                pw.Bullet(text: '[X] Station 1: Intake & Demographics'),
-                pw.Bullet(text: '[ ] Station 2: Physical & POP Exam'),
-                pw.Bullet(text: '[ ] Station 3: Vitals & Lab Testing'),
-                pw.Bullet(text: '[ ] Station 4: Doctor Assessment & Diagnoses'),
-                pw.Bullet(text: '[ ] Station 5: Treatment, Medications & Pessary'),
-                pw.Bullet(text: '[ ] Station 6: Outtake & Surgical Referral'),
+                _buildPdfStationRow('Station 1: Registration & Intake', isDone: true),
+                _buildPdfStationRow('Station 2: Physical & POP Exam', isDone: hasClinical),
+                _buildPdfStationRow('Station 3: Vitals & Lab Testing', isDone: hasClinical),
+                _buildPdfStationRow('Station 4: Doctor Assessment & Diagnoses', isDone: hasClinical),
+                _buildPdfStationRow('Station 5: Treatment & Pharmacy', isDone: hasClinical),
+                _buildPdfStationRow('Station 6: Discharge & Referral', isDone: hasClinical),
                 pw.Spacer(),
+                pw.Divider(color: PdfColors.grey300),
                 pw.Center(
                   child: pw.Text(
-                    'Please hold this token pass while visiting each clinical station.',
-                    style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+                    'Please hold this token pass while visiting each clinical station. Retain for follow-up verification.',
+                    style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
                   ),
                 ),
               ],
