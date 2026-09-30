@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/constants/clinical_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/camp_report_summary_model.dart';
@@ -38,7 +37,6 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   String? _selectedTreatment;
   String? _selectedComplaint;
   PatientModel? _selectedPatient;
-  final Set<String> _cachedDoctors = {};
 
   @override
   void initState() {
@@ -73,15 +71,22 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   }
 
   void _onCampChanged(String? campId) {
+    setState(() {
+      _selectedDoctor = null;
+      _selectedDiagnosis = null;
+      _selectedPopStage = null;
+      _selectedTreatment = null;
+      _selectedComplaint = null;
+    });
     ref.read(reportingViewModelProvider.notifier).loadSummary(
       campId: campId,
       startDate: _startDate,
       endDate: _endDate,
-      doctorFilter: _selectedDoctor,
-      diagnosisFilter: _selectedDiagnosis,
-      popStageFilter: _selectedPopStage,
-      treatmentFilter: _selectedTreatment,
-      complaintFilter: _selectedComplaint,
+      doctorFilter: null,
+      diagnosisFilter: null,
+      popStageFilter: null,
+      treatmentFilter: null,
+      complaintFilter: null,
     );
     // When null or 'all', load all patients across all camps without filtering
     ref.read(patientListProvider.notifier).loadPatients(campId == 'all' ? null : campId);
@@ -297,11 +302,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         ? campState.camps.where((c) => user.assignedCampIds.contains(c.id)).toList()
         : campState.camps;
 
-    for (final camp in visibleCamps) {
+    final selectedCampObj = reportState.selectedCampId != null
+        ? campState.camps.where((c) => c.id == reportState.selectedCampId).firstOrNull
+        : null;
+    final relevantCamps = selectedCampObj != null ? [selectedCampObj] : visibleCamps;
+
+    // 1. DYNAMIC DOCTORS: Strictly scoped to the selected camp (or visible camps if All Camps)
+    final scopedDoctors = <String>{};
+    for (final camp in relevantCamps) {
       if (camp.doctorNames.isNotEmpty) {
-        _cachedDoctors.addAll(camp.doctorNames.map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim()).where((d) => d.isNotEmpty));
+        scopedDoctors.addAll(camp.doctorNames.map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim()).where((d) => d.isNotEmpty));
       } else if (camp.doctorName.trim().isNotEmpty) {
-        _cachedDoctors.add(camp.doctorName.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim());
+        scopedDoctors.add(camp.doctorName.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim());
       }
     }
     final docSummary = reportState.unfilteredSummary ?? reportState.summary;
@@ -309,31 +321,55 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       for (final v in docSummary.visits) {
         if (v.primaryDoctorName != null && v.primaryDoctorName!.trim().isNotEmpty) {
           final clean = v.primaryDoctorName!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-          if (clean.isNotEmpty) _cachedDoctors.add(clean);
+          if (clean.isNotEmpty) scopedDoctors.add(clean);
         }
         for (final d in v.attendingDoctorNames) {
           final clean = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-          if (clean.isNotEmpty) _cachedDoctors.add(clean);
+          if (clean.isNotEmpty) scopedDoctors.add(clean);
         }
       }
       for (final p in docSummary.patients) {
         if (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty) {
           final clean = p.primaryDoctorName!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-          if (clean.isNotEmpty) _cachedDoctors.add(clean);
+          if (clean.isNotEmpty) scopedDoctors.add(clean);
+        }
+        for (final d in p.attendingDoctorNames) {
+          final clean = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
+          if (clean.isNotEmpty) scopedDoctors.add(clean);
         }
       }
     }
-    final allDoctors = _cachedDoctors.toSet();
 
-    final allDiagnoses = <String>{};
-    allDiagnoses.addAll(ClinicalConstants.defaultDiagnoses);
-    if (reportState.summary != null) {
-      allDiagnoses.addAll(reportState.summary!.diagnosisCounts.keys);
-      for (final v in reportState.summary!.visits) {
-        allDiagnoses.addAll(v.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
+    // Only show doctors who actually worked in this camp scope (or are currently selected)
+    final activeDoctors = scopedDoctors
+        .where((doc) => _getDoctorCount(doc, docSummary) > 0 || _selectedDoctor == doc)
+        .toList();
+    // Fall back to assigned camp doctors only if no examinations recorded yet
+    final finalDoctors = activeDoctors.isNotEmpty
+        ? (activeDoctors..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())))
+        : (scopedDoctors.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())));
+    if (_selectedDoctor != null && !finalDoctors.contains(_selectedDoctor)) {
+      _selectedDoctor = null;
+    }
+    final allDoctors = finalDoctors.toSet();
+
+    // 2. DYNAMIC DIAGNOSES: Strictly based on actual clinical records (NO hardcoded theoretical 30-item list)
+    final dynamicDiagnoses = <String>{};
+    if (docSummary != null) {
+      dynamicDiagnoses.addAll(docSummary.diagnosisCounts.keys.where((d) => d.trim().isNotEmpty));
+      for (final v in docSummary.visits) {
+        dynamicDiagnoses.addAll(v.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
       }
     }
-    final sortedDiagnoses = allDiagnoses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    // Only keep diagnoses with actual patients in the dataset or currently selected
+    final activeDiagnoses = dynamicDiagnoses
+        .where((dx) => _getDiagnosisCount(dx, docSummary) > 0 || _selectedDiagnosis == dx)
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    if (_selectedDiagnosis != null && !activeDiagnoses.contains(_selectedDiagnosis)) {
+      _selectedDiagnosis = null;
+    }
+    final sortedDiagnoses = activeDiagnoses;
 
     final allCampsLabel = isSuperAdmin
         ? 'All Camp Records (समग्र क्याम्प)'
@@ -1058,6 +1094,15 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         ],
                       ),
                     ),
+                    if (allDoctors.isEmpty)
+                      const DropdownMenuItem<String?>(
+                        enabled: false,
+                        value: null,
+                        child: Text(
+                          'No Doctors in Camp',
+                          style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                        ),
+                      ),
                     ...allDoctors.map((doc) {
                       final count = _getDoctorCount(doc, baseSummary);
                       return DropdownMenuItem<String?>(
@@ -1144,6 +1189,15 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         ],
                       ),
                     ),
+                    if (sortedDiagnoses.isEmpty)
+                      const DropdownMenuItem<String?>(
+                        enabled: false,
+                        value: null,
+                        child: Text(
+                          'No Diagnoses in Camp',
+                          style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                        ),
+                      ),
                     ...sortedDiagnoses.map((dx) {
                       final count = _getDiagnosisCount(dx, baseSummary);
                       return DropdownMenuItem<String?>(
@@ -1377,35 +1431,42 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         ],
                       ),
                     ),
-                    ...[
-                      {'key': 'prolapse', 'label': 'Pelvic Organ Prolapse (आङ खस्ने)'},
-                      {'key': 'discharge', 'label': 'Discharge / Itching (स्राव/चिलाउने)'},
-                      {'key': 'urine', 'label': 'Urinary Difficulties (पिसाब समस्या)'},
-                      {'key': 'stool', 'label': 'Bowel / Constipation (दिसा समस्या)'},
-                      {'key': 'pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुखाई)'},
-                      {'key': 'menstrual', 'label': 'Menstrual Disorder (महिनावारी)'},
-                    ].map((item) {
-                      final count = _getComplaintCount(item['key']!, baseSummary);
-                      return DropdownMenuItem<String?>(
-                        value: item['key'],
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(10),
+                    ...(() {
+                      const allCompItems = [
+                        {'key': 'prolapse', 'label': 'Pelvic Organ Prolapse (आङ खस्ने)'},
+                        {'key': 'discharge', 'label': 'Discharge / Itching (स्राव/चिलाउने)'},
+                        {'key': 'urine', 'label': 'Urinary Difficulties (पिसाब समस्या)'},
+                        {'key': 'stool', 'label': 'Bowel / Constipation (दिसा समस्या)'},
+                        {'key': 'pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुखाई)'},
+                        {'key': 'menstrual', 'label': 'Menstrual Disorder (महिनावारी)'},
+                      ];
+                      final activeCompItems = allCompItems.where((item) {
+                        return _getComplaintCount(item['key']!, baseSummary) > 0 || _selectedComplaint == item['key'];
+                      }).toList();
+                      final compItems = activeCompItems.isNotEmpty ? activeCompItems : allCompItems;
+                      return compItems.map((item) {
+                        final count = _getComplaintCount(item['key']!, baseSummary);
+                        return DropdownMenuItem<String?>(
+                          value: item['key'],
+                          child: Row(
+                            children: [
+                              Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '$count',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
+                                ),
                               ),
-                              child: Text(
-                                '$count',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
+                            ],
+                          ),
+                        );
+                      });
+                    })(),
                   ],
                   onChanged: (val) {
                     setState(() => _selectedComplaint = val);
@@ -1595,6 +1656,12 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       value: null,
                       child: Text('All Doctors ($totalPatients)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
+                    if (allDoctors.isEmpty)
+                      const DropdownMenuItem<String?>(
+                        enabled: false,
+                        value: null,
+                        child: Text('No Doctors in Camp', style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic)),
+                      ),
                     ...allDoctors.map((doc) {
                       final count = _getDoctorCount(doc, baseSummary);
                       return DropdownMenuItem<String?>(
@@ -1630,6 +1697,12 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       value: null,
                       child: Text('All Diagnoses ($totalPatients)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
+                    if (sortedDiagnoses.isEmpty)
+                      const DropdownMenuItem<String?>(
+                        enabled: false,
+                        value: null,
+                        child: Text('No Diagnoses in Camp', style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic)),
+                      ),
                     ...sortedDiagnoses.map((dx) {
                       final count = _getDiagnosisCount(dx, baseSummary);
                       return DropdownMenuItem<String?>(

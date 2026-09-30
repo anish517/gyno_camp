@@ -25,7 +25,6 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
   late PatientModel _patient;
   final Set<int> _dlIdx = {};
   bool _dlDossier = false;
-  bool _dlForm = false; // loading state for registration form download
 
   @override
   void initState() {
@@ -57,35 +56,6 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     }
   }
 
-  /// Downloads the block-letter registration form (Yellow Form) with patient data.
-  /// Same form as generated after manual registration — for re-printing from history.
-  Future<void> _dlRegistrationForm() async {
-    setState(() => _dlForm = true);
-    try {
-      final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
-        patient: _patient,
-        camp: widget.camp,
-        organizationName: widget.orgName,
-      );
-      await FileDownloadHelper.saveAndDownloadFile(
-        bytes: bytes,
-        filename: 'RegistrationForm_${_patient.patientId}.pdf',
-        mimeType: 'application/pdf',
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Registration form downloaded: RegistrationForm_${_patient.patientId}.pdf'),
-          backgroundColor: AppTheme.successGreen,
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerRose));
-    } finally {
-      if (mounted) setState(() => _dlForm = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final p = _patient;
@@ -110,19 +80,80 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
 
   Widget _topBar(PatientModel p) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-    decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(20)), boxShadow: [BoxShadow(color: Color(0x0F000000), blurRadius: 6, offset: Offset(0, 2))]),
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.only(topLeft: Radius.circular(20)),
+      boxShadow: [BoxShadow(color: Color(0x0F000000), blurRadius: 6, offset: Offset(0, 2))],
+    ),
     child: Row(children: [
-      Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: AppTheme.primaryTeal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.history_edu_rounded, color: AppTheme.primaryTeal, size: 26)),
+      Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: AppTheme.primaryTeal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+        child: const Icon(Icons.history_edu_rounded, color: AppTheme.primaryTeal, size: 26),
+      ),
       const SizedBox(width: 14),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(p.fullName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-        Text('${p.patientId} \u2022 ${p.district} Ward ${p.ward} \u2022 Age ${p.age}', style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
-      ])),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  p.fullName,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryLight.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    p.patientId,
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                const Icon(Icons.location_on_outlined, size: 13, color: Color(0xFF64748B)),
+                const SizedBox(width: 3),
+                Text(
+                  '${p.district.isNotEmpty ? p.district : "District N/A"}, Ward ${p.ward}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: 8),
+                const Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
+                const SizedBox(width: 8),
+                const Icon(Icons.cake_outlined, size: 13, color: Color(0xFF64748B)),
+                const SizedBox(width: 3),
+                Text(
+                  'Age ${p.age}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                ),
+                if (p.maritalStatus.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  const Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
+                  const SizedBox(width: 8),
+                  Text(
+                    p.maritalStatus,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
       OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.primaryTeal,
           side: const BorderSide(color: AppTheme.primaryTeal),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         icon: const Icon(Icons.edit_note_rounded, size: 16),
@@ -142,7 +173,11 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
         },
       ),
       const SizedBox(width: 8),
-      IconButton(icon: const Icon(Icons.close_rounded), style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9)), onPressed: () => Navigator.of(context).pop()),
+      IconButton(
+        icon: const Icon(Icons.close_rounded),
+        style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9)),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
     ]),
   );
 
@@ -243,9 +278,9 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     final ac = isF ? const Color(0xFF0891B2) : AppTheme.primaryTeal;
     final bg = isF ? const Color(0xFFECFEFF) : const Color(0xFFF0FDFA);
 
-    // BP classification matching PDF slip
-    String bpStatus = 'Normal';
-    Color bpColor = AppTheme.successGreen;
+    // BP classification matching PDF slip (only classified when measurements exist)
+    String? bpStatus;
+    Color bpColor = AppTheme.textSecondaryLight;
     if (v.systolicBp != null && v.diastolicBp != null) {
       final s = v.systolicBp!;
       final d = v.diastolicBp!;
@@ -258,6 +293,9 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
       } else if (s >= 120) {
         bpStatus = 'Pre-HTN';
         bpColor = Colors.amber.shade800;
+      } else {
+        bpStatus = 'Normal';
+        bpColor = AppTheme.successGreen;
       }
     }
 
@@ -381,18 +419,19 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                             'Clinical Vitals & Screening Labs (स्वास्थ्य सूचक):',
                             style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: bpColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: bpColor.withValues(alpha: 0.3)),
+                          if (bpStatus != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: bpColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: bpColor.withValues(alpha: 0.3)),
+                              ),
+                              child: Text(
+                                'BP: $bpStatus',
+                                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: bpColor),
+                              ),
                             ),
-                            child: Text(
-                              'BP: $bpStatus',
-                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: bpColor),
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -572,44 +611,104 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
         future: _visitsFuture,
         builder: (ctx, snap) {
           final visits = snap.data ?? [];
-          return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            // Download filled block-letter Registration Form (Yellow Form)
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.primaryTeal,
-                side: const BorderSide(color: AppTheme.primaryTeal),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Left: Encounter summary metadata
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryLight.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.folder_shared_outlined, size: 16, color: AppTheme.primaryDark),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${visits.length} Clinical Encounter${visits.length == 1 ? "" : "s"} Recorded',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
+                ],
               ),
-              icon: _dlForm
-                  ? const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryTeal))
-                  : const Icon(Icons.article_outlined, size: 16),
-              label: Text(_dlForm ? 'Downloading...' : 'Registration Form', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              onPressed: _dlForm || _dlDossier ? null : _dlRegistrationForm,
-            ),
-            const SizedBox(width: 8),
-            // Download Full Clinical Dossier (most recent visit)
-            if (visits.isNotEmpty) ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryTeal, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-              icon: _dlDossier ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.picture_as_pdf_rounded, size: 16),
-              label: Text(_dlDossier ? 'Generating...' : 'Full Clinical Dossier (PDF)'),
-              onPressed: _dlDossier ? null : () async {
-                setState(() => _dlDossier = true);
-                try {
-                  // Use visits.last for most recent encounter data
-                  final bytes = await PdfReportService().generateIndividualPatientPdf(patient: widget.patient, visit: visits.last, allVisits: visits, camp: widget.camp, organizationName: widget.orgName);
-                  await FileDownloadHelper.saveAndDownloadFile(bytes: bytes, filename: 'Dossier_${widget.patient.patientId}.pdf', mimeType: 'application/pdf');
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Full dossier downloaded!'), backgroundColor: AppTheme.successGreen, behavior: SnackBarBehavior.floating));
-                } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerRose));
-                } finally {
-                  if (mounted) setState(() => _dlDossier = false);
-                }
-              },
-            ),
-            const SizedBox(width: 10),
-            OutlinedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
-          ]);
+              // Right: Action buttons
+              Row(
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF475569),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Close'),
+                  ),
+                  if (visits.isNotEmpty) ...[
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryTeal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: _dlDossier
+                          ? const SizedBox(
+                              width: 15,
+                              height: 15,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                      label: Text(_dlDossier ? 'Generating...' : 'Full Clinical Dossier (PDF)'),
+                      onPressed: _dlDossier
+                          ? null
+                          : () async {
+                              setState(() => _dlDossier = true);
+                              try {
+                                // Use visits.last for most recent encounter data
+                                final bytes = await PdfReportService().generateIndividualPatientPdf(
+                                  patient: widget.patient,
+                                  visit: visits.last,
+                                  allVisits: visits,
+                                  camp: widget.camp,
+                                  organizationName: widget.orgName,
+                                );
+                                await FileDownloadHelper.saveAndDownloadFile(
+                                  bytes: bytes,
+                                  filename: 'Dossier_${widget.patient.patientId}.pdf',
+                                  mimeType: 'application/pdf',
+                                );
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Full dossier downloaded!'),
+                                      backgroundColor: AppTheme.successGreen,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerRose),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) setState(() => _dlDossier = false);
+                              }
+                            },
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          );
         },
       ),
     );

@@ -2236,17 +2236,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         },
                       );
 
-                final printBtn = OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0F766E),
-                    side: const BorderSide(color: Color(0xFF0F766E)),
-                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: const Icon(Icons.print_outlined, size: 15, color: Color(0xFF0F766E)),
-                  label: const Text('Print Form', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: () => _printRegistrationForm(context, patient, activeCamp),
-                );
 
                 final slipBtn = OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
@@ -2365,6 +2354,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       case 'follow_up_slip':
                         await _downloadFollowUpSlip(context, patient, activeCamp);
                         break;
+                      case 'print_reg_form':
+                        await _printRegistrationForm(context, patient, activeCamp);
+                        break;
                     }
                   },
                   itemBuilder: (ctx) => [
@@ -2421,6 +2413,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         ],
                       ),
                     ),
+                    const PopupMenuItem(
+                      value: 'print_reg_form',
+                      child: Row(
+                        children: [
+                          Icon(Icons.print_outlined, size: 17, color: Color(0xFF0F766E)),
+                          SizedBox(width: 10),
+                          Text('Print Registration Form (Yellow)', style: TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                    ),
                   ],
                 );
 
@@ -2432,8 +2434,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Expanded(child: printBtn),
-                          const SizedBox(width: 8),
                           Expanded(child: slipBtn),
                           const SizedBox(width: 8),
                           moreMenu,
@@ -2450,9 +2450,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         primaryCta,
-                        const SizedBox(width: 8),
-                        printBtn,
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         slipBtn,
                       ],
                     ),
