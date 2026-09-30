@@ -448,10 +448,22 @@ class LookupRepository implements ILookupRepository {
   }
 
   @override
+  // In-memory mutex: prevents concurrent / duplicate seed runs
+  // (ensureDefaultsSeeded is called on every loadAll — including the 15-second
+  // periodic sync — so without this guard it would re-seed continuously).
+  static final Set<String> _seedingInProgress = {};
+
   Future<void> ensureDefaultsSeeded({String? tenantId}) async {
-    final db = await _databaseService.database;
     final targetTenant = tenantId ?? 'tenant_default';
     final metaKey = 'lookup_defaults_seeded_$targetTenant';
+
+    // Mutex: bail out immediately if another call is already seeding this tenant
+    if (_seedingInProgress.contains(metaKey)) {
+      debugPrint('[LookupRepo] Seeding already in progress for $metaKey — skipping.');
+      return;
+    }
+
+    final db = await _databaseService.database;
 
     // 1. Backfill any existing items missing sub_category first
     try {
@@ -473,33 +485,47 @@ class LookupRepository implements ILookupRepository {
       }
     } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
 
-    // 2. Check one-time seed gate in app_metadata
-    // The gate prevents resurrecting items a user deliberately deleted.
-    // BUT: on a fresh browser/device (empty IndexedDB) we must still seed
-    // even if the gate key exists (e.g. synced from central metadata).
-    // Strategy: only skip if ALL core categories already have at least 1 item.
-    bool gateActive = false;
+    // Acquire in-memory mutex
+    _seedingInProgress.add(metaKey);
+    try {
+      await _runSeedLogic(db, targetTenant, metaKey);
+    } finally {
+      _seedingInProgress.remove(metaKey);
+    }
+  }
+
+  Future<void> _runSeedLogic(dynamic db, String targetTenant, String metaKey) async {
+    // Gate check: skip if already seeded AND all categories have data
+    // (Protects against re-seeding deleted items while allowing fresh-browser recovery)
     try {
       final meta = await db.query(
         DatabaseTables.tableMetadata,
         where: 'key = ?',
         whereArgs: [metaKey],
       );
-      gateActive = meta.isNotEmpty;
+      if (meta.isNotEmpty) {
+        final existingDiag = await getItemsByCategory('diagnosis', tenantId: targetTenant);
+        final existingMed = await getItemsByCategory('medicine', tenantId: targetTenant);
+        final existingHosp = await getItemsByCategory('referral_hospital', tenantId: targetTenant);
+        if (existingDiag.isNotEmpty && existingMed.isNotEmpty && existingHosp.isNotEmpty) {
+          return; // All good — user customisations preserved
+        }
+        debugPrint('[LookupRepo] Gate present but some categories empty — seeding missing data.');
+      }
     } catch (e) { debugPrint('[LookupRepo] Seed gate check error: $e'); }
 
-    if (gateActive) {
-      // Gate is active — only skip if all core categories have data
-      final existingDiag = await getItemsByCategory('diagnosis', tenantId: targetTenant);
-      final existingMed = await getItemsByCategory('medicine', tenantId: targetTenant);
-      final existingHosp = await getItemsByCategory('referral_hospital', tenantId: targetTenant);
-      if (existingDiag.isNotEmpty && existingMed.isNotEmpty && existingHosp.isNotEmpty) {
-        // All categories populated — safe to skip (respect user customisations)
-        return;
-      }
-      // At least one category is empty → fall through and seed missing ones
-      debugPrint('[LookupRepo] Gate active but some categories empty — seeding missing data.');
-    }
+    // Write gate key NOW (before seeding) so concurrent callers bail out at the DB gate too
+    try {
+      await db.insert(
+        DatabaseTables.tableMetadata,
+        {
+          'key': metaKey,
+          'value': 'true',
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) { debugPrint('[LookupRepo] Seed gate write error: $e'); }
 
     // 3. Check & seed referral hospitals if empty
     final hospitals = await getItemsByCategory('referral_hospital', tenantId: targetTenant);
@@ -654,17 +680,7 @@ class LookupRepository implements ILookupRepository {
       }
     }
 
-    // 4. Persist seed gate marker so deletions remain permanent
-    try {
-      await db.insert(
-        DatabaseTables.tableMetadata,
-        {
-          'key': metaKey,
-          'value': 'true',
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
+    // Gate key was already written before seeding started (see top of _runSeedLogic).
+    debugPrint('[LookupRepo] Default seed complete for tenant: $targetTenant');
   }
 }
