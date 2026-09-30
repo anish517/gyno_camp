@@ -244,55 +244,65 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           : LayoutBuilder(
               builder: (context, viewportConstraints) {
                 final isDesktop = viewportConstraints.maxWidth >= 900;
+                final maxContentWidth = _showFilterPanel ? 1440.0 : 1180.0;
 
                 if (isDesktop) {
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  return Column(
                     children: [
-                      // Desktop Left Sidebar for Dedicated Patient Filters
-                      if (_showFilterPanel) ...[
-                        SizedBox(
-                          width: 340,
-                          height: viewportConstraints.maxHeight,
-                          child: _buildDedicatedFilterSection(
-                            context,
-                            campState,
-                            patientState,
-                            vm,
-                            isSidebar: true,
-                          ),
-                        ),
-                        const VerticalDivider(width: 1, thickness: 1),
-                      ],
+                      // Full-width Header Toolbar with Centered Content
+                      _buildSearchAndActionHeader(
+                        effectiveCampId: effectiveCampId,
+                        patientState: patientState,
+                        vm: vm,
+                        isWide: true,
+                        maxWidth: maxContentWidth,
+                      ),
 
-                      // Desktop Main Patient Workspace (Header, Stats, Patient Cards at Top)
+                      // Full-width Statistics Bar with Centered Content
+                      _buildStatisticsBar(
+                        patientState,
+                        vm,
+                        maxWidth: maxContentWidth,
+                      ),
+
+                      // Main Workspace Area (Sidebar + Cards)
                       Expanded(
-                        child: Column(
-                          children: [
-                            // Search and Actions Header
-                            _buildSearchAndActionHeader(
-                              effectiveCampId: effectiveCampId,
-                              patientState: patientState,
-                              vm: vm,
-                              isWide: true,
-                            ),
-                            const Divider(height: 1),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: maxContentWidth),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Desktop Left Sidebar for Dedicated Patient Filters
+                                if (_showFilterPanel) ...[
+                                  SizedBox(
+                                    width: 320,
+                                    height: viewportConstraints.maxHeight,
+                                    child: _buildDedicatedFilterSection(
+                                      context,
+                                      campState,
+                                      patientState,
+                                      vm,
+                                      isSidebar: true,
+                                    ),
+                                  ),
+                                  const VerticalDivider(width: 1, thickness: 1),
+                                ],
 
-                            // Statistics Bar
-                            _buildStatisticsBar(patientState, vm),
-                            const Divider(height: 1),
-
-                            // Patient Cards List (Immediately visible at top)
-                            Expanded(
-                              child: _buildPatientCardsList(
-                                effectiveCampId,
-                                effectiveCamp,
-                                patientState,
-                                vm,
-                                campState,
-                              ),
+                                // Patient Cards List
+                                Expanded(
+                                  child: _buildPatientCardsList(
+                                    effectiveCampId,
+                                    effectiveCamp,
+                                    patientState,
+                                    vm,
+                                    campState,
+                                    maxWidth: double.infinity,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ],
@@ -300,51 +310,57 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 }
 
                 // Mobile / Tablet Stacked Layout (< 900px)
-                return Column(
-                  children: [
-                    // Search & Filter Header
-                    _buildSearchAndActionHeader(
-                      effectiveCampId: effectiveCampId,
-                      patientState: patientState,
-                      vm: vm,
-                      isWide: viewportConstraints.maxWidth >= 700,
-                    ),
-                    const Divider(height: 1),
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 800),
+                    child: Column(
+                      children: [
+                        // Search & Filter Header
+                        _buildSearchAndActionHeader(
+                          effectiveCampId: effectiveCampId,
+                          patientState: patientState,
+                          vm: vm,
+                          isWide: viewportConstraints.maxWidth >= 700,
+                          maxWidth: 800,
+                        ),
 
-                    // Dedicated Filter Section (Collapsible with safe bounded height)
-                    if (_showFilterPanel) ...[
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: math.min(
-                            viewportConstraints.maxHeight * 0.45,
-                            300.0,
+                        // Dedicated Filter Section (Collapsible with safe bounded height)
+                        if (_showFilterPanel) ...[
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight: math.min(
+                                viewportConstraints.maxHeight * 0.45,
+                                300.0,
+                              ),
+                            ),
+                            child: _buildDedicatedFilterSection(
+                              context,
+                              campState,
+                              patientState,
+                              vm,
+                              isSidebar: false,
+                            ),
+                          ),
+                          const Divider(height: 1),
+                        ],
+
+                        // Patient Roll Statistics Bar
+                        _buildStatisticsBar(patientState, vm, maxWidth: 800),
+
+                        // Patient Cards List
+                        Expanded(
+                          child: _buildPatientCardsList(
+                            effectiveCampId,
+                            effectiveCamp,
+                            patientState,
+                            vm,
+                            campState,
+                            maxWidth: 800,
                           ),
                         ),
-                        child: _buildDedicatedFilterSection(
-                          context,
-                          campState,
-                          patientState,
-                          vm,
-                          isSidebar: false,
-                        ),
-                      ),
-                      const Divider(height: 1),
-                    ],
-
-                    // Patient Roll Statistics Bar
-                    _buildStatisticsBar(patientState, vm),
-
-                    // Patient Cards List
-                    Expanded(
-                      child: _buildPatientCardsList(
-                        effectiveCampId,
-                        effectiveCamp,
-                        patientState,
-                        vm,
-                        campState,
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 );
               },
             ),
@@ -356,6 +372,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     required PatientListState patientState,
     required PatientListViewModel vm,
     required bool isWide,
+    double maxWidth = 1180.0,
   }) {
     final searchField = TextField(
       controller: _searchController,
@@ -470,6 +487,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     );
 
     return Container(
+      width: double.infinity,
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -477,44 +495,51 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-      child: isWide
-          ? Row(
-              children: [
-                Expanded(child: searchField),
-                const SizedBox(width: 10),
-                filterButton,
-                const SizedBox(width: 8),
-                scanButton,
-                const SizedBox(width: 8),
-                blankFormsButton,
-              ],
-            )
-          : Column(
-              children: [
-                searchField,
-                const SizedBox(height: 8),
-                Row(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: isWide
+              ? Row(
                   children: [
-                    Expanded(child: filterButton),
+                    Expanded(child: searchField),
+                    const SizedBox(width: 10),
+                    filterButton,
                     const SizedBox(width: 8),
-                    Expanded(child: scanButton),
+                    scanButton,
+                    const SizedBox(width: 8),
+                    blankFormsButton,
+                  ],
+                )
+              : Column(
+                  children: [
+                    searchField,
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: filterButton),
+                        const SizedBox(width: 8),
+                        Expanded(child: scanButton),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: blankFormsButton,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: blankFormsButton,
-                ),
-              ],
-            ),
+        ),
+      ),
     );
   }
 
   Widget _buildStatisticsBar(
     PatientListState patientState,
-    PatientListViewModel vm,
-  ) {
+    PatientListViewModel vm, {
+    double maxWidth = 1180.0,
+  }) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -522,118 +547,123 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
         ),
       ),
-      child: LayoutBuilder(
-        builder: (context, statsConstraints) {
-          final isNarrow = statsConstraints.maxWidth < 450;
-          final hasActiveFilters = patientState.filters.hasActiveFilters;
-          final count = patientState.patients.length;
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: LayoutBuilder(
+            builder: (context, statsConstraints) {
+              final isNarrow = statsConstraints.maxWidth < 450;
+              final hasActiveFilters = patientState.filters.hasActiveFilters;
+              final count = patientState.patients.length;
 
-          return Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: hasActiveFilters
-                            ? AppTheme.warningAmber.withValues(alpha: 0.1)
-                            : const Color(0xFFF0FDFA),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: hasActiveFilters
-                              ? AppTheme.warningAmber.withValues(alpha: 0.35)
-                              : const Color(0xFFCCFBF1),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            hasActiveFilters ? Icons.filter_alt_rounded : Icons.people_alt_rounded,
-                            size: 13,
-                            color: hasActiveFilters ? AppTheme.warningAmber : AppTheme.primaryTeal,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            hasActiveFilters
-                                ? '$count of ${patientState.rawPatients.length} Patients'
-                                : '$count Registered',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12.5,
+              return Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: hasActiveFilters
+                                ? AppTheme.warningAmber.withValues(alpha: 0.1)
+                                : const Color(0xFFF0FDFA),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
                               color: hasActiveFilters
-                                  ? const Color(0xFF92400E)
-                                  : AppTheme.primaryDark,
+                                  ? AppTheme.warningAmber.withValues(alpha: 0.35)
+                                  : const Color(0xFFCCFBF1),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    if (hasActiveFilters) ...[
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: () => _clearAllFilters(vm),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.dangerRose.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.25)),
-                          ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.close_rounded, size: 12, color: AppTheme.dangerRose),
-                              SizedBox(width: 3),
+                              Icon(
+                                hasActiveFilters ? Icons.filter_alt_rounded : Icons.people_alt_rounded,
+                                size: 13,
+                                color: hasActiveFilters ? AppTheme.warningAmber : AppTheme.primaryTeal,
+                              ),
+                              const SizedBox(width: 5),
                               Text(
-                                'Reset',
+                                hasActiveFilters
+                                    ? '$count of ${patientState.rawPatients.length} Patients'
+                                    : '$count Registered',
                                 style: TextStyle(
-                                  fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: AppTheme.dangerRose,
+                                  fontSize: 12.5,
+                                  color: hasActiveFilters
+                                      ? const Color(0xFF92400E)
+                                      : AppTheme.primaryDark,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDFA),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFCCFBF1)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.lock_rounded, size: 12, color: AppTheme.primaryTeal),
-                    const SizedBox(width: 4),
-                    Text(
-                      isNarrow
-                          ? 'AES-256'
-                          : (patientState.patients.isNotEmpty
-                              ? 'AES-256 Encrypted \u2022 $count Records'
-                              : 'AES-256 Encrypted'),
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        color: AppTheme.primaryDark,
-                        fontWeight: FontWeight.w600,
-                      ),
+                        if (hasActiveFilters) ...[
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () => _clearAllFilters(vm),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.dangerRose.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.25)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.close_rounded, size: 12, color: AppTheme.dangerRose),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'Reset',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.dangerRose,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDFA),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFCCFBF1)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lock_rounded, size: 12, color: AppTheme.primaryTeal),
+                        const SizedBox(width: 4),
+                        Text(
+                          isNarrow
+                              ? 'AES-256'
+                              : (patientState.patients.isNotEmpty
+                                  ? 'AES-256 Encrypted \u2022 $count Records'
+                                  : 'AES-256 Encrypted'),
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: AppTheme.primaryDark,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -643,8 +673,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     CampModel? effectiveCamp,
     PatientListState patientState,
     PatientListViewModel vm,
-    CampState campState,
-  ) {
+    CampState campState, {
+    double maxWidth = 1180.0,
+  }) {
     if (patientState.isLoading && patientState.patients.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -658,20 +689,25 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     await vm.loadPatients(effectiveCampId);
                   }
                 },
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: patientState.patients.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final patient = patientState.patients[index];
-                    return _buildPatientCard(
-                      context,
-                      patient,
-                      effectiveCamp,
-                      vm,
-                      campState,
-                    );
-                  },
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      itemCount: patientState.patients.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final patient = patientState.patients[index];
+                        return _buildPatientCard(
+                          context,
+                          patient,
+                          effectiveCamp,
+                          vm,
+                          campState,
+                        );
+                      },
+                    ),
+                  ),
                 ),
               ),
         if (patientState.isLoading)
