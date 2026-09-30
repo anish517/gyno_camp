@@ -2692,6 +2692,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     CampStatus selectedStatus = initialStatus;
     // Staff assignment starts completely empty by default so admin chooses explicitly
     final selectedStaffIds = <String>{};
+    // ✅ Tracks in-flight save: declared in outer scope so it persists across
+    //    StatefulBuilder rebuilds (inside the builder it would reset to false on every call).
+    bool isSubmitting = false;
 
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
@@ -3468,29 +3471,46 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                                 ),
-                                onPressed: () => _submitCampForm(
-                                  ctx: ctx,
-                                  code: codeCtrl.text.trim(),
-                                  name: nameCtrl.text.trim(),
-                                  doctorNames: assignedDoctors.map((d) => d.toStorageString()).toList(),
-                                  showDoctorOnForms: showDoctorOnForms,
-                                  province: selectedProvince,
-                                  district: selectedDistrict,
-                                  municipality: munCtrl.text.trim(),
-                                  ward: wardCtrl.text.trim(),
-                                  venue: venueCtrl.text.trim(),
-                                  startDate: startDate,
-                                  endDate: endDate,
-                                  status: CampStatus.draft,
-                                  assignedStaffIds: selectedStaffIds.toList(),
-                                  user: user,
-                                  deviceState: deviceState,
-                                ),
+                                onPressed: isSubmitting
+                                    ? null
+                                    : () {
+                                        setDialogState(() => isSubmitting = true);
+                                        _submitCampForm(
+                                          ctx: ctx,
+                                          setDialogState: setDialogState,
+                                          code: codeCtrl.text.trim(),
+                                          name: nameCtrl.text.trim(),
+                                          doctorNames: assignedDoctors.map((d) => d.toStorageString()).toList(),
+                                          showDoctorOnForms: showDoctorOnForms,
+                                          province: selectedProvince,
+                                          district: selectedDistrict,
+                                          municipality: munCtrl.text.trim(),
+                                          ward: wardCtrl.text.trim(),
+                                          venue: venueCtrl.text.trim(),
+                                          startDate: startDate,
+                                          endDate: endDate,
+                                          status: CampStatus.draft,
+                                          assignedStaffIds: selectedStaffIds.toList(),
+                                          user: user,
+                                          deviceState: deviceState,
+                                        );
+                                      },
                               ),
                               ElevatedButton.icon(
-                                icon: const Icon(Icons.check_circle_outline_rounded, size: 17, color: Colors.white),
+                                icon: isSubmitting
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      )
+                                    : const Icon(Icons.check_circle_outline_rounded, size: 17, color: Colors.white),
                                 label: Text(
-                                  selectedStatus == CampStatus.draft ? 'Save Draft' : 'Schedule Camp',
+                                  isSubmitting
+                                      ? 'Saving…'
+                                      : (selectedStatus == CampStatus.draft ? 'Save Draft' : 'Schedule Camp'),
                                   style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                                 ),
                                 style: ElevatedButton.styleFrom(
@@ -3500,24 +3520,30 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
-                                onPressed: () => _submitCampForm(
-                                  ctx: ctx,
-                                  code: codeCtrl.text.trim(),
-                                  name: nameCtrl.text.trim(),
-                                  doctorNames: assignedDoctors.map((d) => d.toStorageString()).toList(),
-                                  showDoctorOnForms: showDoctorOnForms,
-                                  province: selectedProvince,
-                                  district: selectedDistrict,
-                                  municipality: munCtrl.text.trim(),
-                                  ward: wardCtrl.text.trim(),
-                                  venue: venueCtrl.text.trim(),
-                                  startDate: startDate,
-                                  endDate: endDate,
-                                  status: selectedStatus,
-                                  assignedStaffIds: selectedStaffIds.toList(),
-                                  user: user,
-                                  deviceState: deviceState,
-                                ),
+                                onPressed: isSubmitting
+                                    ? null // Disable button while save is in-flight
+                                    : () {
+                                        setDialogState(() => isSubmitting = true);
+                                        _submitCampForm(
+                                          ctx: ctx,
+                                          setDialogState: setDialogState,
+                                          code: codeCtrl.text.trim(),
+                                          name: nameCtrl.text.trim(),
+                                          doctorNames: assignedDoctors.map((d) => d.toStorageString()).toList(),
+                                          showDoctorOnForms: showDoctorOnForms,
+                                          province: selectedProvince,
+                                          district: selectedDistrict,
+                                          municipality: munCtrl.text.trim(),
+                                          ward: wardCtrl.text.trim(),
+                                          venue: venueCtrl.text.trim(),
+                                          startDate: startDate,
+                                          endDate: endDate,
+                                          status: selectedStatus,
+                                          assignedStaffIds: selectedStaffIds.toList(),
+                                          user: user,
+                                          deviceState: deviceState,
+                                        );
+                              },
                               ),
                             ],
                           ),
@@ -3536,6 +3562,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
   Future<void> _submitCampForm({
     required BuildContext ctx,
+    required void Function(void Function()) setDialogState,
     required String code,
     required String name,
     String doctorName = '',
@@ -3571,7 +3598,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     final primaryDoc = parsedDocList.isNotEmpty ? parsedDocList.first : _cleanDoctorName(doctorName);
 
     final newCamp = CampModel(
-      id: 'camp-${DateTime.now().millisecondsSinceEpoch}',
+      id: '', // Repository generates collision-proof 'camp-{uuid}'
       campCode: code.toUpperCase(),
       name: name,
       doctorName: primaryDoc,
@@ -3591,13 +3618,23 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       createdAt: DateTime.now().toUtc(),
     );
 
+    // ✅ BUG FIX: Show loading state on dialog button BEFORE starting the async save.
+    // Previously Navigator.pop(ctx) was called here synchronously — this invalidated
+    // the context mid-async causing the mounted guard to fire and silently eat errors.
+    setDialogState(() {}); // triggers isSubmitting = true (set by caller before this call)
+
     final messenger = ScaffoldMessenger.of(context);
-    Navigator.pop(ctx);
+
+    // ✅ Await the actual save BEFORE dismissing the dialog
     final success = await ref.read(campStateProvider.notifier).createCamp(
           newCamp,
           adminUserId: user?.id ?? 'admin-user',
           deviceId: deviceState.device?.deviceId ?? 'dev-admin',
         );
+
+    // ✅ Pop dialog only after confirmed result — context is still valid here
+    if (ctx.mounted) Navigator.pop(ctx);
+
     await ref.read(campStateProvider.notifier).loadCamps();
     if (mounted) {
       if (success) {

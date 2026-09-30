@@ -118,38 +118,110 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     });
 
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Camp Patient Roll'),
-            if (effectiveCamp != null)
-              Text(
-                '${effectiveCamp.name} (${effectiveCamp.campCode})',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.normal,
-                  color: Colors.white70,
-                ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(64),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0F766E), Color(0xFF0D9488), Color(0xFF14B8A6)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x280D9488),
+                blurRadius: 12,
+                offset: Offset(0, 3),
               ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh Patient List',
-            onPressed: effectiveCampId == null
-                ? null
-                : () => vm.loadPatients(effectiveCampId),
+            ],
           ),
-        ],
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  // Back button (if navigator can pop)
+                  if (Navigator.canPop(context))
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: InkWell(
+                        onTap: () => Navigator.pop(context),
+                        borderRadius: BorderRadius.circular(8),
+                        child: const Padding(
+                          padding: EdgeInsets.all(6),
+                          child: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ),
+                  // Title + subtitle
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Camp Patient Roll',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        if (effectiveCamp != null)
+                          Container(
+                            margin: const EdgeInsets.only(top: 3),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              '${effectiveCamp.name}  •  ${effectiveCamp.campCode}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                                letterSpacing: 0.1,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Refresh action
+                  Tooltip(
+                    message: 'Refresh Patient List',
+                    child: InkWell(
+                      onTap: effectiveCampId == null
+                          ? null
+                          : () => vm.loadPatients(effectiveCampId),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                        ),
+                        child: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: effectiveCamp == null
-            ? Colors.grey
-            : AppTheme.primaryTeal,
-        icon: const Icon(Icons.person_add, color: Colors.white),
-        label: const Text('New Patient', style: TextStyle(color: Colors.white)),
+        backgroundColor: effectiveCamp == null ? Colors.grey.shade400 : const Color(0xFF0F766E),
+        elevation: 4,
+        icon: const Icon(Icons.person_add_rounded, color: Colors.white),
+        label: const Text(
+          'New Patient',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.5),
+        ),
         onPressed: effectiveCamp == null
             ? () => ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -297,13 +369,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       controller: _searchController,
       decoration: InputDecoration(
         hintText: 'Search by Patient ID, Name, Phone, Ward, District...',
-        prefixIcon: const Icon(
-          Icons.search,
-          color: AppTheme.primaryTeal,
+        hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5),
+        prefixIcon: const Padding(
+          padding: EdgeInsets.only(left: 14, right: 10),
+          child: Icon(Icons.search_rounded, color: AppTheme.primaryTeal, size: 20),
         ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
-                icon: const Icon(Icons.clear, size: 20),
+                icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF94A3B8)),
                 tooltip: 'Clear Search',
                 onPressed: () {
                   _searchController.clear();
@@ -311,9 +385,20 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 },
               )
             : null,
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 0,
-          horizontal: 16,
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.8),
         ),
       ),
       onChanged: (val) => vm.search(effectiveCampId, val),
@@ -327,29 +412,24 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         backgroundColor: patientState.filters.hasActiveFilters
             ? AppTheme.primaryTeal
             : Colors.transparent,
-        side: const BorderSide(color: AppTheme.primaryTeal),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 14,
+        side: BorderSide(
+          color: patientState.filters.hasActiveFilters
+              ? AppTheme.primaryTeal
+              : const Color(0xFFCBD5E1),
+          width: 1.4,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       icon: Icon(
-        _showFilterPanel
-            ? Icons.filter_alt_off
-            : Icons.filter_alt_outlined,
-        size: 18,
+        _showFilterPanel ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
+        size: 17,
       ),
       label: Text(
         patientState.filters.hasActiveFilters
             ? 'Filters (${patientState.filters.activeFilterCount})'
             : 'Filters',
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-        ),
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
       ),
       onPressed: () {
         setState(() => _showFilterPanel = !_showFilterPanel);
@@ -358,29 +438,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
     final scanButton = FilledButton.tonalIcon(
       style: FilledButton.styleFrom(
-        backgroundColor: AppTheme.primaryTeal.withValues(
-          alpha: 0.12,
-        ),
+        backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.1),
         foregroundColor: AppTheme.primaryTeal,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      icon: const Icon(
-        Icons.qr_code_scanner_rounded,
-        size: 20,
-      ),
-      label: const Text(
-        'Scan QR / Barcode',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-        ),
-      ),
+      icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+      label: const Text('Scan QR / Barcode', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
       onPressed: effectiveCampId == null
           ? null
           : () => _showScanTokenDialog(
@@ -393,28 +457,14 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
     final blankFormsButton = OutlinedButton.icon(
       style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: Color(0xFF0F766E), width: 1.2),
-        backgroundColor: const Color(0xFFF0FDFA),
-        foregroundColor: const Color(0xFF0F766E),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 14,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.4),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF475569),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      icon: const Icon(
-        Icons.print_outlined,
-        size: 19,
-      ),
-      label: const Text(
-        'Blank Forms',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-        ),
-      ),
+      icon: const Icon(Icons.print_outlined, size: 17),
+      label: const Text('Blank Forms', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
       onPressed: () {
         final campState = ref.read(campStateProvider);
         CampModel? targetCamp;
@@ -428,16 +478,18 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     );
 
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16.0,
-        vertical: 12.0,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+        ),
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       child: isWide
           ? Row(
               children: [
                 Expanded(child: searchField),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 filterButton,
                 const SizedBox(width: 8),
                 scanButton,
@@ -471,69 +523,83 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     PatientListViewModel vm,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 8,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+        ),
       ),
-      color: AppTheme.backgroundLight,
       child: LayoutBuilder(
         builder: (context, statsConstraints) {
           final isNarrow = statsConstraints.maxWidth < 450;
           final hasActiveFilters = patientState.filters.hasActiveFilters;
+          final count = patientState.patients.length;
 
           return Row(
             children: [
               Expanded(
                 child: Row(
                   children: [
-                    Flexible(
-                      child: Text(
-                        hasActiveFilters
-                            ? 'Showing: ${patientState.patients.length} of ${patientState.rawPatients.length} Patients'
-                            : 'Total: ${patientState.patients.length} Registered',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: AppTheme.textPrimaryLight,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: hasActiveFilters
+                            ? AppTheme.warningAmber.withValues(alpha: 0.1)
+                            : const Color(0xFFF0FDFA),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: hasActiveFilters
+                              ? AppTheme.warningAmber.withValues(alpha: 0.35)
+                              : const Color(0xFFCCFBF1),
                         ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            hasActiveFilters ? Icons.filter_alt_rounded : Icons.people_alt_rounded,
+                            size: 13,
+                            color: hasActiveFilters ? AppTheme.warningAmber : AppTheme.primaryTeal,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            hasActiveFilters
+                                ? '$count of ${patientState.rawPatients.length} Patients'
+                                : '$count Registered',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12.5,
+                              color: hasActiveFilters
+                                  ? const Color(0xFF92400E)
+                                  : AppTheme.primaryDark,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     if (hasActiveFilters) ...[
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       InkWell(
                         onTap: () => _clearAllFilters(vm),
+                        borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppTheme.dangerRose.withValues(
-                              alpha: 0.12,
-                            ),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: AppTheme.dangerRose.withValues(
-                                alpha: 0.3,
-                              ),
-                            ),
+                            color: AppTheme.dangerRose.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.25)),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.clear,
-                                size: 12,
-                                color: AppTheme.dangerRose,
-                              ),
-                              SizedBox(width: 2),
+                              Icon(Icons.close_rounded, size: 12, color: AppTheme.dangerRose),
+                              SizedBox(width: 3),
                               Text(
                                 'Reset',
                                 style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
                                   color: AppTheme.dangerRose,
                                 ),
                               ),
@@ -547,36 +613,26 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryTeal.withValues(
-                    alpha: 0.1,
-                  ),
-                  borderRadius: BorderRadius.circular(6),
+                  color: const Color(0xFFF0FDFA),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFCCFBF1)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      patientState.patients.isNotEmpty
-                          ? Icons.shield_rounded
-                          : Icons.sync_alt,
-                      size: 12,
-                      color: AppTheme.primaryTeal,
-                    ),
+                    const Icon(Icons.lock_rounded, size: 12, color: AppTheme.primaryTeal),
                     const SizedBox(width: 4),
                     Text(
                       isNarrow
-                          ? 'Encrypted'
+                          ? 'AES-256'
                           : (patientState.patients.isNotEmpty
-                              ? 'AES-256 Encrypted • ${patientState.patients.length} Records'
+                              ? 'AES-256 Encrypted \u2022 $count Records'
                               : 'AES-256 Encrypted'),
                       style: const TextStyle(
                         fontSize: 10.5,
-                        color: AppTheme.primaryTeal,
+                        color: AppTheme.primaryDark,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1612,46 +1668,87 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     String? campId,
     PatientListViewModel vm,
   ) {
+    final isSearching = _searchController.text.isNotEmpty;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            const Text(
-              'No Patients Found',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimaryLight,
+            // Gradient icon container
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0D9488).withValues(alpha: 0.25),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Icon(
+                isSearching ? Icons.search_off_rounded : Icons.people_alt_rounded,
+                size: 42,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 24),
             Text(
-              _searchController.text.isNotEmpty
-                  ? 'No patient matched query "${_searchController.text}".'
-                  : 'Start registering patients at this camp station using the button below.',
+              isSearching ? 'No Results Found' : 'No Patients Registered',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+                letterSpacing: -0.4,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              isSearching
+                  ? 'No patient matched "${_searchController.text}".\nTry a different ID, name, or phone number.'
+                  : 'Start registering patients at this camp station\nusing the New Patient button.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppTheme.textSecondaryLight),
+              style: const TextStyle(
+                color: AppTheme.textSecondaryLight,
+                fontSize: 13.5,
+                height: 1.5,
+              ),
             ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.person_add),
-              label: const Text('Register Patient Now'),
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const PatientRegistrationView(),
-                  ),
-                );
-                if (mounted && campId != null) {
-                  vm.loadPatients(campId);
-                }
-              },
-            ),
+            const SizedBox(height: 28),
+            if (!isSearching)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.person_add_rounded, size: 18),
+                label: const Text(
+                  'Register Patient Now',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F766E),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PatientRegistrationView(),
+                    ),
+                  );
+                  if (mounted && campId != null) {
+                    vm.loadPatients(campId);
+                  }
+                },
+              ),
           ],
         ),
       ),
@@ -1735,29 +1832,45 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     if (patient.district.isNotEmpty) locationParts.add(patient.district);
     final locationStr = locationParts.isNotEmpty ? locationParts.join(', ') : 'Nepal';
 
-    return Card(
-      elevation: 0,
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
-      ),
-      color: Colors.white,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _showClinicalHistoryPanel(context, patient, activeCamp),
-        hoverColor: const Color(0xFFF8FAFC),
-        splashColor: AppTheme.primaryTeal.withValues(alpha: 0.05),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(color: statusColor, width: 4.5),
-            ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D9488).withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () => _showClinicalHistoryPanel(context, patient, activeCamp),
+          hoverColor: const Color(0xFFF8FAFC),
+          splashColor: AppTheme.primaryTeal.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Coloured status accent bar (left edge)
+              Container(width: 5, color: statusColor),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
             // ── TOP ROW: Token ID (copyable) + Ward + Location ──
             Row(
               children: [
@@ -1871,35 +1984,54 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             ),
             const SizedBox(height: 12),
 
-            // ── PATIENT PROFILE ROW: Avatar + Full Name + Demographics + Phone ──
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                  child: Text(
-                    patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 17,
-                      color: Color(0xFF0F766E),
+              // ── PATIENT PROFILE ROW: Avatar + Full Name + Demographics + Phone ──
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Gradient avatar
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF0D9488).withValues(alpha: 0.25),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        patient.fullName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          patient.fullName,
+                          style: const TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                            letterSpacing: -0.2,
+                          ),
                         ),
-                      ),
                       const SizedBox(height: 3),
                       Row(
                         children: [
@@ -2583,9 +2715,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 );
               },
             ),
-          ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

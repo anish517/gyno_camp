@@ -138,7 +138,7 @@ class CampViewModel extends StateNotifier<CampState> {
         createdByUserId: adminUserId,
         deviceId: deviceId,
       );
-      if (!mounted) return true;
+      if (!mounted) return false;
       final updatedList = [created, ...state.camps];
       final currentActive = (state.activeCamp != null && state.activeCamp!.status == CampStatus.open)
           ? state.activeCamp
