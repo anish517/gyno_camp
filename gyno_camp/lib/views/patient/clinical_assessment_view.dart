@@ -1612,9 +1612,17 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     final medicinesList = lookupState.activeMedicines.isNotEmpty
         ? lookupState.activeMedicines.map((m) => m.labelEn).toList()
         : ClinicalConstants.defaultMedications;
-    final hospitalsList = lookupState.activeReferralHospitals
-        .map((h) => h.labelEn)
-        .toList();
+    final Set<String> hospitalsSet = {};
+    for (final h in lookupState.activeReferralHospitals) {
+      if (h.labelEn.trim().isNotEmpty) hospitalsSet.add(h.labelEn.trim());
+    }
+    for (final h in ClinicalConstants.referralHospitals) {
+      if (h.trim().isNotEmpty) hospitalsSet.add(h.trim());
+    }
+    if (state.surgicalReferral != null && state.surgicalReferral!.trim().isNotEmpty) {
+      hospitalsSet.add(state.surgicalReferral!.trim());
+    }
+    final hospitalsList = hospitalsSet.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1693,6 +1701,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         const Text('Referral for Surgery (शल्यक्रिया सिफारिस)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
+          key: ValueKey('surgical_referral_${state.surgicalReferral}'),
           isExpanded: true,
           initialValue: hospitalsList.contains(state.surgicalReferral) ? state.surgicalReferral : null,
           decoration: InputDecoration(

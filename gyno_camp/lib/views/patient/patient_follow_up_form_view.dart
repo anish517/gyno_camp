@@ -130,6 +130,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             _surgicalReferral = _latestVisit!.surgicalReferral;
             _urineTest = _latestVisit!.urineTest;
             _pregnancyTest = _latestVisit!.pregnancyTest;
+            _pessaryType = _latestVisit!.pessaryType;
+            _pessarySize = _latestVisit!.pessarySize;
+            _followUpDestination = _latestVisit!.followUpDestination;
+            _followUpNeeded = _latestVisit!.followUpNeeded;
             _selectedCounseling.addAll(_latestVisit!.counseling);
             if (_latestVisit!.systolicBp != null) {
               _systolicController.text = _latestVisit!.systolicBp.toString();
@@ -1178,45 +1182,63 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _urineTest,
-                    decoration: const InputDecoration(
-                      labelText: 'Urine Dipstick (पिसाब जाँच)',
-                      border: OutlineInputBorder(),
-                      isDense: true,
+            Builder(
+              builder: (context) {
+                const validUrineValues = {'normal', 'protein_pos', 'glucose_pos', 'leukocytes_pos', 'blood_pos'};
+                final safeUrineTest = (_urineTest != null && validUrineValues.contains(_urineTest)) ? _urineTest : null;
+
+                String? safePregTest;
+                if (_pregnancyTest == 'neg' || _pregnancyTest == 'negative') {
+                  safePregTest = 'neg';
+                } else if (_pregnancyTest == 'pos' || _pregnancyTest == 'positive') {
+                  safePregTest = 'pos';
+                }
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey('urine_test_$safeUrineTest'),
+                        initialValue: safeUrineTest,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Urine Dipstick (पिसाब जाँच)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('Not Done')),
+                          DropdownMenuItem(value: 'normal', child: Text('Normal (नर्मल)')),
+                          DropdownMenuItem(value: 'protein_pos', child: Text('Protein (+)')),
+                          DropdownMenuItem(value: 'glucose_pos', child: Text('Glucose (+)')),
+                          DropdownMenuItem(value: 'leukocytes_pos', child: Text('Leukocytes (+)')),
+                          DropdownMenuItem(value: 'blood_pos', child: Text('Blood / Hematuria (+)')),
+                        ],
+                        onChanged: (val) => setState(() => _urineTest = val),
+                      ),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: null, child: Text('Not Done')),
-                      DropdownMenuItem(value: 'normal', child: Text('Normal (नर्मल)')),
-                      DropdownMenuItem(value: 'protein_pos', child: Text('Protein (+)')),
-                      DropdownMenuItem(value: 'glucose_pos', child: Text('Glucose (+)')),
-                      DropdownMenuItem(value: 'leukocytes_pos', child: Text('Leukocytes (+)')),
-                      DropdownMenuItem(value: 'blood_pos', child: Text('Blood / Hematuria (+)')),
-                    ],
-                    onChanged: (val) => setState(() => _urineTest = val),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _pregnancyTest,
-                    decoration: const InputDecoration(
-                      labelText: 'Pregnancy Test / UPT',
-                      border: OutlineInputBorder(),
-                      isDense: true,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey('preg_test_$safePregTest'),
+                        initialValue: safePregTest,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Pregnancy Test / UPT',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('Not Indicated')),
+                          DropdownMenuItem(value: 'neg', child: Text('Negative (-)')),
+                          DropdownMenuItem(value: 'pos', child: Text('Positive (+)')),
+                        ],
+                        onChanged: (val) => setState(() => _pregnancyTest = val),
+                      ),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: null, child: Text('Not Indicated')),
-                      DropdownMenuItem(value: 'neg', child: Text('Negative (-)')),
-                      DropdownMenuItem(value: 'pos', child: Text('Positive (+)')),
-                    ],
-                    onChanged: (val) => setState(() => _pregnancyTest = val),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 10),
             TextFormField(
@@ -1596,19 +1618,45 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 }).toList(),
               ),
             ],
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _surgicalReferral,
-              decoration: const InputDecoration(
-                labelText: 'Surgical Referral Center (शल्यक्रिया सिफारिस अस्पताल)',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('No Surgical Referral')),
-                ...ClinicalConstants.referralHospitals.map((h) => DropdownMenuItem(value: h, child: Text(h))),
-              ],
-              onChanged: (val) => setState(() => _surgicalReferral = val),
+            Builder(
+              builder: (context) {
+                final lookupState = ref.watch(masterLookupProvider);
+                final Set<String> referralHospitalsSet = {};
+                for (final h in lookupState.activeReferralHospitals) {
+                  final name = h.labelEn.trim();
+                  if (name.isNotEmpty) referralHospitalsSet.add(name);
+                }
+                for (final h in ClinicalConstants.referralHospitals) {
+                  final name = h.trim();
+                  if (name.isNotEmpty) referralHospitalsSet.add(name);
+                }
+                if (_surgicalReferral != null && _surgicalReferral!.trim().isNotEmpty) {
+                  referralHospitalsSet.add(_surgicalReferral!.trim());
+                }
+
+                final referralHospitalsList = referralHospitalsSet.toList()
+                  ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+                final safeSurgicalReferral = (_surgicalReferral != null && referralHospitalsSet.contains(_surgicalReferral!.trim()))
+                    ? _surgicalReferral!.trim()
+                    : null;
+
+                return DropdownButtonFormField<String>(
+                  key: ValueKey('surgical_referral_$safeSurgicalReferral'),
+                  initialValue: safeSurgicalReferral,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Surgical Referral Center (शल्यक्रिया सिफारिस अस्पताल)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('No Surgical Referral')),
+                    ...referralHospitalsList.map((h) => DropdownMenuItem(value: h, child: Text(h))),
+                  ],
+                  onChanged: (val) => setState(() => _surgicalReferral = val),
+                );
+              },
             ),
           ],
         ),
@@ -1828,18 +1876,32 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _pessaryType,
-                    decoration: const InputDecoration(
-                      labelText: 'Pessary Fitted / Type',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('None')),
-                      ...['ring', 'ring with support', 'ring with knob'].map((p) => DropdownMenuItem(value: p, child: Text(p))),
-                    ],
-                    onChanged: (val) => setState(() => _pessaryType = val),
+                  child: Builder(
+                    builder: (context) {
+                      final Set<String> pessaryTypesSet = {'ring', 'ring with support', 'ring with knob'};
+                      if (_pessaryType != null && _pessaryType!.trim().isNotEmpty) {
+                        pessaryTypesSet.add(_pessaryType!.trim());
+                      }
+                      final safePessaryType = (_pessaryType != null && pessaryTypesSet.contains(_pessaryType!.trim()))
+                          ? _pessaryType!.trim()
+                          : null;
+
+                      return DropdownButtonFormField<String>(
+                        key: ValueKey('pessary_type_$safePessaryType'),
+                        initialValue: safePessaryType,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Pessary Fitted / Type',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('None')),
+                          ...pessaryTypesSet.map((p) => DropdownMenuItem(value: p, child: Text(p))),
+                        ],
+                        onChanged: (val) => setState(() => _pessaryType = val),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1871,19 +1933,54 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               activeThumbColor: AppTheme.primaryTeal,
               onChanged: (val) => setState(() => _followUpNeeded = val),
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _followUpDestination,
-              decoration: const InputDecoration(
-                labelText: 'Follow-Up Destination / Hospital',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Local Health Post / Camp')),
-                ...ClinicalConstants.referralHospitals.map((h) => DropdownMenuItem(value: h, child: Text(h))),
-              ],
-              onChanged: (val) => setState(() => _followUpDestination = val),
+            Builder(
+              builder: (context) {
+                final Set<String> followUpDestSet = {
+                  'Health Post',
+                  'GynaeSupport Nurse',
+                };
+                for (final h in lookupState.activeReferralHospitals) {
+                  final name = h.labelEn.trim();
+                  if (name.isNotEmpty) followUpDestSet.add(name);
+                }
+                for (final h in ClinicalConstants.referralHospitals) {
+                  final name = h.trim();
+                  if (name.isNotEmpty) followUpDestSet.add(name);
+                }
+                if (_followUpDestination != null && _followUpDestination!.trim().isNotEmpty) {
+                  followUpDestSet.add(_followUpDestination!.trim());
+                }
+
+                final followUpDestList = followUpDestSet.toList()
+                  ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+                final safeFollowUpDest = (_followUpDestination != null && followUpDestSet.contains(_followUpDestination!.trim()))
+                    ? _followUpDestination!.trim()
+                    : null;
+
+                return DropdownButtonFormField<String>(
+                  key: ValueKey('follow_up_destination_$safeFollowUpDest'),
+                  initialValue: safeFollowUpDest,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Follow-Up Destination / Hospital',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Local Health Post / Camp')),
+                    ...followUpDestList.map((h) => DropdownMenuItem(
+                          value: h,
+                          child: Text(h == 'Health Post'
+                              ? 'Local Health Post (स्वास्थ्य चौकी)'
+                              : h == 'GynaeSupport Nurse'
+                                  ? 'GynaeSupport Nurse (गाइनोसपोर्ट नर्स)'
+                                  : h),
+                        )),
+                  ],
+                  onChanged: (val) => setState(() => _followUpDestination = val),
+                );
+              },
             ),
             const SizedBox(height: 12),
             TextFormField(
