@@ -1082,7 +1082,15 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       value: null,
                       child: Row(
                         children: [
-                          const Expanded(child: Text('All Doctors', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          Expanded(
+                            child: Text(
+                              allDoctors.isEmpty && reportState.selectedCampId != null
+                                  ? 'No Doctors in Camp'
+                                  : 'All Doctors',
+                              style: const TextStyle(fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
@@ -1094,15 +1102,6 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         ],
                       ),
                     ),
-                    if (allDoctors.isEmpty)
-                      const DropdownMenuItem<String?>(
-                        enabled: false,
-                        value: null,
-                        child: Text(
-                          'No Doctors in Camp',
-                          style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
-                        ),
-                      ),
                     ...allDoctors.map((doc) {
                       final count = _getDoctorCount(doc, baseSummary);
                       return DropdownMenuItem<String?>(
@@ -1177,7 +1176,15 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       value: null,
                       child: Row(
                         children: [
-                          const Expanded(child: Text('All Diagnoses', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          Expanded(
+                            child: Text(
+                              sortedDiagnoses.isEmpty && reportState.selectedCampId != null
+                                  ? 'No Diagnoses in Camp'
+                                  : 'All Diagnoses',
+                              style: const TextStyle(fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
@@ -1189,15 +1196,6 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         ],
                       ),
                     ),
-                    if (sortedDiagnoses.isEmpty)
-                      const DropdownMenuItem<String?>(
-                        enabled: false,
-                        value: null,
-                        child: Text(
-                          'No Diagnoses in Camp',
-                          style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
-                        ),
-                      ),
                     ...sortedDiagnoses.map((dx) {
                       final count = _getDiagnosisCount(dx, baseSummary);
                       return DropdownMenuItem<String?>(
@@ -1654,14 +1652,14 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   items: [
                     DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('All Doctors ($totalPatients)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                    ),
-                    if (allDoctors.isEmpty)
-                      const DropdownMenuItem<String?>(
-                        enabled: false,
-                        value: null,
-                        child: Text('No Doctors in Camp', style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic)),
+                      child: Text(
+                        allDoctors.isEmpty && reportState.selectedCampId != null
+                            ? 'No Doctors in Camp ($totalPatients)'
+                            : 'All Doctors ($totalPatients)',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
                     ...allDoctors.map((doc) {
                       final count = _getDoctorCount(doc, baseSummary);
                       return DropdownMenuItem<String?>(
@@ -1695,14 +1693,14 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   items: [
                     DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('All Diagnoses ($totalPatients)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                    ),
-                    if (sortedDiagnoses.isEmpty)
-                      const DropdownMenuItem<String?>(
-                        enabled: false,
-                        value: null,
-                        child: Text('No Diagnoses in Camp', style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic)),
+                      child: Text(
+                        sortedDiagnoses.isEmpty && reportState.selectedCampId != null
+                            ? 'No Diagnoses in Camp ($totalPatients)'
+                            : 'All Diagnoses ($totalPatients)',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
                     ...sortedDiagnoses.map((dx) {
                       final count = _getDiagnosisCount(dx, baseSummary);
                       return DropdownMenuItem<String?>(
