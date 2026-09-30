@@ -3576,7 +3576,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   final TextEditingController _searchController = TextEditingController();
   String _selectedCampId = 'all'; // 'all' or specific camp ID
   String _selectedPopStage = 'all'; // 'all', '0', '1', '2', '3', '4', 'significant'
-  String _selectedComplaint = 'all'; // 'all', 'prolapse', 'discharge', 'urine', 'stool', 'pain', 'menstrual', 'infertility'
+  String _selectedVisitReason = 'all'; // 'all' or specific visit reason code/label
+  String _selectedComplaint = 'all'; // 'all' or specific chief complaint code/label
   String _selectedSurgery = 'all'; // 'all', 'yes', 'no', 'referral'
   String _selectedAgeBracket = 'all'; // 'all', '<20', '20-35', '36-50', '51-65', '>65'
   String _selectedIntakeStatus = 'all'; // 'all', 'completed', 'pending', 'followup'
@@ -3674,6 +3675,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       _registryPage = 0;
       // Reset camp-scoped filters so selections don't linger across camps
       _selectedDoctor = 'all';
+      _selectedVisitReason = 'all';
       _selectedComplaint = 'all';
       _selectedDiagnosis = 'all';
       _selectedTreatment = 'all';
@@ -3710,6 +3712,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     int count = 0;
     if (_selectedCampId != 'all') count++;
     if (_selectedPopStage != 'all') count++;
+    if (_selectedVisitReason != 'all') count++;
     if (_selectedComplaint != 'all') count++;
     if (_selectedSurgery != 'all') count++;
     if (_selectedAgeBracket != 'all') count++;
@@ -3726,6 +3729,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     setState(() {
       _searchController.clear();
       _selectedPopStage = 'all';
+      _selectedVisitReason = 'all';
       _selectedComplaint = 'all';
       _selectedSurgery = 'all';
       _selectedAgeBracket = 'all';
@@ -3923,6 +3927,60 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     );
   }
 
+  bool _matchesVisitReason(PatientModel p, String reasonKey) {
+    if (reasonKey == 'all') return true;
+    final keyNorm = reasonKey.trim().toLowerCase();
+    final reasons = p.reasonsForVisit.map((r) => r.trim().toLowerCase()).toList();
+
+    // 1. Direct match on reasons
+    if (reasons.any((r) => r == keyNorm || r.contains(keyNorm) || keyNorm.contains(r))) {
+      return true;
+    }
+
+    // 2. Check against dynamic Master Data Visit Reasons
+    for (final item in _campVisitReasons) {
+      final c = item.code.toLowerCase();
+      final en = item.labelEn.toLowerCase();
+      final ne = item.labelNe.toLowerCase();
+      final id = item.id.toLowerCase();
+
+      if (keyNorm == c || keyNorm == en || (ne.isNotEmpty && keyNorm == ne) || keyNorm == id) {
+        if (reasons.any((r) => r == c || r == en || (ne.isNotEmpty && r == ne) || r == id)) return true;
+      }
+    }
+
+    // 3. Clinical semantic alias matching
+    if (keyNorm.contains('prolapse') || keyNorm.contains('hanging') || keyNorm.contains('खस्ने') || keyNorm.contains('खसेको')) {
+      return reasons.any((r) => r.contains('prolapse') || r.contains('hanging') || r.contains('खस्ने') || r.contains('खसेको'));
+    }
+    if (keyNorm.contains('discharge') || keyNorm.contains('itching') || keyNorm.contains('स्राव') || keyNorm.contains('चिलाउने') || keyNorm.contains('सेतो')) {
+      return reasons.any((r) => r.contains('discharge') || r.contains('itching') || r.contains('स्राव') || r.contains('चिलाउने') || r.contains('सेतो'));
+    }
+    if (keyNorm.contains('urine') || keyNorm.contains('micturition') || keyNorm.contains('dysuria') || keyNorm.contains('पिसाब')) {
+      return reasons.any((r) => r.contains('urine') || r.contains('micturition') || r.contains('dysuria') || r.contains('पिसाब') || r.contains('incontinence'));
+    }
+    if (keyNorm.contains('stool') || keyNorm.contains('bowel') || keyNorm.contains('constipation') || keyNorm.contains('दिसा')) {
+      return reasons.any((r) => r.contains('stool') || r.contains('bowel') || r.contains('constipation') || r.contains('दिसा'));
+    }
+    if (keyNorm.contains('pain') || keyNorm.contains('backache') || keyNorm.contains('दुखाई') || keyNorm.contains('दुख्ने') || keyNorm.contains('तल्लो पेट')) {
+      return reasons.any((r) => r.contains('pain') || r.contains('backache') || r.contains('दुखाई') || r.contains('दुख्ने') || r.contains('तल्लो पेट'));
+    }
+    if (keyNorm.contains('menstrual') || keyNorm.contains('महिनावारी') || keyNorm.contains('bleeding')) {
+      return reasons.any((r) => r.contains('menstrual') || r.contains('महिनावारी') || r.contains('bleeding'));
+    }
+    if (keyNorm.contains('infertility') || keyNorm.contains('बाँझोपन') || keyNorm.contains('निःसन्तान')) {
+      return reasons.any((r) => r.contains('infertility') || r.contains('बाँझोपन') || r.contains('निःसन्तान'));
+    }
+    if (keyNorm.contains('oncology') || keyNorm.contains('cancer') || keyNorm.contains('क्यान्सर')) {
+      return reasons.any((r) => r.contains('oncology') || r.contains('cancer') || r.contains('क्यान्सर'));
+    }
+    if (keyNorm.contains('checkup') || keyNorm.contains('routine') || keyNorm.contains('जाँच')) {
+      return reasons.any((r) => r.contains('checkup') || r.contains('routine') || r.contains('जाँच'));
+    }
+
+    return false;
+  }
+
   bool _matchesComplaint(PatientModel p, ClinicalVisitModel? visit, String complaintKey) {
     if (complaintKey == 'all') return true;
     final keyNorm = complaintKey.trim().toLowerCase();
@@ -4108,34 +4166,51 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       doctorCounts[doc] = count;
     }
 
-    // Dynamic Chief Complaint & Visit Reason definitions synthesized from Master Data, Clinical Constants, and active cohort
-    final complaintDefinitions = <String, String>{};
+    // 1. Visit Reason definitions (Master Data Category: visit_reason)
+    final visitReasonDefinitions = <String, String>{};
+    for (final item in _campVisitReasons) {
+      if (item.isActive) {
+        final label = item.labelNe.isNotEmpty
+            ? '${item.labelEn} (${item.labelNe})'
+            : item.labelEn;
+        visitReasonDefinitions[item.code] = label;
+      }
+    }
+    // If no visit reasons configured in master data, fallback to ClinicalConstants
+    if (visitReasonDefinitions.isEmpty) {
+      ClinicalConstants.visitReasonOptions.forEach((key, label) {
+        visitReasonDefinitions[key] = label;
+      });
+    }
+    for (final p in campScopedPatients) {
+      for (final r in p.reasonsForVisit) {
+        final trimmed = r.trim();
+        if (trimmed.isNotEmpty && !visitReasonDefinitions.containsKey(trimmed)) {
+          final cleanLabel = trimmed.replaceAll('_', ' ');
+          visitReasonDefinitions[trimmed] = cleanLabel[0].toUpperCase() + cleanLabel.substring(1);
+        }
+      }
+    }
 
-    // 1. First add from Master Data Visit Reasons & Formulary Chief Complaints
-    for (final item in [..._campVisitReasons, ..._campChiefComplaints]) {
+    final visitReasonCounts = <String, int>{};
+    for (final entry in visitReasonDefinitions.entries) {
+      int count = 0;
+      for (final p in campScopedPatients) {
+        if (_matchesVisitReason(p, entry.key)) {
+          count++;
+        }
+      }
+      visitReasonCounts[entry.key] = count;
+    }
+
+    // 2. Chief Clinical Complaint definitions (Master Data Category: chief_complaint)
+    final complaintDefinitions = <String, String>{};
+    for (final item in _campChiefComplaints) {
       if (item.isActive) {
         final label = item.labelNe.isNotEmpty
             ? '${item.labelEn} (${item.labelNe})'
             : item.labelEn;
         complaintDefinitions[item.code] = label;
-      }
-    }
-
-    // 2. Add standard ClinicalConstants visit reason options if not already present
-    ClinicalConstants.visitReasonOptions.forEach((key, label) {
-      if (!complaintDefinitions.containsKey(key)) {
-        complaintDefinitions[key] = label;
-      }
-    });
-
-    // 3. Add any distinct reasons recorded in the active cohort
-    for (final p in campScopedPatients) {
-      for (final r in p.reasonsForVisit) {
-        final trimmed = r.trim();
-        if (trimmed.isNotEmpty && !complaintDefinitions.containsKey(trimmed)) {
-          final cleanLabel = trimmed.replaceAll('_', ' ');
-          complaintDefinitions[trimmed] = cleanLabel[0].toUpperCase() + cleanLabel.substring(1);
-        }
       }
     }
 
@@ -4226,22 +4301,25 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       }
     }
 
-    // Collect dynamic diagnoses from Master Data, ClinicalConstants, visits, and summary
+    // Collect dynamic diagnoses from Master Data, visits, and summary
     final dynamicDiagnoses = <String>{};
     for (final item in _campDiagnoses) {
       if (item.isActive && item.labelEn.trim().isNotEmpty) {
         dynamicDiagnoses.add(item.labelEn.trim());
       }
     }
-    dynamicDiagnoses.addAll(ClinicalConstants.defaultDiagnoses);
     for (final p in campScopedPatients) {
       final v = _patientVisits[p.patientId];
       if (v != null) {
         dynamicDiagnoses.addAll(v.diagnoses.where((d) => d.trim().isNotEmpty));
       }
     }
-    if (summary != null && summary.diagnosisCounts.isNotEmpty) {
+    if (summary != null && (_selectedCampId == 'all' || summary.campId == _selectedCampId) && summary.diagnosisCounts.isNotEmpty) {
       dynamicDiagnoses.addAll(summary.diagnosisCounts.keys.where((d) => d.trim().isNotEmpty));
+    }
+    // Only fall back to ClinicalConstants default diagnoses when viewing All Camps and no diagnoses exist
+    if (_selectedCampId == 'all' && dynamicDiagnoses.isEmpty) {
+      dynamicDiagnoses.addAll(ClinicalConstants.defaultDiagnoses);
     }
     final sortedDiagnoses = dynamicDiagnoses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
@@ -4303,7 +4381,12 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         if (targetStage != null && popStage != targetStage) return false;
       }
 
-      // 4. Complaint filter
+      // 4. Visit Reason filter
+      if (_selectedVisitReason != 'all') {
+        if (!_matchesVisitReason(p, _selectedVisitReason)) return false;
+      }
+
+      // 4b. Chief Clinical Complaint filter
       if (_selectedComplaint != 'all') {
         if (!_matchesComplaint(p, visit, _selectedComplaint)) return false;
       }
@@ -4431,6 +4514,10 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                         _buildPopStagingBarChart(summary, filteredPatients),
                         const SizedBox(height: 18),
 
+                        // Reason for Visit Distribution Chart
+                        _buildVisitReasonsChart(filteredPatients, visitReasonDefinitions),
+                        const SizedBox(height: 18),
+
                         // Chief Clinical Complaints Distribution Chart
                         _buildChiefComplaintsChart(filteredPatients, complaintDefinitions),
                         const SizedBox(height: 18),
@@ -4470,6 +4557,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                             doctorCounts: doctorCounts,
                             allDiagnoses: sortedDiagnoses,
                             diagnosisCounts: diagnosisCounts,
+                            visitReasonDefinitions: visitReasonDefinitions,
+                            visitReasonCounts: visitReasonCounts,
                             complaintDefinitions: complaintDefinitions,
                             complaintCounts: complaintCounts,
                             treatmentDefinitions: treatmentDefinitions,
@@ -4506,6 +4595,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           doctorCounts: doctorCounts,
                           allDiagnoses: sortedDiagnoses,
                           diagnosisCounts: diagnosisCounts,
+                          visitReasonDefinitions: visitReasonDefinitions,
+                          visitReasonCounts: visitReasonCounts,
                           complaintDefinitions: complaintDefinitions,
                           complaintCounts: complaintCounts,
                           treatmentDefinitions: treatmentDefinitions,
@@ -4907,6 +4998,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     required Map<String, int> doctorCounts,
     required List<String> allDiagnoses,
     required Map<String, int> diagnosisCounts,
+    required Map<String, String> visitReasonDefinitions,
+    required Map<String, int> visitReasonCounts,
     required Map<String, String> complaintDefinitions,
     required Map<String, int> complaintCounts,
     required Map<String, String> treatmentDefinitions,
@@ -5033,18 +5126,46 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       },
     );
 
+    final visitReasonDropdown = DropdownButtonFormField<String>(
+      key: ValueKey('visit_reason_filter_$_selectedVisitReason'),
+      initialValue: _selectedVisitReason,
+      isExpanded: true,
+      decoration: filterInputDecoration(
+        labelText: 'Reason for Visit (आगमन कारण)',
+        prefixIcon: Icons.how_to_reg_rounded,
+      ),
+      items: [
+        DropdownMenuItem(
+          value: 'all',
+          child: buildOptionRow('All Visit Reasons', campScopedPatientsCount, isBold: true),
+        ),
+        ...visitReasonDefinitions.entries.map((entry) => DropdownMenuItem(
+              value: entry.key,
+              child: buildOptionRow(entry.value, visitReasonCounts[entry.key] ?? 0),
+            )),
+      ],
+      onChanged: (v) {
+        setState(() {
+          _selectedVisitReason = v ?? 'all';
+          _registryPage = 0;
+          if (_activeTab == 'charts' || _activeTab == 'camps') _activeTab = 'overview';
+        });
+        _fetchDataForCamp(_selectedCampId);
+      },
+    );
+
     final complaintDropdown = DropdownButtonFormField<String>(
       key: ValueKey('complaint_filter_$_selectedComplaint'),
       initialValue: _selectedComplaint,
       isExpanded: true,
       decoration: filterInputDecoration(
-        labelText: 'Chief Complaint',
+        labelText: 'Chief Clinical Complaint (मुख्य समस्या)',
         prefixIcon: Icons.healing_rounded,
       ),
       items: [
         DropdownMenuItem(
           value: 'all',
-          child: buildOptionRow('All Complaints', campScopedPatientsCount, isBold: true),
+          child: buildOptionRow('All Chief Complaints', campScopedPatientsCount, isBold: true),
         ),
         ...complaintDefinitions.entries.map((entry) => DropdownMenuItem(
               value: entry.key,
@@ -5140,13 +5261,19 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       initialValue: _selectedDiagnosis,
       isExpanded: true,
       decoration: filterInputDecoration(
-        labelText: 'Clinical Diagnosis',
+        labelText: 'Clinical Diagnosis (निदान)',
         prefixIcon: Icons.assignment_turned_in_rounded,
       ),
       items: [
         DropdownMenuItem(
           value: 'all',
-          child: buildOptionRow('All Diagnoses', campScopedPatientsCount, isBold: true),
+          child: buildOptionRow(
+            allDiagnoses.isEmpty && _selectedCampId != 'all'
+                ? 'No Diagnoses Configured for Camp'
+                : 'All Diagnoses',
+            campScopedPatientsCount,
+            isBold: true,
+          ),
         ),
         ...allDiagnoses.map((d) => DropdownMenuItem(
               value: d,
@@ -5395,6 +5522,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 // Vertical Stack in Sidebar
                 popDropdown,
                 const SizedBox(height: 10),
+                visitReasonDropdown,
+                const SizedBox(height: 10),
                 complaintDropdown,
                 const SizedBox(height: 10),
                 surgeryDropdown,
@@ -5491,16 +5620,18 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                             children: [
                               Expanded(child: popDropdown),
                               const SizedBox(width: 8),
+                              Expanded(child: visitReasonDropdown),
+                              const SizedBox(width: 8),
                               Expanded(child: complaintDropdown),
                               const SizedBox(width: 8),
                               Expanded(child: surgeryDropdown),
-                              const SizedBox(width: 8),
-                              Expanded(child: ageDropdown),
                             ],
                           ),
                           const SizedBox(height: 8),
                           Row(
                             children: [
+                              Expanded(child: ageDropdown),
+                              const SizedBox(width: 8),
                               Expanded(child: diagnosisDropdown),
                               const SizedBox(width: 8),
                               Expanded(child: treatmentDropdown),
@@ -5522,29 +5653,38 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           children: [
                             Expanded(child: popDropdown),
                             const SizedBox(width: 8),
+                            Expanded(child: visitReasonDropdown),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
                             Expanded(child: complaintDropdown),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
+                            const SizedBox(width: 8),
                             Expanded(child: surgeryDropdown),
-                            const SizedBox(width: 8),
-                            Expanded(child: ageDropdown),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Expanded(child: diagnosisDropdown),
+                            Expanded(child: ageDropdown),
                             const SizedBox(width: 8),
-                            Expanded(child: treatmentDropdown),
+                            Expanded(child: diagnosisDropdown),
                           ],
                         ),
-                        if (allDoctors.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          doctorDropdown,
-                        ],
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(child: treatmentDropdown),
+                            if (allDoctors.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Expanded(child: doctorDropdown),
+                            ] else ...[
+                              const SizedBox(width: 8),
+                              const Expanded(child: SizedBox.shrink()),
+                            ],
+                          ],
+                        ),
                       ],
                     );
                   },
@@ -5830,7 +5970,137 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   }
 
   // ==========================================
-  // CHART 2: CHIEF CLINICAL COMPLAINTS & VISIT REASONS
+  // CHART 2A: REASON FOR VISIT DISTRIBUTION
+  // ==========================================
+  Widget _buildVisitReasonsChart(
+    List<PatientModel> patients,
+    Map<String, String> visitReasonDefinitions,
+  ) {
+    final totalCohort = patients.length;
+    const chartPalette = [
+      Color(0xFF0F766E), // Teal
+      Color(0xFF0284C7), // Sky Blue
+      Color(0xFFD97706), // Amber
+      Color(0xFF7C3AED), // Violet
+      Color(0xFF10B981), // Emerald
+      Color(0xFFE11D48), // Rose
+      Color(0xFF4F46E5), // Indigo
+      Color(0xFFEA580C), // Orange
+    ];
+
+    final items = <Map<String, dynamic>>[];
+    int colorIdx = 0;
+
+    for (final entry in visitReasonDefinitions.entries) {
+      int count = 0;
+      for (final p in patients) {
+        if (_matchesVisitReason(p, entry.key)) {
+          count++;
+        }
+      }
+      items.add({
+        'key': entry.key,
+        'label': entry.value,
+        'count': count,
+        'color': chartPalette[colorIdx % chartPalette.length],
+      });
+      colorIdx++;
+    }
+
+    // Sort descending by count, then label
+    items.sort((a, b) {
+      final cComp = (b['count'] as int).compareTo(a['count'] as int);
+      if (cComp != 0) return cComp;
+      return (a['label'] as String).compareTo(b['label'] as String);
+    });
+
+    final displayItems = items.where((it) => (it['count'] as int) > 0).toList();
+    if (displayItems.length < 6) {
+      for (final it in items) {
+        if (!displayItems.contains(it) && displayItems.length < 8) {
+          displayItems.add(it);
+        }
+      }
+    }
+
+    for (int i = 0; i < displayItems.length; i++) {
+      displayItems[i]['color'] = chartPalette[i % chartPalette.length];
+    }
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.how_to_reg_rounded, color: Color(0xFF0F766E), size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reason for Visit Frequency & Ranking (आगमन कारण)',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        'Page 1 Intake & demographics standard reasons ranked by cohort frequency',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (displayItems.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Text(
+                    'No visit reasons recorded for this cohort',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                  ),
+                ),
+              )
+            else
+              ...displayItems.asMap().entries.map((entry) {
+                final idx = entry.key + 1;
+                final item = entry.value;
+                final count = item['count'] as int;
+                final color = item['color'] as Color;
+                final label = item['label'] as String;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildRankedBarItem(
+                    rank: idx,
+                    label: label,
+                    count: count,
+                    total: totalCohort,
+                    color: color,
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // CHART 2B: CHIEF CLINICAL COMPLAINTS
   // ==========================================
   Widget _buildChiefComplaintsChart(
     List<PatientModel> patients,
@@ -5911,7 +6181,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.leaderboard_rounded, color: Color(0xFF7C3AED), size: 20),
+                  child: const Icon(Icons.healing_rounded, color: Color(0xFF7C3AED), size: 20),
                 ),
                 const SizedBox(width: 10),
                 const Expanded(
@@ -5919,11 +6189,11 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Chief Clinical Complaints & Visit Reasons Ranking',
+                        'Chief Clinical Complaints Frequency & Ranking (क्लिनिकल मुख्य समस्या)',
                         style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                       ),
                       Text(
-                        'Dynamic master formulary & visit reasons ranked by cohort frequency',
+                        'Reported symptomatology ranked by cohort frequency (Doctor Examination Station 1)',
                         style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                       ),
                     ],
@@ -5937,7 +6207,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(
                   child: Text(
-                    'No clinical complaints or visit reasons recorded for this cohort',
+                    'No chief clinical complaints recorded for this cohort',
                     style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                   ),
                 ),
