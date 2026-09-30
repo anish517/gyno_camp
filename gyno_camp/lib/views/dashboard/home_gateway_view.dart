@@ -75,95 +75,217 @@ class HomeGatewayView extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 64,
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.textPrimaryLight,
         elevation: 0,
         scrolledUnderElevation: 0,
+        titleSpacing: 20,
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, thickness: 1, color: AppTheme.borderLight),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              user.name.isNotEmpty ? user.name : 'Gynocamp System',
-              style: const TextStyle(
-                color: AppTheme.textPrimaryLight,
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-                letterSpacing: -0.3,
+            // Brand Logo mark
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0D9488).withValues(alpha: 0.25),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
+              child: const Icon(
+                Icons.health_and_safety_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
-            Text(
-              '${(user.isSuperAdmin ? UserRole.superAdmin : user.role).displayNameEn} • ${deviceState.device?.deviceName ?? "Authorized Device"}',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.textSecondaryLight),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Gynocamp',
+                      style: TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16.5,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Text(
+                        (user.isSuperAdmin ? UserRole.superAdmin : user.role).displayNameEn,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF475569),
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 1),
+                Builder(
+                  builder: (ctx) {
+                    final org = ref.watch(effectiveOrganizationProvider);
+                    return Text(
+                      '$org • ${deviceState.device?.deviceName ?? "Authorized Device"}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF64748B),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    );
+                  },
+                ),
+              ],
             ),
           ],
         ),
         actions: [
+          // Live status pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFECFDF5),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFA7F3D0)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.fiber_manual_record, color: Color(0xFF10B981), size: 9),
+                SizedBox(width: 5),
+                Text(
+                  'Live Node',
+                  style: TextStyle(
+                    color: Color(0xFF065F46),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Lock button
           IconButton(
             tooltip: 'Lock App Session',
-            icon: const Icon(Icons.lock_outline, color: Color(0xFF475569)),
+            icon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF475569), size: 20),
             onPressed: () {
               ref.read(deviceSecurityProvider.notifier).lockApp();
             },
           ),
-          IconButton(
-            tooltip: 'Logout / Sign Out',
-            icon: const Icon(Icons.logout, color: Color(0xFF475569)),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (dialogCtx) => AlertDialog(
-                  title: const Row(
-                    children: [
-                      Icon(Icons.logout, color: AppTheme.dangerRose),
-                      SizedBox(width: 8),
-                      Text('Confirm Sign Out'),
-                    ],
+          const SizedBox(width: 4),
+          // User Profile chip with sign out
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 13,
+                  backgroundColor: const Color(0xFF0D9488),
+                  child: Text(
+                    user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
-                  content: Text(
-                    'Are you sure you want to sign out of "${user.name}"? This will terminate your active clinical session and return to the Staff Login screen.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogCtx),
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.dangerRose,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: () async {
-                        // 1. Dismiss confirmation dialog
-                        Navigator.pop(dialogCtx);
-
-                        // 2. Pop any nested/pushed routes back to the root SecurityGatewayView
-                        if (context.mounted) {
-                          Navigator.of(context).popUntil((route) => route.isFirst);
-                        }
-
-                        // 3. Clear session and update authStateProvider to unauthenticated
-                        await ref.read(authStateProvider.notifier).logout(
-                              deviceId: deviceState.device?.deviceId ?? 'dev-local',
-                            );
-
-                        // SecurityGatewayView is the reactive root of MaterialApp.
-                        // When authState.isAuthenticated is false, it automatically renders
-                        // LoginView smoothly without route duplication or glitch animations.
-                      },
-                      child: const Text('Sign Out'),
-                    ),
-                  ],
                 ),
-              );
-            },
+                const SizedBox(width: 8),
+                Text(
+                  user.name.isNotEmpty ? user.name : 'Authorized User',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (dialogCtx) => AlertDialog(
+                        title: const Row(
+                          children: [
+                            Icon(Icons.logout, color: AppTheme.dangerRose),
+                            SizedBox(width: 8),
+                            Text('Confirm Sign Out'),
+                          ],
+                        ),
+                        content: Text(
+                          'Are you sure you want to sign out of "${user.name}"? This will terminate your active clinical session and return to the Staff Login screen.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogCtx),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.dangerRose,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () async {
+                              Navigator.pop(dialogCtx);
+                              if (context.mounted) {
+                                Navigator.of(context).popUntil((route) => route.isFirst);
+                              }
+                              await ref.read(authStateProvider.notifier).logout(
+                                    deviceId: deviceState.device?.deviceId ?? 'dev-local',
+                                  );
+                            },
+                            child: const Text('Sign Out'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  child: const Tooltip(
+                    message: 'Logout / Sign Out',
+                    child: Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Icon(Icons.logout_rounded, size: 16, color: Color(0xFF94A3B8)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -195,229 +317,245 @@ class HomeGatewayView extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // 1. EXECUTIVE COMMAND HEADER WITH LIVE PULSE & QUICK ACTIONS
-              Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0F172A).withValues(alpha: 0.05),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                  border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top Sub-Row: Live Status Pulse + Tenant Badge
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFECFDF5),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFA7F3D0)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.fiber_manual_record, color: Color(0xFF059669), size: 10),
-                              SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  'SECURE ROOT SESSION ACTIVE',
-                                  style: TextStyle(
-                                    color: Color(0xFF065F46),
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.8,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                              ),
-                            ],
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Top Accent Gradient Bar
+                      Container(
+                        height: 4,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF0D9488), Color(0xFF14B8A6), Color(0xFF0EA5E9)],
                           ),
                         ),
-                        Builder(
-                          builder: (context) {
-                            final orgName = ref.watch(effectiveOrganizationProvider);
-                            return Text(
-                              orgName,
-                              style: const TextStyle(
-                                color: Color(0xFF475569),
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.3,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Middle Main Row: User Identity & Action Buttons (Responsive)
-                    LayoutBuilder(
-                      builder: (ctx, constraints) {
-                        final isCompact = constraints.maxWidth < 680;
-                        final actionButtons = Wrap(
-                          spacing: 10,
-                          runSpacing: 8,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(22),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0D9488),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                elevation: 0,
-                              ),
-                              icon: const Icon(Icons.add_location_alt_rounded, size: 17),
-                              label: const Text('New Camp', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const CampManagementView()),
-                                );
-                              },
-                            ),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF1E293B),
-                                backgroundColor: const Color(0xFFF8FAFC),
-                                side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              icon: const Icon(Icons.swap_horiz_rounded, size: 17, color: Color(0xFF0D9488)),
-                              label: const Text('Switch Camp', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                              onPressed: () => _showQuickCampSwitchDialog(context, ref),
-                            ),
-                          ],
-                        );
-
-                        if (isCompact) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0FDFA),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: const Color(0xFF99F6E4), width: 1.5),
-                                    ),
-                                    child: const Icon(Icons.shield_outlined, color: Color(0xFF0D9488), size: 26),
+                            // Top Eyebrow Row: Portal Tag & Security Enforced
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF0FDFA),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFF99F6E4)),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Flexible(
-                                              child: Text(
-                                                user?.name ?? 'System Administrator',
-                                                style: const TextStyle(
-                                                  fontSize: 19,
-                                                  fontWeight: FontWeight.w900,
-                                                  color: Color(0xFF0F172A),
-                                                  letterSpacing: -0.4,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            IconButton(
-                                              icon: const Icon(Icons.edit_outlined, color: Color(0xFF0D9488), size: 18),
-                                              tooltip: 'Edit SaaS Profile & Organization',
-                                              visualDensity: VisualDensity.compact,
-                                              onPressed: () => _showEditProfileDialog(context, ref, user),
-                                            ),
-                                          ],
-                                        ),
-                                        const Text(
-                                          'Super Admin Command Console',
-                                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              actionButtons,
-                            ],
-                          );
-                        }
-
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 56,
-                              height: 56,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF0FDFA),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: const Color(0xFF99F6E4), width: 1.5),
-                              ),
-                              child: const Icon(Icons.shield_outlined, color: Color(0xFF0D9488), size: 30),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Flexible(
-                                        child: Text(
-                                          user?.name ?? 'System Administrator',
-                                          style: const TextStyle(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.w900,
-                                            color: Color(0xFF0F172A),
-                                            letterSpacing: -0.4,
-                                          ),
+                                      Icon(Icons.shield_rounded, size: 12, color: Color(0xFF0D9488)),
+                                      SizedBox(width: 5),
+                                      Text(
+                                        'EXECUTIVE COMMAND CONSOLE',
+                                        style: TextStyle(
+                                          color: Color(0xFF0F766E),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.6,
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      IconButton(
-                                        icon: const Icon(Icons.edit_outlined, color: Color(0xFF0D9488), size: 18),
-                                        tooltip: 'Edit SaaS Profile & Organization',
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: () => _showEditProfileDialog(context, ref, user),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 3),
-                                  const Text(
-                                    'Super Admin Command Console • Field Operations & Clinical Governance',
-                                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                ),
+                                const Text(
+                                  '•  Field Operations & Clinical Governance',
+                                  style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                ],
-                              ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.lock_rounded, size: 11, color: Color(0xFF94A3B8)),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Hardware Whitelist Enforced',
+                                        style: TextStyle(
+                                          color: Color(0xFF64748B),
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 16),
-                            actionButtons,
+                            const SizedBox(height: 16),
+
+                            // Main Title & Action Buttons Row (Responsive)
+                            LayoutBuilder(
+                              builder: (ctx, constraints) {
+                                final isCompact = constraints.maxWidth < 720;
+                                final actionButtons = Wrap(
+                                  spacing: 10,
+                                  runSpacing: 8,
+                                  children: [
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF0D9488),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        elevation: 0,
+                                      ),
+                                      icon: const Icon(Icons.add_location_alt_rounded, size: 17),
+                                      label: const Text('New Camp', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (_) => const CampManagementView()),
+                                        );
+                                      },
+                                    ),
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xFF1E293B),
+                                        backgroundColor: const Color(0xFFF8FAFC),
+                                        side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      icon: const Icon(Icons.swap_horiz_rounded, size: 17, color: Color(0xFF0D9488)),
+                                      label: const Text('Switch Camp', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                      onPressed: () => _showQuickCampSwitchDialog(context, ref),
+                                    ),
+                                  ],
+                                );
+
+                                final titleSection = Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Operations & Health Camp Governance',
+                                      style: TextStyle(
+                                        fontSize: 21,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF0F172A),
+                                        letterSpacing: -0.4,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    const Text(
+                                      'Manage lifecycle deployment, medical staff rosters, hardware identity whitelist, and intake synchronization across all field camps.',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: Color(0xFF64748B),
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                );
+
+                                if (isCompact) {
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      titleSection,
+                                      const SizedBox(height: 14),
+                                      actionButtons,
+                                    ],
+                                  );
+                                }
+
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Expanded(child: titleSection),
+                                    const SizedBox(width: 20),
+                                    actionButtons,
+                                  ],
+                                );
+                              },
+                            ),
+
+                            // Bottom Integrated Operational Status Strip
+                            const SizedBox(height: 18),
+                            const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+                            const SizedBox(height: 14),
+                            Wrap(
+                              spacing: 24,
+                              runSpacing: 10,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 15),
+                                    SizedBox(width: 6),
+                                    Text('System Status: ', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                                    Text('All Services Online', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF065F46))),
+                                  ],
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.corporate_fare_rounded, color: Color(0xFF0D9488), size: 15),
+                                    SizedBox(width: 6),
+                                    const Text('Tenant: ', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                                    Builder(
+                                      builder: (ctx) {
+                                        final org = ref.watch(effectiveOrganizationProvider);
+                                        return Text(org, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)));
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.manage_accounts_outlined, color: Color(0xFF64748B), size: 15),
+                                    SizedBox(width: 6),
+                                    const Text('Console Root: ', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                                    Text(user?.name ?? 'Super Admin', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                                    const SizedBox(width: 4),
+                                    InkWell(
+                                      onTap: () => _showEditProfileDialog(context, ref, user),
+                                      child: const Tooltip(
+                                        message: 'Edit Profile & Organization',
+                                        child: Icon(Icons.edit_outlined, size: 13, color: Color(0xFF0D9488)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ],
-                        );
-                      },
-                    ),
-                  ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
@@ -4648,267 +4786,266 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     required String currentCampName,
     required DeviceSecurityState deviceState,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top Badges & Tenant Info
-          Wrap(
-            spacing: 10,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDFA),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF99F6E4)),
-                ),
-                child: const FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.analytics_rounded, color: Color(0xFF0D9488), size: 14),
-                      SizedBox(width: 5),
-                      Text(
-                        'CLINICAL DATA ANALYST WORKSTATION',
-                        style: TextStyle(
-                          color: Color(0xFF0F766E),
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Accent Gradient Bar
+            Container(
+              height: 4,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF0D9488), Color(0xFF14B8A6), Color(0xFF0EA5E9)],
                 ),
               ),
-              Builder(
-                builder: (context) {
-                  final orgName = ref.watch(effectiveOrganizationProvider);
-                  return Text(
-                    '$orgName • Role: Data Analyst',
-                    style: const TextStyle(
-                      color: Color(0xFF475569),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  );
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // User Identity & Camp Selector Row
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 650;
-              final userProfile = Row(
+            ),
+            Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDFA),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF99F6E4), width: 1.5),
-                    ),
-                    child: const Icon(Icons.insights_rounded, color: Color(0xFF0D9488), size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user?.name ?? 'Population Health Analyst',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
-                          ),
+                  // Top Eyebrow Row: Workstation Tag & Role
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDFA),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF99F6E4)),
                         ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Multi-station Epidemiology, POP-Q Triage & Clinical Dossiers',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF64748B),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-
-              final campDropdown = Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    dropdownColor: Colors.white,
-                    value: _selectedCampId,
-                    icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF475569)),
-                    items: [
-                      DropdownMenuItem<String>(
-                        value: 'all',
-                        child: Row(
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.public_rounded, color: Color(0xFF0D9488), size: 16),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                (user?.role == UserRole.superAdmin || user?.role == UserRole.dataAnalyst)
-                                    ? 'All Camps (Cross-Camp Intelligence)'
-                                    : 'All Assigned Camps (${visibleCamps.length})',
-                                style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
+                            Icon(Icons.analytics_rounded, color: Color(0xFF0D9488), size: 13),
+                            SizedBox(width: 5),
+                            Text(
+                              'CLINICAL DATA ANALYST WORKSTATION',
+                              style: TextStyle(
+                                color: Color(0xFF0F766E),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.6,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      ...visibleCamps.map((c) => DropdownMenuItem<String>(
-                            value: c.id,
-                            child: Row(
-                              children: [
-                                const Icon(Icons.location_on_outlined, color: Color(0xFF64748B), size: 16),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '${c.campCode} - ${c.name}',
-                                    style: const TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.w600),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
+                      Builder(
+                        builder: (context) {
+                          final orgName = ref.watch(effectiveOrganizationProvider);
+                          return Text(
+                            '•  $orgName  •  Cross-Camp Intelligence',
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
-                          )),
-                    ],
-                    onChanged: _onCampChanged,
-                  ),
-                ),
-              );
-
-              if (isNarrow) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    userProfile,
-                    const SizedBox(height: 12),
-                    campDropdown,
-                  ],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(child: userProfile),
-                  const SizedBox(width: 16),
-                  SizedBox(width: 320, child: campDropdown),
-                ],
-              );
-            },
-          ),
-
-          const SizedBox(height: 14),
-          const Divider(color: Color(0xFFE2E8F0), height: 1),
-          const SizedBox(height: 12),
-
-          // Actions Row
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            children: [
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D9488),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  elevation: 0,
-                ),
-                icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
-                label: const Text('Aggregate Camp Report (पिडिएफ)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CampReportView(
-                        initialCampId: _selectedCampId == 'all' ? null : _selectedCampId,
+                            overflow: TextOverflow.ellipsis,
+                          );
+                        },
                       ),
-                    ),
-                  );
-                },
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Main Title & Camp Selector Row
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrow = constraints.maxWidth < 750;
+                      final titleSection = Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Cross-Camp Epidemiology & Visual Analytics',
+                            style: TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Multi-station POP-Q triage, epidemiological cohort breakdowns, and verified clinical dossiers.',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: Color(0xFF64748B),
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      );
+
+                      final campDropdown = Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            isExpanded: true,
+                            dropdownColor: Colors.white,
+                            value: _selectedCampId,
+                            icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF475569)),
+                            items: [
+                              DropdownMenuItem<String>(
+                                value: 'all',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.public_rounded, color: Color(0xFF0D9488), size: 16),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        (user?.role == UserRole.superAdmin || user?.role == UserRole.dataAnalyst)
+                                            ? 'All Camps (Cross-Camp Intelligence)'
+                                            : 'All Assigned Camps (${visibleCamps.length})',
+                                        style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.bold),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ...visibleCamps.map((c) => DropdownMenuItem<String>(
+                                    value: c.id,
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.location_on_outlined, color: Color(0xFF64748B), size: 16),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            '${c.campCode} - ${c.name}',
+                                            style: const TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.w600),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )),
+                            ],
+                            onChanged: _onCampChanged,
+                          ),
+                        ),
+                      );
+
+                      if (isNarrow) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            titleSection,
+                            const SizedBox(height: 14),
+                            campDropdown,
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(child: titleSection),
+                          const SizedBox(width: 20),
+                          SizedBox(width: 320, child: campDropdown),
+                        ],
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 18),
+                  const Divider(color: Color(0xFFF1F5F9), height: 1, thickness: 1),
+                  const SizedBox(height: 14),
+
+                  // Actions Row
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D9488),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                        label: const Text('Aggregate Camp Report (पिडिएफ)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CampReportView(
+                                initialCampId: _selectedCampId == 'all' ? null : _selectedCampId,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                        icon: _isExportingExcel
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.table_view_rounded, size: 16),
+                        label: Text(
+                          _isExportingExcel ? 'Exporting...' : 'Export Excel (एक्सेल)',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: _isExportingExcel
+                            ? null
+                            : () => _exportExcel(user, deviceState.device?.deviceId ?? 'dev-field'),
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF334155),
+                          backgroundColor: const Color(0xFFF8FAFC),
+                          side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.history_edu_rounded, size: 16, color: Color(0xFF0D9488)),
+                        label: const Text('Audit Trail', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const AuditTrailView()),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF059669),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  elevation: 0,
-                ),
-                icon: _isExportingExcel
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.table_view_rounded, size: 16),
-                label: Text(
-                  _isExportingExcel ? 'Exporting...' : 'Export Excel (एक्सेल)',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-                onPressed: _isExportingExcel
-                    ? null
-                    : () => _exportExcel(user, deviceState.device?.deviceId ?? 'dev-field'),
-              ),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF334155),
-                  backgroundColor: const Color(0xFFF8FAFC),
-                  side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                icon: const Icon(Icons.history_edu_rounded, size: 16, color: Color(0xFF0D9488)),
-                label: const Text('Audit Trail', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AuditTrailView()),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
