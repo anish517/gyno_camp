@@ -2282,8 +2282,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   }
 
   void _showAssignStaffDialog(BuildContext context, CampModel camp) {
-    ref.invalidate(staffUsersProvider);
-
     // ── Merge both assignment sources so the dialog shows the correct state ──
     // Source A: camp.assignedStaffIds  (set from the Camp page)
     // Source B: user.assignedCampIds   (set from the Staff/RBAC page)
@@ -2461,6 +2459,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               deviceId: deviceState.device?.deviceId ?? 'dev-admin',
                             );
                         if (mounted && success) {
+                          ref.invalidate(staffUsersProvider);
+                          await ref.read(campStateProvider.notifier).loadCamps();
                           messenger.showSnackBar(
                             SnackBar(content: Text('Staff updated for camp "${camp.name}".')),
                           );

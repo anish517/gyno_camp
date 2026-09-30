@@ -182,7 +182,7 @@ class DatabaseService {
       );
 
       if (adminCheck.isEmpty) {
-        final now = DateTime.now().toIso8601String();
+        const bootstrapEpoch = '2020-01-01T00:00:00.000Z';
         await db.insert(
           DatabaseTables.tableUsers,
           {
@@ -192,12 +192,13 @@ class DatabaseService {
             'phone': '9851000001',
             'role': AppConstants.roleSuperAdmin,
             'is_active': 1,
-            'last_login_at': now,
+            'last_login_at': bootstrapEpoch,
             'assigned_camp_ids': '',
             'tenant_id': 'tenant_default',
             'tenant_name': 'Nepal Health Outreach Network',
             'password_hash': adminPassHash,
             'pin_hash': adminPinHash,
+            'updated_at': bootstrapEpoch,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
@@ -256,6 +257,9 @@ class DatabaseService {
 
   Future<void> _seedInitialData(Database db) async {
     // 1. Seed initial users for all 3 roles (SaaS multi-tenant defaults)
+    // Use fixed bootstrap epoch timestamp so any real user credential change on
+    // central cloud or another device is recognized as newer than unedited defaults.
+    const bootstrapEpoch = '2020-01-01T00:00:00.000Z';
     final now = DateTime.now().toIso8601String();
     await db.insert(DatabaseTables.tableUsers, {
       'id': 'usr-superadmin-01',
@@ -264,13 +268,13 @@ class DatabaseService {
       'phone': '9851000001',
       'role': AppConstants.roleSuperAdmin,
       'is_active': 1,
-      'last_login_at': now,
+      'last_login_at': bootstrapEpoch,
       'assigned_camp_ids': 'camp-ktm-01,camp-dhn-02',
       'tenant_id': 'tenant_default',
       'tenant_name': 'Nepal Health Outreach Network',
       'password_hash': SecurityService.hashSha256('admin123'),
       'pin_hash': SecurityService.hashPin('1234'),
-      'updated_at': now,
+      'updated_at': bootstrapEpoch,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     await db.insert(DatabaseTables.tableUsers, {
@@ -280,13 +284,13 @@ class DatabaseService {
       'phone': '9841234567',
       'role': AppConstants.roleDataTaker,
       'is_active': 1,
-      'last_login_at': now,
+      'last_login_at': bootstrapEpoch,
       'assigned_camp_ids': 'camp-ktm-01',
       'tenant_id': 'tenant_default',
       'tenant_name': 'Community Health Outreach',
       'password_hash': SecurityService.hashSha256('nurse123'),
       'pin_hash': SecurityService.hashPin('1234'),
-      'updated_at': now,
+      'updated_at': bootstrapEpoch,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     await db.insert(DatabaseTables.tableUsers, {
@@ -296,13 +300,13 @@ class DatabaseService {
       'phone': '9860123456',
       'role': AppConstants.roleDataAnalyst,
       'is_active': 1,
-      'last_login_at': now,
+      'last_login_at': bootstrapEpoch,
       'assigned_camp_ids': '',
       'tenant_id': 'tenant_default',
       'tenant_name': 'Community Health Outreach',
       'password_hash': SecurityService.hashSha256('analyst123'),
       'pin_hash': SecurityService.hashPin('1234'),
-      'updated_at': now,
+      'updated_at': bootstrapEpoch,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 2. Seed active sample camp

@@ -2030,7 +2030,6 @@ class PdfReportService {
     if (effectiveDiagnosesItems.length > 22) {
       effectiveDiagnosesItems = effectiveDiagnosesItems.take(22).toList();
     }
-    final List<String> effectiveDiagnoses = effectiveDiagnosesItems.map((d) => d.labelEn).toList();
 
     // 2. Medications
     List<LookupItemModel> effectiveMedicationsItems = medications?.where((m) => m.isActive).toList() ?? [];
@@ -2058,7 +2057,6 @@ class PdfReportService {
     if (effectiveMedicationsItems.length > 12) {
       effectiveMedicationsItems = effectiveMedicationsItems.take(12).toList();
     }
-    final List<String> effectiveMedications = effectiveMedicationsItems.map((m) => m.labelEn).toList();
 
     // 3. Referral Hospitals
     List<LookupItemModel> effectiveHospitalsItems = referralHospitals?.where((h) => h.isActive).toList() ?? [];

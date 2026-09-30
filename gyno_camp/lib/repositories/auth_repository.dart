@@ -93,20 +93,43 @@ class AuthRepository implements IAuthRepository {
         }
       } catch (_) {}
 
-      // If local record has a timestamp and is newer than (or incoming has no timestamp):
-      // local credentials win!
+      // Identify whether local credentials are just unedited default bootstrap seeds
+      final defaultAdminPass = SecurityService.hashSha256('admin123');
+      final defaultNursePass = SecurityService.hashSha256('nurse123');
+      final defaultAnalystPass = SecurityService.hashSha256('analyst123');
+      final defaultPin = SecurityService.hashPin('1234');
+
+      final isLocalDefaultPass = localPass == defaultAdminPass ||
+          localPass == defaultNursePass ||
+          localPass == defaultAnalystPass;
+      final isLocalDefaultPin = localPin == defaultPin;
+
+      // If local record has a timestamp and is newer than incoming:
+      // local credentials win UNLESS local is still the default bootstrap and incoming has custom credentials!
       final localIsNewer = localTs != null && (incomingTs == null || localTs.isAfter(incomingTs));
 
       final incomingPassEmpty = map['password_hash'] == null || map['password_hash'].toString().isEmpty;
       final incomingPinEmpty = map['pin_hash'] == null || map['pin_hash'].toString().isEmpty;
 
-      if (localIsNewer || (incomingPassEmpty && localPass != null && localPass.isNotEmpty)) {
+      // Password resolution:
+      if (incomingPassEmpty) {
+        if (localPass != null && localPass.isNotEmpty) {
+          map['password_hash'] = localPass;
+        }
+      } else if (localIsNewer && !isLocalDefaultPass) {
         map['password_hash'] = localPass;
       }
-      if (localIsNewer || (incomingPinEmpty && localPin != null && localPin.isNotEmpty)) {
+
+      // PIN resolution:
+      if (incomingPinEmpty) {
+        if (localPin != null && localPin.isNotEmpty) {
+          map['pin_hash'] = localPin;
+        }
+      } else if (localIsNewer && !isLocalDefaultPin) {
         map['pin_hash'] = localPin;
       }
-      if (localIsNewer && localUpdatedAt != null) {
+
+      if (localIsNewer && localUpdatedAt != null && (!isLocalDefaultPass || !isLocalDefaultPin)) {
         map['updated_at'] = localUpdatedAt;
       }
     }
@@ -430,6 +453,15 @@ class AuthRepository implements IAuthRepository {
             where: 'id = ?',
             whereArgs: [cId],
           );
+          if (enableCentralSync) {
+            try {
+              final campObj = CampModel.fromMap(r).copyWith(
+                assignedStaffIds: rawStaff.toList(),
+                updatedAt: DateTime.now().toUtc(),
+              );
+              HttpCentralApiService().broadcastCamp(campObj);
+            } catch (_) {}
+          }
         }
       }
     } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
@@ -634,7 +666,7 @@ class AuthRepository implements IAuthRepository {
     String? password,
     required String deviceId,
   }) async {
-    final user = await getUserByEmail(email);
+    var user = await getUserByEmail(email);
     if (user == null || !user.isActive) return null;
 
     final hasCredentials = (user.passwordHash != null && user.passwordHash!.isNotEmpty) ||
@@ -645,17 +677,47 @@ class AuthRepository implements IAuthRepository {
         return null;
       }
       final inputHash = SecurityService.hashSha256(password);
-      final isPinValid =
+      var isPinValid =
           user.pinHash != null &&
           user.pinHash!.isNotEmpty &&
           SecurityService.verifyPin(password, user.pinHash!);
-      final isPasswordValid =
+      var isPasswordValid =
           user.passwordHash != null &&
           user.passwordHash!.isNotEmpty &&
           user.passwordHash == inputHash;
 
       if (!isPasswordValid && !isPinValid) {
-        return null;
+        // If local credentials failed to match, check whether updated credentials exist on the central cloud server!
+        // This immediately handles cases where the user or admin updated password/PIN on another device or browser.
+        if (enableCentralSync && !HttpCentralApiService.isServerCooldownActive) {
+          try {
+            final centralUsers = await HttpCentralApiService().fetchCentralUsers();
+            final db = await _databaseService.database;
+            for (final u in centralUsers) {
+              await _upsertUserPreservingCredentials(db, u);
+            }
+            final reloaded = await getUserByEmail(email);
+            if (reloaded != null && reloaded.isActive) {
+              final isPinValidFresh = reloaded.pinHash != null &&
+                  reloaded.pinHash!.isNotEmpty &&
+                  SecurityService.verifyPin(password, reloaded.pinHash!);
+              final isPasswordValidFresh = reloaded.passwordHash != null &&
+                  reloaded.passwordHash!.isNotEmpty &&
+                  reloaded.passwordHash == inputHash;
+              if (isPasswordValidFresh || isPinValidFresh) {
+                user = reloaded;
+              } else {
+                return null;
+              }
+            } else {
+              return null;
+            }
+          } catch (_) {
+            return null;
+          }
+        } else {
+          return null;
+        }
       }
     }
 

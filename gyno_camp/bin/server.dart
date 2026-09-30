@@ -1095,9 +1095,9 @@ class GynoCampSyncServer {
             'assigned_camp_ids': row[7],
             'tenant_id': row[8],
             'tenant_name': row[9],
+            'password_hash': row[10],
+            'pin_hash': row[11],
             'updated_at': row[12]?.toString(),
-            // Security: password_hash and pin_hash are NOT included in pull
-            // Devices retain their locally-set credentials
           });
         }
 
@@ -1475,9 +1475,64 @@ class GynoCampSyncServer {
             'updated_at': utcNow,
           },
         );
+
+        // Synchronize users.assigned_camp_ids with camp's assigned_staff_ids in Postgres
+        final assignedStaffList = (map['assigned_staff_ids']?.toString() ?? '')
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toSet();
+
+        final userRows = await _connection!.execute('SELECT id, assigned_camp_ids FROM users;');
+        for (final uRow in userRows) {
+          final uId = uRow[0]?.toString() ?? '';
+          final rawCamps = (uRow[1]?.toString() ?? '')
+              .split(',')
+              .map((c) => c.trim())
+              .where((c) => c.isNotEmpty)
+              .toSet();
+          bool changed = false;
+          if (assignedStaffList.contains(uId)) {
+            if (!rawCamps.contains(id)) {
+              rawCamps.add(id);
+              changed = true;
+            }
+          } else {
+            if (rawCamps.contains(id)) {
+              rawCamps.remove(id);
+              changed = true;
+            }
+          }
+          if (changed) {
+            await _connection!.execute(
+              Sql.named('UPDATE users SET assigned_camp_ids = @camps, updated_at = NOW() WHERE id = @id;'),
+              parameters: {'camps': rawCamps.join(','), 'id': uId},
+            );
+          }
+        }
       } catch (e) {
-        print('Error saving camp to Postgres: $e');
+        print('Error saving camp or synchronizing users to Postgres: $e');
       }
+    }
+
+    final assignedStaffList = (map['assigned_staff_ids']?.toString() ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toSet();
+    for (final u in _memUsers.values) {
+      final uId = u['id']?.toString() ?? '';
+      final rawCamps = (u['assigned_camp_ids']?.toString() ?? '')
+          .split(',')
+          .map((c) => c.trim())
+          .where((c) => c.isNotEmpty)
+          .toSet();
+      if (assignedStaffList.contains(uId)) {
+        rawCamps.add(id);
+      } else {
+        rawCamps.remove(id);
+      }
+      u['assigned_camp_ids'] = rawCamps.join(',');
     }
 
     request.response.statusCode = HttpStatus.created;

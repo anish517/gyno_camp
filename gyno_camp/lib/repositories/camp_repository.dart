@@ -582,30 +582,46 @@ class CampRepository implements ICampRepository {
       } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 
-    // 2. Also update each assigned staff's user record with this campId
+    // 2. Synchronize ALL users in SQLite and Central Cloud with this camp's staff list
     try {
-      for (final staffId in staffIds) {
-        final userMaps = await db.query(
-          DatabaseTables.tableUsers,
-          where: 'id = ?',
-          whereArgs: [staffId],
-          limit: 1,
-        );
-        if (userMaps.isNotEmpty) {
-          final user = UserModel.fromMap(userMaps.first);
-          final existingCamps = List<String>.from(user.assignedCampIds);
+      final allUserMaps = await db.query(DatabaseTables.tableUsers);
+      final staffIdSet = staffIds.toSet();
+      final nowUtc = DateTime.now().toUtc();
+
+      for (final uMap in allUserMaps) {
+        final user = UserModel.fromMap(uMap);
+        final existingCamps = List<String>.from(user.assignedCampIds);
+        bool userChanged = false;
+
+        if (staffIdSet.contains(user.id)) {
+          // Staff member is assigned to this camp
           if (!existingCamps.contains(campId)) {
             existingCamps.add(campId);
-            final updatedUser = user.copyWith(assignedCampIds: existingCamps);
-            await db.update(
-              DatabaseTables.tableUsers,
-              updatedUser.toMap(),
-              where: 'id = ?',
-              whereArgs: [user.id],
-            );
-            if (enableCentralSync) {
+            userChanged = true;
+          }
+        } else {
+          // Staff member is unassigned from this camp
+          if (existingCamps.contains(campId)) {
+            existingCamps.remove(campId);
+            userChanged = true;
+          }
+        }
+
+        if (userChanged) {
+          final updatedUser = user.copyWith(
+            assignedCampIds: existingCamps,
+            updatedAt: nowUtc,
+          );
+          await db.update(
+            DatabaseTables.tableUsers,
+            updatedUser.toMap(),
+            where: 'id = ?',
+            whereArgs: [user.id],
+          );
+          if (enableCentralSync) {
+            try {
               HttpCentralApiService().broadcastUser(updatedUser);
-            }
+            } catch (_) {}
           }
         }
       }

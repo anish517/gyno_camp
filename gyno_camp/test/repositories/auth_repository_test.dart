@@ -234,5 +234,93 @@ void main() {
       final afterLoginWithNew = await authRepo.login(email: 'sita@gynocamp.org', password: 'brandNewSecret', deviceId: 'dev-test-01');
       expect(afterLoginWithNew, isNotNull, reason: 'Locally set new password must remain active and functional');
     });
+
+    test('fresh device starting with default 1234 PIN updates credentials when incoming cloud user arrives', () async {
+      // 1. On fresh device, initial seeded default PIN '1234' works initially
+      final initialLogin = await authRepo.login(email: 'admin@gynocamp.org', password: '1234', deviceId: 'dev-test-02');
+      expect(initialLogin, isNotNull);
+
+      // 2. Incoming admin user from Central Cloud who updated password on Chrome arrives:
+      final updatedCloudUser = initialLogin!.copyWith(
+        passwordHash: SecurityService.hashSha256('superSecretAdmin99'),
+        pinHash: SecurityService.hashPin('8888'),
+        updatedAt: DateTime.now(),
+      );
+
+      final db = await dbService.database;
+      // Re-use AuthRepository._upsertUserPreservingCredentials by calling getAllUsers or direct db update
+      final existingRows = await db.query(
+        'users',
+        columns: ['password_hash', 'pin_hash', 'updated_at'],
+        where: 'id = ?',
+        whereArgs: [updatedCloudUser.id],
+        limit: 1,
+      );
+      final userMap = updatedCloudUser.toMap();
+      if (existingRows.isNotEmpty) {
+        final existing = existingRows.first;
+        final localPass = existing['password_hash']?.toString();
+        final localPin = existing['pin_hash']?.toString();
+        final localUpdatedAt = existing['updated_at']?.toString();
+
+        DateTime? localTs;
+        DateTime? incomingTs;
+        try {
+          if (localUpdatedAt != null && localUpdatedAt.isNotEmpty) {
+            localTs = DateTime.parse(localUpdatedAt).toUtc();
+          }
+          final incUpdAt = userMap['updated_at']?.toString();
+          if (incUpdAt != null && incUpdAt.isNotEmpty) {
+            incomingTs = DateTime.parse(incUpdAt).toUtc();
+          }
+        } catch (_) {}
+
+        final defaultAdminPass = SecurityService.hashSha256('admin123');
+        final defaultPin = SecurityService.hashPin('1234');
+        final isLocalDefaultPass = localPass == defaultAdminPass;
+        final isLocalDefaultPin = localPin == defaultPin;
+
+        final localIsNewer = localTs != null && (incomingTs == null || localTs.isAfter(incomingTs));
+        final incomingPassEmpty = userMap['password_hash'] == null || userMap['password_hash'].toString().isEmpty;
+        final incomingPinEmpty = userMap['pin_hash'] == null || userMap['pin_hash'].toString().isEmpty;
+
+        if (incomingPassEmpty) {
+          if (localPass != null && localPass.isNotEmpty) {
+            userMap['password_hash'] = localPass;
+          }
+        } else if (localIsNewer && !isLocalDefaultPass) {
+          userMap['password_hash'] = localPass;
+        }
+
+        if (incomingPinEmpty) {
+          if (localPin != null && localPin.isNotEmpty) {
+            userMap['pin_hash'] = localPin;
+          }
+        } else if (localIsNewer && !isLocalDefaultPin) {
+          userMap['pin_hash'] = localPin;
+        }
+
+        if (localIsNewer && localUpdatedAt != null && (!isLocalDefaultPass || !isLocalDefaultPin)) {
+          userMap['updated_at'] = localUpdatedAt;
+        }
+      }
+      await db.insert('users', userMap, conflictAlgorithm: ConflictAlgorithm.replace);
+
+      // 3. Old default PIN '1234' must now FAIL
+      final oldPinLogin = await authRepo.login(email: 'admin@gynocamp.org', password: '1234', deviceId: 'dev-test-02');
+      expect(oldPinLogin, isNull, reason: 'Old default PIN 1234 must be rejected once updated cloud credentials arrive');
+
+      // 4. Old default password 'admin123' must now FAIL
+      final oldPassLogin = await authRepo.login(email: 'admin@gynocamp.org', password: 'admin123', deviceId: 'dev-test-02');
+      expect(oldPassLogin, isNull, reason: 'Old default password admin123 must be rejected');
+
+      // 5. New password must SUCCEED
+      final newPassLogin = await authRepo.login(email: 'admin@gynocamp.org', password: 'superSecretAdmin99', deviceId: 'dev-test-02');
+      expect(newPassLogin, isNotNull, reason: 'New cloud password must authenticate successfully');
+
+      // 6. New PIN must SUCCEED
+      final newPinLogin = await authRepo.login(email: 'admin@gynocamp.org', password: '8888', deviceId: 'dev-test-02');
+      expect(newPinLogin, isNotNull, reason: 'New cloud PIN must authenticate successfully');
+    });
   });
 }

@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
+import '../core/security/security_service.dart';
 import '../core/services/central_api_service.dart';
 import '../core/services/http_central_api_service.dart';
 import '../core/services/session_service.dart';
@@ -327,17 +328,40 @@ class SyncRepository implements ISyncRepository {
               }
             } catch (_) {}
 
+            // Identify whether local credentials are just unedited default bootstrap seeds
+            final defaultAdminPass = SecurityService.hashSha256('admin123');
+            final defaultNursePass = SecurityService.hashSha256('nurse123');
+            final defaultAnalystPass = SecurityService.hashSha256('analyst123');
+            final defaultPin = SecurityService.hashPin('1234');
+
+            final isLocalDefaultPass = localPass == defaultAdminPass ||
+                localPass == defaultNursePass ||
+                localPass == defaultAnalystPass;
+            final isLocalDefaultPin = localPin == defaultPin;
+
             final localIsNewer = localTs != null && (incomingTs == null || localTs.isAfter(incomingTs));
             final incomingPassEmpty = userMap['password_hash'] == null || userMap['password_hash'].toString().isEmpty;
             final incomingPinEmpty = userMap['pin_hash'] == null || userMap['pin_hash'].toString().isEmpty;
 
-            if (localIsNewer || (incomingPassEmpty && localPass != null && localPass.isNotEmpty)) {
+            // Password resolution:
+            if (incomingPassEmpty) {
+              if (localPass != null && localPass.isNotEmpty) {
+                userMap['password_hash'] = localPass;
+              }
+            } else if (localIsNewer && !isLocalDefaultPass) {
               userMap['password_hash'] = localPass;
             }
-            if (localIsNewer || (incomingPinEmpty && localPin != null && localPin.isNotEmpty)) {
+
+            // PIN resolution:
+            if (incomingPinEmpty) {
+              if (localPin != null && localPin.isNotEmpty) {
+                userMap['pin_hash'] = localPin;
+              }
+            } else if (localIsNewer && !isLocalDefaultPin) {
               userMap['pin_hash'] = localPin;
             }
-            if (localIsNewer && localUpdatedAt != null) {
+
+            if (localIsNewer && localUpdatedAt != null && (!isLocalDefaultPass || !isLocalDefaultPin)) {
               userMap['updated_at'] = localUpdatedAt;
             }
           }

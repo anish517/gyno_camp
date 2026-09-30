@@ -2225,7 +2225,7 @@ class HomeGatewayView extends ConsumerWidget {
                               border: Border.all(color: Colors.white30),
                             ),
                             child: Text(
-                              userCamp!.campCode,
+                              userCamp.campCode,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -2277,7 +2277,7 @@ class HomeGatewayView extends ConsumerWidget {
                     if (isCampAssigned) ...[
                       const SizedBox(height: 4),
                       Text(
-                        'Location: ${userCamp!.venue}, Ward ${userCamp.ward}, ${userCamp.district}',
+                        'Location: ${userCamp.venue}, Ward ${userCamp.ward}, ${userCamp.district}',
                         style: const TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                       const SizedBox(height: 16),
