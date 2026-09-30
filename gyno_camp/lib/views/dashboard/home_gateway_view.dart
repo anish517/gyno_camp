@@ -75,17 +75,31 @@ class HomeGatewayView extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: AppTheme.textPrimaryLight,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppTheme.borderLight),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               user.name.isNotEmpty ? user.name : 'Gynocamp System',
+              style: const TextStyle(
+                color: AppTheme.textPrimaryLight,
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                letterSpacing: -0.3,
+              ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
             ),
             Text(
               '${(user.isSuperAdmin ? UserRole.superAdmin : user.role).displayNameEn} • ${deviceState.device?.deviceName ?? "Authorized Device"}',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.normal, color: Colors.white70),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.textSecondaryLight),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
             ),
@@ -94,14 +108,14 @@ class HomeGatewayView extends ConsumerWidget {
         actions: [
           IconButton(
             tooltip: 'Lock App Session',
-            icon: const Icon(Icons.lock_outline),
+            icon: const Icon(Icons.lock_outline, color: Color(0xFF475569)),
             onPressed: () {
               ref.read(deviceSecurityProvider.notifier).lockApp();
             },
           ),
           IconButton(
             tooltip: 'Logout / Sign Out',
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Color(0xFF475569)),
             onPressed: () {
               showDialog(
                 context: context,
@@ -184,23 +198,16 @@ class HomeGatewayView extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(context).colorScheme.primary,
-                      Theme.of(context).colorScheme.secondary,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
                     ),
                   ],
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                  border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,20 +221,20 @@ class HomeGatewayView extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.18),
+                            color: const Color(0xFFECFDF5),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.4)),
+                            border: Border.all(color: const Color(0xFFA7F3D0)),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.fiber_manual_record, color: Color(0xFF34D399), size: 10),
+                              Icon(Icons.fiber_manual_record, color: Color(0xFF059669), size: 10),
                               SizedBox(width: 6),
                               Flexible(
                                 child: Text(
                                   'SECURE ROOT SESSION ACTIVE',
                                   style: TextStyle(
-                                    color: Color(0xFF6EE7B7),
+                                    color: Color(0xFF065F46),
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 0.8,
@@ -244,8 +251,8 @@ class HomeGatewayView extends ConsumerWidget {
                             final orgName = ref.watch(effectiveOrganizationProvider);
                             return Text(
                               orgName,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.85),
+                              style: const TextStyle(
+                                color: Color(0xFF475569),
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.3,
@@ -268,11 +275,11 @@ class HomeGatewayView extends ConsumerWidget {
                           children: [
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF14B8A6),
+                                backgroundColor: const Color(0xFF0D9488),
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                elevation: 2,
+                                elevation: 0,
                               ),
                               icon: const Icon(Icons.add_location_alt_rounded, size: 17),
                               label: const Text('New Camp', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
@@ -285,12 +292,13 @@ class HomeGatewayView extends ConsumerWidget {
                             ),
                             OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: BorderSide(color: Colors.white.withValues(alpha: 0.4), width: 1.2),
+                                foregroundColor: const Color(0xFF1E293B),
+                                backgroundColor: const Color(0xFFF8FAFC),
+                                side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
-                              icon: const Icon(Icons.swap_horiz_rounded, size: 17),
+                              icon: const Icon(Icons.swap_horiz_rounded, size: 17, color: Color(0xFF0D9488)),
                               label: const Text('Switch Camp', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                               onPressed: () => _showQuickCampSwitchDialog(context, ref),
                             ),
@@ -307,22 +315,11 @@ class HomeGatewayView extends ConsumerWidget {
                                     width: 48,
                                     height: 48,
                                     decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
+                                      color: const Color(0xFFF0FDFA),
                                       shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.2),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
-                                      border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
+                                      border: Border.all(color: const Color(0xFF99F6E4), width: 1.5),
                                     ),
-                                    child: const Icon(Icons.shield_outlined, color: Colors.white, size: 26),
+                                    child: const Icon(Icons.shield_outlined, color: Color(0xFF0D9488), size: 26),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -337,14 +334,14 @@ class HomeGatewayView extends ConsumerWidget {
                                                 style: const TextStyle(
                                                   fontSize: 19,
                                                   fontWeight: FontWeight.w900,
-                                                  color: Colors.white,
+                                                  color: Color(0xFF0F172A),
                                                   letterSpacing: -0.4,
                                                 ),
                                               ),
                                             ),
                                             const SizedBox(width: 4),
                                             IconButton(
-                                              icon: const Icon(Icons.edit_outlined, color: Color(0xFF5EEAD4), size: 18),
+                                              icon: const Icon(Icons.edit_outlined, color: Color(0xFF0D9488), size: 18),
                                               tooltip: 'Edit SaaS Profile & Organization',
                                               visualDensity: VisualDensity.compact,
                                               onPressed: () => _showEditProfileDialog(context, ref, user),
@@ -353,7 +350,7 @@ class HomeGatewayView extends ConsumerWidget {
                                         ),
                                         const Text(
                                           'Super Admin Command Console',
-                                          style: TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w500),
+                                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                                         ),
                                       ],
                                     ),
@@ -373,22 +370,11 @@ class HomeGatewayView extends ConsumerWidget {
                               width: 56,
                               height: 56,
                               decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
+                                color: const Color(0xFFF0FDFA),
                                 shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
+                                border: Border.all(color: const Color(0xFF99F6E4), width: 1.5),
                               ),
-                              child: const Icon(Icons.shield_outlined, color: Colors.white, size: 30),
+                              child: const Icon(Icons.shield_outlined, color: Color(0xFF0D9488), size: 30),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
@@ -403,14 +389,14 @@ class HomeGatewayView extends ConsumerWidget {
                                           style: const TextStyle(
                                             fontSize: 22,
                                             fontWeight: FontWeight.w900,
-                                            color: Colors.white,
+                                            color: Color(0xFF0F172A),
                                             letterSpacing: -0.4,
                                           ),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
                                       IconButton(
-                                        icon: const Icon(Icons.edit_outlined, color: Color(0xFF5EEAD4), size: 18),
+                                        icon: const Icon(Icons.edit_outlined, color: Color(0xFF0D9488), size: 18),
                                         tooltip: 'Edit SaaS Profile & Organization',
                                         visualDensity: VisualDensity.compact,
                                         onPressed: () => _showEditProfileDialog(context, ref, user),
@@ -420,7 +406,7 @@ class HomeGatewayView extends ConsumerWidget {
                                   const SizedBox(height: 3),
                                   const Text(
                                     'Super Admin Command Console • Field Operations & Clinical Governance',
-                                    style: TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
+                                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                                   ),
                                 ],
                               ),
@@ -3552,13 +3538,34 @@ class DataAnalystWorkstationPage extends StatelessWidget {
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Data Analyst Workstation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('Cross-Camp Epidemiology & Visual Analytics', style: TextStyle(fontSize: 11, color: Colors.white70)),
+            Text(
+              'Data Analyst Workstation',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimaryLight,
+                letterSpacing: -0.2,
+              ),
+            ),
+            Text(
+              'Cross-Camp Epidemiology & Visual Analytics',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textSecondaryLight,
+              ),
+            ),
           ],
         ),
-        backgroundColor: const Color(0xFF0F172A),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: AppTheme.textPrimaryLight,
+        iconTheme: const IconThemeData(color: Color(0xFF334155)),
         elevation: 0,
+        scrolledUnderElevation: 0,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppTheme.borderLight),
+        ),
       ),
       body: const _DataAnalystWorkstation(),
     );
@@ -4641,26 +4648,19 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     required String currentCampName,
     required DeviceSecurityState deviceState,
   }) {
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
-    final secondary = theme.colorScheme.secondary;
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [primary, secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: primary.withValues(alpha: 0.28),
+            color: const Color(0xFF0F172A).withValues(alpha: 0.05),
             blurRadius: 16,
-            offset: const Offset(0, 6),
+            offset: const Offset(0, 4),
           ),
         ],
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4674,20 +4674,21 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D9488),
+                  color: const Color(0xFFF0FDFA),
                   borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF99F6E4)),
                 ),
                 child: const FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.analytics_rounded, color: Colors.white, size: 14),
+                      Icon(Icons.analytics_rounded, color: Color(0xFF0D9488), size: 14),
                       SizedBox(width: 5),
                       Text(
                         'CLINICAL DATA ANALYST WORKSTATION',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Color(0xFF0F766E),
                           fontSize: 10.5,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
@@ -4702,8 +4703,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   final orgName = ref.watch(effectiveOrganizationProvider);
                   return Text(
                     '$orgName • Role: Data Analyst',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
+                    style: const TextStyle(
+                      color: Color(0xFF475569),
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.3,
@@ -4726,15 +4727,11 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF0D9488), Color(0xFF042F2E)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: const Color(0xFFF0FDFA),
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.teal.shade200, width: 1.5),
+                      border: Border.all(color: const Color(0xFF99F6E4), width: 1.5),
                     ),
-                    child: const Icon(Icons.insights_rounded, color: Colors.white, size: 24),
+                    child: const Icon(Icons.insights_rounded, color: Color(0xFF0D9488), size: 24),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -4746,15 +4743,16 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
-                            color: Colors.white,
+                            color: Color(0xFF0F172A),
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
+                        const Text(
                           'Multi-station Epidemiology, POP-Q Triage & Clinical Dossiers',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.white.withValues(alpha: 0.75),
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -4766,29 +4764,29 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
               final campDropdown = Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                  border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     isExpanded: true,
-                    dropdownColor: const Color(0xFF1E293B),
+                    dropdownColor: Colors.white,
                     value: _selectedCampId,
-                    icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                    icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF475569)),
                     items: [
                       DropdownMenuItem<String>(
                         value: 'all',
                         child: Row(
                           children: [
-                            const Icon(Icons.public_rounded, color: Color(0xFF2DD4BF), size: 16),
+                            const Icon(Icons.public_rounded, color: Color(0xFF0D9488), size: 16),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 (user?.role == UserRole.superAdmin || user?.role == UserRole.dataAnalyst)
                                     ? 'All Camps (Cross-Camp Intelligence)'
                                     : 'All Assigned Camps (${visibleCamps.length})',
-                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.bold),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -4799,12 +4797,12 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                             value: c.id,
                             child: Row(
                               children: [
-                                const Icon(Icons.location_on_outlined, color: Colors.white70, size: 16),
-                                SizedBox(width: 8),
+                                const Icon(Icons.location_on_outlined, color: Color(0xFF64748B), size: 16),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     '${c.campCode} - ${c.name}',
-                                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.w600),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -4839,7 +4837,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
           ),
 
           const SizedBox(height: 14),
-          const Divider(color: Colors.white12, height: 1),
+          const Divider(color: Color(0xFFE2E8F0), height: 1),
           const SizedBox(height: 12),
 
           // Actions Row
@@ -4853,6 +4851,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
                 ),
                 icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
                 label: const Text('Aggregate Camp Report (पिडिएफ)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -4869,10 +4868,11 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
               ),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF047857),
+                  backgroundColor: const Color(0xFF059669),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
                 ),
                 icon: _isExportingExcel
                     ? const SizedBox(
@@ -4891,13 +4891,14 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
               ),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white30),
+                  foregroundColor: const Color(0xFF334155),
+                  backgroundColor: const Color(0xFFF8FAFC),
+                  side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                icon: const Icon(Icons.history_edu_rounded, size: 16),
-                label: const Text('Audit Trail', style: TextStyle(fontSize: 12)),
+                icon: const Icon(Icons.history_edu_rounded, size: 16, color: Color(0xFF0D9488)),
+                label: const Text('Audit Trail', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 onPressed: () {
                   Navigator.push(
                     context,
