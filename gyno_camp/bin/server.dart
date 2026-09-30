@@ -601,22 +601,8 @@ class GynoCampSyncServer {
       map['status'] = status;
       _memCamps[id] = map;
 
-      if (status == 'OPEN') {
-        _memCamps.forEach((key, val) {
-          if (key != id && (val['status']?.toString() ?? '').toUpperCase() == 'OPEN') {
-            val['status'] = 'CLOSED';
-            val['updated_at'] = DateTime.now().toUtc().toIso8601String();
-          }
-        });
-        if (_isPgConnected && _connection != null) {
-          try {
-            await _connection!.execute(
-              Sql.named("UPDATE camps SET status = 'CLOSED', updated_at = NOW() WHERE id != @id AND status = 'OPEN'"),
-              parameters: {'id': id},
-            );
-          } catch (_) {}
-        }
-      }
+      // Multi-camp support: Do not auto-close other camps on the server.
+      // Multiple camps manage their own independent lifecycle.
 
       if (_isPgConnected && _connection != null) {
         try {
@@ -641,17 +627,14 @@ class GynoCampSyncServer {
                 venue = EXCLUDED.venue,
                 start_date = EXCLUDED.start_date,
                 end_date = EXCLUDED.end_date,
-                status = CASE 
-                  WHEN camps.status = 'OPEN' AND EXCLUDED.status = 'CLOSED' AND EXCLUDED.updated_at < camps.updated_at THEN camps.status
-                  ELSE EXCLUDED.status
-                END,
+                status = EXCLUDED.status,
                 assigned_staff_ids = EXCLUDED.assigned_staff_ids,
                 total_patients_registered = EXCLUDED.total_patients_registered,
                 tenant_id = EXCLUDED.tenant_id,
                 organization_name = EXCLUDED.organization_name,
                 doctor_name = EXCLUDED.doctor_name,
                 doctor_names = EXCLUDED.doctor_names,
-                updated_at = NOW();
+                updated_at = COALESCE(EXCLUDED.updated_at, NOW());
             '''),
             parameters: {
               'id': id,
@@ -1435,24 +1418,6 @@ class GynoCampSyncServer {
     map['status'] = status;
     _memCamps[id] = map;
 
-    // Enforce single active camp rule on server: when opening a camp, close all other open camps
-    if (status == 'OPEN') {
-      _memCamps.forEach((key, val) {
-        if (key != id && (val['status']?.toString() ?? '').toUpperCase() == 'OPEN') {
-          val['status'] = 'CLOSED';
-          val['updated_at'] = DateTime.now().toUtc().toIso8601String();
-        }
-      });
-      if (_isPgConnected && _connection != null) {
-        try {
-          await _connection!.execute(
-            Sql.named("UPDATE camps SET status = 'CLOSED', updated_at = NOW() WHERE id != @id AND status = 'OPEN'"),
-            parameters: {'id': id},
-          );
-        } catch (_) {}
-      }
-    }
-
     final utcNow = DateTime.now().toUtc().toIso8601String();
     map['updated_at'] = utcNow;
 
@@ -1486,7 +1451,7 @@ class GynoCampSyncServer {
               organization_name = EXCLUDED.organization_name,
               doctor_name = EXCLUDED.doctor_name,
               doctor_names = EXCLUDED.doctor_names,
-              updated_at = NOW();
+              updated_at = COALESCE(EXCLUDED.updated_at, NOW());
           '''),
           parameters: {
             'id': id,

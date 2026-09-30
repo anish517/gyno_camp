@@ -266,7 +266,13 @@ class SyncRepository implements ISyncRepository {
             final local = CampModel.fromMap(existing.first);
             final localUpdated = (local.updatedAt ?? local.createdAt).toUtc();
             final incomingUpdated = (camp.updatedAt ?? camp.createdAt).toUtc();
-            // Guard: Never downgrade an active OPEN camp to CLOSED from background pullDelta
+            // Guard 1: Never resurrect a locally CLOSED or ARCHIVED camp back to OPEN from background pullDelta!
+            // When a camp is closed locally, it must remain closed unless explicitly opened by a user action.
+            if ((local.status == CampStatus.closed || local.status == CampStatus.archived) &&
+                camp.status == CampStatus.open) {
+              continue;
+            }
+            // Guard 2: Never downgrade an active OPEN camp to CLOSED from background pullDelta
             if (local.status == CampStatus.open && camp.status != CampStatus.open) {
               continue;
             }

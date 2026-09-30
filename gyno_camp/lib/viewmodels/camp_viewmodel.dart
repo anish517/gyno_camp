@@ -140,14 +140,21 @@ class CampViewModel extends StateNotifier<CampState> {
       );
       if (!mounted) return true;
       final updatedList = [created, ...state.camps];
+      final currentActive = (state.activeCamp != null && state.activeCamp!.status == CampStatus.open)
+          ? state.activeCamp
+          : null;
+      final newActive = created.status == CampStatus.open ? created : currentActive;
       state = state.copyWith(
         camps: updatedList,
         isLoading: false,
         selectedCamp: created,
-        activeCamp: created.status == CampStatus.open ? created : state.activeCamp,
+        activeCamp: newActive,
+        clearActiveCamp: newActive == null,
       );
       if (created.status == CampStatus.open) {
         await SessionService.current?.saveActiveCampId(created.id);
+      } else if (newActive == null) {
+        await SessionService.current?.clearActiveCampId();
       }
       return true;
     } catch (e) {
@@ -247,9 +254,10 @@ class CampViewModel extends StateNotifier<CampState> {
         return c;
       }).toList();
 
+      final wasActive = state.activeCamp?.id == savedCamp.id;
       final newActive = savedCamp.status == CampStatus.open
           ? savedCamp
-          : (state.activeCamp?.id == savedCamp.id ? null : state.activeCamp);
+          : (wasActive ? null : state.activeCamp);
 
       state = state.copyWith(
         camps: updatedList,
@@ -261,7 +269,7 @@ class CampViewModel extends StateNotifier<CampState> {
 
       if (savedCamp.status == CampStatus.open) {
         await SessionService.current?.saveActiveCampId(savedCamp.id);
-      } else if (state.activeCamp?.id == savedCamp.id) {
+      } else if (wasActive) {
         await SessionService.current?.clearActiveCampId();
       }
 

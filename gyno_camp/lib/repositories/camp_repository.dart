@@ -187,19 +187,25 @@ class CampRepository implements ICampRepository {
             final localUpdated = (local.updatedAt ?? local.createdAt).toUtc();
             final centralUpdated = (c.updatedAt ?? c.createdAt).toUtc();
 
-            // Guard A: Never downgrade an OPEN local camp to CLOSED/ARCHIVED
-            // from a stale central snapshot — push local state back instead.
+            // Guard A: Protect a locally-OPEN camp from being downgraded by a STALE
+            // central snapshot (where local is newer). BUT if central has a NEWER close/archive
+            // timestamp, it means another device/browser already closed the camp — accept it.
             if (local.status == CampStatus.open && c.status != CampStatus.open) {
-              await HttpCentralApiService().broadcastCamp(local);
-              continue;
+              if (!centralUpdated.isAfter(localUpdated)) {
+                // Central snapshot is stale — push our OPEN state back to central.
+                await HttpCentralApiService().broadcastCamp(local);
+                continue;
+              }
+              // Central is newer → fall through to accept the close from central below.
             }
 
-            // Guard B: Never re-open a locally CLOSED/ARCHIVED camp just
-            // because central still has it as OPEN but our local close is
-            // more recent. Push the local closed state back to central.
-            if (local.status != CampStatus.open &&
-                c.status == CampStatus.open &&
-                !centralUpdated.isAfter(localUpdated)) {
+            // Guard B: Never re-open a locally CLOSED or ARCHIVED camp from background central sync!
+            // When a camp is closed locally, background sync must NEVER resurrect it to OPEN.
+            // Only exception: if central closed/archived even more recently — that's still fine
+            // since we already are closed. If central says OPEN and local is CLOSED/ARCHIVED,
+            // push our closed state to central so it gets updated.
+            if ((local.status == CampStatus.closed || local.status == CampStatus.archived) &&
+                c.status == CampStatus.open) {
               await HttpCentralApiService().broadcastCamp(local);
               continue;
             }
