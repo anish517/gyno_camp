@@ -47,6 +47,9 @@ class FakeLookupRepository implements ILookupRepository {
 
   @override
   Future<void> ensureDefaultsSeeded({String? tenantId}) async {}
+
+  @override
+  Future<void> backfillSubCategories() async {}
 }
 
 class FakePatientRepository implements IPatientRepository {

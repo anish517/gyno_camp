@@ -20,6 +20,7 @@ abstract class ILookupRepository {
   Future<bool> deleteItem(String id, {required String userId, required String userName, required String deviceId, String? campId});
   Future<bool> restoreItemToCamp(String id, {required String campId, required String userId, required String userName, required String deviceId});
   Future<void> ensureDefaultsSeeded({String? tenantId});
+  Future<void> backfillSubCategories();
 }
 
 class LookupRepository implements ILookupRepository {
@@ -71,7 +72,7 @@ class LookupRepository implements ILookupRepository {
     }
 
     if (campId != null && campId.isNotEmpty && campId != 'all') {
-      whereClauses.add("(camp_id = ? OR camp_id IS NULL OR camp_id = '')");
+      whereClauses.add("(camp_id = ? OR ((category = 'visit_reason' OR category = 'chief_complaint') AND (camp_id IS NULL OR camp_id = '')))");
       whereArgs.add(campId);
     }
 
@@ -100,7 +101,11 @@ class LookupRepository implements ILookupRepository {
     }
 
     if (campId != null && campId.isNotEmpty && campId != 'all') {
-      whereClauses.add("(camp_id = ? OR camp_id IS NULL OR camp_id = '')");
+      if (category == 'visit_reason' || category == 'chief_complaint') {
+        whereClauses.add("(camp_id = ? OR camp_id IS NULL OR camp_id = '')");
+      } else {
+        whereClauses.add("camp_id = ?");
+      }
       whereArgs.add(campId);
     }
 
@@ -447,25 +452,16 @@ class LookupRepository implements ILookupRepository {
     } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
   }
 
-  // In-memory mutex: prevents concurrent / duplicate seed runs
-  // (ensureDefaultsSeeded is called on every loadAll — including the 15-second
-  // periodic sync — so without this guard it would re-seed continuously).
-  static final Set<String> _seedingInProgress = {};
-
   @override
-  Future<void> ensureDefaultsSeeded({String? tenantId}) async {
-    final targetTenant = tenantId ?? 'tenant_default';
-    final metaKey = 'lookup_defaults_seeded_$targetTenant';
+  // Auto-seeding removed by design: each camp starts with empty lists.
+  // Admins manually add medicines/diagnoses/hospitals via Master Config per camp.
+  Future<void> ensureDefaultsSeeded({String? tenantId}) async {}
 
-    // Mutex: bail out immediately if another call is already seeding this tenant
-    if (_seedingInProgress.contains(metaKey)) {
-      debugPrint('[LookupRepo] Seeding already in progress for $metaKey — skipping.');
-      return;
-    }
-
+  /// Backfill sub_category for any existing items that are missing it.
+  /// Safe to call at any time — only runs SQL UPDATEs, never inserts.
+  @override
+  Future<void> backfillSubCategories() async {
     final db = await _databaseService.database;
-
-    // 1. Backfill any existing items missing sub_category first
     try {
       for (final entry in ClinicalConstants.diagnosisCategoryMap.entries) {
         await db.update(
@@ -483,204 +479,23 @@ class LookupRepository implements ILookupRepository {
           whereArgs: ['medicine', entry.key],
         );
       }
-    } catch (e) { debugPrint('[LookupRepo] Central sync error: $e'); }
-
-    // Acquire in-memory mutex
-    _seedingInProgress.add(metaKey);
-    try {
-      await _runSeedLogic(db, targetTenant, metaKey);
-    } finally {
-      _seedingInProgress.remove(metaKey);
+      await cleanupLegacyAutoSeededDefaults();
+    } catch (e) {
+      debugPrint('[LookupRepo] backfillSubCategories error: $e');
     }
   }
 
-  Future<void> _runSeedLogic(Database db, String targetTenant, String metaKey) async {
-    // Gate check: skip if already seeded AND all categories have data
-    // (Protects against re-seeding deleted items while allowing fresh-browser recovery)
+  /// Cleans up any legacy auto-seeded defaults that have no camp assigned,
+  /// ensuring camps start with clean, empty lists.
+  Future<void> cleanupLegacyAutoSeededDefaults() async {
+    final db = await _databaseService.database;
     try {
-      final meta = await db.query(
-        DatabaseTables.tableMetadata,
-        where: 'key = ?',
-        whereArgs: [metaKey],
+      await db.delete(
+        DatabaseTables.tableLookupItems,
+        where: "(id LIKE 'diag-%' OR id LIKE 'med-%') AND (camp_id IS NULL OR camp_id = '')",
       );
-      if (meta.isNotEmpty) {
-        final existingDiag = await getItemsByCategory('diagnosis', tenantId: targetTenant);
-        final existingMed = await getItemsByCategory('medicine', tenantId: targetTenant);
-        final existingHosp = await getItemsByCategory('referral_hospital', tenantId: targetTenant);
-        if (existingDiag.isNotEmpty && existingMed.isNotEmpty && existingHosp.isNotEmpty) {
-          return; // All good — user customisations preserved
-        }
-        debugPrint('[LookupRepo] Gate present but some categories empty — seeding missing data.');
-      }
-    } catch (e) { debugPrint('[LookupRepo] Seed gate check error: $e'); }
-
-    // Write gate key NOW (before seeding) so concurrent callers bail out at the DB gate too
-    try {
-      await db.insert(
-        DatabaseTables.tableMetadata,
-        {
-          'key': metaKey,
-          'value': 'true',
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    } catch (e) { debugPrint('[LookupRepo] Seed gate write error: $e'); }
-
-    // 3. Check & seed referral hospitals if empty
-    final hospitals = await getItemsByCategory('referral_hospital', tenantId: targetTenant);
-    if (hospitals.isEmpty) {
-      int idx = 0;
-      for (final h in ClinicalConstants.referralHospitals) {
-        idx++;
-        final cleanCode = h.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
-        await db.insert(
-          DatabaseTables.tableLookupItems,
-          {
-            'id': 'hosp-$targetTenant-$idx',
-            'category': 'referral_hospital',
-            'sub_category': 'Referral Centers',
-            'code': cleanCode,
-            'label_en': h,
-            'label_ne': h,
-            'is_active': 1,
-            'sort_order': idx,
-            'tenant_id': targetTenant,
-            'is_deleted': 0,
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
+    } catch (e) {
+      debugPrint('[LookupRepo] cleanupLegacyAutoSeededDefaults error: $e');
     }
-
-    // 2. Check & seed 21 clinical diagnoses with sub_categories if empty
-    final diagnoses = await getItemsByCategory('diagnosis', tenantId: targetTenant);
-    if (diagnoses.isEmpty) {
-      int idx = 0;
-      for (final d in ClinicalConstants.defaultDiagnoses) {
-        idx++;
-        final cleanCode = d.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
-        final subCat = ClinicalConstants.diagnosisCategoryMap[d] ?? 'General / Other';
-        await db.insert(
-          DatabaseTables.tableLookupItems,
-          {
-            'id': 'diag-$targetTenant-$idx',
-            'category': 'diagnosis',
-            'sub_category': subCat,
-            'code': cleanCode,
-            'label_en': d,
-            'label_ne': d,
-            'is_active': 1,
-            'sort_order': idx,
-            'tenant_id': targetTenant,
-            'is_deleted': 0,
-            'is_synced': 0,
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-
-    // 3. Check & seed 10 medications with sub_categories if empty
-    final medicines = await getItemsByCategory('medicine', tenantId: targetTenant);
-    if (medicines.isEmpty) {
-      int idx = 0;
-      for (final m in ClinicalConstants.defaultMedications) {
-        idx++;
-        final cleanCode = m.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
-        final subCat = ClinicalConstants.medicationCategoryMap[m] ?? 'Other / Custom';
-        await db.insert(
-          DatabaseTables.tableLookupItems,
-          {
-            'id': 'med-$targetTenant-$idx',
-            'category': 'medicine',
-            'sub_category': subCat,
-            'code': cleanCode,
-            'label_en': m,
-            'label_ne': m,
-            'is_active': 1,
-            'sort_order': idx,
-            'tenant_id': targetTenant,
-            'is_deleted': 0,
-            'is_synced': 0,
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-
-    // 3b. Seed default Visit Reasons from ClinicalConstants.visitReasonOptions
-    final existingReasons = await getItemsByCategory('visit_reason', tenantId: targetTenant);
-    if (existingReasons.isEmpty) {
-      for (final entry in ClinicalConstants.visitReasonOptions.entries) {
-        final cleanCode = entry.key.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
-        final reg = RegExp(r'^(.*?)\s*\((.*?)\)$');
-        final match = reg.firstMatch(entry.value);
-        final labelEn = match != null ? match.group(1)!.trim() : entry.key;
-        final labelNe = match != null ? match.group(2)!.trim() : entry.value;
-        await db.insert(
-          DatabaseTables.tableLookupItems,
-          {
-            'id': 'reason-$targetTenant-$cleanCode',
-            'category': 'visit_reason',
-            'sub_category': 'Reason for Visit',
-            'code': cleanCode,
-            'label_en': labelEn,
-            'label_ne': labelNe,
-            'is_active': 1,
-            'sort_order': ClinicalConstants.visitReasonOptions.keys.toList().indexOf(entry.key) + 1,
-            'tenant_id': targetTenant,
-            'is_deleted': 0,
-            'is_synced': 0,
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-
-    // 3c. Seed default Chief Complaints (Yellow Form Standard Symptoms)
-    final existingComplaints = await getItemsByCategory('chief_complaint', tenantId: targetTenant);
-    if (existingComplaints.isEmpty) {
-      final defaultComplaints = [
-        {'en': 'Lower Abdominal Pain', 'ne': 'तल्लो पेट दुख्ने', 'sub': 'Pelvic & Abdominal'},
-        {'en': 'White / Foul Discharge', 'ne': 'सेतो वा गन्हाउने पानी बग्ने', 'sub': 'Infections & Discharge'},
-        {'en': 'Pelvic Heaviness', 'ne': 'तल्लो पेट भारी हुने', 'sub': 'Pelvic Floor & Prolapse'},
-        {'en': 'Burning Micturition', 'ne': 'पिसाब पोल्ने', 'sub': 'Urinary Symptoms'},
-        {'en': 'Urinary Incontinence', 'ne': 'पिसाब चुहिने', 'sub': 'Urinary Symptoms'},
-        {'en': 'Dyspareunia', 'ne': 'यौन सम्पर्कमा दुखाई', 'sub': 'Reproductive & Sexual'},
-        {'en': 'Coital Bleeding', 'ne': 'सम्पर्कपछि रगत बग्ने', 'sub': 'Bleeding & Neoplasms'},
-        {'en': 'Mass Per Vagina', 'ne': 'पाठेघर / मासु खस्ने', 'sub': 'Pelvic Floor & Prolapse'},
-        {'en': 'Severe Backache', 'ne': 'कम्मर दुख्ने', 'sub': 'Musculoskeletal & General'},
-      ];
-      int idx = 0;
-      for (final c in defaultComplaints) {
-        idx++;
-        final cleanCode = c['en']!.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
-        await db.insert(
-          DatabaseTables.tableLookupItems,
-          {
-            'id': 'complaint-$targetTenant-$idx',
-            'category': 'chief_complaint',
-            'sub_category': c['sub'],
-            'code': cleanCode,
-            'label_en': c['en'],
-            'label_ne': c['ne'],
-            'is_active': 1,
-            'sort_order': idx,
-            'tenant_id': targetTenant,
-            'is_deleted': 0,
-            'is_synced': 0,
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-
-    // Gate key was already written before seeding started (see top of _runSeedLogic).
-    debugPrint('[LookupRepo] Default seed complete for tenant: $targetTenant');
   }
 }

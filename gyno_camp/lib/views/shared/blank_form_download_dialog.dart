@@ -7,6 +7,7 @@ import '../../core/services/file_download_helper.dart';
 import '../../core/services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
+import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
 
 enum PrintableFormType {
@@ -68,7 +69,17 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           ? widget.camp!.organizationName
           : effectiveOrg;
 
-      final masterState = ref.read(masterLookupProvider);
+      final repo = ref.read(lookupRepositoryProvider);
+      final user = ref.read(authStateProvider).currentUser;
+      final tenantId = user?.tenantId;
+      final campId = widget.camp?.id;
+
+      final diagnoses = await repo.getItemsByCategory('diagnosis', tenantId: tenantId, campId: campId, activeOnly: true);
+      final medications = await repo.getItemsByCategory('medicine', tenantId: tenantId, campId: campId, activeOnly: true);
+      final referralHospitals = await repo.getItemsByCategory('referral_hospital', tenantId: tenantId, campId: campId, activeOnly: true);
+      final visitReasons = await repo.getItemsByCategory('visit_reason', tenantId: tenantId, campId: campId, activeOnly: true);
+      final chiefComplaints = await repo.getItemsByCategory('chief_complaint', tenantId: tenantId, campId: campId, activeOnly: true);
+
       final pdfService = PdfReportService();
       final doctors = widget.camp?.doctorProfiles ?? [];
 
@@ -89,11 +100,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             doctors: doctors,
             camp: widget.camp,
             organizationName: orgName,
-            diagnoses: masterState.activeDiagnoses,
-            medications: masterState.activeMedicines,
-            referralHospitals: masterState.activeReferralHospitals,
-            visitReasons: masterState.activeVisitReasons,
-            chiefComplaints: masterState.activeChiefComplaints,
+            diagnoses: diagnoses,
+            medications: medications,
+            referralHospitals: referralHospitals,
+            visitReasons: visitReasons,
+            chiefComplaints: chiefComplaints,
           );
           filename = 'Blank_YellowForms_${campCode}_AllDoctors.pdf';
         } else {
@@ -104,11 +115,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             doctor: docToUse,
             blankDoctorLines: isBlank,
             organizationName: orgName,
-            diagnoses: masterState.activeDiagnoses,
-            medications: masterState.activeMedicines,
-            referralHospitals: masterState.activeReferralHospitals,
-            visitReasons: masterState.activeVisitReasons,
-            chiefComplaints: masterState.activeChiefComplaints,
+            diagnoses: diagnoses,
+            medications: medications,
+            referralHospitals: referralHospitals,
+            visitReasons: visitReasons,
+            chiefComplaints: chiefComplaints,
           );
           final docSlug = docToUse != null ? '_${docToUse.name.replaceAll(' ', '_')}' : '_Blank';
           filename = 'Blank_YellowForm_${campCode}_$docSlug.pdf';

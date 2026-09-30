@@ -2005,54 +2005,110 @@ class PdfReportService {
 
     // ── Resolve dynamic master items with graceful fallbacks ──
     // 1. Diagnoses
-    List<String> effectiveDiagnoses = diagnoses?.where((d) => d.isActive).map((d) => d.labelEn).toList() ?? [];
-    if (effectiveDiagnoses.isEmpty) {
+    List<LookupItemModel> effectiveDiagnosesItems = diagnoses?.where((d) => d.isActive).toList() ?? [];
+    if (diagnoses == null && camp != null) {
       try {
-        final repoItems = await LookupRepository().getItemsByCategory('diagnosis', campId: camp?.id);
-        if (repoItems.isNotEmpty) {
-          effectiveDiagnoses = repoItems.where((i) => i.isActive).map((i) => i.labelEn).toList();
-        }
+        final repoItems = await LookupRepository().getItemsByCategory('diagnosis', campId: camp.id);
+        effectiveDiagnosesItems = repoItems.where((i) => i.isActive).toList();
       } catch (_) {}
     }
-    if (effectiveDiagnoses.isEmpty) {
-      effectiveDiagnoses = ClinicalConstants.defaultDiagnoses;
+    // Only fall back to defaults if generating a generic blank form without camp context AND no items were provided
+    if (effectiveDiagnosesItems.isEmpty && camp == null && diagnoses == null) {
+      effectiveDiagnosesItems = ClinicalConstants.defaultDiagnoses.map((d) {
+        final cat = ClinicalConstants.diagnosisCategoryMap[d.toLowerCase()] ?? 'General / Other';
+        return LookupItemModel(
+          id: d,
+          category: 'diagnosis',
+          subCategory: cat,
+          code: d.toLowerCase().replaceAll(' ', '_'),
+          labelEn: d,
+          labelNe: '',
+          isActive: true,
+        );
+      }).toList();
     }
-    if (effectiveDiagnoses.length > 22) {
-      effectiveDiagnoses = effectiveDiagnoses.take(22).toList();
+    if (effectiveDiagnosesItems.length > 22) {
+      effectiveDiagnosesItems = effectiveDiagnosesItems.take(22).toList();
     }
+    final List<String> effectiveDiagnoses = effectiveDiagnosesItems.map((d) => d.labelEn).toList();
 
     // 2. Medications
-    List<String> effectiveMedications = medications?.where((m) => m.isActive).map((m) => m.labelEn).toList() ?? [];
-    if (effectiveMedications.isEmpty) {
+    List<LookupItemModel> effectiveMedicationsItems = medications?.where((m) => m.isActive).toList() ?? [];
+    if (medications == null && camp != null) {
       try {
-        final repoItems = await LookupRepository().getItemsByCategory('medicine', campId: camp?.id);
-        if (repoItems.isNotEmpty) {
-          effectiveMedications = repoItems.where((i) => i.isActive).map((i) => i.labelEn).toList();
-        }
+        final repoItems = await LookupRepository().getItemsByCategory('medicine', campId: camp.id);
+        effectiveMedicationsItems = repoItems.where((i) => i.isActive).toList();
       } catch (_) {}
     }
-    if (effectiveMedications.isEmpty) {
-      effectiveMedications = ClinicalConstants.defaultMedications;
+    // Only fall back to defaults if generating a generic blank form without camp context AND no items were provided
+    if (effectiveMedicationsItems.isEmpty && camp == null && medications == null) {
+      effectiveMedicationsItems = ClinicalConstants.defaultMedications.map((m) {
+        final cat = ClinicalConstants.medicationCategoryMap[m.toLowerCase()] ?? 'Other / Custom';
+        return LookupItemModel(
+          id: m,
+          category: 'medicine',
+          subCategory: cat,
+          code: m.toLowerCase().replaceAll(' ', '_'),
+          labelEn: m,
+          labelNe: '',
+          isActive: true,
+        );
+      }).toList();
     }
-    if (effectiveMedications.length > 12) {
-      effectiveMedications = effectiveMedications.take(12).toList();
+    if (effectiveMedicationsItems.length > 12) {
+      effectiveMedicationsItems = effectiveMedicationsItems.take(12).toList();
     }
+    final List<String> effectiveMedications = effectiveMedicationsItems.map((m) => m.labelEn).toList();
 
     // 3. Referral Hospitals
-    List<String> effectiveHospitals = referralHospitals?.where((h) => h.isActive).map((h) => h.labelEn).toList() ?? [];
-    if (effectiveHospitals.isEmpty) {
+    List<LookupItemModel> effectiveHospitalsItems = referralHospitals?.where((h) => h.isActive).toList() ?? [];
+    if (referralHospitals == null && camp != null) {
       try {
-        final repoItems = await LookupRepository().getItemsByCategory('referral_hospital', campId: camp?.id);
-        if (repoItems.isNotEmpty) {
-          effectiveHospitals = repoItems.where((i) => i.isActive).map((i) => i.labelEn).toList();
-        }
+        final repoItems = await LookupRepository().getItemsByCategory('referral_hospital', campId: camp.id);
+        effectiveHospitalsItems = repoItems.where((i) => i.isActive).toList();
       } catch (_) {}
     }
-    if (effectiveHospitals.isEmpty) {
-      effectiveHospitals = ClinicalConstants.referralHospitals;
+    if (effectiveHospitalsItems.isEmpty && camp == null && referralHospitals == null) {
+      effectiveHospitalsItems = ClinicalConstants.referralHospitals.map((h) {
+        return LookupItemModel(
+          id: h,
+          category: 'referral_hospital',
+          code: h.toLowerCase().replaceAll(' ', '_'),
+          labelEn: h,
+          labelNe: '',
+          isActive: true,
+        );
+      }).toList();
     }
-    if (effectiveHospitals.length > 6) {
-      effectiveHospitals = effectiveHospitals.take(6).toList();
+    if (effectiveHospitalsItems.length > 6) {
+      effectiveHospitalsItems = effectiveHospitalsItems.take(6).toList();
+    }
+    final List<String> effectiveHospitals = effectiveHospitalsItems.map((h) => h.labelEn).toList();
+
+    final List<String> distinctDiagnosisCategories = [];
+    for (final cat in ClinicalConstants.diagnosisCategories) {
+      if (!distinctDiagnosisCategories.contains(cat)) distinctDiagnosisCategories.add(cat);
+    }
+    for (final d in effectiveDiagnosesItems) {
+      final cat = (d.subCategory != null && d.subCategory!.trim().isNotEmpty)
+          ? d.subCategory!.trim()
+          : (ClinicalConstants.diagnosisCategoryMap[d.labelEn.toLowerCase()] ?? 'General / Other');
+      if (!distinctDiagnosisCategories.contains(cat)) {
+        distinctDiagnosisCategories.add(cat);
+      }
+    }
+
+    final List<String> distinctMedicationCategories = [];
+    for (final cat in ClinicalConstants.medicationCategories) {
+      if (!distinctMedicationCategories.contains(cat)) distinctMedicationCategories.add(cat);
+    }
+    for (final m in effectiveMedicationsItems) {
+      final cat = (m.subCategory != null && m.subCategory!.trim().isNotEmpty)
+          ? m.subCategory!.trim()
+          : (ClinicalConstants.medicationCategoryMap[m.labelEn.toLowerCase()] ?? 'Other / Custom');
+      if (!distinctMedicationCategories.contains(cat)) {
+        distinctMedicationCategories.add(cat);
+      }
     }
 
     // 4. Visit Reasons (Map of code/key -> bilingual label)
@@ -2747,83 +2803,126 @@ class PdfReportService {
             children: [
               // ── STATION 4: DIAGNOSES ─────────────────────────────────────
               sectionHeader('STATION 4: CONFIRMED DIAGNOSES / निदान'),
-              ...ClinicalConstants.diagnosisCategories.map((category) {
-                final catItems = effectiveDiagnoses.where((d) {
-                  final cat = ClinicalConstants.diagnosisCategoryMap[d.toLowerCase()] ?? 'General / Other';
-                  return cat == category;
-                }).toList();
-                if (catItems.isEmpty) return pw.SizedBox();
+              if (effectiveDiagnosesItems.isEmpty) ...[
+                pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Diagnosis / निदान (Doctor to write below):', style: bold(size: fsSmall)),
+                      pw.SizedBox(height: 3),
+                      line(h: 12),
+                      pw.SizedBox(height: 2.5),
+                      line(h: 12),
+                      pw.SizedBox(height: 2.5),
+                      line(h: 12),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                ...distinctDiagnosisCategories.map((category) {
+                  final catItems = effectiveDiagnosesItems.where((d) {
+                    final cat = (d.subCategory != null && d.subCategory!.trim().isNotEmpty)
+                        ? d.subCategory!.trim()
+                        : (ClinicalConstants.diagnosisCategoryMap[d.labelEn.toLowerCase()] ?? 'General / Other');
+                    return cat == category;
+                  }).toList();
+                  if (catItems.isEmpty) return pw.SizedBox();
 
-                return pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.only(top: 1.5, bottom: 0.5),
-                      child: pw.Text(
-                        category.toUpperCase(),
-                        style: pw.TextStyle(fontSize: 5.6, fontWeight: pw.FontWeight.bold, color: primary),
+                  return pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.only(top: 1.5, bottom: 0.5),
+                        child: pw.Text(
+                          category.toUpperCase(),
+                          style: pw.TextStyle(fontSize: 5.6, fontWeight: pw.FontWeight.bold, color: primary),
+                        ),
                       ),
-                    ),
-                    pw.Wrap(
-                      spacing: 0, runSpacing: 0.5,
-                      children: catItems.map((d) {
-                        final isChecked = visit?.diagnoses.any((diag) {
-                          final dNorm = d.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-                          final diagNorm = diag.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-                          return dNorm == diagNorm ||
-                              dNorm.contains(diagNorm) ||
-                              diagNorm.contains(dNorm) ||
-                              (diagNorm.contains('candid') && dNorm.contains('candid')) ||
-                              (diagNorm.contains('vaginosis') && dNorm.contains('vaginosis'));
-                        }) ?? false;
-                        return cb(sanitizeText(d), isChecked);
-                      }).toList(),
-                    ),
-                  ],
-                );
-              }),
-              pw.SizedBox(height: 1.5),
-              pw.Text('Other: ', style: bold(size: fsSmall)),
-              line(h: 10),
+                      pw.Wrap(
+                        spacing: 0, runSpacing: 0.5,
+                        children: catItems.map((d) {
+                          final isChecked = visit?.diagnoses.any((diag) {
+                            final dNorm = d.labelEn.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                            final diagNorm = diag.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                            return dNorm == diagNorm ||
+                                dNorm.contains(diagNorm) ||
+                                diagNorm.contains(dNorm) ||
+                                (diagNorm.contains('candid') && dNorm.contains('candid')) ||
+                                (diagNorm.contains('vaginosis') && dNorm.contains('vaginosis'));
+                          }) ?? false;
+                          return cb(sanitizeText(d.labelEn), isChecked);
+                        }).toList(),
+                      ),
+                    ],
+                  );
+                }),
+                pw.SizedBox(height: 1.5),
+                pw.Text('Other: ', style: bold(size: fsSmall)),
+                line(h: 10),
+              ],
               pw.SizedBox(height: 3),
 
               // ── STATION 5: TREATMENT ─────────────────────────────────────
               sectionHeader('STATION 5: TREATMENT & PRESCRIPTIONS / उपचार'),
-              ...ClinicalConstants.medicationCategories.map((category) {
-                final catItems = effectiveMedications.where((m) {
-                  final cat = ClinicalConstants.medicationCategoryMap[m.toLowerCase()] ?? 'Other / Custom';
-                  return cat == category;
-                }).toList();
-                if (catItems.isEmpty) return pw.SizedBox();
+              if (effectiveMedicationsItems.isEmpty) ...[
+                pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Prescription / औषधि तथा उपचार (Doctor to write below):', style: bold(size: fsSmall)),
+                      pw.SizedBox(height: 3),
+                      line(h: 12),
+                      pw.SizedBox(height: 2.5),
+                      line(h: 12),
+                      pw.SizedBox(height: 2.5),
+                      line(h: 12),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                ...distinctMedicationCategories.map((category) {
+                  final catItems = effectiveMedicationsItems.where((m) {
+                    final cat = (m.subCategory != null && m.subCategory!.trim().isNotEmpty)
+                        ? m.subCategory!.trim()
+                        : (ClinicalConstants.medicationCategoryMap[m.labelEn.toLowerCase()] ?? 'Other / Custom');
+                    return cat == category;
+                  }).toList();
+                  if (catItems.isEmpty) return pw.SizedBox();
 
-                return pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.only(top: 1.5, bottom: 0.5),
-                      child: pw.Text(
-                        category.toUpperCase(),
-                        style: pw.TextStyle(fontSize: 5.6, fontWeight: pw.FontWeight.bold, color: primary),
+                  return pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.only(top: 1.5, bottom: 0.5),
+                        child: pw.Text(
+                          category.toUpperCase(),
+                          style: pw.TextStyle(fontSize: 5.6, fontWeight: pw.FontWeight.bold, color: primary),
+                        ),
                       ),
-                    ),
-                    pw.Wrap(
-                      spacing: 0, runSpacing: 0.5,
-                      children: catItems.map((m) {
-                        final isChecked = visit?.medications.any((med) {
-                          final mNorm = m.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-                          final medNorm = med.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-                          return mNorm == medNorm ||
-                              mNorm.contains(medNorm) ||
-                              medNorm.contains(mNorm) ||
-                              (medNorm.contains('metronid') && mNorm.contains('metronid')) ||
-                              (medNorm.contains('clotrim') && mNorm.contains('clotrim'));
-                        }) ?? false;
-                        return cb(sanitizeText(m), isChecked);
-                      }).toList(),
-                    ),
-                  ],
-                );
-              }),
+                      pw.Wrap(
+                        spacing: 0, runSpacing: 0.5,
+                        children: catItems.map((m) {
+                          final isChecked = visit?.medications.any((med) {
+                            final mNorm = m.labelEn.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                            final medNorm = med.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                            return mNorm == medNorm ||
+                                mNorm.contains(medNorm) ||
+                                medNorm.contains(mNorm) ||
+                                (medNorm.contains('metronid') && mNorm.contains('metronid')) ||
+                                (medNorm.contains('clotrim') && mNorm.contains('clotrim'));
+                          }) ?? false;
+                          return cb(sanitizeText(m.labelEn), isChecked);
+                        }).toList(),
+                      ),
+                    ],
+                  );
+                }),
+                pw.SizedBox(height: 1.5),
+                pw.Text('Other: ', style: bold(size: fsSmall)),
+                line(h: 10),
+              ],
               pw.SizedBox(height: 3),
               pw.Row(children: [
                 pw.Text('Ring Pessary: ', style: bold()),

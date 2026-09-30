@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/lookup_item_model.dart';
 import '../repositories/lookup_repository.dart';
 import 'auth_viewmodel.dart';
+import 'camp_viewmodel.dart';
 
 class MasterLookupState {
   final List<LookupItemModel> diagnoses;
@@ -108,9 +109,10 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
   String _tenantId;
   String? _campId;
 
-  MasterLookupViewModel(this._repository, {String? tenantId})
+  MasterLookupViewModel(this._repository, {String? tenantId, String? initialCampId})
       : _tenantId = tenantId ?? 'tenant_default',
-        super(const MasterLookupState()) {
+        _campId = (initialCampId == null || initialCampId == 'all' || initialCampId.trim().isEmpty) ? null : initialCampId.trim(),
+        super(MasterLookupState(selectedCampId: (initialCampId == null || initialCampId == 'all' || initialCampId.trim().isEmpty) ? null : initialCampId.trim())) {
     loadAll();
   }
 
@@ -136,7 +138,9 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
       state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
     }
     try {
-      await _repository.ensureDefaultsSeeded(tenantId: _tenantId);
+      // NOTE: Auto-seeding removed by design — each camp starts empty.
+      // Backfill missing sub-categories & purge legacy unassigned auto-seed defaults
+      await _repository.backfillSubCategories();
       final diag = await _repository.getItemsByCategory('diagnosis', tenantId: _tenantId, campId: _campId);
       final med = await _repository.getItemsByCategory('medicine', tenantId: _tenantId, campId: _campId);
       final hosp = await _repository.getItemsByCategory('referral_hospital', tenantId: _tenantId, campId: _campId);
@@ -333,7 +337,8 @@ final lookupRepositoryProvider = Provider<ILookupRepository>((ref) {
 final masterLookupProvider = StateNotifierProvider<MasterLookupViewModel, MasterLookupState>((ref) {
   final repo = ref.watch(lookupRepositoryProvider);
   final user = ref.watch(authStateProvider).currentUser;
-  return MasterLookupViewModel(repo, tenantId: user?.tenantId);
+  final activeCamp = ref.watch(userActiveCampProvider);
+  return MasterLookupViewModel(repo, tenantId: user?.tenantId, initialCampId: activeCamp?.id);
 });
 
 final activeDiagnosesProvider = Provider<List<LookupItemModel>>((ref) {

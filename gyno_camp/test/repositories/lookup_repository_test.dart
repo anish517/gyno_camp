@@ -137,27 +137,28 @@ void main() {
       expect(meds.any((m) => m.id == 'to-delete'), isFalse);
     });
 
-    test('ensureDefaultsSeeded seeds hospitals once and does NOT resurrect them after deletion', () async {
-      // 1. Initial seeding
+    test('ensureDefaultsSeeded is no-op by design so camps start with empty lists', () async {
       await lookupRepo.ensureDefaultsSeeded();
-      final hospitals = await lookupRepo.getItemsByCategory('referral_hospital');
-      expect(hospitals.length, greaterThanOrEqualTo(3));
+      final hospitals = await lookupRepo.getItemsByCategory('referral_hospital', campId: 'camp-new');
+      expect(hospitals, isEmpty);
+    });
 
-      // 2. Delete all referral hospitals
-      for (final h in hospitals) {
-        await lookupRepo.deleteItem(h.id, userId: 'admin-01', userName: 'Admin', deviceId: 'dev-01');
-      }
+    test('camp lookups are isolated: camp A items do not leak into new camp B', () async {
+      final itemA = const LookupItemModel(
+        id: 'med-campA-1',
+        category: 'medicine',
+        code: 'para_500',
+        labelEn: 'Paracetamol 500mg',
+        labelNe: '',
+        campId: 'camp-A',
+      );
+      await lookupRepo.addItem(itemA, userId: 'u1', userName: 'Admin', deviceId: 'd1');
 
-      // 3. Verify they are deleted
-      final afterDelete = await lookupRepo.getItemsByCategory('referral_hospital');
-      expect(afterDelete, isEmpty);
+      final campAMeds = await lookupRepo.getItemsByCategory('medicine', campId: 'camp-A');
+      expect(campAMeds.any((m) => m.labelEn == 'Paracetamol 500mg'), isTrue);
 
-      // 4. Run ensureDefaultsSeeded again (simulating load/restart)
-      await lookupRepo.ensureDefaultsSeeded();
-
-      // 5. Verify the deletion STUCK and hospitals did NOT resurrect
-      final afterReSeed = await lookupRepo.getItemsByCategory('referral_hospital');
-      expect(afterReSeed, isEmpty, reason: 'Deleted hospitals must not automatically reappear');
+      final campBMeds = await lookupRepo.getItemsByCategory('medicine', campId: 'camp-B');
+      expect(campBMeds, isEmpty, reason: 'New camp B must have empty medicines list');
     });
 
     test('addItem and updateItem sanitize stray single-character or "k" codes', () async {
