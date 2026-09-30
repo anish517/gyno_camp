@@ -4,11 +4,13 @@ import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/camp_report_summary_model.dart';
 import '../../models/clinical_visit_model.dart';
+import '../../models/lookup_item_model.dart';
 import '../../models/patient_model.dart';
 import '../../models/user_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
+import '../../viewmodels/master_lookup_viewmodel.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
@@ -38,6 +40,37 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   String? _selectedComplaint;
   PatientModel? _selectedPatient;
 
+  // ── Master Lookup Data for Selected Camp ──────────────────────────────────
+  List<LookupItemModel> _campDiagnoses = [];
+  List<LookupItemModel> _campChiefComplaints = [];
+  List<LookupItemModel> _campVisitReasons = [];
+  List<LookupItemModel> _campMedicines = [];
+  List<LookupItemModel> _campReferralHospitals = [];
+
+  Future<void> _loadCampMasterData(String? campId) async {
+    final cleanCampId = (campId == null || campId == 'all' || campId.trim().isEmpty) ? null : campId.trim();
+    try {
+      final repo = ref.read(lookupRepositoryProvider);
+      final tenantId = ref.read(authStateProvider).currentUser?.tenantId;
+      final diags = await repo.getItemsByCategory('diagnosis', tenantId: tenantId, campId: cleanCampId, activeOnly: true);
+      final complaints = await repo.getItemsByCategory('chief_complaint', tenantId: tenantId, campId: cleanCampId, activeOnly: true);
+      final reasons = await repo.getItemsByCategory('visit_reason', tenantId: tenantId, campId: cleanCampId, activeOnly: true);
+      final meds = await repo.getItemsByCategory('medicine', tenantId: tenantId, campId: cleanCampId, activeOnly: true);
+      final hosps = await repo.getItemsByCategory('referral_hospital', tenantId: tenantId, campId: cleanCampId, activeOnly: true);
+      if (mounted) {
+        setState(() {
+          _campDiagnoses = diags;
+          _campChiefComplaints = complaints;
+          _campVisitReasons = reasons;
+          _campMedicines = meds;
+          _campReferralHospitals = hosps;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading master lookup data for camp reports: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +79,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       final campState = ref.read(campStateProvider);
       final activeCamp = campState.activeCamp ?? (campState.camps.isNotEmpty ? campState.camps.first : null);
       final targetCampId = widget.initialCampId ?? activeCamp?.id;
+      _loadCampMasterData(targetCampId);
       ref.read(reportingViewModelProvider.notifier).loadSummary(
         campId: targetCampId,
         doctorFilter: _selectedDoctor,
@@ -77,7 +111,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _selectedPopStage = null;
       _selectedTreatment = null;
       _selectedComplaint = null;
+      _selectedPatient = null;
     });
+    _loadCampMasterData(campId);
     ref.read(reportingViewModelProvider.notifier).loadSummary(
       campId: campId,
       startDate: _startDate,
@@ -95,6 +131,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   void _onRefresh() {
     final reportState = ref.read(reportingViewModelProvider);
     final currentCampId = reportState.selectedCampId;
+    _loadCampMasterData(currentCampId);
     ref.read(reportingViewModelProvider.notifier).loadSummary(
       campId: currentCampId,
       startDate: _startDate,
@@ -167,8 +204,12 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   int _getDiagnosisCount(String dx, CampReportSummaryModel? summary) {
     if (summary == null) return 0;
     final dxLower = dx.trim().toLowerCase();
-    final matchingVisits = summary.visits.where((v) =>
-        v.diagnoses.any((d) => d.toLowerCase().contains(dxLower)));
+    final matchingVisits = summary.visits.where((v) {
+      return v.diagnoses.any((d) {
+        final dLower = d.trim().toLowerCase();
+        return dLower == dxLower || dLower.contains(dxLower) || dxLower.contains(dLower);
+      });
+    });
     return matchingVisits.map((v) => v.patientId).toSet().length;
   }
 
@@ -202,6 +243,16 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         return v.medications.isNotEmpty ||
             (v.customMedication != null && v.customMedication!.trim().isNotEmpty);
       }
+      if (txKey.startsWith('med:')) {
+        final targetMed = txKey.substring(4).toLowerCase().trim();
+        final hasStandard = v.medications.any((m) => m.toLowerCase().contains(targetMed));
+        final hasCustom = v.customMedication?.toLowerCase().contains(targetMed) ?? false;
+        return hasStandard || hasCustom;
+      }
+      if (txKey.startsWith('hosp:')) {
+        final targetHosp = txKey.substring(5).toLowerCase().trim();
+        return v.surgicalReferral?.toLowerCase().contains(targetHosp) ?? false;
+      }
       return true;
     });
     return matchingVisits.map((v) => v.patientId).toSet().length;
@@ -209,20 +260,34 @@ class _CampReportViewState extends ConsumerState<CampReportView>
 
   int _getComplaintCount(String compKey, CampReportSummaryModel? summary) {
     if (summary == null) return 0;
-    final target = compKey.toLowerCase();
+    final target = compKey.toLowerCase().trim();
     final visitMap = {for (final v in summary.visits) v.patientId: v};
     return summary.patients.where((p) {
       final visit = visitMap[p.patientId];
       final reasons = p.reasonsForVisit.map((r) => r.toLowerCase()).toList();
       final anamnesis = visit?.anamnesisComplaints.toString().toLowerCase() ?? '';
       final combined = [...reasons, anamnesis].join(' ');
-      if (target == 'prolapse') return combined.contains('hanging') || combined.contains('prolapse') || combined.contains('खस्ने');
-      if (target == 'discharge') return combined.contains('discharge') || combined.contains('itching') || combined.contains('स्राव') || combined.contains('चिलाउने');
-      if (target == 'urine') return combined.contains('urine') || combined.contains('dysuria') || combined.contains('पिसाब');
-      if (target == 'stool') return combined.contains('stool') || combined.contains('bowel') || combined.contains('दिसा');
-      if (target == 'pain') return combined.contains('pain') || combined.contains('दुखाई') || combined.contains('तल्लो पेट');
-      if (target == 'menstrual') return combined.contains('menstrual') || combined.contains('महिनावारी') || combined.contains('bleeding');
-      return true;
+      if (target == 'something hanging out' || target == 'prolapse' || target == 'pelvic_organ_prolapse') {
+        return combined.contains('hanging') || combined.contains('prolapse') || combined.contains('खस्ने') || combined.contains('pelvic_organ_prolapse');
+      } else if (target == 'discharge and or itching' || target == 'discharge') {
+        return combined.contains('discharge') || combined.contains('itching') || combined.contains('स्राव') || combined.contains('चिलाउने') || combined.contains('सेतो');
+      } else if (target == 'problems passing urine' || target == 'urine') {
+        return combined.contains('urine') || combined.contains('dysuria') || combined.contains('पिसाब');
+      } else if (target == 'problems passing stool' || target == 'stool') {
+        return combined.contains('stool') || combined.contains('bowel') || combined.contains('constipation') || combined.contains('दिसा');
+      } else if (target == 'pain') {
+        return combined.contains('pain') || combined.contains('दुखाई') || combined.contains('दुख्ने') || combined.contains('तल्लो पेट');
+      } else if (target == 'menstrual problem' || target == 'menstrual' || target == 'menstrual_disorder') {
+        return combined.contains('menstrual') || combined.contains('महिनावारी') || combined.contains('bleeding') || combined.contains('menstrual_disorder');
+      } else if (target == 'infertility' || target == 'infertility_screening') {
+        return combined.contains('infertility') || combined.contains('बाँझोपन') || combined.contains('निःसन्तान') || combined.contains('infertility_screening');
+      } else if (target == 'checkup' || target == 'routine_checkup') {
+        return combined.contains('checkup') || combined.contains('routine') || combined.contains('जाँच') || combined.contains('routine_checkup');
+      } else if (target == 'gynaecological_oncology' || target == 'oncology' || target == 'cancer') {
+        return combined.contains('cancer') || combined.contains('oncology') || combined.contains('क्यान्सर') || combined.contains('gynaecological_oncology');
+      } else {
+        return reasons.any((r) => r == target || r.contains(target) || target.contains(r)) || combined.contains(target);
+      }
     }).length;
   }
 
@@ -353,23 +418,110 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     }
     final allDoctors = finalDoctors.toSet();
 
-    // 2. DYNAMIC DIAGNOSES: Strictly based on actual clinical records (NO hardcoded theoretical 30-item list)
+    // 2. DYNAMIC DIAGNOSES: Master Data + Clinical Records
     final dynamicDiagnoses = <String>{};
+    for (final m in _campDiagnoses) {
+      if (m.labelEn.trim().isNotEmpty) dynamicDiagnoses.add(m.labelEn.trim());
+    }
     if (docSummary != null) {
       dynamicDiagnoses.addAll(docSummary.diagnosisCounts.keys.where((d) => d.trim().isNotEmpty));
       for (final v in docSummary.visits) {
         dynamicDiagnoses.addAll(v.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
       }
     }
-    // Only keep diagnoses with actual patients in the dataset or currently selected
-    final activeDiagnoses = dynamicDiagnoses
-        .where((dx) => _getDiagnosisCount(dx, docSummary) > 0 || _selectedDiagnosis == dx)
-        .toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    if (_selectedDiagnosis != null && !activeDiagnoses.contains(_selectedDiagnosis)) {
+    if (_selectedDiagnosis != null && _selectedDiagnosis!.trim().isNotEmpty) {
+      dynamicDiagnoses.add(_selectedDiagnosis!.trim());
+    }
+    final sortedDiagnoses = dynamicDiagnoses.toList()
+      ..sort((a, b) {
+        final countA = _getDiagnosisCount(a, docSummary);
+        final countB = _getDiagnosisCount(b, docSummary);
+        if (countA > 0 && countB == 0) return -1;
+        if (countA == 0 && countB > 0) return 1;
+        if (countA != countB) return countB.compareTo(countA);
+        return a.toLowerCase().compareTo(b.toLowerCase());
+      });
+    if (_selectedDiagnosis != null && !sortedDiagnoses.contains(_selectedDiagnosis)) {
       _selectedDiagnosis = null;
     }
-    final sortedDiagnoses = activeDiagnoses;
+
+    // 3. DYNAMIC TREATMENTS: Standard Interventions + Master Data Formulary (Medicines & Referral Hospitals)
+    final dynamicTreatments = <Map<String, String>>[
+      {'key': 'pessary', 'label': 'Pessary Fitted (रिङ पेसरी)'},
+      {'key': 'surgery', 'label': 'Surgical Referral (शल्यक्रिया)'},
+      {'key': 'counseling', 'label': 'Pelvic Floor Exercises (कौन्सिलिङ)'},
+      {'key': 'medications', 'label': 'All Medications Dispensed (औषधि)'},
+    ];
+    final seenMedKeys = <String>{};
+    for (final med in _campMedicines) {
+      final key = 'med:${med.labelEn.trim().toLowerCase()}';
+      if (seenMedKeys.add(key)) {
+        final nepaliSuffix = med.labelNe.trim().isNotEmpty ? ' (${med.labelNe.trim()})' : '';
+        dynamicTreatments.add({
+          'key': key,
+          'label': 'Rx: ${med.labelEn.trim()}$nepaliSuffix',
+        });
+      }
+    }
+    final seenHospKeys = <String>{};
+    for (final hosp in _campReferralHospitals) {
+      final key = 'hosp:${hosp.labelEn.trim().toLowerCase()}';
+      if (seenHospKeys.add(key)) {
+        final nepaliSuffix = hosp.labelNe.trim().isNotEmpty ? ' (${hosp.labelNe.trim()})' : '';
+        dynamicTreatments.add({
+          'key': key,
+          'label': 'Ref: ${hosp.labelEn.trim()}$nepaliSuffix',
+        });
+      }
+    }
+    if (_selectedTreatment != null && !dynamicTreatments.any((t) => t['key'] == _selectedTreatment)) {
+      _selectedTreatment = null;
+    }
+
+    // 4. DYNAMIC CHIEF COMPLAINTS: Standard Clinical + Master Data Custom Complaints
+    final standardComplaints = <Map<String, String>>[
+      {'key': 'prolapse', 'label': 'Pelvic Organ Prolapse (आङ खस्ने)'},
+      {'key': 'discharge', 'label': 'Discharge / Itching (स्राव/चिलाउने)'},
+      {'key': 'urine', 'label': 'Urinary Difficulties (पिसाब समस्या)'},
+      {'key': 'stool', 'label': 'Bowel / Constipation (दिसा समस्या)'},
+      {'key': 'pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुखाई)'},
+      {'key': 'menstrual', 'label': 'Menstrual Disorder (महिनावारी)'},
+      {'key': 'infertility', 'label': 'Infertility Screening (बाँझोपन)'},
+      {'key': 'checkup', 'label': 'Routine Checkup (नियमित जाँच)'},
+    ];
+    final dynamicComplaints = <Map<String, String>>[...standardComplaints];
+    final seenCompKeys = standardComplaints.map((c) => c['key']!.toLowerCase()).toSet();
+    for (final comp in _campChiefComplaints) {
+      final key = (comp.code.isNotEmpty ? comp.code : comp.labelEn).trim().toLowerCase();
+      if (seenCompKeys.add(key)) {
+        final nepaliSuffix = comp.labelNe.trim().isNotEmpty ? ' (${comp.labelNe.trim()})' : '';
+        dynamicComplaints.add({
+          'key': key,
+          'label': '${comp.labelEn.trim()}$nepaliSuffix',
+        });
+      }
+    }
+    for (final reason in _campVisitReasons) {
+      final key = (reason.code.isNotEmpty ? reason.code : reason.labelEn).trim().toLowerCase();
+      if (seenCompKeys.add(key)) {
+        final nepaliSuffix = reason.labelNe.trim().isNotEmpty ? ' (${reason.labelNe.trim()})' : '';
+        dynamicComplaints.add({
+          'key': key,
+          'label': '${reason.labelEn.trim()}$nepaliSuffix',
+        });
+      }
+    }
+    dynamicComplaints.sort((a, b) {
+      final countA = _getComplaintCount(a['key']!, docSummary);
+      final countB = _getComplaintCount(b['key']!, docSummary);
+      if (countA > 0 && countB == 0) return -1;
+      if (countA == 0 && countB > 0) return 1;
+      if (countA != countB) return countB.compareTo(countA);
+      return 0;
+    });
+    if (_selectedComplaint != null && !dynamicComplaints.any((c) => c['key'] == _selectedComplaint)) {
+      _selectedComplaint = null;
+    }
 
     final allCampsLabel = isSuperAdmin
         ? 'All Camp Records (समग्र क्याम्प)'
@@ -419,6 +571,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         deviceState: deviceState,
                         allDoctors: allDoctors,
                         sortedDiagnoses: sortedDiagnoses,
+                        dynamicTreatments: dynamicTreatments,
+                        dynamicComplaints: dynamicComplaints,
                         visibleCamps: visibleCamps,
                         allCampsLabel: allCampsLabel,
                       );
@@ -433,6 +587,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       deviceState: deviceState,
                       allDoctors: allDoctors,
                       sortedDiagnoses: sortedDiagnoses,
+                      dynamicTreatments: dynamicTreatments,
+                      dynamicComplaints: dynamicComplaints,
                       visibleCamps: visibleCamps,
                       allCampsLabel: allCampsLabel,
                     );
@@ -452,6 +608,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required DeviceSecurityState deviceState,
     required Set<String> allDoctors,
     required List<String> sortedDiagnoses,
+    required List<Map<String, String>> dynamicTreatments,
+    required List<Map<String, String>> dynamicComplaints,
     required List<CampModel> visibleCamps,
     required String allCampsLabel,
   }) {
@@ -485,6 +643,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   deviceId: deviceId,
                   allDoctors: allDoctors,
                   sortedDiagnoses: sortedDiagnoses,
+                  dynamicTreatments: dynamicTreatments,
+                  dynamicComplaints: dynamicComplaints,
                   visibleCamps: visibleCamps,
                   allCampsLabel: allCampsLabel,
                 ),
@@ -538,6 +698,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required DeviceSecurityState deviceState,
     required Set<String> allDoctors,
     required List<String> sortedDiagnoses,
+    required List<Map<String, String>> dynamicTreatments,
+    required List<Map<String, String>> dynamicComplaints,
     required List<CampModel> visibleCamps,
     required String allCampsLabel,
   }) {
@@ -570,6 +732,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             reportState: reportState,
             allDoctors: allDoctors,
             sortedDiagnoses: sortedDiagnoses,
+            dynamicTreatments: dynamicTreatments,
+            dynamicComplaints: dynamicComplaints,
           ),
           const SizedBox(height: 16),
           if (reportState.summary != null) ...[
@@ -741,8 +905,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         'counseling': 'Counseled',
         'medications': 'Medications',
       };
+      String txLabel = txMap[_selectedTreatment] ?? _selectedTreatment!;
+      if (_selectedTreatment!.startsWith('med:')) {
+        final medName = _selectedTreatment!.substring(4);
+        final found = _campMedicines.where((m) => m.labelEn.toLowerCase() == medName).firstOrNull;
+        txLabel = 'Rx: ${found?.labelEn ?? medName}';
+      } else if (_selectedTreatment!.startsWith('hosp:')) {
+        final hospName = _selectedTreatment!.substring(5);
+        final found = _campReferralHospitals.where((h) => h.labelEn.toLowerCase() == hospName).firstOrNull;
+        txLabel = 'Ref: ${found?.labelEn ?? hospName}';
+      }
       activeFilters.add(_buildFilterChip(
-        label: txMap[_selectedTreatment] ?? _selectedTreatment!,
+        label: txLabel,
         icon: Icons.local_hospital_outlined,
         onDeleted: () {
           setState(() => _selectedTreatment = null);
@@ -759,9 +933,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         'stool': 'Bowel Problem',
         'pain': 'Pelvic Pain',
         'menstrual': 'Menstrual Problem',
+        'infertility': 'Infertility',
+        'checkup': 'Routine Checkup',
       };
+      String compLabel = compMap[_selectedComplaint] ?? _selectedComplaint!;
+      final found = _campChiefComplaints.where((c) =>
+          c.code.toLowerCase() == _selectedComplaint!.toLowerCase() ||
+          c.labelEn.toLowerCase() == _selectedComplaint!.toLowerCase()).firstOrNull;
+      if (found != null) {
+        compLabel = found.labelEn;
+      }
       activeFilters.add(_buildFilterChip(
-        label: compMap[_selectedComplaint] ?? _selectedComplaint!,
+        label: compLabel,
         icon: Icons.report_problem_outlined,
         onDeleted: () {
           setState(() => _selectedComplaint = null);
@@ -851,6 +1034,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required String deviceId,
     required Set<String> allDoctors,
     required List<String> sortedDiagnoses,
+    required List<Map<String, String>> dynamicTreatments,
+    required List<Map<String, String>> dynamicComplaints,
     required List<CampModel> visibleCamps,
     required String allCampsLabel,
   }) {
@@ -934,17 +1119,17 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                 borderRadius: BorderRadius.circular(8),
               ),
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
+                child: DropdownButton<String?>(
                   isExpanded: true,
-                  value: reportState.selectedCampId,
+                  value: visibleCamps.any((c) => c.id == reportState.selectedCampId) ? reportState.selectedCampId : null,
                   hint: Text(allCampsLabel, style: const TextStyle(fontSize: 12)),
                   items: [
-                    DropdownMenuItem<String>(
+                    DropdownMenuItem<String?>(
                       value: null,
                       child: Text(allCampsLabel, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
                     ...visibleCamps.map(
-                      (c) => DropdownMenuItem<String>(
+                      (c) => DropdownMenuItem<String?>(
                         value: c.id,
                         child: Text('${c.campCode} - ${c.name}', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       ),
@@ -1073,7 +1258,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
-                  value: _selectedDoctor,
+                  value: allDoctors.contains(_selectedDoctor) ? _selectedDoctor : null,
                   isDense: true,
                   isExpanded: true,
                   hint: const Text('All Doctors', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -1082,12 +1267,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       value: null,
                       child: Row(
                         children: [
-                          Expanded(
+                          const Expanded(
                             child: Text(
-                              allDoctors.isEmpty && reportState.selectedCampId != null
-                                  ? 'No Doctors in Camp'
-                                  : 'All Doctors',
-                              style: const TextStyle(fontSize: 12),
+                              'All Doctors',
+                              style: TextStyle(fontSize: 12),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -1167,7 +1350,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
-                  value: _selectedDiagnosis,
+                  value: sortedDiagnoses.contains(_selectedDiagnosis) ? _selectedDiagnosis : null,
                   isDense: true,
                   isExpanded: true,
                   hint: const Text('All Diagnoses', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -1176,12 +1359,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       value: null,
                       child: Row(
                         children: [
-                          Expanded(
+                          const Expanded(
                             child: Text(
-                              sortedDiagnoses.isEmpty && reportState.selectedCampId != null
-                                  ? 'No Diagnoses in Camp'
-                                  : 'All Diagnoses',
-                              style: const TextStyle(fontSize: 12),
+                              'All Diagnoses',
+                              style: TextStyle(fontSize: 12),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -1333,7 +1514,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
-                  value: _selectedTreatment,
+                  value: dynamicTreatments.any((t) => t['key'] == _selectedTreatment) ? _selectedTreatment : null,
                   isDense: true,
                   isExpanded: true,
                   hint: const Text('All Treatments', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -1351,12 +1532,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         ],
                       ),
                     ),
-                    ...[
-                      {'key': 'pessary', 'label': 'Pessary Fitted (रिङ पेसरी)'},
-                      {'key': 'surgery', 'label': 'Surgical Referral (शल्यक्रिया)'},
-                      {'key': 'counseling', 'label': 'Pelvic Floor Exercises'},
-                      {'key': 'medications', 'label': 'Medications Dispensed (औषधि)'},
-                    ].map((item) {
+                    ...dynamicTreatments.map((item) {
                       final count = _getTreatmentCount(item['key']!, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: item['key'],
@@ -1411,7 +1587,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
-                  value: _selectedComplaint,
+                  value: dynamicComplaints.any((c) => c['key'] == _selectedComplaint) ? _selectedComplaint : null,
                   isDense: true,
                   isExpanded: true,
                   hint: const Text('All Complaints', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -1429,42 +1605,28 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         ],
                       ),
                     ),
-                    ...(() {
-                      const allCompItems = [
-                        {'key': 'prolapse', 'label': 'Pelvic Organ Prolapse (आङ खस्ने)'},
-                        {'key': 'discharge', 'label': 'Discharge / Itching (स्राव/चिलाउने)'},
-                        {'key': 'urine', 'label': 'Urinary Difficulties (पिसाब समस्या)'},
-                        {'key': 'stool', 'label': 'Bowel / Constipation (दिसा समस्या)'},
-                        {'key': 'pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुखाई)'},
-                        {'key': 'menstrual', 'label': 'Menstrual Disorder (महिनावारी)'},
-                      ];
-                      final activeCompItems = allCompItems.where((item) {
-                        return _getComplaintCount(item['key']!, baseSummary) > 0 || _selectedComplaint == item['key'];
-                      }).toList();
-                      final compItems = activeCompItems.isNotEmpty ? activeCompItems : allCompItems;
-                      return compItems.map((item) {
-                        final count = _getComplaintCount(item['key']!, baseSummary);
-                        return DropdownMenuItem<String?>(
-                          value: item['key'],
-                          child: Row(
-                            children: [
-                              Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                decoration: BoxDecoration(
-                                  color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '$count',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
-                                ),
+                    ...dynamicComplaints.map((item) {
+                      final count = _getComplaintCount(item['key']!, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: item['key'],
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                            ],
-                          ),
-                        );
-                      });
-                    })(),
+                              child: Text(
+                                '$count',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                   onChanged: (val) {
                     setState(() => _selectedComplaint = val);
@@ -1535,6 +1697,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required ReportingState reportState,
     required Set<String> allDoctors,
     required List<String> sortedDiagnoses,
+    required List<Map<String, String>> dynamicTreatments,
+    required List<Map<String, String>> dynamicComplaints,
   }) {
     final activeFiltersCount = (_startDate != null ? 1 : 0) +
         (_endDate != null ? 1 : 0) +
@@ -1624,7 +1788,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             // Doctor Dropdown
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              constraints: const BoxConstraints(maxWidth: 170),
+              constraints: const BoxConstraints(maxWidth: 175),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
@@ -1632,7 +1796,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
-                  value: _selectedDoctor,
+                  value: allDoctors.contains(_selectedDoctor) ? _selectedDoctor : null,
                   isDense: true,
                   isExpanded: true,
                   hint: const Row(
@@ -1653,9 +1817,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        allDoctors.isEmpty && reportState.selectedCampId != null
-                            ? 'No Doctors in Camp ($totalPatients)'
-                            : 'All Doctors ($totalPatients)',
+                        'All Doctors ($totalPatients)',
                         style: const TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1678,7 +1840,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             // Diagnosis Dropdown
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              constraints: const BoxConstraints(maxWidth: 170),
+              constraints: const BoxConstraints(maxWidth: 175),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
@@ -1686,7 +1848,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
-                  value: _selectedDiagnosis,
+                  value: sortedDiagnoses.contains(_selectedDiagnosis) ? _selectedDiagnosis : null,
                   isDense: true,
                   isExpanded: true,
                   hint: const Text('All Diagnoses', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -1694,9 +1856,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        sortedDiagnoses.isEmpty && reportState.selectedCampId != null
-                            ? 'No Diagnoses in Camp ($totalPatients)'
-                            : 'All Diagnoses ($totalPatients)',
+                        'All Diagnoses ($totalPatients)',
                         style: const TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1711,6 +1871,128 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   ],
                   onChanged: (val) {
                     setState(() => _selectedDiagnosis = val);
+                    _onRefresh();
+                  },
+                ),
+              ),
+            ),
+            // POP Stage Dropdown
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              constraints: const BoxConstraints(maxWidth: 175),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _selectedPopStage != null ? AppTheme.primaryTeal : const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: ['0', '1', '2+', '3+'].contains(_selectedPopStage) ? _selectedPopStage : null,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Text('All POP Stages', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(
+                        'All POP Stages ($totalPatients)',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    ...[
+                      {'key': '0', 'label': 'Stage 0'},
+                      {'key': '1', 'label': 'Stage 1'},
+                      {'key': '2+', 'label': 'Stage >= 2'},
+                      {'key': '3+', 'label': 'Stage 3-4'},
+                    ].map((item) {
+                      final count = _getPopStageCount(item['key']!, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: item['key'],
+                        child: Text('${item['label']} ($count)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      );
+                    }),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedPopStage = val);
+                    _onRefresh();
+                  },
+                ),
+              ),
+            ),
+            // Treatment Dropdown
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              constraints: const BoxConstraints(maxWidth: 175),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _selectedTreatment != null ? AppTheme.primaryTeal : const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: dynamicTreatments.any((t) => t['key'] == _selectedTreatment) ? _selectedTreatment : null,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Text('All Treatments', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(
+                        'All Treatments ($totalPatients)',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    ...dynamicTreatments.map((item) {
+                      final count = _getTreatmentCount(item['key']!, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: item['key'],
+                        child: Text('${item['label']} ($count)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      );
+                    }),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedTreatment = val);
+                    _onRefresh();
+                  },
+                ),
+              ),
+            ),
+            // Chief Complaint Dropdown
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              constraints: const BoxConstraints(maxWidth: 175),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _selectedComplaint != null ? AppTheme.primaryTeal : const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: dynamicComplaints.any((c) => c['key'] == _selectedComplaint) ? _selectedComplaint : null,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Text('All Complaints', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(
+                        'All Complaints ($totalPatients)',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    ...dynamicComplaints.map((item) {
+                      final count = _getComplaintCount(item['key']!, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: item['key'],
+                        child: Text('${item['label']} ($count)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      );
+                    }),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedComplaint = val);
                     _onRefresh();
                   },
                 ),

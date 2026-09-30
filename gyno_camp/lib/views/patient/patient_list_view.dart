@@ -1744,16 +1744,20 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       ),
       color: Colors.white,
       clipBehavior: Clip.antiAlias,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(color: statusColor, width: 4.5),
+      child: InkWell(
+        onTap: () => _showClinicalHistoryPanel(context, patient, activeCamp),
+        hoverColor: const Color(0xFFF8FAFC),
+        splashColor: AppTheme.primaryTeal.withValues(alpha: 0.05),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(color: statusColor, width: 4.5),
+            ),
           ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // ── TOP ROW: Token ID (copyable) + Ward + Location ──
             Row(
               children: [
@@ -1823,7 +1827,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 ),
                 const Spacer(),
 
-                // Location Icon + Text
+                // Location Icon + Text & Interactive Chart Cue
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1835,6 +1839,30 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         fontSize: 11.5,
                         fontWeight: FontWeight.w500,
                         color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryTeal.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.25)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.history_edu_rounded, size: 12, color: AppTheme.primaryTeal),
+                          SizedBox(width: 4),
+                          Text(
+                            'View Chart →',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryDark,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -2273,25 +2301,103 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   },
                 );
 
+                PopupMenuItem<String> buildMenuItem({
+                  required String value,
+                  required IconData icon,
+                  required Color iconColor,
+                  required Color iconBg,
+                  required String title,
+                  required String subtitle,
+                }) {
+                  return PopupMenuItem<String>(
+                    value: value,
+                    height: 52,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: iconBg,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(icon, size: 17, color: iconColor),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                subtitle,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                PopupMenuEntry<String> buildMenuHeader(String label) {
+                  return PopupMenuItem<String>(
+                    enabled: false,
+                    height: 24,
+                    padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF94A3B8),
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  );
+                }
+
                 final moreMenu = PopupMenuButton<String>(
+                  tooltip: 'Patient Options & Records',
+                  elevation: 6,
+                  shadowColor: const Color(0x20000000),
+                  surfaceTintColor: Colors.white,
+                  color: Colors.white,
+                  constraints: const BoxConstraints(minWidth: 280, maxWidth: 320),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+                  ),
                   icon: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7.5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: const Color(0xFFCBD5E1)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.more_horiz_rounded, size: 17, color: Color(0xFF475569)),
-                        SizedBox(width: 2),
-                        Icon(Icons.arrow_drop_down, size: 14, color: Color(0xFF475569)),
+                        Icon(Icons.more_horiz_rounded, size: 17, color: Color(0xFF334155)),
+                        SizedBox(width: 4),
+                        Icon(Icons.keyboard_arrow_down_rounded, size: 15, color: Color(0xFF64748B)),
                       ],
                     ),
                   ),
-                  tooltip: 'More Patient Actions',
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   onSelected: (action) async {
                     switch (action) {
                       case 'edit':
@@ -2360,68 +2466,60 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     }
                   },
                   itemBuilder: (ctx) => [
-                    if (!isCampLocked)
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_note_rounded, size: 17, color: Color(0xFF0F766E)),
-                            SizedBox(width: 10),
-                            Text('Edit Registration (Page 1)', style: TextStyle(fontSize: 13)),
-                          ],
-                        ),
-                      ),
+                    buildMenuHeader('CLINICAL WORKFLOW'),
                     if (hasClinical)
-                      const PopupMenuItem(
+                      buildMenuItem(
                         value: 're_exam',
-                        child: Row(
-                          children: [
-                            Icon(Icons.assignment_outlined, size: 17, color: Color(0xFF2563EB)),
-                            SizedBox(width: 10),
-                            Text('Review / Edit Clinical Exam', style: TextStyle(fontSize: 13)),
-                          ],
-                        ),
+                        icon: Icons.assignment_outlined,
+                        iconColor: const Color(0xFF2563EB),
+                        iconBg: const Color(0xFFEFF6FF),
+                        title: 'Review / Edit Clinical Exam',
+                        subtitle: 'Station 2–6 examination & staging',
                       ),
-                    const PopupMenuItem(
+                    buildMenuItem(
                       value: 'history',
-                      child: Row(
-                        children: [
-                          Icon(Icons.history_rounded, size: 17, color: Color(0xFF0891B2)),
-                          SizedBox(width: 10),
-                          Text('Clinical History & Encounters', style: TextStyle(fontSize: 13)),
-                        ],
-                      ),
+                      icon: Icons.history_edu_rounded,
+                      iconColor: const Color(0xFF0D9488),
+                      iconBg: const Color(0xFFF0FDFA),
+                      title: 'Clinical History & Dossier',
+                      subtitle: 'Encounter timeline, vitals & chart',
                     ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    const PopupMenuDivider(height: 10),
+                    buildMenuHeader('PATIENT ADMINISTRATION'),
+                    if (!isCampLocked)
+                      buildMenuItem(
+                        value: 'edit',
+                        icon: Icons.edit_note_rounded,
+                        iconColor: const Color(0xFF0F766E),
+                        iconBg: const Color(0xFFF0FDFA),
+                        title: 'Edit Registration (Page 1)',
+                        subtitle: 'Demographics, address & consent',
+                      ),
+                    const PopupMenuDivider(height: 10),
+                    buildMenuHeader('EXPORTS & PRINTS'),
+                    buildMenuItem(
                       value: 'pdf_summary',
-                      child: Row(
-                        children: [
-                          Icon(Icons.picture_as_pdf_rounded, size: 17, color: Color(0xFFE11D48)),
-                          SizedBox(width: 10),
-                          Text('Download Health Summary (PDF)', style: TextStyle(fontSize: 13)),
-                        ],
-                      ),
+                      icon: Icons.picture_as_pdf_rounded,
+                      iconColor: const Color(0xFFE11D48),
+                      iconBg: const Color(0xFFFFF1F2),
+                      title: 'Health Summary (PDF)',
+                      subtitle: 'Complete medical report export',
                     ),
-                    const PopupMenuItem(
+                    buildMenuItem(
                       value: 'follow_up_slip',
-                      child: Row(
-                        children: [
-                          Icon(Icons.receipt_long_rounded, size: 17, color: Color(0xFF0891B2)),
-                          SizedBox(width: 10),
-                          Text('Download Follow-Up Slip (PDF)', style: TextStyle(fontSize: 13)),
-                        ],
-                      ),
+                      icon: Icons.receipt_long_rounded,
+                      iconColor: const Color(0xFF0284C7),
+                      iconBg: const Color(0xFFF0F9FF),
+                      title: 'Follow-Up Slip (PDF)',
+                      subtitle: 'Patient visit slip & barcode',
                     ),
-                    const PopupMenuItem(
+                    buildMenuItem(
                       value: 'print_reg_form',
-                      child: Row(
-                        children: [
-                          Icon(Icons.print_outlined, size: 17, color: Color(0xFF0F766E)),
-                          SizedBox(width: 10),
-                          Text('Print Registration Form (Yellow)', style: TextStyle(fontSize: 13)),
-                        ],
-                      ),
+                      icon: Icons.print_outlined,
+                      iconColor: const Color(0xFF475569),
+                      iconBg: const Color(0xFFF1F5F9),
+                      title: 'Registration Form (Yellow)',
+                      subtitle: 'Reprint physical block form',
                     ),
                   ],
                 );
@@ -2487,6 +2585,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -179,7 +179,10 @@ class ReportingRepository implements IReportingRepository {
     if (diagnosisFilter != null && diagnosisFilter.trim().isNotEmpty && diagnosisFilter != 'all') {
       final dxLower = diagnosisFilter.trim().toLowerCase();
       final matchingVisits = visits.where((v) {
-        return v.diagnoses.any((d) => d.toLowerCase().contains(dxLower));
+        return v.diagnoses.any((d) {
+          final dLower = d.trim().toLowerCase();
+          return dLower == dxLower || dLower.contains(dxLower) || dxLower.contains(dLower);
+        });
       }).toList();
       final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
       visits = matchingVisits;
@@ -217,6 +220,16 @@ class ReportingRepository implements IReportingRepository {
         }
         if (treatmentFilter == 'medications') {
           return v.medications.isNotEmpty || (v.customMedication != null && v.customMedication!.trim().isNotEmpty);
+        }
+        if (treatmentFilter.startsWith('med:')) {
+          final targetMed = treatmentFilter.substring(4).toLowerCase().trim();
+          final hasStandard = v.medications.any((m) => m.toLowerCase().contains(targetMed));
+          final hasCustom = v.customMedication?.toLowerCase().contains(targetMed) ?? false;
+          return hasStandard || hasCustom;
+        }
+        if (treatmentFilter.startsWith('hosp:')) {
+          final targetHosp = treatmentFilter.substring(5).toLowerCase().trim();
+          return v.surgicalReferral?.toLowerCase().contains(targetHosp) ?? false;
         }
         return true;
       }).toList();
