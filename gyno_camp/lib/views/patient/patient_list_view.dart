@@ -118,9 +118,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     });
 
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(64),
-        child: Container(
+      appBar: AppBar(
+        toolbarHeight: 68,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [Color(0xFF0F766E), Color(0xFF0D9488), Color(0xFF14B8A6)],
@@ -135,84 +138,73 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               ),
             ],
           ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  // Back button (if navigator can pop)
-                  if (Navigator.canPop(context))
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: InkWell(
-                        onTap: () => Navigator.pop(context),
-                        borderRadius: BorderRadius.circular(8),
-                        child: const Padding(
-                          padding: EdgeInsets.all(6),
-                          child: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-                        ),
-                      ),
-                    ),
-                  // Title + subtitle
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Camp Patient Roll',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        if (effectiveCamp != null)
-                          Container(
-                            margin: const EdgeInsets.only(top: 3),
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: Text(
-                              '${effectiveCamp.name}  •  ${effectiveCamp.campCode}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white,
-                                letterSpacing: 0.1,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+        ),
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+                tooltip: 'Back',
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
+        titleSpacing: Navigator.canPop(context) ? 0 : 16,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Camp Patient Roll',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
+            ),
+            if (effectiveCamp != null)
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  '${effectiveCamp.name}  •  ${effectiveCamp.campCode}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                    letterSpacing: 0.1,
                   ),
-                  // Refresh action
-                  Tooltip(
-                    message: 'Refresh Patient List',
-                    child: InkWell(
-                      onTap: effectiveCampId == null
-                          ? null
-                          : () => vm.loadPatients(effectiveCampId),
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Tooltip(
+                message: 'Refresh Patient List',
+                child: InkWell(
+                  onTap: effectiveCampId == null
+                      ? null
+                      : () => vm.loadPatients(effectiveCampId),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                        ),
-                        child: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
-                      ),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
                     ),
+                    child: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: effectiveCamp == null ? Colors.grey.shade400 : const Color(0xFF0F766E),
@@ -1860,17 +1852,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           hoverColor: const Color(0xFFF8FAFC),
           splashColor: AppTheme.primaryTeal.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Coloured status accent bar (left edge)
-              Container(width: 5, color: statusColor),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(color: statusColor, width: 5),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             // ── TOP ROW: Token ID (copyable) + Ward + Location ──
             Row(
               children: [
@@ -2715,11 +2706,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 );
               },
             ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
