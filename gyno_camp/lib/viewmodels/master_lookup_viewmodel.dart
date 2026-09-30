@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/camp_model.dart';
 import '../models/lookup_item_model.dart';
 import '../repositories/lookup_repository.dart';
 import 'auth_viewmodel.dart';
@@ -108,6 +109,10 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
   final ILookupRepository _repository;
   String _tenantId;
   String? _campId;
+  bool _hasExplicitCampScope = false;
+
+  bool get hasExplicitCampScope => _hasExplicitCampScope;
+  String? get currentCampId => _campId;
 
   MasterLookupViewModel(this._repository, {String? tenantId, String? initialCampId})
       : _tenantId = tenantId ?? 'tenant_default',
@@ -124,8 +129,11 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
     }
   }
 
-  void setCampScope(String? campId) {
+  void setCampScope(String? campId, {bool isExplicit = true}) {
     final cleanCampId = (campId == null || campId == 'all' || campId.trim().isEmpty) ? null : campId.trim();
+    if (isExplicit) {
+      _hasExplicitCampScope = true;
+    }
     if (cleanCampId != _campId) {
       _campId = cleanCampId;
       state = state.copyWith(selectedCampId: cleanCampId, clearCampId: cleanCampId == null);
@@ -337,8 +345,16 @@ final lookupRepositoryProvider = Provider<ILookupRepository>((ref) {
 final masterLookupProvider = StateNotifierProvider<MasterLookupViewModel, MasterLookupState>((ref) {
   final repo = ref.watch(lookupRepositoryProvider);
   final user = ref.watch(authStateProvider).currentUser;
-  final activeCamp = ref.watch(userActiveCampProvider);
-  return MasterLookupViewModel(repo, tenantId: user?.tenantId, initialCampId: activeCamp?.id);
+  final initialCamp = ref.read(userActiveCampProvider);
+  final vm = MasterLookupViewModel(repo, tenantId: user?.tenantId, initialCampId: initialCamp?.id);
+
+  ref.listen<CampModel?>(userActiveCampProvider, (previous, next) {
+    if (!vm.hasExplicitCampScope && next?.id != vm.currentCampId) {
+      vm.setCampScope(next?.id, isExplicit: false);
+    }
+  });
+
+  return vm;
 });
 
 final activeDiagnosesProvider = Provider<List<LookupItemModel>>((ref) {

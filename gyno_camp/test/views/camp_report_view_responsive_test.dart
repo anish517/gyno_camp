@@ -146,6 +146,7 @@ class FakeReportingRepo implements IReportingRepository {
     String? diagnosisFilter,
     String? popStageFilter,
     String? treatmentFilter,
+    String? complaintFilter,
   }) async =>
       summary;
 

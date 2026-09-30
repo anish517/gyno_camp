@@ -74,6 +74,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
     String? diagnosisFilter,
     String? popStageFilter,
     String? treatmentFilter,
+    String? complaintFilter,
   }) async {
     state = state.copyWith(isLoading: true, clearFeedback: true);
     try {
@@ -86,6 +87,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
         diagnosisFilter: diagnosisFilter,
         popStageFilter: popStageFilter,
         treatmentFilter: treatmentFilter,
+        complaintFilter: complaintFilter,
       );
       if (!mounted) return;
       state = state.copyWith(

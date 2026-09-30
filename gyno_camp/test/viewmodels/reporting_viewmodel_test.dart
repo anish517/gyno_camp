@@ -23,6 +23,7 @@ class MockReportingRepository implements IReportingRepository {
     String? diagnosisFilter,
     String? popStageFilter,
     String? treatmentFilter,
+    String? complaintFilter,
   }) async {
     if (shouldThrowOnSummary) throw Exception('Database read error');
     return CampReportSummaryModel.empty(generatedBy: generatedBy);

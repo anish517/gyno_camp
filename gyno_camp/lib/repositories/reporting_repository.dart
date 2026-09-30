@@ -22,6 +22,7 @@ abstract class IReportingRepository {
     String? diagnosisFilter,
     String? popStageFilter,
     String? treatmentFilter,
+    String? complaintFilter,
   });
   Future<Uint8List> generatePdfReport(CampReportSummaryModel summary);
   Future<Uint8List> generateIndividualPatientPdf({
@@ -78,6 +79,7 @@ class ReportingRepository implements IReportingRepository {
     String? diagnosisFilter,
     String? popStageFilter,
     String? treatmentFilter,
+    String? complaintFilter,
   }) async {
     final db = await _databaseService.database;
 
@@ -201,10 +203,12 @@ class ReportingRepository implements IReportingRepository {
     if (treatmentFilter != null && treatmentFilter.trim().isNotEmpty && treatmentFilter != 'all') {
       final matchingVisits = visits.where((v) {
         if (treatmentFilter == 'pessary') {
-          return v.pessaryType != null && v.pessaryType!.trim().isNotEmpty;
+          return (v.pessaryType != null && v.pessaryType!.trim().isNotEmpty) ||
+              (v.pessarySize != null && v.pessarySize!.trim().isNotEmpty);
         }
         if (treatmentFilter == 'surgery') {
-          return v.surgicalReferral != null && v.surgicalReferral!.trim().isNotEmpty;
+          return (v.surgicalReferral != null && v.surgicalReferral!.trim().isNotEmpty) ||
+              v.surgeryDone == true;
         }
         if (treatmentFilter == 'counseling') {
           return v.counseling.isNotEmpty;
@@ -217,6 +221,45 @@ class ReportingRepository implements IReportingRepository {
       final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
       visits = matchingVisits;
       patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
+    }
+
+    // Apply Chief Complaint Filter if requested
+    if (complaintFilter != null && complaintFilter.trim().isNotEmpty && complaintFilter != 'all') {
+      final target = complaintFilter.trim().toLowerCase();
+      final visitMap = {for (final v in visits) v.patientId: v};
+
+      final matchingPatients = patients.where((p) {
+        final visit = visitMap[p.patientId];
+        final reasons = p.reasonsForVisit.map((r) => r.toLowerCase()).toList();
+        final anamnesis = visit?.anamnesisComplaints.toString().toLowerCase() ?? '';
+        final combined = [...reasons, anamnesis].join(' ');
+
+        if (target == 'something hanging out' || target == 'prolapse' || target == 'pelvic_organ_prolapse') {
+          return combined.contains('hanging') || combined.contains('prolapse') || combined.contains('खस्ने') || combined.contains('pelvic_organ_prolapse');
+        } else if (target == 'discharge and or itching' || target == 'discharge') {
+          return combined.contains('discharge') || combined.contains('itching') || combined.contains('स्राव') || combined.contains('चिलाउने') || combined.contains('सेतो');
+        } else if (target == 'problems passing urine' || target == 'urine') {
+          return combined.contains('urine') || combined.contains('dysuria') || combined.contains('पिसाब');
+        } else if (target == 'problems passing stool' || target == 'stool') {
+          return combined.contains('stool') || combined.contains('bowel') || combined.contains('constipation') || combined.contains('दिसा');
+        } else if (target == 'pain') {
+          return combined.contains('pain') || combined.contains('दुखाई') || combined.contains('दुख्ने') || combined.contains('तल्लो पेट');
+        } else if (target == 'menstrual problem' || target == 'menstrual' || target == 'menstrual_disorder') {
+          return combined.contains('menstrual') || combined.contains('महिनावारी') || combined.contains('bleeding') || combined.contains('menstrual_disorder');
+        } else if (target == 'infertility' || target == 'infertility_screening') {
+          return combined.contains('infertility') || combined.contains('बाँझोपन') || combined.contains('निःसन्तान') || combined.contains('infertility_screening');
+        } else if (target == 'checkup' || target == 'routine_checkup') {
+          return combined.contains('checkup') || combined.contains('routine') || combined.contains('जाँच') || combined.contains('routine_checkup');
+        } else if (target == 'gynaecological_oncology' || target == 'oncology' || target == 'cancer') {
+          return combined.contains('cancer') || combined.contains('oncology') || combined.contains('क्यान्सर') || combined.contains('gynaecological_oncology');
+        } else {
+          return reasons.any((r) => r == target || r.contains(target) || target.contains(r)) || combined.contains(target);
+        }
+      }).toList();
+
+      final matchingPatientIds = matchingPatients.map((p) => p.patientId).toSet();
+      patients = matchingPatients;
+      visits = visits.where((v) => matchingPatientIds.contains(v.patientId)).toList();
     }
 
     return _aggregationService.aggregate(
