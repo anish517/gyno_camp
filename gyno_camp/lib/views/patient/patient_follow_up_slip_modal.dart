@@ -228,7 +228,7 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                               fontSize: isNarrow ? 18 : 21,
                               fontWeight: FontWeight.w900,
                               letterSpacing: isNarrow ? 1.2 : 1.8,
-                              color: const Color(0xFF0F766E),
+                              color: AppTheme.brandPurple,
                             ),
                           ),
                         ),
@@ -249,21 +249,21 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                              color: AppTheme.brandPurple.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.25)),
+                              border: Border.all(color: AppTheme.brandPurple.withValues(alpha: 0.25)),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.copy_rounded, size: 13, color: Color(0xFF0F766E)),
+                                Icon(Icons.copy_rounded, size: 13, color: AppTheme.brandPurple),
                                 SizedBox(width: 4),
                                 Text(
                                   'Copy',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F766E),
+                                    color: AppTheme.brandPurple,
                                   ),
                                 ),
                               ],
@@ -415,13 +415,13 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF0FDFA),
+                              color: const Color(0xFFF5F3FF),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFF99F6E4)),
+                              border: Border.all(color: const Color(0xFFE9D5FF)),
                             ),
                             child: Text(
                               NepaliLocalizationService.translate(reason),
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.brandPurple),
                             ),
                           );
                         }).toList(),

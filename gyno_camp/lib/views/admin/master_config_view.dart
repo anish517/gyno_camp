@@ -1045,7 +1045,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w500,
-                            color: isActive ? const Color(0xFF0D9488) : Colors.grey.shade500,
+                            color: isActive ? AppTheme.brandPurple : Colors.grey.shade500,
                           ),
                         )
                       else
@@ -1374,7 +1374,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                               },
                             ),
                             filled: true,
-                            fillColor: const Color(0xFFF0FDFA),
+                            fillColor: AppTheme.brandPurpleLight,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: const BorderSide(color: AppTheme.primaryTeal),

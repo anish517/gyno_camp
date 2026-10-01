@@ -235,7 +235,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
             spacing: 5,
             runSpacing: 4,
             children: [
-              _obsBadge('Deliveries (P)', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal, tooltip: 'Parity / Total Deliveries (सुत्केरी संख्या)'),
+              _obsBadge('Deliveries (P)', v.deliveries?.toString() ?? '?', AppTheme.brandPurpleLight, AppTheme.brandPurple, tooltip: 'Parity / Total Deliveries (सुत्केरी संख्या)'),
               _obsBadge('Living (L)', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A), tooltip: 'Living Children (जीवित सन्तान)'),
               _obsBadge('Losses (A)', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C), tooltip: 'Abortions / Miscarriages (गर्भपतन वा खेर गएको)'),
             ],
@@ -249,7 +249,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
         ? const Text('None recorded', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)))
         : Wrap(spacing: 4, runSpacing: 4, children: p.reasonsForVisit.map((r) => Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: const Color(0xFFF0FDFA), borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3))),
+            decoration: BoxDecoration(color: AppTheme.brandPurpleLight, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.brandPurpleBorder)),
             child: Text(r, style: const TextStyle(fontSize: 10, color: AppTheme.primaryDark)))).toList()),
       const SizedBox(height: 10), const Divider(color: Color(0xFFE2E8F0)), const SizedBox(height: 4),
       _consentRow('Consent to Treatment', p.consentTreatment),
@@ -257,7 +257,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
       _consentRow('Consent to Store Data', p.consentStoreMedicalInfo),
       const SizedBox(height: 12),
       Container(padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: const Color(0xFFF0FDFA), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2))),
+        decoration: BoxDecoration(color: AppTheme.brandPurpleLight, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.brandPurpleBorder)),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
           _statBadge('${visits.length}', 'Visits'),
           _statBadge('${visits.where((v) => v.isFollowUp).length}', 'FU'),
@@ -286,8 +286,8 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
   Widget _card(ClinicalVisitModel v, int i, DateFormat fmt) {
     final isF = v.isFollowUp;
     final isDl = _dlIdx.contains(i);
-    final ac = isF ? const Color(0xFF0891B2) : AppTheme.primaryTeal;
-    final bg = isF ? const Color(0xFFECFEFF) : const Color(0xFFF0FDFA);
+    final ac = isF ? AppTheme.brandMagenta : AppTheme.brandPurple;
+    final bg = isF ? const Color(0xFFFDF2F8) : AppTheme.brandPurpleLight;
 
     // BP classification matching PDF slip (only classified when measurements exist)
     String? bpStatus;
@@ -391,7 +391,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             if (v.deliveries != null || v.livingChildren != null || v.abortions != null) ...[
-                              _obsBadge('Deliveries (P)', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal, tooltip: 'Parity / Total Deliveries (सुत्केरी संख्या)'),
+                              _obsBadge('Deliveries (P)', v.deliveries?.toString() ?? '?', AppTheme.brandPurpleLight, AppTheme.brandPurple, tooltip: 'Parity / Total Deliveries (सुत्केरी संख्या)'),
                               _obsBadge('Living (L)', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A), tooltip: 'Living Children (जीवित सन्तान)'),
                               _obsBadge('Losses (A)', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C), tooltip: 'Abortions / Miscarriages (गर्भपतन)'),
                             ],

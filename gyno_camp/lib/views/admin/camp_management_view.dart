@@ -151,7 +151,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               icon: const Icon(Icons.add_location_alt, size: 16),
               label: const Text('New Camp'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D9488),
+                backgroundColor: AppTheme.brandPurple,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
@@ -184,10 +184,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               tabAlignment: TabAlignment.start,
               indicatorSize: TabBarIndicatorSize.tab,
               indicator: const UnderlineTabIndicator(
-                borderSide: BorderSide(color: Color(0xFF0F766E), width: 3),
+                borderSide: BorderSide(color: AppTheme.brandPurple, width: 3),
                 insets: EdgeInsets.symmetric(horizontal: 8),
               ),
-              labelColor: const Color(0xFF0F766E),
+              labelColor: AppTheme.brandPurple,
               unselectedLabelColor: const Color(0xFF64748B),
               labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
               unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5),
@@ -341,11 +341,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   ),
                   child: Row(
                     children: [
-                      _buildMetricItem(Icons.hub_outlined, 'Total Missions', '${campState.camps.length}', const Color(0xFF0F766E)),
+                      _buildMetricItem(Icons.hub_outlined, 'Total Missions', '${campState.camps.length}', AppTheme.brandPurple),
                       _buildMetricDivider(),
                       _buildMetricItem(Icons.play_circle_filled, 'Active Field Camps', '$openCount', AppTheme.successGreen, isPulse: openCount > 0),
                       _buildMetricDivider(),
-                      _buildMetricItem(Icons.calendar_month, 'Scheduled', '$scheduledCount', const Color(0xFF0F766E)),
+                      _buildMetricItem(Icons.calendar_month, 'Scheduled', '$scheduledCount', AppTheme.brandPurple),
                       _buildMetricDivider(),
                       _buildMetricItem(Icons.how_to_reg, 'Total Patients Screened', '$totalIntakes', AppTheme.primaryTeal),
                     ],
@@ -855,7 +855,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   children: [
                     const Padding(
                       padding: EdgeInsets.only(top: 2),
-                      child: Icon(Icons.medical_services_outlined, size: 15, color: Color(0xFF0F766E)),
+                      child: Icon(Icons.medical_services_outlined, size: 15, color: AppTheme.brandPurple),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -866,7 +866,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 return clean.isNotEmpty ? 'Dr. $clean' : '';
                               }).where((d) => d.isNotEmpty).join(' • ')
                             : (_cleanDoctorName(camp.doctorName).isNotEmpty ? 'Dr. ${_cleanDoctorName(camp.doctorName)}' : ''),
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.brandPurple),
                       ),
                     ),
                   ],
@@ -1025,8 +1025,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         style: OutlinedButton.styleFrom(
                           visualDensity: VisualDensity.compact,
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          foregroundColor: const Color(0xFF0F766E),
-                          side: const BorderSide(color: Color(0xFF99F6E4)),
+                          foregroundColor: AppTheme.brandPurple,
+                          side: const BorderSide(color: AppTheme.brandPurpleBorder),
                         ),
                         onPressed: () => BlankFormDownloadDialog.show(context, camp: camp),
                       ),
@@ -1520,7 +1520,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           : (hasActiveCamp
                               ? AppTheme.primaryTeal.withValues(alpha: 0.15)
                               : (hasScheduledCamp
-                                  ? const Color(0xFFCCFBF1).withValues(alpha: 0.5)
+                                  ? AppTheme.brandPurpleBorder.withValues(alpha: 0.5)
                                   : Colors.transparent)),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
@@ -1528,7 +1528,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             ? AppTheme.primaryTeal
                             : (hasActiveCamp
                                 ? AppTheme.primaryTeal
-                                : (hasScheduledCamp ? const Color(0xFF99F6E4) : Colors.transparent)),
+                                : (hasScheduledCamp ? AppTheme.brandPurpleBorder : Colors.transparent)),
                         width: isSelected ? 2 : (hasActiveCamp ? 1.5 : 1),
                       ),
                     ),
@@ -1663,7 +1663,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           : (hasActiveCamp
                               ? AppTheme.primaryTeal.withValues(alpha: 0.15)
                               : (hasScheduledCamp
-                                  ? const Color(0xFFCCFBF1).withValues(alpha: 0.5)
+                                  ? AppTheme.brandPurpleBorder.withValues(alpha: 0.5)
                                   : Colors.transparent)),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
@@ -1671,7 +1671,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             ? AppTheme.primaryTeal
                             : (hasActiveCamp
                                 ? AppTheme.primaryTeal
-                                : (hasScheduledCamp ? const Color(0xFF99F6E4) : Colors.transparent)),
+                                : (hasScheduledCamp ? AppTheme.brandPurpleBorder : Colors.transparent)),
                         width: isSelected ? 2 : (hasActiveCamp ? 1.5 : 1),
                       ),
                     ),
@@ -1940,7 +1940,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           children: [
                             const Padding(
                               padding: EdgeInsets.only(top: 2),
-                              child: Icon(Icons.medical_services_outlined, size: 14, color: Color(0xFF0F766E)),
+                              child: Icon(Icons.medical_services_outlined, size: 14, color: AppTheme.brandPurple),
                             ),
                             const SizedBox(width: 6),
                             Expanded(
@@ -1951,7 +1951,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         return clean.isNotEmpty ? 'Dr. $clean' : '';
                                       }).where((d) => d.isNotEmpty).join(' • ')
                                     : (_cleanDoctorName(c.doctorName).isNotEmpty ? 'Dr. ${_cleanDoctorName(c.doctorName)}' : ''),
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.brandPurple),
                               ),
                             ),
                           ],
@@ -2741,11 +2741,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF0FDFA),
+                                  color: AppTheme.brandPurpleLight,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFCCFBF1)),
+                                  border: Border.all(color: AppTheme.brandPurpleBorder),
                                 ),
-                                child: const Icon(Icons.add_location_alt_rounded, color: AppTheme.primaryTeal, size: 20),
+                                child: const Icon(Icons.add_location_alt_rounded, color: AppTheme.brandPurple, size: 20),
                               ),
                               const SizedBox(width: 12),
                               const Expanded(
@@ -2779,14 +2779,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF0FDFA),
+                                  color: const Color(0xFFF5F3FF),
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: const Color(0xFFCCFBF1)),
+                                  border: Border.all(color: const Color(0xFFE9D5FF)),
                                 ),
                                 child: const Text(
                                   'NEW DISPATCH',
                                   style: TextStyle(
-                                    color: Color(0xFF0F766E),
+                                    color: AppTheme.brandPurple,
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 0.5,
@@ -3083,7 +3083,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                           padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
                                             color: selectedStatus == CampStatus.scheduled
-                                                ? const Color(0xFFF0FDFA)
+                                                ? AppTheme.brandPurpleLight
                                                 : Colors.white,
                                             borderRadius: BorderRadius.circular(12),
                                             border: Border.all(
@@ -3236,10 +3236,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   trailing: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: selectedStaffIds.isEmpty ? const Color(0xFFF1F5F9) : const Color(0xFFCCFBF1),
+                                      color: selectedStaffIds.isEmpty ? const Color(0xFFF1F5F9) : AppTheme.brandPurpleLight,
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
-                                        color: selectedStaffIds.isEmpty ? const Color(0xFFCBD5E1) : const Color(0xFF5EEAD4),
+                                        color: selectedStaffIds.isEmpty ? const Color(0xFFCBD5E1) : AppTheme.brandPurpleBorder,
                                       ),
                                     ),
                                     child: Text(
@@ -3735,11 +3735,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF0FDFA),
+                              color: AppTheme.brandPurpleLight,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFCCFBF1)),
+                              border: Border.all(color: AppTheme.brandPurpleBorder),
                             ),
-                            child: const Icon(Icons.edit_location_alt_rounded, color: AppTheme.primaryTeal, size: 20),
+                            child: const Icon(Icons.edit_location_alt_rounded, color: AppTheme.brandPurple, size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -3761,14 +3761,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFF0FDFA),
+                                        color: AppTheme.brandPurpleLight,
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: const Color(0xFFCCFBF1)),
+                                        border: Border.all(color: AppTheme.brandPurpleBorder),
                                       ),
                                       child: Text(
                                         camp.campCode,
                                         style: const TextStyle(
-                                          color: Color(0xFF0F766E),
+                                          color: AppTheme.brandPurple,
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.bold,
                                           letterSpacing: 0.5,
@@ -4292,11 +4292,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     children: [
                       Text(
                         'Examining Doctors & NMC Numbers',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.brandPurple),
                       ),
                       Text(
                         'डाक्टर नाम र NMC नम्बर (प्रत्येक डाक्टरको फरक NMC हुन्छ)',
-                        style: TextStyle(fontSize: 10.5, color: Color(0xFF047857)),
+                        style: TextStyle(fontSize: 10.5, color: AppTheme.brandMagenta),
                       ),
                     ],
                   ),
@@ -4362,7 +4362,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                       style: const TextStyle(
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF065F46),
+                                        color: AppTheme.brandPurpleDark,
                                       ),
                                     ),
                                     if (doc.hasNmc)
@@ -4370,7 +4370,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         'NMC: ${doc.nmcNumber}',
                                         style: const TextStyle(
                                           fontSize: 10,
-                                          color: Color(0xFF0F766E),
+                                          color: AppTheme.brandMagenta,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -4827,7 +4827,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
+                            colors: [Color(0xFF30026E), Color(0xFF81005D)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -4838,11 +4838,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           children: [
                             const Row(
                               children: [
-                                Icon(Icons.calendar_month, color: Color(0xFFCCFBF1), size: 16),
+                                Icon(Icons.calendar_month, color: Color(0xFFF5F3FF), size: 16),
                                 SizedBox(width: 6),
                                 Text(
                                   'Bilingual Date Picker (नेपाली र अंग्रेजी मिति)',
-                                  style: TextStyle(color: Color(0xFFCCFBF1), fontSize: 11, fontWeight: FontWeight.bold),
+                                  style: TextStyle(color: Color(0xFFF5F3FF), fontSize: 11, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -4854,7 +4854,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             const SizedBox(height: 2),
                             Text(
                               '🌐 Gregorian (AD): $adDisplay',
-                              style: const TextStyle(color: Color(0xFF99F6E4), fontSize: 12),
+                              style: const TextStyle(color: Color(0xFFF5F3FF), fontSize: 12),
                             ),
                           ],
                         ),
@@ -5222,7 +5222,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
       case AppConstants.campStatusScheduled:
         icon = Icons.event_available_outlined;
-        accentColor = const Color(0xFF0F766E);
+        accentColor = AppTheme.brandPurple;
         titleEn = 'No Scheduled Camps';
         titleNp = 'कुनै तालिकाबद्ध शिविर छैन';
         description =
@@ -5232,7 +5232,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
       case AppConstants.campStatusClosed:
         icon = Icons.fact_check_outlined;
-        accentColor = const Color(0xFF0F766E);
+        accentColor = AppTheme.brandPurple;
         titleEn = 'No Closed Camps';
         titleNp = 'कुनै बन्द शिविर छैन';
         description =
@@ -5254,7 +5254,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
         actionWidget = ElevatedButton.icon(
           icon: const Icon(Icons.event_available, size: 16),
           label: const Text('View Scheduled Camps'),
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F766E), foregroundColor: Colors.white),
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brandPurple, foregroundColor: Colors.white),
           onPressed: () => setState(() => _statusFilter = AppConstants.campStatusScheduled),
         );
         break;
@@ -5342,11 +5342,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0FDFA),
+              color: AppTheme.brandPurpleLight,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFCCFBF1)),
+              border: Border.all(color: AppTheme.brandPurpleBorder),
             ),
-            child: Icon(icon, size: 16, color: AppTheme.primaryTeal),
+            child: Icon(icon, size: 16, color: AppTheme.brandPurple),
           ),
           const SizedBox(width: 10),
           Expanded(

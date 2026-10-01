@@ -569,12 +569,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         decoration: BoxDecoration(
                           color: hasActiveFilters
                               ? AppTheme.warningAmber.withValues(alpha: 0.1)
-                              : const Color(0xFFF0FDFA),
+                              : AppTheme.brandPurpleLight,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: hasActiveFilters
                                 ? AppTheme.warningAmber.withValues(alpha: 0.35)
-                                : const Color(0xFFCCFBF1),
+                                : AppTheme.brandPurpleBorder,
                           ),
                         ),
                         child: Row(
@@ -639,9 +639,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDFA),
+                  color: AppTheme.brandPurpleLight,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFCCFBF1)),
+                  border: Border.all(color: AppTheme.brandPurpleBorder),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -876,7 +876,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
-                  color: hasCustom ? const Color(0xFF065F46) : const Color(0xFF475569),
+                  color: hasCustom ? AppTheme.brandPurple : const Color(0xFF475569),
                 ),
               ),
               if (hasCustom) ...[
@@ -1772,14 +1772,14 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               height: 88,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                  colors: [Color(0xFF30026E), Color(0xFF81005D)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0D9488).withValues(alpha: 0.25),
+                    color: AppTheme.brandPurple.withValues(alpha: 0.25),
                     blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),
@@ -1822,7 +1822,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F766E),
+                  backgroundColor: AppTheme.brandPurple,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1869,7 +1869,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     final Color statusColor = hasClinical
         ? const Color(0xFF10B981)
         : hasReasons
-            ? const Color(0xFF0F766E)
+            ? AppTheme.brandPurple
             : const Color(0xFFF59E0B);
 
     final urgentReasons = {
@@ -1931,7 +1931,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0D9488).withValues(alpha: 0.06),
+            color: AppTheme.brandPurple.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -1991,9 +1991,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDFA),
+                      color: const Color(0xFFF5F3FF),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFCCFBF1)),
+                      border: Border.all(color: const Color(0xFFE9D5FF)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -2007,13 +2007,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 11.5,
-                              color: Color(0xFF0F766E),
+                              color: AppTheme.brandPurple,
                               fontFamily: 'monospace',
                             ),
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.copy_rounded, size: 12, color: Color(0xFF0D9488)),
+                        const Icon(Icons.copy_rounded, size: 12, color: AppTheme.brandPurple),
                       ],
                     ),
                   ),
@@ -2098,14 +2098,14 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     height: 44,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                        colors: [Color(0xFF30026E), Color(0xFF81005D)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF0D9488).withValues(alpha: 0.25),
+                          color: AppTheme.brandPurple.withValues(alpha: 0.25),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -2197,10 +2197,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                     decoration: BoxDecoration(
-                      color: isUrgent ? const Color(0xFFFFF1F2) : const Color(0xFFF0FDFA),
+                      color: isUrgent ? const Color(0xFFFFF1F2) : const Color(0xFFF5F3FF),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: isUrgent ? const Color(0xFFFDA4AF) : const Color(0xFFCCFBF1),
+                        color: isUrgent ? const Color(0xFFFDA4AF) : const Color(0xFFE9D5FF),
                       ),
                     ),
                     child: Row(
@@ -2219,7 +2219,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,
-                              color: isUrgent ? const Color(0xFFBE123C) : const Color(0xFF0F766E),
+                              color: isUrgent ? const Color(0xFFBE123C) : AppTheme.brandPurple,
                             ),
                           ),
                         ),
@@ -2464,7 +2464,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 final primaryCta = !hasClinical
                     ? ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F766E),
+                          backgroundColor: AppTheme.brandPurple,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
@@ -2484,7 +2484,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       )
                     : ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D9488),
+                          backgroundColor: AppTheme.brandMagenta,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
@@ -2513,7 +2513,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8.5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  icon: const Icon(Icons.qr_code_2_rounded, size: 16, color: Color(0xFF0F766E)),
+                  icon: const Icon(Icons.qr_code_2_rounded, size: 16, color: AppTheme.brandPurple),
                   label: const Text('Slip / QR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   onPressed: () async {
                     final proceed = await PatientFollowUpSlipModal.show(
@@ -2720,8 +2720,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     buildMenuItem(
                       value: 'history',
                       icon: Icons.history_edu_rounded,
-                      iconColor: const Color(0xFF0D9488),
-                      iconBg: const Color(0xFFF0FDFA),
+                      iconColor: AppTheme.brandPurple,
+                      iconBg: AppTheme.brandPurpleLight,
                       title: 'Clinical History & Dossier',
                       subtitle: 'Encounter timeline, vitals & chart',
                     ),
@@ -2731,8 +2731,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       buildMenuItem(
                         value: 'edit',
                         icon: Icons.edit_note_rounded,
-                        iconColor: const Color(0xFF0F766E),
-                        iconBg: const Color(0xFFF0FDFA),
+                        iconColor: AppTheme.brandPurple,
+                        iconBg: AppTheme.brandPurpleLight,
                         title: 'Edit Registration (Page 1)',
                         subtitle: 'Demographics, address & consent',
                       ),
@@ -3404,7 +3404,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
-              const Icon(Icons.print_outlined, color: Color(0xFF0F766E), size: 22),
+              const Icon(Icons.print_outlined, color: AppTheme.brandPurple, size: 22),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -3427,7 +3427,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 (doc) => ListTile(
                   dense: true,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  leading: const Icon(Icons.medical_services_outlined, color: Color(0xFF0F766E), size: 18),
+                  leading: const Icon(Icons.medical_services_outlined, color: AppTheme.brandPurple, size: 18),
                   title: Text(doc.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   subtitle: Text(doc.hasNmc ? 'NMC: ${doc.nmcNumber}' : 'NMC Certified', style: const TextStyle(fontSize: 11)),
                   onTap: () => Navigator.pop(ctx, doc),

@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Brand colors
-  static const Color primaryTeal = Color(0xFF0D9488); // Teal 600
-  static const Color primaryDark = Color(0xFF0F766E); // Teal 700
-  static const Color primaryLight = Color(0xFFCCFBF1); // Teal 100
-  static const Color accentCyan = Color(0xFF0F766E); // Secondary deep teal
-  static const Color successGreen = Color(0xFF16A34A);
-  static const Color warningAmber = Color(0xFFD97706);
-  static const Color dangerRose = Color(0xFFE11D48);
-
   // WFWSN Brand Colors (from official circular insignia logo)
   static const Color brandPurple = Color(0xFF30026E); // Deep Royal Violet / Indigo
   static const Color brandPurpleDark = Color(0xFF240046); // Executive dark violet
   static const Color brandMagenta = Color(0xFF81005D); // Rich Wine / Magenta
   static const Color brandMagentaDark = Color(0xFF6B0056); // Deep wine
+  static const Color brandPink = Color(0xFFBE185D); // Vibrant dark pink
+  static const Color brandPinkDark = Color(0xFF9D174D); // Deep rich pink
   static const Color brandPurpleLight = Color(0xFFF5F3FF); // Soft violet tint
   static const Color brandMagentaLight = Color(0xFFFDF2F8); // Soft rose tint
+  static const Color brandPurpleBorder = Color(0xFFE9D5FF); // Light violet border
+
+  // Brand aliases (migrated to WFWSN official brand purple palette)
+  static const Color primaryTeal = brandPurple; // Alias for backward compatibility
+  static const Color primaryDark = brandPurpleDark; // Alias
+  static const Color primaryLight = brandPurpleLight; // Soft violet tint
+  static const Color accentCyan = brandMagenta; // Brand Magenta
+  static const Color successGreen = Color(0xFF16A34A);
+  static const Color warningAmber = Color(0xFFD97706);
+  static const Color dangerRose = Color(0xFFE11D48);
 
   // Neutrals
   static const Color backgroundLight = Color(0xFFF8FAFC);
@@ -63,10 +66,10 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryTeal,
-        primary: primaryTeal,
+        seedColor: brandPurple,
+        primary: brandPurple,
         onPrimary: Colors.white,
-        secondary: primaryDark,
+        secondary: brandMagenta,
         surface: cardSurfaceLight,
         error: dangerRose,
       ),
@@ -94,9 +97,13 @@ class AppTheme {
           side: const BorderSide(color: borderLight),
         ),
       ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: brandPurple,
+        foregroundColor: Colors.white,
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryTeal,
+          backgroundColor: brandPurple,
           foregroundColor: Colors.white,
           minimumSize: const Size(64, 48),
           shape: RoundedRectangleBorder(
@@ -120,9 +127,9 @@ class AppTheme {
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: borderLight),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: primaryTeal, width: 2),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(10)),
+          borderSide: BorderSide(color: brandPurple, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),

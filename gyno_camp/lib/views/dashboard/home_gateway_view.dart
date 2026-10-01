@@ -407,7 +407,7 @@ class HomeGatewayView extends ConsumerWidget {
                         height: 4,
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Color(0xFF0D9488), Color(0xFF14B8A6), Color(0xFF0EA5E9)],
+                            colors: [Color(0xFF30026E), Color(0xFF81005D), Color(0xFFBE185D)],
                           ),
                         ),
                       ),
@@ -425,19 +425,19 @@ class HomeGatewayView extends ConsumerWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF0FDFA),
+                                    color: const Color(0xFFF5F3FF),
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFF99F6E4)),
+                                    border: Border.all(color: const Color(0xFFE9D5FF)),
                                   ),
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.shield_rounded, size: 12, color: Color(0xFF0D9488)),
+                                      Icon(Icons.shield_rounded, size: 12, color: Color(0xFF30026E)),
                                       SizedBox(width: 5),
                                       Text(
                                         'EXECUTIVE COMMAND CONSOLE',
                                         style: TextStyle(
-                                          color: Color(0xFF0F766E),
+                                          color: Color(0xFF30026E),
                                           fontSize: 10,
                                           fontWeight: FontWeight.w800,
                                           letterSpacing: 0.6,
@@ -491,7 +491,7 @@ class HomeGatewayView extends ConsumerWidget {
                                   children: [
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF0D9488),
+                                        backgroundColor: AppTheme.brandPurple,
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -514,7 +514,7 @@ class HomeGatewayView extends ConsumerWidget {
                                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                       ),
-                                      icon: const Icon(Icons.swap_horiz_rounded, size: 17, color: Color(0xFF0D9488)),
+                                      icon: const Icon(Icons.swap_horiz_rounded, size: 17, color: AppTheme.brandPurple),
                                       label: const Text('Switch Camp', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                                       onPressed: () => _showQuickCampSwitchDialog(context, ref),
                                     ),
@@ -588,7 +588,7 @@ class HomeGatewayView extends ConsumerWidget {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.corporate_fare_rounded, color: Color(0xFF0D9488), size: 15),
+                                    const Icon(Icons.corporate_fare_rounded, color: AppTheme.brandPurple, size: 15),
                                     SizedBox(width: 6),
                                     const Text('Tenant: ', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                                     Builder(
@@ -611,7 +611,7 @@ class HomeGatewayView extends ConsumerWidget {
                                       onTap: () => _showEditProfileDialog(context, ref, user),
                                       child: const Tooltip(
                                         message: 'Edit Profile & Organization',
-                                        child: Icon(Icons.edit_outlined, size: 13, color: Color(0xFF0D9488)),
+                                        child: Icon(Icons.edit_outlined, size: 13, color: AppTheme.brandPurple),
                                       ),
                                     ),
                                   ],
@@ -772,7 +772,7 @@ class HomeGatewayView extends ConsumerWidget {
                              return '$openCount active • $totalCount total camp(s)';
                            }(),
                           icon: Icons.campaign_rounded,
-                          accentColor: const Color(0xFF0F766E),
+                          accentColor: AppTheme.brandPurple,
                           trailingBadge: campState.camps.any((c) => c.isOpen)
                               ? Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -830,7 +830,7 @@ class HomeGatewayView extends ConsumerWidget {
                               ? 'Active camp patient roll'
                               : '${patientState.patients.length} historical records',
                           icon: Icons.people_alt_rounded,
-                          accentColor: const Color(0xFF0D9488),
+                          accentColor: AppTheme.brandMagenta,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -910,8 +910,8 @@ class HomeGatewayView extends ConsumerWidget {
                           title: 'Camp Lifecycle & Interactive Calendar',
                           description: 'Schedule outreach camps, enforce single-active camp sessions, view monthly calendar & assign staff rosters.',
                           badgeText: campState.hasActiveCamp ? 'Active: ${campState.activeCamp!.campCode}' : '${campState.camps.length} Camps',
-                          badgeColor: const Color(0xFF0F766E),
-                          accentColor: const Color(0xFF0F766E),
+                          badgeColor: AppTheme.brandPurple,
+                          accentColor: AppTheme.brandPurple,
                           actionPrompt: 'Manage Camp Roster',
                           onTap: () {
                             Navigator.push(
@@ -948,8 +948,8 @@ class HomeGatewayView extends ConsumerWidget {
                           title: 'Staff & Personnel Directory (RBAC)',
                           description: 'Provision staff credentials, station role permissions, password/PIN resets & camp roster assignments.',
                           badgeText: 'RBAC Active',
-                          badgeColor: const Color(0xFF0D9488),
-                          accentColor: const Color(0xFF0D9488),
+                          badgeColor: AppTheme.brandMagenta,
+                          accentColor: AppTheme.brandMagenta,
                           actionPrompt: 'Staff Directory',
                           onTap: () {
                             Navigator.push(
@@ -1043,8 +1043,8 @@ class HomeGatewayView extends ConsumerWidget {
                       children: [
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF0F766E),
-                            side: const BorderSide(color: Color(0xFF0F766E)),
+                            foregroundColor: AppTheme.brandPurple,
+                            side: const BorderSide(color: AppTheme.brandPurple),
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
@@ -1054,7 +1054,7 @@ class HomeGatewayView extends ConsumerWidget {
                         ),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F766E),
+                            backgroundColor: AppTheme.brandPurple,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1303,10 +1303,10 @@ class HomeGatewayView extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF0F766E).withValues(alpha: 0.25), width: 1.5),
+        border: Border.all(color: AppTheme.brandPurple.withValues(alpha: 0.25), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F766E).withValues(alpha: 0.06),
+            color: AppTheme.brandPurple.withValues(alpha: 0.06),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -1326,7 +1326,7 @@ class HomeGatewayView extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF0F766E), Color(0xFF134E4A)],
+                    colors: [Color(0xFF30026E), Color(0xFF240046)],
                   ),
                   borderRadius: BorderRadius.circular(6),
                 ),
@@ -1360,8 +1360,8 @@ class HomeGatewayView extends ConsumerWidget {
               ),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF0F766E),
-                  side: const BorderSide(color: Color(0xFF0F766E)),
+                  foregroundColor: AppTheme.brandPurple,
+                  side: const BorderSide(color: AppTheme.brandPurple),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1421,12 +1421,12 @@ class HomeGatewayView extends ConsumerWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.badge_rounded, size: 15, color: Color(0xFF0F766E)),
+                  const Icon(Icons.badge_rounded, size: 15, color: AppTheme.brandPurple),
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
                       '${camp.assignedStaffIds.length} Staff Assigned',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF0F766E), fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 12, color: AppTheme.brandPurple, fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
@@ -1480,10 +1480,10 @@ class HomeGatewayView extends ConsumerWidget {
                     context: context,
                     width: cardWidth,
                     icon: Icons.assignment_ind_rounded,
-                    iconColor: const Color(0xFF0F766E),
-                    iconBgColor: const Color(0xFFCCFBF1),
+                    iconColor: AppTheme.brandPurple,
+                    iconBgColor: AppTheme.brandPurpleLight,
                     badgeText: 'STAFF ROSTER',
-                    badgeColor: const Color(0xFF0F766E),
+                    badgeColor: AppTheme.brandPurple,
                     title: 'Camp Staff Assignments',
                     description: 'Provision field nurses, gynecologists & assign clinical roles to ${camp.campCode}',
                     onTap: () {
@@ -1522,10 +1522,10 @@ class HomeGatewayView extends ConsumerWidget {
                     context: context,
                     width: cardWidth,
                     icon: Icons.analytics_rounded,
-                    iconColor: const Color(0xFF0D9488),
-                    iconBgColor: const Color(0xFFCCFBF1),
+                    iconColor: AppTheme.brandMagenta,
+                    iconBgColor: AppTheme.brandMagentaLight,
                     badgeText: 'EPIDEMIOLOGY & CHARTS',
-                    badgeColor: const Color(0xFF0D9488),
+                    badgeColor: AppTheme.brandMagenta,
                     title: 'Data Analyst Workstation',
                     description: 'Cross-camp POP staging charts, chief complaint ranking, age demographics & clinical dossiers',
                     onTap: () {
@@ -2026,9 +2026,9 @@ class HomeGatewayView extends ConsumerWidget {
 
   Color _getAuditCategoryColor(String action) {
     final upper = action.toUpperCase();
-    if (upper.contains('CAMP')) return const Color(0xFF0F766E);
+    if (upper.contains('CAMP')) return AppTheme.brandPurple;
     if (upper.contains('DEVICE') || upper.contains('SECURITY') || upper.contains('LOCK')) return const Color(0xFF4338CA);
-    if (upper.contains('USER') || upper.contains('STAFF')) return const Color(0xFF0D9488);
+    if (upper.contains('USER') || upper.contains('STAFF')) return AppTheme.brandMagenta;
     if (upper.contains('PATIENT') || upper.contains('INTAKE') || upper.contains('ASSESSMENT')) return const Color(0xFF10B981);
     if (upper.contains('REPORT') || upper.contains('EXPORT')) return const Color(0xFF7E22CE);
     return const Color(0xFF64748B);
@@ -3597,10 +3597,10 @@ class HomeGatewayView extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                color: AppTheme.brandPurple.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.business_center_outlined, color: Color(0xFF0F766E), size: 22),
+              child: const Icon(Icons.business_center_outlined, color: AppTheme.brandPurple, size: 22),
             ),
             const SizedBox(width: 12),
             const Expanded(
@@ -3683,7 +3683,7 @@ class HomeGatewayView extends ConsumerWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F766E),
+              backgroundColor: AppTheme.brandPurple,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -3967,7 +3967,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         if (savedPath != null) {
           messenger.showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFF0F766E),
+              backgroundColor: AppTheme.brandPurple,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               content: Row(
@@ -4063,7 +4063,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         if (savedPath != null) {
           messenger.showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFF0F766E),
+              backgroundColor: AppTheme.brandPurple,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               content: Row(
@@ -4873,7 +4873,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
               height: 4,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF0D9488), Color(0xFF14B8A6), Color(0xFF0EA5E9)],
+                  colors: [Color(0xFF30026E), Color(0xFF81005D), Color(0xFFBE185D)],
                 ),
               ),
             ),
@@ -4891,19 +4891,19 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF0FDFA),
+                          color: const Color(0xFFF5F3FF),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF99F6E4)),
+                          border: Border.all(color: const Color(0xFFE9D5FF)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.analytics_rounded, color: Color(0xFF0D9488), size: 13),
+                            Icon(Icons.analytics_rounded, color: AppTheme.brandPurple, size: 13),
                             SizedBox(width: 5),
                             Text(
                               'CLINICAL DATA ANALYST WORKSTATION',
                               style: TextStyle(
-                                color: Color(0xFF0F766E),
+                                color: AppTheme.brandPurple,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.6,
@@ -4976,7 +4976,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                                 value: 'all',
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.public_rounded, color: Color(0xFF0D9488), size: 16),
+                                    const Icon(Icons.public_rounded, color: AppTheme.brandPurple, size: 16),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -5044,7 +5044,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     children: [
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D9488),
+                          backgroundColor: AppTheme.brandPurple,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -5094,7 +5094,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        icon: const Icon(Icons.history_edu_rounded, size: 16, color: Color(0xFF0D9488)),
+                        icon: const Icon(Icons.history_edu_rounded, size: 16, color: AppTheme.brandPurple),
                         label: const Text('Audit Trail', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                         onPressed: () {
                           Navigator.push(
@@ -5140,7 +5140,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             value: '$totalReg',
             subtitle: 'Exams Completed: $totalExam',
             icon: Icons.people_alt_rounded,
-            color: const Color(0xFF0D9488),
+            color: AppTheme.brandPurple,
           ),
           _buildTelemetryCard(
             title: 'POP Grade II-IV',
@@ -5229,7 +5229,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       return InputDecoration(
         labelText: labelText,
         labelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
-        prefixIcon: Icon(prefixIcon, size: 18, color: const Color(0xFF0F766E)),
+        prefixIcon: Icon(prefixIcon, size: 18, color: AppTheme.brandPurple),
         filled: true,
         fillColor: const Color(0xFFF8FAFC),
         border: OutlineInputBorder(
@@ -5240,9 +5240,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFF0F766E), width: 1.5),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(10)),
+          borderSide: BorderSide(color: AppTheme.brandPurple, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         isDense: true,
@@ -5588,10 +5588,10 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         FilterChip(
           label: const Text('Clinical Intake Completed', style: TextStyle(fontSize: 11.5)),
           selected: _selectedIntakeStatus == 'completed',
-          selectedColor: const Color(0xFFCCFBF1),
-          checkmarkColor: const Color(0xFF0F766E),
+          selectedColor: const Color(0xFFF5F3FF),
+          checkmarkColor: AppTheme.brandPurple,
           labelStyle: TextStyle(
-            color: _selectedIntakeStatus == 'completed' ? const Color(0xFF0F766E) : const Color(0xFF334155),
+            color: _selectedIntakeStatus == 'completed' ? AppTheme.brandPurple : const Color(0xFF334155),
             fontWeight: _selectedIntakeStatus == 'completed' ? FontWeight.bold : FontWeight.normal,
           ),
           onSelected: (val) => setState(() => _selectedIntakeStatus = val ? 'completed' : 'all'),
@@ -5633,7 +5633,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             const SizedBox(
               width: 14,
               height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F766E)),
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.brandPurple),
             ),
             const SizedBox(width: 8),
           ] else ...[
@@ -5666,7 +5666,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             // Filter Header & Toggle
             Row(
               children: [
-                const Icon(Icons.filter_list_rounded, color: Color(0xFF0F766E), size: 20),
+                const Icon(Icons.filter_list_rounded, color: AppTheme.brandPurple, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Wrap(
@@ -5681,7 +5681,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0F766E),
+                            color: AppTheme.brandPurple,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -5774,7 +5774,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 const SizedBox(height: 8),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F766E),
+                    backgroundColor: AppTheme.brandPurple,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -5966,7 +5966,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       onSelected: (_) => setState(() => _activeTab = id),
       avatar: Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF475569)),
       label: Text(label),
-      selectedColor: const Color(0xFF0F766E),
+      selectedColor: AppTheme.brandPurple,
       labelStyle: TextStyle(
         color: isSelected ? Colors.white : const Color(0xFF334155),
         fontSize: 12.5,
@@ -5976,7 +5976,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(
-          color: isSelected ? const Color(0xFF0F766E) : const Color(0xFFCBD5E1),
+          color: isSelected ? AppTheme.brandPurple : const Color(0xFFCBD5E1),
           width: 1,
         ),
       ),
@@ -6035,10 +6035,10 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                    color: AppTheme.brandPurple.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.stacked_bar_chart_rounded, color: Color(0xFF0F766E), size: 20),
+                  child: const Icon(Icons.stacked_bar_chart_rounded, color: AppTheme.brandPurple, size: 20),
                 ),
                 const SizedBox(width: 10),
                 const Expanded(
@@ -6196,7 +6196,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   ) {
     final totalCohort = patients.length;
     const chartPalette = [
-      Color(0xFF0F766E), // Teal
+      AppTheme.brandPurple, // Brand Purple
       Color(0xFF0284C7), // Sky Blue
       Color(0xFFD97706), // Amber
       Color(0xFF7C3AED), // Violet
@@ -6258,10 +6258,10 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                    color: AppTheme.brandPurple.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.how_to_reg_rounded, color: Color(0xFF0F766E), size: 20),
+                  child: const Icon(Icons.how_to_reg_rounded, color: AppTheme.brandPurple, size: 20),
                 ),
                 const SizedBox(width: 10),
                 const Expanded(
@@ -6330,7 +6330,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       Color(0xFF0284C7), // Sky Blue
       Color(0xFF7C3AED), // Violet
       Color(0xFFD97706), // Amber
-      Color(0xFF0D9488), // Teal
+      Color(0xFF30026E), // Purple
       Color(0xFFDB2777), // Pink
       Color(0xFF4F46E5), // Indigo
       Color(0xFF10B981), // Emerald
@@ -6527,7 +6527,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
               subtitle: 'Peak childbearing & post-partum cohort',
               count: a20to35,
               total: totalPatients,
-              color: const Color(0xFF0D9488),
+              color: AppTheme.brandPurple,
             ),
             const SizedBox(height: 10),
             _buildChartHorizontalBar(
@@ -6646,7 +6646,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     count: '$prescriptionCount',
                     desc: 'Prescriptions Formulated',
                     icon: Icons.medication_rounded,
-                    color: const Color(0xFF0D9488),
+                    color: AppTheme.brandPurple,
                   ),
                   _buildModalityCard(
                     title: 'Pelvic Floor Training',
@@ -6778,12 +6778,12 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                            color: AppTheme.brandPurple.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             '${campPatients.length} Patients ($pctOfTotal%)',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.brandPurple),
                           ),
                         ),
                       ],
@@ -6802,7 +6802,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                         value: allPatients.isNotEmpty ? campPatients.length / allPatients.length : 0,
                         minHeight: 6,
                         backgroundColor: const Color(0xFFE2E8F0),
-                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0D9488)),
+                        valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -6857,10 +6857,10 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                    color: AppTheme.brandPurple.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.folder_shared_rounded, color: Color(0xFF0F766E), size: 24),
+                  child: const Icon(Icons.folder_shared_rounded, color: AppTheme.brandPurple, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -6932,10 +6932,10 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
                         final avatar = CircleAvatar(
                           radius: 22,
-                          backgroundColor: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                          backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.12),
                           child: Text(
                             patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F766E), fontSize: 16),
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.brandPurple, fontSize: 16),
                           ),
                         );
 
@@ -7030,8 +7030,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
                         final inspectBtn = OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF0F766E),
-                            side: BorderSide(color: Colors.teal.shade200),
+                            foregroundColor: AppTheme.brandPurple,
+                            side: const BorderSide(color: AppTheme.brandPurpleBorder),
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
@@ -7042,7 +7042,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
                         final dossierBtn = ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F766E),
+                            backgroundColor: AppTheme.brandPurple,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -7113,8 +7113,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 children: [
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0F766E),
-                      side: BorderSide(color: safePage > 0 ? const Color(0xFF0F766E) : Colors.grey.shade300),
+                      foregroundColor: AppTheme.brandPurple,
+                      side: BorderSide(color: safePage > 0 ? AppTheme.brandPurple : Colors.grey.shade300),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
@@ -7136,8 +7136,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   ),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0F766E),
-                      side: BorderSide(color: safePage < totalPages - 1 ? const Color(0xFF0F766E) : Colors.grey.shade300),
+                      foregroundColor: AppTheme.brandPurple,
+                      side: BorderSide(color: safePage < totalPages - 1 ? AppTheme.brandPurple : Colors.grey.shade300),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
@@ -7516,12 +7516,12 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                              color: AppTheme.brandPurple.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               p.patientId,
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F766E), fontSize: 11),
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.brandPurple, fontSize: 11),
                             ),
                           ),
                         ],
@@ -7547,7 +7547,7 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
           // Content
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF0F766E)))
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.brandPurple))
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: Column(
@@ -7658,7 +7658,7 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
               width: double.infinity,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F766E),
+                  backgroundColor: AppTheme.brandPurple,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -7682,7 +7682,7 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.brandPurple),
       ),
     );
   }
@@ -7726,7 +7726,7 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: isHighlight ? const Color(0xFF0F766E) : const Color(0xFFE2E8F0),
+            color: isHighlight ? AppTheme.brandPurple : const Color(0xFFE2E8F0),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(

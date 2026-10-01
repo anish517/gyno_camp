@@ -279,7 +279,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
           child: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF042F2E), Color(0xFF0F766E), Color(0xFF0D9488)],
+                colors: [Color(0xFF1E0A38), Color(0xFF30026E), Color(0xFF56014B)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -307,7 +307,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                     height: 300,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF2DD4BF).withValues(alpha: 0.08),
+                      color: const Color(0xFFBE185D).withValues(alpha: 0.12),
                     ),
                   ),
                 ),
@@ -342,7 +342,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                                   fit: BoxFit.cover,
                                   errorBuilder: (ctx, err, stack) => const Icon(
                                     Icons.medical_services_rounded,
-                                    color: Color(0xFF0F766E),
+                                    color: AppTheme.brandPurple,
                                     size: 28,
                                   ),
                                 ),
@@ -566,14 +566,14 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   height: 60,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppTheme.primaryTeal, Color(0xFF0F766E)],
+                      colors: [AppTheme.brandPurple, AppTheme.brandMagenta],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.primaryTeal.withValues(alpha: 0.28),
+                        color: AppTheme.brandPurple.withValues(alpha: 0.28),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -729,20 +729,20 @@ class _LoginViewState extends ConsumerState<LoginView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                        color: AppTheme.brandPurple.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.auto_awesome_rounded, size: 12, color: AppTheme.primaryTeal),
+                          Icon(Icons.auto_awesome_rounded, size: 12, color: AppTheme.brandPurple),
                           SizedBox(width: 4),
                           Text(
                             'Auto-Detect Role',
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryTeal,
+                              color: AppTheme.brandPurple,
                             ),
                           ),
                         ],
@@ -794,7 +794,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                     const SizedBox(width: 8),
                     Text(
                       'PIN or Password',
-                      style: TextStyle(fontSize: 11, color: Colors.teal.shade700, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 11, color: AppTheme.brandPurple, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -831,11 +831,11 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   height: 48,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryTeal,
+                      backgroundColor: AppTheme.brandPurple,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       elevation: 1,
-                      shadowColor: AppTheme.primaryTeal.withValues(alpha: 0.3),
+                      shadowColor: AppTheme.brandPurple.withValues(alpha: 0.3),
                     ),
                     icon: authState.isLoading
                         ? const SizedBox(

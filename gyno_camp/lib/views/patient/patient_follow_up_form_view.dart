@@ -666,8 +666,8 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   Widget _buildPastVisitEncounterCard(ClinicalVisitModel v, int index) {
     final isF = v.isFollowUp;
     final isDl = _dlSlipIdx.contains(index);
-    final ac = isF ? const Color(0xFF0891B2) : AppTheme.primaryTeal;
-    final bg = isF ? const Color(0xFFECFEFF) : const Color(0xFFF0FDFA);
+    final ac = isF ? AppTheme.brandMagenta : AppTheme.brandPurple;
+    final bg = isF ? const Color(0xFFFDF2F8) : AppTheme.brandPurpleLight;
     final fmt = DateFormat('yyyy-MM-dd HH:mm');
 
     // BP classification matching PDF slip
@@ -769,7 +769,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             if (v.deliveries != null || v.livingChildren != null || v.abortions != null) ...[
-                              _obsBadge('Deliveries (P)', v.deliveries?.toString() ?? '?', const Color(0xFFF0FDFA), AppTheme.primaryTeal),
+                              _obsBadge('Deliveries (P)', v.deliveries?.toString() ?? '?', AppTheme.brandPurpleLight, AppTheme.brandPurple),
                               _obsBadge('Living (L)', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
                               _obsBadge('Losses (A)', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
                             ],

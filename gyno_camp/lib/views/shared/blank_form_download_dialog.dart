@@ -212,7 +212,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: const BoxDecoration(
-                color: Color(0xFF0F766E),
+                color: AppTheme.brandPurple,
               ),
               child: Row(
                 children: [
@@ -268,7 +268,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
-                        color: Color(0xFF0F766E),
+                        color: AppTheme.brandPurple,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -303,7 +303,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
-                        color: Color(0xFF0F766E),
+                        color: AppTheme.brandPurple,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -354,7 +354,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                       // Doctor Selection Options
                       RadioListTile<DoctorSelectionMode>(
                         dense: true,
-                        activeColor: const Color(0xFF0F766E),
+                        activeColor: AppTheme.brandPurple,
                         contentPadding: EdgeInsets.zero,
                         value: DoctorSelectionMode.specificDoctor,
                         groupValue: _doctorMode,
@@ -392,7 +392,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                       if (doctors.length > 1) ...[
                         RadioListTile<DoctorSelectionMode>(
                           dense: true,
-                          activeColor: const Color(0xFF0F766E),
+                          activeColor: AppTheme.brandPurple,
                           contentPadding: EdgeInsets.zero,
                           value: DoctorSelectionMode.allDoctorsBatch,
                           groupValue: _doctorMode,
@@ -403,7 +403,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                       ],
                       RadioListTile<DoctorSelectionMode>(
                         dense: true,
-                        activeColor: const Color(0xFF0F766E),
+                        activeColor: AppTheme.brandPurple,
                         contentPadding: EdgeInsets.zero,
                         value: DoctorSelectionMode.blankDoctorField,
                         groupValue: _doctorMode,
@@ -454,7 +454,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F766E),
+                      backgroundColor: AppTheme.brandPurple,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),

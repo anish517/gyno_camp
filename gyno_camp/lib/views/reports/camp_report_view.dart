@@ -1725,10 +1725,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
 
     return Card(
       elevation: 0,
-      color: const Color(0xFFF0FDFA),
+      color: AppTheme.brandPurpleLight,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: Color(0xFFB2DFDB)),
+        side: const BorderSide(color: AppTheme.brandPurpleBorder),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -3354,13 +3354,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
+                          color: AppTheme.brandPurpleLight,
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFFA7F3D0)),
+                          border: Border.all(color: AppTheme.brandPurpleBorder),
                         ),
                         child: Text(
                           '🩺 Dr. $docName',
-                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF047857)),
+                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: AppTheme.brandPurple),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -3386,7 +3386,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   children: [
                     _buildPopStageChip(visit.highestPopStage),
                     if (visit.pessaryType != null && visit.pessaryType!.isNotEmpty)
-                      _buildSmallStatusChip('💍 Pessary', const Color(0xFF0D9488), const Color(0xFFCCFBF1)),
+                      _buildSmallStatusChip('💍 Pessary', AppTheme.brandPurple, AppTheme.brandPurpleLight),
                     if (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty)
                       _buildSmallStatusChip('🏥 Surgery Ref', const Color(0xFF7C3AED), const Color(0xFFEDE9FE)),
                     if (visit.diagnoses.isNotEmpty)

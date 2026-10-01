@@ -2309,7 +2309,7 @@ class _BlockLetterGridFieldState extends State<_BlockLetterGridField> {
               color: isCursor
                   ? const Color(0xFFE0F2FE)
                   : hasChar
-                      ? const Color(0xFFF0FDFA)
+                      ? AppTheme.brandPurpleLight
                       : Colors.white,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(

@@ -113,7 +113,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
               icon: const Icon(Icons.person_add_rounded, size: 16),
               label: const Text('Add Staff', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D9488),
+                backgroundColor: AppTheme.brandPurple,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -190,7 +190,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                 label: 'Total Personnel',
                                 value: '${users.length}',
                                 icon: Icons.badge_outlined,
-                                color: const Color(0xFF0F766E),
+                                color: AppTheme.brandPurple,
                                 isSelected: _filterRole == null && _statusFilter == StaffStatusFilter.all,
                                 onTap: () => setState(() {
                                   _filterRole = null;
@@ -218,7 +218,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                 label: 'Super Admins',
                                 value: '$totalAdmins',
                                 icon: Icons.admin_panel_settings_rounded,
-                                color: const Color(0xFF0F766E),
+                                color: AppTheme.brandPurple,
                                 isSelected: _filterRole == UserRole.superAdmin,
                                 onTap: () => setState(() {
                                   _filterRole = UserRole.superAdmin;
@@ -1053,11 +1053,11 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF0FDFA),
+                              color: AppTheme.brandPurpleLight,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFCCFBF1)),
+                              border: Border.all(color: AppTheme.brandPurpleBorder),
                             ),
-                            child: const Icon(Icons.person_add_alt_1_rounded, color: AppTheme.primaryTeal, size: 20),
+                            child: const Icon(Icons.person_add_alt_1_rounded, color: AppTheme.brandPurple, size: 20),
                           ),
                           const SizedBox(width: 12),
                           const Expanded(
@@ -1084,14 +1084,14 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF0FDFA),
+                              color: const Color(0xFFF5F3FF),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFCCFBF1)),
+                              border: Border.all(color: const Color(0xFFE9D5FF)),
                             ),
                             child: const Text(
                               'NEW STAFF',
                               style: TextStyle(
-                                color: Color(0xFF0F766E),
+                                color: AppTheme.brandPurple,
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
@@ -1377,12 +1377,12 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: const Color(0xFFCCFBF1),
+                                                color: const Color(0xFFF5F3FF),
                                                 borderRadius: BorderRadius.circular(4),
                                               ),
                                               child: Text(
                                                 c.campCode,
-                                                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                                                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.brandPurple),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
@@ -1918,14 +1918,14 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDFA),
+                        color: const Color(0xFFF5F3FF),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFCCFBF1)),
+                        border: Border.all(color: const Color(0xFFE9D5FF)),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.security_rounded, size: 20, color: Color(0xFF0F766E)),
+                          const Icon(Icons.security_rounded, size: 20, color: AppTheme.brandPurple),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -1933,12 +1933,12 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                               children: [
                                 Text(
                                   'User: ${staff.email}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F766E)),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.brandPurple),
                                 ),
                                 const SizedBox(height: 2),
                                 const Text(
                                   'Updating credentials immediately takes effect across all field workstations and authentications. Leave fields blank to keep existing credentials unchanged.',
-                                  style: TextStyle(fontSize: 11, color: Color(0xFF0F766E)),
+                                  style: TextStyle(fontSize: 11, color: AppTheme.brandPurple),
                                 ),
                               ],
                             ),
@@ -2081,7 +2081,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
   Widget _buildFormSectionHeader(IconData icon, String title) {
     return Row(
       children: [
-        Icon(icon, size: 15, color: const Color(0xFF0F766E)),
+        Icon(icon, size: 15, color: AppTheme.brandPurple),
         const SizedBox(width: 6),
         Text(
           title.toUpperCase(),
@@ -2089,7 +2089,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
             fontSize: 11,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
-            color: Color(0xFF0F766E),
+            color: AppTheme.brandPurple,
           ),
         ),
         const SizedBox(width: 8),
