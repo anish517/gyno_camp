@@ -75,7 +75,7 @@ class HomeGatewayView extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 64,
+        toolbarHeight: 70,
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.textPrimaryLight,
         elevation: 0,
@@ -90,27 +90,39 @@ class HomeGatewayView extends ConsumerWidget {
           children: [
             // Brand Logo mark
             Container(
-              width: 36,
-              height: 36,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(10),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF0D9488).withValues(alpha: 0.35), width: 2),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0D9488).withValues(alpha: 0.25),
-                    blurRadius: 6,
+                    color: const Color(0xFF0D9488).withValues(alpha: 0.2),
+                    blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.health_and_safety_rounded,
-                color: Colors.white,
-                size: 20,
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/WFWSNPrimaryCircle.jpg',
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, err, stack) => Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.health_and_safety_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -126,7 +138,7 @@ class HomeGatewayView extends ConsumerWidget {
                       style: TextStyle(
                         color: Color(0xFF0F172A),
                         fontWeight: FontWeight.w900,
-                        fontSize: 16.5,
+                        fontSize: 17.5,
                         letterSpacing: -0.4,
                       ),
                     ),

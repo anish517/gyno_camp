@@ -323,11 +323,11 @@ class _LoginViewState extends ConsumerState<LoginView> {
                         Row(
                           children: [
                             Container(
-                              width: 52,
-                              height: 52,
+                              width: 64,
+                              height: 64,
                               decoration: BoxDecoration(
+                                shape: BoxShape.circle,
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.15),
@@ -336,10 +336,16 @@ class _LoginViewState extends ConsumerState<LoginView> {
                                   ),
                                 ],
                               ),
-                              child: const Icon(
-                                Icons.medical_services_rounded,
-                                color: Color(0xFF0F766E),
-                                size: 28,
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/WFWSNPrimaryCircle.jpg',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (ctx, err, stack) => const Icon(
+                                    Icons.medical_services_rounded,
+                                    color: Color(0xFF0F766E),
+                                    size: 28,
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 14),
