@@ -45,6 +45,26 @@ class PatientListView extends ConsumerStatefulWidget {
 }
 
 class _PatientListViewState extends ConsumerState<PatientListView> {
+  static const Map<String, String> _clinicalLabelMap = {
+    'routine_checkup': 'Routine Checkup (नियमित जाँच)',
+    'checkup': 'Routine Checkup (नियमित जाँच)',
+    'something hanging out': 'Prolapse / Something Hanging Out (आङ खस्ने)',
+    'something_hanging_out': 'Prolapse / Something Hanging Out (आङ खस्ने)',
+    'discharge and or itching': 'White Discharge & Itching (सेतो पानी तथा चिलाउने)',
+    'discharge_and_or_itching': 'White Discharge & Itching (सेतो पानी तथा चिलाउने)',
+    'discharge_itching': 'White Discharge & Itching (सेतो पानी तथा चिलाउने)',
+    'problems passing urine': 'Urinary Problems (पिसाब सम्बन्धी)',
+    'problems_passing_urine': 'Urinary Problems (पिसाब सम्बन्धी)',
+    'problems passing stool': 'Bowel / Stool Problems (दिसा सम्बन्धी)',
+    'problems_passing_stool': 'Bowel / Stool Problems (दिसा सम्बन्धी)',
+    'menstrual problem': 'Menstrual Problem (महिनावारी गडबडी)',
+    'menstrual_problem': 'Menstrual Problem (महिनावारी गडबडी)',
+    'infertility': 'Infertility (निःसन्तान)',
+    'pain': 'Pelvic / Lower Abdominal Pain (तल्लो पेट / कम्मर दुख्ने)',
+    'lower_abdominal_pain': 'Lower Abdominal Pain (तल्लो पेट दुख्ने)',
+    'post_menopausal_bleeding': 'Post-Menopausal Bleeding (महिनावारी रोकिएपछिको रक्तस्राव)',
+  };
+
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _municipalityFilterController =
       TextEditingController();
@@ -64,6 +84,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           currentFilters.copyWith(campId: targetCampId),
         );
       }
+      ref.read(masterLookupProvider.notifier).setCampScope(targetCampId);
       if (widget.initialQuery != null &&
           widget.initialQuery!.trim().isNotEmpty) {
         _searchController.text = widget.initialQuery!.trim();
@@ -1040,25 +1061,31 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.tune_rounded,
-                    size: 15,
-                    color: hasCustom ? const Color(0xFF16A34A) : const Color(0xFF64748B),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Custom Age Range (कस्टम उमेर)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: hasCustom ? const Color(0xFF166534) : const Color(0xFF334155),
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.tune_rounded,
+                      size: 15,
+                      color: hasCustom ? const Color(0xFF16A34A) : const Color(0xFF64748B),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Custom Age Range (कस्टम उमेर)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: hasCustom ? const Color(0xFF166534) : const Color(0xFF334155),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              if (hasCustom)
+              if (hasCustom) ...[
+                const SizedBox(width: 6),
                 InkWell(
                   onTap: () {
                     _minAgeController.clear();
@@ -1082,6 +1109,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
           if (hasCustom) ...[
@@ -1254,17 +1282,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     }
     final sortedDoctors = allDoctors.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    // Dynamic Diagnoses: active camp lookups + patient records + current filter
+    // Dynamic Diagnoses: active camp lookups + patient records + current filter (NO hardcoded static defaults)
     final activeDiagnoses = ref.watch(activeDiagnosesProvider);
     final allDiagnoses = <String>{};
-    if (activeDiagnoses.isNotEmpty) {
-      for (final d in activeDiagnoses) {
-        if (d.labelEn.trim().isNotEmpty) {
-          allDiagnoses.add(d.labelNe.isNotEmpty ? '${d.labelEn} (${d.labelNe})' : d.labelEn);
-        }
+    for (final d in activeDiagnoses) {
+      if (d.labelEn.trim().isNotEmpty) {
+        allDiagnoses.add(d.labelNe.isNotEmpty ? '${d.labelEn} (${d.labelNe})' : d.labelEn);
       }
-    } else {
-      allDiagnoses.addAll(ClinicalConstants.defaultDiagnoses);
     }
     for (final p in patientState.rawPatients) {
       allDiagnoses.addAll(p.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
@@ -1272,7 +1296,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     for (final p in patientState.patients) {
       allDiagnoses.addAll(p.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
     }
-    if (filters.disease != null && filters.disease!.trim().isNotEmpty) {
+    if (filters.disease != null && filters.disease!.trim().isNotEmpty && filters.disease != 'all') {
       allDiagnoses.add(filters.disease!.trim());
     }
     final sortedDiagnoses = allDiagnoses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
@@ -1294,25 +1318,24 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       for (final r in p.reasonsForVisit) {
         final cleanR = r.trim();
         if (cleanR.isNotEmpty && !dynamicComplaintsMap.keys.any((k) => k.toLowerCase() == cleanR.toLowerCase())) {
-          dynamicComplaintsMap[cleanR] = cleanR;
+          final normR = cleanR.toLowerCase().replaceAll('_', ' ');
+          final label = _clinicalLabelMap[normR] ??
+              _clinicalLabelMap[cleanR] ??
+              _clinicalLabelMap[normR.replaceAll(' ', '_')] ??
+              (normR.contains('hanging') || normR.contains('prolapse') ? 'Prolapse / Something Hanging Out (आङ खस्ने)' : cleanR);
+          dynamicComplaintsMap[cleanR] = label;
         }
       }
-    }
-    if (dynamicComplaintsMap.isEmpty) {
-      dynamicComplaintsMap['something hanging out'] = 'Prolapse / Something Hanging Out (आङ खस्ने)';
-      dynamicComplaintsMap['discharge and or itching'] = 'White Discharge & Itching (सेतो पानी तथा चिलाउने)';
-      dynamicComplaintsMap['problems passing urine'] = 'Urinary Problems (पिसाब सम्बन्धी)';
-      dynamicComplaintsMap['problems passing stool'] = 'Bowel / Stool Problems (दिसा सम्बन्धी)';
-      dynamicComplaintsMap['menstrual problem'] = 'Menstrual Problem (महिनावारी गडबडी)';
-      dynamicComplaintsMap['infertility'] = 'Infertility (निःसन्तान)';
-      dynamicComplaintsMap['pain'] = 'Pelvic / Lower Abdominal Pain (तल्लो पेट / कम्मर दुख्ने)';
-      dynamicComplaintsMap['checkup'] = 'Routine Checkup (सामान्य स्वास्थ्य जाँच)';
     }
     if (filters.chiefComplaint != null &&
         filters.chiefComplaint!.isNotEmpty &&
         filters.chiefComplaint != 'all' &&
         !dynamicComplaintsMap.containsKey(filters.chiefComplaint)) {
-      dynamicComplaintsMap[filters.chiefComplaint!] = filters.chiefComplaint!;
+      final normC = filters.chiefComplaint!.toLowerCase().replaceAll('_', ' ');
+      final label = _clinicalLabelMap[normC] ??
+          _clinicalLabelMap[filters.chiefComplaint] ??
+          filters.chiefComplaint!;
+      dynamicComplaintsMap[filters.chiefComplaint!] = label;
     }
 
     return Container(
@@ -1482,6 +1505,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           ],
                           onChanged: (val) {
                             vm.updateFilters(filters.copyWith(campId: val));
+                            final campScope = (val != null && val != 'all') ? val : null;
+                            ref.read(masterLookupProvider.notifier).setCampScope(campScope);
                             if (val != null && val != 'all') {
                               vm.loadPatients(val);
                             } else {
@@ -1880,7 +1905,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           ),
                           isExpanded: true,
                           items: [
-                            const DropdownMenuItem(value: null, child: Text('All Diagnoses (सबै निदान)', style: TextStyle(fontSize: 13, color: Colors.grey))),
+                            DropdownMenuItem(
+                              value: null,
+                              child: Text(
+                                sortedDiagnoses.isEmpty
+                                    ? 'No Diagnoses Defined (कुनै निदान छैन)'
+                                    : 'All Diagnoses (सबै निदान)',
+                                style: const TextStyle(fontSize: 13, color: Colors.grey),
+                              ),
+                            ),
                             ...sortedDiagnoses.map((d) =>
                               DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis))),
                           ],
@@ -1977,9 +2010,17 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           ),
                           isExpanded: true,
                           items: [
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                               value: 'all',
-                              child: Text('All Complaints (सबै मुख्य समस्या)', style: TextStyle(fontSize: 13)),
+                              child: Text(
+                                dynamicComplaintsMap.isEmpty
+                                    ? 'No Complaints Defined (कुनै समस्या छैन)'
+                                    : 'All Complaints (सबै मुख्य समस्या)',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: dynamicComplaintsMap.isEmpty ? Colors.grey : null,
+                                ),
+                              ),
                             ),
                             ...dynamicComplaintsMap.entries.map((e) => DropdownMenuItem(
                                   value: e.key,
