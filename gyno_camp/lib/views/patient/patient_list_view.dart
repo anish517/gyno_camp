@@ -1,7 +1,12 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter/services.dart'
+    show
+        Clipboard,
+        ClipboardData,
+        FilteringTextInputFormatter,
+        LengthLimitingTextInputFormatter;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -53,6 +58,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final targetCampId = widget.campId ?? ref.read(userActiveCampProvider)?.id;
+      final currentFilters = ref.read(patientListProvider).filters;
+      if (currentFilters.campId == null && targetCampId != null) {
+        ref.read(patientListProvider.notifier).updateFilters(
+          currentFilters.copyWith(campId: targetCampId),
+        );
+      }
       if (widget.initialQuery != null &&
           widget.initialQuery!.trim().isNotEmpty) {
         _searchController.text = widget.initialQuery!.trim();
@@ -176,25 +187,56 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 letterSpacing: -0.3,
               ),
             ),
-            if (effectiveCamp != null)
-              Container(
-                margin: const EdgeInsets.only(top: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF30026E).withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(5),
-                  border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.18)),
-                ),
-                child: Text(
-                  '${effectiveCamp.name}  •  ${effectiveCamp.campCode}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF30026E),
-                    letterSpacing: 0.1,
+            Builder(builder: (context) {
+              final selectedCampId = patientState.filters.campId ?? effectiveCampId;
+              if (selectedCampId == null || selectedCampId == 'all') {
+                return Container(
+                  margin: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF30026E).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.18)),
                   ),
-                ),
-              ),
+                  child: const Text(
+                    'All Camps (सबै क्याम्पहरू)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF30026E),
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                );
+              }
+
+              final displayedCamp = campState.camps.cast<CampModel?>().firstWhere(
+                    (c) => c?.id == selectedCampId,
+                    orElse: () => effectiveCamp,
+                  );
+
+              if (displayedCamp != null) {
+                return Container(
+                  margin: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF30026E).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.18)),
+                  ),
+                  child: Text(
+                    '${displayedCamp.name}  •  ${displayedCamp.campCode}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF30026E),
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
           ],
         ),
         actions: [
@@ -603,6 +645,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       ),
                       if (hasActiveFilters) ...[
                         const SizedBox(width: 8),
+                        ..._buildActiveFilterPills(patientState.filters, vm),
                         InkWell(
                           onTap: () => _clearAllFilters(vm),
                           borderRadius: BorderRadius.circular(8),
@@ -619,7 +662,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                 Icon(Icons.close_rounded, size: 12, color: AppTheme.dangerRose),
                                 SizedBox(width: 3),
                                 Text(
-                                  'Reset',
+                                  'Reset All',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -795,6 +838,139 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     vm.resetFilters();
   }
 
+  List<Widget> _buildActiveFilterPills(
+    PatientFilterCriteria filters,
+    PatientListViewModel vm,
+  ) {
+    final pills = <Widget>[];
+
+    // Age
+    if (filters.minAge != null || filters.maxAge != null) {
+      final label = 'Age: ${filters.minAge ?? 0}-${filters.maxAge ?? "∞"}y';
+      pills.add(_buildFilterPill(label, () {
+        _minAgeController.clear();
+        _maxAgeController.clear();
+        vm.updateFilters(filters.copyWith(clearMinAge: true, clearMaxAge: true));
+      }));
+    }
+
+    // Chief Complaint
+    if (filters.chiefComplaint != null &&
+        filters.chiefComplaint!.isNotEmpty &&
+        filters.chiefComplaint != 'all') {
+      pills.add(_buildFilterPill('Complaint: ${filters.chiefComplaint}', () {
+        vm.updateFilters(filters.copyWith(clearChiefComplaint: true));
+      }));
+    }
+
+    // Disease / Diagnosis
+    if (filters.disease != null &&
+        filters.disease!.isNotEmpty &&
+        filters.disease != 'all') {
+      pills.add(_buildFilterPill('Dx: ${filters.disease}', () {
+        vm.updateFilters(filters.copyWith(clearDisease: true));
+      }));
+    }
+
+    // POP Stage
+    if (filters.popStage != null && filters.popStage != 'all') {
+      pills.add(_buildFilterPill('Stage: ${filters.popStage}', () {
+        vm.updateFilters(filters.copyWith(popStage: 'all'));
+      }));
+    }
+
+    // Doctor
+    if (filters.doctor != null && filters.doctor != 'all' && filters.doctor!.isNotEmpty) {
+      pills.add(_buildFilterPill('Dr: ${filters.doctor}', () {
+        vm.updateFilters(filters.copyWith(doctor: 'all'));
+      }));
+    }
+
+    // Clinical Intake
+    if (filters.clinicalIntake != null && filters.clinicalIntake != 'all') {
+      pills.add(_buildFilterPill('Intake: ${filters.clinicalIntake}', () {
+        vm.updateFilters(filters.copyWith(clinicalIntake: 'all'));
+      }));
+    }
+
+    // Surgery Done
+    if (filters.surgeryDone != null && filters.surgeryDone != 'all') {
+      pills.add(_buildFilterPill('Surgery: ${filters.surgeryDone == 'yes' ? 'Done' : 'No'}', () {
+        vm.updateFilters(filters.copyWith(surgeryDone: 'all', clearSurgeryType: true));
+      }));
+    }
+
+    // Marital Status
+    if (filters.maritalStatus != null && filters.maritalStatus != 'all') {
+      pills.add(_buildFilterPill('Status: ${filters.maritalStatus}', () {
+        vm.updateFilters(filters.copyWith(maritalStatus: 'all'));
+      }));
+    }
+
+    // District
+    if (filters.district != null && filters.district != 'all' && filters.district!.isNotEmpty) {
+      pills.add(_buildFilterPill('Dist: ${filters.district}', () {
+        vm.updateFilters(filters.copyWith(district: 'all'));
+      }));
+    }
+
+    // Municipality
+    if (filters.municipality != null && filters.municipality!.isNotEmpty) {
+      pills.add(_buildFilterPill('Palika: ${filters.municipality}', () {
+        _municipalityFilterController.clear();
+        vm.updateFilters(filters.copyWith(clearMunicipality: true));
+      }));
+    }
+
+    // Province
+    if (filters.province != null && filters.province != 'all' && filters.province!.isNotEmpty) {
+      pills.add(_buildFilterPill('Province: ${filters.province}', () {
+        vm.updateFilters(filters.copyWith(clearProvince: true));
+      }));
+    }
+
+    return pills;
+  }
+
+  Widget _buildFilterPill(String label, VoidCallback onRemove) {
+    return Container(
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1D4ED8),
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: onRemove,
+            borderRadius: BorderRadius.circular(4),
+            child: const Padding(
+              padding: EdgeInsets.all(1.0),
+              child: Icon(Icons.close_rounded, size: 12, color: Color(0xFF1D4ED8)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Builds the custom age range input row inside the filter panel.
   Widget _buildCustomAgeRangeRow(
     BuildContext context,
@@ -850,135 +1026,182 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
     return Container(
       decoration: BoxDecoration(
-        color: hasCustom ? const Color(0xFFEFFDF4) : const Color(0xFFF1F5F9),
+        color: hasCustom ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: hasCustom ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
           width: hasCustom ? 1.5 : 1.0,
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(
-                Icons.tune_rounded,
-                size: 14,
-                color: hasCustom ? AppTheme.successGreen : const Color(0xFF64748B),
+              Row(
+                children: [
+                  Icon(
+                    Icons.tune_rounded,
+                    size: 15,
+                    color: hasCustom ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Custom Age Range (कस्टम उमेर)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: hasCustom ? const Color(0xFF166534) : const Color(0xFF334155),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Text(
-                hasCustom
-                    ? 'Custom Age Filter Active: ${filters.minAge ?? "∞"} – ${filters.maxAge ?? "∞"} yrs'
-                    : 'Custom Age Range (कस्टम उमेर)',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: hasCustom ? AppTheme.brandPurple : const Color(0xFF475569),
-                ),
-              ),
-              if (hasCustom) ...[
-                const SizedBox(width: 6),
+              if (hasCustom)
                 InkWell(
                   onTap: () {
                     _minAgeController.clear();
                     _maxAgeController.clear();
                     vm.updateFilters(filters.copyWith(clearMinAge: true, clearMaxAge: true));
                   },
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
-                    padding: EdgeInsets.all(2),
-                    child: Icon(Icons.close_rounded, size: 14, color: Color(0xFF64748B)),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDC2626).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.close_rounded, size: 12, color: Color(0xFFDC2626)),
+                        SizedBox(width: 2),
+                        Text('Reset', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+                      ],
+                    ),
                   ),
                 ),
-              ],
             ],
           ),
-          const SizedBox(height: 8),
+          if (hasCustom) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDCFCE7),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF86EFAC)),
+              ),
+              child: Text(
+                'Active: ${filters.minAge ?? "0"} to ${filters.maxAge ?? "100+"} years old',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _minAgeController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: InputDecoration(
-                    labelText: 'Min Age (न्यून उमेर)',
-                    hintText: 'e.g. 25',
-                    prefixIcon: const Icon(Icons.person_outline_rounded, size: 16),
-                    isDense: true,
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Min Age', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: _minAgeController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. 18',
+                        suffixText: 'yr',
+                        suffixStyle: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.5),
+                        ),
+                      ),
+                      onSubmitted: (_) => applyCustomRange(),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.5),
-                    ),
-                  ),
-                  onSubmitted: (_) => applyCustomRange(),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  '–',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: hasCustom ? AppTheme.successGreen : const Color(0xFF94A3B8),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _maxAgeController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: InputDecoration(
-                    labelText: 'Max Age (अधिकतम उमेर)',
-                    hintText: 'e.g. 55',
-                    prefixIcon: const Icon(Icons.person_rounded, size: 16),
-                    isDense: true,
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.5),
-                    ),
-                  ),
-                  onSubmitted: (_) => applyCustomRange(),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: applyCustomRange,
-                icon: const Icon(Icons.search_rounded, size: 15, color: Colors.white),
-                label: const Text(
-                  'Apply',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryTeal,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              const Padding(
+                padding: EdgeInsets.only(top: 18),
+                child: Text('–', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8))),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Max Age', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: _maxAgeController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. 60',
+                        suffixText: 'yr',
+                        suffixStyle: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.5),
+                        ),
+                      ),
+                      onSubmitted: (_) => applyCustomRange(),
+                    ),
+                  ],
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: applyCustomRange,
+              icon: const Icon(Icons.check_rounded, size: 15, color: Colors.white),
+              label: const Text(
+                'Apply Age Range (लागू गर्नुहोस्)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryTeal,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
           ),
         ],
       ),
@@ -1031,9 +1254,18 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     }
     final sortedDoctors = allDoctors.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    // Dynamic Diagnoses: seeded defaults + patient records + current filter
+    // Dynamic Diagnoses: active camp lookups + patient records + current filter
+    final activeDiagnoses = ref.watch(activeDiagnosesProvider);
     final allDiagnoses = <String>{};
-    allDiagnoses.addAll(ClinicalConstants.defaultDiagnoses);
+    if (activeDiagnoses.isNotEmpty) {
+      for (final d in activeDiagnoses) {
+        if (d.labelEn.trim().isNotEmpty) {
+          allDiagnoses.add(d.labelNe.isNotEmpty ? '${d.labelEn} (${d.labelNe})' : d.labelEn);
+        }
+      }
+    } else {
+      allDiagnoses.addAll(ClinicalConstants.defaultDiagnoses);
+    }
     for (final p in patientState.rawPatients) {
       allDiagnoses.addAll(p.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
     }
@@ -1044,6 +1276,44 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       allDiagnoses.add(filters.disease!.trim());
     }
     final sortedDiagnoses = allDiagnoses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    // Dynamic Complaints & Visit Reasons: active master lookups + patient records
+    final activeVisitReasons = ref.watch(activeVisitReasonsProvider);
+    final activeChiefComplaints = ref.watch(activeChiefComplaintsProvider);
+    final dynamicComplaintsMap = <String, String>{};
+    for (final item in [...activeVisitReasons, ...activeChiefComplaints]) {
+      final key = item.code.trim().isNotEmpty ? item.code.trim() : item.labelEn.trim();
+      final label = item.labelNe.isNotEmpty
+          ? '${item.labelEn} (${item.labelNe})'
+          : item.labelEn;
+      if (key.isNotEmpty && !dynamicComplaintsMap.containsKey(key)) {
+        dynamicComplaintsMap[key] = label;
+      }
+    }
+    for (final p in patientState.rawPatients) {
+      for (final r in p.reasonsForVisit) {
+        final cleanR = r.trim();
+        if (cleanR.isNotEmpty && !dynamicComplaintsMap.keys.any((k) => k.toLowerCase() == cleanR.toLowerCase())) {
+          dynamicComplaintsMap[cleanR] = cleanR;
+        }
+      }
+    }
+    if (dynamicComplaintsMap.isEmpty) {
+      dynamicComplaintsMap['something hanging out'] = 'Prolapse / Something Hanging Out (आङ खस्ने)';
+      dynamicComplaintsMap['discharge and or itching'] = 'White Discharge & Itching (सेतो पानी तथा चिलाउने)';
+      dynamicComplaintsMap['problems passing urine'] = 'Urinary Problems (पिसाब सम्बन्धी)';
+      dynamicComplaintsMap['problems passing stool'] = 'Bowel / Stool Problems (दिसा सम्बन्धी)';
+      dynamicComplaintsMap['menstrual problem'] = 'Menstrual Problem (महिनावारी गडबडी)';
+      dynamicComplaintsMap['infertility'] = 'Infertility (निःसन्तान)';
+      dynamicComplaintsMap['pain'] = 'Pelvic / Lower Abdominal Pain (तल्लो पेट / कम्मर दुख्ने)';
+      dynamicComplaintsMap['checkup'] = 'Routine Checkup (सामान्य स्वास्थ्य जाँच)';
+    }
+    if (filters.chiefComplaint != null &&
+        filters.chiefComplaint!.isNotEmpty &&
+        filters.chiefComplaint != 'all' &&
+        !dynamicComplaintsMap.containsKey(filters.chiefComplaint)) {
+      dynamicComplaintsMap[filters.chiefComplaint!] = filters.chiefComplaint!;
+    }
 
     return Container(
       color: const Color(0xFFF8FAFC),
@@ -1369,6 +1639,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           currentAgeBracket = '51-65';
                         } else if (filters.minAge == 66 && filters.maxAge == null) {
                           currentAgeBracket = '>65';
+                        } else if (filters.minAge != null || filters.maxAge != null) {
+                          currentAgeBracket = 'custom';
                         }
 
                         final ageDropdown = DropdownButtonFormField<String>(
@@ -1382,26 +1654,46 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             isDense: true,
                           ),
                           isExpanded: true,
-                          items: const [
-                            DropdownMenuItem(value: 'all', child: Text('All Ages (सबै उमेर समूह)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: '<20', child: Text('Under 20 Years (< 20 वर्ष)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: '20-35', child: Text('20 - 35 Years (20 देखि 35 सम्म)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: '36-50', child: Text('36 - 50 Years (36 देखि 50 सम्म)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: '51-65', child: Text('51 - 65 Years (51 देखि 65 सम्म)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: '>65', child: Text('Above 65 Years (> 65 भन्दा माथि)', style: TextStyle(fontSize: 13))),
+                          items: [
+                            const DropdownMenuItem(value: 'all', child: Text('All Ages (सबै उमेर समूह)', style: TextStyle(fontSize: 13))),
+                            const DropdownMenuItem(value: '<20', child: Text('Under 20 Years (< 20 वर्ष)', style: TextStyle(fontSize: 13))),
+                            const DropdownMenuItem(value: '20-35', child: Text('20 - 35 Years (20 देखि 35 सम्म)', style: TextStyle(fontSize: 13))),
+                            const DropdownMenuItem(value: '36-50', child: Text('36 - 50 Years (36 देखि 50 सम्म)', style: TextStyle(fontSize: 13))),
+                            const DropdownMenuItem(value: '51-65', child: Text('51 - 65 Years (51 देखि 65 सम्म)', style: TextStyle(fontSize: 13))),
+                            const DropdownMenuItem(value: '>65', child: Text('Above 65 Years (> 65 भन्दा माथि)', style: TextStyle(fontSize: 13))),
+                            if (currentAgeBracket == 'custom')
+                              DropdownMenuItem(
+                                value: 'custom',
+                                child: Text(
+                                  'Custom (${filters.minAge ?? 0} - ${filters.maxAge ?? "∞"} yrs)',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                                ),
+                              ),
                           ],
                           onChanged: (val) {
                             if (val == '<20') {
+                              _minAgeController.text = '';
+                              _maxAgeController.text = '19';
                               vm.updateFilters(filters.copyWith(maxAge: 19, clearMinAge: true));
                             } else if (val == '20-35') {
+                              _minAgeController.text = '20';
+                              _maxAgeController.text = '35';
                               vm.updateFilters(filters.copyWith(minAge: 20, maxAge: 35));
                             } else if (val == '36-50') {
+                              _minAgeController.text = '36';
+                              _maxAgeController.text = '50';
                               vm.updateFilters(filters.copyWith(minAge: 36, maxAge: 50));
                             } else if (val == '51-65') {
+                              _minAgeController.text = '51';
+                              _maxAgeController.text = '65';
                               vm.updateFilters(filters.copyWith(minAge: 51, maxAge: 65));
                             } else if (val == '>65') {
+                              _minAgeController.text = '66';
+                              _maxAgeController.text = '';
                               vm.updateFilters(filters.copyWith(minAge: 66, clearMaxAge: true));
-                            } else {
+                            } else if (val == 'all') {
+                              _minAgeController.clear();
+                              _maxAgeController.clear();
                               vm.updateFilters(filters.copyWith(clearMinAge: true, clearMaxAge: true));
                             }
                           },
@@ -1668,9 +1960,14 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           ),
                         );
 
+                        final selectedComplaint = (filters.chiefComplaint?.isNotEmpty == true &&
+                                dynamicComplaintsMap.containsKey(filters.chiefComplaint))
+                            ? filters.chiefComplaint!
+                            : 'all';
+
                         final chiefComplaintDropdown = DropdownButtonFormField<String>(
-                          key: const ValueKey('chief_complaint_dropdown'),
-                          initialValue: (filters.chiefComplaint?.isNotEmpty == true) ? filters.chiefComplaint : 'all',
+                          key: ValueKey('chief_complaint_$selectedComplaint'),
+                          initialValue: selectedComplaint,
                           decoration: const InputDecoration(
                             labelText: 'Chief Clinical Complaint (मुख्य समस्या)',
                             prefixIcon: Icon(Icons.report_problem_outlined, size: 18),
@@ -1679,16 +1976,19 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             isDense: true,
                           ),
                           isExpanded: true,
-                          items: const [
-                            DropdownMenuItem(value: 'all', child: Text('All Complaints (सबै मुख्य समस्या)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'something hanging out', child: Text('Prolapse / Something Hanging Out (आङ खस्ने)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'discharge and or itching', child: Text('White Discharge & Itching (सेतो पानी तथा चिलाउने)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'problems passing urine', child: Text('Urinary Problems (पिसाब सम्बन्धी)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'problems passing stool', child: Text('Bowel / Stool Problems (दिसा सम्बन्धी)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'menstrual problem', child: Text('Menstrual Problem (महिनावारी गडबडी)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'infertility', child: Text('Infertility (निःसन्तान)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'pain', child: Text('Pelvic / Lower Abdominal Pain (तल्लो पेट / कम्मर दुख्ने)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'checkup', child: Text('Routine Checkup (सामान्य स्वास्थ्य जाँच)', style: TextStyle(fontSize: 13))),
+                          items: [
+                            const DropdownMenuItem(
+                              value: 'all',
+                              child: Text('All Complaints (सबै मुख्य समस्या)', style: TextStyle(fontSize: 13)),
+                            ),
+                            ...dynamicComplaintsMap.entries.map((e) => DropdownMenuItem(
+                                  value: e.key,
+                                  child: Text(
+                                    e.value,
+                                    style: const TextStyle(fontSize: 13),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                )),
                           ],
                           onChanged: (val) => vm.updateFilters(
                             filters.copyWith(
@@ -2189,12 +2489,14 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               Builder(
                 builder: (context) {
                   final activeVisitReasons = ref.watch(activeVisitReasonsProvider);
+                  final activeChiefComplaints = ref.watch(activeChiefComplaintsProvider);
+                  final combinedLookups = [...activeVisitReasons, ...activeChiefComplaints];
                   return Wrap(
                     spacing: 6,
                     runSpacing: 5,
                     children: patient.reasonsForVisit.map((reason) {
                       final normReason = reason.toLowerCase().trim().replaceAll('_', ' ');
-                      final matchingItems = activeVisitReasons.where((item) =>
+                      final matchingItems = combinedLookups.where((item) =>
                           item.code.toLowerCase().trim().replaceAll('_', ' ') == normReason ||
                           item.labelEn.toLowerCase().trim().replaceAll('_', ' ') == normReason ||
                           item.labelNe.toLowerCase().trim() == normReason);

@@ -172,26 +172,40 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
   PatientListViewModel(this._patientRepository) : super(const PatientListState());
 
   Future<void> loadPatients([String? campId, bool silent = false]) async {
+    final cleanCampId = (campId == null || campId == 'all' || campId.trim().isEmpty) ? null : campId.trim();
+    final isDifferentCamp = cleanCampId != state.loadedCampId;
+    final updatedFilters = cleanCampId != null
+        ? state.filters.copyWith(campId: cleanCampId)
+        : state.filters;
+
     if (!silent) {
-      state = state.copyWith(isLoading: true, errorMessage: null);
+      state = state.copyWith(
+        isLoading: true,
+        errorMessage: null,
+        // Clear stale patients if switching to a different camp to prevent 3 -> 1 flash
+        patients: isDifferentCamp ? const [] : state.patients,
+        rawPatients: isDifferentCamp ? const [] : state.rawPatients,
+        filters: updatedFilters,
+      );
     }
     try {
-      final list = await _patientRepository.getPatientsByCamp(campId);
+      final list = await _patientRepository.getPatientsByCamp(cleanCampId);
       if (!mounted) return;
-      final filtered = _filterList(list, state.searchQuery, state.filters);
+      final filtered = _filterList(list, state.searchQuery, updatedFilters);
       state = state.copyWith(
         isLoading: false,
         hasLoaded: true,
-        loadedCampId: campId,
+        loadedCampId: cleanCampId,
         rawPatients: list,
         patients: filtered,
+        filters: updatedFilters,
       );
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         hasLoaded: true,
-        loadedCampId: campId,
+        loadedCampId: cleanCampId,
         errorMessage: 'Failed to load patients: $e',
       );
     }
@@ -276,9 +290,12 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
       }
 
       // Disease / Diagnosis
-      if (filters.disease != null && filters.disease!.trim().isNotEmpty) {
-        final dLower = filters.disease!.trim().toLowerCase();
-        final matchesDisease = p.diagnoses.any((d) => d.toLowerCase().contains(dLower));
+      if (filters.disease != null && filters.disease!.trim().isNotEmpty && filters.disease != 'all') {
+        final dLower = filters.disease!.trim().toLowerCase().replaceAll('_', ' ');
+        final matchesDisease = p.diagnoses.any((d) {
+          final cleanD = d.toLowerCase().trim().replaceAll('_', ' ');
+          return cleanD == dLower || cleanD.contains(dLower) || dLower.contains(cleanD);
+        });
         if (!matchesDisease) return false;
       }
 
@@ -302,33 +319,36 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         if (p.highestPopStage?.toString() != filters.popStage) return false;
       }
 
-      // Chief complaint
+      // Chief complaint / Visit Reason
       if (filters.chiefComplaint != null && filters.chiefComplaint!.trim().isNotEmpty && filters.chiefComplaint != 'all') {
-        final cLower = filters.chiefComplaint!.trim().toLowerCase();
+        final cLower = filters.chiefComplaint!.trim().toLowerCase().replaceAll('_', ' ');
         final matchesComplaint = p.reasonsForVisit.any((r) {
-          final rLower = r.trim().toLowerCase();
+          final rLower = r.trim().toLowerCase().replaceAll('_', ' ');
           if (rLower == cLower) return true;
           if (rLower.contains(cLower) || cLower.contains(rLower)) return true;
-          if (cLower.contains('hanging') || cLower.contains('prolapse') || cLower == 'prolapse') {
+          if (cLower.contains('hanging') || cLower.contains('prolapse') || cLower.contains('खस्ने')) {
             return rLower.contains('hanging') || rLower.contains('prolapse') || rLower.contains('खस्ने');
           }
-          if (cLower.contains('discharge') || cLower.contains('itching') || cLower == 'discharge') {
-            return rLower.contains('discharge') || rLower.contains('itching') || rLower.contains('सेतो') || rLower.contains('चिलाउने');
+          if (cLower.contains('discharge') || cLower.contains('itching') || cLower.contains('स्राव') || cLower.contains('चिलाउने')) {
+            return rLower.contains('discharge') || rLower.contains('itching') || rLower.contains('सेतो') || rLower.contains('चिलाउने') || rLower.contains('स्राव');
           }
-          if (cLower.contains('urine') || cLower == 'urine') {
+          if (cLower.contains('urine') || cLower.contains('पिसाब')) {
             return rLower.contains('urine') || rLower.contains('dysuria') || rLower.contains('पिसाब');
           }
-          if (cLower.contains('stool') || cLower.contains('bowel') || cLower == 'stool') {
+          if (cLower.contains('stool') || cLower.contains('bowel') || cLower.contains('दिसा')) {
             return rLower.contains('stool') || rLower.contains('bowel') || rLower.contains('constipation') || rLower.contains('दिसा');
           }
-          if (cLower.contains('pain') || cLower == 'pain') {
-            return rLower.contains('pain') || rLower.contains('दुख्ने');
+          if (cLower.contains('pain') || cLower.contains('दुखाई') || cLower.contains('दुख्ने')) {
+            return rLower.contains('pain') || rLower.contains('दुख्ने') || rLower.contains('दुखाई') || rLower.contains('तल्लो पेट');
           }
-          if (cLower.contains('menstrual') || cLower == 'menstrual') {
+          if (cLower.contains('menstrual') || cLower.contains('महिनावारी') || cLower.contains('bleeding')) {
             return rLower.contains('menstrual') || rLower.contains('महिनावारी') || rLower.contains('bleeding');
           }
-          if (cLower.contains('infertility') || cLower == 'infertility') {
-            return rLower.contains('infertility') || rLower.contains('निःसन्तान');
+          if (cLower.contains('infertility') || cLower.contains('बाँझोपन') || cLower.contains('निःसन्तान')) {
+            return rLower.contains('infertility') || rLower.contains('निःसन्तान') || rLower.contains('बाँझोपन');
+          }
+          if (cLower.contains('checkup') || cLower.contains('routine') || cLower.contains('जाँच')) {
+            return rLower.contains('checkup') || rLower.contains('routine') || rLower.contains('जाँच');
           }
           return false;
         });
