@@ -188,14 +188,14 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
             const SizedBox(height: 2),
             Text(
               'Unified Master Database & Standard Clinical Dictionary ($totalEntities Active / Cataloged Entries)',
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
+              style: const TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w500),
               overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: const Icon(Icons.refresh, color: Color(0xFF475569)),
             tooltip: 'Reload Master Catalog',
             onPressed: () {
               ref.read(masterLookupProvider.notifier).loadAll();
@@ -213,8 +213,8 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
               child: Center(
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppTheme.primaryTeal,
+                    backgroundColor: const Color(0xFF30026E),
+                    foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

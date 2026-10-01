@@ -140,7 +140,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               'Field outreach deployments, mission scheduling & personnel dispatch',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Color(0xFFCCFBF1), fontSize: 11, fontWeight: FontWeight.normal),
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -151,8 +151,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               icon: const Icon(Icons.add_location_alt, size: 16),
               label: const Text('New Camp'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF0F766E),
+                backgroundColor: const Color(0xFF0D9488),
+                foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                 shape: RoundedRectangleBorder(

@@ -113,8 +113,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
               icon: const Icon(Icons.person_add_rounded, size: 16),
               label: const Text('Add Staff', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF0F766E),
+                backgroundColor: const Color(0xFF0D9488),
+                foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
