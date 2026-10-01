@@ -70,6 +70,12 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        toolbarHeight: 68,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
         title: LayoutBuilder(
           builder: (context, constraints) {
             final isCompact = constraints.maxWidth < 460;
@@ -79,12 +85,17 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
               children: [
                 Text(
                   isCompact ? 'Staff Directory' : 'Staff & Personnel Management',
-                  style: TextStyle(fontSize: isCompact ? 16 : 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: isCompact ? 16 : 18,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1E0A38),
+                    letterSpacing: -0.3,
+                  ),
                 ),
                 if (!isCompact)
                   const Text(
                     'Role permissions, station credentials & field camp roster',
-                    style: TextStyle(fontSize: 11, color: Colors.white70),
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                   ),
               ],
             );

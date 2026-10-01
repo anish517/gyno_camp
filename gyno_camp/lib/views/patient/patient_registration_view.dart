@@ -499,6 +499,12 @@ class _PatientRegistrationViewState
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 68,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -507,6 +513,12 @@ class _PatientRegistrationViewState
                   ? 'Edit Patient Details (विवरण सम्पादन)'
                   : 'Patient Registration (दर्ता)',
               overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF1E0A38),
+                fontWeight: FontWeight.w800,
+                fontSize: 17.5,
+                letterSpacing: -0.3,
+              ),
             ),
             Text(
               widget.patientToEdit != null
@@ -515,8 +527,8 @@ class _PatientRegistrationViewState
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.normal,
-                color: Colors.white70,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF64748B),
               ),
             ),
           ],

@@ -94,7 +94,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         toolbarHeight: 68,
-        backgroundColor: const Color(0xFF0F766E),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -102,7 +105,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.hub_outlined, color: Colors.white, size: 18),
+                const Icon(Icons.hub_outlined, color: Color(0xFF1E0A38), size: 18),
                 const SizedBox(width: 8),
                 const Flexible(
                   child: Text(
@@ -110,23 +113,24 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.2,
+                      color: Color(0xFF1E0A38),
+                      fontSize: 17.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFF30026E).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.18)),
                   ),
                   child: Text(
                     '${campState.camps.length} Camps',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Color(0xFF30026E), fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -170,7 +174,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             decoration: const BoxDecoration(
               color: Colors.white,
               border: Border(
-                bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                bottom: BorderSide(color: Color(0xFFBE185D), width: 2.5),
               ),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16),

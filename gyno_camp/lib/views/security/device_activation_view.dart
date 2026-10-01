@@ -52,8 +52,21 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Device Authorization & Activation'),
+        toolbarHeight: 68,
         elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
+        title: const Text(
+          'Device Authorization & Activation',
+          style: TextStyle(
+            color: Color(0xFF1E0A38),
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            letterSpacing: -0.3,
+          ),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Return to Login',

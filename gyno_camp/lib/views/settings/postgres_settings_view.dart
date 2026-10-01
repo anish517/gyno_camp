@@ -251,10 +251,21 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Central Server Settings'),
-        backgroundColor: AppTheme.primaryTeal,
-        foregroundColor: Colors.white,
+        toolbarHeight: 68,
         elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
+        title: const Text(
+          'Central Server Settings',
+          style: TextStyle(
+            color: Color(0xFF1E0A38),
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            letterSpacing: -0.3,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

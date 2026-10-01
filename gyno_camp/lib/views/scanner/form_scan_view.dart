@@ -54,11 +54,17 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 68,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Scan & Auto-Fill (फाराम स्क्यान)', style: TextStyle(fontSize: 16)),
-            Text('OCR & OMR Split-Screen Verification', style: TextStyle(fontSize: 11, color: Colors.white70)),
+            Text('Scan & Auto-Fill (फाराम स्क्यान)', style: TextStyle(fontSize: 17.5, fontWeight: FontWeight.w800, color: Color(0xFF1E0A38), letterSpacing: -0.3)),
+            Text('OCR & OMR Split-Screen Verification', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
           ],
         ),
         actions: [

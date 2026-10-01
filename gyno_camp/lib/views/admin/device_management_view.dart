@@ -54,11 +54,17 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        toolbarHeight: 68,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Device Whitelist & Hardware Security', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-            Text('Cluster Whitelist & Field Hardware Authorization (उपकरण प्रमाणीकरण)', style: TextStyle(fontSize: 11, color: Colors.white70)),
+            Text('Device Whitelist & Hardware Security', style: TextStyle(fontSize: 17.5, fontWeight: FontWeight.w800, color: Color(0xFF1E0A38), letterSpacing: -0.3)),
+            Text('Cluster Whitelist & Field Hardware Authorization (उपकरण प्रमाणीकरण)', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
           ],
         ),
         actions: [

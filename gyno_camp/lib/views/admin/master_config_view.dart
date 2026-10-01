@@ -145,8 +145,10 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         toolbarHeight: isCompact ? 64 : 68,
-        backgroundColor: const Color(0xFF0F766E),
         elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -154,16 +156,16 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.dataset_outlined, color: Colors.white, size: 20),
+                const Icon(Icons.dataset_outlined, color: Color(0xFF1E0A38), size: 20),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     isCompact ? 'Master Data & Formulary' : 'Clinical Master Data & Formulary',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: const Color(0xFF1E0A38),
                       fontSize: isCompact ? 16 : 18,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.2,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -172,12 +174,13 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFF30026E).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.18)),
                   ),
                   child: Text(
                     '$totalEntities Entities',
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Color(0xFF30026E), fontSize: 10, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -233,7 +236,12 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(
-            color: Colors.white,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFBE185D), width: 2.5),
+              ),
+            ),
             child: TabBar(
               controller: _tabController,
               isScrollable: true,

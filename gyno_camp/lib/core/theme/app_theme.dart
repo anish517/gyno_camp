@@ -25,6 +25,40 @@ class AppTheme {
   static const Color textSecondaryLight = Color(0xFF64748B);
   static const Color borderLight = Color(0xFFE2E8F0);
 
+  // Brand AppBar Decorations
+  static Widget get brandAppBarFlexibleSpace => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          gradient: LinearGradient(
+            colors: [
+              brandPurple.withValues(alpha: 0.08),
+              brandMagenta.withValues(alpha: 0.05),
+              const Color(0xFFF8FAFC),
+            ],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+        ),
+      );
+
+  static PreferredSizeWidget get brandAppBarBottomLine => PreferredSize(
+        preferredSize: const Size.fromHeight(2.5),
+        child: Container(
+          height: 2.5,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF81005D), // WFWSN deep magenta/pink from logo
+                Color(0xFFBE185D), // Vibrant dark pink
+                Color(0xFF9D174D), // Deep rich pink
+              ],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+          ),
+        ),
+      );
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -39,17 +73,17 @@ class AppTheme {
       scaffoldBackgroundColor: backgroundLight,
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,
-        foregroundColor: textPrimaryLight,
+        foregroundColor: Color(0xFF1E0A38),
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        iconTheme: IconThemeData(color: Color(0xFF475569)),
+        iconTheme: IconThemeData(color: Color(0xFF1E0A38)),
         actionsIconTheme: IconThemeData(color: Color(0xFF475569)),
         titleTextStyle: TextStyle(
-          color: textPrimaryLight,
+          color: Color(0xFF1E0A38),
           fontSize: 18,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.2,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
         ),
       ),
       cardTheme: CardThemeData(

@@ -119,6 +119,12 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        toolbarHeight: 68,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -126,21 +132,20 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
               currentUser?.isDataTaker == true
                   ? 'My Activity Trail (Audit Chain)'
                   : 'Tamper-Evident Audit Trail',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: Color(0xFF1E0A38), letterSpacing: -0.3),
             ),
             Text(
               currentUser?.isDataTaker == true
                   ? 'Personal non-repudiation audit ledger'
                   : 'SHA-256 sequential cryptographic integrity ledger',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.82),
-                fontWeight: FontWeight.normal,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
         ),
-        elevation: 0.5,
         actions: [
           IconButton(
             icon: const Icon(Icons.download_rounded),

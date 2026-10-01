@@ -311,13 +311,31 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 68,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Follow-Up Visit Assessment', style: TextStyle(fontSize: 16)),
+            const Text(
+              'Follow-Up Visit Assessment',
+              style: TextStyle(
+                color: Color(0xFF1E0A38),
+                fontSize: 17.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
             Text(
               '${widget.patient.fullName} (${widget.patient.patientId})',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal, color: Colors.white70),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF64748B),
+              ),
             ),
           ],
         ),

@@ -79,7 +79,21 @@ class _AppLockPinViewState extends ConsumerState<AppLockPinView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isSetup ? 'Set Security PIN' : 'Gynocamp Security Lock'),
+        toolbarHeight: 68,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
+        title: Text(
+          isSetup ? 'Set Security PIN' : 'Gynocamp Security Lock',
+          style: const TextStyle(
+            color: Color(0xFF1E0A38),
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            letterSpacing: -0.3,
+          ),
+        ),
         centerTitle: true,
       ),
       body: SafeArea(

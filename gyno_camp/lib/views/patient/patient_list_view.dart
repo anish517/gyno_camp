@@ -125,28 +125,39 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         backgroundColor: Colors.transparent,
         automaticallyImplyLeading: false,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
+            color: Colors.white,
             gradient: LinearGradient(
               colors: [
-                Color(0xFF81005D), // Brand Magenta / Wine
-                Color(0xFFA855F7), // Purple accent
-                Color(0xFF30026E), // Deep Violet
+                const Color(0xFF30026E).withValues(alpha: 0.08), // Light brand purple with opacity
+                const Color(0xFF81005D).withValues(alpha: 0.05), // Light brand magenta with opacity
+                const Color(0xFFF8FAFC),
               ],
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Color(0x3530026E),
-                blurRadius: 12,
-                offset: Offset(0, 3),
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(2.5),
+          child: Container(
+            height: 2.5,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF81005D), // WFWSN deep magenta/pink from logo
+                  Color(0xFFBE185D), // Vibrant dark pink
+                  Color(0xFF9D174D), // Deep rich pink
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
               ),
-            ],
+            ),
           ),
         ),
         leading: Navigator.canPop(context)
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E0A38), size: 18),
                 tooltip: 'Back',
                 onPressed: () => Navigator.pop(context),
               )
@@ -159,9 +170,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             const Text(
               'Camp Patient Roll',
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E0A38),
+                fontSize: 17.5,
+                fontWeight: FontWeight.w900,
                 letterSpacing: -0.3,
               ),
             ),
@@ -170,15 +181,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 margin: const EdgeInsets.only(top: 2),
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
+                  color: const Color(0xFF30026E).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(5),
+                  border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.18)),
                 ),
                 child: Text(
                   '${effectiveCamp.name}  •  ${effectiveCamp.campCode}',
                   style: const TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF30026E),
                     letterSpacing: 0.1,
                   ),
                 ),
@@ -199,11 +211,18 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
                     ),
-                    child: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                    child: const Icon(Icons.refresh_rounded, color: Color(0xFF475569), size: 20),
                   ),
                 ),
               ),

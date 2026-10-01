@@ -3740,16 +3740,22 @@ class DataAnalystWorkstationPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        toolbarHeight: 68,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Data Analyst Workstation',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 17.5,
                 fontWeight: FontWeight.w800,
-                color: AppTheme.textPrimaryLight,
-                letterSpacing: -0.2,
+                color: Color(0xFF1E0A38),
+                letterSpacing: -0.3,
               ),
             ),
             Text(
@@ -3757,19 +3763,10 @@ class DataAnalystWorkstationPage extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.textSecondaryLight,
+                color: Color(0xFF64748B),
               ),
             ),
           ],
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: AppTheme.textPrimaryLight,
-        iconTheme: const IconThemeData(color: Color(0xFF334155)),
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: AppTheme.borderLight),
         ),
       ),
       body: const _DataAnalystWorkstation(),

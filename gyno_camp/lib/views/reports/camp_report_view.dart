@@ -529,9 +529,21 @@ class _CampReportViewState extends ConsumerState<CampReportView>
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 68,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
         title: const Text(
           'Camp Clinical Reports',
           overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Color(0xFF1E0A38),
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            letterSpacing: -0.3,
+          ),
         ),
         actions: [
           IconButton(

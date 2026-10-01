@@ -121,17 +121,33 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 68,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        bottom: AppTheme.brandAppBarBottomLine,
+        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Clinical Intake • ${widget.patient.fullName}',
               overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF1E0A38),
+                fontWeight: FontWeight.w800,
+                fontSize: 17.5,
+                letterSpacing: -0.3,
+              ),
             ),
             Text(
               'ID: ${widget.patient.patientId} • Age: ${widget.patient.age} • Ward: ${widget.patient.ward}',
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.normal, color: Colors.white70),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF64748B),
+              ),
             ),
           ],
         ),
