@@ -10,6 +10,14 @@ class AppTheme {
   static const Color warningAmber = Color(0xFFD97706);
   static const Color dangerRose = Color(0xFFE11D48);
 
+  // WFWSN Brand Colors (from official circular insignia logo)
+  static const Color brandPurple = Color(0xFF30026E); // Deep Royal Violet / Indigo
+  static const Color brandPurpleDark = Color(0xFF240046); // Executive dark violet
+  static const Color brandMagenta = Color(0xFF81005D); // Rich Wine / Magenta
+  static const Color brandMagentaDark = Color(0xFF6B0056); // Deep wine
+  static const Color brandPurpleLight = Color(0xFFF5F3FF); // Soft violet tint
+  static const Color brandMagentaLight = Color(0xFFFDF2F8); // Soft rose tint
+
   // Neutrals
   static const Color backgroundLight = Color(0xFFF8FAFC);
   static const Color cardSurfaceLight = Colors.white;

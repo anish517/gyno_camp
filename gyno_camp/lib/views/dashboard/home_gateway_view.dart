@@ -75,29 +75,59 @@ class HomeGatewayView extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 70,
-        backgroundColor: Colors.white,
-        foregroundColor: AppTheme.textPrimaryLight,
+        toolbarHeight: 72,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         titleSpacing: 20,
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: AppTheme.borderLight),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF30026E).withValues(alpha: 0.08), // Light brand purple with opacity
+                const Color(0xFF81005D).withValues(alpha: 0.05), // Light brand magenta with opacity
+                const Color(0xFFF8FAFC),
+              ],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(2.5),
+          child: Container(
+            height: 2.5,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF81005D), // WFWSN deep magenta/pink from logo
+                  Color(0xFFBE185D), // Vibrant dark pink
+                  Color(0xFF9D174D), // Deep rich pink
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+            ),
+          ),
         ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Brand Logo mark
+            // Brand Logo mark with clean circular border and subtle brand shadow
             Container(
               width: 50,
               height: 50,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF0D9488).withValues(alpha: 0.35), width: 2),
+                color: Colors.white,
+                border: Border.all(
+                  color: const Color(0xFF30026E).withValues(alpha: 0.22),
+                  width: 2,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0D9488).withValues(alpha: 0.2),
+                    color: const Color(0xFF30026E).withValues(alpha: 0.12),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -108,13 +138,13 @@ class HomeGatewayView extends ConsumerWidget {
                   'assets/WFWSNPrimaryCircle.jpg',
                   fit: BoxFit.cover,
                   errorBuilder: (ctx, err, stack) => Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF30026E), Color(0xFF81005D)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(12),
+                      shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.health_and_safety_rounded,
@@ -125,7 +155,7 @@ class HomeGatewayView extends ConsumerWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -136,33 +166,33 @@ class HomeGatewayView extends ConsumerWidget {
                     const Text(
                       'Gynocamp',
                       style: TextStyle(
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF1E0A38),
                         fontWeight: FontWeight.w900,
-                        fontSize: 17.5,
+                        fontSize: 18,
                         letterSpacing: -0.4,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: const Color(0xFF30026E).withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.2)),
                       ),
                       child: Text(
                         (user.isSuperAdmin ? UserRole.superAdmin : user.role).displayNameEn,
                         style: const TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF475569),
+                          color: Color(0xFF30026E),
                           letterSpacing: 0.3,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 1),
+                const SizedBox(height: 2),
                 Builder(
                   builder: (ctx) {
                     final org = ref.watch(effectiveOrganizationProvider);
@@ -185,7 +215,7 @@ class HomeGatewayView extends ConsumerWidget {
         actions: [
           // Live status pill
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: const Color(0xFFECFDF5),
               borderRadius: BorderRadius.circular(16),
@@ -202,36 +232,61 @@ class HomeGatewayView extends ConsumerWidget {
                     color: Color(0xFF065F46),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          // Lock button
-          IconButton(
-            tooltip: 'Lock App Session',
-            icon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF475569), size: 20),
-            onPressed: () {
-              ref.read(deviceSecurityProvider.notifier).lockApp();
-            },
+          // Lock button with clean light frame
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: IconButton(
+              tooltip: 'Lock App Session',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(7),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              icon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF475569), size: 18),
+              onPressed: () {
+                ref.read(deviceSecurityProvider.notifier).lockApp();
+              },
+            ),
           ),
-          const SizedBox(width: 4),
-          // User Profile chip with sign out
+          const SizedBox(width: 8),
+          // User Profile chip with sign out (professional light enterprise style)
           Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 CircleAvatar(
                   radius: 13,
-                  backgroundColor: const Color(0xFF0D9488),
+                  backgroundColor: const Color(0xFF81005D), // Logo Wine/Magenta
                   child: Text(
                     user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                     style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
