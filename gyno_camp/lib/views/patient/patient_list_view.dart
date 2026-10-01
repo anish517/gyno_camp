@@ -2186,47 +2186,72 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             // ── REASONS FOR VISIT TAGS (Formatted & Localized) ──
             if (patient.reasonsForVisit.isNotEmpty) ...[
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 5,
-                children: patient.reasonsForVisit.map((reason) {
-                  final isUrgent = urgentReasons.contains(reason.toLowerCase().trim());
-                  final label = clinicalLabelMap[reason.toLowerCase().trim()] ??
-                      clinicalLabelMap[reason] ??
-                      reason.replaceAll('_', ' ');
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                    decoration: BoxDecoration(
-                      color: isUrgent ? const Color(0xFFFFF1F2) : const Color(0xFFF5F3FF),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: isUrgent ? const Color(0xFFFDA4AF) : const Color(0xFFE9D5FF),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isUrgent) ...[
-                          const Icon(Icons.priority_high_rounded, size: 11, color: Color(0xFFE11D48)),
-                          const SizedBox(width: 3),
-                        ],
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 240),
-                          child: Text(
-                            label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
-                              color: isUrgent ? const Color(0xFFBE123C) : AppTheme.brandPurple,
-                            ),
+              Builder(
+                builder: (context) {
+                  final activeVisitReasons = ref.watch(activeVisitReasonsProvider);
+                  return Wrap(
+                    spacing: 6,
+                    runSpacing: 5,
+                    children: patient.reasonsForVisit.map((reason) {
+                      final normReason = reason.toLowerCase().trim().replaceAll('_', ' ');
+                      final matchingItems = activeVisitReasons.where((item) =>
+                          item.code.toLowerCase().trim().replaceAll('_', ' ') == normReason ||
+                          item.labelEn.toLowerCase().trim().replaceAll('_', ' ') == normReason ||
+                          item.labelNe.toLowerCase().trim() == normReason);
+
+                      final String label;
+                      final bool isUrgent;
+
+                      if (matchingItems.isNotEmpty) {
+                        final item = matchingItems.first;
+                        label = item.labelNe.isNotEmpty ? '${item.labelEn} (${item.labelNe})' : item.labelEn;
+                        isUrgent = item.subCategory?.toLowerCase().contains('urgent') == true ||
+                            normReason == 'post menopausal bleeding';
+                      } else {
+                        label = clinicalLabelMap[normReason] ??
+                            clinicalLabelMap[reason] ??
+                            clinicalLabelMap[normReason.replaceAll(' ', '_')] ??
+                            reason.replaceAll('_', ' ');
+                        isUrgent = urgentReasons.contains(normReason) ||
+                            urgentReasons.contains(reason) ||
+                            urgentReasons.contains(normReason.replaceAll(' ', '_'));
+                      }
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                        decoration: BoxDecoration(
+                          color: isUrgent ? const Color(0xFFFFF1F2) : const Color(0xFFF5F3FF),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isUrgent ? const Color(0xFFFDA4AF) : const Color(0xFFE9D5FF),
                           ),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isUrgent) ...[
+                              const Icon(Icons.priority_high_rounded, size: 11, color: Color(0xFFE11D48)),
+                              const SizedBox(width: 3),
+                            ],
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 240),
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: isUrgent ? const Color(0xFFBE123C) : AppTheme.brandPurple,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
                   );
-                }).toList(),
+                },
               ),
             ],
 

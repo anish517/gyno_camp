@@ -123,6 +123,7 @@ class _FakeReportingRepository implements IReportingRepository {
     String? popStageFilter,
     String? treatmentFilter,
     String? complaintFilter,
+    String? visitReasonFilter,
   }) async {
     return customSummary ?? CampReportSummaryModel.empty(
       generatedBy: generatedBy,

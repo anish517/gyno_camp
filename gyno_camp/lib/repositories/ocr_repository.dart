@@ -231,7 +231,7 @@ class OcrRepository implements IOcrRepository {
       municipality: (demo['municipality'] as String? ?? 'Ward 03'),
       ward: (demo['ward'] as String? ?? '03').padLeft(2, '0'),
       maritalStatus: (demo['maritalStatus'] as String? ?? 'married'),
-      reasonsForVisit: List<String>.from(demo['reasonsForVisit'] as List? ?? ['something hanging out']),
+      reasonsForVisit: List<String>.from(demo['reasonsForVisit'] as List? ?? const <String>[]),
       consentTreatment: demo['consentTreatment'] as bool? ?? true,
       consentStoreMedicalInfo: demo['consentStoreMedicalInfo'] as bool? ?? true,
       createdAt: DateTime.now(),

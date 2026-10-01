@@ -461,12 +461,7 @@ class _PatientRegistrationViewState
       consentTreatment: true,
       consentStoreMedicalInfo: true,
     );
-    if (!ref
-        .read(patientRegistrationProvider)
-        .selectedReasons
-        .contains('something hanging out')) {
-      vm.toggleReason('something hanging out');
-    }
+    // Note: Do not auto-select reasons on demo fill; let the user explicitly choose the visit reason(s) to test.
     setState(() {});
     _triggerLiveDuplicateCheck();
   }
@@ -1737,6 +1732,33 @@ class _PatientRegistrationViewState
                           ),
                         ),
                         const SizedBox(height: 14),
+                        if (state.selectedReasons.isNotEmpty) ...[
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: state.selectedReasons.map((r) {
+                              final rClean = r.trim().toLowerCase().replaceAll('_', ' ');
+                              final matchedEntry = _reasonOptions.entries.firstWhere(
+                                (e) => e.key.trim().toLowerCase().replaceAll('_', ' ') == rClean,
+                                orElse: () => MapEntry(r, r.replaceAll('_', ' ')),
+                              );
+                              return InputChip(
+                                label: Text(
+                                  matchedEntry.value,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF581C87)),
+                                ),
+                                deleteIcon: const Icon(Icons.close, size: 16, color: Color(0xFF7E22CE)),
+                                onDeleted: () => vm.toggleReason(r),
+                                backgroundColor: const Color(0xFFF3E8FF),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: const BorderSide(color: Color(0xFFD8B4FE)),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         LayoutBuilder(
                           builder: (context, constraints) {
                             final isWide = constraints.maxWidth > 550;
@@ -1755,12 +1777,9 @@ class _PatientRegistrationViewState
                                 final reason = _reasonOptions.keys.elementAt(index);
                                 final label = _reasonOptions[reason]!;
                                 final isChecked = state.selectedReasons.any((r) {
-                                  final rNorm = r.trim().toLowerCase();
-                                  final reasonNorm = reason.trim().toLowerCase();
-                                  return rNorm == reasonNorm ||
-                                      rNorm.contains(reasonNorm) ||
-                                      reasonNorm.contains(rNorm) ||
-                                      (label.toLowerCase().contains(rNorm) && rNorm.length > 3);
+                                  final rNorm = r.trim().toLowerCase().replaceAll('_', ' ');
+                                  final reasonNorm = reason.trim().toLowerCase().replaceAll('_', ' ');
+                                  return rNorm == reasonNorm;
                                 });
                                 return _buildReasonTile(
                                   reason,

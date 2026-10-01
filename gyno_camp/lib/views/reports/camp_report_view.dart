@@ -37,6 +37,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   String? _selectedDiagnosis;
   String? _selectedPopStage;
   String? _selectedTreatment;
+  String? _selectedVisitReason;
   String? _selectedComplaint;
   PatientModel? _selectedPatient;
 
@@ -86,6 +87,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         diagnosisFilter: _selectedDiagnosis,
         popStageFilter: _selectedPopStage,
         treatmentFilter: _selectedTreatment,
+        visitReasonFilter: _selectedVisitReason,
         complaintFilter: _selectedComplaint,
       );
       if (targetCampId != null) {
@@ -110,6 +112,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _selectedDiagnosis = null;
       _selectedPopStage = null;
       _selectedTreatment = null;
+      _selectedVisitReason = null;
       _selectedComplaint = null;
       _selectedPatient = null;
     });
@@ -122,6 +125,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       diagnosisFilter: null,
       popStageFilter: null,
       treatmentFilter: null,
+      visitReasonFilter: null,
       complaintFilter: null,
     );
     // When null or 'all', load all patients across all camps without filtering
@@ -140,6 +144,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       diagnosisFilter: _selectedDiagnosis,
       popStageFilter: _selectedPopStage,
       treatmentFilter: _selectedTreatment,
+      visitReasonFilter: _selectedVisitReason,
       complaintFilter: _selectedComplaint,
     );
     ref.read(patientListProvider.notifier).loadPatients(currentCampId == 'all' ? null : currentCampId);
@@ -177,6 +182,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _selectedDiagnosis = null;
       _selectedPopStage = null;
       _selectedTreatment = null;
+      _selectedVisitReason = null;
       _selectedComplaint = null;
       _selectedPatient = null;
     });
@@ -258,35 +264,105 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     return matchingVisits.map((v) => v.patientId).toSet().length;
   }
 
+  int _getVisitReasonCount(String reasonKey, CampReportSummaryModel? summary) {
+    if (summary == null) return 0;
+    final target = reasonKey.toLowerCase().trim();
+    final matchingLookup = _campVisitReasons.where((r) =>
+        r.code.toLowerCase().trim() == target ||
+        r.labelEn.toLowerCase().trim() == target ||
+        r.labelNe.toLowerCase().trim() == target);
+    final lookupAliases = matchingLookup.isNotEmpty
+        ? [
+            matchingLookup.first.code.toLowerCase().trim(),
+            matchingLookup.first.labelEn.toLowerCase().trim(),
+            if (matchingLookup.first.labelNe.trim().isNotEmpty) matchingLookup.first.labelNe.toLowerCase().trim(),
+          ]
+        : <String>[];
+
+    return summary.patients.where((p) {
+      final reasons = p.reasonsForVisit.map((r) => r.toLowerCase().trim()).toList();
+      if (reasons.any((r) => r == target || r.contains(target) || target.contains(r))) return true;
+      if (lookupAliases.any((alias) => reasons.any((r) => r == alias || r.contains(alias) || alias.contains(r)))) return true;
+      if (target == 'prolapse' || target.contains('hanging') || target.contains('खस्ने') || target.contains('खसेको')) {
+        return reasons.any((r) => r.contains('hanging') || r.contains('prolapse') || r.contains('खस्ने') || r.contains('खसेको'));
+      }
+      if (target == 'discharge' || target.contains('itching') || target.contains('स्राव') || target.contains('चिलाउने') || target.contains('सेतो')) {
+        return reasons.any((r) => r.contains('discharge') || r.contains('itching') || r.contains('स्राव') || r.contains('चिलाउने') || r.contains('सेतो'));
+      }
+      if (target == 'urine' || target.contains('dysuria') || target.contains('पिसाब')) {
+        return reasons.any((r) => r.contains('urine') || r.contains('dysuria') || r.contains('पिसाब'));
+      }
+      if (target == 'stool' || target.contains('bowel') || target.contains('constipation') || target.contains('दिसा')) {
+        return reasons.any((r) => r.contains('stool') || r.contains('bowel') || r.contains('constipation') || r.contains('दिसा'));
+      }
+      if (target == 'pain' || target.contains('दुखाई') || target.contains('दुख्ने') || target.contains('तल्लो पेट')) {
+        return reasons.any((r) => r.contains('pain') || r.contains('दुखाई') || r.contains('दुख्ने') || r.contains('तल्लो पेट'));
+      }
+      if (target == 'menstrual' || target.contains('महिनावारी') || target.contains('bleeding')) {
+        return reasons.any((r) => r.contains('menstrual') || r.contains('महिनावारी') || r.contains('bleeding'));
+      }
+      if (target == 'infertility' || target.contains('बाँझोपन') || target.contains('निःसन्तान')) {
+        return reasons.any((r) => r.contains('infertility') || r.contains('बाँझोपन') || r.contains('निःसन्तान'));
+      }
+      if (target == 'checkup' || target.contains('routine') || target.contains('जाँच')) {
+        return reasons.any((r) => r.contains('checkup') || r.contains('routine') || r.contains('जाँच'));
+      }
+      return false;
+    }).length;
+  }
+
   int _getComplaintCount(String compKey, CampReportSummaryModel? summary) {
     if (summary == null) return 0;
     final target = compKey.toLowerCase().trim();
+    final matchingLookup = _campChiefComplaints.where((c) =>
+        c.code.toLowerCase().trim() == target ||
+        c.labelEn.toLowerCase().trim() == target ||
+        c.labelNe.toLowerCase().trim() == target);
+    final lookupAliases = matchingLookup.isNotEmpty
+        ? [
+            matchingLookup.first.code.toLowerCase().trim(),
+            matchingLookup.first.labelEn.toLowerCase().trim(),
+            if (matchingLookup.first.labelNe.trim().isNotEmpty) matchingLookup.first.labelNe.toLowerCase().trim(),
+          ]
+        : <String>[];
+
     final visitMap = {for (final v in summary.visits) v.patientId: v};
     return summary.patients.where((p) {
       final visit = visitMap[p.patientId];
-      final reasons = p.reasonsForVisit.map((r) => r.toLowerCase()).toList();
-      final anamnesis = visit?.anamnesisComplaints.toString().toLowerCase() ?? '';
-      final combined = [...reasons, anamnesis].join(' ');
+      if (visit == null) return false;
+      final anamnesis = visit.anamnesisComplaints.toString().toLowerCase();
+      final clinicalComplaints = (visit.anamnesisComplaints['clinicalComplaints'] as List?)
+          ?.map((e) => e.toString().toLowerCase())
+          .toList() ?? [];
+
+      if (clinicalComplaints.any((c) => c == target || c.contains(target) || target.contains(c))) {
+        return true;
+      }
+      if (lookupAliases.any((alias) =>
+          clinicalComplaints.any((c) => c == alias || c.contains(alias) || alias.contains(c)) ||
+          anamnesis.contains(alias))) {
+        return true;
+      }
       if (target == 'something hanging out' || target == 'prolapse' || target == 'pelvic_organ_prolapse') {
-        return combined.contains('hanging') || combined.contains('prolapse') || combined.contains('खस्ने') || combined.contains('pelvic_organ_prolapse');
+        return anamnesis.contains('hanging') || anamnesis.contains('prolapse') || anamnesis.contains('खस्ने') || anamnesis.contains('pelvic_organ_prolapse');
       } else if (target == 'discharge and or itching' || target == 'discharge') {
-        return combined.contains('discharge') || combined.contains('itching') || combined.contains('स्राव') || combined.contains('चिलाउने') || combined.contains('सेतो');
+        return anamnesis.contains('discharge') || anamnesis.contains('itching') || anamnesis.contains('स्राव') || anamnesis.contains('चिलाउने') || anamnesis.contains('सेतो');
       } else if (target == 'problems passing urine' || target == 'urine') {
-        return combined.contains('urine') || combined.contains('dysuria') || combined.contains('पिसाब');
+        return anamnesis.contains('urine') || anamnesis.contains('dysuria') || anamnesis.contains('पिसाब');
       } else if (target == 'problems passing stool' || target == 'stool') {
-        return combined.contains('stool') || combined.contains('bowel') || combined.contains('constipation') || combined.contains('दिसा');
+        return anamnesis.contains('stool') || anamnesis.contains('bowel') || anamnesis.contains('constipation') || anamnesis.contains('दिसा');
       } else if (target == 'pain') {
-        return combined.contains('pain') || combined.contains('दुखाई') || combined.contains('दुख्ने') || combined.contains('तल्लो पेट');
+        return anamnesis.contains('pain') || anamnesis.contains('दुखाई') || anamnesis.contains('दुख्ने') || anamnesis.contains('तल्लो पेट');
       } else if (target == 'menstrual problem' || target == 'menstrual' || target == 'menstrual_disorder') {
-        return combined.contains('menstrual') || combined.contains('महिनावारी') || combined.contains('bleeding') || combined.contains('menstrual_disorder');
+        return anamnesis.contains('menstrual') || anamnesis.contains('महिनावारी') || anamnesis.contains('bleeding') || anamnesis.contains('menstrual_disorder');
       } else if (target == 'infertility' || target == 'infertility_screening') {
-        return combined.contains('infertility') || combined.contains('बाँझोपन') || combined.contains('निःसन्तान') || combined.contains('infertility_screening');
+        return anamnesis.contains('infertility') || anamnesis.contains('बाँझोपन') || anamnesis.contains('निःसन्तान') || anamnesis.contains('infertility_screening');
       } else if (target == 'checkup' || target == 'routine_checkup') {
-        return combined.contains('checkup') || combined.contains('routine') || combined.contains('जाँच') || combined.contains('routine_checkup');
+        return anamnesis.contains('checkup') || anamnesis.contains('routine') || anamnesis.contains('जाँच') || anamnesis.contains('routine_checkup');
       } else if (target == 'gynaecological_oncology' || target == 'oncology' || target == 'cancer') {
-        return combined.contains('cancer') || combined.contains('oncology') || combined.contains('क्यान्सर') || combined.contains('gynaecological_oncology');
+        return anamnesis.contains('cancer') || anamnesis.contains('oncology') || anamnesis.contains('क्यान्सर') || anamnesis.contains('gynaecological_oncology');
       } else {
-        return reasons.any((r) => r == target || r.contains(target) || target.contains(r)) || combined.contains(target);
+        return anamnesis.contains(target);
       }
     }).length;
   }
@@ -478,20 +554,49 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _selectedTreatment = null;
     }
 
-    // 4. DYNAMIC CHIEF COMPLAINTS: Standard Clinical + Master Data Custom Complaints
-    final standardComplaints = <Map<String, String>>[
-      {'key': 'prolapse', 'label': 'Pelvic Organ Prolapse (आङ खस्ने)'},
-      {'key': 'discharge', 'label': 'Discharge / Itching (स्राव/चिलाउने)'},
-      {'key': 'urine', 'label': 'Urinary Difficulties (पिसाब समस्या)'},
-      {'key': 'stool', 'label': 'Bowel / Constipation (दिसा समस्या)'},
-      {'key': 'pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुखाई)'},
-      {'key': 'menstrual', 'label': 'Menstrual Disorder (महिनावारी)'},
-      {'key': 'infertility', 'label': 'Infertility Screening (बाँझोपन)'},
-      {'key': 'checkup', 'label': 'Routine Checkup (नियमित जाँच)'},
-    ];
-    final dynamicComplaints = <Map<String, String>>[...standardComplaints];
-    final seenCompKeys = standardComplaints.map((c) => c['key']!.toLowerCase()).toSet();
-    for (final comp in _campChiefComplaints) {
+    // 4. DYNAMIC VISIT REASONS: Master Data Visit Reasons (with fallback only if all camps & empty)
+    final dynamicVisitReasons = <Map<String, String>>[];
+    final seenReasonKeys = <String>{};
+    for (final reason in _campVisitReasons.where((r) => r.isActive)) {
+      final key = (reason.code.isNotEmpty ? reason.code : reason.labelEn).trim().toLowerCase();
+      if (seenReasonKeys.add(key)) {
+        final nepaliSuffix = reason.labelNe.trim().isNotEmpty ? ' (${reason.labelNe.trim()})' : '';
+        dynamicVisitReasons.add({
+          'key': key,
+          'label': '${reason.labelEn.trim()}$nepaliSuffix',
+        });
+      }
+    }
+    // Only fall back to standard reasons if viewing all camps and no master reasons exist
+    if (dynamicVisitReasons.isEmpty && (reportState.selectedCampId == null || reportState.selectedCampId == 'all')) {
+      final standardVisitReasons = <Map<String, String>>[
+        {'key': 'prolapse', 'label': 'Pelvic Organ Prolapse (आङ खस्ने)'},
+        {'key': 'discharge', 'label': 'Discharge / Itching (स्राव/चिलाउने)'},
+        {'key': 'urine', 'label': 'Urinary Difficulties (पिसाब समस्या)'},
+        {'key': 'stool', 'label': 'Bowel / Constipation (दिसा समस्या)'},
+        {'key': 'pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुखाई)'},
+        {'key': 'menstrual', 'label': 'Menstrual Disorder (महिनावारी)'},
+        {'key': 'infertility', 'label': 'Infertility Screening (बाँझोपन)'},
+        {'key': 'checkup', 'label': 'Routine Checkup (नियमित जाँच)'},
+      ];
+      dynamicVisitReasons.addAll(standardVisitReasons);
+    }
+    dynamicVisitReasons.sort((a, b) {
+      final countA = _getVisitReasonCount(a['key']!, docSummary);
+      final countB = _getVisitReasonCount(b['key']!, docSummary);
+      if (countA > 0 && countB == 0) return -1;
+      if (countA == 0 && countB > 0) return 1;
+      if (countA != countB) return countB.compareTo(countA);
+      return 0;
+    });
+    if (_selectedVisitReason != null && !dynamicVisitReasons.any((r) => r['key'] == _selectedVisitReason)) {
+      _selectedVisitReason = null;
+    }
+
+    // 5. DYNAMIC CHIEF COMPLAINTS: Master Data Chief Complaints (with fallback only if all camps & empty)
+    final dynamicComplaints = <Map<String, String>>[];
+    final seenCompKeys = <String>{};
+    for (final comp in _campChiefComplaints.where((c) => c.isActive)) {
       final key = (comp.code.isNotEmpty ? comp.code : comp.labelEn).trim().toLowerCase();
       if (seenCompKeys.add(key)) {
         final nepaliSuffix = comp.labelNe.trim().isNotEmpty ? ' (${comp.labelNe.trim()})' : '';
@@ -501,15 +606,19 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         });
       }
     }
-    for (final reason in _campVisitReasons) {
-      final key = (reason.code.isNotEmpty ? reason.code : reason.labelEn).trim().toLowerCase();
-      if (seenCompKeys.add(key)) {
-        final nepaliSuffix = reason.labelNe.trim().isNotEmpty ? ' (${reason.labelNe.trim()})' : '';
-        dynamicComplaints.add({
-          'key': key,
-          'label': '${reason.labelEn.trim()}$nepaliSuffix',
-        });
-      }
+    // Only fall back to standard complaints if viewing all camps and no master complaints exist
+    if (dynamicComplaints.isEmpty && (reportState.selectedCampId == null || reportState.selectedCampId == 'all')) {
+      final standardComplaints = <Map<String, String>>[
+        {'key': 'prolapse', 'label': 'Pelvic Organ Prolapse (आङ खस्ने)'},
+        {'key': 'discharge', 'label': 'Discharge / Itching (स्राव/चिलाउने)'},
+        {'key': 'urine', 'label': 'Urinary Difficulties (पिसाब समस्या)'},
+        {'key': 'stool', 'label': 'Bowel / Constipation (दिसा समस्या)'},
+        {'key': 'pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुखाई)'},
+        {'key': 'menstrual', 'label': 'Menstrual Disorder (महिनावारी)'},
+        {'key': 'infertility', 'label': 'Infertility Screening (बाँझोपन)'},
+        {'key': 'checkup', 'label': 'Routine Checkup (नियमित जाँच)'},
+      ];
+      dynamicComplaints.addAll(standardComplaints);
     }
     dynamicComplaints.sort((a, b) {
       final countA = _getComplaintCount(a['key']!, docSummary);
@@ -584,6 +693,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         allDoctors: allDoctors,
                         sortedDiagnoses: sortedDiagnoses,
                         dynamicTreatments: dynamicTreatments,
+                        dynamicVisitReasons: dynamicVisitReasons,
                         dynamicComplaints: dynamicComplaints,
                         visibleCamps: visibleCamps,
                         allCampsLabel: allCampsLabel,
@@ -600,6 +710,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       allDoctors: allDoctors,
                       sortedDiagnoses: sortedDiagnoses,
                       dynamicTreatments: dynamicTreatments,
+                      dynamicVisitReasons: dynamicVisitReasons,
                       dynamicComplaints: dynamicComplaints,
                       visibleCamps: visibleCamps,
                       allCampsLabel: allCampsLabel,
@@ -621,6 +732,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required Set<String> allDoctors,
     required List<String> sortedDiagnoses,
     required List<Map<String, String>> dynamicTreatments,
+    required List<Map<String, String>> dynamicVisitReasons,
     required List<Map<String, String>> dynamicComplaints,
     required List<CampModel> visibleCamps,
     required String allCampsLabel,
@@ -656,6 +768,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   allDoctors: allDoctors,
                   sortedDiagnoses: sortedDiagnoses,
                   dynamicTreatments: dynamicTreatments,
+                  dynamicVisitReasons: dynamicVisitReasons,
                   dynamicComplaints: dynamicComplaints,
                   visibleCamps: visibleCamps,
                   allCampsLabel: allCampsLabel,
@@ -711,6 +824,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required Set<String> allDoctors,
     required List<String> sortedDiagnoses,
     required List<Map<String, String>> dynamicTreatments,
+    required List<Map<String, String>> dynamicVisitReasons,
     required List<Map<String, String>> dynamicComplaints,
     required List<CampModel> visibleCamps,
     required String allCampsLabel,
@@ -745,6 +859,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             allDoctors: allDoctors,
             sortedDiagnoses: sortedDiagnoses,
             dynamicTreatments: dynamicTreatments,
+            dynamicVisitReasons: dynamicVisitReasons,
             dynamicComplaints: dynamicComplaints,
           ),
           const SizedBox(height: 16),
@@ -937,6 +1052,34 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       ));
     }
 
+    if (_selectedVisitReason != null) {
+      final reasonMap = {
+        'prolapse': 'Prolapse / Mass',
+        'discharge': 'Discharge / Itching',
+        'urine': 'Urinary Problem',
+        'stool': 'Bowel Problem',
+        'pain': 'Lower Abdominal Pain',
+        'menstrual': 'Menstrual Problem',
+        'infertility': 'Infertility',
+        'checkup': 'Routine Checkup',
+      };
+      String reasonLabel = reasonMap[_selectedVisitReason] ?? _selectedVisitReason!;
+      final found = _campVisitReasons.where((r) =>
+          r.code.toLowerCase() == _selectedVisitReason!.toLowerCase() ||
+          r.labelEn.toLowerCase() == _selectedVisitReason!.toLowerCase()).firstOrNull;
+      if (found != null) {
+        reasonLabel = found.labelEn;
+      }
+      activeFilters.add(_buildFilterChip(
+        label: 'Reason: $reasonLabel',
+        icon: Icons.how_to_reg_outlined,
+        onDeleted: () {
+          setState(() => _selectedVisitReason = null);
+          _onRefresh();
+        },
+      ));
+    }
+
     if (_selectedComplaint != null) {
       final compMap = {
         'prolapse': 'Mass / Prolapse',
@@ -956,7 +1099,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         compLabel = found.labelEn;
       }
       activeFilters.add(_buildFilterChip(
-        label: compLabel,
+        label: 'Complaint: $compLabel',
         icon: Icons.report_problem_outlined,
         onDeleted: () {
           setState(() => _selectedComplaint = null);
@@ -1047,6 +1190,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required Set<String> allDoctors,
     required List<String> sortedDiagnoses,
     required List<Map<String, String>> dynamicTreatments,
+    required List<Map<String, String>> dynamicVisitReasons,
     required List<Map<String, String>> dynamicComplaints,
     required List<CampModel> visibleCamps,
     required String allCampsLabel,
@@ -1056,6 +1200,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         (_selectedDoctor != null ? 1 : 0) +
         (_selectedDiagnosis != null ? 1 : 0) +
         (_selectedPopStage != null ? 1 : 0) +
+        (_selectedVisitReason != null ? 1 : 0) +
         (_selectedTreatment != null ? 1 : 0) +
         (_selectedComplaint != null ? 1 : 0);
     final hasActiveFilter = activeFiltersCount > 0;
@@ -1506,13 +1651,86 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             ),
             const SizedBox(height: 14),
 
-            // 6. Treatment Filter (with dynamic count)
+            // 6. Reason for Visit Filter (Dynamic with live count)
+            const Row(
+              children: [
+                Icon(Icons.how_to_reg_outlined, color: AppTheme.primaryTeal, size: 16),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text('Reason for Visit (Dynamic):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _selectedVisitReason != null ? AppTheme.primaryTeal : const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: dynamicVisitReasons.any((r) => r['key'] == _selectedVisitReason) ? _selectedVisitReason : null,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Text('All Visit Reasons', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Row(
+                        children: [
+                          const Expanded(child: Text('All Visit Reasons', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
+                            child: Text('$totalPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ...dynamicVisitReasons.map((item) {
+                      final count = _getVisitReasonCount(item['key']!, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: item['key'],
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedVisitReason = val);
+                    _onRefresh();
+                    if (val != null && _tabController.index != 4) {
+                      _tabController.animateTo(4);
+                    }
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 7. Treatment & Formulary Filter (with dynamic count)
             const Row(
               children: [
                 Icon(Icons.local_hospital_outlined, color: AppTheme.primaryTeal, size: 16),
                 SizedBox(width: 6),
                 Expanded(
-                  child: Text('Treatment / Intervention:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+                  child: Text('Treatment & Formulary (Dynamic):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
                 ),
               ],
             ),
@@ -1710,6 +1928,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required Set<String> allDoctors,
     required List<String> sortedDiagnoses,
     required List<Map<String, String>> dynamicTreatments,
+    required List<Map<String, String>> dynamicVisitReasons,
     required List<Map<String, String>> dynamicComplaints,
   }) {
     final activeFiltersCount = (_startDate != null ? 1 : 0) +
@@ -1717,6 +1936,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         (_selectedDoctor != null ? 1 : 0) +
         (_selectedDiagnosis != null ? 1 : 0) +
         (_selectedPopStage != null ? 1 : 0) +
+        (_selectedVisitReason != null ? 1 : 0) +
         (_selectedTreatment != null ? 1 : 0) +
         (_selectedComplaint != null ? 1 : 0);
     final hasActiveFilter = activeFiltersCount > 0;
@@ -1966,6 +2186,45 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   ],
                   onChanged: (val) {
                     setState(() => _selectedTreatment = val);
+                    _onRefresh();
+                  },
+                ),
+              ),
+            ),
+            // Reason for Visit Dropdown
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              constraints: const BoxConstraints(maxWidth: 175),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _selectedVisitReason != null ? AppTheme.primaryTeal : const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: dynamicVisitReasons.any((r) => r['key'] == _selectedVisitReason) ? _selectedVisitReason : null,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Text('All Visit Reasons', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(
+                        'All Visit Reasons ($totalPatients)',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    ...dynamicVisitReasons.map((item) {
+                      final count = _getVisitReasonCount(item['key']!, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: item['key'],
+                        child: Text('${item['label']} ($count)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      );
+                    }),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedVisitReason = val);
                     _onRefresh();
                   },
                 ),

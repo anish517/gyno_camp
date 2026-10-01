@@ -23,6 +23,7 @@ abstract class IReportingRepository {
     String? popStageFilter,
     String? treatmentFilter,
     String? complaintFilter,
+    String? visitReasonFilter,
   });
   Future<Uint8List> generatePdfReport(CampReportSummaryModel summary);
   Future<Uint8List> generateIndividualPatientPdf({
@@ -80,6 +81,7 @@ class ReportingRepository implements IReportingRepository {
     String? popStageFilter,
     String? treatmentFilter,
     String? complaintFilter,
+    String? visitReasonFilter,
   }) async {
     final db = await _databaseService.database;
 
@@ -238,37 +240,80 @@ class ReportingRepository implements IReportingRepository {
       patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
     }
 
-    // Apply Chief Complaint Filter if requested
+    // Apply Visit Reason Filter if requested (Station 1 intake reason)
+    if (visitReasonFilter != null && visitReasonFilter.trim().isNotEmpty && visitReasonFilter != 'all') {
+      final target = visitReasonFilter.trim().toLowerCase();
+      patients = patients.where((p) {
+        final reasons = p.reasonsForVisit.map((r) => r.toLowerCase().trim()).toList();
+        if (reasons.any((r) => r == target || r.contains(target) || target.contains(r))) return true;
+        if (target == 'prolapse' || target.contains('hanging') || target.contains('खस्ने') || target.contains('खसेको')) {
+          return reasons.any((r) => r.contains('hanging') || r.contains('prolapse') || r.contains('खस्ने') || r.contains('खसेको'));
+        }
+        if (target == 'discharge' || target.contains('itching') || target.contains('स्राव') || target.contains('चिलाउने') || target.contains('सेतो')) {
+          return reasons.any((r) => r.contains('discharge') || r.contains('itching') || r.contains('स्राव') || r.contains('चिलाउने') || r.contains('सेतो'));
+        }
+        if (target == 'urine' || target.contains('dysuria') || target.contains('पिसाब')) {
+          return reasons.any((r) => r.contains('urine') || r.contains('dysuria') || r.contains('पिसाब'));
+        }
+        if (target == 'stool' || target.contains('bowel') || target.contains('constipation') || target.contains('दिसा')) {
+          return reasons.any((r) => r.contains('stool') || r.contains('bowel') || r.contains('constipation') || r.contains('दिसा'));
+        }
+        if (target == 'pain' || target.contains('दुखाई') || target.contains('दुख्ने') || target.contains('तल्लो पेट')) {
+          return reasons.any((r) => r.contains('pain') || r.contains('दुखाई') || r.contains('दुख्ने') || r.contains('तल्लो पेट'));
+        }
+        if (target == 'menstrual' || target.contains('महिनावारी') || target.contains('bleeding')) {
+          return reasons.any((r) => r.contains('menstrual') || r.contains('महिनावारी') || r.contains('bleeding'));
+        }
+        if (target == 'infertility' || target.contains('बाँझोपन') || target.contains('निःसन्तान')) {
+          return reasons.any((r) => r.contains('infertility') || r.contains('बाँझोपन') || r.contains('निःसन्तान'));
+        }
+        if (target == 'checkup' || target.contains('routine') || target.contains('जाँच')) {
+          return reasons.any((r) => r.contains('checkup') || r.contains('routine') || r.contains('जाँच'));
+        }
+        return false;
+      }).toList();
+
+      final matchingPatientIds = patients.map((p) => p.patientId).toSet();
+      visits = visits.where((v) => matchingPatientIds.contains(v.patientId)).toList();
+    }
+
+    // Apply Chief Complaint Filter if requested (Clinical Anamnesis / Exam Symptoms)
     if (complaintFilter != null && complaintFilter.trim().isNotEmpty && complaintFilter != 'all') {
       final target = complaintFilter.trim().toLowerCase();
       final visitMap = {for (final v in visits) v.patientId: v};
 
       final matchingPatients = patients.where((p) {
         final visit = visitMap[p.patientId];
-        final reasons = p.reasonsForVisit.map((r) => r.toLowerCase()).toList();
-        final anamnesis = visit?.anamnesisComplaints.toString().toLowerCase() ?? '';
-        final combined = [...reasons, anamnesis].join(' ');
+        if (visit == null) return false;
+        final anamnesis = visit.anamnesisComplaints.toString().toLowerCase();
+        final clinicalComplaints = (visit.anamnesisComplaints['clinicalComplaints'] as List?)
+            ?.map((e) => e.toString().toLowerCase())
+            .toList() ?? [];
+
+        if (clinicalComplaints.any((c) => c == target || c.contains(target) || target.contains(c))) {
+          return true;
+        }
 
         if (target == 'something hanging out' || target == 'prolapse' || target == 'pelvic_organ_prolapse') {
-          return combined.contains('hanging') || combined.contains('prolapse') || combined.contains('खस्ने') || combined.contains('pelvic_organ_prolapse');
+          return anamnesis.contains('hanging') || anamnesis.contains('prolapse') || anamnesis.contains('खस्ने') || anamnesis.contains('pelvic_organ_prolapse');
         } else if (target == 'discharge and or itching' || target == 'discharge') {
-          return combined.contains('discharge') || combined.contains('itching') || combined.contains('स्राव') || combined.contains('चिलाउने') || combined.contains('सेतो');
+          return anamnesis.contains('discharge') || anamnesis.contains('itching') || anamnesis.contains('स्राव') || anamnesis.contains('चिलाउने') || anamnesis.contains('सेतो');
         } else if (target == 'problems passing urine' || target == 'urine') {
-          return combined.contains('urine') || combined.contains('dysuria') || combined.contains('पिसाब');
+          return anamnesis.contains('urine') || anamnesis.contains('dysuria') || anamnesis.contains('पिसाब');
         } else if (target == 'problems passing stool' || target == 'stool') {
-          return combined.contains('stool') || combined.contains('bowel') || combined.contains('constipation') || combined.contains('दिसा');
+          return anamnesis.contains('stool') || anamnesis.contains('bowel') || anamnesis.contains('constipation') || anamnesis.contains('दिसा');
         } else if (target == 'pain') {
-          return combined.contains('pain') || combined.contains('दुखाई') || combined.contains('दुख्ने') || combined.contains('तल्लो पेट');
+          return anamnesis.contains('pain') || anamnesis.contains('दुखाई') || anamnesis.contains('दुख्ने') || anamnesis.contains('तल्लो पेट');
         } else if (target == 'menstrual problem' || target == 'menstrual' || target == 'menstrual_disorder') {
-          return combined.contains('menstrual') || combined.contains('महिनावारी') || combined.contains('bleeding') || combined.contains('menstrual_disorder');
+          return anamnesis.contains('menstrual') || anamnesis.contains('महिनावारी') || anamnesis.contains('bleeding') || anamnesis.contains('menstrual_disorder');
         } else if (target == 'infertility' || target == 'infertility_screening') {
-          return combined.contains('infertility') || combined.contains('बाँझोपन') || combined.contains('निःसन्तान') || combined.contains('infertility_screening');
+          return anamnesis.contains('infertility') || anamnesis.contains('बाँझोपन') || anamnesis.contains('निःसन्तान') || anamnesis.contains('infertility_screening');
         } else if (target == 'checkup' || target == 'routine_checkup') {
-          return combined.contains('checkup') || combined.contains('routine') || combined.contains('जाँच') || combined.contains('routine_checkup');
+          return anamnesis.contains('checkup') || anamnesis.contains('routine') || anamnesis.contains('जाँच') || anamnesis.contains('routine_checkup');
         } else if (target == 'gynaecological_oncology' || target == 'oncology' || target == 'cancer') {
-          return combined.contains('cancer') || combined.contains('oncology') || combined.contains('क्यान्सर') || combined.contains('gynaecological_oncology');
+          return anamnesis.contains('cancer') || anamnesis.contains('oncology') || anamnesis.contains('क्यान्सर') || anamnesis.contains('gynaecological_oncology');
         } else {
-          return reasons.any((r) => r == target || r.contains(target) || target.contains(r)) || combined.contains(target);
+          return anamnesis.contains(target);
         }
       }).toList();
 

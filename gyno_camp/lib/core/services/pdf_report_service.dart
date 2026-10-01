@@ -2465,10 +2465,10 @@ class PdfReportService {
                     final rNorm = r.toLowerCase().trim();
                     final keyNorm = e.key.toLowerCase().trim();
                     final valNorm = e.value.toLowerCase().trim();
-                    return rNorm == keyNorm ||
-                        rNorm.contains(keyNorm) ||
-                        keyNorm.contains(rNorm) ||
-                        valNorm.contains(rNorm);
+                    if (rNorm == keyNorm || rNorm == valNorm) return true;
+                    if (rNorm.replaceAll('_', ' ') == keyNorm.replaceAll('_', ' ')) return true;
+                    if (rNorm.replaceAll(' ', '_') == keyNorm.replaceAll(' ', '_')) return true;
+                    return false;
                   }) ?? false,
                   isExpanded: true,
                 ),

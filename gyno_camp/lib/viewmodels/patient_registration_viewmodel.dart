@@ -191,7 +191,8 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
 
   void toggleReason(String reason) {
     final list = List<String>.from(state.selectedReasons);
-    final index = list.indexWhere((r) => r.trim().toLowerCase() == reason.trim().toLowerCase());
+    final targetNorm = reason.trim().toLowerCase().replaceAll('_', ' ');
+    final index = list.indexWhere((r) => r.trim().toLowerCase().replaceAll('_', ' ') == targetNorm);
     if (index != -1) {
       list.removeAt(index);
     } else {

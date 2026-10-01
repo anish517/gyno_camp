@@ -3806,6 +3806,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   List<LookupItemModel> _campVisitReasons = [];
   List<LookupItemModel> _campChiefComplaints = [];
   List<LookupItemModel> _campDiagnoses = [];
+  List<LookupItemModel> _campMedicines = [];
+  List<LookupItemModel> _campReferralHospitals = [];
 
   @override
   void initState() {
@@ -3836,9 +3838,11 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       final patients = await repo.getPatientsByCamp(effectiveCampId);
 
       final lookupRepo = ref.read(lookupRepositoryProvider);
-      final masterReasons = await lookupRepo.getItemsByCategory('visit_reason', campId: effectiveCampId);
-      final masterComplaints = await lookupRepo.getItemsByCategory('chief_complaint', campId: effectiveCampId);
-      final masterDiags = await lookupRepo.getItemsByCategory('diagnosis', campId: effectiveCampId);
+      final masterReasons = await lookupRepo.getItemsByCategory('visit_reason', campId: effectiveCampId, activeOnly: true);
+      final masterComplaints = await lookupRepo.getItemsByCategory('chief_complaint', campId: effectiveCampId, activeOnly: true);
+      final masterDiags = await lookupRepo.getItemsByCategory('diagnosis', campId: effectiveCampId, activeOnly: true);
+      final masterMeds = await lookupRepo.getItemsByCategory('medicine', campId: effectiveCampId, activeOnly: true);
+      final masterHosps = await lookupRepo.getItemsByCategory('referral_hospital', campId: effectiveCampId, activeOnly: true);
 
       await ref.read(reportingViewModelProvider.notifier).loadSummary(
             campId: effectiveCampId,
@@ -3846,6 +3850,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             popStageFilter: _selectedPopStage == 'all' ? null : _selectedPopStage,
             treatmentFilter: _selectedTreatment == 'all' ? null : _selectedTreatment,
             doctorFilter: _selectedDoctor == 'all' ? null : _selectedDoctor,
+            visitReasonFilter: _selectedVisitReason == 'all' ? null : _selectedVisitReason,
             complaintFilter: _selectedComplaint == 'all' ? null : _selectedComplaint,
           );
 
@@ -3866,6 +3871,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
           _campVisitReasons = masterReasons;
           _campChiefComplaints = masterComplaints;
           _campDiagnoses = masterDiags;
+          _campMedicines = masterMeds;
+          _campReferralHospitals = masterHosps;
           _isLoadingPatients = false;
         });
       }
@@ -4193,67 +4200,60 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
   bool _matchesComplaint(PatientModel p, ClinicalVisitModel? visit, String complaintKey) {
     if (complaintKey == 'all') return true;
+    if (visit == null) return false;
     final keyNorm = complaintKey.trim().toLowerCase();
-    final reasons = p.reasonsForVisit.map((r) => r.trim().toLowerCase()).toList();
-    final anamnesis = visit?.anamnesisComplaints.toString().toLowerCase() ?? '';
-    final clinicalComplaints = (visit?.anamnesisComplaints['clinicalComplaints'] as List?)
-            ?.map((e) => e.toString().toLowerCase())
+    final anamnesis = visit.anamnesisComplaints.toString().toLowerCase();
+    final clinicalComplaints = (visit.anamnesisComplaints['clinicalComplaints'] as List?)
+            ?.map((e) => e.toString().toLowerCase().trim())
             .toList() ??
         [];
-    final anamnesisReasons = (visit?.anamnesisComplaints['reasons'] as List?)
-            ?.map((e) => e.toString().toLowerCase())
-            .toList() ??
-        [];
-    final combined = [...reasons, ...clinicalComplaints, ...anamnesisReasons, anamnesis].join(' ');
 
-    // 1. Direct match on reasons or combined text
-    if (reasons.any((r) => r == keyNorm || r.contains(keyNorm) || keyNorm.contains(r)) ||
-        clinicalComplaints.any((c) => c == keyNorm || c.contains(keyNorm) || keyNorm.contains(c)) ||
-        combined.contains(keyNorm)) {
+    // 1. Direct match on clinical complaints or anamnesis text
+    if (clinicalComplaints.any((c) => c == keyNorm || c.contains(keyNorm) || keyNorm.contains(c)) ||
+        anamnesis.contains(keyNorm)) {
       return true;
     }
 
-    // 2. Check against dynamic Master Data Lookup Items (visit reasons & chief complaints)
-    for (final item in [..._campVisitReasons, ..._campChiefComplaints]) {
-      final c = item.code.toLowerCase();
-      final en = item.labelEn.toLowerCase();
-      final ne = item.labelNe.toLowerCase();
-      final id = item.id.toLowerCase();
+    // 2. Check against dynamic Master Data Chief Complaints
+    for (final item in _campChiefComplaints) {
+      final c = item.code.toLowerCase().trim();
+      final en = item.labelEn.toLowerCase().trim();
+      final ne = item.labelNe.toLowerCase().trim();
+      final id = item.id.toLowerCase().trim();
 
       if (keyNorm == c || keyNorm == en || (ne.isNotEmpty && keyNorm == ne) || keyNorm == id) {
-        if (reasons.any((r) => r == c || r == en || (ne.isNotEmpty && r == ne) || r == id)) return true;
         if (clinicalComplaints.any((cc) => cc == c || cc == en || (ne.isNotEmpty && cc == ne))) return true;
-        if (combined.contains(c) || combined.contains(en) || (ne.isNotEmpty && combined.contains(ne))) return true;
+        if (anamnesis.contains(c) || anamnesis.contains(en) || (ne.isNotEmpty && anamnesis.contains(ne))) return true;
       }
     }
 
     // 3. Clinical semantic alias matching (bilingual English + Nepali)
     if (keyNorm.contains('prolapse') || keyNorm.contains('hanging') || keyNorm.contains('खस्ने') || keyNorm.contains('खसेको')) {
-      return combined.contains('hanging') || combined.contains('prolapse') || combined.contains('खस्ने') || combined.contains('खसेको') || combined.contains('mass');
+      return anamnesis.contains('hanging') || anamnesis.contains('prolapse') || anamnesis.contains('खस्ने') || anamnesis.contains('खसेको') || anamnesis.contains('mass');
     }
     if (keyNorm.contains('discharge') || keyNorm.contains('itching') || keyNorm.contains('स्राव') || keyNorm.contains('चिलाउने') || keyNorm.contains('सेतो')) {
-      return combined.contains('discharge') || combined.contains('itching') || combined.contains('स्राव') || combined.contains('चिलाउने') || combined.contains('सेतो');
+      return anamnesis.contains('discharge') || anamnesis.contains('itching') || anamnesis.contains('स्राव') || anamnesis.contains('चिलाउने') || anamnesis.contains('सेतो');
     }
     if (keyNorm.contains('urine') || keyNorm.contains('micturition') || keyNorm.contains('dysuria') || keyNorm.contains('पिसाब')) {
-      return combined.contains('urine') || combined.contains('micturition') || combined.contains('dysuria') || combined.contains('पिसाब') || combined.contains('incontinence');
+      return anamnesis.contains('urine') || anamnesis.contains('micturition') || anamnesis.contains('dysuria') || anamnesis.contains('पिसाब') || anamnesis.contains('incontinence');
     }
     if (keyNorm.contains('stool') || keyNorm.contains('bowel') || keyNorm.contains('constipation') || keyNorm.contains('दिसा')) {
-      return combined.contains('stool') || combined.contains('bowel') || combined.contains('constipation') || combined.contains('दिसा');
+      return anamnesis.contains('stool') || anamnesis.contains('bowel') || anamnesis.contains('constipation') || anamnesis.contains('दिसा');
     }
     if (keyNorm.contains('pain') || keyNorm.contains('backache') || keyNorm.contains('दुखाई') || keyNorm.contains('दुख्ने') || keyNorm.contains('तल्लो पेट')) {
-      return combined.contains('pain') || combined.contains('backache') || combined.contains('दुखाई') || combined.contains('दुख्ने') || combined.contains('तल्लो पेट');
+      return anamnesis.contains('pain') || anamnesis.contains('backache') || anamnesis.contains('दुखाई') || anamnesis.contains('दुख्ने') || anamnesis.contains('तल्लो पेट');
     }
     if (keyNorm.contains('menstrual') || keyNorm.contains('महिनावारी') || keyNorm.contains('bleeding')) {
-      return combined.contains('menstrual') || combined.contains('महिनावारी') || combined.contains('bleeding');
+      return anamnesis.contains('menstrual') || anamnesis.contains('महिनावारी') || anamnesis.contains('bleeding');
     }
     if (keyNorm.contains('infertility') || keyNorm.contains('बाँझोपन') || keyNorm.contains('निःसन्तान')) {
-      return combined.contains('infertility') || combined.contains('बाँझोपन') || combined.contains('निःसन्तान');
+      return anamnesis.contains('infertility') || anamnesis.contains('बाँझोपन') || anamnesis.contains('निःसन्तान');
     }
     if (keyNorm.contains('oncology') || keyNorm.contains('cancer') || keyNorm.contains('क्यान्सर')) {
-      return combined.contains('oncology') || combined.contains('cancer') || combined.contains('क्यान्सर');
+      return anamnesis.contains('oncology') || anamnesis.contains('cancer') || anamnesis.contains('क्यान्सर');
     }
     if (keyNorm.contains('checkup') || keyNorm.contains('routine') || keyNorm.contains('जाँच')) {
-      return combined.contains('checkup') || combined.contains('routine') || combined.contains('जाँच');
+      return anamnesis.contains('checkup') || anamnesis.contains('routine') || anamnesis.contains('जाँच');
     }
 
     return false;
@@ -4271,6 +4271,18 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       case 'medications':
         return visit != null && (visit.medications.isNotEmpty || (visit.customMedication != null && visit.customMedication!.trim().isNotEmpty));
       default:
+        if (treatmentKey.startsWith('med:')) {
+          if (visit == null) return false;
+          final targetMed = treatmentKey.substring(4).toLowerCase().trim();
+          final hasStandard = visit.medications.any((m) => m.toLowerCase().contains(targetMed));
+          final hasCustom = visit.customMedication?.toLowerCase().contains(targetMed) ?? false;
+          return hasStandard || hasCustom;
+        }
+        if (treatmentKey.startsWith('hosp:')) {
+          if (visit == null) return false;
+          final targetHosp = treatmentKey.substring(5).toLowerCase().trim();
+          return visit.surgicalReferral?.toLowerCase().contains(targetHosp) ?? false;
+        }
         return true;
     }
   }
@@ -4439,13 +4451,36 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       complaintCounts[entry.key] = count;
     }
 
-    // Treatment modality definitions and live patient counts
-    const treatmentDefinitions = <String, String>{
+    // Treatment modality definitions (Standard + Camp-specific Medicines & Referral Hospitals)
+    final treatmentDefinitions = <String, String>{
       'pessary': 'Pessary Fitted (रिङ पेसरी)',
       'surgery': 'Surgical Candidate / Done (शल्यक्रिया)',
       'counseling': 'Counseling / Physiotherapy (परामर्श)',
-      'medications': 'Medications Prescribed (औषधी)',
+      'medications': 'All Medications Prescribed (औषधी)',
     };
+    for (final med in _campMedicines) {
+      final name = med.labelEn.trim();
+      if (name.isNotEmpty) {
+        final key = 'med:${name.toLowerCase()}';
+        if (!treatmentDefinitions.containsKey(key)) {
+          final nepaliSuffix = med.labelNe.trim().isNotEmpty ? ' (${med.labelNe.trim()})' : '';
+          treatmentDefinitions[key] = 'Rx: $name$nepaliSuffix';
+        }
+      }
+    }
+    for (final hosp in _campReferralHospitals) {
+      final name = hosp.labelEn.trim();
+      if (name.isNotEmpty) {
+        final key = 'hosp:${name.toLowerCase()}';
+        if (!treatmentDefinitions.containsKey(key)) {
+          final nepaliSuffix = hosp.labelNe.trim().isNotEmpty ? ' (${hosp.labelNe.trim()})' : '';
+          treatmentDefinitions[key] = 'Ref: $name$nepaliSuffix';
+        }
+      }
+    }
+    if (_selectedTreatment != 'all' && !treatmentDefinitions.containsKey(_selectedTreatment)) {
+      _selectedTreatment = 'all';
+    }
 
     final treatmentCounts = <String, int>{};
     for (final entry in treatmentDefinitions.entries) {

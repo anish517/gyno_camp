@@ -72,7 +72,7 @@ class LookupRepository implements ILookupRepository {
     }
 
     if (campId != null && campId.isNotEmpty && campId != 'all') {
-      whereClauses.add("(camp_id = ? OR ((category = 'visit_reason' OR category = 'chief_complaint') AND (camp_id IS NULL OR camp_id = '')))");
+      whereClauses.add("camp_id = ?");
       whereArgs.add(campId);
     }
 
@@ -101,11 +101,7 @@ class LookupRepository implements ILookupRepository {
     }
 
     if (campId != null && campId.isNotEmpty && campId != 'all') {
-      if (category == 'visit_reason' || category == 'chief_complaint') {
-        whereClauses.add("(camp_id = ? OR camp_id IS NULL OR camp_id = '')");
-      } else {
-        whereClauses.add("camp_id = ?");
-      }
+      whereClauses.add("camp_id = ?");
       whereArgs.add(campId);
     }
 
@@ -492,7 +488,7 @@ class LookupRepository implements ILookupRepository {
     try {
       await db.delete(
         DatabaseTables.tableLookupItems,
-        where: "(id LIKE 'diag-%' OR id LIKE 'med-%') AND (camp_id IS NULL OR camp_id = '')",
+        where: "(id LIKE 'diag-%' OR id LIKE 'med-%' OR id LIKE 'reason-%' OR id LIKE 'complaint-%' OR id LIKE 'hosp-%') AND (camp_id IS NULL OR camp_id = '')",
       );
     } catch (e) {
       debugPrint('[LookupRepo] cleanupLegacyAutoSeededDefaults error: $e');
