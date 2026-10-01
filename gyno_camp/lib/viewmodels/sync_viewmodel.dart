@@ -202,8 +202,9 @@ class SyncViewModel extends StateNotifier<SyncState> {
           // patients from ALL camps (the "1 patient → 3 patients" bug).
           // Instead, use the campId that is already loaded in the patient list state.
           r.read(campStateProvider.notifier).loadCamps(silent: true);
-          final currentlyLoadedCampId = r.read(patientListProvider).loadedCampId;
-          r.read(patientListProvider.notifier).loadPatients(currentlyLoadedCampId, true);
+          final patientState = r.read(patientListProvider);
+          final campToReload = patientState.filters.campId == 'all' ? 'all' : patientState.loadedCampId;
+          r.read(patientListProvider.notifier).loadPatients(campToReload, true);
           r.read(masterLookupProvider.notifier).loadAll(silent: true);
         } catch (_) {}
       }

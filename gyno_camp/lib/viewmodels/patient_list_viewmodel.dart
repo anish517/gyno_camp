@@ -176,7 +176,9 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
     final isDifferentCamp = cleanCampId != state.loadedCampId;
     final updatedFilters = cleanCampId != null
         ? state.filters.copyWith(campId: cleanCampId)
-        : state.filters;
+        : (campId == 'all' || (campId == null && state.filters.campId == 'all')
+            ? state.filters.copyWith(campId: 'all')
+            : state.filters);
 
     if (!silent) {
       state = state.copyWith(
@@ -212,7 +214,8 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
   }
 
   Future<void> search(String? campId, String query) async {
-    if (state.rawPatients.isEmpty || (campId != null && state.loadedCampId != campId)) {
+    final cleanCampId = (campId == null || campId == 'all' || campId.trim().isEmpty) ? null : campId.trim();
+    if (state.rawPatients.isEmpty || cleanCampId != state.loadedCampId) {
       await loadPatients(campId);
     }
     if (!mounted) return;
@@ -232,7 +235,8 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
   }
 
   void resetFilters() {
-    const defaultFilters = PatientFilterCriteria();
+    final preservedCampId = state.filters.campId;
+    final defaultFilters = PatientFilterCriteria(campId: preservedCampId);
     final filtered = _filterList(state.rawPatients, state.searchQuery, defaultFilters);
     state = state.copyWith(
       filters: defaultFilters,

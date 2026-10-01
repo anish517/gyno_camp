@@ -106,6 +106,22 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     super.dispose();
   }
 
+  void _reloadCurrentList(PatientListViewModel vm, {bool silent = false}) {
+    final currentFilter = ref.read(patientListProvider).filters.campId;
+    if (currentFilter == 'all') {
+      vm.loadPatients('all', silent);
+    } else if (currentFilter != null && currentFilter.isNotEmpty) {
+      vm.loadPatients(currentFilter, silent);
+    } else {
+      final active = ref.read(userActiveCampProvider);
+      if (active != null) {
+        vm.loadPatients(active.id, silent);
+      } else {
+        vm.loadPatients('all', silent);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final campState = ref.watch(campStateProvider);
@@ -113,17 +129,31 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     final vm = ref.read(patientListProvider.notifier);
     // Use user-scoped camp so staff see their assigned camp, not the global one
     final activeCamp = ref.watch(userActiveCampProvider);
-    final effectiveCamp = widget.campId != null
-        ? campState.camps.cast<CampModel?>().firstWhere(
-              (c) => c?.id == widget.campId,
-              orElse: () => activeCamp,
-            )
-        : activeCamp;
+    final filterCampId = patientState.filters.campId;
+    final bool isAllCamps = filterCampId == 'all';
+    final effectiveCamp = isAllCamps
+        ? null
+        : (filterCampId != null
+            ? campState.camps.cast<CampModel?>().firstWhere(
+                  (c) => c?.id == filterCampId,
+                  orElse: () => activeCamp,
+                )
+            : (widget.campId != null
+                ? campState.camps.cast<CampModel?>().firstWhere(
+                      (c) => c?.id == widget.campId,
+                      orElse: () => activeCamp,
+                    )
+                : activeCamp));
     final effectiveCampId = effectiveCamp?.id;
 
     // Only auto-switch patient roll on activeCamp change if not explicitly bound to a campId
     if (widget.campId == null) {
       ref.listen<CampModel?>(userActiveCampProvider, (previous, next) {
+        // If the user has explicitly selected 'all' or another camp in the filter,
+        // do not auto-switch their view on background camp updates.
+        if (patientState.filters.campId == 'all') return;
+        if (patientState.filters.campId != null && patientState.hasLoaded) return;
+
         if (next != null &&
             (previous?.id != next.id || !patientState.hasLoaded)) {
           if (_searchController.text.trim().isNotEmpty) {
@@ -139,13 +169,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
     ref.listen<SyncState>(syncStateProvider, (previous, next) {
       if (previous?.lastSyncedAt != next.lastSyncedAt && next.lastSyncedAt != null) {
-        if (effectiveCampId != null) {
-          if (_searchController.text.trim().isNotEmpty) {
-            ref.read(patientListProvider.notifier).search(effectiveCampId, _searchController.text.trim());
-          } else {
-            ref.read(patientListProvider.notifier).loadPatients(effectiveCampId);
-          }
-        }
+        _reloadCurrentList(vm, silent: true);
       }
     });
 
@@ -267,9 +291,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               child: Tooltip(
                 message: 'Refresh Patient List',
                 child: InkWell(
-                  onTap: effectiveCampId == null
-                      ? null
-                      : () => vm.loadPatients(effectiveCampId),
+                  onTap: () => _reloadCurrentList(vm),
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.all(8),
@@ -294,14 +316,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: effectiveCamp == null ? Colors.grey.shade400 : const Color(0xFF81005D),
+        backgroundColor: (effectiveCamp == null && activeCamp == null)
+            ? Colors.grey.shade400
+            : const Color(0xFF81005D),
         elevation: 4,
         icon: const Icon(Icons.person_add, color: Colors.white),
         label: const Text(
           'New Patient',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.5),
         ),
-        onPressed: effectiveCamp == null
+        onPressed: (effectiveCamp == null && activeCamp == null)
             ? () => ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text(
@@ -317,17 +341,18 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     builder: (_) => const PatientRegistrationView(),
                   ),
                 );
-                if (mounted && effectiveCampId != null) {
-                  vm.loadPatients(effectiveCampId);
+                if (mounted) {
+                  _reloadCurrentList(vm);
                 }
               },
       ),
-      body: effectiveCamp == null
+      body: (effectiveCamp == null && !isAllCamps)
           ? const Center(
               child: Text(
                 'No active camp selected. Please activate a camp first.',
               ),
-            )          : LayoutBuilder(
+            )
+          : LayoutBuilder(
               builder: (context, viewportConstraints) {
                 final isDesktop = viewportConstraints.maxWidth >= 900;
 
@@ -337,6 +362,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       // Full-width Header Toolbar with Edge Padding (No artificial maxWidth cage)
                       _buildSearchAndActionHeader(
                         effectiveCampId: effectiveCampId,
+                        isAllCamps: isAllCamps,
+                        activeCamp: activeCamp,
                         patientState: patientState,
                         vm: vm,
                         isWide: true,
@@ -374,7 +401,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             Expanded(
                               child: _buildPatientCardsList(
                                 effectiveCampId,
-                                effectiveCamp,
+                                effectiveCamp ?? activeCamp,
                                 patientState,
                                 vm,
                                 campState,
@@ -393,6 +420,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     // Search & Filter Header
                     _buildSearchAndActionHeader(
                       effectiveCampId: effectiveCampId,
+                      isAllCamps: isAllCamps,
+                      activeCamp: activeCamp,
                       patientState: patientState,
                       vm: vm,
                       isWide: viewportConstraints.maxWidth >= 700,
@@ -425,7 +454,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     Expanded(
                       child: _buildPatientCardsList(
                         effectiveCampId,
-                        effectiveCamp,
+                        effectiveCamp ?? activeCamp,
                         patientState,
                         vm,
                         campState,
@@ -440,6 +469,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
   Widget _buildSearchAndActionHeader({
     required String? effectiveCampId,
+    required bool isAllCamps,
+    required CampModel? activeCamp,
     required PatientListState patientState,
     required PatientListViewModel vm,
     required bool isWide,
@@ -460,7 +491,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 tooltip: 'Clear Search',
                 onPressed: () {
                   _searchController.clear();
-                  vm.search(effectiveCampId, '');
+                  vm.search(isAllCamps ? 'all' : effectiveCampId, '');
                 },
               )
             : null,
@@ -480,7 +511,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.8),
         ),
       ),
-      onChanged: (val) => vm.search(effectiveCampId, val),
+      onChanged: (val) => vm.search(isAllCamps ? 'all' : effectiveCampId, val),
     );
 
     final filterButton = OutlinedButton.icon(
@@ -524,11 +555,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       ),
       icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
       label: const Text('Scan QR / Barcode', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-      onPressed: effectiveCampId == null
+      onPressed: (effectiveCampId == null && !isAllCamps && activeCamp?.id == null)
           ? null
           : () => _showScanTokenDialog(
               context,
-              effectiveCampId,
+              effectiveCampId ?? activeCamp?.id ?? '',
               vm,
               patientState.rawPatients,
             ),
@@ -548,10 +579,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         final campState = ref.read(campStateProvider);
         CampModel? targetCamp;
         try {
-          targetCamp = campState.camps.firstWhere((c) => c.id == effectiveCampId);
-        } catch (_) {
-          targetCamp = campState.activeCamp;
-        }
+          if (effectiveCampId != null) {
+            targetCamp = campState.camps.firstWhere((c) => c.id == effectiveCampId);
+          }
+        } catch (_) {}
+        targetCamp ??= activeCamp ?? campState.activeCamp;
         BlankFormDownloadDialog.show(context, camp: targetCamp);
       },
     );
@@ -750,9 +782,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             ? _buildEmptyState(context, effectiveCampId, vm)
             : RefreshIndicator(
                 onRefresh: () async {
-                  if (effectiveCampId != null) {
-                    await vm.loadPatients(effectiveCampId);
-                  }
+                  _reloadCurrentList(vm);
                 },
                 child: LayoutBuilder(
                   builder: (context, constraints) {
@@ -1510,7 +1540,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             if (val != null && val != 'all') {
                               vm.loadPatients(val);
                             } else {
-                              vm.loadPatients(null);
+                              vm.loadPatients('all');
                             }
                           },
                         );
@@ -2176,8 +2206,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       builder: (_) => const PatientRegistrationView(),
                     ),
                   );
-                  if (mounted && campId != null) {
-                    vm.loadPatients(campId);
+                  if (mounted) {
+                    _reloadCurrentList(vm);
                   }
                 },
               ),
@@ -2845,8 +2875,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             context,
                             MaterialPageRoute(builder: (_) => ClinicalAssessmentView(patient: patient)),
                           );
-                          if (mounted && activeCamp != null) {
-                            vm.loadPatients(activeCamp.id);
+                          if (mounted) {
+                            _reloadCurrentList(vm);
                           }
                         },
                       )
@@ -2867,8 +2897,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               builder: (_) => PatientFollowUpFormView(patient: patient, camp: activeCamp),
                             ),
                           );
-                          if (updated == true && mounted && activeCamp != null) {
-                            vm.loadPatients(activeCamp.id);
+                          if (updated == true && mounted) {
+                            _reloadCurrentList(vm);
                           }
                         },
                       );
@@ -2903,9 +2933,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         ),
                       );
                       if (!context.mounted) return;
-                      if (activeCamp != null) {
-                        vm.loadPatients(activeCamp.id);
-                      }
+                      _reloadCurrentList(vm);
                     }
                   },
                 );
@@ -3022,8 +3050,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             builder: (_) => PatientRegistrationView(patientToEdit: patient),
                           ),
                         );
-                        if (context.mounted && updated != null && activeCamp != null) {
-                          vm.loadPatients(activeCamp.id);
+                        if (context.mounted && updated != null) {
+                          _reloadCurrentList(vm);
                         }
                         break;
                       case 're_exam':
@@ -3031,8 +3059,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           context,
                           MaterialPageRoute(builder: (_) => ClinicalAssessmentView(patient: patient)),
                         );
-                        if (mounted && activeCamp != null) {
-                          vm.loadPatients(activeCamp.id);
+                        if (mounted) {
+                          _reloadCurrentList(vm);
                         }
                         break;
                       case 'history':
