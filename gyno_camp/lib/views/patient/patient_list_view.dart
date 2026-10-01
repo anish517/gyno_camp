@@ -1320,43 +1320,66 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         allDiagnoses.add(d.labelNe.isNotEmpty ? '${d.labelEn} (${d.labelNe})' : d.labelEn);
       }
     }
-    for (final p in patientState.rawPatients) {
-      allDiagnoses.addAll(p.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
-    }
-    for (final p in patientState.patients) {
-      allDiagnoses.addAll(p.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
+    // Only if 0 diagnoses exist in Master Data, fallback to any active patient records
+    if (allDiagnoses.isEmpty) {
+      for (final p in patientState.rawPatients) {
+        allDiagnoses.addAll(p.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
+      }
+      for (final p in patientState.patients) {
+        allDiagnoses.addAll(p.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
+      }
     }
     if (filters.disease != null && filters.disease!.trim().isNotEmpty && filters.disease != 'all') {
       allDiagnoses.add(filters.disease!.trim());
     }
     final sortedDiagnoses = allDiagnoses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    // Dynamic Complaints & Visit Reasons: active master lookups + patient records
-    final activeVisitReasons = ref.watch(activeVisitReasonsProvider);
+    // Dynamic Complaints & Visit Reasons: active master lookups (NO hardcoded static defaults or unconfigured patient scraping)
     final activeChiefComplaints = ref.watch(activeChiefComplaintsProvider);
+    final activeVisitReasons = ref.watch(activeVisitReasonsProvider);
     final dynamicComplaintsMap = <String, String>{};
-    for (final item in [...activeVisitReasons, ...activeChiefComplaints]) {
-      final key = item.code.trim().isNotEmpty ? item.code.trim() : item.labelEn.trim();
+
+    String formatTitle(String text) {
+      if (text.isEmpty) return text;
+      return text.split(' ').map((w) {
+        if (w.isEmpty) return w;
+        return '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}';
+      }).join(' ');
+    }
+
+    final masterComplaints = activeChiefComplaints.isNotEmpty
+        ? activeChiefComplaints
+        : activeVisitReasons;
+
+    for (final item in masterComplaints) {
+      final key = item.labelEn.trim().isNotEmpty ? item.labelEn.trim() : item.code.trim();
+      final titleEn = formatTitle(item.labelEn.trim());
       final label = item.labelNe.isNotEmpty
-          ? '${item.labelEn} (${item.labelNe})'
-          : item.labelEn;
+          ? '$titleEn (${item.labelNe})'
+          : titleEn;
       if (key.isNotEmpty && !dynamicComplaintsMap.containsKey(key)) {
         dynamicComplaintsMap[key] = label;
       }
     }
-    for (final p in patientState.rawPatients) {
-      for (final r in p.reasonsForVisit) {
-        final cleanR = r.trim();
-        if (cleanR.isNotEmpty && !dynamicComplaintsMap.keys.any((k) => k.toLowerCase() == cleanR.toLowerCase())) {
-          final normR = cleanR.toLowerCase().replaceAll('_', ' ');
-          final label = _clinicalLabelMap[normR] ??
-              _clinicalLabelMap[cleanR] ??
-              _clinicalLabelMap[normR.replaceAll(' ', '_')] ??
-              (normR.contains('hanging') || normR.contains('prolapse') ? 'Prolapse / Something Hanging Out (आङ खस्ने)' : cleanR);
-          dynamicComplaintsMap[cleanR] = label;
+
+    // Only if 0 complaints exist in master data, fallback to any active patient records
+    if (dynamicComplaintsMap.isEmpty) {
+      for (final p in patientState.rawPatients) {
+        for (final r in p.reasonsForVisit) {
+          final cleanR = r.trim();
+          if (cleanR.isNotEmpty && !dynamicComplaintsMap.keys.any((k) => k.toLowerCase() == cleanR.toLowerCase())) {
+            final normR = cleanR.toLowerCase().replaceAll('_', ' ');
+            final label = _clinicalLabelMap[normR] ??
+                _clinicalLabelMap[cleanR] ??
+                _clinicalLabelMap[normR.replaceAll(' ', '_')] ??
+                formatTitle(normR);
+            dynamicComplaintsMap[cleanR] = label;
+          }
         }
       }
     }
+
+    // Ensure currently selected filter value exists in the map so dropdown doesn't crash
     if (filters.chiefComplaint != null &&
         filters.chiefComplaint!.isNotEmpty &&
         filters.chiefComplaint != 'all' &&
@@ -1364,7 +1387,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       final normC = filters.chiefComplaint!.toLowerCase().replaceAll('_', ' ');
       final label = _clinicalLabelMap[normC] ??
           _clinicalLabelMap[filters.chiefComplaint] ??
-          filters.chiefComplaint!;
+          formatTitle(normC);
       dynamicComplaintsMap[filters.chiefComplaint!] = label;
     }
 
