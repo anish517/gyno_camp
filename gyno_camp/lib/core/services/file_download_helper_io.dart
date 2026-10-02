@@ -2,35 +2,103 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'download_result.dart';
 
-Future<String> saveFile({
+Future<DownloadResult> saveFile({
   required List<int> bytes,
   required String filename,
   String? mimeType,
   String? targetDirectoryPath,
 }) async {
-  String dirPath = targetDirectoryPath ?? '';
-  if (dirPath.isEmpty) {
-    final isTest = Platform.environment.containsKey('FLUTTER_TEST') ||
-        WidgetsBinding.instance.runtimeType.toString().contains('Test');
-    if (isTest) {
-      dirPath = Directory.systemTemp.path;
-    } else {
-      try {
-        final appDir = await getApplicationDocumentsDirectory().timeout(const Duration(milliseconds: 500));
-        dirPath = appDir.path;
-      } catch (_) {
-        dirPath = Directory.systemTemp.path;
+  try {
+    String dirPath = targetDirectoryPath ?? '';
+    String displayLocation = 'Downloads';
+
+    if (dirPath.isEmpty) {
+      final isTest = Platform.environment.containsKey('FLUTTER_TEST') ||
+          WidgetsBinding.instance.runtimeType.toString().contains('Test');
+
+      if (isTest) {
+        dirPath = p.join(Directory.systemTemp.path, 'gynocamp_reports');
+        displayLocation = 'Temp';
+      } else if (Platform.isAndroid) {
+        // Priority 1: Primary public Downloads directory on Android devices
+        final publicDownloadDir = Directory('/storage/emulated/0/Download/Gynocamp');
+        try {
+          if (!publicDownloadDir.existsSync()) {
+            publicDownloadDir.createSync(recursive: true);
+          }
+          dirPath = publicDownloadDir.path;
+          displayLocation = 'Downloads/Gynocamp';
+        } catch (_) {
+          // Priority 2: App's external storage downloads directory
+          try {
+            final extDirs = await getExternalStorageDirectories(type: StorageDirectory.downloads);
+            if (extDirs != null && extDirs.isNotEmpty) {
+              final gynoDir = Directory(p.join(extDirs.first.path, 'Gynocamp'));
+              if (!gynoDir.existsSync()) gynoDir.createSync(recursive: true);
+              dirPath = gynoDir.path;
+              displayLocation = 'Downloads/Gynocamp';
+            }
+          } catch (_) {}
+        }
+      } else if (Platform.isIOS) {
+        // iOS: Application documents directory (visible in Files if UIFileSharingEnabled is configured)
+        final docDir = await getApplicationDocumentsDirectory();
+        final gynoDir = Directory(p.join(docDir.path, 'Gynocamp'));
+        if (!gynoDir.existsSync()) gynoDir.createSync(recursive: true);
+        dirPath = gynoDir.path;
+        displayLocation = 'Files/Gynocamp';
+      } else {
+        // Desktop (Windows, macOS, Linux)
+        try {
+          final downloadDir = await getDownloadsDirectory();
+          if (downloadDir != null) {
+            final gynoDir = Directory(p.join(downloadDir.path, 'Gynocamp'));
+            if (!gynoDir.existsSync()) gynoDir.createSync(recursive: true);
+            dirPath = gynoDir.path;
+            displayLocation = 'Downloads/Gynocamp';
+          }
+        } catch (_) {}
+      }
+
+      // Final fallback if dirPath is still not resolved
+      if (dirPath.isEmpty) {
+        try {
+          final appDir = await getApplicationDocumentsDirectory();
+          final gynoDir = Directory(p.join(appDir.path, 'gynocamp_reports'));
+          if (!gynoDir.existsSync()) gynoDir.createSync(recursive: true);
+          dirPath = gynoDir.path;
+          displayLocation = 'Documents';
+        } catch (_) {
+          dirPath = Directory.systemTemp.path;
+          displayLocation = 'Temp';
+        }
       }
     }
-  }
 
-  final reportsDir = Directory(p.join(dirPath, 'gynocamp_reports'));
-  if (!reportsDir.existsSync()) {
-    reportsDir.createSync(recursive: true);
-  }
+    final targetDir = Directory(dirPath);
+    if (!targetDir.existsSync()) {
+      targetDir.createSync(recursive: true);
+    }
 
-  final file = File(p.join(reportsDir.path, filename));
-  await file.writeAsBytes(bytes);
-  return file.path;
+    final file = File(p.join(dirPath, filename));
+    await file.writeAsBytes(bytes, flush: true);
+
+    return DownloadResult(
+      isSuccess: true,
+      filename: filename,
+      filePath: file.path,
+      displayLocation: displayLocation,
+      mimeType: mimeType,
+      canOpenLocally: true,
+    );
+  } catch (e) {
+    return DownloadResult(
+      isSuccess: false,
+      filename: filename,
+      displayLocation: 'None',
+      errorMessage: 'Failed to save file: $e',
+    );
+  }
 }

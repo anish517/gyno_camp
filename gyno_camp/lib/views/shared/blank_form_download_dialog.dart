@@ -153,7 +153,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
         }
       }
 
-      await FileDownloadHelper.saveAndDownloadFile(
+      final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: pdfBytes,
         filename: filename,
         mimeType: 'application/pdf',
@@ -161,20 +161,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
 
       if (mounted) {
         Navigator.pop(context);
-        messenger.clearSnackBars();
-        messenger.showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 10),
-                Expanded(child: Text('Downloaded successfully: $filename')),
-              ],
-            ),
-            backgroundColor: AppTheme.successGreen,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        FileDownloadHelper.showDownloadFeedback(context, result);
       }
     } catch (e) {
       if (mounted) {

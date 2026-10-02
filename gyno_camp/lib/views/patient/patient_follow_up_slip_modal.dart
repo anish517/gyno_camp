@@ -862,19 +862,14 @@ class PatientFollowUpSlipModal extends StatelessWidget {
 
       final pdfBytes = await doc.save();
       final filename = 'Patient_Slip_${patient.patientId}.pdf';
-      await FileDownloadHelper.saveAndDownloadFile(
+      final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: pdfBytes,
         filename: filename,
         mimeType: 'application/pdf',
       );
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Follow-up slip downloaded: $filename'),
-            backgroundColor: AppTheme.successGreen,
-          ),
-        );
+        FileDownloadHelper.showDownloadFeedback(context, result);
       }
     } catch (e) {
       if (context.mounted) {

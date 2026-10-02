@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/services/file_download_helper.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/camp_report_summary_model.dart';
@@ -414,11 +416,32 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             deviceId: deviceState.device?.deviceId ?? 'dev-field',
           );
       if (mounted && saved != null) {
+        messenger.clearSnackBars();
         messenger.showSnackBar(
           SnackBar(
             backgroundColor: AppTheme.primaryTeal,
-            content: Text('Saved dossier: $saved'),
-            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(child: Text('Patient dossier exported: ${patient.fullName}')),
+                if (!kIsWeb) ...[
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () => FileDownloadHelper.openFile(saved),
+                    child: const Text('Review', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ],
+            ),
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -918,12 +941,39 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     ),
                   ),
                   if (reportState.lastExportPath != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      'Saved: ${reportState.lastExportPath}',
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          kIsWeb ? 'Saved to browser Downloads folder' : 'Saved to ${reportState.lastExportPath}',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (!kIsWeb && reportState.lastExportPath!.isNotEmpty) ...[
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppTheme.primaryTeal,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            icon: const Icon(Icons.open_in_new_rounded, size: 14),
+                            label: const Text('Review', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: () => FileDownloadHelper.openFile(reportState.lastExportPath!),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.share_rounded, size: 16, color: AppTheme.primaryTeal),
+                            tooltip: 'Share / Print',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => FileDownloadHelper.shareFile(reportState.lastExportPath!),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ],

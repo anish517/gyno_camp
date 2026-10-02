@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/database_service.dart';
@@ -2632,18 +2633,13 @@ class HomeGatewayView extends ConsumerWidget {
       final bytes = utf8.encode(jsonString);
       final dateStr = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
       final filename = 'gynocamp_backup_$dateStr.json';
-      await FileDownloadHelper.saveAndDownloadFile(
+      final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
         filename: filename,
         mimeType: 'application/json',
       );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Database backup exported successfully: $filename'),
-            backgroundColor: AppTheme.successGreen,
-          ),
-        );
+        FileDownloadHelper.showDownloadFeedback(context, result);
       }
     } catch (e) {
       if (context.mounted) {
@@ -4572,7 +4568,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          savedPath,
+                          kIsWeb ? 'Saved to browser Downloads folder' : 'Saved to $savedPath',
                           style: const TextStyle(fontSize: 11, color: Colors.white70),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -4580,9 +4576,31 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                       ],
                     ),
                   ),
+                  if (!kIsWeb) ...[
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      onPressed: () => FileDownloadHelper.openFile(savedPath),
+                      child: const Text('Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.share_rounded, color: Colors.white, size: 18),
+                      tooltip: 'Share',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => FileDownloadHelper.shareFile(savedPath),
+                    ),
+                  ],
                 ],
               ),
-              duration: const Duration(seconds: 4),
+              duration: const Duration(seconds: 6),
             ),
           );
         } else {
@@ -4663,12 +4681,12 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Individual Dossier Saved: ${patient.fullName}',
+                          'Individual Dossier: ${patient.fullName}',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          savedPath,
+                          kIsWeb ? 'Saved to browser Downloads folder' : 'Saved to $savedPath',
                           style: const TextStyle(fontSize: 11, color: Colors.white70),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -4676,6 +4694,28 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                       ],
                     ),
                   ),
+                  if (!kIsWeb) ...[
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      onPressed: () => FileDownloadHelper.openFile(savedPath),
+                      child: const Text('Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.share_rounded, color: Colors.white, size: 18),
+                      tooltip: 'Share',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => FileDownloadHelper.shareFile(savedPath),
+                    ),
+                  ],
                 ],
               ),
               duration: const Duration(seconds: 4),

@@ -3109,10 +3109,18 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               userRole: auth?.role.toDbString() ?? 'DATA_TAKER',
                             );
                         if (context.mounted && saved != null) {
+                          ScaffoldMessenger.of(context).clearSnackBars();
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Summary PDF downloaded: $saved'),
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                                  const SizedBox(width: 10),
+                                  Expanded(child: Text('Summary PDF downloaded for ${patient.fullName}')),
+                                ],
+                              ),
                               backgroundColor: AppTheme.successGreen,
+                              behavior: SnackBarBehavior.floating,
                             ),
                           );
                         }
@@ -3953,22 +3961,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         visitReasons: masterState.activeVisitReasons,
         chiefComplaints: masterState.activeChiefComplaints,
       );
-      await FileDownloadHelper.saveAndDownloadFile(
+      final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
         filename: 'RegistrationForm_${patient.patientId}.pdf',
         mimeType: 'application/pdf',
       );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Registration form downloaded: RegistrationForm_${patient.patientId}.pdf',
-            ),
-            backgroundColor: AppTheme.successGreen,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        FileDownloadHelper.showDownloadFeedback(context, result);
       }
     } catch (e) {
       if (context.mounted) {
@@ -4021,20 +4020,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         );
       }
 
-      await FileDownloadHelper.saveAndDownloadFile(
+      final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
         filename: 'FollowUpSlip_${patient.patientId}.pdf',
         mimeType: 'application/pdf',
       );
 
-      messenger.clearSnackBars();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Follow-up slip downloaded: FollowUpSlip_${patient.patientId}.pdf'),
-          backgroundColor: AppTheme.successGreen,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (context.mounted) {
+        FileDownloadHelper.showDownloadFeedback(context, result);
+      }
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(

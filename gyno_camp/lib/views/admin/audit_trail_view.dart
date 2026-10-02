@@ -1150,19 +1150,14 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
       final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
       final filename = 'gynocamp_audit_report_${_selectedCategory.toLowerCase()}_$dateStr.csv';
 
-      await FileDownloadHelper.saveAndDownloadFile(
+      final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
         filename: filename,
         mimeType: 'text/csv',
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Audit CSV exported successfully: $filename'),
-            backgroundColor: AppTheme.successGreen,
-          ),
-        );
+        FileDownloadHelper.showDownloadFeedback(context, result);
       }
     } catch (e) {
       if (mounted) {
@@ -1193,19 +1188,14 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
       final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
       final filename = 'gynocamp_audit_vault_$dateStr.json';
 
-      await FileDownloadHelper.saveAndDownloadFile(
+      final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
         filename: filename,
         mimeType: 'application/json',
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Cryptographic JSON vault exported: $filename'),
-            backgroundColor: AppTheme.successGreen,
-          ),
-        );
+        FileDownloadHelper.showDownloadFeedback(context, result);
       }
     } catch (e) {
       if (mounted) {

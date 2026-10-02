@@ -41,14 +41,11 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
         patient: _patient, visit: v, camp: widget.camp, organizationName: widget.orgName,
       );
       final ds = DateFormat('yyyyMMdd').format(v.visitDate);
-      await FileDownloadHelper.saveAndDownloadFile(
+      final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes, filename: 'EncounterSlip_${_patient.patientId}_$ds.pdf', mimeType: 'application/pdf',
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Slip downloaded for ${DateFormat("dd MMM yyyy").format(v.visitDate)}'),
-          backgroundColor: AppTheme.successGreen, behavior: SnackBarBehavior.floating,
-        ));
+        FileDownloadHelper.showDownloadFeedback(context, result);
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerRose));
@@ -812,19 +809,13 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                           camp: widget.camp,
                           organizationName: widget.orgName,
                         );
-                        await FileDownloadHelper.saveAndDownloadFile(
+                        final result = await FileDownloadHelper.saveAndDownloadFile(
                           bytes: bytes,
                           filename: 'Dossier_${widget.patient.patientId}.pdf',
                           mimeType: 'application/pdf',
                         );
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Full dossier downloaded!'),
-                              backgroundColor: AppTheme.successGreen,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                          FileDownloadHelper.showDownloadFeedback(context, result);
                         }
                       } catch (e) {
                         if (mounted) {

@@ -363,11 +363,12 @@ class ReportingRepository implements IReportingRepository {
     required String filename,
     String? targetDirectoryPath,
   }) async {
-    return FileDownloadHelper.saveAndDownloadFile(
+    final result = await FileDownloadHelper.saveAndDownloadFile(
       bytes: bytes,
       filename: filename,
       targetDirectoryPath: targetDirectoryPath,
     );
+    return result.filePath ?? result.displayLocation;
   }
 
   @override

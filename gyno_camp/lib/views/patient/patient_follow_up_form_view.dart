@@ -183,17 +183,13 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         camp: widget.camp,
       );
       final ds = DateFormat('yyyyMMdd').format(v.visitDate);
-      await FileDownloadHelper.saveAndDownloadFile(
+      final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
         filename: 'EncounterSlip_${widget.patient.patientId}_$ds.pdf',
         mimeType: 'application/pdf',
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Slip downloaded for ${DateFormat("dd MMM yyyy").format(v.visitDate)}'),
-          backgroundColor: AppTheme.successGreen,
-          behavior: SnackBarBehavior.floating,
-        ));
+        FileDownloadHelper.showDownloadFeedback(context, result);
       }
     } catch (e) {
       if (mounted) {
