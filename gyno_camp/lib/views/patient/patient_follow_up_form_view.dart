@@ -845,24 +845,21 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 const SizedBox(height: 6),
 
                 // 3. Baden-Walker POP Staging (Station 4)
-                Row(
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text('Baden-Walker POP: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
                     if (v.highestPopStage == 0) ...[
                       _pb('', 'Normal (No Prolapse)', isNormal: true),
-                      const SizedBox(width: 4),
                       _pb('Ant', 'St 0'),
-                      const SizedBox(width: 4),
                       _pb('Mid', 'St 0'),
-                      const SizedBox(width: 4),
                       _pb('Post', 'St 0'),
                     ] else ...[
                       _pb('Highest', 'St ${v.highestPopStage}', ip: v.highestPopStage == 2, ic: v.highestPopStage >= 3),
-                      const SizedBox(width: 4),
                       _pb('Ant', 'St ${v.popAnteriorStage}'),
-                      const SizedBox(width: 4),
                       _pb('Mid', 'St ${v.popMiddleStage}'),
-                      const SizedBox(width: 4),
                       _pb('Post', 'St ${v.popPosteriorStage}'),
                     ],
                   ],

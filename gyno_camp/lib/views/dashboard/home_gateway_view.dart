@@ -73,13 +73,16 @@ class HomeGatewayView extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompact = screenWidth < 600;
+
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 72,
+        toolbarHeight: isCompact ? 64 : 72,
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        titleSpacing: 20,
+        titleSpacing: isCompact ? 8 : 20,
         flexibleSpace: Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -116,19 +119,19 @@ class HomeGatewayView extends ConsumerWidget {
           children: [
             // Brand Logo mark with clean circular border and subtle brand shadow
             Container(
-              width: 50,
-              height: 50,
+              width: isCompact ? 34 : 50,
+              height: isCompact ? 34 : 50,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white,
                 border: Border.all(
                   color: const Color(0xFF30026E).withValues(alpha: 0.22),
-                  width: 2,
+                  width: isCompact ? 1.5 : 2,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF30026E).withValues(alpha: 0.12),
-                    blurRadius: 8,
+                    blurRadius: isCompact ? 4 : 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -146,104 +149,118 @@ class HomeGatewayView extends ConsumerWidget {
                       ),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.health_and_safety_rounded,
                       color: Colors.white,
-                      size: 26,
+                      size: isCompact ? 18 : 26,
                     ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 14),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Gynocamp',
-                      style: TextStyle(
-                        color: Color(0xFF1E0A38),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF30026E).withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.2)),
-                      ),
-                      child: Text(
-                        (user.isSuperAdmin ? UserRole.superAdmin : user.role).displayNameEn,
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF30026E),
-                          letterSpacing: 0.3,
+            SizedBox(width: isCompact ? 6 : 14),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Gynocamp',
+                        style: TextStyle(
+                          color: const Color(0xFF1E0A38),
+                          fontWeight: FontWeight.w900,
+                          fontSize: isCompact ? 15.5 : 18,
+                          letterSpacing: -0.4,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Builder(
-                  builder: (ctx) {
-                    final org = ref.watch(effectiveOrganizationProvider);
-                    return Text(
-                      '$org • ${deviceState.device?.deviceName ?? "Authorized Device"}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF64748B),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    );
-                  },
-                ),
-              ],
+                      if (!isCompact) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF30026E).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.2)),
+                          ),
+                          child: Text(
+                            (user.isSuperAdmin ? UserRole.superAdmin : user.role).displayNameEn,
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF30026E),
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 1),
+                  Builder(
+                    builder: (ctx) {
+                      final org = ref.watch(effectiveOrganizationProvider);
+                      return Text(
+                        isCompact
+                            ? (deviceState.device?.deviceName ?? org)
+                            : '$org • ${deviceState.device?.deviceName ?? "Authorized Device"}',
+                        style: TextStyle(
+                          fontSize: isCompact ? 9.5 : 11,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF64748B),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
           // Live status pill
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFFECFDF5),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFA7F3D0)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.fiber_manual_record, color: Color(0xFF10B981), size: 9),
-                SizedBox(width: 5),
-                Text(
-                  'Live Node',
-                  style: TextStyle(
-                    color: Color(0xFF065F46),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
+          Tooltip(
+            message: 'Central Node: Online / Connected',
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 5 : 10,
+                vertical: isCompact ? 4 : 5,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFDF5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFA7F3D0)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.fiber_manual_record, color: Color(0xFF10B981), size: 8),
+                  if (!isCompact) ...[
+                    const SizedBox(width: 5),
+                    const Text(
+                      'Live Node',
+                      style: TextStyle(
+                        color: Color(0xFF065F46),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: isCompact ? 4 : 8),
           // Lock button with clean light frame
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFE2E8F0)),
               boxShadow: [
                 BoxShadow(
@@ -256,19 +273,29 @@ class HomeGatewayView extends ConsumerWidget {
             child: IconButton(
               tooltip: 'Lock App Session',
               visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(7),
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              icon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF475569), size: 18),
+              padding: EdgeInsets.all(isCompact ? 4 : 7),
+              constraints: BoxConstraints(
+                minWidth: isCompact ? 28 : 36,
+                minHeight: isCompact ? 28 : 36,
+              ),
+              icon: Icon(
+                Icons.lock_outline_rounded,
+                color: const Color(0xFF475569),
+                size: isCompact ? 15 : 18,
+              ),
               onPressed: () {
                 ref.read(deviceSecurityProvider.notifier).lockApp();
               },
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: isCompact ? 4 : 8),
           // User Profile chip with sign out (professional light enterprise style)
           Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            margin: EdgeInsets.only(right: isCompact ? 6 : 16),
+            padding: EdgeInsets.symmetric(
+              horizontal: isCompact ? 4 : 10,
+              vertical: isCompact ? 3.5 : 5,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(10),
@@ -285,39 +312,58 @@ class HomeGatewayView extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 CircleAvatar(
-                  radius: 13,
+                  radius: isCompact ? 10.5 : 13,
                   backgroundColor: const Color(0xFF81005D), // Logo Wine/Magenta
                   child: Text(
                     user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: TextStyle(
+                      fontSize: isCompact ? 9.5 : 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  user.name.isNotEmpty ? user.name : 'Authorized User',
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+                if (!isCompact) ...[
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 80),
+                    child: Text(
+                      user.name.isNotEmpty ? user.name : 'Authorized User',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
+                ],
+                SizedBox(width: isCompact ? 3 : 8),
                 InkWell(
                   borderRadius: BorderRadius.circular(6),
                   onTap: () {
                     showDialog(
                       context: context,
                       builder: (dialogCtx) => AlertDialog(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         title: const Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.logout, color: AppTheme.dangerRose),
                             SizedBox(width: 8),
-                            Text('Confirm Sign Out'),
+                            Flexible(
+                              child: Text(
+                                'Confirm Sign Out',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                         content: Text(
                           'Are you sure you want to sign out of "${user.name}"? This will terminate your active clinical session and return to the Staff Login screen.',
                         ),
+                        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(dialogCtx),
@@ -327,6 +373,8 @@ class HomeGatewayView extends ConsumerWidget {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.dangerRose,
                               foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             onPressed: () async {
                               Navigator.pop(dialogCtx);
@@ -8114,22 +8162,26 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
                         // Section 3: POP-Q Staging
                         _buildSectionHeader('3. Pelvic Organ Prolapse (Baden-Walker POP-Q)'),
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              _buildPopBox('Anterior', 'Stage ${v?.popAnteriorStage ?? 0}'),
-                              _buildPopBox('Apical', 'Stage ${v?.popMiddleStage ?? 0}'),
-                              _buildPopBox('Posterior', 'Stage ${v?.popPosteriorStage ?? 0}'),
-                              _buildPopBox(
-                                'Overall Highest',
-                                'Stage ${v?.highestPopStage ?? 0}',
-                                isHighlight: true,
+                              Expanded(child: _buildPopBox('Anterior', 'Stage ${v?.popAnteriorStage ?? 0}')),
+                              const SizedBox(width: 4),
+                              Expanded(child: _buildPopBox('Apical', 'Stage ${v?.popMiddleStage ?? 0}')),
+                              const SizedBox(width: 4),
+                              Expanded(child: _buildPopBox('Posterior', 'Stage ${v?.popPosteriorStage ?? 0}')),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: _buildPopBox(
+                                  'Overall Highest',
+                                  'Stage ${v?.highestPopStage ?? 0}',
+                                  isHighlight: true,
+                                ),
                               ),
                             ],
                           ),
@@ -8251,21 +8303,34 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
 
   Widget _buildPopBox(String label, String value, {bool isHighlight = false}) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+        ),
         const SizedBox(height: 3),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          width: double.infinity,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           decoration: BoxDecoration(
             color: isHighlight ? AppTheme.brandPurple : const Color(0xFFE2E8F0),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isHighlight ? Colors.white : const Color(0xFF1E293B),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: isHighlight ? Colors.white : const Color(0xFF1E293B),
+              ),
             ),
           ),
         ),

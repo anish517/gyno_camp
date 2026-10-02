@@ -144,10 +144,12 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
   // ==========================================
   Widget _buildCapturePrompt(BuildContext context, OcrScanViewModel ocrVm) {
     final ocrState = ref.watch(ocrScanProvider);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompact = screenWidth < 500;
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+        padding: EdgeInsets.symmetric(horizontal: isCompact ? 16.0 : 24.0, vertical: isCompact ? 16.0 : 24.0),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 880),
           child: Column(
@@ -155,7 +157,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             children: [
               // Header Badge: MoHP Nepal Standard & Engine Mode
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 16, vertical: isCompact ? 6 : 7),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryTeal.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(24),
@@ -166,26 +168,32 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   children: [
                     const Icon(Icons.verified_user_outlined, color: AppTheme.primaryTeal, size: 16),
                     const SizedBox(width: 8),
-                    Text(
-                      ocrState.engineMode == OcrEngineMode.onlineGemini
-                          ? 'GEMINI FLASH AI MULTIMODAL CLOUD OCR'
-                          : (ocrState.engineMode == OcrEngineMode.offlineOnly
-                              ? 'OFFLINE ON-DEVICE ML KIT OCR'
-                              : 'INTELLIGENT DUAL OCR (GEMINI CLOUD + OFFLINE ML KIT)'),
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1,
-                        color: AppTheme.primaryTeal,
+                    Flexible(
+                      child: Text(
+                        ocrState.engineMode == OcrEngineMode.onlineGemini
+                            ? (isCompact ? 'GEMINI CLOUD OCR' : 'GEMINI FLASH AI MULTIMODAL CLOUD OCR')
+                            : (ocrState.engineMode == OcrEngineMode.offlineOnly
+                                ? 'OFFLINE ON-DEVICE ML KIT OCR'
+                                : (isCompact
+                                    ? 'INTELLIGENT DUAL OCR (CLOUD + OFFLINE)'
+                                    : 'INTELLIGENT DUAL OCR (GEMINI CLOUD + OFFLINE ML KIT)')),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: isCompact ? 10.5 : 11.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: isCompact ? 0.4 : 1.1,
+                          color: AppTheme.primaryTeal,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
+              Text(
                 'Scan & Auto-Fill Yellow Form',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: isCompact ? 20 : 24, fontWeight: FontWeight.w800, letterSpacing: -0.5),
               ),
               const SizedBox(height: 8),
               const Text(
@@ -1827,9 +1835,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     children: [
                       Icon(Icons.schedule, color: AppTheme.primaryTeal, size: 18),
                       SizedBox(width: 8),
-                      Text(
-                        'Complaints Duration (समस्या सुरु भएको अवधि)',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      Expanded(
+                        child: Text(
+                          'Complaints Duration (समस्या सुरु भएको अवधि)',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        ),
                       ),
                     ],
                   ),

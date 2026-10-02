@@ -34,6 +34,8 @@ class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
 
     final deviceId = deviceState.device?.deviceId ?? 'dev-field';
     final userId = authState.currentUser?.id ?? 'usr-sync';
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompact = screenWidth < 500;
 
     return Scaffold(
       appBar: AppBar(
@@ -61,7 +63,7 @@ class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: EdgeInsets.all(isCompact ? 14.0 : 20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -78,11 +80,11 @@ class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
                   ? AppTheme.successGreen.withValues(alpha: 0.08)
                   : AppTheme.warningAmber.withValues(alpha: 0.08),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: EdgeInsets.all(isCompact ? 12.0 : 16.0),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: EdgeInsets.all(isCompact ? 10 : 12),
                       decoration: BoxDecoration(
                         color: syncState.isOnline ? AppTheme.successGreen : AppTheme.warningAmber,
                         shape: BoxShape.circle,
@@ -90,10 +92,10 @@ class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
                       child: Icon(
                         syncState.isOnline ? Icons.wifi : Icons.wifi_off,
                         color: Colors.white,
-                        size: 24,
+                        size: isCompact ? 20 : 24,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: isCompact ? 12 : 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +104,7 @@ class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
                             syncState.isOnline ? 'Online (अनलाइन)' : 'Offline (अफलाइन)',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                              fontSize: isCompact ? 15 : 16,
                               color: syncState.isOnline ? AppTheme.successGreen : AppTheme.warningAmber,
                             ),
                           ),
@@ -111,11 +113,12 @@ class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
                             syncState.isOnline
                                 ? 'Connected to Central Cloud. Auto-sync active.'
                                 : 'Local SQLite Active. Records are safely stored in memory.',
-                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+                            style: TextStyle(fontSize: isCompact ? 11.5 : 12, color: AppTheme.textSecondaryLight),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     // Simulation toggle for field testing
                     Switch(
                       value: syncState.isOnline,
@@ -131,16 +134,18 @@ class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
             Card(
               elevation: 2,
               child: Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding: EdgeInsets.all(isCompact ? 14.0 : 20.0),
                 child: Column(
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Unsynchronized Field Records',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        const Expanded(
+                          child: Text(
+                            'Unsynchronized Field Records',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
@@ -374,19 +379,24 @@ class _SyncStatusViewState extends ConsumerState<SyncStatusView> {
   }
 
   Widget _buildCounterItem({required IconData icon, required int count, required String label}) {
-    return Column(
-      children: [
-        Icon(icon, size: 22, color: AppTheme.primaryTeal),
-        const SizedBox(height: 6),
-        Text(
-          '$count',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
-        ),
-      ],
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, size: 22, color: AppTheme.primaryTeal),
+          const SizedBox(height: 6),
+          Text(
+            '$count',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -348,8 +348,8 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
         final isNarrow = constraints.maxWidth < 620;
 
         return Container(
-          margin: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-          padding: const EdgeInsets.all(14.0),
+          margin: EdgeInsets.fromLTRB(isNarrow ? 12 : 16, isNarrow ? 6 : 10, isNarrow ? 12 : 16, 6),
+          padding: EdgeInsets.all(isNarrow ? 10.0 : 14.0),
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(14),
@@ -805,27 +805,34 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
   // -------------------------------------------------------------
   Widget _buildContextualEmptyState(BuildContext context, String category) {
     final isSearching = _searchController.text.trim().isNotEmpty;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompact = screenWidth < 500;
+
     if (isSearching) {
       return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 16.0 : 32.0,
+            vertical: isCompact ? 16.0 : 28.0,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade400),
-              const SizedBox(height: 12),
+              Icon(Icons.search_off_rounded, size: isCompact ? 38 : 48, color: Colors.grey.shade400),
+              const SizedBox(height: 10),
               Text(
                 'No audit events matched "${_searchController.text}".',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                style: TextStyle(fontSize: isCompact ? 13 : 14, fontWeight: FontWeight.bold, color: const Color(0xFF334155)),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Try clearing your search keyword or switching the category filter.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                style: TextStyle(fontSize: isCompact ? 11 : 12, color: const Color(0xFF64748B)),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               OutlinedButton.icon(
                 icon: const Icon(Icons.clear_rounded, size: 16),
                 label: const Text('Clear Search Filter'),
@@ -888,43 +895,60 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
     }
 
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? 16.0 : 32.0,
+          vertical: isCompact ? 14.0 : 28.0,
+        ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(isCompact ? 12 : 16),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryTeal.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 40, color: AppTheme.primaryTeal),
+                child: Icon(icon, size: isCompact ? 32 : 40, color: AppTheme.primaryTeal),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: isCompact ? 10 : 16),
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                style: TextStyle(
+                  fontSize: isCompact ? 14.5 : 16,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1E293B),
+                ),
               ),
               const SizedBox(height: 6),
               Text(
                 explanation,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
+                style: TextStyle(
+                  fontSize: isCompact ? 11.5 : 12.5,
+                  color: const Color(0xFF64748B),
+                  height: 1.4,
+                ),
               ),
               if (buttonLabel != null && onButtonTap != null) ...[
-                const SizedBox(height: 18),
+                SizedBox(height: isCompact ? 14 : 18),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryTeal,
                     foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: EdgeInsets.symmetric(horizontal: isCompact ? 14 : 18, vertical: isCompact ? 9 : 11),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-                  label: Text(buttonLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  label: Text(
+                    buttonLabel,
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: isCompact ? 12 : 13),
+                  ),
                   onPressed: onButtonTap,
                 ),
               ],
