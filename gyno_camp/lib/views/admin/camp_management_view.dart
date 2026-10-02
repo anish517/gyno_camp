@@ -4182,6 +4182,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 ),
                               ],
                             ),
+                            // ✅ BUG FIX: Warn when PROMOTING a non-open camp to Open
                             if (editStatus == CampStatus.open && camp.status != CampStatus.open)
                               Container(
                                 margin: const EdgeInsets.only(top: 10),
@@ -4197,8 +4198,60 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'Setting status to Open will set this camp as active and close other open camps.',
+                                        'Setting status to Open will make this the active camp for data entry.',
                                         style: TextStyle(fontSize: 11.5, color: Color(0xFF166534), fontWeight: FontWeight.w500),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            // ✅ BUG FIX: Warn when DOWNGRADING an OPEN camp — this is the primary
+                            // cause of accidental camp closures (user taps a chip while scrolling).
+                            if (camp.status == CampStatus.open &&
+                                (editStatus == CampStatus.closed || editStatus == CampStatus.archived))
+                              Container(
+                                margin: const EdgeInsets.only(top: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF1F2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(Icons.warning_amber_rounded, size: 17, color: Color(0xFFDC2626)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        editStatus == CampStatus.archived
+                                            ? '⚠️ You are archiving an OPEN camp. Archived camps cannot accept new patient data and cannot be easily reopened. Tap the Open chip above to undo.'
+                                            : '⚠️ You are closing an OPEN camp. This will stop data entry for this camp. Tap the Open chip above if this was accidental.',
+                                        style: const TextStyle(fontSize: 11.5, color: Color(0xFFB91C1C), fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            // Warn when setting to Draft/Scheduled from Open (softer warning)
+                            if (camp.status == CampStatus.open &&
+                                (editStatus == CampStatus.draft || editStatus == CampStatus.scheduled))
+                              Container(
+                                margin: const EdgeInsets.only(top: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFFBEB),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFFCD34D)),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.info_outline, size: 16, color: Color(0xFF92400E)),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Changing from Open to Draft/Scheduled will pause data entry for this camp.',
+                                        style: TextStyle(fontSize: 11.5, color: Color(0xFF92400E), fontWeight: FontWeight.w500),
                                       ),
                                     ),
                                   ],
@@ -4285,7 +4338,12 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     adminUserId: user?.id ?? 'admin-user',
                                     deviceId: deviceState.device?.deviceId ?? 'dev-admin',
                                   );
-                              await ref.read(campStateProvider.notifier).loadCamps();
+                              // ✅ BUG FIX: Do NOT call loadCamps() here.
+                              // updateCamp() already: (1) writes to DB, (2) optimistically updates
+                              // in-memory state, and (3) saves the active camp session ID.
+                              // A redundant loadCamps() triggers a DB round-trip that, when combined
+                              // with background central sync, could race and clear activeCamp
+                              // (setting clearActiveCamp: true) — making the camp appear "closed".
                               if (mounted) {
                                 if (success) {
                                   messenger.showSnackBar(
