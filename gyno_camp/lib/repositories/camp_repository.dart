@@ -199,15 +199,21 @@ class CampRepository implements ICampRepository {
               // Central is newer → fall through to accept the close from central below.
             }
 
-            // Guard B: Never re-open a locally CLOSED or ARCHIVED camp from background central sync!
-            // When a camp is closed locally, background sync must NEVER resurrect it to OPEN.
-            // Only exception: if central closed/archived even more recently — that's still fine
-            // since we already are closed. If central says OPEN and local is CLOSED/ARCHIVED,
-            // push our closed state to central so it gets updated.
+            // Guard B: A locally CLOSED/ARCHIVED camp should NOT blindly push to central
+            // if central already has a NEWER OPEN state — that would overwrite a legitimate
+            // reopen performed on another device/tab (e.g. Chrome vs Opera, or tablet vs web).
+            //
+            // ✅ FIX: Only push our CLOSED/ARCHIVED copy if local is genuinely newer.
+            //   If central's OPEN is newer, fall through so the generic branch below
+            //   can overwrite local with the newer OPEN from central.
             if ((local.status == CampStatus.closed || local.status == CampStatus.archived) &&
                 c.status == CampStatus.open) {
-              await HttpCentralApiService().broadcastCamp(local);
-              continue;
+              if (localUpdated.isAfter(centralUpdated)) {
+                // Local close/archive is genuinely newer → push our state to central.
+                await HttpCentralApiService().broadcastCamp(local);
+                continue;
+              }
+              // Central OPEN is newer (legitimate reopen from another device) → fall through.
             }
 
             if (centralUpdated.isAfter(localUpdated)) {

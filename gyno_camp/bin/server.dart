@@ -341,7 +341,11 @@ class GynoCampSyncServer {
       ''');
       await _connection!.execute('''
         UPDATE camps
-        SET organization_name = 'NEPAL', updated_at = NOW()
+        SET organization_name = 'NEPAL'
+        -- ✅ FIX: Do NOT touch updated_at here. This migration runs on every server
+        -- reconnect; updating updated_at = NOW() would make these camps look artificially
+        -- newer than any client's real timestamp, causing Guard A to accept stale central
+        -- data as "newer" and overwrite the client's legitimate reopen.
         WHERE organization_name = 'Nepal Health Outreach Network'
            OR organization_name = 'Community Health Outreach Mission';
       ''');
@@ -1416,10 +1420,38 @@ class GynoCampSyncServer {
     map['id'] = id;
     final status = (map['status']?.toString() ?? 'DRAFT').toUpperCase();
     map['status'] = status;
-    _memCamps[id] = map;
+
+    // ✅ FIX: Capture the previously-stored value BEFORE mutating _memCamps.
+    // _memCamps stores map references — assigning _memCamps[id] = map first would
+    // make `previousStored` point to the same incoming object, breaking the comparison.
+    final previousStored = _memCamps[id];
 
     final utcNow = DateTime.now().toUtc().toIso8601String();
-    map['updated_at'] = utcNow;
+    // ✅ FIX: Preserve the client's own updated_at timestamp instead of re-stamping
+    // with server NOW(). Re-stamping made every incoming write look "newest", so a
+    // stale CLOSED copy from any device could always win over a legitimate reopen.
+    final incomingUpdatedAt = map['updated_at']?.toString();
+    final effectiveUpdatedAt = (incomingUpdatedAt != null && incomingUpdatedAt.isNotEmpty)
+        ? incomingUpdatedAt
+        : utcNow;
+
+    // ✅ FIX: Reject stale in-memory writes (newer-wins for _memCamps).
+    if (previousStored != null) {
+      final storedUpdated = DateTime.tryParse(previousStored['updated_at']?.toString() ?? '')?.toUtc();
+      final incomingUpdated = DateTime.tryParse(effectiveUpdatedAt)?.toUtc();
+      if (storedUpdated != null &&
+          incomingUpdated != null &&
+          storedUpdated.isAfter(incomingUpdated)) {
+        // Incoming is older than what we already have — reject without broadcasting.
+        print('[server] Rejected stale POST /api/camps $id: incoming=${incomingUpdated.toIso8601String()} stored=${storedUpdated.toIso8601String()}');
+        request.response.statusCode = HttpStatus.ok;
+        request.response.write(jsonEncode(previousStored));
+        await request.response.close();
+        return;
+      }
+    }
+    map['updated_at'] = effectiveUpdatedAt;
+    _memCamps[id] = map;
 
     if (_isPgConnected && _connection != null) {
       try {
@@ -1451,7 +1483,12 @@ class GynoCampSyncServer {
               organization_name = EXCLUDED.organization_name,
               doctor_name = EXCLUDED.doctor_name,
               doctor_names = EXCLUDED.doctor_names,
-              updated_at = COALESCE(EXCLUDED.updated_at, NOW());
+              updated_at = EXCLUDED.updated_at
+            -- ✅ FIX: Only update when the incoming row is actually newer.
+            -- This prevents a stale CLOSED push (with an older timestamp) from
+            -- overwriting a legitimate OPEN that was already stored on the server.
+            WHERE camps.updated_at IS NULL
+               OR EXCLUDED.updated_at::timestamptz >= camps.updated_at;
           '''),
           parameters: {
             'id': id,
