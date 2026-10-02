@@ -568,32 +568,35 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               const SizedBox(height: 10),
               const Divider(height: 1),
               const SizedBox(height: 8),
-              Row(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.assignment_outlined, size: 16, color: AppTheme.primaryTeal),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Initial Intake Reasons (प्रारम्भिक समस्या): ',
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                  const Row(
+                    children: [
+                      Icon(Icons.assignment_outlined, size: 15, color: AppTheme.primaryTeal),
+                      SizedBox(width: 6),
+                      Text(
+                        'Initial Intake Reasons (प्रारम्भिक समस्या):',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      ),
+                    ],
                   ),
-                  Expanded(
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: widget.patient.reasonsForVisit.map((r) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryTeal.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(
-                          r,
-                          style: const TextStyle(fontSize: 11, color: AppTheme.primaryDark, fontWeight: FontWeight.w500),
-                        ),
-                      )).toList(),
-                    ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 5,
+                    runSpacing: 5,
+                    children: widget.patient.reasonsForVisit.map((r) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        r,
+                        style: const TextStyle(fontSize: 11, color: AppTheme.primaryDark, fontWeight: FontWeight.w500),
+                      ),
+                    )).toList(),
                   ),
                 ],
               ),
@@ -733,7 +736,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   icon: isDl
                       ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.download_rounded, size: 13),
-                  label: Text(isDl ? '...' : 'Download Slip (PDF)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(isDl ? '...' : 'Slip (PDF)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   onPressed: isDl ? null : () => _dlSlip(v, index),
                 ),
               ],
@@ -1164,50 +1167,72 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               ],
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _pulseController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
-                      labelText: 'Pulse Rate',
-                      suffixText: 'bpm',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxWidth < 520;
+
+                final pulseField = TextFormField(
+                  controller: _pulseController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Pulse Rate',
+                    suffixText: 'bpm',
+                    border: OutlineInputBorder(),
+                    isDense: true,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    controller: _spo2Controller,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
-                      labelText: 'SpO2',
-                      suffixText: '%',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                );
+
+                final spo2Field = TextFormField(
+                  controller: _spo2Controller,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'SpO2',
+                    suffixText: '%',
+                    border: OutlineInputBorder(),
+                    isDense: true,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    controller: _glucoseController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
-                      labelText: 'Blood Glucose',
-                      suffixText: 'mg/dL',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                );
+
+                final glucoseField = TextFormField(
+                  controller: _glucoseController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Blood Glucose',
+                    suffixText: 'mg/dL',
+                    border: OutlineInputBorder(),
+                    isDense: true,
                   ),
-                ),
-              ],
+                );
+
+                if (isCompact) {
+                  return Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: pulseField),
+                          const SizedBox(width: 8),
+                          Expanded(child: spo2Field),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      glucoseField,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: pulseField),
+                    const SizedBox(width: 8),
+                    Expanded(child: spo2Field),
+                    const SizedBox(width: 8),
+                    Expanded(child: glucoseField),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 14),
             const Divider(height: 1),
@@ -1229,49 +1254,63 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   safePregTest = 'pos';
                 }
 
-                return Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        key: ValueKey('urine_test_$safeUrineTest'),
-                        initialValue: safeUrineTest,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Urine Dipstick (पिसाब जाँच)',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: null, child: Text('Not Done')),
-                          DropdownMenuItem(value: 'normal', child: Text('Normal (नर्मल)')),
-                          DropdownMenuItem(value: 'protein_pos', child: Text('Protein (+)')),
-                          DropdownMenuItem(value: 'glucose_pos', child: Text('Glucose (+)')),
-                          DropdownMenuItem(value: 'leukocytes_pos', child: Text('Leukocytes (+)')),
-                          DropdownMenuItem(value: 'blood_pos', child: Text('Blood / Hematuria (+)')),
-                        ],
-                        onChanged: (val) => setState(() => _urineTest = val),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        key: ValueKey('preg_test_$safePregTest'),
-                        initialValue: safePregTest,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Pregnancy Test / UPT',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: null, child: Text('Not Indicated')),
-                          DropdownMenuItem(value: 'neg', child: Text('Negative (-)')),
-                          DropdownMenuItem(value: 'pos', child: Text('Positive (+)')),
-                        ],
-                        onChanged: (val) => setState(() => _pregnancyTest = val),
-                      ),
-                    ),
+                final urineDropdown = DropdownButtonFormField<String>(
+                  key: ValueKey('urine_test_$safeUrineTest'),
+                  initialValue: safeUrineTest,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Urine Dipstick (पिसाब जाँच)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Not Done')),
+                    DropdownMenuItem(value: 'normal', child: Text('Normal (नर्मल)')),
+                    DropdownMenuItem(value: 'protein_pos', child: Text('Protein (+)')),
+                    DropdownMenuItem(value: 'glucose_pos', child: Text('Glucose (+)')),
+                    DropdownMenuItem(value: 'leukocytes_pos', child: Text('Leukocytes (+)')),
+                    DropdownMenuItem(value: 'blood_pos', child: Text('Blood / Hematuria (+)')),
                   ],
+                  onChanged: (val) => setState(() => _urineTest = val),
+                );
+
+                final pregDropdown = DropdownButtonFormField<String>(
+                  key: ValueKey('preg_test_$safePregTest'),
+                  initialValue: safePregTest,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Pregnancy Test / UPT',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Not Indicated')),
+                    DropdownMenuItem(value: 'neg', child: Text('Negative (-)')),
+                    DropdownMenuItem(value: 'pos', child: Text('Positive (+)')),
+                  ],
+                  onChanged: (val) => setState(() => _pregnancyTest = val),
+                );
+
+                return LayoutBuilder(
+                  builder: (context, testConstraints) {
+                    final isNarrowTests = testConstraints.maxWidth < 450;
+                    if (isNarrowTests) {
+                      return Column(
+                        children: [
+                          urineDropdown,
+                          const SizedBox(height: 10),
+                          pregDropdown,
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: urineDropdown),
+                        const SizedBox(width: 8),
+                        Expanded(child: pregDropdown),
+                      ],
+                    );
+                  },
                 );
               },
             ),

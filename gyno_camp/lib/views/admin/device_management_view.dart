@@ -60,12 +60,33 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
         flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
         bottom: AppTheme.brandAppBarBottomLine,
         iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Device Whitelist & Hardware Security', style: TextStyle(fontSize: 17.5, fontWeight: FontWeight.w800, color: Color(0xFF1E0A38), letterSpacing: -0.3)),
-            Text('Cluster Whitelist & Field Hardware Authorization (उपकरण प्रमाणीकरण)', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
-          ],
+        title: LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 420;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isCompact ? 'Device Whitelist & Security' : 'Device Whitelist & Hardware Security',
+                  style: TextStyle(
+                    fontSize: isCompact ? 16 : 17.5,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1E0A38),
+                    letterSpacing: -0.3,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  isCompact
+                      ? 'Hardware Authorization (उपकरण प्रमाणीकरण)'
+                      : 'Cluster Whitelist & Field Hardware Authorization (उपकरण प्रमाणीकरण)',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            );
+          },
         ),
         actions: [
           IconButton(
@@ -88,7 +109,10 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
                   child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1080),
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: MediaQuery.sizeOf(context).width < 600 ? 12.0 : 16.0,
+                    vertical: 14.0,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -640,8 +664,8 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
             ),
           ],
         ),
-        content: SizedBox(
-          width: 480,
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,7 +735,7 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 140,
+            width: 115,
             child: Text(
               label,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
@@ -739,8 +763,8 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Authorize Field Device?'),
-        content: SizedBox(
-          width: 480,
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -866,8 +890,8 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
             Expanded(child: Text('New Device Request', overflow: TextOverflow.ellipsis)),
           ],
         ),
-        content: SizedBox(
-          width: 460,
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,

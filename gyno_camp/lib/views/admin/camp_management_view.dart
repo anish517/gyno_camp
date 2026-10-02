@@ -321,10 +321,29 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
         constraints: const BoxConstraints(maxWidth: 1180),
         child: Column(
           children: [
-            // Operational Metrics Ribbon (Tablet & Desktop)
+            // Operational Metrics Ribbon (Responsive: Scroll Strip on Mobile, Full Ribbon on Desktop)
             LayoutBuilder(
               builder: (context, constraints) {
-                if (constraints.maxWidth < 640) return const SizedBox.shrink();
+                final isNarrow = constraints.maxWidth < 640;
+                if (isNarrow) {
+                  return Container(
+                    margin: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildMobileMetricChip(Icons.hub_outlined, 'Missions', '${campState.camps.length}', AppTheme.brandPurple),
+                          const SizedBox(width: 8),
+                          _buildMobileMetricChip(Icons.play_circle_filled, 'Active', '$openCount', AppTheme.successGreen, isPulse: openCount > 0),
+                          const SizedBox(width: 8),
+                          _buildMobileMetricChip(Icons.calendar_month, 'Scheduled', '$scheduledCount', AppTheme.brandPurple),
+                          const SizedBox(width: 8),
+                          _buildMobileMetricChip(Icons.how_to_reg, 'Screened', '$totalIntakes', AppTheme.primaryTeal),
+                        ],
+                      ),
+                    ),
+                  );
+                }
                 return Container(
                   margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -364,7 +383,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: 'Search by camp code, name, district, municipality, or venue...',
+                        hintText: MediaQuery.sizeOf(context).width < 500 ? 'Search camps...' : 'Search by camp code, name, district, municipality, or venue...',
                         hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                         prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.primaryTeal),
                         suffixIcon: _searchQuery.isNotEmpty
@@ -546,6 +565,34 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMobileMetricChip(IconData icon, String label, String value, Color color, {bool isPulse = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }
@@ -2812,31 +2859,58 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 // SECTION 1: Camp Identity
                                 _buildSectionHeader(Icons.badge_outlined, 'Camp Identity (शिविर पहिचान)'),
                                 const SizedBox(height: 10),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    SizedBox(
-                                      width: 150,
-                                      child: TextField(
-                                        controller: codeCtrl,
-                                        textCapitalization: TextCapitalization.characters,
-                                        decoration: _dialogInputDecoration(
-                                          labelText: 'Camp Code *',
-                                          prefixIcon: const Icon(Icons.tag, size: 18, color: AppTheme.primaryDark),
+                                LayoutBuilder(
+                                  builder: (context, idConstraints) {
+                                    final isCompact = idConstraints.maxWidth < 450;
+                                    if (isCompact) {
+                                      return Column(
+                                        children: [
+                                          TextField(
+                                            controller: codeCtrl,
+                                            textCapitalization: TextCapitalization.characters,
+                                            decoration: _dialogInputDecoration(
+                                              labelText: 'Camp Code *',
+                                              prefixIcon: const Icon(Icons.tag, size: 18, color: AppTheme.primaryDark),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          TextField(
+                                            controller: nameCtrl,
+                                            decoration: _dialogInputDecoration(
+                                              labelText: 'Official Camp Name *',
+                                              prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }
+                                    return Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        SizedBox(
+                                          width: 150,
+                                          child: TextField(
+                                            controller: codeCtrl,
+                                            textCapitalization: TextCapitalization.characters,
+                                            decoration: _dialogInputDecoration(
+                                              labelText: 'Camp Code *',
+                                              prefixIcon: const Icon(Icons.tag, size: 18, color: AppTheme.primaryDark),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: TextField(
-                                        controller: nameCtrl,
-                                        decoration: _dialogInputDecoration(
-                                          labelText: 'Official Camp Name *',
-                                          prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: nameCtrl,
+                                            decoration: _dialogInputDecoration(
+                                              labelText: 'Official Camp Name *',
+                                              prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                  ],
+                                      ],
+                                    );
+                                  },
                                 ),
                                 const SizedBox(height: 12),
                                 _buildDoctorNmcRoster(
@@ -3070,160 +3144,174 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 // SECTION 4: Status Configuration
                                 _buildSectionHeader(Icons.flag_outlined, 'Deployment Lifecycle Status (शिविर स्थिति)'),
                                 const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: InkWell(
-                                        onTap: () => setDialogState(() => selectedStatus = CampStatus.scheduled),
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 180),
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
+                                LayoutBuilder(
+                                  builder: (context, statusConstraints) {
+                                    final isCompactStatus = statusConstraints.maxWidth < 460;
+                                    final scheduledWidget = InkWell(
+                                      onTap: () => setDialogState(() => selectedStatus = CampStatus.scheduled),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 180),
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: selectedStatus == CampStatus.scheduled
+                                              ? AppTheme.brandPurpleLight
+                                              : Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
                                             color: selectedStatus == CampStatus.scheduled
-                                                ? AppTheme.brandPurpleLight
-                                                : Colors.white,
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: selectedStatus == CampStatus.scheduled
-                                                  ? AppTheme.primaryTeal
-                                                  : const Color(0xFFE2E8F0),
-                                              width: selectedStatus == CampStatus.scheduled ? 1.8 : 1,
+                                                ? AppTheme.primaryTeal
+                                                : const Color(0xFFE2E8F0),
+                                            width: selectedStatus == CampStatus.scheduled ? 1.8 : 1,
+                                          ),
+                                          boxShadow: selectedStatus == CampStatus.scheduled
+                                              ? [
+                                                  BoxShadow(
+                                                    color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 2),
+                                                  )
+                                                ]
+                                              : null,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 32,
+                                              height: 32,
+                                              decoration: BoxDecoration(
+                                                color: selectedStatus == CampStatus.scheduled
+                                                    ? AppTheme.primaryTeal
+                                                    : const Color(0xFFF1F5F9),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                selectedStatus == CampStatus.scheduled
+                                                    ? Icons.check_circle_rounded
+                                                    : Icons.event_available_outlined,
+                                                color: selectedStatus == CampStatus.scheduled
+                                                    ? Colors.white
+                                                    : const Color(0xFF64748B),
+                                                size: 18,
+                                              ),
                                             ),
-                                            boxShadow: selectedStatus == CampStatus.scheduled
-                                                ? [
-                                                    BoxShadow(
-                                                      color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                                                      blurRadius: 8,
-                                                      offset: const Offset(0, 2),
-                                                    )
-                                                  ]
-                                                : null,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: 32,
-                                                height: 32,
-                                                decoration: BoxDecoration(
-                                                  color: selectedStatus == CampStatus.scheduled
-                                                      ? AppTheme.primaryTeal
-                                                      : const Color(0xFFF1F5F9),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: Icon(
-                                                  selectedStatus == CampStatus.scheduled
-                                                      ? Icons.check_circle_rounded
-                                                      : Icons.event_available_outlined,
-                                                  color: selectedStatus == CampStatus.scheduled
-                                                      ? Colors.white
-                                                      : const Color(0xFF64748B),
-                                                  size: 18,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 10),
-                                              const Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      'Scheduled',
-                                                      style: TextStyle(
-                                                        fontWeight: FontWeight.w700,
-                                                        fontSize: 13,
-                                                        color: Color(0xFF0F172A),
-                                                      ),
+                                            const SizedBox(width: 10),
+                                            const Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Scheduled',
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.w700,
+                                                      fontSize: 13,
+                                                      color: Color(0xFF0F172A),
                                                     ),
-                                                    SizedBox(height: 1),
-                                                    Text(
-                                                      'तालिकाबद्ध (Ready to open)',
-                                                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                                                    ),
-                                                  ],
-                                                ),
+                                                  ),
+                                                  SizedBox(height: 1),
+                                                  Text(
+                                                    'तालिकाबद्ध (Ready to open)',
+                                                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                                  ),
+                                                ],
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: InkWell(
-                                        onTap: () => setDialogState(() => selectedStatus = CampStatus.draft),
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 180),
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
+                                    );
+
+                                    final draftWidget = InkWell(
+                                      onTap: () => setDialogState(() => selectedStatus = CampStatus.draft),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 180),
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: selectedStatus == CampStatus.draft
+                                              ? const Color(0xFFFFFBEB)
+                                              : Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
                                             color: selectedStatus == CampStatus.draft
-                                                ? const Color(0xFFFFFBEB)
-                                                : Colors.white,
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: selectedStatus == CampStatus.draft
-                                                  ? AppTheme.warningAmber
-                                                  : const Color(0xFFE2E8F0),
-                                              width: selectedStatus == CampStatus.draft ? 1.8 : 1,
+                                                ? AppTheme.warningAmber
+                                                : const Color(0xFFE2E8F0),
+                                            width: selectedStatus == CampStatus.draft ? 1.8 : 1,
+                                          ),
+                                          boxShadow: selectedStatus == CampStatus.draft
+                                              ? [
+                                                  BoxShadow(
+                                                    color: AppTheme.warningAmber.withValues(alpha: 0.15),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 2),
+                                                  )
+                                                ]
+                                              : null,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 32,
+                                              height: 32,
+                                              decoration: BoxDecoration(
+                                                color: selectedStatus == CampStatus.draft
+                                                    ? AppTheme.warningAmber
+                                                    : const Color(0xFFF1F5F9),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                selectedStatus == CampStatus.draft
+                                                    ? Icons.check_circle_rounded
+                                                    : Icons.edit_note_rounded,
+                                                color: selectedStatus == CampStatus.draft
+                                                    ? Colors.white
+                                                    : const Color(0xFF64748B),
+                                                size: 18,
+                                              ),
                                             ),
-                                            boxShadow: selectedStatus == CampStatus.draft
-                                                ? [
-                                                    BoxShadow(
-                                                      color: AppTheme.warningAmber.withValues(alpha: 0.15),
-                                                      blurRadius: 8,
-                                                      offset: const Offset(0, 2),
-                                                    )
-                                                  ]
-                                                : null,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: 32,
-                                                height: 32,
-                                                decoration: BoxDecoration(
-                                                  color: selectedStatus == CampStatus.draft
-                                                      ? AppTheme.warningAmber
-                                                      : const Color(0xFFF1F5F9),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: Icon(
-                                                  selectedStatus == CampStatus.draft
-                                                      ? Icons.check_circle_rounded
-                                                      : Icons.edit_note_rounded,
-                                                  color: selectedStatus == CampStatus.draft
-                                                      ? Colors.white
-                                                      : const Color(0xFF64748B),
-                                                  size: 18,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 10),
-                                              const Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      'Draft',
-                                                      style: TextStyle(
-                                                        fontWeight: FontWeight.w700,
-                                                        fontSize: 13,
-                                                        color: Color(0xFF0F172A),
-                                                      ),
+                                            const SizedBox(width: 10),
+                                            const Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Draft',
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.w700,
+                                                      fontSize: 13,
+                                                      color: Color(0xFF0F172A),
                                                     ),
-                                                    SizedBox(height: 1),
-                                                    Text(
-                                                      'मस्यौदा (Planning stage)',
-                                                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                                                    ),
-                                                  ],
-                                                ),
+                                                  ),
+                                                  SizedBox(height: 1),
+                                                  Text(
+                                                    'मस्यौदा (Planning stage)',
+                                                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                                  ),
+                                                ],
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    );
+
+                                    if (isCompactStatus) {
+                                      return Column(
+                                        children: [
+                                          scheduledWidget,
+                                          const SizedBox(height: 10),
+                                          draftWidget,
+                                        ],
+                                      );
+                                    }
+                                    return Row(
+                                      children: [
+                                        Expanded(child: scheduledWidget),
+                                        const SizedBox(width: 12),
+                                        Expanded(child: draftWidget),
+                                      ],
+                                    );
+                                  },
                                 ),
                                 const SizedBox(height: 20),
 
@@ -4129,8 +4217,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
                         border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 10,
+                        runSpacing: 8,
                         children: [
                           OutlinedButton(
                             onPressed: () => Navigator.pop(ctx),
@@ -4141,7 +4232,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             ),
                             child: const Text('Cancel', style: TextStyle(color: Color(0xFF475569), fontWeight: FontWeight.w600)),
                           ),
-                          const SizedBox(width: 10),
                           ElevatedButton.icon(
                             icon: const Icon(Icons.check_circle_outline_rounded, size: 17, color: Colors.white),
                             label: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),

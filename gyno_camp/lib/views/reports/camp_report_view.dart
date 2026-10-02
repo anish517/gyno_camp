@@ -3663,7 +3663,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryTeal,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         visualDensity: VisualDensity.compact,
                       ),
@@ -3677,21 +3677,28 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       label: Text(
                         isExporting ? 'Exporting...' : 'PDF Dossier',
                         style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
                       ),
                       onPressed: isExporting ? null : onExportPdf,
                     ),
                   ),
                   if (onViewClinical != null) ...[
                     const SizedBox(width: 6),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        visualDensity: VisualDensity.compact,
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        icon: const Icon(Icons.medical_information_outlined, size: 12, color: AppTheme.primaryTeal),
+                        label: const Text(
+                          'Clinical View',
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onPressed: onViewClinical,
                       ),
-                      icon: const Icon(Icons.medical_information_outlined, size: 12, color: AppTheme.primaryTeal),
-                      label: const Text('Clinical View', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-                      onPressed: onViewClinical,
                     ),
                   ],
                 ],
@@ -3762,381 +3769,557 @@ class _CampReportViewState extends ConsumerState<CampReportView>
 
     final isExporting = _exportingPatientId == patient.patientId;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Patient Dossier Header ──
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.primaryTeal.withValues(alpha: 0.12), AppTheme.accentCyan.withValues(alpha: 0.05)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: AppTheme.primaryTeal,
-                  child: Text(
-                    patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 600;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Patient Dossier Header ──
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppTheme.primaryTeal.withValues(alpha: 0.12), AppTheme.accentCyan.withValues(alpha: 0.05)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                child: isCompact
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Flexible(
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              CircleAvatar(
+                                radius: 22,
+                                backgroundColor: AppTheme.primaryTeal,
+                                child: Text(
+                                  patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            patient.fullName,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryDark),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryTeal,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            patient.patientId,
+                                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Builder(builder: (context) {
+                                      final campObj = campState.camps.where((c) => c.id == patient.campId).firstOrNull;
+                                      final campText = campObj != null ? '${campObj.name} (${campObj.campCode})' : 'Camp ID: ${patient.campId}';
+                                      return Text(
+                                        '🎪 $campText',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryTeal),
+                                      );
+                                    }),
+                                    Text(
+                                      'Age: ${patient.age}y • Marital: ${patient.maritalStatus.isNotEmpty ? patient.maritalStatus : "N/A"} • Parity: ${visit?.deliveries ?? "N/A"} • Ward: ${patient.ward}',
+                                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+                                    ),
+                                    Text(
+                                      'Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"} • District: ${patient.district.isNotEmpty ? patient.district : "N/A"}',
+                                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryTeal,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: isExporting
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.picture_as_pdf, size: 16),
+                            label: Text(
+                              isExporting ? 'Exporting...' : 'Export PDF Dossier (पिडिएफ)',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: isExporting
+                                ? null
+                                : () => _exportIndividualPatientPdf(
+                                      patient,
+                                      campState,
+                                      user,
+                                      deviceState,
+                                    ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundColor: AppTheme.primaryTeal,
                             child: Text(
-                              patient.fullName,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryDark),
-                              overflow: TextOverflow.ellipsis,
+                              patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryTeal,
-                              borderRadius: BorderRadius.circular(4),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        patient.fullName,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryDark),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryTeal,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        patient.patientId,
+                                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Builder(builder: (context) {
+                                  final campObj = campState.camps.where((c) => c.id == patient.campId).firstOrNull;
+                                  final campText = campObj != null ? '${campObj.name} (${campObj.campCode})' : 'Camp ID: ${patient.campId}';
+                                  return Text(
+                                    '🎪 $campText',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryTeal),
+                                  );
+                                }),
+                                Text(
+                                  'Age: ${patient.age}y • Marital: ${patient.maritalStatus.isNotEmpty ? patient.maritalStatus : "N/A"} • Parity: ${visit?.deliveries ?? "N/A"} • Ward: ${patient.ward}',
+                                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+                                ),
+                                Text(
+                                  'Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"} • District: ${patient.district.isNotEmpty ? patient.district : "N/A"}',
+                                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+                                ),
+                              ],
                             ),
-                            child: Text(
-                              patient.patientId,
-                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryTeal,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
+                            icon: isExporting
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.picture_as_pdf, size: 16),
+                            label: Text(
+                              isExporting ? 'Exporting...' : 'PDF Dossier',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: isExporting
+                                ? null
+                                : () => _exportIndividualPatientPdf(
+                                      patient,
+                                      campState,
+                                      user,
+                                      deviceState,
+                                    ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Builder(builder: (context) {
-                        final campObj = campState.camps.where((c) => c.id == patient.campId).firstOrNull;
-                        final campText = campObj != null ? '${campObj.name} (${campObj.campCode})' : 'Camp ID: ${patient.campId}';
-                        return Text(
-                          '🎪 $campText',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryTeal),
-                        );
-                      }),
-                      Text(
-                        'Age: ${patient.age}y • Marital: ${patient.maritalStatus.isNotEmpty ? patient.maritalStatus : "N/A"} • Parity: ${visit?.deliveries ?? "N/A"} • Ward: ${patient.ward}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+              ),
+              const SizedBox(height: 14),
+
+              if (visit != null) ...[
+                // ── Vitals & Triage Metrics ──
+                const Text(
+                  'Clinical Vitals & Measurements',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                ),
+                const SizedBox(height: 8),
+                if (isCompact) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildVitalTile(
+                          'Blood Pressure',
+                          (visit.systolicBp != null && visit.diastolicBp != null)
+                              ? '${visit.systolicBp}/${visit.diastolicBp}'
+                              : 'N/A',
+                          'mmHg',
+                          isAlert: (visit.systolicBp != null && visit.systolicBp! >= 140) ||
+                              (visit.diastolicBp != null && visit.diastolicBp! >= 90),
+                        ),
                       ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildVitalTile(
+                          'Pulse Rate',
+                          visit.pulse != null ? '${visit.pulse}' : 'N/A',
+                          'bpm',
+                          isAlert: visit.pulse != null && (visit.pulse! > 100 || visit.pulse! < 50),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildVitalTile(
+                          'Oxygen (SpO2)',
+                          visit.spo2 != null ? '${visit.spo2}' : 'N/A',
+                          '%',
+                          isAlert: visit.spo2 != null && visit.spo2! < 94,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildVitalTile(
+                          'Blood Glucose',
+                          visit.glucose != null ? '${visit.glucose}' : 'N/A',
+                          'mg/dL',
+                          isAlert: visit.glucose != null && visit.glucose! > 180,
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildVitalTile(
+                          'Blood Pressure',
+                          (visit.systolicBp != null && visit.diastolicBp != null)
+                              ? '${visit.systolicBp}/${visit.diastolicBp}'
+                              : 'N/A',
+                          'mmHg',
+                          isAlert: (visit.systolicBp != null && visit.systolicBp! >= 140) ||
+                              (visit.diastolicBp != null && visit.diastolicBp! >= 90),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildVitalTile(
+                          'Pulse Rate',
+                          visit.pulse != null ? '${visit.pulse}' : 'N/A',
+                          'bpm',
+                          isAlert: visit.pulse != null && (visit.pulse! > 100 || visit.pulse! < 50),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildVitalTile(
+                          'Oxygen (SpO2)',
+                          visit.spo2 != null ? '${visit.spo2}' : 'N/A',
+                          '%',
+                          isAlert: visit.spo2 != null && visit.spo2! < 94,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildVitalTile(
+                          'Blood Glucose',
+                          visit.glucose != null ? '${visit.glucose}' : 'N/A',
+                          'mg/dL',
+                          isAlert: visit.glucose != null && visit.glucose! > 180,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 14),
+
+                // ── POP Staging Dossier ──
+                Card(
+                  elevation: 0,
+                  color: const Color(0xFFF8FAFC),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.healing, color: AppTheme.primaryTeal, size: 16),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Pelvic Organ Prolapse (POP) Staging',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                            _buildPopStageBadge(visit.highestPopStage),
+                          ],
+                        ),
+                        const Divider(height: 16),
+                        if (isCompact) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              Expanded(child: _buildCompartmentStage('Anterior Wall', visit.popAnteriorStage)),
+                              Expanded(child: _buildCompartmentStage('Apical / Cervix', visit.popMiddleStage)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              Expanded(child: _buildCompartmentStage('Posterior Wall', visit.popPosteriorStage)),
+                              Expanded(child: _buildCompartmentStage('Pelvic Floor Tone', visit.pelvicFloorTone)),
+                            ],
+                          ),
+                        ] else ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildCompartmentStage('Anterior Wall', visit.popAnteriorStage),
+                              _buildCompartmentStage('Apical / Cervix', visit.popMiddleStage),
+                              _buildCompartmentStage('Posterior Wall', visit.popPosteriorStage),
+                              _buildCompartmentStage('Pelvic Floor Tone', visit.pelvicFloorTone),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // ── Diagnoses & Interventions ──
+                if (isCompact) ...[
+                  _buildDiagnosesCard(visit),
+                  const SizedBox(height: 12),
+                  _buildTreatmentPlanCard(visit),
+                ] else ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildDiagnosesCard(visit)),
+                      const SizedBox(width: 12),
+                      Expanded(child: _buildTreatmentPlanCard(visit)),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 12),
+
+                // Attending Doctor Footer
+                if ((visit.primaryDoctorName != null && visit.primaryDoctorName!.trim().isNotEmpty) ||
+                    visit.attendingDoctorNames.any((d) => d.trim().isNotEmpty))
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.verified_user_outlined, size: 15, color: AppTheme.primaryTeal),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Attending Clinician: ${(visit.primaryDoctorName != null && visit.primaryDoctorName!.trim().isNotEmpty) ? visit.primaryDoctorName! : visit.attendingDoctorNames.where((d) => d.trim().isNotEmpty).join(", ")}',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: const Column(
+                    children: [
+                      Icon(Icons.pending_actions_outlined, size: 36, color: Colors.grey),
+                      SizedBox(height: 8),
                       Text(
-                        'Mobile: ${patient.mobile.isNotEmpty ? patient.mobile : "N/A"} • District: ${patient.district.isNotEmpty ? patient.district : "N/A"}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+                        'Camp Registration Completed • Examination Pending',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'No clinical examination visit recorded yet for this patient in the selected camp session.',
+                        style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryTeal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: isExporting
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.picture_as_pdf, size: 16),
-                  label: Text(
-                    isExporting ? 'Exporting...' : 'PDF Dossier',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                  onPressed: isExporting
-                      ? null
-                      : () => _exportIndividualPatientPdf(
-                            patient,
-                            campState,
-                            user,
-                            deviceState,
-                          ),
-                ),
               ],
-            ),
+            ],
           ),
-          const SizedBox(height: 14),
+        );
+      },
+    );
+  }
 
-          if (visit != null) ...[
-            // ── Vitals & Triage Metrics ──
-            const Text(
-              'Clinical Vitals & Measurements',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+  Widget _buildDiagnosesCard(ClinicalVisitModel visit) {
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFF0FDF4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Color(0xFFBBF7D0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.medication_outlined, size: 16, color: AppTheme.successGreen),
+                SizedBox(width: 6),
+                Text('Diagnoses (रोग निदान)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ],
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildVitalTile(
-                    'Blood Pressure',
-                    (visit.systolicBp != null && visit.diastolicBp != null)
-                        ? '${visit.systolicBp}/${visit.diastolicBp}'
-                        : 'N/A',
-                    'mmHg',
-                    isAlert: (visit.systolicBp != null && visit.systolicBp! >= 140) ||
-                        (visit.diastolicBp != null && visit.diastolicBp! >= 90),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildVitalTile(
-                    'Pulse Rate',
-                    visit.pulse != null ? '${visit.pulse}' : 'N/A',
-                    'bpm',
-                    isAlert: visit.pulse != null && (visit.pulse! > 100 || visit.pulse! < 50),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildVitalTile(
-                    'Oxygen (SpO2)',
-                    visit.spo2 != null ? '${visit.spo2}' : 'N/A',
-                    '%',
-                    isAlert: visit.spo2 != null && visit.spo2! < 94,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildVitalTile(
-                    'Blood Glucose',
-                    visit.glucose != null ? '${visit.glucose}' : 'N/A',
-                    'mg/dL',
-                    isAlert: visit.glucose != null && visit.glucose! > 180,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // ── POP Staging Dossier ──
-            Card(
-              elevation: 0,
-              color: const Color(0xFFF8FAFC),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
+            if (visit.diagnoses.isEmpty)
+              const Text('No diagnoses specified', style: TextStyle(fontSize: 12, color: Colors.grey))
+            else
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: visit.diagnoses.map((d) {
+                  return Chip(
+                    label: Text(d, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFF86EFAC)),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    visualDensity: VisualDensity.compact,
+                  );
+                }).toList(),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.healing, color: AppTheme.primaryTeal, size: 16),
-                            SizedBox(width: 6),
-                            Text(
-                              'Pelvic Organ Prolapse (POP) Staging',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                        _buildPopStageBadge(visit.highestPopStage),
-                      ],
-                    ),
-                    const Divider(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildCompartmentStage('Anterior Wall', visit.popAnteriorStage),
-                        _buildCompartmentStage('Apical / Cervix', visit.popMiddleStage),
-                        _buildCompartmentStage('Posterior Wall', visit.popPosteriorStage),
-                        _buildCompartmentStage('Pelvic Floor Tone', visit.pelvicFloorTone),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // ── Diagnoses & Interventions ──
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Diagnoses
-                Expanded(
-                  child: Card(
-                    elevation: 0,
-                    color: const Color(0xFFF0FDF4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Color(0xFFBBF7D0)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.medication_outlined, size: 16, color: AppTheme.successGreen),
-                              SizedBox(width: 6),
-                              Text('Diagnoses (रोग निदान)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          if (visit.diagnoses.isEmpty)
-                            const Text('No diagnoses specified', style: TextStyle(fontSize: 12, color: Colors.grey))
-                          else
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: visit.diagnoses.map((d) {
-                                return Chip(
-                                  label: Text(d, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                                  backgroundColor: Colors.white,
-                                  side: const BorderSide(color: Color(0xFF86EFAC)),
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  visualDensity: VisualDensity.compact,
-                                );
-                              }).toList(),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Treatment & Plan
-                Expanded(
-                  child: Card(
-                    elevation: 0,
-                    color: const Color(0xFFEFF6FF),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Color(0xFFBFDBFE)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.local_hospital_outlined, size: 16, color: Color(0xFF2563EB)),
-                              SizedBox(width: 6),
-                              Text('Treatment Plan (उपचार)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          if (visit.pessaryType != null && visit.pessaryType!.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                '• Ring Pessary: ${visit.pessaryType} (Size: ${visit.pessarySize ?? "Standard"})',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          if (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                '• Surgical Referral: ${visit.surgicalReferral}',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.dangerRose),
-                              ),
-                            ),
-                          if (visit.medications.isNotEmpty || (visit.customMedication != null && visit.customMedication!.trim().isNotEmpty))
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                '• Medications: ${[
-                                  ...visit.medications,
-                                  if (visit.customMedication != null && visit.customMedication!.trim().isNotEmpty)
-                                    visit.customMedication!.trim(),
-                                ].join(", ")}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          if (visit.counseling.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                '• Counseling: ${visit.counseling.join(", ")}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          if (visit.pessaryType == null &&
-                              visit.surgicalReferral == null &&
-                              visit.medications.isEmpty &&
-                              (visit.customMedication == null || visit.customMedication!.trim().isEmpty) &&
-                              visit.counseling.isEmpty)
-                            const Text('No specific intervention recorded', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Attending Doctor Footer
-            if ((visit.primaryDoctorName != null && visit.primaryDoctorName!.trim().isNotEmpty) ||
-                visit.attendingDoctorNames.any((d) => d.trim().isNotEmpty))
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.verified_user_outlined, size: 15, color: AppTheme.primaryTeal),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Attending Clinician: ${(visit.primaryDoctorName != null && visit.primaryDoctorName!.trim().isNotEmpty) ? visit.primaryDoctorName! : visit.attendingDoctorNames.where((d) => d.trim().isNotEmpty).join(", ")}',
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ] else ...[
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Column(
-                children: [
-                  Icon(Icons.pending_actions_outlined, size: 36, color: Colors.grey),
-                  SizedBox(height: 8),
-                  Text(
-                    'Camp Registration Completed • Examination Pending',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'No clinical examination visit recorded yet for this patient in the selected camp session.',
-                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
           ],
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTreatmentPlanCard(ClinicalVisitModel visit) {
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFEFF6FF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Color(0xFFBFDBFE)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.local_hospital_outlined, size: 16, color: Color(0xFF2563EB)),
+                SizedBox(width: 6),
+                Text('Treatment Plan (उपचार)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (visit.pessaryType != null && visit.pessaryType!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '• Ring Pessary: ${visit.pessaryType} (Size: ${visit.pessarySize ?? "Standard"})',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+            if (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '• Surgical Referral: ${visit.surgicalReferral}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.dangerRose),
+                ),
+              ),
+            if (visit.medications.isNotEmpty || (visit.customMedication != null && visit.customMedication!.trim().isNotEmpty))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '• Medications: ${[
+                    ...visit.medications,
+                    if (visit.customMedication != null && visit.customMedication!.trim().isNotEmpty)
+                      visit.customMedication!.trim(),
+                  ].join(", ")}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            if (visit.counseling.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '• Counseling: ${visit.counseling.join(", ")}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            if (visit.pessaryType == null &&
+                visit.surgicalReferral == null &&
+                visit.medications.isEmpty &&
+                (visit.customMedication == null || visit.customMedication!.trim().isEmpty) &&
+                visit.counseling.isEmpty)
+              const Text('No specific intervention recorded', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
       ),
     );
   }

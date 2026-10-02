@@ -913,8 +913,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                 Text('Delete Staff Member', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ],
             ),
-            content: SizedBox(
-              width: 440,
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1049,7 +1049,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
               clipBehavior: Clip.antiAlias,
               insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 580, maxHeight: 760),
+                constraints: BoxConstraints(maxWidth: 580, maxHeight: MediaQuery.of(context).size.height * 0.92),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1620,8 +1620,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                 ),
               ],
             ),
-            content: SizedBox(
-              width: 480,
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
               child: camps.isEmpty
                   ? const Text('No camps configured in the system yet.')
                   : SingleChildScrollView(
@@ -1742,8 +1742,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                 ),
               ],
             ),
-            content: SizedBox(
-              width: 480,
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1930,8 +1930,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                 ),
               ],
             ),
-            content: SizedBox(
-              width: 480,
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

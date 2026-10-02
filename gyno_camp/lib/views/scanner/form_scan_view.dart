@@ -301,7 +301,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           : (ocrState.hasPage1
                               ? 'Review Page 1 (Front) Only & Fill Page 2 Manually'
                               : 'Review Page 2 (Back) Only & Fill Page 1 Manually'),
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     onPressed: () => ocrVm.mergeAndProceed(),
                   ),
@@ -366,57 +369,94 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
+                child: LayoutBuilder(
+                  builder: (context, guideBox) {
+                    final isCompact = guideBox.maxWidth < 500;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline, size: 18, color: AppTheme.primaryTeal),
-                        SizedBox(width: 8),
-                        Text('Clinical Quality Standards & Digitization Protocols', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryDark)),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildGuidelineBullet(
+                        const Row(
+                          children: [
+                            Icon(Icons.info_outline, size: 18, color: AppTheme.primaryTeal),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Clinical Quality Standards & Digitization Protocols',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryDark),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        if (isCompact) ...[
+                          _buildGuidelineBullet(
                             icon: Icons.crop_free,
                             title: 'Boundary Alignment',
                             desc: 'Ensure all 4 corner registration marks are clearly inside the camera frame.',
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildGuidelineBullet(
+                          const SizedBox(height: 8),
+                          _buildGuidelineBullet(
                             icon: Icons.wb_sunny_outlined,
                             title: 'Optimal Lighting',
                             desc: 'Avoid harsh shadows and direct flash glare over handwritten vitals.',
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildGuidelineBullet(
+                          const SizedBox(height: 8),
+                          _buildGuidelineBullet(
                             icon: Icons.security,
                             title: 'Zero Cloud Leakage',
                             desc: 'All optical extraction runs locally offline on this secured field device.',
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildGuidelineBullet(
+                          const SizedBox(height: 8),
+                          _buildGuidelineBullet(
                             icon: Icons.check_circle_outline,
                             title: 'Clinician Verification',
                             desc: 'All extracted values must be reviewed by the Data Taker prior to commit.',
                           ),
-                        ),
+                        ] else ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildGuidelineBullet(
+                                  icon: Icons.crop_free,
+                                  title: 'Boundary Alignment',
+                                  desc: 'Ensure all 4 corner registration marks are clearly inside the camera frame.',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildGuidelineBullet(
+                                  icon: Icons.wb_sunny_outlined,
+                                  title: 'Optimal Lighting',
+                                  desc: 'Avoid harsh shadows and direct flash glare over handwritten vitals.',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildGuidelineBullet(
+                                  icon: Icons.security,
+                                  title: 'Zero Cloud Leakage',
+                                  desc: 'All optical extraction runs locally offline on this secured field device.',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildGuidelineBullet(
+                                  icon: Icons.check_circle_outline,
+                                  title: 'Clinician Verification',
+                                  desc: 'All extracted values must be reviewed by the Data Taker prior to commit.',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -460,67 +500,146 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 520;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.settings_suggest_outlined, size: 18, color: AppTheme.primaryTeal),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'OCR Detection Engine (अप्टिकल पहिचान इन्जिन):',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (ocrState.engineMode == OcrEngineMode.auto) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.green.shade300),
+              Row(
+                children: [
+                  const Icon(Icons.settings_suggest_outlined, size: 18, color: AppTheme.primaryTeal),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'OCR Detection Engine (अप्टिकल पहिचान इन्जिन):',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  child: const Text(
-                    '⚡ Recommended',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.green),
+                  if (ocrState.engineMode == OcrEngineMode.auto) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.green.shade300),
+                      ),
+                      child: const Text(
+                        '⚡ Recommended',
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.green),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (isCompact) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryTeal.withValues(alpha: 0.06),
+                    border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<OcrEngineMode>(
+                      isExpanded: true,
+                      value: ocrState.engineMode,
+                      icon: const Icon(Icons.arrow_drop_down, color: AppTheme.primaryTeal),
+                      items: const [
+                        DropdownMenuItem(
+                          value: OcrEngineMode.auto,
+                          child: Row(
+                            children: [
+                              Icon(Icons.bolt, size: 16, color: AppTheme.primaryTeal),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '⚡ Auto (Cloud + Offline)',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: OcrEngineMode.onlineGemini,
+                          child: Row(
+                            children: [
+                              Icon(Icons.auto_awesome, size: 16, color: Colors.indigo),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '✨ Gemini AI (Cloud)',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: OcrEngineMode.offlineOnly,
+                          child: Row(
+                            children: [
+                              Icon(Icons.phone_android, size: 16, color: Colors.teal),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '📱 ML Kit (Offline)',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      onChanged: (newSelection) {
+                        if (newSelection != null) {
+                          ocrVm.setEngineMode(newSelection);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ] else ...[
+                SegmentedButton<OcrEngineMode>(
+                  segments: const [
+                    ButtonSegment<OcrEngineMode>(
+                      value: OcrEngineMode.auto,
+                      icon: Icon(Icons.bolt, size: 15),
+                      label: Text('⚡ Auto (Cloud + Offline)', style: TextStyle(fontSize: 11.5)),
+                    ),
+                    ButtonSegment<OcrEngineMode>(
+                      value: OcrEngineMode.onlineGemini,
+                      icon: Icon(Icons.auto_awesome, size: 15),
+                      label: Text('✨ Gemini AI (Cloud)', style: TextStyle(fontSize: 11.5)),
+                    ),
+                    ButtonSegment<OcrEngineMode>(
+                      value: OcrEngineMode.offlineOnly,
+                      icon: Icon(Icons.phone_android, size: 15),
+                      label: Text('📱 ML Kit (Offline)', style: TextStyle(fontSize: 11.5)),
+                    ),
+                  ],
+                  selected: {ocrState.engineMode},
+                  onSelectionChanged: (Set<OcrEngineMode> newSelection) {
+                    ocrVm.setEngineMode(newSelection.first);
+                  },
+                  style: SegmentedButton.styleFrom(
+                    selectedBackgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.15),
+                    selectedForegroundColor: AppTheme.primaryTeal,
+                    textStyle: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
             ],
-          ),
-          const SizedBox(height: 10),
-          SegmentedButton<OcrEngineMode>(
-            segments: const [
-              ButtonSegment<OcrEngineMode>(
-                value: OcrEngineMode.auto,
-                icon: Icon(Icons.bolt, size: 15),
-                label: Text('⚡ Auto (Cloud + Offline)', style: TextStyle(fontSize: 11.5)),
-              ),
-              ButtonSegment<OcrEngineMode>(
-                value: OcrEngineMode.onlineGemini,
-                icon: Icon(Icons.auto_awesome, size: 15),
-                label: Text('✨ Gemini AI (Cloud)', style: TextStyle(fontSize: 11.5)),
-              ),
-              ButtonSegment<OcrEngineMode>(
-                value: OcrEngineMode.offlineOnly,
-                icon: Icon(Icons.phone_android, size: 15),
-                label: Text('📱 ML Kit (Offline)', style: TextStyle(fontSize: 11.5)),
-              ),
-            ],
-            selected: {ocrState.engineMode},
-            onSelectionChanged: (Set<OcrEngineMode> newSelection) {
-              ocrVm.setEngineMode(newSelection.first);
-            },
-            style: SegmentedButton.styleFrom(
-              selectedBackgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.15),
-              selectedForegroundColor: AppTheme.primaryTeal,
-              textStyle: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -723,7 +842,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       icon: const Icon(Icons.camera_alt, size: 16),
-                      label: const Text('Scan Camera', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      label: const Text('Scan Camera', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                       onPressed: onCamera,
                     ),
                   ),
@@ -735,7 +854,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       icon: const Icon(Icons.file_upload_outlined, size: 16),
-                      label: const Text('Upload File', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      label: const Text('Upload File', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                       onPressed: onGallery,
                     ),
                   ),
@@ -962,49 +1081,63 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             color: Colors.white,
             border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
           ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppTheme.primaryDark),
-                tooltip: 'Return to Document Upload Slots',
-                onPressed: () => ocrVm.returnToCaptureSlots(),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ocrState.isDualReady || result.isDualPage
-                          ? 'Dual-Page Verification (दुवै पाना रुजु गर्नुहोस्)'
-                          : (ocrState.hasPage1 ? 'Page 1 Verification (Front Page)' : 'Page 2 Verification (Back Page)'),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
-                    ),
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 6,
-                        runSpacing: 2,
-                        children: [
-                          Text(
-                            'AI Digitization: ${(result.overallConfidence * 100).toInt()}% Confidence',
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 480;
+              return Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: AppTheme.primaryDark),
+                    tooltip: 'Return to Document Upload Slots',
+                    onPressed: () => ocrVm.returnToCaptureSlots(),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          ocrState.isDualReady || result.isDualPage
+                              ? 'Dual-Page Verification (दुवै पाना रुजु गर्नुहोस्)'
+                              : (ocrState.hasPage1 ? 'Page 1 Verification (Front Page)' : 'Page 2 Verification (Back Page)'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: isNarrow ? 12.5 : 13.5,
+                            color: AppTheme.primaryDark,
                           ),
-                          _buildEngineBadge(result.ocrEngine),
-                        ],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 2,
+                          children: [
+                            Text(
+                              'AI Digitization: ${(result.overallConfidence * 100).toInt()}% Confidence',
+                              style: TextStyle(fontSize: isNarrow ? 10 : 11, color: AppTheme.textSecondaryLight),
+                            ),
+                            _buildEngineBadge(result.ocrEngine),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isNarrow) ...[
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        visualDensity: VisualDensity.compact,
                       ),
+                      icon: const Icon(Icons.file_upload_outlined, size: 14),
+                      label: const Text('Capture Slots', style: TextStyle(fontSize: 11)),
+                      onPressed: () => ocrVm.returnToCaptureSlots(),
+                    ),
                   ],
-                ),
-              ),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: const Icon(Icons.file_upload_outlined, size: 14),
-                label: const Text('Capture Slots', style: TextStyle(fontSize: 11)),
-                onPressed: () => ocrVm.returnToCaptureSlots(),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ),
 
@@ -1068,7 +1201,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       : const Icon(Icons.check_circle_outline),
                   label: Text(
                     ocrState.isSaving ? 'Committing Record...' : 'Verify & Commit to Camp Database (दर्ता सम्पन्न गर्नुहोस्)',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   onPressed: ocrState.isSaving
                       ? null
@@ -1450,41 +1586,59 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             onChanged: (val) => vm.updateDemographic('relativeName', val, campId: campId),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: _buildFieldWithConfidence(
-                  label: 'Contact Person / सम्पर्क व्यक्ति',
-                  value: demo['contactPerson']?.toString() ?? '',
-                  fieldKey: 'contactPerson',
-                  result: result,
-                  onChanged: (val) => vm.updateDemographic('contactPerson', val),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildFieldWithConfidence(
-                  label: 'Contact Mobile / सम्पर्क नम्बर',
-                  value: demo['contactMobile']?.toString() ?? '',
-                  fieldKey: 'contactMobile',
-                  result: result,
-                  keyboardType: TextInputType.phone,
-                  onChanged: (val) => vm.updateDemographic('contactMobile', val),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildFieldWithConfidence(
-                  label: 'Marriage Age / विवाह उमेर',
-                  value: demo['maritalAge']?.toString() ?? '',
-                  fieldKey: 'maritalAge',
-                  result: result,
-                  keyboardType: TextInputType.number,
-                  onChanged: (val) => vm.updateDemographic('maritalAge', int.tryParse(val)),
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 550;
+              final contactPersonField = _buildFieldWithConfidence(
+                label: 'Contact Person / सम्पर्क व्यक्ति',
+                value: demo['contactPerson']?.toString() ?? '',
+                fieldKey: 'contactPerson',
+                result: result,
+                onChanged: (val) => vm.updateDemographic('contactPerson', val),
+              );
+              final contactMobileField = _buildFieldWithConfidence(
+                label: 'Contact Mobile / सम्पर्क नम्बर',
+                value: demo['contactMobile']?.toString() ?? '',
+                fieldKey: 'contactMobile',
+                result: result,
+                keyboardType: TextInputType.phone,
+                onChanged: (val) => vm.updateDemographic('contactMobile', val),
+              );
+              final maritalAgeField = _buildFieldWithConfidence(
+                label: 'Marriage Age / विवाह उमेर',
+                value: demo['maritalAge']?.toString() ?? '',
+                fieldKey: 'maritalAge',
+                result: result,
+                keyboardType: TextInputType.number,
+                onChanged: (val) => vm.updateDemographic('maritalAge', int.tryParse(val)),
+              );
+
+              if (isNarrow) {
+                return Column(
+                  children: [
+                    contactPersonField,
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: contactMobileField),
+                        const SizedBox(width: 12),
+                        Expanded(child: maritalAgeField),
+                      ],
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(flex: 2, child: contactPersonField),
+                  const SizedBox(width: 12),
+                  Expanded(child: contactMobileField),
+                  const SizedBox(width: 12),
+                  Expanded(child: maritalAgeField),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           const Text(
@@ -2265,174 +2419,186 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ),
           const SizedBox(height: 12),
 
-          // ── 2. PULSE RATE & SPO2 SATURATION (ROW) ─────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Pulse Card
-              Expanded(
-                child: Card(
-                  elevation: 1.5,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: pulseStatus.severity == ValidationSeverity.normal
-                          ? AppTheme.successGreen.withValues(alpha: 0.3)
-                          : pulseStatus.severity == ValidationSeverity.warning
-                              ? AppTheme.warningAmber
-                              : AppTheme.dangerRose,
-                    ),
+          // ── 2. PULSE RATE & SPO2 SATURATION (RESPONSIVE) ─────────
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 480;
+
+              final pulseCard = Card(
+                elevation: 1.5,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: pulseStatus.severity == ValidationSeverity.normal
+                        ? AppTheme.successGreen.withValues(alpha: 0.3)
+                        : pulseStatus.severity == ValidationSeverity.warning
+                            ? AppTheme.warningAmber
+                            : AppTheme.dangerRose,
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.monitor_heart, color: Colors.pinkAccent, size: 18),
-                            const SizedBox(width: 6),
-                            const Expanded(
-                              child: Text(
-                                'Pulse Rate',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                              ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.monitor_heart, color: Colors.pinkAccent, size: 18),
+                          const SizedBox(width: 6),
+                          const Expanded(
+                            child: Text(
+                              'Pulse Rate',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: pulseStatus.severity == ValidationSeverity.normal
+                                  ? AppTheme.successGreen.withValues(alpha: 0.15)
+                                  : Colors.amber.shade100,
+                            ),
+                            child: Text(
+                              pulseStatus.severity == ValidationSeverity.normal ? 'Normal' : 'Alert',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
                                 color: pulseStatus.severity == ValidationSeverity.normal
-                                    ? AppTheme.successGreen.withValues(alpha: 0.15)
-                                    : Colors.amber.shade100,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                pulseStatus.severity == ValidationSeverity.normal ? 'Normal' : 'Alert',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: pulseStatus.severity == ValidationSeverity.normal
-                                      ? AppTheme.successGreen
-                                      : Colors.amber.shade900,
-                                ),
+                                    ? AppTheme.successGreen
+                                    : Colors.amber.shade900,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          key: ValueKey('vital_pulse_${result.scannedAt.millisecondsSinceEpoch}'),
-                          initialValue: '$pulse',
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'नाडी (bpm)',
-                            suffixText: 'bpm',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                          ),
-                          onChanged: (val) {
-                            final parsed = int.tryParse(val.trim());
-                            if (parsed != null) {
-                              vm.updateVital('pulseRate', parsed);
-                            }
-                          },
-                        ),
-                        if (pulseStatus.messageEn != null) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            pulseStatus.messageEn!,
-                            style: TextStyle(fontSize: 10, color: Colors.amber.shade900),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        key: ValueKey('vital_pulse_${result.scannedAt.millisecondsSinceEpoch}'),
+                        initialValue: '$pulse',
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'नाडी (bpm)',
+                          suffixText: 'bpm',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        ),
+                        onChanged: (val) {
+                          final parsed = int.tryParse(val.trim());
+                          if (parsed != null) {
+                            vm.updateVital('pulseRate', parsed);
+                          }
+                        },
+                      ),
+                      if (pulseStatus.messageEn != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          pulseStatus.messageEn!,
+                          style: TextStyle(fontSize: 10, color: Colors.amber.shade900),
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              // SpO2 Card
-              Expanded(
-                child: Card(
-                  elevation: 1.5,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: spo2Status.severity == ValidationSeverity.normal
-                          ? AppTheme.successGreen.withValues(alpha: 0.3)
-                          : spo2Status.severity == ValidationSeverity.warning
-                              ? AppTheme.warningAmber
-                              : AppTheme.dangerRose,
-                    ),
+              );
+
+              final spo2Card = Card(
+                elevation: 1.5,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: spo2Status.severity == ValidationSeverity.normal
+                        ? AppTheme.successGreen.withValues(alpha: 0.3)
+                        : spo2Status.severity == ValidationSeverity.warning
+                            ? AppTheme.warningAmber
+                            : AppTheme.dangerRose,
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.air, color: Colors.blueAccent, size: 18),
-                            const SizedBox(width: 6),
-                            const Expanded(
-                              child: Text(
-                                'SpO2 Saturation',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                              ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.air, color: Colors.blueAccent, size: 18),
+                          const SizedBox(width: 6),
+                          const Expanded(
+                            child: Text(
+                              'SpO2 Saturation',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: spo2Status.severity == ValidationSeverity.normal
+                                  ? AppTheme.successGreen.withValues(alpha: 0.15)
+                                  : Colors.amber.shade100,
+                            ),
+                            child: Text(
+                              spo2Status.severity == ValidationSeverity.normal ? 'Normal' : 'Hypoxia',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
                                 color: spo2Status.severity == ValidationSeverity.normal
-                                    ? AppTheme.successGreen.withValues(alpha: 0.15)
-                                    : Colors.amber.shade100,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                spo2Status.severity == ValidationSeverity.normal ? 'Normal' : 'Hypoxia',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: spo2Status.severity == ValidationSeverity.normal
-                                      ? AppTheme.successGreen
-                                      : Colors.amber.shade900,
-                                ),
+                                    ? AppTheme.successGreen
+                                    : Colors.amber.shade900,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          key: ValueKey('vital_spo2_${result.scannedAt.millisecondsSinceEpoch}'),
-                          initialValue: '$spo2',
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'अक्सिजन (%)',
-                            suffixText: '%',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                          ),
-                          onChanged: (val) {
-                            final parsed = int.tryParse(val.trim());
-                            if (parsed != null) {
-                              vm.updateVital('spo2', parsed);
-                            }
-                          },
-                        ),
-                        if (spo2Status.messageEn != null) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            spo2Status.messageEn!,
-                            style: TextStyle(fontSize: 10, color: Colors.amber.shade900),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        key: ValueKey('vital_spo2_${result.scannedAt.millisecondsSinceEpoch}'),
+                        initialValue: '$spo2',
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'अक्सिजन (%)',
+                          suffixText: '%',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        ),
+                        onChanged: (val) {
+                          final parsed = int.tryParse(val.trim());
+                          if (parsed != null) {
+                            vm.updateVital('spo2', parsed);
+                          }
+                        },
+                      ),
+                      if (spo2Status.messageEn != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          spo2Status.messageEn!,
+                          style: TextStyle(fontSize: 10, color: Colors.amber.shade900),
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
-              ),
-            ],
+              );
+
+              if (isNarrow) {
+                return Column(
+                  children: [
+                    pulseCard,
+                    const SizedBox(height: 10),
+                    spo2Card,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: pulseCard),
+                  const SizedBox(width: 10),
+                  Expanded(child: spo2Card),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
 

@@ -25,6 +25,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
   late PatientModel _patient;
   final Set<int> _dlIdx = {};
   bool _dlDossier = false;
+  int _mobileTabIndex = 1; // 0 = Profile & Obstetric Overview, 1 = Clinical Timeline & Encounters
 
   @override
   void initState() {
@@ -61,25 +62,106 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     final p = _patient;
     final fmt = DateFormat('dd MMM yyyy, HH:mm');
     final sd = DateFormat('dd MMM yyyy');
-    return Column(children: [
-      _topBar(p),
-      Expanded(child: FutureBuilder<List<ClinicalVisitModel>>(
-        future: _visitsFuture,
-        builder: (ctx, snap) {
-          if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          final visits = snap.data ?? [];
-          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: 228, child: _sidebar(p, visits, sd)),
-            Expanded(child: _timeline(visits, fmt)),
-          ]);
-        },
-      )),
-      _bottomBar(),
-    ]);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 650;
+
+        return Column(children: [
+          _topBar(p, isMobile: isMobile),
+          Expanded(child: FutureBuilder<List<ClinicalVisitModel>>(
+            future: _visitsFuture,
+            builder: (ctx, snap) {
+              if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+              final visits = snap.data ?? [];
+
+              if (isMobile) {
+                return Column(
+                  children: [
+                    // Mobile segmented switcher: Overview vs Visits
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      color: const Color(0xFFF1F5F9),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setState(() => _mobileTabIndex = 0),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: _mobileTabIndex == 0 ? Colors.white : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: _mobileTabIndex == 0
+                                      ? const [BoxShadow(color: Color(0x0F000000), blurRadius: 4, offset: Offset(0, 1))]
+                                      : null,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Patient Profile & History',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: _mobileTabIndex == 0 ? FontWeight.bold : FontWeight.w600,
+                                      color: _mobileTabIndex == 0 ? AppTheme.primaryTeal : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setState(() => _mobileTabIndex = 1),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: _mobileTabIndex == 1 ? Colors.white : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: _mobileTabIndex == 1
+                                      ? const [BoxShadow(color: Color(0x0F000000), blurRadius: 4, offset: Offset(0, 1))]
+                                      : null,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Encounters (${visits.length})',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: _mobileTabIndex == 1 ? FontWeight.bold : FontWeight.w600,
+                                      color: _mobileTabIndex == 1 ? AppTheme.primaryTeal : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: _mobileTabIndex == 0
+                          ? _sidebar(p, visits, sd, isMobile: true)
+                          : _timeline(visits, fmt, isMobile: true),
+                    ),
+                  ],
+                );
+              }
+
+              return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                SizedBox(width: 240, child: _sidebar(p, visits, sd, isMobile: false)),
+                Expanded(child: _timeline(visits, fmt, isMobile: false)),
+              ]);
+            },
+          )),
+          _bottomBar(isMobile: isMobile),
+        ]);
+      },
+    );
   }
 
-  Widget _topBar(PatientModel p) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+  Widget _topBar(PatientModel p, {bool isMobile = false}) => Container(
+    padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 20, vertical: 12),
     decoration: const BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.only(topLeft: Radius.circular(20)),
@@ -87,24 +169,27 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     ),
     child: Row(children: [
       Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(color: AppTheme.primaryTeal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-        child: const Icon(Icons.history_edu_rounded, color: AppTheme.primaryTeal, size: 26),
+        child: const Icon(Icons.history_edu_rounded, color: AppTheme.primaryTeal, size: 24),
       ),
-      const SizedBox(width: 14),
+      const SizedBox(width: 10),
       Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text(
-                  p.fullName,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                Flexible(
+                  child: Text(
+                    p.fullName,
+                    style: TextStyle(fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: AppTheme.primaryLight.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(6),
@@ -112,36 +197,45 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                   ),
                   child: Text(
                     p.patientId,
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 3),
-            Row(
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 2,
               children: [
-                const Icon(Icons.location_on_outlined, size: 13, color: Color(0xFF64748B)),
-                const SizedBox(width: 3),
-                Text(
-                  '${p.district.isNotEmpty ? p.district : "District N/A"}, Ward ${p.ward}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${p.district.isNotEmpty ? p.district : "District N/A"}, Ward ${p.ward}',
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
                 const Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
-                const SizedBox(width: 8),
-                const Icon(Icons.cake_outlined, size: 13, color: Color(0xFF64748B)),
-                const SizedBox(width: 3),
-                Text(
-                  'Age ${p.age}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.cake_outlined, size: 12, color: Color(0xFF64748B)),
+                    const SizedBox(width: 2),
+                    Text(
+                      'Age ${p.age}',
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                    ),
+                  ],
                 ),
                 if (p.maritalStatus.isNotEmpty) ...[
-                  const SizedBox(width: 8),
                   const Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
-                  const SizedBox(width: 8),
                   Text(
                     p.maritalStatus,
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                   ),
                 ],
               ],
@@ -149,40 +243,66 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
           ],
         ),
       ),
-      OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.primaryTeal,
-          side: const BorderSide(color: AppTheme.primaryTeal),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      const SizedBox(width: 6),
+      if (isMobile)
+        IconButton(
+          tooltip: 'Edit Page 1',
+          style: IconButton.styleFrom(
+            foregroundColor: AppTheme.primaryTeal,
+            side: const BorderSide(color: AppTheme.primaryTeal),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.all(8),
+          ),
+          icon: const Icon(Icons.edit_note_rounded, size: 18),
+          onPressed: () async {
+            final updated = await Navigator.push<PatientModel?>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PatientRegistrationView(patientToEdit: _patient),
+              ),
+            );
+            if (updated != null && mounted) {
+              setState(() {
+                _patient = updated;
+              });
+            }
+          },
+        )
+      else
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.primaryTeal,
+            side: const BorderSide(color: AppTheme.primaryTeal),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          icon: const Icon(Icons.edit_note_rounded, size: 16),
+          label: const Text('Edit Page 1', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          onPressed: () async {
+            final updated = await Navigator.push<PatientModel?>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PatientRegistrationView(patientToEdit: _patient),
+              ),
+            );
+            if (updated != null && mounted) {
+              setState(() {
+                _patient = updated;
+              });
+            }
+          },
         ),
-        icon: const Icon(Icons.edit_note_rounded, size: 16),
-        label: const Text('Edit Page 1', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        onPressed: () async {
-          final updated = await Navigator.push<PatientModel?>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PatientRegistrationView(patientToEdit: _patient),
-            ),
-          );
-          if (updated != null && mounted) {
-            setState(() {
-              _patient = updated;
-            });
-          }
-        },
-      ),
-      const SizedBox(width: 8),
+      const SizedBox(width: 6),
       IconButton(
-        icon: const Icon(Icons.close_rounded),
+        icon: const Icon(Icons.close_rounded, size: 20),
         style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9)),
         onPressed: () => Navigator.of(context).pop(),
       ),
     ]),
   );
 
-  Widget _sidebar(PatientModel p, List<ClinicalVisitModel> visits, DateFormat sd) => Container(
-    margin: const EdgeInsets.all(14),
+  Widget _sidebar(PatientModel p, List<ClinicalVisitModel> visits, DateFormat sd, {bool isMobile = false}) => Container(
+    margin: EdgeInsets.all(isMobile ? 12 : 14),
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0)), boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8)]),
     child: SingleChildScrollView(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Center(child: Container(width: 60, height: 60, decoration: BoxDecoration(color: AppTheme.primaryTeal.withValues(alpha: 0.12), shape: BoxShape.circle),
@@ -266,7 +386,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     ])),
   );
 
-  Widget _timeline(List<ClinicalVisitModel> visits, DateFormat fmt) {
+  Widget _timeline(List<ClinicalVisitModel> visits, DateFormat fmt, {bool isMobile = false}) {
     if (visits.isEmpty) {
       return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(Icons.history_toggle_off_rounded, size: 64, color: Colors.grey.shade300),
@@ -277,13 +397,13 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
       ]));
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(0, 14, 14, 24),
+      padding: EdgeInsets.fromLTRB(isMobile ? 12 : 0, 14, 14, 24),
       itemCount: visits.length,
-      itemBuilder: (ctx, i) => _card(visits[i], i, fmt),
+      itemBuilder: (ctx, i) => _card(visits[i], i, fmt, isMobile: isMobile),
     );
   }
 
-  Widget _card(ClinicalVisitModel v, int i, DateFormat fmt) {
+  Widget _card(ClinicalVisitModel v, int i, DateFormat fmt, {bool isMobile = false}) {
     final isF = v.isFollowUp;
     final isDl = _dlIdx.contains(i);
     final ac = isF ? AppTheme.brandMagenta : AppTheme.brandPurple;
@@ -355,7 +475,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                   icon: isDl
                       ? const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.download_rounded, size: 14),
-                  label: Text(isDl ? 'Downloading...' : 'Download Slip', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: Text(isDl ? 'Downloading...' : (isMobile ? 'Slip' : 'Download Slip'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   onPressed: isDl ? null : () => _dlSlip(v, i),
                 ),
               ],
@@ -465,25 +585,22 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                 const SizedBox(height: 8),
 
                 // 3. Baden-Walker POP Staging (Station 4)
-                Row(
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text('Baden-Walker POP:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     if (v.highestPopStage == 0) ...[
                       _pb('', 'Normal (No Prolapse)', isNormal: true),
-                      const SizedBox(width: 4),
                       _pb('Ant', 'St 0'),
-                      const SizedBox(width: 4),
                       _pb('Mid', 'St 0'),
-                      const SizedBox(width: 4),
                       _pb('Post', 'St 0'),
                     ] else ...[
                       _pb('Highest', 'St ${v.highestPopStage}', ip: v.highestPopStage == 2, ic: v.highestPopStage >= 3),
-                      const SizedBox(width: 4),
                       _pb('Ant', 'St ${v.popAnteriorStage}'),
-                      const SizedBox(width: 4),
                       _pb('Mid', 'St ${v.popMiddleStage}'),
-                      const SizedBox(width: 4),
                       _pb('Post', 'St ${v.popPosteriorStage}'),
                     ],
                   ],
@@ -624,107 +741,136 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     );
   }
 
-  Widget _bottomBar() {
+  Widget _bottomBar({bool isMobile = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 20, vertical: 10),
       decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Color(0x0F000000), blurRadius: 6, offset: Offset(0, -2))]),
       child: FutureBuilder<List<ClinicalVisitModel>>(
         future: _visitsFuture,
         builder: (ctx, snap) {
           final visits = snap.data ?? [];
+          final summaryMetadata = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryLight.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.folder_shared_outlined, size: 15, color: AppTheme.primaryDark),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${visits.length} Encounter${visits.length == 1 ? "" : "s"}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ],
+          );
+
+          final closeBtn = OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF475569),
+              side: const BorderSide(color: Color(0xFFCBD5E1)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Close'),
+          );
+
+          Widget? dossierBtn;
+          if (visits.isNotEmpty) {
+            dossierBtn = ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryTeal,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: _dlDossier
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.picture_as_pdf_rounded, size: 15),
+              label: Text(_dlDossier ? 'Generating...' : (isMobile ? 'Full Dossier (PDF)' : 'Full Clinical Dossier (PDF)'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              onPressed: _dlDossier
+                  ? null
+                  : () async {
+                      setState(() => _dlDossier = true);
+                      try {
+                        final bytes = await PdfReportService().generateIndividualPatientPdf(
+                          patient: widget.patient,
+                          visit: visits.last,
+                          allVisits: visits,
+                          camp: widget.camp,
+                          organizationName: widget.orgName,
+                        );
+                        await FileDownloadHelper.saveAndDownloadFile(
+                          bytes: bytes,
+                          filename: 'Dossier_${widget.patient.patientId}.pdf',
+                          mimeType: 'application/pdf',
+                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Full dossier downloaded!'),
+                              backgroundColor: AppTheme.successGreen,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerRose),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _dlDossier = false);
+                      }
+                    },
+            );
+          }
+
+          if (isMobile) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    summaryMetadata,
+                    closeBtn,
+                  ],
+                ),
+                if (dossierBtn != null) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: dossierBtn,
+                  ),
+                ],
+              ],
+            );
+          }
+
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Left: Encounter summary metadata
+              summaryMetadata,
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryLight.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(Icons.folder_shared_outlined, size: 16, color: AppTheme.primaryDark),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${visits.length} Clinical Encounter${visits.length == 1 ? "" : "s"} Recorded',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF334155),
-                    ),
-                  ),
-                ],
-              ),
-              // Right: Action buttons
-              Row(
-                children: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF475569),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: const Text('Close'),
-                  ),
-                  if (visits.isNotEmpty) ...[
+                  closeBtn,
+                  if (dossierBtn != null) ...[
                     const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryTeal,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      icon: _dlDossier
-                          ? const SizedBox(
-                              width: 15,
-                              height: 15,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.picture_as_pdf_rounded, size: 16),
-                      label: Text(_dlDossier ? 'Generating...' : 'Full Clinical Dossier (PDF)'),
-                      onPressed: _dlDossier
-                          ? null
-                          : () async {
-                              setState(() => _dlDossier = true);
-                              try {
-                                // Use visits.last for most recent encounter data
-                                final bytes = await PdfReportService().generateIndividualPatientPdf(
-                                  patient: widget.patient,
-                                  visit: visits.last,
-                                  allVisits: visits,
-                                  camp: widget.camp,
-                                  organizationName: widget.orgName,
-                                );
-                                await FileDownloadHelper.saveAndDownloadFile(
-                                  bytes: bytes,
-                                  filename: 'Dossier_${widget.patient.patientId}.pdf',
-                                  mimeType: 'application/pdf',
-                                );
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Full dossier downloaded!'),
-                                      backgroundColor: AppTheme.successGreen,
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerRose),
-                                  );
-                                }
-                              } finally {
-                                if (mounted) setState(() => _dlDossier = false);
-                              }
-                            },
-                    ),
+                    dossierBtn,
                   ],
                 ],
               ),

@@ -3201,6 +3201,49 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   );
                 }
 
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: primaryCta),
+                          const SizedBox(width: 8),
+                          moreMenu,
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(child: slipBtn),
+                          if (isCampLocked) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF2F2),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFF87171)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.lock_rounded, size: 12, color: Color(0xFFDC2626)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Camp Closed',
+                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  );
+                }
+
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -3243,12 +3286,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 );
               },
             ),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildStepIndicator({
@@ -3342,9 +3385,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 ),
               ],
             ),
-            content: SizedBox(
-              width: 500,
-              child: SingleChildScrollView(
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3772,6 +3817,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 ),
               ),
             ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
@@ -3833,35 +3879,43 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               ),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Choose which doctor\'s name and NMC registration number to stamp on this form:',
-                style: TextStyle(fontSize: 12.5, color: Color(0xFF475569)),
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.65,
+              maxWidth: 480,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Choose which doctor\'s name and NMC registration number to stamp on this form:',
+                    style: TextStyle(fontSize: 12.5, color: Color(0xFF475569)),
+                  ),
+                  const SizedBox(height: 12),
+                  ...doctors.map(
+                    (doc) => ListTile(
+                      dense: true,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      leading: const Icon(Icons.medical_services_outlined, color: AppTheme.brandPurple, size: 18),
+                      title: Text(doc.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      subtitle: Text(doc.hasNmc ? 'NMC: ${doc.nmcNumber}' : 'NMC Certified', style: const TextStyle(fontSize: 11)),
+                      onTap: () => Navigator.pop(ctx, doc),
+                    ),
+                  ),
+                  const Divider(),
+                  ListTile(
+                    dense: true,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    leading: const Icon(Icons.edit_outlined, color: Color(0xFF64748B), size: 18),
+                    title: const Text('Blank Doctor Field', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    subtitle: const Text('Leave doctor & NMC line blank for handwritten on-site signature', style: TextStyle(fontSize: 11)),
+                    onTap: () => Navigator.pop(ctx, const DoctorProfile(name: '')),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              ...doctors.map(
-                (doc) => ListTile(
-                  dense: true,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  leading: const Icon(Icons.medical_services_outlined, color: AppTheme.brandPurple, size: 18),
-                  title: Text(doc.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  subtitle: Text(doc.hasNmc ? 'NMC: ${doc.nmcNumber}' : 'NMC Certified', style: const TextStyle(fontSize: 11)),
-                  onTap: () => Navigator.pop(ctx, doc),
-                ),
-              ),
-              const Divider(),
-              ListTile(
-                dense: true,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                leading: const Icon(Icons.edit_outlined, color: Color(0xFF64748B), size: 18),
-                title: const Text('Blank Doctor Field', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                subtitle: const Text('Leave doctor & NMC line blank for handwritten on-site signature', style: TextStyle(fontSize: 11)),
-                onTap: () => Navigator.pop(ctx, const DoctorProfile(name: '')),
-              ),
-            ],
+            ),
           ),
           actions: [
             TextButton(
@@ -4026,7 +4080,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           child: Material(
             color: Colors.transparent,
             child: Container(
-              width: MediaQuery.of(context).size.width * 0.88,
+              width: MediaQuery.of(context).size.width >= 700
+                  ? MediaQuery.of(context).size.width * 0.88
+                  : MediaQuery.of(context).size.width,
               height: MediaQuery.of(context).size.height,
               decoration: const BoxDecoration(
                 color: Color(0xFFF8FAFC),
