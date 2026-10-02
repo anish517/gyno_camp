@@ -58,13 +58,17 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
         flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
         bottom: AppTheme.brandAppBarBottomLine,
         iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
-        title: const Text(
-          'Device Authorization & Activation',
-          style: TextStyle(
-            color: Color(0xFF1E0A38),
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
-            letterSpacing: -0.3,
+        title: const FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Device Authorization & Activation',
+            style: TextStyle(
+              color: Color(0xFF1E0A38),
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              letterSpacing: -0.3,
+            ),
           ),
         ),
         leading: IconButton(
@@ -83,9 +87,15 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
           },
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 600;
+          return SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16.0 : 24.0,
+              vertical: isMobile ? 16.0 : 24.0,
+            ),
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Security Info Banner
@@ -142,7 +152,10 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
                         const Text('Status: ', style: TextStyle(fontSize: 13)),
                         Chip(
@@ -269,57 +282,73 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
               if (state.latestOtp != null)
                 Container(
                   margin: const EdgeInsets.only(bottom: 14),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFF93C5FD)),
                   ),
-                  child: Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 12,
-                    runSpacing: 8,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.pin_outlined, color: Color(0xFF1D4ED8), size: 22),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'Security Authorization Code (SMS / Local Terminal):',
-                                style: TextStyle(fontSize: 11, color: Color(0xFF1E40AF), fontWeight: FontWeight.w600),
+                          Icon(Icons.pin_outlined, color: Color(0xFF1D4ED8), size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Security Authorization Code (SMS / Local Terminal):',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF1E40AF),
+                                fontWeight: FontWeight.w600,
                               ),
-                              Text(
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 28),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 12,
+                            runSpacing: 8,
+                            children: [
+                              SelectableText(
                                 state.latestOtp!,
                                 style: const TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  letterSpacing: 3,
+                                  letterSpacing: 4,
                                   color: Color(0xFF1E3A8A),
                                   fontFamily: 'monospace',
                                 ),
                               ),
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  backgroundColor: const Color(0xFFDBEAFE),
+                                  foregroundColor: const Color(0xFF1D4ED8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                icon: const Icon(Icons.copy_rounded, size: 16),
+                                label: const Text('Fill Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                onPressed: () {
+                                  setState(() {
+                                    _otpController.text = state.latestOtp!;
+                                  });
+                                },
+                              ),
                             ],
                           ),
-                        ],
-                      ),
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          backgroundColor: const Color(0xFFDBEAFE),
-                          foregroundColor: const Color(0xFF1D4ED8),
                         ),
-                        icon: const Icon(Icons.copy_rounded, size: 16),
-                        label: const Text('Fill Code', style: TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          setState(() {
-                            _otpController.text = state.latestOtp!;
-                          });
-                        },
                       ),
                     ],
                   ),
@@ -509,35 +538,72 @@ class _DeviceActivationViewState extends ConsumerState<DeviceActivationView> {
             ],
           ],
         ),
-      ),
-    );
+      );
+    },
+  ),
+);
   }
 
   Widget _buildSummaryRow(String label, String value, {required IconData icon, Color? iconColor, bool isMonospace = false}) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: iconColor ?? Colors.blueGrey),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 130,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              fontFamily: isMonospace ? 'monospace' : null,
-              color: const Color(0xFF0F172A),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 340;
+        if (isCompact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 15, color: iconColor ?? Colors.blueGrey),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Padding(
+                padding: const EdgeInsets.only(left: 21),
+                child: SelectableText(
+                  value,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: isMonospace ? 'monospace' : null,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 16, color: iconColor ?? Colors.blueGrey),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 125,
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+              ),
             ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
+            Expanded(
+              child: SelectableText(
+                value,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: isMonospace ? 'monospace' : null,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
