@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter/services.dart' show rootBundle;
+import 'dart:ui' as ui;
+import 'package:flutter/services.dart' show rootBundle, FontLoader;
+import 'package:flutter/painting.dart' as fp;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -13,8 +15,134 @@ import '../../repositories/lookup_repository.dart';
 import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
 
+typedef _NeSpec = ({String text, double size, bool bold, int color, double? maxWidth});
+
 class PdfReportService {
   static pw.ThemeData? _cachedTheme;
+
+  static const double _neScale = 4.0; // render at 4x for crisp print
+  static final Map<_NeSpec, ({pw.MemoryImage img, double w, double h})> _neCache = {};
+  static final Set<_NeSpec> _nePending = {};
+  static final RegExp _devanagari = RegExp(r'[\u0900-\u097F]');
+  static bool _fontsLoaded = false;
+
+  static Future<void> _ensureFontLoaded() async {
+    if (_fontsLoaded) return;
+    try {
+      final fontLoader = FontLoader('NotoSansDevanagari');
+      try {
+        final regData = await rootBundle.load('assets/fonts/NotoSansDevanagari-Regular.ttf');
+        fontLoader.addFont(Future.value(regData));
+      } catch (_) {
+        final file = File('assets/fonts/NotoSansDevanagari-Regular.ttf');
+        if (file.existsSync()) {
+          fontLoader.addFont(Future.value(ByteData.view(file.readAsBytesSync().buffer)));
+        }
+      }
+      try {
+        final boldData = await rootBundle.load('assets/fonts/NotoSansDevanagari-Bold.ttf');
+        fontLoader.addFont(Future.value(boldData));
+      } catch (_) {
+        final file = File('assets/fonts/NotoSansDevanagari-Bold.ttf');
+        if (file.existsSync()) {
+          fontLoader.addFont(Future.value(ByteData.view(file.readAsBytesSync().buffer)));
+        }
+      }
+      await fontLoader.load();
+    } catch (_) {}
+
+    try {
+      final arialFile = File(r'C:\Windows\Fonts\arial.ttf');
+      if (arialFile.existsSync()) {
+        final latinLoader = FontLoader('Roboto');
+        latinLoader.addFont(Future.value(ByteData.view(arialFile.readAsBytesSync().buffer)));
+        await latinLoader.load();
+      }
+    } catch (_) {}
+
+    _fontsLoaded = true;
+  }
+
+  /// Drop-in replacement for pw.Text. Latin-only strings stay normal text;
+  /// strings containing Devanagari become properly shaped images.
+  static pw.Widget ne(
+    String text, {
+    double size = 8,
+    bool bold = false,
+    int color = 0xFF1E293B,
+    double? maxWidth,
+  }) {
+    text = sanitizeText(text);
+    if (text.isEmpty) return pw.SizedBox();
+    pw.Widget plain() => pw.Text(
+          text,
+          style: pw.TextStyle(
+            fontSize: size,
+            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            color: PdfColor.fromInt(color),
+          ),
+        );
+    if (!_devanagari.hasMatch(text)) return plain();
+
+    final spec = (text: text, size: size, bold: bold, color: color, maxWidth: maxWidth);
+    final hit = _neCache[spec];
+    if (hit == null) {
+      _nePending.add(spec); // rendered after the first pass
+      return plain();
+    }
+    return pw.Image(hit.img, width: hit.w, height: hit.h);
+  }
+
+  static Future<void> _renderPendingNepali() async {
+    if (_nePending.isEmpty) return;
+    await _ensureFontLoaded();
+    for (final s in _nePending.toList()) {
+      try {
+        final tp = fp.TextPainter(
+          text: fp.TextSpan(
+            text: s.text,
+            style: fp.TextStyle(
+              fontFamily: 'NotoSansDevanagari',
+              fontFamilyFallback: const ['Roboto', 'Arial', 'Segoe UI', 'sans-serif'],
+              fontSize: s.size * _neScale,
+              fontWeight: s.bold ? fp.FontWeight.w700 : fp.FontWeight.w400,
+              color: fp.Color(s.color),
+              height: 1.25,
+            ),
+          ),
+          textDirection: ui.TextDirection.ltr,
+        )..layout(maxWidth: s.maxWidth != null ? s.maxWidth! * _neScale : double.infinity);
+
+        final rec = ui.PictureRecorder();
+        tp.paint(ui.Canvas(rec), ui.Offset.zero);
+        final width = tp.width.ceil().clamp(1, 4000);
+        final height = tp.height.ceil().clamp(1, 4000);
+        final image = await rec.endRecording().toImage(width, height);
+        final data = await image.toByteData(format: ui.ImageByteFormat.png);
+        if (data != null) {
+          _neCache[s] = (
+            img: pw.MemoryImage(data.buffer.asUint8List()),
+            w: tp.width / _neScale,
+            h: tp.height / _neScale,
+          );
+        }
+      } catch (_) {}
+    }
+    _nePending.clear();
+  }
+
+  /// Two-pass build: pass 1 discovers which Nepali strings are needed,
+  /// then they're rendered, then pass 2 builds the real document.
+  static Future<Uint8List> _saveWithNepali(Future<pw.Document> Function() build) async {
+    var doc = await build();
+    await doc.save();
+    if (_nePending.isNotEmpty) {
+      await _renderPendingNepali();
+      doc = await build();
+      return await doc.save();
+    }
+    return doc.save();
+  }
 
   static set testTheme(pw.ThemeData? theme) => _cachedTheme = theme;
 
@@ -23,10 +151,20 @@ class PdfReportService {
     try {
       final regData = await rootBundle.load('assets/fonts/NotoSansDevanagari-Regular.ttf');
       final devanagariFont = pw.Font.ttf(regData);
+
+      pw.Font? devanagariBold;
+      try {
+        final boldData = await rootBundle.load('assets/fonts/NotoSansDevanagari-Bold.ttf');
+        devanagariBold = pw.Font.ttf(boldData);
+      } catch (_) {}
+
       _cachedTheme = pw.ThemeData.withFont(
         base: pw.Font.helvetica(),
         bold: pw.Font.helveticaBold(),
-        fontFallback: [devanagariFont],
+        fontFallback: [
+          devanagariFont,
+          ?devanagariBold,
+        ],
       );
       return _cachedTheme!;
     } catch (_) {
@@ -35,10 +173,18 @@ class PdfReportService {
         if (fontFile.existsSync()) {
           final bytes = fontFile.readAsBytesSync();
           final devanagariFont = pw.Font.ttf(bytes.buffer.asByteData());
+          pw.Font? devanagariBold;
+          final boldFile = File('assets/fonts/NotoSansDevanagari-Bold.ttf');
+          if (boldFile.existsSync()) {
+            devanagariBold = pw.Font.ttf(boldFile.readAsBytesSync().buffer.asByteData());
+          }
           _cachedTheme = pw.ThemeData.withFont(
             base: pw.Font.helvetica(),
             bold: pw.Font.helveticaBold(),
-            fontFallback: [devanagariFont],
+            fontFallback: [
+              devanagariFont,
+              ?devanagariBold,
+            ],
           );
           return _cachedTheme!;
         }
@@ -46,10 +192,18 @@ class PdfReportService {
       try {
         final regData = await rootBundle.load('assets/fonts/mangal.ttf');
         final devanagariFont = pw.Font.ttf(regData);
+        pw.Font? devanagariBold;
+        try {
+          final boldData = await rootBundle.load('assets/fonts/mangalb.ttf');
+          devanagariBold = pw.Font.ttf(boldData);
+        } catch (_) {}
         _cachedTheme = pw.ThemeData.withFont(
           base: pw.Font.helvetica(),
           bold: pw.Font.helveticaBold(),
-          fontFallback: [devanagariFont],
+          fontFallback: [
+            devanagariFont,
+            ?devanagariBold,
+          ],
         );
         return _cachedTheme!;
       } catch (_) {
@@ -76,7 +230,8 @@ class PdfReportService {
 
   Future<Uint8List> generateCampSummaryPdf(CampReportSummaryModel summary) async {
     final theme = await getPdfTheme();
-    final pdf = pw.Document(theme: theme);
+    return _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme);
     final dateFormatter = DateFormat('yyyy-MM-dd');
     final timeFormatter = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -630,9 +785,9 @@ class PdfReportService {
         ),
       );
     }
-
-    return pdf.save();
-  }
+    return pdf;
+  });
+}
 
   pw.Widget _buildKpiBox({
     required String title,
@@ -683,13 +838,11 @@ class PdfReportService {
         color: color,
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
       ),
-      child: pw.Text(
+      child: ne(
         title,
-        style: pw.TextStyle(
-          color: PdfColors.white,
-          fontWeight: pw.FontWeight.bold,
-          fontSize: 10,
-        ),
+        size: 10,
+        bold: true,
+        color: 0xFFFFFFFF,
       ),
     );
   }
@@ -697,12 +850,11 @@ class PdfReportService {
   pw.Widget _buildTableHeader(String text) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-      child: pw.Text(
+      child: ne(
         text,
-        style: pw.TextStyle(
-          fontSize: 8.5,
-          fontWeight: pw.FontWeight.bold,
-        ),
+        size: 8.5,
+        bold: true,
+        color: 0xFF1E293B,
       ),
     );
   }
@@ -714,13 +866,11 @@ class PdfReportService {
   }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
-      child: pw.Text(
+      child: ne(
         text,
-        textAlign: align,
-        style: pw.TextStyle(
-          fontSize: 8,
-          fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
-        ),
+        size: 8,
+        bold: isBold,
+        color: 0xFF1E293B,
       ),
     );
   }
@@ -730,8 +880,8 @@ class PdfReportService {
       padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
       child: pw.Row(
         children: [
-          pw.Text('$label: ', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
-          pw.Text(value, style: const pw.TextStyle(fontSize: 8.5)),
+          ne('$label: ', size: 8.5, bold: true, color: 0xFF1E293B),
+          ne(value, size: 8.5, color: 0xFF1E293B),
         ],
       ),
     );
@@ -744,15 +894,13 @@ class PdfReportService {
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text('$label: ', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
+          ne('$label: ', size: 8.5, bold: true, color: 0xFF1F2937),
           pw.Expanded(
-            child: pw.Text(
+            child: ne(
               safeValue,
-              style: pw.TextStyle(
-                fontSize: 8.5,
-                fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
-                color: isBold ? PdfColors.teal900 : PdfColors.black,
-              ),
+              size: 8.5,
+              bold: isBold,
+              color: isBold ? 0xFF134E4A : 0xFF000000,
             ),
           ),
         ],
@@ -768,7 +916,8 @@ class PdfReportService {
     String organizationName = AppConstants.defaultOrganizationName,
   }) async {
     final theme = await getPdfTheme();
-    final pdf = pw.Document(theme: theme);
+    return _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme);
     final dateFormatter = DateFormat('yyyy-MM-dd');
     final timeFormatter = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -1294,7 +1443,8 @@ class PdfReportService {
       ),
     );
 
-    return pdf.save();
+      return pdf;
+    });
   }
 
   pw.Widget _buildPdfSectionHeader(String title, PdfColor color) {
@@ -1305,13 +1455,11 @@ class PdfReportService {
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
         border: pw.Border.all(color: color, width: 0.8),
       ),
-      child: pw.Text(
+      child: ne(
         title,
-        style: pw.TextStyle(
-          fontSize: 8.5,
-          fontWeight: pw.FontWeight.bold,
-          color: color,
-        ),
+        size: 8.5,
+        bold: true,
+        color: 0xFF0F766E,
       ),
     );
   }
@@ -1355,7 +1503,8 @@ class PdfReportService {
     String organizationName = AppConstants.defaultOrganizationName,
   }) async {
     final theme = await getPdfTheme();
-    final pdf = pw.Document(theme: theme);
+    return _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme);
     final dateFormatter = DateFormat('yyyy-MM-dd');
     final timeFormatter = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -1701,7 +1850,8 @@ class PdfReportService {
       ),
     );
 
-    return pdf.save();
+      return pdf;
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1729,18 +1879,40 @@ class PdfReportService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 22),
         build: (ctx) {
-          pw.Widget secHeader(String title) => pw.Container(
-            margin: const pw.EdgeInsets.only(top: 8, bottom: 4),
-            padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: pw.BoxDecoration(
-              color: cyanBg,
-              border: pw.Border(left: pw.BorderSide(color: cyan, width: 3)),
-            ),
-            child: pw.Text(
-              sanitizeText(title),
-              style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: cyan),
-            ),
-          );
+          pw.Widget secHeader(String title) {
+            if (title.contains(' / ')) {
+              final parts = title.split(' / ');
+              return pw.Container(
+                margin: const pw.EdgeInsets.only(top: 8, bottom: 4),
+                padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: pw.BoxDecoration(
+                  color: cyanBg,
+                  border: pw.Border(left: pw.BorderSide(color: cyan, width: 3)),
+                ),
+                child: pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    pw.Text('${parts[0]} / ', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: cyan)),
+                    ne(parts.sublist(1).join(' / '), size: 8.5, bold: true, color: 0xFF0891B2),
+                  ],
+                ),
+              );
+            }
+            return pw.Container(
+              margin: const pw.EdgeInsets.only(top: 8, bottom: 4),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: pw.BoxDecoration(
+                color: cyanBg,
+                border: pw.Border(left: pw.BorderSide(color: cyan, width: 3)),
+              ),
+              child: ne(
+                title,
+                size: 8.5,
+                bold: true,
+                color: 0xFF0891B2,
+              ),
+            );
+          }
 
           pw.Widget blankField(String label, {double flex = 1}) => pw.Expanded(
             flex: flex.toInt(),
@@ -1749,7 +1921,7 @@ class PdfReportService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text(label, style: const pw.TextStyle(fontSize: 6.8, color: PdfColors.grey700)),
+                  ne(label, size: 6.8, color: 0xFF616161),
                   pw.SizedBox(height: 2),
                   pw.Container(height: 14, decoration: pw.BoxDecoration(border: pw.Border.all(color: gray, width: 0.6), color: boxBg)),
                 ],
@@ -1764,7 +1936,7 @@ class PdfReportService {
               children: [
                 pw.Container(width: 9, height: 9, decoration: pw.BoxDecoration(border: pw.Border.all(color: gray, width: 0.8), color: boxBg)),
                 pw.SizedBox(width: 4),
-                pw.Text(label, style: pw.TextStyle(fontSize: 7.2, color: dark)),
+                ne(label, size: 7.2, color: 0xFF1E293B),
               ],
             ),
           );
@@ -1832,7 +2004,7 @@ class PdfReportService {
                       children: [
                         pw.Text(sanitizeText(organizationName.toUpperCase()), style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: cyan)),
                         pw.Text('FOLLOW-UP CLINICAL ENCOUNTER SHEET', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: dark)),
-                        pw.Text('पुनः जाँच तथा फलो-अप क्लिनिकल स्लिप | Comprehensive Re-check Record', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
+                        ne('पुनः जाँच तथा फलो-अप क्लिनिकल स्लिप | Comprehensive Re-check Record', size: 7.5, color: 0xFF616161),
                         pw.SizedBox(height: 2),
                         pw.Text(
                           'Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? "CAMP"}) | Venue: ${sanitizeText(camp?.venue ?? "Field Station")}',
@@ -1889,7 +2061,7 @@ class PdfReportService {
                 cb('New Complaints (नयाँ समस्या)'),
               ]),
               pw.SizedBox(height: 4),
-              pw.Text('Chief Complaints & Notes (हालको प्रमुख समस्याहरू):', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: dark)),
+              ne('Chief Complaints & Notes (हालको प्रमुख समस्याहरू):', size: 7, bold: true, color: 0xFF1E293B),
               line(h: 18),
 
               // Section 4: Physical & Ring Pessary Exam
@@ -1902,7 +2074,7 @@ class PdfReportService {
                 cb('Pelvic Floor Exercises Advised (व्यायाम सिकाइएको)'),
               ]),
               pw.SizedBox(height: 4),
-              pw.Text('Exam Findings (जाँचको नतिजा):', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: dark)),
+              ne('Exam Findings (जाँचको नतिजा):', size: 7, bold: true, color: 0xFF1E293B),
               line(h: 18),
 
               // Section 5: Plan & Medication
@@ -1965,14 +2137,16 @@ class PdfReportService {
     String organizationName = AppConstants.defaultOrganizationName,
   }) async {
     final theme = await getPdfTheme();
-    final pdf = pw.Document(theme: theme);
-    _addBlankFollowUpSlipPage(
-      pdf,
-      camp: camp,
-      doctor: doctor,
-      organizationName: organizationName,
-    );
-    return pdf.save();
+    return _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme);
+      _addBlankFollowUpSlipPage(
+        pdf,
+        camp: camp,
+        doctor: doctor,
+        organizationName: organizationName,
+      );
+      return pdf;
+    });
   }
 
   Future<Uint8List> generateBatchBlankFollowUpSlipsPdf({
@@ -1981,16 +2155,18 @@ class PdfReportService {
     String organizationName = AppConstants.defaultOrganizationName,
   }) async {
     final theme = await getPdfTheme();
-    final pdf = pw.Document(theme: theme);
-    for (final doc in doctors) {
-      _addBlankFollowUpSlipPage(
-        pdf,
-        camp: camp,
-        doctor: doc,
-        organizationName: organizationName,
-      );
-    }
-    return pdf.save();
+    return _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme);
+      for (final doc in doctors) {
+        _addBlankFollowUpSlipPage(
+          pdf,
+          camp: camp,
+          doctor: doc,
+          organizationName: organizationName,
+        );
+      }
+      return pdf;
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2287,15 +2463,35 @@ class PdfReportService {
         margin: const pw.EdgeInsets.symmetric(horizontal: 22, vertical: 18),
         build: (ctx) {
           // ── Compact section header ──
-          pw.Widget secHdr(String title) => pw.Container(
+          pw.Widget secHdr(String title) {
+            if (title.contains(' / ')) {
+              final parts = title.split(' / ');
+              return pw.Container(
                 margin: const pw.EdgeInsets.only(bottom: 4, top: 6),
                 padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: pw.BoxDecoration(
                   color: lightBg,
                   border: pw.Border(left: pw.BorderSide(color: primary, width: 2.5)),
                 ),
-                child: pw.Text(title, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: primary)),
+                child: pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    pw.Text('${parts[0]} / ', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: primary)),
+                    ne(parts.sublist(1).join(' / '), size: 7.5, bold: true, color: 0xFF0F766E),
+                  ],
+                ),
               );
+            }
+            return pw.Container(
+              margin: const pw.EdgeInsets.only(bottom: 4, top: 6),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: pw.BoxDecoration(
+                color: lightBg,
+                border: pw.Border(left: pw.BorderSide(color: primary, width: 2.5)),
+              ),
+              child: ne(title, size: 7.5, bold: true, color: 0xFF0F766E),
+            );
+          }
 
           // ── Compact char box field ──
           pw.Widget field(
@@ -2312,19 +2508,12 @@ class PdfReportService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.RichText(
-                      text: pw.TextSpan(
-                        children: [
-                          pw.TextSpan(
-                            text: '$labelEn: ',
-                            style: pw.TextStyle(fontSize: 7.2, fontWeight: pw.FontWeight.bold, color: dark),
-                          ),
-                          pw.TextSpan(
-                            text: labelNe,
-                            style: pw.TextStyle(fontSize: 6.8, color: PdfColors.grey600),
-                          ),
-                        ],
-                      ),
+                    pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text('$labelEn: ', style: pw.TextStyle(fontSize: 7.2, fontWeight: pw.FontWeight.bold, color: dark)),
+                        ne(labelNe, size: 6.8, color: 0xFF6B7280),
+                      ],
                     ),
                     pw.SizedBox(height: 2),
                     buildCharBoxes(
@@ -2358,10 +2547,10 @@ class PdfReportService {
                     ),
                     if (isExpanded)
                       pw.Expanded(
-                        child: pw.Text(sanitizeText(label), style: pw.TextStyle(fontSize: 7.5)),
+                        child: ne(label, size: 7.5, maxWidth: 220),
                       )
                     else
-                      pw.Text(sanitizeText(label), style: pw.TextStyle(fontSize: 7.5)),
+                      ne(label, size: 7.5),
                   ],
                 ),
               );
@@ -2393,8 +2582,10 @@ class PdfReportService {
                   child: pw.Padding(
                     padding: const pw.EdgeInsets.only(bottom: 5),
                     child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                      pw.Text('Marital Status / वैवाहिक स्थिति',
-                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: dark)),
+                      pw.Row(children: [
+                        pw.Text('Marital Status / ', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: dark)),
+                        ne('वैवाहिक स्थिति', size: 7.5, bold: true, color: 0xFF1E293B),
+                      ]),
                       pw.SizedBox(height: 3),
                       pw.Wrap(spacing: 8, runSpacing: 2, children: [
                         cb('Married', patient?.maritalStatus == 'married'),
@@ -2410,10 +2601,10 @@ class PdfReportService {
               field(
                 (patient?.maritalStatus == 'unmarried' || (patient != null && patient.age < 20))
                     ? "Father's Name"
-                    : "Husband's Name",
+                    : (hasPatient ? "Husband's Name" : "Husband's / Father's Name"),
                 (patient?.maritalStatus == 'unmarried' || (patient != null && patient.age < 20))
                     ? 'बुबाको नाम'
-                    : 'श्रीमान / बुबाको नाम',
+                    : (hasPatient ? 'श्रीमानको नाम' : 'श्रीमान् / बुबाको नाम'),
                 patient?.spouseOrFatherName ?? '',
                 minBoxes: 20,
                 maxBoxes: 20,
@@ -2435,7 +2626,7 @@ class PdfReportService {
               ]),
 
               field('Contact Person (Secondary)', 'सम्पर्क व्यक्ति', patient?.contactPerson ?? '', minBoxes: 16, maxBoxes: 16, boxSize: 12.5, boxMargin: 1.5),
-              field('Contact Mobile No.', 'सम्पर्क नम्बर', patient?.contactMobile ?? '', minBoxes: 10, maxBoxes: 10, boxSize: 13, boxMargin: 1.5),
+              field('Contact Mobile No.', 'सम्पर्क मोबाइल नम्बर', patient?.contactMobile ?? '', minBoxes: 10, maxBoxes: 10, boxSize: 13, boxMargin: 1.5),
 
               // Location Row 1: District & Province
               pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -2479,7 +2670,7 @@ class PdfReportService {
               cb('I consent to examination and treatment / जाँच तथा उपचारका लागि मेरो सहमति छ',
                   patient?.consentTreatment ?? false, isExpanded: true),
               pw.SizedBox(height: 3),
-              cb('I consent to storage of my medical information / मेरो स्वास्थ्य विवरण सुरक्षित राख्न सहमति छ',
+              cb('I consent to storage of my medical information / मेरो स्वास्थ्य विवरण भण्डारण गर्न सहमति छ',
                   patient?.consentStoreMedicalInfo ?? false, isExpanded: true),
 
               pw.SizedBox(height: 10),
@@ -2556,17 +2747,19 @@ class PdfReportService {
                             style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: primary)),
                         pw.Text('PATIENT REGISTRATION — PAGE 1 (FRONT) | Yellow Form',
                             style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: dark)),
-                        pw.Text(
-                          'PLEASE FILL IN BLOCK LETTERS — ठूला अक्षरमा भर्नुहोस् | Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} | Date: ${dateFormatter.format(intakeDate)}',
-                          style: pw.TextStyle(fontSize: 6.8, color: PdfColors.grey700),
-                        ),
+                        pw.Row(children: [
+                          pw.Text('PLEASE FILL IN BLOCK LETTERS — ', style: pw.TextStyle(fontSize: 6.8, color: PdfColors.grey700)),
+                          ne('ठूला अक्षरमा भर्नुहोस्', size: 6.8, color: 0xFF616161),
+                          pw.Text(' | Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} | Date: ${dateFormatter.format(intakeDate)}', style: pw.TextStyle(fontSize: 6.8, color: PdfColors.grey700)),
+                        ]),
                         if (doctorHeaderPart.isNotEmpty)
                           pw.Padding(
                             padding: const pw.EdgeInsets.only(top: 1.5),
-                            child: pw.Text(
-                              'Examining Doctors (चिकित्सक): $doctorHeaderPart',
-                              style: pw.TextStyle(fontSize: 6.8, fontWeight: pw.FontWeight.bold, color: primary),
-                            ),
+                            child: pw.Row(children: [
+                              pw.Text('Examining Doctors (', style: pw.TextStyle(fontSize: 6.8, fontWeight: pw.FontWeight.bold, color: primary)),
+                              ne('चिकित्सक', size: 6.8, bold: true, color: 0xFF0F766E),
+                              pw.Text('): $doctorHeaderPart', style: pw.TextStyle(fontSize: 6.8, fontWeight: pw.FontWeight.bold, color: primary)),
+                            ]),
                           ),
                       ]),
                     ),
@@ -2582,14 +2775,20 @@ class PdfReportService {
                                 style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: primary)),
                           ])
                         : pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                            pw.Text('PATIENT TOKEN ID / अस्पताल दर्ता नं.',
-                                style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: primary)),
+                            pw.Row(
+                              mainAxisSize: pw.MainAxisSize.min,
+                              children: [
+                                pw.Text('PATIENT TOKEN ID / ',
+                                    style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: primary)),
+                                ne('बिरामी टोकन नं.', size: 7, bold: true, color: 0xFF0F766E),
+                              ],
+                            ),
                             pw.SizedBox(height: 3),
                             buildCharBoxes(
                               camp?.campCode != null ? '${camp!.campCode}-' : '',
                               minBoxes: 10,
-                              maxBoxes: 10,
-                              boxSize: 13,
+                              maxBoxes: 14,
+                              boxSize: 12.0,
                               boxMargin: 1.5,
                             ),
                           ]),
@@ -2643,16 +2842,35 @@ class PdfReportService {
           pw.TextStyle normal({double size = fs}) =>
               pw.TextStyle(fontSize: size, color: dark);
 
-          pw.Widget sectionHeader(String title) => pw.Container(
+          pw.Widget sectionHeader(String title) {
+            if (title.contains(' / ')) {
+              final parts = title.split(' / ');
+              return pw.Container(
                 margin: const pw.EdgeInsets.only(bottom: 2.5),
                 padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: pw.BoxDecoration(
                   color: PdfColor.fromHex('F0FDFA'),
                   border: pw.Border(left: pw.BorderSide(color: primary, width: 2.5)),
                 ),
-                child: pw.Text(sanitizeText(title),
-                    style: pw.TextStyle(fontSize: 7.2, fontWeight: pw.FontWeight.bold, color: primary)),
+                child: pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    pw.Text('${parts[0]} / ', style: pw.TextStyle(fontSize: 7.2, fontWeight: pw.FontWeight.bold, color: primary)),
+                    ne(parts.sublist(1).join(' / '), size: 7.2, bold: true, color: 0xFF0F766E),
+                  ],
+                ),
               );
+            }
+            return pw.Container(
+              margin: const pw.EdgeInsets.only(bottom: 2.5),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('F0FDFA'),
+                border: pw.Border(left: pw.BorderSide(color: primary, width: 2.5)),
+              ),
+              child: ne(title, size: 7.2, bold: true, color: 0xFF0F766E),
+            );
+          }
 
           pw.Widget numBox(String v, {double w = 22, double h = 16}) => pw.Container(
                 width: w, height: h,
@@ -2855,7 +3073,11 @@ class PdfReportService {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text('Diagnosis / निदान (Doctor to write below):', style: bold(size: fsSmall)),
+                      pw.Row(children: [
+                        pw.Text('Diagnosis / ', style: bold(size: fsSmall)),
+                        ne('निदान', size: fsSmall, bold: true, color: 0xFF1E293B),
+                        pw.Text(' (Doctor to write below):', style: bold(size: fsSmall)),
+                      ]),
                       pw.SizedBox(height: 3),
                       line(h: 12),
                       pw.SizedBox(height: 2.5),
@@ -2917,7 +3139,11 @@ class PdfReportService {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text('Prescription / औषधि तथा उपचार (Doctor to write below):', style: bold(size: fsSmall)),
+                      pw.Row(children: [
+                        pw.Text('Prescription / ', style: bold(size: fsSmall)),
+                        ne('औषधि तथा उपचार', size: fsSmall, bold: true, color: 0xFF1E293B),
+                        pw.Text(' (Doctor to write below):', style: bold(size: fsSmall)),
+                      ]),
                       pw.SizedBox(height: 3),
                       line(h: 12),
                       pw.SizedBox(height: 2.5),
@@ -2991,8 +3217,8 @@ class PdfReportService {
               ]),
               pw.SizedBox(height: 5),
 
-              // ── STATION 6: OUTTAKE ───────────────────────────────────────
-              sectionHeader('STATION 6: OUTTAKE & CONTINUITY OF CARE / अनुगमन तथा फलो-अप'),
+              // ── STATION 6: DISCHARGE & CONTINUITY OF CARE ─────────────────────────
+              sectionHeader('STATION 6: DISCHARGE & CONTINUITY OF CARE / अनुगमन तथा निरन्तर हेरचाह'),
               pw.Row(children: [
                 pw.Text('Follow-up Required: ', style: bold()),
                 cb('Yes (Follow-up Needed)', visit?.followUpNeeded == true),
@@ -3064,8 +3290,14 @@ class PdfReportService {
                         ),
                         pw.Text('Medical Officer / Gynecologist', style: pw.TextStyle(fontSize: 6.2, color: PdfColors.grey700)),
                         pw.Text('NMC Certified — Date: ${dateFormatter.format(visit?.visitDate ?? intakeDate)}', style: pw.TextStyle(fontSize: 5.8, color: PdfColors.grey600)),
-                      ] else if (campDoctors.length > 1) ...[
-                        pw.Text('Examining Doctor (जाँच गर्ने चिकित्सक):', style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: primary)),
+                        pw.Row(
+                          mainAxisSize: pw.MainAxisSize.min,
+                          children: [
+                            pw.Text('Examining Doctor (', style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: primary)),
+                            ne('जाँच गर्ने चिकित्सक', size: 6.5, bold: true, color: 0xFF0F766E),
+                            pw.Text('):', style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: primary)),
+                          ],
+                        ),
                         pw.SizedBox(height: 2),
                         pw.Wrap(
                           spacing: 8,
@@ -3193,22 +3425,24 @@ class PdfReportService {
     List<LookupItemModel>? chiefComplaints,
   }) async {
     final theme = await getPdfTheme();
-    final pdf = pw.Document(theme: theme);
-    await _addPatientRegistrationFormPages(
-      pdf,
-      patient: patient,
-      camp: camp,
-      visit: visit,
-      doctor: doctor,
-      blankDoctorLines: blankDoctorLines,
-      organizationName: organizationName,
-      diagnoses: diagnoses,
-      medications: medications,
-      referralHospitals: referralHospitals,
-      visitReasons: visitReasons,
-      chiefComplaints: chiefComplaints,
-    );
-    return pdf.save();
+    return _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme);
+      await _addPatientRegistrationFormPages(
+        pdf,
+        patient: patient,
+        camp: camp,
+        visit: visit,
+        doctor: doctor,
+        blankDoctorLines: blankDoctorLines,
+        organizationName: organizationName,
+        diagnoses: diagnoses,
+        medications: medications,
+        referralHospitals: referralHospitals,
+        visitReasons: visitReasons,
+        chiefComplaints: chiefComplaints,
+      );
+      return pdf;
+    });
   }
 
   Future<Uint8List> generateBatchBlankYellowFormsPdf({
@@ -3222,20 +3456,22 @@ class PdfReportService {
     List<LookupItemModel>? chiefComplaints,
   }) async {
     final theme = await getPdfTheme();
-    final pdf = pw.Document(theme: theme);
-    for (final doc in doctors) {
-      await _addPatientRegistrationFormPages(
-        pdf,
-        camp: camp,
-        doctor: doc,
-        organizationName: organizationName,
-        diagnoses: diagnoses,
-        medications: medications,
-        referralHospitals: referralHospitals,
-        visitReasons: visitReasons,
-        chiefComplaints: chiefComplaints,
-      );
-    }
-    return pdf.save();
+    return _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme);
+      for (final doc in doctors) {
+        await _addPatientRegistrationFormPages(
+          pdf,
+          camp: camp,
+          doctor: doc,
+          organizationName: organizationName,
+          diagnoses: diagnoses,
+          medications: medications,
+          referralHospitals: referralHospitals,
+          visitReasons: visitReasons,
+          chiefComplaints: chiefComplaints,
+        );
+      }
+      return pdf;
+    });
   }
 }

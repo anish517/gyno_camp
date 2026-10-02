@@ -582,17 +582,17 @@ FORM STRUCTURE BY PAGE:
 
 PAGE 1 (FRONT) — PATIENT REGISTRATION:
 1. Header:
-   - "PATIENT TOKEN ID / अस्पताल दर्ता नं." format: e.g. "KTM01-0001" or QR code string
+   - "PATIENT TOKEN ID / बिरामी टोकन नं." (or अस्पताल दर्ता नं.) format: e.g. "KTM01-0001" or QR code string
 2. Section A: Patient Demographics / बिरामी विवरण:
    - "First Name: पहिलो नाम" (letter boxes)
    - "Surname: थर" (letter boxes)
    - "Patient Age: उमेर" (numeric digit boxes)
    - "Marital Status / वैवाहिक स्थिति" (4 checkboxes: Married, Widow, Unmarried, Divorced)
-   - "Husband's Name: श्रीमान / बुबाको नाम" (letter boxes -> relativeName)
+   - "Husband's / Father's Name: श्रीमान् / बुबाको नाम" (letter boxes -> relativeName)
    - "Mobile No.: मोबाइल नम्बर" (10 digit boxes)
-   - "Age at Marriage: विवाह उमेर" (numeric digit boxes -> maritalAge)
+   - "Age at Marriage: विवाह भएको उमेर" (numeric digit boxes -> maritalAge)
    - "Contact Person (Secondary): सम्पर्क व्यक्ति" (letter boxes -> contactPerson)
-   - "Contact Mobile No.: सम्पर्क नम्बर" (10 digit boxes -> contactMobile)
+   - "Contact Mobile No.: सम्पर्क मोबाइल नम्बर" (10 digit boxes -> contactMobile)
    - "District: जिल्ला" (letter boxes)
    - "Province: प्रदेश" (letter boxes -> province, e.g. Bagmati)
    - "Palika / Municipality: पालिका / नगर" (letter boxes)
@@ -650,7 +650,7 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT (STATIONS 1-6):
      "azithromycin", "nitrofurantoine", "medroxyprogesterone", "ciproflox", "mirasin", "clobetasol"
    - "Ring Pessary:" [ ] Yes [ ] No, Size: [ ][ ][ ] mm
    - "Surgery Done:" [ ] Yes [ ] No, Type: [ ] Open surgery [ ] Laparoscopy [ ] Vaginal route
-7. Station 6: Outtake & Continuity of Care / अनुगमन:
+7. Station 6: Discharge & Continuity of Care / अनुगमन तथा निरन्तर हेरचाह:
    - "Follow-up Required:" [ ] Yes (Follow-up Needed) [ ] No (Routine)
    - "Follow-up Destination:" (handwritten line text)
    - "Surgical Referral:" [ ] None [ ] Scheer Memorial Hospital [ ] Model Hospital [ ] Local Government Hospital
