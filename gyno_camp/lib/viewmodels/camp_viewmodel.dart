@@ -173,6 +173,11 @@ class CampViewModel extends StateNotifier<CampState> {
         deviceId: deviceId,
       );
       if (success) {
+        // ✅ BUG FIX: Save the newly-opened camp's ID to session BEFORE loadCamps().
+        // loadCamps() resolves activeCamp from the saved session ID. Without this,
+        // the session might still point to a different camp, causing the wrong
+        // camp to become active (or the newly-opened camp appearing briefly closed).
+        await SessionService.current?.saveActiveCampId(campId);
         await loadCamps();
         return true;
       }
@@ -245,13 +250,15 @@ class CampViewModel extends StateNotifier<CampState> {
         deviceId: deviceId,
       );
       if (!mounted) return true;
-      // ✅ Optimistically update the in-memory list immediately so UI refreshes
+      // ✅ BUG FIX: Only replace the edited camp in the list.
+      // Previously this also cascade-closed all OTHER open camps in memory, which:
+      //   - Visually "closed" every other open camp the moment any camp was edited
+      //   - Contradicted the repository rule: "Multiple camps can be open simultaneously"
+      //   - They would bounce back to Open on the next loadCamps() from DB, causing
+      //     the flickering Open→Closed→Open behavior seen in the UI.
       final updatedList = state.camps.map((c) {
         if (c.id == savedCamp.id) return savedCamp;
-        if (savedCamp.status == CampStatus.open && c.status == CampStatus.open) {
-          return c.copyWith(status: CampStatus.closed);
-        }
-        return c;
+        return c; // ← leave all other camps untouched
       }).toList();
 
       final wasActive = state.activeCamp?.id == savedCamp.id;
