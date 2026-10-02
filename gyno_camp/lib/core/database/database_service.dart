@@ -309,6 +309,22 @@ class DatabaseService {
       'updated_at': bootstrapEpoch,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
+    await db.insert(DatabaseTables.tableUsers, {
+      'id': 'usr-staff-01',
+      'name': 'Ramesh Poudel (Staff Coordinator)',
+      'email': 'staff@gynocamp.org',
+      'phone': '9851099999',
+      'role': AppConstants.roleStaff,
+      'is_active': 1,
+      'last_login_at': bootstrapEpoch,
+      'assigned_camp_ids': '',
+      'tenant_id': 'tenant_default',
+      'tenant_name': 'Community Health Outreach',
+      'password_hash': SecurityService.hashSha256('staff123'),
+      'pin_hash': SecurityService.hashPin('1234'),
+      'updated_at': bootstrapEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
     // 2. Seed active sample camp
     await db.insert(DatabaseTables.tableCamps, {
       'id': 'camp-ktm-01',

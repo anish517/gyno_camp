@@ -9,12 +9,15 @@ void main() {
       expect(UserRole.fromString('superadmin'), UserRole.superAdmin);
       expect(UserRole.fromString('DATA_TAKER'), UserRole.dataTaker);
       expect(UserRole.fromString('datataker'), UserRole.dataTaker);
+      expect(UserRole.fromString('STAFF'), UserRole.staff);
+      expect(UserRole.fromString('staff_coordinator'), UserRole.staff);
       expect(UserRole.fromString('DATA_ANALYST'), UserRole.dataAnalyst);
       expect(UserRole.fromString('unknown'), UserRole.dataTaker); // Fallback
     });
 
     test('UserRole.toDbString produces canonical database strings', () {
       expect(UserRole.superAdmin.toDbString(), AppConstants.roleSuperAdmin);
+      expect(UserRole.staff.toDbString(), AppConstants.roleStaff);
       expect(UserRole.dataTaker.toDbString(), AppConstants.roleDataTaker);
       expect(UserRole.dataAnalyst.toDbString(), AppConstants.roleDataAnalyst);
     });
@@ -61,6 +64,22 @@ void main() {
       expect(dataAnalyst.canExportReports, isTrue);
       expect(dataAnalyst.canManageCamps, isFalse);
       expect(dataAnalyst.canEnterClinicalData, isFalse);
+
+      const staffCoordinator = UserModel(
+        id: 'usr-4',
+        name: 'Staff Coordinator Ramesh',
+        email: 'staff@gynocamp.org',
+        phone: '9833333333',
+        role: UserRole.staff,
+      );
+
+      expect(staffCoordinator.isStaff, isTrue);
+      expect(staffCoordinator.canManageCamps, isTrue);
+      expect(staffCoordinator.canManageStaff, isTrue);
+      expect(staffCoordinator.canApproveDevices, isFalse);
+      expect(staffCoordinator.canCustomizeDropdowns, isFalse);
+      expect(staffCoordinator.canEnterClinicalData, isFalse);
+      expect(staffCoordinator.canExportReports, isFalse);
     });
 
     test('UserModel serialization and deserialization works symmetrically', () {

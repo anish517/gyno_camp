@@ -8,6 +8,7 @@ class AppConstants {
 
   // Roles
   static const String roleSuperAdmin = 'SUPER_ADMIN';
+  static const String roleStaff = 'STAFF';
   static const String roleDataTaker = 'DATA_TAKER';
   static const String roleDataAnalyst = 'DATA_ANALYST';
 

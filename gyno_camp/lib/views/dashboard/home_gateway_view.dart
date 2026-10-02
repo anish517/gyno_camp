@@ -358,9 +358,505 @@ class HomeGatewayView extends ConsumerWidget {
       ),
       body: switch (user.isSuperAdmin ? UserRole.superAdmin : user.role) {
         UserRole.superAdmin => _buildSuperAdminDashboard(context, ref),
+        UserRole.staff => _buildStaffCoordinatorDashboard(context, ref),
         UserRole.dataAnalyst => _buildDataAnalystDashboard(context, ref),
         UserRole.dataTaker => _buildDataTakerDashboard(context, ref),
       },
+    );
+  }
+
+  // ==========================================
+  // STAFF COORDINATOR DASHBOARD
+  // ==========================================
+  Widget _buildStaffCoordinatorDashboard(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authStateProvider).currentUser;
+    final campState = ref.watch(campStateProvider);
+    final activeCamp = ref.watch(userActiveCampProvider) ?? campState.activeCamp;
+    final usersAsync = ref.watch(allUsersProvider);
+    final users = usersAsync.value ?? const <UserModel>[];
+
+    final activeNurses = users.where((u) => u.role == UserRole.dataTaker && u.isActive).length;
+    final activeStaffCoordinators = users.where((u) => u.role == UserRole.staff && u.isActive).length;
+    final totalPersonnel = users.length;
+    final openCamps = campState.camps.where((c) => c.isOpen).length;
+
+    // Staff assigned to the currently selected active camp
+    final activeCampStaff = activeCamp != null
+        ? users.where((u) =>
+            activeCamp.isStaffAssigned(u.id) ||
+            u.assignedCampIds.contains(activeCamp.id) ||
+            u.role == UserRole.superAdmin).toList()
+        : <UserModel>[];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1180),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 1. EXECUTIVE COMMAND HEADER WITH LIVE PULSE & QUICK ACTIONS
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Top Accent Gradient Bar (Indigo -> Purple)
+                      Container(
+                        height: 4,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF4F46E5), Color(0xFF7E22CE), Color(0xFFBE185D)],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(22.0),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isMobile = constraints.maxWidth < 640;
+                            final buttons = Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF4F46E5),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    elevation: 0,
+                                  ),
+                                  icon: const Icon(Icons.person_add_rounded, size: 17),
+                                  label: const Text('Add Staff', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => const UserManagementView()),
+                                    );
+                                  },
+                                ),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF1E293B),
+                                    backgroundColor: const Color(0xFFF8FAFC),
+                                    side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  icon: const Icon(Icons.swap_horiz_rounded, size: 17, color: Color(0xFF4F46E5)),
+                                  label: const Text('Switch Camp', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                  onPressed: () => _showQuickCampSwitchDialog(context, ref),
+                                ),
+                              ],
+                            );
+
+                            final titleSection = Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Staff Operations & Roster Governance',
+                                  style: TextStyle(
+                                    fontSize: 21,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF0F172A),
+                                    letterSpacing: -0.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                const Text(
+                                  'कर्मचारी परिचालन तथा शिविर रोस्टर व्यवस्थापन',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: Color(0xFF64748B),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEEF2FF),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFFC7D2FE)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 7,
+                                            height: 7,
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFF4F46E5),
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            user?.role.displayNameEn ?? 'Staff Coordinator',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF4338CA),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (activeCamp != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF1F5F9),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                                        ),
+                                        child: Text(
+                                          'Active: ${activeCamp.campCode} • ${activeCamp.venue}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF475569),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            );
+
+                            if (isMobile) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  titleSection,
+                                  const SizedBox(height: 16),
+                                  buttons,
+                                ],
+                              );
+                            } else {
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: titleSection),
+                                  const SizedBox(width: 16),
+                                  buttons,
+                                ],
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // 2. EXECUTIVE METRIC ROW
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 840;
+                  final isMedium = constraints.maxWidth >= 520;
+                  final columns = isWide ? 4 : (isMedium ? 2 : 1);
+                  const spacing = 14.0;
+                  final cardWidth = (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: [
+                      SizedBox(
+                        width: cardWidth,
+                        child: _buildExecutiveMetricCard(
+                          label: 'Total Personnel',
+                          value: '$totalPersonnel Registered',
+                          subtitle: usersAsync.isLoading ? 'Loading staff records...' : '$activeStaffCoordinators coordinator(s) active',
+                          icon: Icons.badge_rounded,
+                          accentColor: const Color(0xFF4F46E5),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const UserManagementView()),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _buildExecutiveMetricCard(
+                          label: 'Active Field Nurses',
+                          value: '$activeNurses Active Nurses',
+                          subtitle: 'Designated data intake personnel',
+                          icon: Icons.medical_services_rounded,
+                          accentColor: AppTheme.primaryTeal,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const UserManagementView()),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _buildExecutiveMetricCard(
+                          label: 'Current Camp Roster',
+                          value: '${activeCampStaff.length} Staff Assigned',
+                          subtitle: activeCamp != null ? '${activeCamp.campCode} on-site team' : 'No active camp selected',
+                          icon: Icons.assignment_ind_rounded,
+                          accentColor: AppTheme.brandPurple,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const CampManagementView()),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _buildExecutiveMetricCard(
+                          label: 'Outreach Camps',
+                          value: '$openCamps Active / ${campState.camps.length} Total',
+                          subtitle: activeCamp != null ? activeCamp.venue : 'All camps registered',
+                          icon: Icons.campaign_rounded,
+                          accentColor: const Color(0xFF0284C7),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const CampManagementView()),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: 24),
+
+              // 3. CORE OPERATIONAL STATIONS (THE 2 AUTHORIZED MODULES)
+              const Text(
+                'Staff Coordination Stations',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 12),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 700;
+                  final cardWidth = isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _buildSupervisorActionCard(
+                        context: context,
+                        width: cardWidth,
+                        icon: Icons.assignment_ind_rounded,
+                        iconColor: AppTheme.brandPurple,
+                        iconBgColor: AppTheme.brandPurpleLight,
+                        badgeText: 'STAFF ROSTER',
+                        badgeColor: AppTheme.brandPurple,
+                        title: 'Camp Staff Assignments',
+                        description: activeCamp != null
+                            ? 'Provision field nurses, gynecologists & assign clinical roles to ${activeCamp.campCode}'
+                            : 'Provision field nurses, gynecologists & assign staff rosters to outreach camps',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const CampManagementView()),
+                          );
+                        },
+                      ),
+                      _buildSupervisorActionCard(
+                        context: context,
+                        width: cardWidth,
+                        icon: Icons.badge_rounded,
+                        iconColor: const Color(0xFF4F46E5),
+                        iconBgColor: const Color(0xFFEEF2FF),
+                        badgeText: 'RBAC ACTIVE',
+                        badgeColor: const Color(0xFF4F46E5),
+                        title: 'Staff & Personnel Directory (RBAC)',
+                        description: 'Provision staff credentials, station role permissions, password/PIN resets & camp roster assignments.',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const UserManagementView()),
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: 24),
+
+              // 4. ACTIVE CAMP ON-DUTY ROSTER SUMMARY
+              if (activeCamp != null) ...[
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+                  ),
+                  color: Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.brandPurpleLight,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.people_alt_rounded, color: AppTheme.brandPurple, size: 20),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'On-Duty Roster • ${activeCamp.campCode} (${activeCamp.venue})',
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${activeCampStaff.length} personnel assigned to this camp',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppTheme.brandPurple,
+                              ),
+                              icon: const Icon(Icons.tune_rounded, size: 16),
+                              label: const Text('Manage Roster', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const CampManagementView()),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (activeCampStaff.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.info_outline, size: 20, color: Color(0xFF64748B)),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'No personnel have been assigned to this camp yet. Click "Manage Roster" to deploy nurses, medical officers, and coordinators.',
+                                    style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: activeCampStaff.map((st) {
+                              final roleColor = st.role == UserRole.superAdmin
+                                  ? AppTheme.primaryDark
+                                  : (st.role == UserRole.staff
+                                      ? const Color(0xFF4F46E5)
+                                      : (st.role == UserRole.dataAnalyst ? const Color(0xFF334155) : AppTheme.primaryTeal));
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 13,
+                                      backgroundColor: roleColor.withValues(alpha: 0.15),
+                                      child: Text(
+                                        st.name.isNotEmpty ? st.name[0].toUpperCase() : '?',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: roleColor),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          st.name,
+                                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                        ),
+                                        Text(
+                                          st.role.displayNameEn,
+                                          style: TextStyle(fontSize: 10, color: roleColor, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 

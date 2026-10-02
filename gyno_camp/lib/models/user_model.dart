@@ -2,6 +2,7 @@ import '../core/constants/app_constants.dart';
 
 enum UserRole {
   superAdmin,
+  staff,
   dataTaker,
   dataAnalyst;
 
@@ -14,6 +15,11 @@ enum UserRole {
       case 'ROOT':
       case 'SYSTEMADMINISTRATOR':
         return UserRole.superAdmin;
+      case 'STAFF':
+      case 'STAFFADMIN':
+      case 'STAFFCOORDINATOR':
+      case 'CAMPSTAFF':
+        return UserRole.staff;
       case 'DATAANALYST':
       case 'ANALYST':
       case 'EPIDEMIOLOGIST':
@@ -33,6 +39,8 @@ enum UserRole {
     switch (this) {
       case UserRole.superAdmin:
         return AppConstants.roleSuperAdmin;
+      case UserRole.staff:
+        return AppConstants.roleStaff;
       case UserRole.dataTaker:
         return AppConstants.roleDataTaker;
       case UserRole.dataAnalyst:
@@ -44,6 +52,8 @@ enum UserRole {
     switch (this) {
       case UserRole.superAdmin:
         return 'Super Admin';
+      case UserRole.staff:
+        return 'Staff Coordinator';
       case UserRole.dataTaker:
         return 'Data Taker';
       case UserRole.dataAnalyst:
@@ -55,6 +65,8 @@ enum UserRole {
     switch (this) {
       case UserRole.superAdmin:
         return 'सुपर एडमिन';
+      case UserRole.staff:
+        return 'कर्मचारी व्यवस्थापक (स्टाफ)';
       case UserRole.dataTaker:
         return 'डाटा टेकर (क्षेत्रीय कर्मचारी)';
       case UserRole.dataAnalyst:
@@ -100,10 +112,12 @@ class UserModel {
       email.trim().toLowerCase() == 'admin@gynocamp.org' ||
       name.toLowerCase().contains('super admin') ||
       name.toLowerCase().contains('super administrator');
+  bool get isStaff => role == UserRole.staff;
   bool get isDataTaker => role == UserRole.dataTaker;
   bool get isDataAnalyst => role == UserRole.dataAnalyst;
 
-  bool get canManageCamps => isSuperAdmin;
+  bool get canManageCamps => isSuperAdmin || isStaff;
+  bool get canManageStaff => isSuperAdmin || isStaff;
   bool get canApproveDevices => isSuperAdmin;
   bool get canCustomizeDropdowns => isSuperAdmin;
   bool get canEnterClinicalData => isDataTaker || isSuperAdmin;

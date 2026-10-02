@@ -370,6 +370,7 @@ final userActiveCampProvider = Provider<CampModel?>((ref) {
   // Privileged roles see the global active camp without restriction
   final isPrivileged = user == null ||
       user.isSuperAdmin ||
+      user.role == UserRole.staff ||
       user.role == UserRole.dataAnalyst;
 
   if (isPrivileged) return campState.activeCamp;

@@ -303,6 +303,11 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                   onSelected: (_) => setState(() => _filterRole = UserRole.dataTaker),
                                 ),
                                 FilterChip(
+                                  label: const Text('Staff'),
+                                  selected: _filterRole == UserRole.staff,
+                                  onSelected: (_) => setState(() => _filterRole = UserRole.staff),
+                                ),
+                                FilterChip(
                                   label: const Text('Super Admins'),
                                   selected: _filterRole == UserRole.superAdmin,
                                   onSelected: (_) => setState(() => _filterRole = UserRole.superAdmin),
@@ -498,6 +503,10 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
       case UserRole.superAdmin:
         roleColor = AppTheme.primaryDark;
         roleLabel = 'Super Admin';
+        break;
+      case UserRole.staff:
+        roleColor = const Color(0xFF4F46E5);
+        roleLabel = 'Staff Coordinator';
         break;
       case UserRole.dataTaker:
         roleColor = AppTheme.primaryTeal;
@@ -720,6 +729,11 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                       const Text(
                         'All Camps (Universal Super Admin)',
                         style: TextStyle(fontSize: 12, color: AppTheme.primaryDark, fontWeight: FontWeight.w600),
+                      )
+                    else if (staff.role == UserRole.staff)
+                      const Text(
+                        'All Camps (Staff Roster Coordinator)',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF4F46E5), fontWeight: FontWeight.w600),
                       )
                     else ...[
                       () {
@@ -1161,45 +1175,57 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: emailCtrl,
-                                    keyboardType: TextInputType.emailAddress,
-                                    onChanged: (_) {
-                                      if (emailError != null) setDialogState(() => emailError = null);
-                                    },
-                                    decoration: InputDecoration(
-                                      labelText: 'Email Address *',
-                                      errorText: emailError,
-                                      prefixIcon: const Icon(Icons.email_outlined, size: 18, color: Color(0xFF64748B)),
-                                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                                      isDense: true,
-                                    ),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isStacked = constraints.maxWidth < 440;
+                                final emailField = TextField(
+                                  controller: emailCtrl,
+                                  keyboardType: TextInputType.emailAddress,
+                                  onChanged: (_) {
+                                    if (emailError != null) setDialogState(() => emailError = null);
+                                  },
+                                  decoration: InputDecoration(
+                                    labelText: 'Email Address *',
+                                    errorText: emailError,
+                                    prefixIcon: const Icon(Icons.email_outlined, size: 18, color: Color(0xFF64748B)),
+                                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                                    isDense: true,
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextField(
-                                    controller: phoneCtrl,
-                                    keyboardType: TextInputType.phone,
-                                    onChanged: (_) {
-                                      if (phoneError != null) setDialogState(() => phoneError = null);
-                                    },
-                                    decoration: InputDecoration(
-                                      labelText: 'Mobile Phone *',
-                                      errorText: phoneError,
-                                      prefixIcon: const Icon(Icons.phone_outlined, size: 18, color: Color(0xFF64748B)),
-                                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                                      isDense: true,
-                                    ),
+                                );
+                                final phoneField = TextField(
+                                  controller: phoneCtrl,
+                                  keyboardType: TextInputType.phone,
+                                  onChanged: (_) {
+                                    if (phoneError != null) setDialogState(() => phoneError = null);
+                                  },
+                                  decoration: InputDecoration(
+                                    labelText: 'Mobile Phone *',
+                                    errorText: phoneError,
+                                    prefixIcon: const Icon(Icons.phone_outlined, size: 18, color: Color(0xFF64748B)),
+                                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                                    isDense: true,
                                   ),
-                                ),
-                              ],
+                                );
+                                if (isStacked) {
+                                  return Column(
+                                    children: [
+                                      emailField,
+                                      const SizedBox(height: 12),
+                                      phoneField,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: emailField),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: phoneField),
+                                  ],
+                                );
+                              },
                             ),
                             const SizedBox(height: 12),
                             TextField(
@@ -1238,65 +1264,77 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                     },
                             ),
                             const SizedBox(height: 12),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    key: const ValueKey('add_staff_password_field'),
-                                    controller: passwordCtrl,
-                                    obscureText: obscurePassword,
-                                    enableSuggestions: false,
-                                    autocorrect: false,
-                                    onChanged: (_) {
-                                      if (passwordError != null) setDialogState(() => passwordError = null);
-                                    },
-                                    decoration: InputDecoration(
-                                      labelText: 'Initial Password *',
-                                      helperText: 'Minimum 6 characters (न्यूनतम ६ अक्षर)',
-                                      errorText: passwordError,
-                                      prefixIcon: const Icon(Icons.lock_outline, size: 18, color: Color(0xFF64748B)),
-                                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                                      isDense: true,
-                                      suffixIcon: IconButton(
-                                        icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18, color: const Color(0xFF64748B)),
-                                        onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
-                                      ),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isStacked = constraints.maxWidth < 440;
+                                final passField = TextField(
+                                  key: const ValueKey('add_staff_password_field'),
+                                  controller: passwordCtrl,
+                                  obscureText: obscurePassword,
+                                  enableSuggestions: false,
+                                  autocorrect: false,
+                                  onChanged: (_) {
+                                    if (passwordError != null) setDialogState(() => passwordError = null);
+                                  },
+                                  decoration: InputDecoration(
+                                    labelText: 'Initial Password *',
+                                    helperText: 'Minimum 6 characters (न्यूनतम ६ अक्षर)',
+                                    errorText: passwordError,
+                                    prefixIcon: const Icon(Icons.lock_outline, size: 18, color: Color(0xFF64748B)),
+                                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                                    isDense: true,
+                                    suffixIcon: IconButton(
+                                      icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18, color: const Color(0xFF64748B)),
+                                      onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextField(
-                                    key: const ValueKey('add_staff_pin_field'),
-                                    controller: pinCtrl,
-                                    keyboardType: TextInputType.number,
-                                    maxLength: 6,
-                                    obscureText: obscurePin,
-                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                    enableSuggestions: false,
-                                    autocorrect: false,
-                                    onChanged: (_) {
-                                      if (pinError != null) setDialogState(() => pinError = null);
-                                    },
-                                    decoration: InputDecoration(
-                                      labelText: 'Station PIN (4-6 digits) *',
-                                      helperText: '4 to 6 numeric digits (४-६ अंक)',
-                                      counterText: '',
-                                      errorText: pinError,
-                                      prefixIcon: const Icon(Icons.dialpad_outlined, size: 18, color: Color(0xFF64748B)),
-                                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                                      isDense: true,
-                                      suffixIcon: IconButton(
-                                        icon: Icon(obscurePin ? Icons.visibility_off : Icons.visibility, size: 18, color: const Color(0xFF64748B)),
-                                        onPressed: () => setDialogState(() => obscurePin = !obscurePin),
-                                      ),
+                                );
+                                final pinField = TextField(
+                                  key: const ValueKey('add_staff_pin_field'),
+                                  controller: pinCtrl,
+                                  keyboardType: TextInputType.number,
+                                  maxLength: 6,
+                                  obscureText: obscurePin,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  enableSuggestions: false,
+                                  autocorrect: false,
+                                  onChanged: (_) {
+                                    if (pinError != null) setDialogState(() => pinError = null);
+                                  },
+                                  decoration: InputDecoration(
+                                    labelText: 'Station PIN (4-6 digits) *',
+                                    helperText: '4 to 6 numeric digits (४-६ अंक)',
+                                    counterText: '',
+                                    errorText: pinError,
+                                    prefixIcon: const Icon(Icons.dialpad_outlined, size: 18, color: Color(0xFF64748B)),
+                                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                                    isDense: true,
+                                    suffixIcon: IconButton(
+                                      icon: Icon(obscurePin ? Icons.visibility_off : Icons.visibility, size: 18, color: const Color(0xFF64748B)),
+                                      onPressed: () => setDialogState(() => obscurePin = !obscurePin),
                                     ),
                                   ),
-                                ),
-                              ],
+                                );
+                                if (isStacked) {
+                                  return Column(
+                                    children: [
+                                      passField,
+                                      const SizedBox(height: 12),
+                                      pinField,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: passField),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: pinField),
+                                  ],
+                                );
+                              },
                             ),
 
                             const SizedBox(height: 20),

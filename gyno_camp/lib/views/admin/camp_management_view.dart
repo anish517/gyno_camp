@@ -2536,20 +2536,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       labelText: 'Role & Responsibility',
                       prefixIcon: Icon(Icons.badge),
                     ),
-                    items: [
-                      DropdownMenuItem(
-                        value: UserRole.dataTaker,
-                        child: Text(UserRole.dataTaker.displayNameEn),
-                      ),
-                      DropdownMenuItem(
-                        value: UserRole.superAdmin,
-                        child: Text(UserRole.superAdmin.displayNameEn),
-                      ),
-                      DropdownMenuItem(
-                        value: UserRole.dataAnalyst,
-                        child: Text(UserRole.dataAnalyst.displayNameEn),
-                      ),
-                    ],
+                    items: UserRole.values.map((r) => DropdownMenuItem(
+                      value: r,
+                      child: Text(r.displayNameEn),
+                    )).toList(),
                     onChanged: (role) {
                       if (role != null) {
                         setInnerState(() => selectedRole = role);
@@ -3342,7 +3332,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                                 final isChecked = selectedStaffIds.contains(s.id);
                                                 final roleColor = s.role == UserRole.superAdmin
                                                     ? AppTheme.primaryDark
-                                                    : (s.role == UserRole.dataAnalyst ? const Color(0xFF334155) : AppTheme.primaryTeal);
+                                                    : (s.role == UserRole.staff
+                                                        ? const Color(0xFF4F46E5)
+                                                        : (s.role == UserRole.dataAnalyst ? const Color(0xFF334155) : AppTheme.primaryTeal));
 
                                                 return Material(
                                                   type: MaterialType.transparency,
@@ -3370,7 +3362,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                                             child: Icon(
                                                               s.role == UserRole.superAdmin
                                                                   ? Icons.admin_panel_settings_rounded
-                                                                  : (s.role == UserRole.dataAnalyst ? Icons.insights_rounded : Icons.assignment_ind_rounded),
+                                                                  : (s.role == UserRole.staff
+                                                                      ? Icons.manage_accounts_rounded
+                                                                      : (s.role == UserRole.dataAnalyst ? Icons.insights_rounded : Icons.assignment_ind_rounded)),
                                                               color: roleColor,
                                                               size: 16,
                                                             ),

@@ -65,7 +65,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
         if (userId != null && userId.isNotEmpty) {
           final user = await _authRepository.getUserById(userId);
           if (user != null && user.isActive) {
-            if (!user.isSuperAdmin && user.role != UserRole.superAdmin) {
+            if (!user.isSuperAdmin && user.role != UserRole.superAdmin && user.role != UserRole.staff) {
               final validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
               if (validCamps.isEmpty) {
                 await session.clearSession();
@@ -124,8 +124,8 @@ class AuthViewModel extends StateNotifier<AuthState> {
           );
           return false;
         }
-        // CAMP ASSIGNMENT GATE: Non-superAdmin staff must have at least one assigned camp that exists
-        if (!user.isSuperAdmin && user.role != UserRole.superAdmin) {
+        // CAMP ASSIGNMENT GATE: Regular field staff must have at least one assigned camp that exists
+        if (!user.isSuperAdmin && user.role != UserRole.superAdmin && user.role != UserRole.staff) {
           final validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
           if (!mounted) return false;
           if (validCamps.isEmpty) {
