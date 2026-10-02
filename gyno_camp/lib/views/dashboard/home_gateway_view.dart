@@ -46,6 +46,16 @@ class HomeGatewayView extends ConsumerWidget {
       }
     });
 
+    // Automatically synchronize patients when active camp becomes available or changes
+    ref.listen<CampModel?>(userActiveCampProvider, (previous, next) {
+      if (next != null) {
+        final pState = ref.read(patientListProvider);
+        if (!pState.hasLoaded || pState.loadedCampId != next.id) {
+          ref.read(patientListProvider.notifier).loadPatients(next.id, true);
+        }
+      }
+    });
+
     final authState = ref.watch(authStateProvider);
     final user = authState.currentUser;
     final deviceState = ref.watch(deviceSecurityProvider);
@@ -71,6 +81,20 @@ class HomeGatewayView extends ConsumerWidget {
     // Guard: Prevent premature dashboard render or flash during session termination
     if (!authState.isAuthenticated || user == null) {
       return const SizedBox.shrink();
+    }
+
+    final activeCamp = ref.watch(userActiveCampProvider) ?? ref.watch(campStateProvider).activeCamp;
+    final patientState = ref.watch(patientListProvider);
+    if (activeCamp != null &&
+        (!patientState.hasLoaded ||
+            (patientState.loadedCampId != activeCamp.id && patientState.filters.campId != 'all'))) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final currentPState = ref.read(patientListProvider);
+        if (!currentPState.hasLoaded ||
+            (currentPState.loadedCampId != activeCamp.id && currentPState.filters.campId != 'all')) {
+          ref.read(patientListProvider.notifier).loadPatients(activeCamp.id, true);
+        }
+      });
     }
 
     final screenWidth = MediaQuery.sizeOf(context).width;
@@ -917,6 +941,9 @@ class HomeGatewayView extends ConsumerWidget {
     final deviceMgmt = ref.watch(deviceManagementProvider);
     final auditLogs = ref.watch(auditLogProvider);
     final patientState = ref.watch(patientListProvider);
+    final activeCampPatients = campState.hasActiveCamp
+        ? patientState.patients.where((p) => p.campId == campState.activeCamp!.id).toList()
+        : patientState.patients;
 
 
     return SingleChildScrollView(
@@ -1369,7 +1396,7 @@ class HomeGatewayView extends ConsumerWidget {
                         width: cardWidth,
                         child: _buildExecutiveMetricCard(
                           label: 'Intake Throughput',
-                          value: '${patientState.patients.length} Registered',
+                          value: '${activeCampPatients.length} Registered',
                           subtitle: campState.hasActiveCamp
                               ? 'Active camp patient roll'
                               : '${patientState.patients.length} historical records',
@@ -1378,7 +1405,11 @@ class HomeGatewayView extends ConsumerWidget {
                           onTap: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => const PatientListView()),
+                              MaterialPageRoute(
+                                builder: (_) => PatientListView(
+                                  campId: campState.activeCamp?.id,
+                                ),
+                              ),
                             );
                           },
                         ),
@@ -1841,6 +1872,7 @@ class HomeGatewayView extends ConsumerWidget {
     }
 
     final camp = campState.activeCamp!;
+    final activeCampPatients = patientState.patients.where((p) => p.campId == camp.id).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -2003,7 +2035,7 @@ class HomeGatewayView extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '${patientState.patients.length} Intakes Recorded',
+                  '${activeCampPatients.length} Intakes Recorded',
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                 ),
               ),
@@ -2431,6 +2463,7 @@ class HomeGatewayView extends ConsumerWidget {
                                   // Explicitly set this camp as the active live station
                                   // and persist to session — stable across syncs
                                   ref.read(campStateProvider.notifier).setActiveCamp(camp);
+                                  ref.read(patientListProvider.notifier).loadPatients(camp.id, true);
                                   Navigator.pop(ctx);
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -2852,10 +2885,13 @@ class HomeGatewayView extends ConsumerWidget {
 
 
 
-    final recentPatients = patientState.patients.take(4).toList();
+    final activeCampPatients = userCamp != null
+        ? patientState.patients.where((p) => p.campId == userCamp.id).toList()
+        : patientState.patients;
+    final recentPatients = activeCampPatients.take(4).toList();
     final now = DateTime.now();
     final sessionTime = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    final totalRegistered = patientState.patients.length;
+    final totalRegistered = activeCampPatients.length;
     final pendingSync = syncState.pendingTotalCount;
     final syncedCount = (totalRegistered - pendingSync).clamp(0, totalRegistered);
 
@@ -3034,7 +3070,7 @@ class HomeGatewayView extends ConsumerWidget {
                                     _buildStationBadge(
                                       icon: Icons.people_outline,
                                       label: 'Total Intake',
-                                      value: '${patientState.patients.length} Registered',
+                                      value: '$totalRegistered Registered',
                                     ),
                                     _buildStationBadge(
                                       icon: syncState.hasPendingRecords ? Icons.cloud_queue : Icons.cloud_done,
@@ -3067,7 +3103,7 @@ class HomeGatewayView extends ConsumerWidget {
                               _buildStationBadge(
                                 icon: Icons.people_outline,
                                 label: 'Total Intake',
-                                value: '${patientState.patients.length} Registered',
+                                value: '$totalRegistered Registered',
                               ),
                               const SizedBox(width: 20),
                               _buildStationBadge(
@@ -3269,7 +3305,7 @@ class HomeGatewayView extends ConsumerWidget {
                     title: 'Patient Roll & Triage (सूची)',
                     subtitle: 'Active triage queue, Station 1–6 clinical steppers & patient charts',
                     color: const Color(0xFF4F46E5),
-                    stationBadge: 'Queue: ${patientState.patients.length}',
+                    stationBadge: 'Queue: $totalRegistered',
                     actionPrompt: 'View All Patients',
                     onTap: () {
                       if (!campState.hasActiveCamp) {
@@ -3280,7 +3316,7 @@ class HomeGatewayView extends ConsumerWidget {
                       }
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const PatientListView()),
+                        MaterialPageRoute(builder: (_) => PatientListView(campId: userCamp?.id)),
                       );
                     },
                   );
@@ -3357,7 +3393,7 @@ class HomeGatewayView extends ConsumerWidget {
                         'Recent Station Intakes',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                       ),
-                      if (patientState.patients.isNotEmpty) ...[
+                      if (activeCampPatients.isNotEmpty) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -3366,24 +3402,24 @@ class HomeGatewayView extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            'Showing 4 of ${patientState.patients.length}',
+                            'Showing ${recentPatients.length} of $totalRegistered',
                             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
                           ),
                         ),
                       ],
                     ],
                   ),
-                  if (patientState.patients.isNotEmpty)
+                  if (activeCampPatients.isNotEmpty)
                     TextButton.icon(
                       icon: const Icon(Icons.arrow_forward_rounded, size: 14),
                       label: Text(
-                        'View All (${patientState.patients.length})',
+                        'View All ($totalRegistered)',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
                       ),
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const PatientListView()),
+                          MaterialPageRoute(builder: (_) => PatientListView(campId: userCamp?.id)),
                         );
                       },
                     ),

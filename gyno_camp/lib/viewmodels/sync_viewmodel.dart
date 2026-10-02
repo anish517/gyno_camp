@@ -196,15 +196,19 @@ class SyncViewModel extends StateNotifier<SyncState> {
       final r = ref;
       if (r != null) {
         try {
-          // NOTE: loadCamps is NOT awaited here (silent background reload).
-          // Do NOT read campStateProvider.activeCamp immediately after — it won't be
-          // updated yet and will return null, causing loadPatients(null) to fetch ALL
-          // patients from ALL camps (the "1 patient → 3 patients" bug).
-          // Instead, use the campId that is already loaded in the patient list state.
-          r.read(campStateProvider.notifier).loadCamps(silent: true);
+          await r.read(campStateProvider.notifier).loadCamps(silent: true);
           final patientState = r.read(patientListProvider);
-          final campToReload = patientState.filters.campId == 'all' ? 'all' : patientState.loadedCampId;
-          r.read(patientListProvider.notifier).loadPatients(campToReload, true);
+          // If the patient view explicitly selected 'all', keep 'all'.
+          // Otherwise, prefer loadedCampId, falling back to the active camp ID (never null).
+          final activeCampId = r.read(userActiveCampProvider)?.id ??
+              r.read(campStateProvider).activeCamp?.id;
+          final campToReload = patientState.filters.campId == 'all'
+              ? 'all'
+              : (patientState.loadedCampId ?? activeCampId);
+
+          if (campToReload != null) {
+            await r.read(patientListProvider.notifier).loadPatients(campToReload, true);
+          }
           r.read(masterLookupProvider.notifier).loadAll(silent: true);
         } catch (_) {}
       }
