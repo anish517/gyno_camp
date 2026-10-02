@@ -2536,10 +2536,12 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       labelText: 'Role & Responsibility',
                       prefixIcon: Icon(Icons.badge),
                     ),
-                    items: UserRole.values.map((r) => DropdownMenuItem(
-                      value: r,
-                      child: Text(r.displayNameEn),
-                    )).toList(),
+                    items: UserRole.values
+                        .where((r) => r != UserRole.superAdmin)
+                        .map((r) => DropdownMenuItem(
+                          value: r,
+                          child: Text(r.displayNameEn),
+                        )).toList(),
                     onChanged: (role) {
                       if (role != null) {
                         setInnerState(() => selectedRole = role);

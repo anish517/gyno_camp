@@ -1251,7 +1251,9 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
                                 isDense: true,
                               ),
-                              items: UserRole.values.map((r) {
+                              items: UserRole.values
+                                  .where((r) => r != UserRole.superAdmin)
+                                  .map((r) {
                                 return DropdownMenuItem(
                                   value: r,
                                   child: Text(r.displayNameEn, style: const TextStyle(fontSize: 13.5)),
@@ -1803,7 +1805,10 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                         isDense: true,
                         helperText: isProtectedRoot ? 'Super Administrator role is protected and locked.' : null,
                       ),
-                      items: UserRole.values.map((r) {
+                      items: (staff.role == UserRole.superAdmin
+                              ? UserRole.values
+                              : UserRole.values.where((r) => r != UserRole.superAdmin))
+                          .map((r) {
                         return DropdownMenuItem(value: r, child: Text(r.displayNameEn));
                       }).toList(),
                       onChanged: (isSubmitting || isProtectedRoot)
