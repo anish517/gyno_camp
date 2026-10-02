@@ -74,13 +74,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
   int _computeAssignedStaffCount(CampModel camp) {
     final staffUsers = ref.read(staffUsersProvider).value ?? const <UserModel>[];
+    final eligibleStaff = staffUsers.where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin).toList();
     final staffIds = Set<String>.from(camp.assignedStaffIds);
-    for (final u in staffUsers) {
+    for (final u in eligibleStaff) {
       if (u.assignedCampIds.contains(camp.id)) {
         staffIds.add(u.id);
       }
     }
-    return staffIds.length;
+    return eligibleStaff.where((u) => staffIds.contains(u.id)).length;
   }
 
   @override
@@ -2292,8 +2293,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     // Either side may have been updated independently — union them so neither
     // is lost and the checkboxes reflect the real truth.
     final staffUsers = ref.read(staffUsersProvider).value ?? const <UserModel>[];
+    final eligibleUsers = staffUsers.where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin).toList();
     final assigned = Set<String>.from(camp.assignedStaffIds);
-    for (final u in staffUsers) {
+    // Remove any orphaned or super-admin IDs that might have been saved in the past
+    assigned.removeWhere((id) => !eligibleUsers.any((u) => u.id == id));
+    for (final u in eligibleUsers) {
       if (u.assignedCampIds.contains(camp.id)) {
         assigned.add(u.id); // staff assigned via RBAC page — show as checked
       }
@@ -2340,7 +2344,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         child: Text('Error loading staff: $e', style: const TextStyle(color: AppTheme.dangerRose)),
                       ),
                       data: (staffList) {
-                        if (staffList.isEmpty) {
+                        final eligibleStaff = staffList.where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin).toList();
+                        final selectedCount = eligibleStaff.where((s) => assigned.contains(s.id)).length;
+                        if (eligibleStaff.isEmpty) {
                           return Padding(
                             padding: const EdgeInsets.all(24.0),
                             child: Column(
@@ -2348,7 +2354,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               children: [
                                 const Icon(Icons.people_outline, size: 40, color: Colors.grey),
                                 const SizedBox(height: 8),
-                                const Text('No registered staff users found.'),
+                                const Text('No registered field staff users found.'),
                                 const SizedBox(height: 12),
                                 ElevatedButton.icon(
                                   icon: const Icon(Icons.add),
@@ -2373,15 +2379,15 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: assigned.isEmpty ? Colors.grey.shade300 : AppTheme.primaryLight,
+                                      color: selectedCount == 0 ? Colors.grey.shade300 : AppTheme.primaryLight,
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
-                                      '${assigned.length} of ${staffList.length} selected',
+                                      '$selectedCount of ${eligibleStaff.length} selected',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
-                                        color: assigned.isEmpty ? Colors.grey.shade700 : AppTheme.primaryDark,
+                                        color: selectedCount == 0 ? Colors.grey.shade700 : AppTheme.primaryDark,
                                       ),
                                     ),
                                   ),
@@ -2393,7 +2399,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     ),
                                     onPressed: () {
                                       setDialogState(() {
-                                        assigned.addAll(staffList.map((s) => s.id));
+                                        assigned.addAll(eligibleStaff.map((s) => s.id));
                                       });
                                     },
                                     child: const Text('Select All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -2419,10 +2425,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               constraints: const BoxConstraints(maxHeight: 320),
                               child: ListView.separated(
                                 shrinkWrap: true,
-                                itemCount: staffList.length,
+                                itemCount: eligibleStaff.length,
                                 separatorBuilder: (_, _) => const Divider(height: 1),
                                 itemBuilder: (_, idx) {
-                                  final s = staffList[idx];
+                                  final s = eligibleStaff[idx];
                                   final isChecked = assigned.contains(s.id);
                                   return Material(
                                     type: MaterialType.transparency,
@@ -3249,7 +3255,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   loading: () => const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator())),
                                   error: (e, _) => Text('Error loading staff: $e', style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12)),
                                   data: (staffList) {
-                                    if (staffList.isEmpty) {
+                                    final eligibleStaff = staffList.where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin).toList();
+                                    if (eligibleStaff.isEmpty) {
                                       return Container(
                                         padding: const EdgeInsets.all(14),
                                         decoration: BoxDecoration(
@@ -3263,7 +3270,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                             SizedBox(width: 8),
                                             Expanded(
                                               child: Text(
-                                                'No registered staff members found. Staff can be registered later and dispatched to this camp.',
+                                                'No registered field staff members found. Staff can be registered later and dispatched to this camp.',
                                                 style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                                               ),
                                             ),
@@ -3301,7 +3308,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                                   ),
                                                   onPressed: () {
                                                     setDialogState(() {
-                                                      selectedStaffIds.addAll(staffList.map((s) => s.id));
+                                                      selectedStaffIds.addAll(eligibleStaff.map((s) => s.id));
                                                     });
                                                   },
                                                   child: const Text('Select All', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -3327,10 +3334,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                             constraints: const BoxConstraints(maxHeight: 180),
                                             child: ListView.separated(
                                               shrinkWrap: true,
-                                              itemCount: staffList.length,
+                                              itemCount: eligibleStaff.length,
                                               separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
                                               itemBuilder: (_, idx) {
-                                                final s = staffList[idx];
+                                                final s = eligibleStaff[idx];
                                                 final isChecked = selectedStaffIds.contains(s.id);
                                                 final roleColor = s.role == UserRole.superAdmin
                                                     ? AppTheme.primaryDark

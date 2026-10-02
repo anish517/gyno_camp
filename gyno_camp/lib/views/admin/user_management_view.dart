@@ -773,16 +773,17 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                   runSpacing: 4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.edit_calendar_rounded, size: 14),
-                      label: const Text('Assign Camps', style: TextStyle(fontSize: 11)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    if (staff.role != UserRole.superAdmin)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.edit_calendar_rounded, size: 14),
+                        label: const Text('Assign Camps', style: TextStyle(fontSize: 11)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: () => _safeShowDialog(() => _showAssignCampsDialog(context, staff, camps)),
                       ),
-                      onPressed: () => _safeShowDialog(() => _showAssignCampsDialog(context, staff, camps)),
-                    ),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.edit_outlined, size: 14),
                       label: const Text('Edit', style: TextStyle(fontSize: 11)),
