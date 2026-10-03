@@ -244,7 +244,7 @@ class PdfReportService {
     // Load WFWSN logo
     pw.MemoryImage? logoImage;
     try {
-      final logoData = await rootBundle.load('assets/WFWSNPrimaryCircle.jpg');
+      final logoData = await rootBundle.load('assets/wfwsn_logo_small.jpg');
       logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
     } catch (_) {}
 
@@ -1535,7 +1535,7 @@ class PdfReportService {
     // Load WFWSN logo
     pw.MemoryImage? logoImage;
     try {
-      final logoData = await rootBundle.load('assets/WFWSNPrimaryCircle.jpg');
+      final logoData = await rootBundle.load('assets/wfwsn_logo_small.jpg');
       logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
     } catch (_) {}
 
