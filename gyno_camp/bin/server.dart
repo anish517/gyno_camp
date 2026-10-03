@@ -1,6 +1,10 @@
 // ignore_for_file: avoid_print
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server.dart';
 import 'package:postgres/postgres.dart';
 
 /// GynoCamp Central Cloud Synchronization REST API Server
@@ -63,6 +67,7 @@ class GynoCampSyncServer {
   final Map<String, Map<String, dynamic>> _memDevices = {};
   final List<Map<String, dynamic>> _memAuditLogs = [];
   final Map<String, String> _memDeletedEntities = {}; // id -> entity_type ('camp', 'user', 'lookup')
+  final Map<String, Map<String, dynamic>> _memPasswordResetTokens = {}; // email -> token map
 
   GynoCampSyncServer({
     required this.pgHost,
@@ -326,6 +331,18 @@ class GynoCampSyncServer {
           deleted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       ''');
+      await _connection!.execute('''
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id TEXT PRIMARY KEY,
+          email TEXT NOT NULL,
+          token_code TEXT NOT NULL,
+          expires_at TIMESTAMPTZ NOT NULL,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          is_used INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      ''');
+      await _connection!.execute('CREATE INDEX IF NOT EXISTS idx_reset_tokens_email ON password_reset_tokens(email);');
       await _connection!.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS tenant_id TEXT DEFAULT 'tenant_default';");
       await _connection!.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS record_hash TEXT DEFAULT '';");
       await _connection!.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS previous_hash TEXT;");
@@ -486,6 +503,12 @@ class GynoCampSyncServer {
         await _handleRevokeDevice(request);
       } else if (request.method == 'POST' && path == '/api/tenant/rename') {
         await _handleRenameTenant(request);
+      } else if (request.method == 'POST' && path == '/api/auth/forgot-password') {
+        await _handleForgotPassword(request);
+      } else if (request.method == 'POST' && path == '/api/auth/verify-reset-code') {
+        await _handleVerifyResetCode(request);
+      } else if (request.method == 'POST' && path == '/api/auth/reset-password') {
+        await _handleResetPassword(request);
       } else if (request.method == 'GET' && path == '/api/events') {
         await _handleSseEvents(request);
       } else {
@@ -2108,6 +2131,494 @@ class GynoCampSyncServer {
     request.response.write(jsonEncode({'success': true, 'device_id': deviceId, 'status': 'REVOKED'}));
     await request.response.close();
     _broadcastSseEvent('sync_update', {'action': 'device_revoked', 'device_id': deviceId, 'timestamp': DateTime.now().toIso8601String()});
+  }
+
+  // ============================================================
+  //  Staff Authentication & Password Reset (SMTP) Infrastructure
+  // ============================================================
+
+  Future<void> _handleForgotPassword(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    final map = jsonDecode(body) as Map<String, dynamic>;
+    final rawEmail = map['email']?.toString() ?? '';
+    final email = rawEmail.trim().toLowerCase();
+
+    if (email.isEmpty) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'success': false, 'error': 'Please provide a valid staff email address.'}));
+      await request.response.close();
+      return;
+    }
+
+    // 1. Verify that email belongs to an ACTIVE registered staff member
+    Map<String, dynamic>? staffUser;
+    if (_isPgConnected && _connection != null) {
+      try {
+        final rows = await _connection!.execute(
+          Sql.named('SELECT id, name, email, is_active FROM users WHERE LOWER(email) = LOWER(@email) LIMIT 1;'),
+          parameters: {'email': email},
+        );
+        if (rows.isNotEmpty) {
+          staffUser = {
+            'id': rows.first[0]?.toString(),
+            'name': rows.first[1]?.toString() ?? 'Staff Member',
+            'email': rows.first[2]?.toString() ?? email,
+            'is_active': (rows.first[3] is int) ? (rows.first[3] as int) == 1 : (rows.first[3] as bool? ?? true),
+          };
+        }
+      } catch (e) {
+        print('! [server] Error looking up staff user in PG: $e');
+      }
+    }
+
+    if (staffUser == null) {
+      for (final u in _memUsers.values) {
+        if (u['email']?.toString().trim().toLowerCase() == email) {
+          staffUser = {
+            'id': u['id']?.toString(),
+            'name': u['name']?.toString() ?? 'Staff Member',
+            'email': u['email']?.toString() ?? email,
+            'is_active': (u['is_active'] is int) ? (u['is_active'] as int) == 1 : (u['is_active'] as bool? ?? true),
+          };
+          break;
+        }
+      }
+    }
+
+    if (staffUser == null) {
+      request.response.statusCode = HttpStatus.notFound;
+      request.response.write(jsonEncode({
+        'success': false,
+        'error': 'No registered staff account found with this email. Only active personnel can reset passwords.',
+      }));
+      await request.response.close();
+      return;
+    }
+
+    if (staffUser['is_active'] != true) {
+      request.response.statusCode = HttpStatus.forbidden;
+      request.response.write(jsonEncode({
+        'success': false,
+        'error': 'This staff account has been deactivated or suspended. Please contact your Super Administrator.',
+      }));
+      await request.response.close();
+      return;
+    }
+
+    // 2. Generate 6-digit numeric OTP
+    final rng = Random.secure();
+    final code = (100000 + rng.nextInt(900000)).toString();
+    final tokenId = 'tok-${DateTime.now().millisecondsSinceEpoch}';
+    final expiresAt = DateTime.now().toUtc().add(const Duration(minutes: 15));
+
+    // Store in memory
+    _memPasswordResetTokens[email] = {
+      'id': tokenId,
+      'email': email,
+      'token_code': code,
+      'expires_at': expiresAt.toIso8601String(),
+      'attempts': 0,
+      'is_used': 0,
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+    };
+
+    // Store in PostgreSQL
+    if (_isPgConnected && _connection != null) {
+      try {
+        await _connection!.execute(
+          Sql.named('''
+            INSERT INTO password_reset_tokens (id, email, token_code, expires_at, attempts, is_used, created_at)
+            VALUES (@id, @email, @code, @expires_at::timestamptz, 0, 0, NOW());
+          '''),
+          parameters: {
+            'id': tokenId,
+            'email': email,
+            'code': code,
+            'expires_at': expiresAt.toIso8601String(),
+          },
+        );
+      } catch (e) {
+        print('! [server] Error saving reset token to PostgreSQL: $e');
+      }
+    }
+
+    // 3. Send email via SMTP
+    final smtpHost = Platform.environment['SMTP_HOST'] ?? 'smtp.gmail.com';
+    final smtpPort = int.tryParse(Platform.environment['SMTP_PORT'] ?? '587') ?? 587;
+    final smtpUser = Platform.environment['SMTP_USER'] ?? '';
+    final smtpPass = Platform.environment['SMTP_PASSWORD'] ?? '';
+    final smtpFromName = Platform.environment['SMTP_FROM_NAME'] ?? 'GynoCamp Security Network';
+    final smtpFromEmail = Platform.environment['SMTP_FROM_EMAIL'] ?? (smtpUser.isNotEmpty ? smtpUser : 'no-reply@gynocamp.org');
+    final smtpSecure = (Platform.environment['SMTP_SECURE'] ?? 'false').toLowerCase() == 'true' || smtpPort == 465;
+
+    bool emailSent = false;
+    String? emailError;
+
+    if (smtpUser.isNotEmpty && smtpPass.isNotEmpty) {
+      try {
+        final SmtpServer smtpServer;
+        if (smtpHost.toLowerCase().contains('gmail')) {
+          smtpServer = gmail(smtpUser, smtpPass);
+        } else {
+          smtpServer = SmtpServer(
+            smtpHost,
+            port: smtpPort,
+            ssl: smtpSecure,
+            username: smtpUser,
+            password: smtpPass,
+            allowInsecure: true,
+          );
+        }
+
+        final staffName = staffUser['name']?.toString() ?? 'Staff Member';
+        final message = Message()
+          ..from = Address(smtpFromEmail, smtpFromName)
+          ..recipients.add(email)
+          ..subject = 'GynoCamp Security Code: $code'
+          ..text = 'Hello $staffName,\n\nYour GynoCamp password reset verification code is: $code\nThis code will expire in 15 minutes.\n\nIf you did not request this, please contact your administrator.'
+          ..html = _generateResetEmailHtml(code, staffName);
+
+        await send(message, smtpServer);
+        emailSent = true;
+        print('✓ [SMTP] Password reset code sent to $email successfully ($smtpHost:$smtpPort).');
+      } catch (e) {
+        emailError = e.toString();
+        print('! [SMTP Error] Failed to send email to $email: $e');
+      }
+    } else {
+      print('! [SMTP Notice] SMTP_USER or SMTP_PASSWORD not set in environment.');
+      print('! [SMTP Dev OTP] Security reset code for $email: $code');
+      emailSent = true;
+    }
+
+    if (!emailSent && emailError != null) {
+      request.response.statusCode = HttpStatus.internalServerError;
+      request.response.write(jsonEncode({
+        'success': false,
+        'error': 'Failed to deliver verification email via SMTP ($emailError). Please check server SMTP credentials.',
+      }));
+      await request.response.close();
+      return;
+    }
+
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode({
+      'success': true,
+      'message': 'A 6-digit verification code has been sent to $email.',
+      'expires_in_minutes': 15,
+      if (smtpUser.isEmpty || smtpPass.isEmpty) 'dev_code': code,
+    }));
+    await request.response.close();
+  }
+
+  Future<void> _handleVerifyResetCode(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    final map = jsonDecode(body) as Map<String, dynamic>;
+    final email = (map['email']?.toString() ?? '').trim().toLowerCase();
+    final code = (map['code']?.toString() ?? '').trim();
+
+    if (email.isEmpty || code.isEmpty) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'success': false, 'error': 'Email and verification code are required.'}));
+      await request.response.close();
+      return;
+    }
+
+    Map<String, dynamic>? tokenRecord;
+    if (_isPgConnected && _connection != null) {
+      try {
+        final rows = await _connection!.execute(
+          Sql.named('''
+            SELECT id, token_code, expires_at, attempts, is_used
+            FROM password_reset_tokens
+            WHERE LOWER(email) = LOWER(@email)
+            ORDER BY created_at DESC
+            LIMIT 1;
+          '''),
+          parameters: {'email': email},
+        );
+        if (rows.isNotEmpty) {
+          final row = rows.first;
+          tokenRecord = {
+            'id': row[0]?.toString(),
+            'token_code': row[1]?.toString(),
+            'expires_at': row[2]?.toString(),
+            'attempts': row[3] is int ? row[3] as int : int.tryParse(row[3].toString()) ?? 0,
+            'is_used': (row[4] is int) ? (row[4] as int) == 1 : (row[4] as bool? ?? false),
+          };
+        }
+      } catch (e) {
+        print('! [server] Error checking reset token in PG: $e');
+      }
+    }
+
+    tokenRecord ??= _memPasswordResetTokens[email];
+
+    if (tokenRecord == null) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'success': false, 'error': 'No active reset request found for this email.'}));
+      await request.response.close();
+      return;
+    }
+
+    final isUsed = tokenRecord['is_used'] == true || tokenRecord['is_used'] == 1;
+    if (isUsed) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'success': false, 'error': 'This code has already been used. Please request a new code.'}));
+      await request.response.close();
+      return;
+    }
+
+    final expiresAtStr = tokenRecord['expires_at']?.toString();
+    final expiresAt = expiresAtStr != null ? DateTime.tryParse(expiresAtStr)?.toUtc() : null;
+    if (expiresAt != null && DateTime.now().toUtc().isAfter(expiresAt)) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'success': false, 'error': 'This verification code has expired. Please request a new code.'}));
+      await request.response.close();
+      return;
+    }
+
+    int attempts = tokenRecord['attempts'] is int ? tokenRecord['attempts'] as int : int.tryParse(tokenRecord['attempts'].toString()) ?? 0;
+    if (attempts >= 5) {
+      request.response.statusCode = HttpStatus.tooManyRequests;
+      request.response.write(jsonEncode({'success': false, 'error': 'Too many failed attempts. For security, please request a new code.'}));
+      await request.response.close();
+      return;
+    }
+
+    final storedCode = tokenRecord['token_code']?.toString() ?? '';
+    if (storedCode != code) {
+      attempts++;
+      tokenRecord['attempts'] = attempts;
+      if (_memPasswordResetTokens.containsKey(email)) {
+        _memPasswordResetTokens[email]!['attempts'] = attempts;
+      }
+      if (_isPgConnected && _connection != null && tokenRecord['id'] != null) {
+        try {
+          await _connection!.execute(
+            Sql.named('UPDATE password_reset_tokens SET attempts = @attempts WHERE id = @id;'),
+            parameters: {'attempts': attempts, 'id': tokenRecord['id']},
+          );
+        } catch (_) {}
+      }
+      final remaining = 5 - attempts;
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({
+        'success': false,
+        'error': 'Incorrect code. $remaining attempt${remaining == 1 ? '' : 's'} remaining.',
+      }));
+      await request.response.close();
+      return;
+    }
+
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode({'success': true, 'message': 'Verification code verified successfully.'}));
+    await request.response.close();
+  }
+
+  Future<void> _handleResetPassword(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    final map = jsonDecode(body) as Map<String, dynamic>;
+    final email = (map['email']?.toString() ?? '').trim().toLowerCase();
+    final code = (map['code']?.toString() ?? '').trim();
+    final newPassword = (map['new_password']?.toString() ?? '').trim();
+    final newPin = (map['new_pin']?.toString() ?? '').trim();
+
+    if (email.isEmpty || code.isEmpty || newPassword.isEmpty) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'success': false, 'error': 'Email, code, and new password are required.'}));
+      await request.response.close();
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'success': false, 'error': 'Password must be at least 6 characters long.'}));
+      await request.response.close();
+      return;
+    }
+
+    // Verify token validity again
+    Map<String, dynamic>? tokenRecord;
+    if (_isPgConnected && _connection != null) {
+      try {
+        final rows = await _connection!.execute(
+          Sql.named('''
+            SELECT id, token_code, expires_at, is_used
+            FROM password_reset_tokens
+            WHERE LOWER(email) = LOWER(@email)
+            ORDER BY created_at DESC
+            LIMIT 1;
+          '''),
+          parameters: {'email': email},
+        );
+        if (rows.isNotEmpty) {
+          final row = rows.first;
+          tokenRecord = {
+            'id': row[0]?.toString(),
+            'token_code': row[1]?.toString(),
+            'expires_at': row[2]?.toString(),
+            'is_used': (row[3] is int) ? (row[3] as int) == 1 : (row[3] as bool? ?? false),
+          };
+        }
+      } catch (e) {
+        print('! [server] Error verifying token record in PG: $e');
+      }
+    }
+
+    tokenRecord ??= _memPasswordResetTokens[email];
+
+    if (tokenRecord == null ||
+        tokenRecord['token_code']?.toString() != code ||
+        tokenRecord['is_used'] == true ||
+        tokenRecord['is_used'] == 1) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'success': false, 'error': 'Invalid or already consumed reset code.'}));
+      await request.response.close();
+      return;
+    }
+
+    final expiresAtStr = tokenRecord['expires_at']?.toString();
+    final expiresAt = expiresAtStr != null ? DateTime.tryParse(expiresAtStr)?.toUtc() : null;
+    if (expiresAt != null && DateTime.now().toUtc().isAfter(expiresAt)) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'success': false, 'error': 'Verification code has expired. Please request a new one.'}));
+      await request.response.close();
+      return;
+    }
+
+    // Hash the new password & optional PIN
+    final passHash = sha256.convert(utf8.encode(newPassword)).toString();
+    final pinHash = newPin.isNotEmpty
+        ? sha256.convert(utf8.encode('gyno_camp_salt_2026:$newPin:gyno_camp_salt_2026')).toString()
+        : null;
+
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+    String? matchedUserId;
+
+    // Update in-memory users cache
+    for (final u in _memUsers.values) {
+      if (u['email']?.toString().trim().toLowerCase() == email) {
+        u['password_hash'] = passHash;
+        if (pinHash != null) u['pin_hash'] = pinHash;
+        u['updated_at'] = nowIso;
+        matchedUserId = u['id']?.toString();
+        break;
+      }
+    }
+
+    if (_memPasswordResetTokens.containsKey(email)) {
+      _memPasswordResetTokens[email]!['is_used'] = 1;
+    }
+
+    // Update PostgreSQL
+    if (_isPgConnected && _connection != null) {
+      try {
+        final updateSql = pinHash != null
+            ? '''
+              UPDATE users
+              SET password_hash = @pass,
+                  pin_hash = @pin,
+                  updated_at = NOW()
+              WHERE LOWER(email) = LOWER(@email)
+              RETURNING id;
+            '''
+            : '''
+              UPDATE users
+              SET password_hash = @pass,
+                  updated_at = NOW()
+              WHERE LOWER(email) = LOWER(@email)
+              RETURNING id;
+            ''';
+
+        final params = <String, dynamic>{
+          'pass': passHash,
+          'email': email,
+        };
+        if (pinHash != null) params['pin'] = pinHash;
+
+        final updateRows = await _connection!.execute(
+          Sql.named(updateSql),
+          parameters: params,
+        );
+        if (updateRows.isNotEmpty) {
+          matchedUserId ??= updateRows.first[0]?.toString();
+        }
+
+        if (tokenRecord['id'] != null) {
+          await _connection!.execute(
+            Sql.named('UPDATE password_reset_tokens SET is_used = 1 WHERE id = @id;'),
+            parameters: {'id': tokenRecord['id']},
+          );
+        }
+      } catch (e) {
+        print('! [server] Error updating user password in PostgreSQL: $e');
+      }
+    }
+
+    print('✓ [server] Password reset completed successfully for staff: $email (User ID: $matchedUserId)');
+
+    // Broadcast SSE sync so all active tablets / client browsers pull updated user credential
+    if (matchedUserId != null) {
+      _broadcastSseEvent('sync_update', {
+        'action': 'user_upsert',
+        'user_id': matchedUserId,
+        'timestamp': nowIso,
+      });
+    }
+
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode({
+      'success': true,
+      'message': 'Password has been successfully updated. You may now sign in with your new credentials.',
+    }));
+    await request.response.close();
+  }
+
+  String _generateResetEmailHtml(String code, String recipientName) {
+    return '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Reset Verification Code</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 24px; color: #1E293B;">
+  <div style="max-width: 520px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+    <div style="background: linear-gradient(135deg, #1E0A38 0%, #4A154B 100%); padding: 28px 24px; text-align: center;">
+      <h1 style="color: #FFFFFF; font-size: 22px; margin: 0; font-weight: 800; letter-spacing: -0.5px;">GynoCamp Health Outreach</h1>
+      <p style="color: #E2E8F0; font-size: 13px; margin: 6px 0 0 0;">Secure Staff Authentication Portal</p>
+    </div>
+    <div style="padding: 32px 24px;">
+      <h2 style="font-size: 18px; font-weight: 700; color: #0F172A; margin-top: 0;">Password Reset Request</h2>
+      <p style="font-size: 14px; line-height: 1.5; color: #475569;">Hello $recipientName,</p>
+      <p style="font-size: 14px; line-height: 1.5; color: #475569;">
+        We received a request to reset the password for your GynoCamp staff account. Use the verification code below to authorize your password change:
+      </p>
+      <div style="text-align: center; margin: 28px 0;">
+        <div style="display: inline-block; background-color: #F1F5F9; border: 2px dashed #94A3B8; border-radius: 10px; padding: 14px 28px;">
+          <span style="font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #1E0A38;">$code</span>
+        </div>
+      </div>
+      <p style="font-size: 13px; color: #64748B; line-height: 1.5;">
+        ⏳ <strong>Security Note:</strong> This verification code will expire in <strong>15 minutes</strong> and can only be used once.
+      </p>
+      <div style="margin-top: 24px; padding: 12px 16px; background-color: #FEF2F2; border-left: 4px solid #EF4444; border-radius: 4px;">
+        <p style="font-size: 12px; color: #991B1B; margin: 0; line-height: 1.4;">
+          If you did not request this password reset, please ignore this email or notify your Super Administrator immediately.
+        </p>
+      </div>
+    </div>
+    <div style="background-color: #F8FAFC; padding: 16px 24px; border-top: 1px solid #E2E8F0; text-align: center;">
+      <p style="font-size: 11px; color: #94A3B8; margin: 0;">
+        Nepal Gynaecological Camp Management System • Outreach Health Center
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+''';
   }
 
   // ============================================================

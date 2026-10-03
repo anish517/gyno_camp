@@ -41,6 +41,15 @@ abstract class IAuthRepository {
   });
   Future<void> logout({required String deviceId});
   Future<List<String>> getValidCampsForUser(List<String> assignedCampIds);
+  Future<Map<String, dynamic>> sendForgotPasswordOtp(String email);
+  Future<Map<String, dynamic>> verifyResetCode(String email, String code);
+  Future<Map<String, dynamic>> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+    String? newPin,
+    required String deviceId,
+  });
   UserModel? get currentUser;
   void setCurrentUser(UserModel? user);
 }
@@ -829,5 +838,82 @@ class AuthRepository implements IAuthRepository {
       );
     }
     _currentUser = null;
+  }
+
+  @override
+  Future<Map<String, dynamic>> sendForgotPasswordOtp(String email) async {
+    return HttpCentralApiService().sendForgotPasswordOtp(email);
+  }
+
+  @override
+  Future<Map<String, dynamic>> verifyResetCode(String email, String code) async {
+    return HttpCentralApiService().verifyResetCode(email, code);
+  }
+
+  @override
+  Future<Map<String, dynamic>> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+    String? newPin,
+    required String deviceId,
+  }) async {
+    final result = await HttpCentralApiService().resetPasswordWithCode(
+      email,
+      code,
+      newPassword,
+      newPin: newPin,
+    );
+
+    if (result['success'] == true) {
+      try {
+        final db = await _databaseService.database;
+        final passHash = SecurityService.hashSha256(newPassword.trim());
+        final pinHash = (newPin != null && newPin.trim().isNotEmpty)
+            ? SecurityService.hashPin(newPin.trim())
+            : null;
+        final nowIso = DateTime.now().toUtc().toIso8601String();
+
+        final updates = <String, dynamic>{
+          'password_hash': passHash,
+          'updated_at': nowIso,
+        };
+        if (pinHash != null) {
+          updates['pin_hash'] = pinHash;
+        }
+
+        await db.update(
+          DatabaseTables.tableUsers,
+          updates,
+          where: 'LOWER(email) = ?',
+          whereArgs: [email.trim().toLowerCase()],
+        );
+
+        final matchedUsers = await db.query(
+          DatabaseTables.tableUsers,
+          where: 'LOWER(email) = ?',
+          whereArgs: [email.trim().toLowerCase()],
+          limit: 1,
+        );
+
+        if (matchedUsers.isNotEmpty) {
+          final u = UserModel.fromMap(matchedUsers.first);
+          await _auditRepository.logActivity(
+            userId: u.id,
+            userName: u.name,
+            userRole: u.role.toDbString(),
+            action: 'PASSWORD_RESET_VIA_SMTP',
+            entityType: 'User',
+            entityId: u.id,
+            detailsJson: '{"method":"smtp_otp_reset","email":"$email"}',
+            deviceId: deviceId,
+          );
+        }
+      } catch (e) {
+        debugPrint('[AuthRepo] Local SQLite update error after reset: $e');
+      }
+    }
+
+    return result;
   }
 }

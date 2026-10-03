@@ -510,4 +510,131 @@ class HttpCentralApiService implements ICentralApiService {
     }
     return false;
   }
+
+  /// Requests a password reset OTP code sent via SMTP to the registered staff email
+  Future<Map<String, dynamic>> sendForgotPasswordOtp(String email) async {
+    if (!isConfigured || isServerCooldownActive) {
+      return {
+        'success': false,
+        'error': 'Central server is unreachable or offline. Password reset requires server connection.',
+        'is_offline': true,
+      };
+    }
+    try {
+      final uri = Uri.parse('$baseUrl/api/auth/forgot-password');
+      final res = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: jsonEncode({'email': email.trim()}),
+          )
+          .timeout(const Duration(seconds: 15));
+      final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        markServerOnline();
+        return body;
+      } else {
+        return {
+          'success': false,
+          'error': body['error'] ?? 'Failed to send reset code (${res.statusCode})',
+        };
+      }
+    } catch (e) {
+      markServerOffline();
+      return {
+        'success': false,
+        'error': 'Network connection error: $e',
+        'is_offline': true,
+      };
+    }
+  }
+
+  /// Verifies a 6-digit reset code
+  Future<Map<String, dynamic>> verifyResetCode(String email, String code) async {
+    if (!isConfigured || isServerCooldownActive) {
+      return {
+        'success': false,
+        'error': 'Central server is unreachable. Please check connection.',
+        'is_offline': true,
+      };
+    }
+    try {
+      final uri = Uri.parse('$baseUrl/api/auth/verify-reset-code');
+      final res = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: jsonEncode({'email': email.trim(), 'code': code.trim()}),
+          )
+          .timeout(const Duration(seconds: 6));
+      final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        markServerOnline();
+        return body;
+      } else {
+        return {
+          'success': false,
+          'error': body['error'] ?? 'Invalid code (${res.statusCode})',
+        };
+      }
+    } catch (e) {
+      markServerOffline();
+      return {
+        'success': false,
+        'error': 'Network connection error: $e',
+        'is_offline': true,
+      };
+    }
+  }
+
+  /// Resets user password using the verified code
+  Future<Map<String, dynamic>> resetPasswordWithCode(
+    String email,
+    String code,
+    String newPassword, {
+    String? newPin,
+  }) async {
+    if (!isConfigured || isServerCooldownActive) {
+      return {
+        'success': false,
+        'error': 'Central server is unreachable. Please check connection.',
+        'is_offline': true,
+      };
+    }
+    try {
+      final uri = Uri.parse('$baseUrl/api/auth/reset-password');
+      final payload = <String, dynamic>{
+        'email': email.trim(),
+        'code': code.trim(),
+        'new_password': newPassword.trim(),
+      };
+      if (newPin != null && newPin.trim().isNotEmpty) {
+        payload['new_pin'] = newPin.trim();
+      }
+      final res = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 8));
+      final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        markServerOnline();
+        return body;
+      } else {
+        return {
+          'success': false,
+          'error': body['error'] ?? 'Failed to reset password (${res.statusCode})',
+        };
+      }
+    } catch (e) {
+      markServerOffline();
+      return {
+        'success': false,
+        'error': 'Network error: $e',
+        'is_offline': true,
+      };
+    }
+  }
 }

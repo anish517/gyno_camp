@@ -1707,6 +1707,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
 
   Future<void> _showEditProfileDialog(BuildContext context, UserModel staff) async {
     final nameCtrl = TextEditingController(text: staff.name);
+    final emailCtrl = TextEditingController(text: staff.email);
     final initialTenant = staff.tenantName.isNotEmpty &&
             !AppConstants.isLegacyDefaultOrganization(staff.tenantName)
         ? staff.tenantName
@@ -1757,14 +1758,26 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.mail_outline, size: 16, color: Color(0xFF64748B)),
+                          const Icon(Icons.badge_outlined, size: 16, color: Color(0xFF64748B)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '${staff.email} • ID: ${staff.id}',
+                              'ID: ${staff.id}',
                               style: const TextStyle(color: Color(0xFF475569), fontSize: 12, fontWeight: FontWeight.w500),
                             ),
                           ),
+                          if (isProtectedRoot)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.brandPurple.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'Root Admin',
+                                style: TextStyle(color: AppTheme.brandPurple, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -1774,6 +1787,22 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                       decoration: const InputDecoration(
                         labelText: 'Full Name / Staff Title *',
                         border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: 'Staff Email Address (for Password Reset & Alerts) *',
+                        hintText: 'e.g. staff@healthcenter.org',
+                        helperText: isProtectedRoot
+                            ? 'Update from default admin@gynocamp.org to your real email to receive password reset OTPs'
+                            : 'Registered email used for password recovery and notifications',
+                        helperMaxLines: 2,
+                        prefixIcon: const Icon(Icons.mail_outline_rounded, size: 18),
+                        border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                     ),
@@ -1851,13 +1880,34 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                     ? null
                     : () async {
                         final newName = nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : staff.name;
+                        final newEmail = emailCtrl.text.trim().toLowerCase();
                         final newTenant = tenantCtrl.text.trim().isNotEmpty ? tenantCtrl.text.trim() : staff.tenantName;
+
+                        if (newEmail.isEmpty || !newEmail.contains('@') || !newEmail.contains('.')) {
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Please enter a valid staff email address.')),
+                          );
+                          return;
+                        }
+
+                        // Check email uniqueness if email has changed
+                        if (newEmail != staff.email.trim().toLowerCase()) {
+                          final currentUsers = ref.read(allUsersProvider).value ?? [];
+                          final exists = currentUsers.any((u) => u.id != staff.id && u.email.trim().toLowerCase() == newEmail);
+                          if (exists) {
+                            messenger.showSnackBar(
+                              SnackBar(content: Text('The email $newEmail is already assigned to another staff member.')),
+                            );
+                            return;
+                          }
+                        }
 
                         setDialogState(() => isSubmitting = true);
 
                         final deviceState = ref.read(deviceSecurityProvider);
                         final updated = staff.copyWith(
                           name: newName,
+                          email: newEmail,
                           tenantName: newTenant,
                           phone: phoneCtrl.text.trim(),
                           role: selectedRole,

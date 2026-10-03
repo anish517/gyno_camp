@@ -284,6 +284,30 @@ class AuthViewModel extends StateNotifier<AuthState> {
     if (!mounted) return;
     state = state.copyWith(clearUser: true, isLoading: false);
   }
+
+  Future<Map<String, dynamic>> sendForgotPasswordOtp(String email) async {
+    return _authRepository.sendForgotPasswordOtp(email);
+  }
+
+  Future<Map<String, dynamic>> verifyResetCode(String email, String code) async {
+    return _authRepository.verifyResetCode(email, code);
+  }
+
+  Future<Map<String, dynamic>> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+    String? newPin,
+    required String deviceId,
+  }) async {
+    return _authRepository.resetPasswordWithCode(
+      email: email,
+      code: code,
+      newPassword: newPassword,
+      newPin: newPin,
+      deviceId: deviceId,
+    );
+  }
 }
 
 final authRepositoryProvider = Provider<IAuthRepository>((ref) {

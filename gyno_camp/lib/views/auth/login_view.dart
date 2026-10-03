@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
@@ -236,6 +237,38 @@ class _LoginViewState extends ConsumerState<LoginView> {
         );
       }
     }
+  }
+
+  void _showForgotPasswordModal(BuildContext context, String deviceId) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _ForgotPasswordDialog(
+        initialEmail: _emailController.text.trim(),
+        deviceId: deviceId,
+        onResetSuccess: (email, newPassword) {
+          _emailController.text = email;
+          _passwordController.text = newPassword;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Password updated successfully! Signing you in...'),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF059669),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+          _handleLogin(deviceId);
+        },
+      ),
+    );
   }
 
   @override
@@ -823,7 +856,28 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   ),
                   onSubmitted: (_) => _handleLogin(deviceId),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    key: const ValueKey('forgot_password_btn'),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () => _showForgotPasswordModal(context, deviceId),
+                    child: const Text(
+                      'Forgot Password?',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.brandPurple,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
 
                 // Submit Action Button
                 SizedBox(
@@ -881,6 +935,659 @@ class _LoginViewState extends ConsumerState<LoginView> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ForgotPasswordDialog extends ConsumerStatefulWidget {
+  final String initialEmail;
+  final String deviceId;
+  final void Function(String email, String newPassword) onResetSuccess;
+
+  const _ForgotPasswordDialog({
+    required this.initialEmail,
+    required this.deviceId,
+    required this.onResetSuccess,
+  });
+
+  @override
+  ConsumerState<_ForgotPasswordDialog> createState() => _ForgotPasswordDialogState();
+}
+
+class _ForgotPasswordDialogState extends ConsumerState<_ForgotPasswordDialog> {
+  int _step = 1; // 1: Email, 2: OTP, 3: New Password
+  late final TextEditingController _emailCtrl;
+  final _codeCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
+  final _pinCtrl = TextEditingController();
+
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
+  bool _isLoading = false;
+  String? _errorMessage;
+  String? _devCodeHint;
+
+  Timer? _resendTimer;
+  int _resendCountdown = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailCtrl = TextEditingController(text: widget.initialEmail);
+  }
+
+  @override
+  void dispose() {
+    _resendTimer?.cancel();
+    _emailCtrl.dispose();
+    _codeCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
+    _pinCtrl.dispose();
+    super.dispose();
+  }
+
+  void _startResendTimer() {
+    _resendCountdown = 60;
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_resendCountdown <= 1) {
+        timer.cancel();
+        if (mounted) setState(() => _resendCountdown = 0);
+      } else {
+        if (mounted) setState(() => _resendCountdown--);
+      }
+    });
+  }
+
+  Future<void> _handleSendOtp() async {
+    final email = _emailCtrl.text.trim().toLowerCase();
+    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+      setState(() => _errorMessage = 'Please enter a valid staff email address.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final res = await ref.read(authStateProvider.notifier).sendForgotPasswordOtp(email);
+
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      setState(() {
+        _isLoading = false;
+        _step = 2;
+        _devCodeHint = res['dev_code']?.toString();
+      });
+      _startResendTimer();
+    } else {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = res['error']?.toString() ?? 'Unable to send verification code. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _handleVerifyCode() async {
+    final email = _emailCtrl.text.trim().toLowerCase();
+    final code = _codeCtrl.text.trim();
+
+    if (code.length < 4) {
+      setState(() => _errorMessage = 'Please enter the verification code sent to your email.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final res = await ref.read(authStateProvider.notifier).verifyResetCode(email, code);
+
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      setState(() {
+        _isLoading = false;
+        _step = 3;
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = res['error']?.toString() ?? 'Verification code is invalid or expired.';
+      });
+    }
+  }
+
+  Future<void> _handleResetPassword() async {
+    final email = _emailCtrl.text.trim().toLowerCase();
+    final code = _codeCtrl.text.trim();
+    final newPass = _passwordCtrl.text.trim();
+    final confirmPass = _confirmPasswordCtrl.text.trim();
+    final newPin = _pinCtrl.text.trim();
+
+    if (newPass.length < 6) {
+      setState(() => _errorMessage = 'Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newPass != confirmPass) {
+      setState(() => _errorMessage = 'Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    if (newPin.isNotEmpty && (newPin.length < 4 || newPin.length > 6)) {
+      setState(() => _errorMessage = 'PIN must be between 4 and 6 digits.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final res = await ref.read(authStateProvider.notifier).resetPasswordWithCode(
+      email: email,
+      code: code,
+      newPassword: newPass,
+      newPin: newPin.isNotEmpty ? newPin : null,
+      deviceId: widget.deviceId,
+    );
+
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      Navigator.of(context).pop();
+      widget.onResetSuccess(email, newPass);
+    } else {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = res['error']?.toString() ?? 'Failed to reset password. Please try again.';
+      });
+    }
+  }
+
+  Widget _buildStepIndicator() {
+    return Row(
+      children: [
+        _buildStepDot(1, 'Email', _step >= 1, _step == 1),
+        _buildStepLine(_step >= 2),
+        _buildStepDot(2, 'Code', _step >= 2, _step == 2),
+        _buildStepLine(_step >= 3),
+        _buildStepDot(3, 'Password', _step >= 3, _step == 3),
+      ],
+    );
+  }
+
+  Widget _buildStepDot(int stepNum, String label, bool isReached, bool isCurrent) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isCurrent
+                ? AppTheme.brandPurple
+                : (isReached ? const Color(0xFF059669) : const Color(0xFFE2E8F0)),
+            boxShadow: isCurrent
+                ? [
+                    BoxShadow(
+                      color: AppTheme.brandPurple.withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: isReached && !isCurrent
+                ? const Icon(Icons.check, size: 16, color: Colors.white)
+                : Text(
+                    '$stepNum',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isReached ? Colors.white : const Color(0xFF94A3B8),
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+            color: isCurrent
+                ? AppTheme.brandPurple
+                : (isReached ? const Color(0xFF334155) : const Color(0xFF94A3B8)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepLine(bool isActive) {
+    return Expanded(
+      child: Container(
+        height: 2,
+        margin: const EdgeInsets.only(bottom: 16, left: 4, right: 4),
+        color: isActive ? const Color(0xFF059669) : const Color(0xFFE2E8F0),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      contentPadding: const EdgeInsets.all(24),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header with Title & Step Indicator
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.brandPurple.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      _step == 1
+                          ? Icons.lock_reset_rounded
+                          : (_step == 2 ? Icons.mark_email_read_rounded : Icons.key_rounded),
+                      color: AppTheme.brandPurple,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _step == 1
+                              ? 'Reset Password'
+                              : (_step == 2 ? 'Verify Security Code' : 'Set New Password'),
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1E293B),
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        Text(
+                          _step == 1
+                              ? 'Staff Authentication Recovery'
+                              : (_step == 2 ? 'Check your email inbox' : 'Update login credentials'),
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF64748B)),
+                    onPressed: _isLoading ? null : () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              // Progress Indicator
+              _buildStepIndicator(),
+              const SizedBox(height: 20),
+
+              // Error Banner (if any)
+              if (_errorMessage != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerRose.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.error_outline_rounded, color: AppTheme.dangerRose, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, height: 1.3),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => setState(() => _errorMessage = null),
+                        child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.dangerRose),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Dev Code Banner (when testing in environment without live SMTP)
+              if (_step == 2 && _devCodeHint != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFF59E0B)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.developer_mode_rounded, color: Color(0xFFB45309), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Server Dev Code (SMTP Mock)',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFFB45309)),
+                            ),
+                            Text(
+                              'Verification Code: $_devCodeHint',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 2,
+                                color: Color(0xFF92400E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                        ),
+                        onPressed: () => _codeCtrl.text = _devCodeHint!,
+                        child: const Text('Auto-Fill', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // STEP 1 CONTENT: Email Input
+              if (_step == 1) ...[
+                const Text(
+                  'Enter your registered staff email address. A 6-digit verification code will be dispatched to your inbox via SMTP.',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF475569), height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Registered Staff Email',
+                    hintText: 'e.g. nurse@gynocamp.org',
+                    prefixIcon: const Icon(Icons.mail_outline_rounded, size: 18),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    isDense: true,
+                  ),
+                  onSubmitted: (_) => _handleSendOtp(),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.wifi_off_rounded, size: 16, color: Color(0xFF64748B)),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Remote Field Contingency: If your outreach camp is offline without cellular coverage, the on-site Super Administrator can reset your password immediately via Staff Management.',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.35),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: _isLoading ? null : () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.brandPurple,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.send_rounded, size: 16),
+                        label: Text(
+                          _isLoading ? 'Sending Code...' : 'Send Reset Code',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        ),
+                        onPressed: _isLoading ? null : _handleSendOtp,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              // STEP 2 CONTENT: Code Verification
+              if (_step == 2) ...[
+                Text(
+                  'We sent a 6-digit security code to ${_emailCtrl.text.trim()}. Please enter it below:',
+                  style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _codeCtrl,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  autofocus: true,
+                  maxLength: 6,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    letterSpacing: 8,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1E0A38),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: '••••••',
+                    counterText: '',
+                    hintStyle: const TextStyle(letterSpacing: 8, color: Color(0xFFCBD5E1)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onSubmitted: (_) => _handleVerifyCode(),
+                ),
+                const SizedBox(height: 12),
+                Center(
+                  child: _resendCountdown > 0
+                      ? Text(
+                          'Resend code in ${_resendCountdown}s',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                        )
+                      : TextButton.icon(
+                          icon: const Icon(Icons.refresh_rounded, size: 15),
+                          label: const Text('Resend Security Code', style: TextStyle(fontSize: 12)),
+                          onPressed: _isLoading ? null : _handleSendOtp,
+                        ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () => setState(() {
+                                  _step = 1;
+                                  _errorMessage = null;
+                                }),
+                        child: const Text('Change Email'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.brandPurple,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.verified_user_rounded, size: 16),
+                        label: Text(
+                          _isLoading ? 'Verifying...' : 'Verify Code',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        ),
+                        onPressed: _isLoading ? null : _handleVerifyCode,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              // STEP 3 CONTENT: Set New Password
+              if (_step == 3) ...[
+                const Text(
+                  'Code verified! Create your new secure password and optional station PIN below:',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF475569), height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _passwordCtrl,
+                  obscureText: _obscurePassword,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'New Password *',
+                    hintText: 'At least 6 characters',
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        size: 18,
+                        color: const Color(0xFF64748B),
+                      ),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _confirmPasswordCtrl,
+                  obscureText: _obscureConfirm,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm New Password *',
+                    hintText: 'Re-enter password',
+                    prefixIcon: const Icon(Icons.lock_reset_rounded, size: 18),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        size: 18,
+                        color: const Color(0xFF64748B),
+                      ),
+                      onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _pinCtrl,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  decoration: InputDecoration(
+                    labelText: 'Optional Station PIN (4-6 digits)',
+                    hintText: 'e.g. 1234',
+                    counterText: '',
+                    helperText: 'For quick field workstation unlocks',
+                    prefixIcon: const Icon(Icons.pin_outlined, size: 18),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: _isLoading ? null : () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.check_circle_rounded, size: 16),
+                        label: Text(
+                          _isLoading ? 'Updating...' : 'Save & Sign In',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        ),
+                        onPressed: _isLoading ? null : _handleResetPassword,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

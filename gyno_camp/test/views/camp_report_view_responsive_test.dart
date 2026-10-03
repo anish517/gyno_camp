@@ -104,6 +104,12 @@ class FakeAuthRepoForReports implements IAuthRepository {
   Future<void> deleteUser({required String userId, required String adminUserId, required String deviceId}) async {}
   @override
   Future<List<String>> getValidCampsForUser(List<String> assignedCampIds) async => assignedCampIds;
+  @override
+  Future<Map<String, dynamic>> sendForgotPasswordOtp(String email) async => {'success': true};
+  @override
+  Future<Map<String, dynamic>> verifyResetCode(String email, String code) async => {'success': true};
+  @override
+  Future<Map<String, dynamic>> resetPasswordWithCode({required String email, required String code, required String newPassword, String? newPin, required String deviceId}) async => {'success': true};
 }
 
 class FakePatientRepoForReports implements IPatientRepository {
