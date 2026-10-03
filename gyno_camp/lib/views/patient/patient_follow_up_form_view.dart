@@ -11,6 +11,7 @@ import '../../core/utils/formatters.dart';
 import '../../models/camp_model.dart';
 import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
+import '../../models/user_model.dart';
 
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
@@ -298,12 +299,15 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   @override
   Widget build(BuildContext context) {
     final campState = ref.watch(campStateProvider);
+    final user = ref.watch(authStateProvider).currentUser;
     final currentCamp = widget.camp ??
         campState.camps.cast<CampModel?>().firstWhere(
           (c) => c?.id == widget.patient.campId,
           orElse: () => null,
         );
-    final bool isLockedCamp = currentCamp?.status.isLocked ?? false;
+    final isSuperAdmin = user?.role == UserRole.superAdmin;
+    final bool isLockedCamp = (currentCamp?.status.isLocked ?? false) && !isSuperAdmin;
+    final bool isCampClosed = currentCamp?.status.isLocked ?? false; // for banner only
 
     return Scaffold(
       appBar: AppBar(
@@ -344,36 +348,49 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // CAMP LOCKED / READ-ONLY BANNER
-              if (isLockedCamp) ...[
+              if (isCampClosed) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: AppTheme.dangerRose.withValues(alpha: 0.12),
+                    color: isSuperAdmin
+                        ? const Color(0xFFFFFBEB)
+                        : AppTheme.dangerRose.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.dangerRose, width: 1.5),
+                    border: Border.all(
+                      color: isSuperAdmin ? const Color(0xFFF59E0B) : AppTheme.dangerRose,
+                      width: 1.5,
+                    ),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.lock_rounded, color: AppTheme.dangerRose, size: 22),
-                      SizedBox(width: 10),
+                      Icon(
+                        isSuperAdmin ? Icons.lock_open_rounded : Icons.lock_rounded,
+                        color: isSuperAdmin ? const Color(0xFFD97706) : AppTheme.dangerRose,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'CAMP CLOSED & LOCKED — RECORD IS READ-ONLY',
+                              isSuperAdmin
+                                  ? 'SUPER ADMIN OVERRIDE — CAMP CLOSED'
+                                  : 'CAMP CLOSED & LOCKED — RECORD IS READ-ONLY',
                               style: TextStyle(
-                                color: AppTheme.dangerRose,
+                                color: isSuperAdmin ? const Color(0xFFD97706) : AppTheme.dangerRose,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                                 letterSpacing: 0.5,
                               ),
                             ),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             Text(
-                              'This camp has concluded and is closed. New follow-up submissions or edits are disabled.',
+                              isSuperAdmin
+                                  ? 'This camp is closed. You are logged in as Super Admin — follow-up records can still be submitted.'
+                                  : 'This camp has concluded and is closed. New follow-up submissions or edits are disabled.',
                               style: TextStyle(
-                                color: Color(0xFF991B1B),
+                                color: isSuperAdmin ? const Color(0xFF92400E) : const Color(0xFF991B1B),
                                 fontSize: 11.5,
                               ),
                             ),

@@ -19,6 +19,7 @@ import '../../core/services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/patient_model.dart';
+import '../../models/user_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/clinical_assessment_viewmodel.dart';
@@ -2248,11 +2249,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     CampState campState,
   ) {
     // CAMP LOCK CHECK: check if this patient's specific camp is closed/archived
+    // EXCEPTION: Super Admin can always access and edit regardless of camp status.
     CampModel? patientCamp;
     try {
       patientCamp = campState.camps.firstWhere((c) => c.id == patient.campId);
     } catch (_) {}
-    final isCampLocked = patientCamp != null && patientCamp.status.isLocked;
+    final listUser = ref.read(authStateProvider).currentUser;
+    final isSuperAdminUser = listUser?.role == UserRole.superAdmin;
+    final isCampPhysicallyClosed = patientCamp != null && patientCamp.status.isLocked;
+    final isCampLocked = isCampPhysicallyClosed && !isSuperAdminUser;
 
     // Determine clinical completion status
     final hasReasons = patient.reasonsForVisit.isNotEmpty;
@@ -3135,7 +3140,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   },
                   itemBuilder: (ctx) => [
                     buildMenuHeader('CLINICAL WORKFLOW'),
-                    if (hasClinical)
+                    if (hasClinical && !isCampLocked)
                       buildMenuItem(
                         value: 're_exam',
                         icon: Icons.assignment_outlined,

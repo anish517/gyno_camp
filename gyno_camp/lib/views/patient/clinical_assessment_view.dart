@@ -6,6 +6,7 @@ import '../../core/services/nepali_localization_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
+import '../../models/user_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../models/camp_model.dart';
@@ -118,6 +119,8 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
       patientCamp = campState.camps.firstWhere((c) => c.id == widget.patient.campId);
     } catch (_) {}
     final isLockedCamp = patientCamp != null && patientCamp.status.isLocked;
+    final isSuperAdmin = user?.role == UserRole.superAdmin;
+    final isEffectivelyLocked = isLockedCamp && !isSuperAdmin;
 
     return Scaffold(
       appBar: AppBar(
@@ -252,19 +255,28 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
           // CAMP LOCKED BANNER
           if (isLockedCamp)
             Builder(builder: (context) {
-              // patientCamp is non-null whenever isLockedCamp is true
               final lockedCamp = patientCamp!;
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                color: const Color(0xFFFEF2F2),
+                color: isSuperAdmin ? const Color(0xFFFFFBEB) : const Color(0xFFFEF2F2),
                 child: Row(
                   children: [
-                    const Icon(Icons.lock_rounded, color: Color(0xFFDC2626), size: 18),
+                    Icon(
+                      isSuperAdmin ? Icons.lock_open_rounded : Icons.lock_rounded,
+                      color: isSuperAdmin ? const Color(0xFFD97706) : const Color(0xFFDC2626),
+                      size: 18,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Camp Closed — Read-Only View. Camp "${lockedCamp.name}" (${lockedCamp.campCode}) is ${lockedCamp.status.displayNameEn}. Clinical data cannot be edited.',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.bold),
+                        isSuperAdmin
+                            ? 'Super Admin Override — Camp "${lockedCamp.name}" is ${lockedCamp.status.displayNameEn}. You may save clinical changes.'
+                            : 'Camp Closed — Read-Only View. Camp "${lockedCamp.name}" (${lockedCamp.campCode}) is ${lockedCamp.status.displayNameEn}. Clinical data cannot be edited.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isSuperAdmin ? const Color(0xFF92400E) : const Color(0xFF991B1B),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -334,7 +346,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          onPressed: state.isSaving || isLockedCamp
+                          onPressed: state.isSaving || isEffectivelyLocked
                             ? null
                             : () async {
                                 final scaffoldMessenger = ScaffoldMessenger.of(context);
