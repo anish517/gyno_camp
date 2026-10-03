@@ -1337,7 +1337,6 @@ class _ForgotPasswordDialogState extends ConsumerState<_ForgotPasswordDialog> {
                   autofocus: true,
                   decoration: InputDecoration(
                     labelText: 'Registered Staff Email',
-                    hintText: 'e.g. nurse@gynocamp.org',
                     prefixIcon: const Icon(Icons.mail_outline_rounded, size: 18),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     isDense: true,
