@@ -84,6 +84,7 @@ flutter:
     - assets/
     - assets/WFWSNPrimaryCircle.jpg
     - assets/wfwsn_logo_small.jpg
+    - assets/wfwsn_logo_pdf.png
     - assets/fonts/
 
   # An image asset can refer to one or more resolution-specific "variants", see

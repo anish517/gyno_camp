@@ -241,12 +241,14 @@ class PdfReportService {
     final darkTextColor = PdfColor.fromHex('1E293B');
     final borderGray = PdfColor.fromHex('CBD5E1');
 
-    // Load WFWSN logo
+    // Load WFWSN logo (PNG format — guaranteed pw.MemoryImage compatibility)
     pw.MemoryImage? logoImage;
     try {
-      final logoData = await rootBundle.load('assets/wfwsn_logo_small.jpg');
+      final logoData = await rootBundle.load('assets/wfwsn_logo_pdf.png');
       logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[PDF] Logo load failed: $e');
+    }
 
     pdf.addPage(
       pw.MultiPage(
@@ -1532,12 +1534,14 @@ class PdfReportService {
     final cyanBg = PdfColor.fromHex('ECFEFF');
     final cyan = PdfColor.fromHex('0891B2');
 
-    // Load WFWSN logo
+    // Load WFWSN logo (PNG format — guaranteed pw.MemoryImage compatibility)
     pw.MemoryImage? logoImage;
     try {
-      final logoData = await rootBundle.load('assets/wfwsn_logo_small.jpg');
+      final logoData = await rootBundle.load('assets/wfwsn_logo_pdf.png');
       logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[PDF] Logo load failed: $e');
+    }
 
     final isFollowUp = visit.isFollowUp;
     final encounterColor = isFollowUp ? cyan : primary;
