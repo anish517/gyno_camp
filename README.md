@@ -32,6 +32,7 @@
 12. [Disaster Recovery & Automated PostgreSQL Backups](#12-disaster-recovery--automated-postgresql-backups)
 13. [Live Log Monitoring & Observability](#13-live-log-monitoring--observability)
 14. [Zero-Downtime Application Update Procedure](#14-zero-downtime-application-update-procedure)
+15. [Quick Cloud Deployment Guide (Railway / Render / Docker)](#15-quick-cloud-deployment-guide-railway--render--docker)
 
 ---
 
@@ -140,18 +141,17 @@ The AI OCR engine outputs a validated JSON schema parsing:
 5. **Pelvic & POP-Q Staging**: POP Stage (Stage I, II, III, or IV / Procidentia), Cystocele, Rectocele, Cervical status, Perineal tears.
 6. **Treatment & Disposition**: Ring pessary insertion, conservative pelvic floor exercises, medication orders (antibiotics, analgesics, multivitamins), or referral for surgical vaginal hysterectomy.
 
-### Step 3.5: How the Key is Injected into GynoCamp
-- **At Build Time (Web & Android)**:
-  Injected into the compiled client binary using the compile-time flag:
-  ```bash
-  --dart-define=GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+### Step 3.5: How the Key is Used in GynoCamp (Server-Side Only)
+
+> 🔒 **Security Change**: The Gemini API key is **never** passed to the Flutter client. It lives exclusively in the server environment.
+
+- **Set on the Server** (in `server.env` or host environment):
+  ```env
+  GEMINI_API_KEY=AIzaSy...
   ```
-- **At Runtime (Dynamic In-App Override)**:
-  Super Admins and Medical Directors can enter or rotate the Gemini key dynamically at any time without rebuilding the application:
-  1. Open GynoCamp on Web or Android.
-  2. Navigate to **Settings** (or tap the gear icon in the navigation bar).
-  3. Enter the new Gemini API Key in the **AI Scanner / Session Service** field and tap **Save**.
-  4. The key is securely persisted to local encrypted storage and takes effect immediately.
+- **How OCR works**: The Flutter app sends the image to `POST /api/ocr/extract` on your Central Sync Server. The server authenticates the device, applies rate limiting, and forwards the request to Gemini using the key from the environment. The key never touches the client binary.
+- **Do NOT use** `--dart-define=GEMINI_API_KEY=...` — this is no longer needed and would expose the key.
+- **Fallback**: If `GEMINI_API_KEY` is not set on the server, apps automatically fall back to offline manual entry. The app will not crash.
 
 ---
 
@@ -328,15 +328,16 @@ docker compose up -d --build
 Instead of third-party platforms like Vercel, host the Flutter Web application directly on your server using **Nginx**.
 
 ### Step 6.1: Compile Flutter Web on Development Machine or CI/CD Server
-Run this build command on your workstation (or CI pipeline) with your production domain and Gemini API key:
+Run this build command on your workstation (or CI pipeline) with your production domain:
 
 ```bash
 cd gyno_camp
 
 flutter build web --release --no-wasm-dry-run \
-  --dart-define=CENTRAL_SERVER_URL=https://api.yourdomain.org \
-  --dart-define=GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+  --dart-define=CENTRAL_SERVER_URL=https://api.yourdomain.org
 ```
+
+> ✅ No `GEMINI_API_KEY` needed here — the key lives on the server, not in the app binary.
 
 *Output directory*: `build/web/`
 
@@ -444,16 +445,16 @@ keytool -genkey -v ^
 ### Step 8.2: Build Standalone Production APK (Direct USB / Sideloading)
 ```powershell
 flutter build apk --release ^
-  --dart-define=CENTRAL_SERVER_URL=https://api.yourdomain.org ^
-  --dart-define=GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+  --dart-define=CENTRAL_SERVER_URL=https://api.yourdomain.org
 ```
 File created: `build/app/outputs/flutter-apk/app-release.apk`
+
+> ✅ No `GEMINI_API_KEY` in the build command — it lives on the server only.
 
 ### Step 8.3: Build Google Play Store App Bundle (`.aab`)
 ```powershell
 flutter build appbundle --release ^
-  --dart-define=CENTRAL_SERVER_URL=https://api.yourdomain.org ^
-  --dart-define=GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+  --dart-define=CENTRAL_SERVER_URL=https://api.yourdomain.org
 ```
 File created: `build/app/outputs/bundle/release/app-release.aab`
 
@@ -478,12 +479,14 @@ flutter test test/services/gemini_ocr_service_test.dart
 
 ### Pre-Deployment Checklist
 - [ ] `flutter analyze` completed with 0 errors and 0 warnings.
-- [ ] All 367 tests passed successfully.
+- [ ] All tests passed: `flutter test`.
 - [ ] Central server `/health` returns `"postgres_connected": true`.
-- [ ] `CENTRAL_SERVER_URL` in web build starts with `https://`.
-- [ ] `GEMINI_API_KEY` is tested and verified.
-- [ ] Super Admin credentials (`admin@gynocamp.org` / `admin123`) verified.
+- [ ] `CENTRAL_SERVER_URL` in web/APK build starts with `https://`.
+- [ ] `GEMINI_API_KEY` set in `server.env` on the server (not in Flutter build flags).
+- [ ] `SMTP_USER` and `SMTP_PASSWORD` set in `server.env` for password reset emails.
+- [ ] Super Admin credentials (`admin@gynocamp.org`) verified.
 - [ ] Root Super Admin role is protected and locked from demotion.
+- [ ] `server.env` is **NOT** committed to Git (verify with `git status`).
 
 ---
 
@@ -492,13 +495,18 @@ flutter test test/services/gemini_ocr_service_test.dart
 | Variable Name | Component | Injection Method | Default Value | Description |
 |:---|:---|:---|:---|:---|
 | `CENTRAL_SERVER_URL` | Web / Android | `--dart-define` | `http://localhost:8080` | Complete HTTPS URL to the Central Sync API |
-| `GEMINI_API_KEY` | Web / Android | `--dart-define` | `""` | Google Cloud API key for Yellow Form AI OCR |
-| `PORT` | Central API | Systemd / Shell env | `8080` | Port on which the Dart sync server listens |
-| `PGHOST` | Central API | Systemd / Shell env | `127.0.0.1` | PostgreSQL database hostname or IP |
-| `PGPORT` | Central API | Systemd / Shell env | `5432` | PostgreSQL database port |
-| `PGDATABASE` | Central API | Systemd / Shell env | `gynocamp_db` | PostgreSQL database name |
-| `PGUSER` | Central API | Systemd / Shell env | `gynoadmin` | PostgreSQL user account |
-| `PGPASSWORD` | Central API | Systemd / Shell env | `""` | PostgreSQL user password |
+| `GEMINI_API_KEY` | **Central API only** | `server.env` / host env | `""` | 🔒 Server-side only. Google AI key for Yellow Form OCR. **Never pass to Flutter.** |
+| `PORT` | Central API | `server.env` / host env | `8080` | Port on which the Dart sync server listens |
+| `PGHOST` | Central API | `server.env` / host env | `127.0.0.1` | PostgreSQL database hostname or IP |
+| `PGPORT` | Central API | `server.env` / host env | `5432` | PostgreSQL database port |
+| `PGDATABASE` | Central API | `server.env` / host env | `gynocamp_db` | PostgreSQL database name |
+| `PGUSER` | Central API | `server.env` / host env | `gynoadmin` | PostgreSQL user account |
+| `PGPASSWORD` | Central API | `server.env` / host env | `""` | PostgreSQL user password |
+| `SMTP_HOST` | Central API | `server.env` / host env | `smtp.gmail.com` | SMTP server for staff password reset emails |
+| `SMTP_PORT` | Central API | `server.env` / host env | `587` | SMTP port |
+| `SMTP_USER` | Central API | `server.env` / host env | `""` | SMTP login email address |
+| `SMTP_PASSWORD` | Central API | `server.env` / host env | `""` | 🔒 SMTP app password. Server-side only. |
+| `SMTP_FROM_EMAIL` | Central API | `server.env` / host env | `""` | From address for password reset emails |
 
 ---
 
@@ -519,9 +527,11 @@ flutter test test/services/gemini_ocr_service_test.dart
 ### Problem 3: Yellow Form OCR returns "Invalid API Key" or HTTP 403
 - **Symptom**: Taking photo of yellow form in mobile app gives OCR scan error.
 - **Remedy**:
-  1. Check if Gemini API key has expired or billing is paused in Google AI Studio.
-  2. Run the curl test in [Section 3.2](#step-32-verify-the-api-key-with-a-quick-curl-test).
-  3. Verify the app was compiled with `--dart-define=GEMINI_API_KEY=...` or update the key in the app under **Settings**.
+  1. Check `GEMINI_API_KEY` is set correctly in `server.env` (or host environment) on the server.
+  2. Restart the server after changing: `sudo systemctl restart gynocamp-api`.
+  3. Run the curl test in [Section 3.2](#step-32-verify-the-api-key-with-a-quick-curl-test) to verify the key works.
+  4. Check server logs: `sudo journalctl -u gynocamp-api -n 50` for OCR error details.
+  > ✅ The key is **not** in the Flutter app — do not look for it in `--dart-define` build flags.
 
 ### Problem 4: Android device shows "Awaiting Super Admin Approval"
 - **Symptom**: Field nurse attempts to login from a new tablet and sees a security hold.
@@ -645,6 +655,120 @@ sudo systemctl status gynocamp-api
 rsync -avz --delete build/web/ user@your-server-ip:/var/www/gynocamp-web/
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+---
+
+## 15. Quick Cloud Deployment Guide (Railway / Render / Docker)
+
+If you don't have a dedicated Linux VPS, you can deploy GynoCamp on a managed platform in minutes.
+
+### Option A: Railway (⭐ Recommended — Free Tier + Managed PostgreSQL)
+
+1. Sign up at [railway.app](https://railway.app)
+2. **New Project** → Deploy from GitHub → select this repo
+3. Add a **PostgreSQL** plugin from the Railway dashboard
+4. Set environment variables in Railway → **Variables**:
+   ```
+   GEMINI_API_KEY=AIzaSy...
+   PGHOST=${{Postgres.PGHOST}}
+   PGPORT=${{Postgres.PGPORT}}
+   PGDATABASE=${{Postgres.PGDATABASE}}
+   PGUSER=${{Postgres.PGUSER}}
+   PGPASSWORD=${{Postgres.PGPASSWORD}}
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=your@gmail.com
+   SMTP_PASSWORD=your-gmail-app-password
+   SMTP_FROM_NAME=GynoCamp Security Network
+   SMTP_FROM_EMAIL=your@gmail.com
+   SMTP_SECURE=false
+   PORT=8080
+   HOST=0.0.0.0
+   ```
+5. Railway auto-detects the `Dockerfile` and deploys. Your server URL:
+   `https://your-project.railway.app`
+6. Build and deploy Flutter Web UI:
+   ```bash
+   flutter build web --release \
+     --dart-define=CENTRAL_SERVER_URL=https://your-project.railway.app
+   # Drag build/web/ to Netlify or deploy to Firebase Hosting
+   ```
+
+---
+
+### Option B: Render (Free Tier)
+
+1. Sign up at [render.com](https://render.com)
+2. New → **Web Service** → connect GitHub repo → Runtime: **Docker**
+3. Add the same environment variables as above
+4. Add a **PostgreSQL** database under Render's dashboard
+5. Your server URL: `https://your-app.onrender.com`
+
+> ⚠️ Free tier sleeps after 15 min inactivity (~30s cold start on wake)
+
+---
+
+### Option C: Docker Compose (Self-hosted / Any Cloud VM)
+
+Create `docker-compose.yml` in the repo root:
+
+```yaml
+version: '3.8'
+services:
+  server:
+    build: ./gyno_camp
+    ports:
+      - "8080:8080"
+    env_file:
+      - gyno_camp/server.env
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: gynocamp_db
+      POSTGRES_USER: gynoadmin
+      POSTGRES_PASSWORD: YourStrongDbPassword123!
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+```
+
+```bash
+docker compose up -d --build
+```
+
+---
+
+### Deploying the Flutter Web UI
+
+After deploying the server, build the web app and deploy `build/web/` anywhere:
+
+```bash
+flutter build web --release \
+  --dart-define=CENTRAL_SERVER_URL=https://YOUR-SERVER-URL
+```
+
+| Platform | How to Deploy |
+|----------|---------------|
+| **Netlify** | Drag & drop `build/web/` at [app.netlify.com](https://app.netlify.com) |
+| **GitHub Pages** | Push to `gh-pages` branch |
+| **Firebase Hosting** | `firebase deploy` |
+| **Nginx (VPS)** | `rsync -avz build/web/ user@server:/var/www/gynocamp-web/` |
+
+---
+
+### Quick Cost Comparison
+
+| Platform | Server Cost | DB Cost | Best For |
+|----------|-------------|---------|----------|
+| Railway | Free / $5+ | Included | Quickest start |
+| Render | Free / $7+ | Free / $7+ | Similar to Railway |
+| DigitalOcean VPS | $6/month | $15/month | Full control |
+| Self-hosted | Hardware only | Included | On-premise |
 
 ---
 
