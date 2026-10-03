@@ -123,7 +123,6 @@ Edit [`gyno_camp/vercel-build.sh`](file:///f:/gyno_camp/gyno_camp/vercel-build.s
 ```bash
 flutter build web --release \
   --dart-define=CENTRAL_SERVER_URL=$CENTRAL_SERVER_URL \
-  --dart-define=GEMINI_API_KEY=$GEMINI_API_KEY \
   --no-wasm-dry-run
 ```
 
@@ -145,7 +144,6 @@ Go to **Settings → Environment Variables** and add:
 | Name | Value |
 |------|-------|
 | `CENTRAL_SERVER_URL` | `https://gyno-camp-sync-production.up.railway.app` |
-| `GEMINI_API_KEY` | `your-gemini-api-key` |
 
 ### Step 2.4 — Deploy
 
@@ -242,8 +240,7 @@ echo android/app/gynocamp-release.jks >> f:\gyno_camp\gyno_camp\.gitignore
 cd f:\gyno_camp\gyno_camp
 
 flutter build appbundle --release ^
-  --dart-define=CENTRAL_SERVER_URL=https://gyno-camp-sync-production.up.railway.app ^
-  --dart-define=GEMINI_API_KEY=your-gemini-api-key
+  --dart-define=CENTRAL_SERVER_URL=https://gyno-camp-sync-production.up.railway.app
 ```
 
 Output file:
@@ -255,8 +252,7 @@ build\app\outputs\bundle\release\app-release.aab
 
 ```bash
 flutter build apk --release ^
-  --dart-define=CENTRAL_SERVER_URL=https://gyno-camp-sync-production.up.railway.app ^
-  --dart-define=GEMINI_API_KEY=your-gemini-api-key
+  --dart-define=CENTRAL_SERVER_URL=https://gyno-camp-sync-production.up.railway.app
 ```
 
 Test on device:
@@ -306,7 +302,7 @@ adb install build\app\outputs\flutter-apk\app-release.apk
 | `PGHOST` | `localhost` | Railway internal hostname | *(not needed)* | *(not needed)* |
 | `PGDATABASE` | `gynocamp_db` | `railway` | *(not needed)* | *(not needed)* |
 | `PGPASSWORD` | `postgres` | Railway generated | *(not needed)* | *(not needed)* |
-| `GEMINI_API_KEY` | from `local_env.bat` | *(not needed)* | Set in Vercel dashboard | In build command |
+| `GEMINI_API_KEY` | `local_env.bat` (git-ignored, loaded by `start_sync_server.bat`) | **Server secret only** (host env / secret manager) | **NEVER** (do not set) | **NEVER** (no `--dart-define`) |
 
 ---
 
@@ -346,11 +342,9 @@ git push origin main
 # Rebuild Android APK after code changes
 cd f:\gyno_camp\gyno_camp
 flutter build apk --release ^
-  --dart-define=CENTRAL_SERVER_URL=https://gyno-camp-sync-production.up.railway.app ^
-  --dart-define=GEMINI_API_KEY=your-gemini-api-key
+  --dart-define=CENTRAL_SERVER_URL=https://gyno-camp-sync-production.up.railway.app
 
 # Rebuild App Bundle for Play Store update
 flutter build appbundle --release ^
-  --dart-define=CENTRAL_SERVER_URL=https://gyno-camp-sync-production.up.railway.app ^
-  --dart-define=GEMINI_API_KEY=your-gemini-api-key
+  --dart-define=CENTRAL_SERVER_URL=https://gyno-camp-sync-production.up.railway.app
 ```

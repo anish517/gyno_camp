@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
@@ -8,6 +8,8 @@ import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
 import '../constants/nepal_geodata.dart';
 import '../../models/ocr_scan_result_model.dart';
+import '../security/security_service.dart';
+import 'http_central_api_service.dart';
 import 'session_service.dart';
 
 class GeminiOcrException implements Exception {
@@ -19,50 +21,57 @@ class GeminiOcrException implements Exception {
   String toString() => 'GeminiOcrException: $message (status: $statusCode)';
 }
 
-/// Cloud-based Multimodal OCR Service using Google Gemini Flash API (`gemini-flash-latest`).
+/// Cloud multimodal OCR client for the Nepal MoHP Yellow Form.
+///
+/// SECURITY: this client NEVER holds or sends a Gemini API key. Images are sent
+/// to the GynoCamp central server (`POST /api/ocr/extract`), which authenticates
+/// the approved device, applies rate limits, and calls Gemini using a key that
+/// exists only in the server environment.
 ///
 /// Features:
 /// - Direct visual parsing of photographed Yellow Intake Forms (Nepal MoHP format).
-/// - High-fidelity extraction of handwriting, checkboxes, vitals, POP staging, and prescriptions.
-/// - Built-in image optimization (scales large images to max 1600px width/height to reduce payload size).
-/// - Resilient timeout and 1-attempt automatic retry on transient 503/429 HTTP responses.
+/// - Built-in image optimization (scales large images to max 1600px to reduce payload size).
 /// - Structured JSON output mapped directly to [OcrScanResultModel] with `ocrEngine: 'gemini_flash'`.
+/// - Model failover and retry logic live on the server.
 class GeminiOcrService {
   final http.Client _client;
-  final String? _explicitApiKey;
-  final String? _explicitEndpointUrl;
+  final String? _explicitBaseUrl;
+  final String? _explicitFingerprint;
+  final String? _explicitDeviceSecret;
 
-  /// High-availability candidate models for Yellow Form multimodal OCR.
-  /// Prioritized:
-  /// 1. `gemini-flash-lite-latest`: Fast, high capacity, resilient against 503 spikes.
-  /// 2. `gemini-3-flash-preview`: High-fidelity reasoning fallback.
-  /// 3. `gemini-flash-latest`: Standard flash tier.
-  static const List<String> defaultCandidateModels = [
-    'gemini-flash-lite-latest',
-    'gemini-3-flash-preview',
-    'gemini-flash-latest',
-  ];
+  /// The server may fail over across several models (30s each), so allow time.
+  static const Duration requestTimeout = Duration(seconds: 75);
 
   GeminiOcrService({
     http.Client? httpClient,
-    String? apiKey,
-    String? endpointUrl,
+    String? baseUrl,
+    String? deviceFingerprint,
+    String? deviceSecret,
   })  : _client = httpClient ?? http.Client(),
-        _explicitApiKey = apiKey,
-        _explicitEndpointUrl = endpointUrl;
+        _explicitBaseUrl = baseUrl,
+        _explicitFingerprint = deviceFingerprint,
+        _explicitDeviceSecret = deviceSecret;
 
-  String get effectiveApiKey {
-    if (_explicitApiKey != null && _explicitApiKey.trim().isNotEmpty) {
-      return _explicitApiKey.trim();
-    }
-    final savedKey = SessionService.current?.getGeminiApiKey();
-    if (savedKey != null && savedKey.trim().isNotEmpty) {
-      return savedKey.trim();
-    }
-    return AppConstants.defaultGeminiApiKey;
+  String get _baseUrl {
+    final explicit = _explicitBaseUrl?.trim();
+    final raw = (explicit != null && explicit.isNotEmpty)
+        ? explicit
+        : HttpCentralApiService(client: _client).baseUrl;
+    return raw.endsWith('/') ? raw.substring(0, raw.length - 1) : raw;
   }
 
-  /// Sends an image of a Yellow Form to Gemini Flash for digitized extraction.
+  String get _deviceFingerprint =>
+      (_explicitFingerprint != null && _explicitFingerprint.trim().isNotEmpty)
+          ? _explicitFingerprint.trim()
+          : SecurityService.generateDeviceFingerprint();
+
+  String get _deviceSecret {
+    final explicit = _explicitDeviceSecret?.trim();
+    if (explicit != null && explicit.isNotEmpty) return explicit;
+    return SessionService.current?.getOrCreateDeviceSecret() ?? '';
+  }
+
+  /// Sends an image of a Yellow Form to the GynoCamp server for Gemini extraction.
   ///
   /// [pageNumber]:
   /// - 1: Front page (Demographics, Obstetric History, Section B Visit Reasons, Section C Consent)
@@ -77,80 +86,58 @@ class GeminiOcrService {
       throw const GeminiOcrException('Image file is empty or unreadable.');
     }
 
-    // Prepare & optimize image (ensure <= 1600px max dimension, quality 85% JPEG)
-    final optimizedBase64 = await _prepareImageBase64(rawBytes);
-
-    final prompt = _buildSystemPrompt(pageNumber);
-
-    final payload = {
-      'contents': [
-        {
-          'parts': [
-            {'text': prompt},
-            {
-              'inline_data': {
-                'mime_type': 'image/jpeg',
-                'data': optimizedBase64,
-              }
-            }
-          ]
-        }
-      ],
-      'generationConfig': {
-        'temperature': 0.1,
-        'response_mime_type': 'application/json',
-      }
-    };
-
-    final List<Uri> candidateUris;
-    if (_explicitEndpointUrl != null && _explicitEndpointUrl.trim().isNotEmpty) {
-      candidateUris = [Uri.parse(_explicitEndpointUrl.trim())];
-    } else {
-      candidateUris = defaultCandidateModels
-          .map((m) => Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/$m:generateContent'))
-          .toList();
+    final secret = _deviceSecret;
+    if (secret.isEmpty) {
+      throw const GeminiOcrException('Device credentials are unavailable for cloud OCR.');
     }
 
+    // Prepare & optimize image (<= 1600px max dimension, quality 85% JPEG)
+    final prepared = await _prepareImage(rawBytes);
+
+    final uri = Uri.parse('$_baseUrl/api/ocr/extract');
     final headers = {
       'Content-Type': 'application/json',
-      'X-goog-api-key': effectiveApiKey,
+      'X-Device-Fingerprint': _deviceFingerprint,
+      'X-Device-Secret': secret,
     };
+    final body = jsonEncode({
+      'imageBase64': prepared.base64,
+      'mimeType': prepared.mimeType,
+      'pageNumber': pageNumber,
+    });
 
     if (kDebugMode) {
-      debugPrint('[GeminiOCR] 🚀 Sending image to Gemini (${rawBytes.length ~/ 1024} KB raw, Page: $pageNumber)...');
+      debugPrint('[GeminiOCR] Sending image to server (${rawBytes.length ~/ 1024} KB raw, Page: $pageNumber)...');
     }
 
     http.Response response;
     try {
-      response = await _sendWithRetryAndFailover(candidateUris, headers, jsonEncode(payload));
+      response = await _client.post(uri, headers: headers, body: body).timeout(requestTimeout);
+    } on TimeoutException {
+      throw const GeminiOcrException('Cloud OCR timed out. Check the server connection and try again.');
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[GeminiOCR] ❌ Network/timeout error: $e');
+        debugPrint('[GeminiOCR] Network error: ${e.runtimeType}');
       }
-      rethrow;
+      throw const GeminiOcrException('Cannot reach the GynoCamp server for cloud OCR.');
     }
 
     if (response.statusCode != 200) {
-      throw GeminiOcrException(
-        'Gemini API failed with status ${response.statusCode}: ${response.body}',
-        statusCode: response.statusCode,
-      );
+      var message = 'Cloud OCR unavailable (status ${response.statusCode}).';
+      try {
+        final err = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final serverMessage = err['error'];
+        if (serverMessage is String && serverMessage.isNotEmpty) message = serverMessage;
+      } catch (_) {}
+      throw GeminiOcrException(message, statusCode: response.statusCode);
     }
 
     try {
-      final responseJson = jsonDecode(response.body) as Map<String, dynamic>;
-      final candidates = responseJson['candidates'] as List<dynamic>?;
-      if (candidates == null || candidates.isEmpty) {
-        throw const GeminiOcrException('Gemini returned no candidate outputs.');
+      final envelope = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final extractedText = envelope['text'] as String?;
+      if (extractedText == null || extractedText.trim().isEmpty) {
+        throw const GeminiOcrException('Cloud OCR returned no result.');
       }
-
-      final content = candidates[0]['content'] as Map<String, dynamic>?;
-      final parts = content?['parts'] as List<dynamic>?;
-      if (parts == null || parts.isEmpty) {
-        throw const GeminiOcrException('Gemini returned empty parts list.');
-      }
-
-      final extractedText = parts[0]['text'] as String? ?? '{}';
       final parsedData = jsonDecode(extractedText) as Map<String, dynamic>;
 
       return _mapJsonToScanResult(
@@ -160,96 +147,12 @@ class GeminiOcrService {
       );
     } catch (e) {
       if (e is GeminiOcrException) rethrow;
-      throw GeminiOcrException('Failed to parse Gemini JSON output: $e');
+      throw GeminiOcrException('Failed to parse OCR output: $e');
     }
-  }
-
-  /// Sends POST request with automatic candidate model failover and exponential backoff
-  /// on transient 503 (High Demand / Unavailable) and 429 (Rate Limit) errors.
-  Future<http.Response> _sendWithRetryAndFailover(
-    List<Uri> candidateUris,
-    Map<String, String> headers,
-    String body,
-  ) async {
-    const timeoutDuration = Duration(seconds: 30);
-    http.Response? lastResponse;
-    dynamic lastError;
-
-    for (int m = 0; m < candidateUris.length; m++) {
-      final uri = candidateUris[m];
-      final modelName = uri.pathSegments.isNotEmpty
-          ? uri.pathSegments.last.replaceAll(':generateContent', '')
-          : uri.toString();
-
-      int attempts = 0;
-      while (attempts < 2) {
-        attempts++;
-        try {
-          if (kDebugMode && (m > 0 || attempts > 1)) {
-            debugPrint('[GeminiOCR] 🔄 Attempting $modelName (attempt $attempts)...');
-          }
-          final res = await _client.post(uri, headers: headers, body: body).timeout(timeoutDuration);
-          if (res.statusCode == 200) {
-            if (kDebugMode && (m > 0 || attempts > 1)) {
-              debugPrint('[GeminiOCR] ✅ Succeeded with model $modelName');
-            }
-            return res;
-          }
-          lastResponse = res;
-          if (res.statusCode == 503 || res.statusCode == 429) {
-            if (attempts < 2) {
-              final backoffMs = attempts * 1500;
-              if (kDebugMode) {
-                debugPrint('[GeminiOCR] ⚠️ Transient ${res.statusCode} on $modelName. Retrying in ${backoffMs / 1000}s...');
-              }
-              await Future.delayed(Duration(milliseconds: backoffMs));
-              continue;
-            } else {
-              if (kDebugMode && m + 1 < candidateUris.length) {
-                debugPrint('[GeminiOCR] ⚠️ $modelName overloaded (${res.statusCode}). Failing over to next model candidate...');
-              }
-              break; // exit inner retry loop to try next candidate in candidateUris
-            }
-          } else {
-            // Client error (e.g. 400 Bad Request, 401 Unauthorized), do not failover across models
-            return res;
-          }
-        } on SocketException catch (e) {
-          lastError = e;
-          if (attempts < 2) {
-            await Future.delayed(const Duration(milliseconds: 1500));
-            continue;
-          }
-          break;
-        } on http.ClientException catch (e) {
-          lastError = e;
-          if (attempts < 2) {
-            await Future.delayed(const Duration(milliseconds: 1500));
-            continue;
-          }
-          break;
-        } catch (e) {
-          lastError = e;
-          if (attempts < 2) {
-            await Future.delayed(const Duration(milliseconds: 1500));
-            continue;
-          }
-          break;
-        }
-      }
-    }
-
-    if (lastResponse != null) {
-      return lastResponse;
-    }
-    if (lastError != null) {
-      throw lastError;
-    }
-    throw const GeminiOcrException('All Gemini OCR model candidates failed.');
   }
 
   /// Scales image down if larger than 1600px to ensure fast mobile upload.
-  Future<String> _prepareImageBase64(Uint8List bytes) async {
+  Future<({String base64, String mimeType})> _prepareImage(Uint8List bytes) async {
     try {
       final decoded = img.decodeImage(bytes);
       if (decoded != null && (decoded.width > 1600 || decoded.height > 1600)) {
@@ -259,14 +162,15 @@ class GeminiOcrService {
           height: decoded.height >= decoded.width ? 1600 : null,
         );
         final compressedJpg = img.encodeJpg(resized, quality: 85);
-        return base64Encode(compressedJpg);
+        return (base64: base64Encode(compressedJpg), mimeType: 'image/jpeg');
       }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[GeminiOCR] Image resize skipped: $e');
       }
     }
-    return base64Encode(bytes);
+    final isPng = bytes.length > 4 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
+    return (base64: base64Encode(bytes), mimeType: isPng ? 'image/png' : 'image/jpeg');
   }
 
   /// Maps structured JSON returned by Gemini to [OcrScanResultModel].
@@ -565,164 +469,6 @@ class GeminiOcrService {
       rawText: buffer.toString(),
       scannedAt: DateTime.now(),
     );
-  }
-
-  /// Generates the prompt strictly tailored to the Nepal MoHP Gynecological Camp Yellow Form.
-  String _buildSystemPrompt(int pageNumber) {
-    return '''
-You are an expert clinical digitization assistant for the official Nepal Ministry of Health and Population (MoHP) Gynecological Camp Yellow Form (गाइनो शिविर फाराम).
-Analyze the provided medical intake form image carefully (Target Page: ${pageNumber == 0 ? 'Auto-detect' : 'Page $pageNumber'}).
-
-CRITICAL FORM INSTRUCTIONS:
-- The Yellow Form is a standardized 2-page intake instrument. Do NOT invent, assume, or hallucinate fields that are not printed on the physical form.
-- Specifically: There is NO caste, NO education, NO occupation, NO gravida, NO respiratory rate, NO temperature, NO weight, and NO height on this form.
-- Extract ONLY the actual printed fields, checkboxes, letter boxes, and handwritten entries.
-
-FORM STRUCTURE BY PAGE:
-
-PAGE 1 (FRONT) — PATIENT REGISTRATION:
-1. Header:
-   - "PATIENT TOKEN ID / बिरामी टोकन नं." (or अस्पताल दर्ता नं.) format: e.g. "KTM01-0001" or QR code string
-2. Section A: Patient Demographics / बिरामी विवरण:
-   - "First Name: पहिलो नाम" (letter boxes)
-   - "Surname: थर" (letter boxes)
-   - "Patient Age: उमेर" (numeric digit boxes)
-   - "Marital Status / वैवाहिक स्थिति" (4 checkboxes: Married, Widow, Unmarried, Divorced)
-   - "Husband's / Father's Name: श्रीमान् / बुबाको नाम" (letter boxes -> relativeName)
-   - "Mobile No.: मोबाइल नम्बर" (10 digit boxes)
-   - "Age at Marriage: विवाह भएको उमेर" (numeric digit boxes -> maritalAge)
-   - "Contact Person (Secondary): सम्पर्क व्यक्ति" (letter boxes -> contactPerson)
-   - "Contact Mobile No.: सम्पर्क मोबाइल नम्बर" (10 digit boxes -> contactMobile)
-   - "District: जिल्ला" (letter boxes)
-   - "Province: प्रदेश" (letter boxes -> province, e.g. Bagmati)
-   - "Palika / Municipality: पालिका / नगर" (letter boxes)
-   - "Ward No.: वडा" (digit boxes -> ward)
-3. Section B: Reasons for Visit / जाँचको कारण (8 exact checkboxes):
-   - "Something Hanging Out / Prolapse (पाठेघर खस्ने)"
-   - "Vaginal Discharge / Itching (स्राव / खटिरा)"
-   - "Problems Passing Urine (पिसाब सम्बन्धी समस्या)"
-   - "Problems Passing Stool (दिसा सम्बन्धी समस्या)"
-   - "Menstrual Problem (महिनावारी सम्बन्धी समस्या)"
-   - "Infertility (बाँझोपन)"
-   - "Pelvic / Abdominal Pain (दुखाई)"
-   - "General Gynaecological Checkup (सामान्य जाँच)"
-4. Section C: Patient Consent / सहमति (2 exact checkboxes):
-   - "I consent to examination and treatment / जाँच र उपचार गर्न सहमत छु" (consentTreatment: bool)
-   - "I consent to storage of my medical information / स्वास्थ्य विवरण भण्डारण गर्न सहमत छु" (consentStoreMedicalInfo: bool)
-
-PAGE 2 (BACK) — CLINICAL ASSESSMENT (STATIONS 1-6):
-1. Header: "Patient ID: [ ][ ][ ][ ][ ][ ][ ][ ][ ]" and Patient Name
-2. Station 1: Anamnesis & Obstetric History:
-   - "Deliveries (P): [ ]" (integer deliveries)
-   - "Living Children: [ ]" (integer livingChildren)
-   - "Abortions: [ ]" (integer abortions)
-   - "Complaints Duration:" (3 checkboxes: "< 3 months", "3-12 months", "> 1 year")
-   - "Clinical Complaints:" (9 exact checkboxes):
-     "Lower Abdominal Pain", "White / Foul Discharge", "Pelvic Heaviness",
-     "Burning Micturition", "Urinary Incontinence", "Dyspareunia",
-     "Coital Bleeding", "Mass Per Vagina", "Severe Backache"
-3. Station 2: POP Examination (Baden-Walker):
-   - "Uterus Inside:" (2 checkboxes: "Yes", "No (Prolapsed)" -> uterusInside: true/false)
-   - "Pelvic Tone:" (3 checkboxes: "Normal", "Weak", "Hypertonic" -> pelvicFloorTone: string)
-   - "Baden-Walker Staging:"
-     - "Anterior (Cystocele): [ ]" (0 to 4)
-     - "Middle (Uterine): [ ]" (0 to 4)
-     - "Posterior (Rectocele): [ ]" (0 to 4)
-     - "Highest Stage: [ ]" (0 to 4, or auto-derived from max of Anterior, Middle, Posterior)
-   - "Cervix Appearance:" (handwritten line text -> cervixRemarks)
-   - "Vagina / Vulva:" (handwritten line text -> vaginaRemarks)
-4. Station 3: Vitals & Point-of-Care Labs:
-   - "Blood Pressure: [ ][ ] / [ ][ ] mmHg" (systolicBp / diastolicBp)
-   - "Pulse: [ ][ ][ ] bpm" (pulseRate)
-   - "SpO2: [ ][ ] %" (spo2)
-   - "Blood Glucose: [ ][ ][ ] mg/dL" (bloodGlucose)
-   - "Urine Test:" (4 checkboxes: "Normal", "Protein+", "Glucose+", "Blood+")
-   - "Pregnancy Test (UPT):" (3 checkboxes: "Negative", "Positive", "Not Done")
-5. Station 4: Confirmed Diagnoses / निदान (21 checkboxes + Other):
-   - Checkboxes: "atrophy vagina", "bacterial vaginosis", "candid infection", "trichomonas",
-     "PID", "cervicitis", "cervical polyp", "cervical carcinoma", "condylomata", "fistula",
-     "infertility", "myoma", "cystitis", "lichen sclerosis", "stress incontinence", "ovarian tumor",
-     "urge incontinence", "menstrual disorder", "weak pelvic floor muscle", "pregnancy",
-     "hypertonic pelvic floor muscle", and handwritten text under "Other:"
-6. Station 5: Treatment & Prescriptions / उपचार:
-   - Medications Dispensed (10 checkboxes):
-     "clotrimazol (canesten)", "estradiol crème", "metronidazol", "doxycycline",
-     "azithromycin", "nitrofurantoine", "medroxyprogesterone", "ciproflox", "mirasin", "clobetasol"
-   - "Ring Pessary:" [ ] Yes [ ] No, Size: [ ][ ][ ] mm
-   - "Surgery Done:" [ ] Yes [ ] No, Type: [ ] Open surgery [ ] Laparoscopy [ ] Vaginal route
-7. Station 6: Discharge & Continuity of Care / अनुगमन तथा निरन्तर हेरचाह:
-   - "Follow-up Required:" [ ] Yes (Follow-up Needed) [ ] No (Routine)
-   - "Follow-up Destination:" (handwritten line text)
-   - "Surgical Referral:" [ ] None [ ] Scheer Memorial Hospital [ ] Model Hospital [ ] Local Government Hospital
-   - "Clinical Notes:" (multi-line handwritten remarks)
-8. Page 2 Footer / Examining Clinician Sign-off:
-   - Look for the Examining Doctor section / checkboxes: e.g. "[ ] Dr. Sita [ ] Dr. Gita" or signed doctor name under "Medical Officer / Gynecologist"
-   - Extract the identified/checked doctor name into "examiningDoctor" (e.g. "Dr. Sita Karki").
-
-Extract the information accurately into this EXACT JSON structure:
-{
-  "pageNumber": ${pageNumber == 0 ? '1 or 2' : pageNumber},
-  "demographics": {
-    "patientTokenId": "Token or registration ID (e.g. GC-KTM01-2026-001 or KTM01-0001)",
-    "firstName": "First name of patient (e.g. MAYA)",
-    "surname": "Surname (e.g. TAMANG)",
-    "age": number or null,
-    "maritalStatus": "married or widow or unmarried or divorced",
-    "relativeName": "Husband or father name (e.g. SOM BAHADUR TAMANG)",
-    "mobile": "10-digit phone number or empty",
-    "maritalAge": number or null,
-    "contactPerson": "Secondary contact person name (e.g. BISHAL TAMANG)",
-    "contactMobile": "10-digit contact phone number or empty",
-    "province": "Province name (e.g. BAGMATI)",
-    "district": "District name (e.g. KATHMANDU)",
-    "municipality": "Palika or municipality name (e.g. BUDHANILKANTHA)",
-    "ward": "Ward number (e.g. 04)",
-    "reasonsForVisit": ["List of checked visit reasons from Section B"],
-    "consentTreatment": true or false,
-    "consentStoreMedicalInfo": true or false
-  },
-  "obstetrics": {
-    "deliveries": number or null,
-    "livingChildren": number or null,
-    "abortions": number or null,
-    "complaintsDuration": "< 3 months or 3-12 months or > 1 year",
-    "clinicalComplaints": ["List of checked clinical complaints from Station 1"]
-  },
-  "popStaging": {
-    "uterusInside": true or false,
-    "pelvicFloorTone": "normal or weak or hypertonic",
-    "anteriorStage": number (0-4) or null,
-    "middleStage": number (0-4) or null,
-    "posteriorStage": number (0-4) or null,
-    "highestPopStage": number (0-4) or null,
-    "cervixRemarks": "Handwritten Cervix Appearance (e.g. Erosion, contact bleeding)",
-    "vaginaRemarks": "Handwritten Vagina / Vulva (e.g. Mild atrophic vaginitis, discharge)"
-  },
-  "vitals": {
-    "systolicBp": number or null,
-    "diastolicBp": number or null,
-    "pulseRate": number or null,
-    "spo2": number or null,
-    "bloodGlucose": number or null,
-    "urineTest": "Normal or Protein+ or Glucose+ or Blood+ or combined string",
-    "pregnancyTest": "neg or pos or not_done"
-  },
-  "diagnoses": ["List of checked diagnoses from Station 4, plus Other if filled"],
-  "medications": ["List of checked medications from Station 5"],
-  "ringPessary": true or false,
-  "ringPessarySize": number or null,
-  "surgeryDone": true or false,
-  "surgeryType": "Open surgery or Laparoscopy or Vaginal route or null",
-  "followUpNeeded": true or false,
-  "followUpDestination": "Follow-up destination clinic or nurse",
-  "surgicalReferral": "Scheer Memorial Hospital or Model Hospital or Local Government Hospital or None",
-  "examiningDoctor": "Examining doctor name or checked doctor checkbox on Page 2 or null",
-  "clinicalNotes": "Clinical notes written in Station 6",
-  "rawSummary": "A concise summary of all visible handwriting and marked fields on the page."
-}
-
-Do NOT output markdown blocks or conversational text. Output ONLY the raw JSON object.
-''';
   }
 
   void dispose() {

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PostgresConfig {
@@ -68,7 +70,7 @@ class SessionService {
   static const String _keyPgDirectMode = 'gynocamp_pg_direct_mode';
   static const String _keyDeviceInstallToken = 'gynocamp_device_install_token';
   static const String _keyOcrEngineMode = 'gynocamp_ocr_engine_mode';
-  static const String _keyGeminiApiKey = 'gynocamp_gemini_api_key';
+  static const String _keyDeviceSecret = 'gynocamp_device_secret';
   static const String _keyCentralServerUrl = 'gynocamp_central_server_url';
 
   static SessionService? _instance;
@@ -180,12 +182,21 @@ class SessionService {
 
   String getOcrEngineMode() => _prefs?.getString(_keyOcrEngineMode) ?? 'auto';
 
-  Future<void> saveGeminiApiKey(String apiKey) async {
-    if (_prefs == null) return;
-    await _prefs.setString(_keyGeminiApiKey, apiKey);
+  /// Random per-device secret (256-bit, hex) used to authenticate this device
+  /// to the central server's cloud-OCR proxy. Only its hash is stored server-side.
+  /// This is NOT a provider API key; the Gemini key never reaches the client.
+  String getOrCreateDeviceSecret() {
+    if (_prefs == null) return '';
+    var secret = _prefs.getString(_keyDeviceSecret);
+    if (secret == null || secret.length < 32) {
+      final rnd = Random.secure();
+      secret = List<int>.generate(32, (_) => rnd.nextInt(256))
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join();
+      _prefs.setString(_keyDeviceSecret, secret);
+    }
+    return secret;
   }
-
-  String? getGeminiApiKey() => _prefs?.getString(_keyGeminiApiKey);
 
   // Central Server URL (REST on port 8080)
   Future<void> saveCentralServerUrl(String url) async {

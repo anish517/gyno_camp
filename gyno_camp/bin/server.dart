@@ -2,10 +2,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'package:postgres/postgres.dart';
+import 'gemini_proxy.dart';
 
 /// GynoCamp Central Cloud Synchronization REST API Server
 /// Bridges Central PostgreSQL with Web Browsers (Chrome, Opera) and Android Tablets.
@@ -68,6 +70,13 @@ class GynoCampSyncServer {
   final List<Map<String, dynamic>> _memAuditLogs = [];
   final Map<String, String> _memDeletedEntities = {}; // id -> entity_type ('camp', 'user', 'lookup')
   final Map<String, Map<String, dynamic>> _memPasswordResetTokens = {}; // email -> token map
+
+  // Cloud OCR proxy (Gemini key lives ONLY in the server environment)
+  final GeminiProxy _gemini = GeminiProxy();
+  final OcrRateLimiter _ocrLimiter = OcrRateLimiter(maxPerWindow: 20, window: const Duration(minutes: 10), maxPerDay: 300);
+  final OcrRateLimiter _ocrAuthFailLimiter = OcrRateLimiter(maxPerWindow: 20, window: const Duration(minutes: 10), maxPerDay: 200);
+  final Map<String, String> _deviceSecretHashes = {}; // device_id -> sha256(secret) (in-memory fallback)
+  static const int _maxOcrBodyBytes = 9 * 1024 * 1024;
 
   GynoCampSyncServer({
     required this.pgHost,
@@ -290,6 +299,9 @@ class GynoCampSyncServer {
         );
       ''');
 
+      // Per-device secret (hash only) used to authenticate cloud-OCR requests.
+      await _connection!.execute('ALTER TABLE devices ADD COLUMN IF NOT EXISTS secret_hash TEXT;');
+
       await _connection!.execute('''
         CREATE TABLE IF NOT EXISTS lookup_items (
           id TEXT PRIMARY KEY,
@@ -501,6 +513,8 @@ class GynoCampSyncServer {
         await _handleApproveDevice(request);
       } else if (request.method == 'POST' && path == '/api/devices/revoke') {
         await _handleRevokeDevice(request);
+      } else if (request.method == 'POST' && path == '/api/ocr/extract') {
+        await _handleOcrExtract(request);
       } else if (request.method == 'POST' && path == '/api/tenant/rename') {
         await _handleRenameTenant(request);
       } else if (request.method == 'POST' && path == '/api/auth/forgot-password') {
@@ -2057,6 +2071,12 @@ class GynoCampSyncServer {
       }
     }
 
+    // Bind the device's OCR secret AFTER the row exists (first write wins; later callers cannot overwrite it).
+    final presentedSecret = request.headers.value('x-device-secret')?.trim() ?? '';
+    if (presentedSecret.length >= 32) {
+      await _bindDeviceSecret(deviceId, _hashDeviceSecret(presentedSecret));
+    }
+
     print('✓ Central Server registered/updated device: $deviceId (${map['device_name']}, status: ${map['status']})');
     request.response.statusCode = HttpStatus.ok;
     request.response.write(jsonEncode(map));
@@ -2131,6 +2151,197 @@ class GynoCampSyncServer {
     request.response.write(jsonEncode({'success': true, 'device_id': deviceId, 'status': 'REVOKED'}));
     await request.response.close();
     _broadcastSseEvent('sync_update', {'action': 'device_revoked', 'device_id': deviceId, 'timestamp': DateTime.now().toIso8601String()});
+  }
+
+  // ============================================================
+  //  Cloud OCR proxy (Gemini) - device authenticated
+  // ============================================================
+
+  String _hashDeviceSecret(String secret) =>
+      sha256.convert(utf8.encode('gynocamp_device_secret:$secret')).toString();
+
+  bool _constantTimeEquals(String a, String b) {
+    if (a.length != b.length) return false;
+    var diff = 0;
+    for (var i = 0; i < a.length; i++) {
+      diff |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return diff == 0;
+  }
+
+  /// First-write-wins binding of a device secret hash.
+  Future<bool> _bindDeviceSecret(String deviceId, String hash) async {
+    var bound = false;
+    if (_isPgConnected && _connection != null) {
+      try {
+        final rows = await _connection!.execute(
+          Sql.named('UPDATE devices SET secret_hash = @h WHERE device_id = @id AND secret_hash IS NULL RETURNING device_id;'),
+          parameters: {'h': hash, 'id': deviceId},
+        );
+        bound = rows.isNotEmpty;
+      } catch (e) {
+        print('! [server] Error binding device secret in PG: $e');
+      }
+    }
+    if (!_deviceSecretHashes.containsKey(deviceId)) {
+      _deviceSecretHashes[deviceId] = hash;
+      bound = true;
+    }
+    return bound;
+  }
+
+  /// Looks up a device by hardware fingerprint for OCR authentication.
+  Future<Map<String, String?>?> _lookupDeviceForOcrAuth(String fingerprint) async {
+    String? deviceId;
+    String? status;
+    String? secretHash;
+
+    if (_isPgConnected && _connection != null) {
+      try {
+        final rows = await _connection!.execute(
+          Sql.named('SELECT device_id, status, secret_hash FROM devices WHERE hardware_fingerprint = @fp LIMIT 1;'),
+          parameters: {'fp': fingerprint},
+        );
+        if (rows.isNotEmpty) {
+          deviceId = rows.first[0]?.toString();
+          status = rows.first[1]?.toString();
+          secretHash = rows.first[2]?.toString();
+        }
+      } catch (e) {
+        print('! [server] Error looking up device for OCR auth: $e');
+      }
+    }
+
+    if (deviceId == null) {
+      for (final d in _memDevices.values) {
+        if (d['hardware_fingerprint']?.toString() == fingerprint) {
+          deviceId = d['device_id']?.toString();
+          status = d['status']?.toString();
+          break;
+        }
+      }
+    }
+    if (deviceId == null) return null;
+    secretHash ??= _deviceSecretHashes[deviceId];
+    return {'device_id': deviceId, 'status': status, 'secret_hash': secretHash};
+  }
+
+  Future<void> _ocrReply(HttpRequest request, int status, Map<String, dynamic> body, {Map<String, String>? headers}) async {
+    request.response.statusCode = status;
+    headers?.forEach((k, v) => request.response.headers.set(k, v));
+    request.response.write(jsonEncode(body));
+    await request.response.close();
+  }
+
+  Future<void> _handleOcrExtract(HttpRequest request) async {
+    final started = DateTime.now();
+    final remoteIp = request.connectionInfo?.remoteAddress.address ?? 'unknown';
+
+    // Throttle clients that keep failing authentication.
+    final blockedFor = _ocrAuthFailLimiter.check('ip:$remoteIp');
+    if (blockedFor != null) {
+      await _ocrReply(
+        request,
+        HttpStatus.tooManyRequests,
+        {'success': false, 'code': 'RATE_LIMITED', 'error': 'Too many failed attempts. Try again later.'},
+        headers: {'Retry-After': blockedFor.inSeconds.clamp(1, 86400).toString()},
+      );
+      return;
+    }
+
+    Future<void> deny(int status, String code, String message) async {
+      _ocrAuthFailLimiter.record('ip:$remoteIp');
+      await _ocrReply(request, status, {'success': false, 'code': code, 'error': message});
+    }
+
+    // 1. Authenticate the calling device (before reading any body).
+    final fingerprint = request.headers.value('x-device-fingerprint')?.trim() ?? '';
+    final secret = request.headers.value('x-device-secret')?.trim() ?? '';
+    if (fingerprint.isEmpty || secret.length < 32) {
+      await deny(HttpStatus.unauthorized, 'DEVICE_CREDENTIALS_REQUIRED', 'Device credentials are required.');
+      return;
+    }
+    if (request.contentLength > _maxOcrBodyBytes) {
+      await _ocrReply(request, HttpStatus.requestEntityTooLarge, {'success': false, 'code': 'TOO_LARGE', 'error': 'Image is too large.'});
+      return;
+    }
+
+    final device = await _lookupDeviceForOcrAuth(fingerprint);
+    if (device == null || device['status']?.toUpperCase() != 'APPROVED') {
+      await deny(HttpStatus.forbidden, 'DEVICE_NOT_APPROVED', 'This device is not approved for cloud OCR.');
+      return;
+    }
+
+    final deviceId = device['device_id']!;
+    final presentedHash = _hashDeviceSecret(secret);
+    final storedHash = device['secret_hash'];
+    if (storedHash == null || storedHash.isEmpty) {
+      // Trust-on-first-use for devices approved before secrets existed.
+      await _bindDeviceSecret(deviceId, presentedHash);
+      print('✓ [ocr] Bound OCR secret for pre-existing approved device $deviceId');
+    } else if (!_constantTimeEquals(storedHash, presentedHash)) {
+      await deny(HttpStatus.unauthorized, 'DEVICE_SECRET_INVALID', 'Invalid device credentials.');
+      return;
+    }
+
+    // 2. Per-device rate limit.
+    final wait = _ocrLimiter.tryAcquire('dev:$deviceId');
+    if (wait != null) {
+      await _ocrReply(
+        request,
+        HttpStatus.tooManyRequests,
+        {'success': false, 'code': 'RATE_LIMITED', 'error': 'OCR rate limit reached for this device. Try again later.'},
+        headers: {'Retry-After': wait.inSeconds.clamp(1, 86400).toString()},
+      );
+      return;
+    }
+
+    // 3. Read body with a hard size cap.
+    final builder = BytesBuilder(copy: false);
+    var total = 0;
+    await for (final chunk in request) {
+      total += chunk.length;
+      if (total > _maxOcrBodyBytes) {
+        await _ocrReply(request, HttpStatus.requestEntityTooLarge, {'success': false, 'code': 'TOO_LARGE', 'error': 'Image is too large.'});
+        return;
+      }
+      builder.add(chunk);
+    }
+
+    Map<String, dynamic> data;
+    try {
+      data = jsonDecode(utf8.decode(builder.takeBytes())) as Map<String, dynamic>;
+    } catch (_) {
+      await _ocrReply(request, HttpStatus.badRequest, {'success': false, 'code': 'BAD_REQUEST', 'error': 'Invalid JSON body.'});
+      return;
+    }
+
+    final imageBase64 = data['imageBase64'];
+    final mimeType = data['mimeType'];
+    final pageNumber = data['pageNumber'];
+    if (imageBase64 is! String || mimeType is! String || pageNumber is! int) {
+      await _ocrReply(request, HttpStatus.badRequest, {'success': false, 'code': 'BAD_REQUEST', 'error': 'imageBase64, mimeType and pageNumber are required.'});
+      return;
+    }
+
+    // 4. Call Gemini with the server-held key.
+    try {
+      final text = await _gemini.extractText(
+        imageBase64: imageBase64,
+        mimeType: mimeType,
+        pageNumber: pageNumber,
+      );
+      final ms = DateTime.now().difference(started).inMilliseconds;
+      // Never log image bytes or extracted patient data.
+      print('✓ [ocr] device=$deviceId page=$pageNumber ok in ${ms}ms');
+      await _ocrReply(request, HttpStatus.ok, {'success': true, 'text': text});
+    } on GeminiProxyException catch (e) {
+      print('! [ocr] device=$deviceId page=$pageNumber failed: ${e.code}');
+      await _ocrReply(request, e.statusCode, {'success': false, 'code': e.code, 'error': e.message});
+    } catch (e) {
+      print('! [ocr] device=$deviceId unexpected error: ${e.runtimeType}');
+      await _ocrReply(request, HttpStatus.internalServerError, {'success': false, 'code': 'OCR_ERROR', 'error': 'Cloud OCR failed.'});
+    }
   }
 
   // ============================================================

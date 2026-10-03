@@ -17,6 +17,21 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
+  /// Builds a client wired to a fake GynoCamp server (the proxy), never to Google.
+  GeminiOcrService buildService(http.Client client) => GeminiOcrService(
+        httpClient: client,
+        baseUrl: 'http://test-server:8080',
+        deviceFingerprint: 'TESTFINGERPRINT0123456789ABCDEF',
+        deviceSecret: 'a' * 64,
+      );
+
+  /// Server proxy success envelope: the extracted JSON is returned as `text`.
+  http.Response proxyOk(Map<String, dynamic> extracted) => http.Response(
+        jsonEncode({'success': true, 'text': jsonEncode(extracted)}),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+
   group('GeminiOcrService Unit Tests', () {
     test('parses mock Gemini multimodal JSON response correctly', () async {
       final mockJsonResponse = {
@@ -101,25 +116,34 @@ void main() {
       };
 
       final mockClient = MockClient((request) async {
-        expect(request.url.toString(), contains('generativelanguage.googleapis.com'));
-        expect(request.headers['X-goog-api-key'], isNotEmpty);
+        // Must talk to OUR server proxy, never directly to Google.
+        expect(request.url.toString(), 'http://test-server:8080/api/ocr/extract');
+        expect(request.url.host, isNot(contains('googleapis')));
         expect(request.headers['Content-Type'], 'application/json');
+        expect(request.headers['X-Device-Fingerprint'], 'TESTFINGERPRINT0123456789ABCDEF');
+        expect(request.headers['X-Device-Secret'], 'a' * 64);
+        // No provider key may ever be sent from the client.
+        expect(request.headers.keys.map((k) => k.toLowerCase()), isNot(contains('x-goog-api-key')));
+        expect(request.headers.keys.map((k) => k.toLowerCase()), isNot(contains('authorization')));
 
         final bodyJson = jsonDecode(request.body) as Map<String, dynamic>;
-        expect(bodyJson['contents'], isNotEmpty);
-        expect(bodyJson['generationConfig']['response_mime_type'], 'application/json');
+        expect(bodyJson['imageBase64'], isNotEmpty);
+        expect(bodyJson['mimeType'], anyOf('image/jpeg', 'image/png'));
+        expect(bodyJson['pageNumber'], 1);
+        // Prompt and model config are owned by the server, not the client.
+        expect(bodyJson.containsKey('contents'), false);
+        expect(bodyJson.containsKey('generationConfig'), false);
 
+        final text = mockJsonResponse['candidates'] as List;
+        final extractedText = ((text[0] as Map)['content'] as Map)['parts'][0]['text'] as String;
         return http.Response(
-          jsonEncode(mockJsonResponse),
+          jsonEncode({'success': true, 'text': extractedText}),
           200,
           headers: {'content-type': 'application/json; charset=utf-8'},
         );
       });
 
-      final service = GeminiOcrService(
-        httpClient: mockClient,
-        apiKey: 'TEST_API_KEY_123',
-      );
+      final service = buildService(mockClient);
 
       final sampleFile = XFile('test_samples/sample_yellow_form_filled_page1.jpg');
       final result = await service.extractFromImage(sampleFile, pageNumber: 1);
@@ -190,21 +214,59 @@ void main() {
       expect(result.rawText, contains('GEMINI FLASH CLOUD OCR'));
     });
 
-    test('throws GeminiOcrException on HTTP error status', () async {
+    test('throws GeminiOcrException with server message on HTTP error status', () async {
       final mockClient = MockClient((request) async {
-        return http.Response('Unauthorized API key', 401);
+        return http.Response(
+          jsonEncode({'success': false, 'code': 'DEVICE_NOT_APPROVED', 'error': 'This device is not approved for cloud OCR.'}),
+          403,
+        );
       });
 
-      final service = GeminiOcrService(
-        httpClient: mockClient,
-        apiKey: 'INVALID_KEY',
+      final service = buildService(mockClient);
+
+      final sampleFile = XFile('test_samples/sample_yellow_form_filled_page1.jpg');
+      expect(
+        () => service.extractFromImage(sampleFile, pageNumber: 1),
+        throwsA(
+          isA<GeminiOcrException>()
+              .having((e) => e.statusCode, 'statusCode', 403)
+              .having((e) => e.message, 'message', contains('not approved')),
+        ),
       );
+    });
+
+    test('throws GeminiOcrException when the server is unreachable', () async {
+      final mockClient = MockClient((request) async {
+        throw http.ClientException('connection refused');
+      });
+      final service = buildService(mockClient);
 
       final sampleFile = XFile('test_samples/sample_yellow_form_filled_page1.jpg');
       expect(
         () => service.extractFromImage(sampleFile, pageNumber: 1),
         throwsA(isA<GeminiOcrException>()),
       );
+    });
+
+    test('refuses to call the server without device credentials', () async {
+      var called = false;
+      final mockClient = MockClient((request) async {
+        called = true;
+        return http.Response('{}', 200);
+      });
+      // No explicit secret and no SessionService instance -> empty secret.
+      final service = GeminiOcrService(
+        httpClient: mockClient,
+        baseUrl: 'http://test-server:8080',
+        deviceFingerprint: 'FP',
+      );
+
+      final sampleFile = XFile('test_samples/sample_yellow_form_filled_page1.jpg');
+      await expectLater(
+        service.extractFromImage(sampleFile, pageNumber: 1),
+        throwsA(isA<GeminiOcrException>()),
+      );
+      expect(called, false);
     });
   });
 
@@ -228,34 +290,19 @@ void main() {
 
     test('in AUTO mode, uses Gemini when available', () async {
       final mockGeminiSuccess = MockClient((request) async {
-        return http.Response(
-          jsonEncode({
-            'candidates': [
-              {
-                'content': {
-                  'parts': [
-                    {
-                      'text': jsonEncode({
-                        'pageNumber': 1,
-                        'demographics': {'firstName': 'Gita', 'surname': 'Rai', 'age': 42},
-                        'obstetrics': {},
-                        'vitals': {},
-                        'popStaging': {},
-                        'diagnoses': [],
-                        'medications': [],
-                        'rawSummary': 'Gita Rai 42y',
-                      })
-                    }
-                  ]
-                }
-              }
-            ]
-          }),
-          200,
-        );
+        return proxyOk({
+          'pageNumber': 1,
+          'demographics': {'firstName': 'Gita', 'surname': 'Rai', 'age': 42},
+          'obstetrics': {},
+          'vitals': {},
+          'popStaging': {},
+          'diagnoses': [],
+          'medications': [],
+          'rawSummary': 'Gita Rai 42y',
+        });
       });
 
-      final geminiService = GeminiOcrService(httpClient: mockGeminiSuccess, apiKey: 'KEY');
+      final geminiService = buildService(mockGeminiSuccess);
       final ocrRepo = OcrRepository(
         patientRepository: patientRepo,
         auditRepository: auditRepo,
@@ -279,7 +326,7 @@ void main() {
         return http.Response('Service Unavailable', 503);
       });
 
-      final geminiService = GeminiOcrService(httpClient: mockGeminiFailing, apiKey: 'KEY');
+      final geminiService = buildService(mockGeminiFailing);
       final ocrRepo = OcrRepository(
         patientRepository: patientRepo,
         auditRepository: auditRepo,
@@ -308,7 +355,7 @@ void main() {
         return http.Response('Should not be called', 500);
       });
 
-      final geminiService = GeminiOcrService(httpClient: mockGemini, apiKey: 'KEY');
+      final geminiService = buildService(mockGemini);
       final ocrRepo = OcrRepository(
         patientRepository: patientRepo,
         auditRepository: auditRepo,
@@ -334,7 +381,7 @@ void main() {
         return http.Response('Unauthorized', 401);
       });
 
-      final geminiService = GeminiOcrService(httpClient: mockGeminiFailing, apiKey: 'KEY');
+      final geminiService = buildService(mockGeminiFailing);
       final ocrRepo = OcrRepository(
         patientRepository: patientRepo,
         auditRepository: auditRepo,
@@ -354,34 +401,19 @@ void main() {
 
     test('commitVerifiedScan records ocrEngine in cryptographic audit log', () async {
       final mockGeminiSuccess = MockClient((request) async {
-        return http.Response(
-          jsonEncode({
-            'candidates': [
-              {
-                'content': {
-                  'parts': [
-                    {
-                      'text': jsonEncode({
-                        'pageNumber': 1,
-                        'demographics': {'firstName': 'Sunita', 'surname': 'Gurung', 'age': 34, 'ward': '02'},
-                        'obstetrics': {},
-                        'vitals': {'systolicBp': 118, 'diastolicBp': 78},
-                        'popStaging': {'stage': 2, 'highestPopStage': 2},
-                        'diagnoses': ['POP Stage II'],
-                        'medications': ['Pelvic Floor Muscle Training'],
-                        'rawSummary': 'Sunita Gurung',
-                      })
-                    }
-                  ]
-                }
-              }
-            ]
-          }),
-          200,
-        );
+        return proxyOk({
+          'pageNumber': 1,
+          'demographics': {'firstName': 'Sunita', 'surname': 'Gurung', 'age': 34, 'ward': '02'},
+          'obstetrics': {},
+          'vitals': {'systolicBp': 118, 'diastolicBp': 78},
+          'popStaging': {'stage': 2, 'highestPopStage': 2},
+          'diagnoses': ['POP Stage II'],
+          'medications': ['Pelvic Floor Muscle Training'],
+          'rawSummary': 'Sunita Gurung',
+        });
       });
 
-      final geminiService = GeminiOcrService(httpClient: mockGeminiSuccess, apiKey: 'KEY');
+      final geminiService = buildService(mockGeminiSuccess);
       final ocrRepo = OcrRepository(
         patientRepository: patientRepo,
         auditRepository: auditRepo,
