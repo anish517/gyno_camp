@@ -58,3 +58,8 @@ local_env.bat
 secrets.json
 *.local.bat
 *.db
+.env
+.env.*
+server.env
+!server.env.example
+*.secrets

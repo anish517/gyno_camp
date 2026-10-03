@@ -26,6 +26,6 @@ echo [3/3] Launching GynoCamp on BOTH Chrome and your Android Phone...
 echo      (Press 'r' in this terminal to hot-reload both devices simultaneously!)
 echo.
 
-flutter run -d all --web-port=5000 --dart-define=CENTRAL_SERVER_URL=http://192.168.16.113:8080 --dart-define=GEMINI_API_KEY=%GEMINI_API_KEY%
+flutter run -d all --web-port=5000 --dart-define=CENTRAL_SERVER_URL=http://192.168.16.113:8080
 
 pause

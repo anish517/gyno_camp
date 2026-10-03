@@ -11,6 +11,7 @@ import '../../models/sync_payload_model.dart';
 import '../../models/user_model.dart';
 import '../../models/device_model.dart';
 import 'central_api_service.dart';
+import '../security/security_service.dart';
 
 import 'session_service.dart';
 
@@ -401,10 +402,21 @@ class HttpCentralApiService implements ICentralApiService {
     if (!isConfigured || isServerCooldownActive) return false;
     try {
       final uri = Uri.parse('$baseUrl/api/devices');
+      final headers = <String, String>{
+        'Content-Type': 'application/json; charset=utf-8',
+      };
+      // Bind this device's secret server-side ONLY when registering our own device.
+      // (Admins re-broadcast other devices' records; never attach our secret to those.)
+      try {
+        if (device.hardwareFingerprint == SecurityService.generateDeviceFingerprint()) {
+          final secret = SessionService.current?.getOrCreateDeviceSecret() ?? '';
+          if (secret.length >= 32) headers['X-Device-Secret'] = secret;
+        }
+      } catch (_) {}
       final res = await _client
           .post(
             uri,
-            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            headers: headers,
             body: jsonEncode(device.toMap()),
           )
           .timeout(const Duration(seconds: 4));
