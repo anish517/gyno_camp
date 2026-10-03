@@ -145,33 +145,49 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: Column(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      organizationName.toUpperCase(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryTeal,
-                        letterSpacing: 0.6,
+                    // WFWSN Logo
+                    ClipOval(
+                      child: Image.asset(
+                        'assets/WFWSNPrimaryCircle.jpg',
+                        width: 52,
+                        height: 52,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const SizedBox(width: 52, height: 52),
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      campName,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            organizationName.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryTeal,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            campName,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '$venue, Ward ${patient.ward} • $district (Camp Code: $campCode)',
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '$venue, Ward ${patient.ward} • $district (Camp Code: $campCode)',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),

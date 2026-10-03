@@ -241,6 +241,13 @@ class PdfReportService {
     final darkTextColor = PdfColor.fromHex('1E293B');
     final borderGray = PdfColor.fromHex('CBD5E1');
 
+    // Load WFWSN logo
+    pw.MemoryImage? logoImage;
+    try {
+      final logoData = await rootBundle.load('assets/WFWSNPrimaryCircle.jpg');
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (_) {}
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -256,32 +263,41 @@ class PdfReportService {
             ),
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      'GYNOCAMP HEALTH CLINICAL REPORT',
-                      style: pw.TextStyle(
-                        color: primaryColor,
-                        fontSize: 16,
-                        fontWeight: pw.FontWeight.bold,
+                // Logo
+                if (logoImage != null)
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(right: 12),
+                    child: pw.Image(logoImage, width: 56, height: 56),
+                  ),
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'GYNOCAMP HEALTH CLINICAL REPORT',
+                        style: pw.TextStyle(
+                          color: primaryColor,
+                          fontSize: 16,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      sanitizeText(summary.campName),
-                      style: pw.TextStyle(
-                        fontSize: 13,
-                        fontWeight: pw.FontWeight.bold,
-                        color: darkTextColor,
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        sanitizeText(summary.campName),
+                        style: pw.TextStyle(
+                          fontSize: 13,
+                          fontWeight: pw.FontWeight.bold,
+                          color: darkTextColor,
+                        ),
                       ),
-                    ),
-                    pw.Text(
-                      sanitizeText('${summary.venue}, ${summary.municipality}, ${summary.district}'),
-                      style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
-                    ),
-                  ],
+                      pw.Text(
+                        sanitizeText('${summary.venue}, ${summary.municipality}, ${summary.district}'),
+                        style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
+                      ),
+                    ],
+                  ),
                 ),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -1516,6 +1532,13 @@ class PdfReportService {
     final cyanBg = PdfColor.fromHex('ECFEFF');
     final cyan = PdfColor.fromHex('0891B2');
 
+    // Load WFWSN logo
+    pw.MemoryImage? logoImage;
+    try {
+      final logoData = await rootBundle.load('assets/WFWSNPrimaryCircle.jpg');
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (_) {}
+
     final isFollowUp = visit.isFollowUp;
     final encounterColor = isFollowUp ? cyan : primary;
     final encounterBg = isFollowUp ? cyanBg : lightBg;
@@ -1550,8 +1573,14 @@ class PdfReportService {
             ),
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
+                // WFWSN Logo
+                if (logoImage != null)
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(right: 10),
+                    child: pw.Image(logoImage, width: 48, height: 48),
+                  ),
                 pw.Expanded(
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
