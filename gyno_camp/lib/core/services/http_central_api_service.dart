@@ -103,7 +103,7 @@ class HttpCentralApiService implements ICentralApiService {
       final savedUrl = SessionService.current?.getCentralServerUrl();
       if (savedUrl != null &&
           savedUrl.isNotEmpty &&
-          savedUrl != 'http://192.168.1.4:8080') {
+          savedUrl != 'http://192.168.1.3:8080') {
         return savedUrl;
       }
     } catch (_) {}
@@ -121,7 +121,7 @@ class HttpCentralApiService implements ICentralApiService {
       }
     } catch (_) {}
 
-    return 'http://192.168.1.7:8080';
+    return 'http://192.168.1.3:8080';
   }
 
   bool simulateNetworkFailure = false;
@@ -408,17 +408,15 @@ class HttpCentralApiService implements ICentralApiService {
       // Bind this device's secret server-side ONLY when registering our own device.
       // (Admins re-broadcast other devices' records; never attach our secret to those.)
       try {
-        if (device.hardwareFingerprint == SecurityService.generateDeviceFingerprint()) {
-          final secret = SessionService.current?.getOrCreateDeviceSecret() ?? '';
+        if (device.hardwareFingerprint ==
+            SecurityService.generateDeviceFingerprint()) {
+          final secret =
+              SessionService.current?.getOrCreateDeviceSecret() ?? '';
           if (secret.length >= 32) headers['X-Device-Secret'] = secret;
         }
       } catch (_) {}
       final res = await _client
-          .post(
-            uri,
-            headers: headers,
-            body: jsonEncode(device.toMap()),
-          )
+          .post(uri, headers: headers, body: jsonEncode(device.toMap()))
           .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200 || res.statusCode == 201) {
         markServerOnline();
@@ -541,14 +539,16 @@ class HttpCentralApiService implements ICentralApiService {
             body: jsonEncode({'email': email.trim()}),
           )
           .timeout(const Duration(seconds: 15));
-      final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final body =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
       if (res.statusCode == 200 || res.statusCode == 201) {
         markServerOnline();
         return body;
       } else {
         return {
           'success': false,
-          'error': body['error'] ?? 'Failed to send reset code (${res.statusCode})',
+          'error':
+              body['error'] ?? 'Failed to send reset code (${res.statusCode})',
         };
       }
     } catch (e) {
@@ -562,7 +562,10 @@ class HttpCentralApiService implements ICentralApiService {
   }
 
   /// Verifies a 6-digit reset code
-  Future<Map<String, dynamic>> verifyResetCode(String email, String code) async {
+  Future<Map<String, dynamic>> verifyResetCode(
+    String email,
+    String code,
+  ) async {
     if (!isConfigured || isServerCooldownActive) {
       return {
         'success': false,
@@ -579,7 +582,8 @@ class HttpCentralApiService implements ICentralApiService {
             body: jsonEncode({'email': email.trim(), 'code': code.trim()}),
           )
           .timeout(const Duration(seconds: 6));
-      final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final body =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
       if (res.statusCode == 200) {
         markServerOnline();
         return body;
@@ -630,14 +634,16 @@ class HttpCentralApiService implements ICentralApiService {
             body: jsonEncode(payload),
           )
           .timeout(const Duration(seconds: 8));
-      final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final body =
+          jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
       if (res.statusCode == 200) {
         markServerOnline();
         return body;
       } else {
         return {
           'success': false,
-          'error': body['error'] ?? 'Failed to reset password (${res.statusCode})',
+          'error':
+              body['error'] ?? 'Failed to reset password (${res.statusCode})',
         };
       }
     } catch (e) {

@@ -9,18 +9,63 @@ import 'package:mailer/smtp_server.dart';
 import 'package:postgres/postgres.dart';
 import 'gemini_proxy.dart';
 
+final Map<String, String> _env = {};
+
+String _getEnv(String key, [String defaultValue = '']) {
+  return _env[key] ?? Platform.environment[key] ?? defaultValue;
+}
+
+void _loadEnvFile() {
+  final candidates = [
+    'server.env',
+    'gyno_camp/server.env',
+    '../server.env',
+    'bin/server.env',
+  ];
+  for (final path in candidates) {
+    final file = File(path);
+    if (file.existsSync()) {
+      try {
+        final lines = file.readAsLinesSync();
+        for (var line in lines) {
+          line = line.trim();
+          if (line.isEmpty || line.startsWith('#')) continue;
+          final eqIdx = line.indexOf('=');
+          if (eqIdx > 0) {
+            final key = line.substring(0, eqIdx).trim();
+            var val = line.substring(eqIdx + 1).trim();
+            if ((val.startsWith('"') && val.endsWith('"')) ||
+                (val.startsWith("'") && val.endsWith("'"))) {
+              val = val.substring(1, val.length - 1);
+            }
+            if (key.isNotEmpty) {
+              _env[key] = val;
+            }
+          }
+        }
+        print('✓ Loaded server environment from $path');
+        return;
+      } catch (e) {
+        print('! Warning reading $path: $e');
+      }
+    }
+  }
+}
+
 /// GynoCamp Central Cloud Synchronization REST API Server
 /// Bridges Central PostgreSQL with Web Browsers (Chrome, Opera) and Android Tablets.
 void main(List<String> args) async {
-  final port = int.tryParse(Platform.environment['PORT'] ?? '8080') ?? 8080;
-  // HOST=127.0.0.1 keeps the API reachable only through the reverse proxy.
-  final host = InternetAddress.tryParse(Platform.environment['HOST'] ?? '') ?? InternetAddress.anyIPv4;
+  _loadEnvFile();
 
-  final pgHost = Platform.environment['PGHOST'] ?? 'localhost';
-  final pgPort = int.tryParse(Platform.environment['PGPORT'] ?? '5432') ?? 5432;
-  final pgDb = Platform.environment['PGDATABASE'] ?? 'gynocamp_db';
-  final pgUser = Platform.environment['PGUSER'] ?? 'postgres';
-  final pgPassword = Platform.environment['PGPASSWORD'] ?? 'postgres';
+  final port = int.tryParse(_getEnv('PORT', '8080')) ?? 8080;
+  // HOST=127.0.0.1 keeps the API reachable only through the reverse proxy.
+  final host = InternetAddress.tryParse(_getEnv('HOST')) ?? InternetAddress.anyIPv4;
+
+  final pgHost = _getEnv('PGHOST', 'localhost');
+  final pgPort = int.tryParse(_getEnv('PGPORT', '5432')) ?? 5432;
+  final pgDb = _getEnv('PGDATABASE', 'gynocamp_db');
+  final pgUser = _getEnv('PGUSER', 'postgres');
+  final pgPassword = _getEnv('PGPASSWORD', 'postgres');
 
   print('====================================================');
   print(' GynoCamp Central Cloud Synchronization Server');
@@ -72,7 +117,9 @@ class GynoCampSyncServer {
   final Map<String, Map<String, dynamic>> _memPasswordResetTokens = {}; // email -> token map
 
   // Cloud OCR proxy (Gemini key lives ONLY in the server environment)
-  final GeminiProxy _gemini = GeminiProxy();
+  late final GeminiProxy _gemini = GeminiProxy(
+    apiKeyProvider: () => _getEnv('GEMINI_API_KEY'),
+  );
   final OcrRateLimiter _ocrLimiter = OcrRateLimiter(maxPerWindow: 20, window: const Duration(minutes: 10), maxPerDay: 300);
   final OcrRateLimiter _ocrAuthFailLimiter = OcrRateLimiter(maxPerWindow: 20, window: const Duration(minutes: 10), maxPerDay: 200);
   final Map<String, String> _deviceSecretHashes = {}; // device_id -> sha256(secret) (in-memory fallback)
@@ -2454,13 +2501,22 @@ class GynoCampSyncServer {
     }
 
     // 3. Send email via SMTP
-    final smtpHost = Platform.environment['SMTP_HOST'] ?? 'smtp.gmail.com';
-    final smtpPort = int.tryParse(Platform.environment['SMTP_PORT'] ?? '587') ?? 587;
-    final smtpUser = Platform.environment['SMTP_USER'] ?? '';
-    final smtpPass = Platform.environment['SMTP_PASSWORD'] ?? '';
-    final smtpFromName = Platform.environment['SMTP_FROM_NAME'] ?? 'GynoCamp Security Network';
-    final smtpFromEmail = Platform.environment['SMTP_FROM_EMAIL'] ?? (smtpUser.isNotEmpty ? smtpUser : 'no-reply@gynocamp.org');
-    final smtpSecure = (Platform.environment['SMTP_SECURE'] ?? 'false').toLowerCase() == 'true' || smtpPort == 465;
+    final smtpHost = _getEnv('SMTP_HOST', 'smtp.gmail.com');
+    final smtpPort = int.tryParse(_getEnv('SMTP_PORT', '587')) ?? 587;
+    var smtpUser = _getEnv('SMTP_USER');
+    var smtpPass = _getEnv('SMTP_PASSWORD');
+    final smtpFromName = _getEnv('SMTP_FROM_NAME', 'GynoCamp Security Network');
+    final smtpFromEmail = _getEnv('SMTP_FROM_EMAIL', smtpUser.isNotEmpty ? smtpUser : 'no-reply@gynocamp.org');
+    final smtpSecure = (_getEnv('SMTP_SECURE', 'false')).toLowerCase() == 'true' || smtpPort == 465;
+
+    // Auto-fix: If user supplied display name as SMTP_USER instead of email for Gmail, fallback to smtpFromEmail
+    if (!smtpUser.contains('@') && smtpFromEmail.contains('@') && smtpHost.toLowerCase().contains('gmail')) {
+      smtpUser = smtpFromEmail;
+    }
+    // Auto-fix: Strip spaces from Google App Password if present
+    if (smtpHost.toLowerCase().contains('gmail')) {
+      smtpPass = smtpPass.replaceAll(' ', '');
+    }
 
     bool emailSent = false;
     String? emailError;
@@ -2787,6 +2843,13 @@ class GynoCampSyncServer {
   }
 
   String _generateResetEmailHtml(String code, String recipientName) {
+    final digits = code.trim().split('');
+    final digitsHtml = digits.map((d) => '''
+      <td width="38" height="46" align="center" valign="middle" style="background-color: #F1F5F9; border: 2px solid #CBD5E1; border-radius: 8px; font-family: 'Courier New', Courier, monospace; font-size: 26px; font-weight: 800; color: #1E0A38; text-align: center; padding: 0;">
+        $d
+      </td>
+    ''').join('');
+
     return '''
 <!DOCTYPE html>
 <html>
@@ -2795,33 +2858,38 @@ class GynoCampSyncServer {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Password Reset Verification Code</title>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 24px; color: #1E293B;">
-  <div style="max-width: 520px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-    <div style="background: linear-gradient(135deg, #1E0A38 0%, #4A154B 100%); padding: 28px 24px; text-align: center;">
-      <h1 style="color: #FFFFFF; font-size: 22px; margin: 0; font-weight: 800; letter-spacing: -0.5px;">GynoCamp Health Outreach</h1>
-      <p style="color: #E2E8F0; font-size: 13px; margin: 6px 0 0 0;">Secure Staff Authentication Portal</p>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 16px; color: #1E293B;">
+  <div style="max-width: 500px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+    <div style="background: linear-gradient(135deg, #1E0A38 0%, #4A154B 100%); padding: 24px 20px; text-align: center;">
+      <h1 style="color: #FFFFFF; font-size: 20px; margin: 0; font-weight: 800; letter-spacing: -0.5px;">GynoCamp Health Outreach</h1>
+      <p style="color: #E2E8F0; font-size: 12.5px; margin: 6px 0 0 0;">Secure Staff Authentication Portal</p>
     </div>
-    <div style="padding: 32px 24px;">
-      <h2 style="font-size: 18px; font-weight: 700; color: #0F172A; margin-top: 0;">Password Reset Request</h2>
+    <div style="padding: 24px 20px;">
+      <h2 style="font-size: 17px; font-weight: 700; color: #0F172A; margin-top: 0;">Password Reset Request</h2>
       <p style="font-size: 14px; line-height: 1.5; color: #475569;">Hello $recipientName,</p>
       <p style="font-size: 14px; line-height: 1.5; color: #475569;">
         We received a request to reset the password for your GynoCamp staff account. Use the verification code below to authorize your password change:
       </p>
-      <div style="text-align: center; margin: 28px 0;">
-        <div style="display: inline-block; background-color: #F1F5F9; border: 2px dashed #94A3B8; border-radius: 10px; padding: 14px 28px;">
-          <span style="font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #1E0A38;">$code</span>
+      <div style="text-align: center; margin: 24px 0;">
+        <table align="center" border="0" cellpadding="0" cellspacing="6" style="margin: 0 auto; border-collapse: separate;">
+          <tr>
+            $digitsHtml
+          </tr>
+        </table>
+        <div style="margin-top: 10px; font-size: 12px; color: #64748B;">
+          Plain text code: <strong style="color: #1E0A38; font-family: monospace; letter-spacing: 2px;">$code</strong>
         </div>
       </div>
       <p style="font-size: 13px; color: #64748B; line-height: 1.5;">
         ⏳ <strong>Security Note:</strong> This verification code will expire in <strong>15 minutes</strong> and can only be used once.
       </p>
-      <div style="margin-top: 24px; padding: 12px 16px; background-color: #FEF2F2; border-left: 4px solid #EF4444; border-radius: 4px;">
+      <div style="margin-top: 20px; padding: 12px 16px; background-color: #FEF2F2; border-left: 4px solid #EF4444; border-radius: 4px;">
         <p style="font-size: 12px; color: #991B1B; margin: 0; line-height: 1.4;">
           If you did not request this password reset, please ignore this email or notify your Super Administrator immediately.
         </p>
       </div>
     </div>
-    <div style="background-color: #F8FAFC; padding: 16px 24px; border-top: 1px solid #E2E8F0; text-align: center;">
+    <div style="background-color: #F8FAFC; padding: 14px 20px; border-top: 1px solid #E2E8F0; text-align: center;">
       <p style="font-size: 11px; color: #94A3B8; margin: 0;">
         Nepal Gynaecological Camp Management System • Outreach Health Center
       </p>
