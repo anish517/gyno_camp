@@ -20,6 +20,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -29,8 +30,12 @@ class _LoginViewState extends ConsumerState<LoginView> {
   }
 
   Future<void> _handleLogin(String deviceId) async {
+    // Debounce: prevent overlapping login calls from rapid Enter key / button taps
+    if (_isSubmitting) return;
     if (ref.read(authStateProvider).isLoading) return;
+    _isSubmitting = true;
 
+    try {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     if (email.isEmpty) {
@@ -236,6 +241,9 @@ class _LoginViewState extends ConsumerState<LoginView> {
           (route) => false,
         );
       }
+    }
+    } finally {
+      _isSubmitting = false;
     }
   }
 
@@ -689,35 +697,41 @@ class _LoginViewState extends ConsumerState<LoginView> {
       key: const ValueKey('credential_card_column'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Error Message Banner (if any)
-        if (authState.errorMessage != null)
-          Container(
-            key: const ValueKey('login_error_banner_box'),
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.dangerRose.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.4)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.error_outline_rounded, color: AppTheme.dangerRose, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    authState.errorMessage!,
-                    style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, height: 1.3),
+        // Error Message Banner — always present in widget tree to prevent
+        // Flutter Web TextField desync caused by widget tree restructuring.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          alignment: Alignment.topCenter,
+          child: authState.errorMessage != null
+              ? Container(
+                  key: const ValueKey('login_error_banner_box'),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerRose.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.4)),
                   ),
-                ),
-                InkWell(
-                  onTap: () => ref.read(authStateProvider.notifier).clearError(),
-                  child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.dangerRose),
-                ),
-              ],
-            ),
-          ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.error_outline_rounded, color: AppTheme.dangerRose, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          authState.errorMessage!,
+                          style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, height: 1.3),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => ref.read(authStateProvider.notifier).clearError(),
+                        child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.dangerRose),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
 
         Card(
           key: const ValueKey('login_credential_card'),
@@ -854,7 +868,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
-                  onSubmitted: (_) => _handleLogin(deviceId),
+                  onSubmitted: authState.isLoading ? null : (_) => _handleLogin(deviceId),
                 ),
                 const SizedBox(height: 6),
                 Align(

@@ -701,25 +701,34 @@ class AuthRepository implements IAuthRepository {
           user.passwordHash == inputHash;
 
       if (!isPasswordValid && !isPinValid) {
-        // If local credentials failed to match, check whether updated credentials exist on the central cloud server!
-        // This immediately handles cases where the user or admin updated password/PIN on another device or browser.
-        if (enableCentralSync && !HttpCentralApiService.isServerCooldownActive) {
+        // getUserByEmail() above already synced the latest user data from the central server
+        // into local SQLite. Re-read the freshest local record to check if credentials were
+        // updated remotely (e.g. password reset from another browser).
+        // This avoids a redundant fetchCentralUsers() HTTP call that would cause excess
+        // widget rebuilds and contribute to TextField desync on Flutter Web.
+        if (enableCentralSync) {
           try {
-            final centralUsers = await HttpCentralApiService().fetchCentralUsers();
             final db = await _databaseService.database;
-            for (final u in centralUsers) {
-              await _upsertUserPreservingCredentials(db, u);
-            }
-            final reloaded = await getUserByEmail(email);
-            if (reloaded != null && reloaded.isActive) {
-              final isPinValidFresh = reloaded.pinHash != null &&
-                  reloaded.pinHash!.isNotEmpty &&
-                  SecurityService.verifyPin(password, reloaded.pinHash!);
-              final isPasswordValidFresh = reloaded.passwordHash != null &&
-                  reloaded.passwordHash!.isNotEmpty &&
-                  reloaded.passwordHash == inputHash;
-              if (isPasswordValidFresh || isPinValidFresh) {
-                user = reloaded;
+            final freshRows = await db.query(
+              DatabaseTables.tableUsers,
+              where: 'LOWER(email) = ? OR phone = ?',
+              whereArgs: [email.trim().toLowerCase(), email.trim()],
+              limit: 1,
+            );
+            if (freshRows.isNotEmpty) {
+              final reloaded = UserModel.fromMap(freshRows.first);
+              if (reloaded.isActive) {
+                final isPinValidFresh = reloaded.pinHash != null &&
+                    reloaded.pinHash!.isNotEmpty &&
+                    SecurityService.verifyPin(password, reloaded.pinHash!);
+                final isPasswordValidFresh = reloaded.passwordHash != null &&
+                    reloaded.passwordHash!.isNotEmpty &&
+                    reloaded.passwordHash == inputHash;
+                if (isPasswordValidFresh || isPinValidFresh) {
+                  user = reloaded;
+                } else {
+                  return null;
+                }
               } else {
                 return null;
               }
