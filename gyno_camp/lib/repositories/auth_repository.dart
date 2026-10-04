@@ -174,6 +174,56 @@ class AuthRepository implements IAuthRepository {
     );
   }
 
+  /// Cross-checks [user.assignedCampIds] against the camps table (source of truth).
+  /// Any camp that no longer lists [user.id] in its assigned_staff_ids is stripped.
+  /// Persists corrections to SQLite + server if anything changed.
+  /// Must be called on every code path that loads a user into an active session.
+  Future<UserModel> _reconcileCampIds(DatabaseExecutor db, UserModel user) async {
+    try {
+      final campRows = await db.query(DatabaseTables.tableCamps);
+      final reconciledCampIds = <String>[];
+      for (final campId in user.assignedCampIds) {
+        final matches = campRows.where((r) => r['id'] == campId);
+        if (matches.isNotEmpty) {
+          final staffIds = (matches.first['assigned_staff_ids'] as String? ?? '')
+              .split(',')
+              .map((s) => s.trim())
+              .where((s) => s.isNotEmpty)
+              .toSet();
+          if (staffIds.contains(user.id)) {
+            reconciledCampIds.add(campId);
+          }
+          // else: camp no longer lists this user → strip it
+        }
+        // else: camp not in local DB → strip it
+      }
+      if (reconciledCampIds.length != user.assignedCampIds.length) {
+        final now = DateTime.now().toUtc();
+        final corrected = user.copyWith(
+          assignedCampIds: reconciledCampIds,
+          updatedAt: now,
+        );
+        await db.update(
+          DatabaseTables.tableUsers,
+          {
+            'assigned_camp_ids': reconciledCampIds.join(','),
+            'updated_at': now.toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [user.id],
+        );
+        if (enableCentralSync) {
+          try { HttpCentralApiService().broadcastUser(corrected); } catch (_) {}
+        }
+        debugPrint('[AuthRepo] Reconciled camps for ${user.email}: ${reconciledCampIds.join(",")}');
+        return corrected;
+      }
+    } catch (e) {
+      debugPrint('[AuthRepo] Camp reconciliation error (non-fatal): $e');
+    }
+    return user;
+  }
+
   @override
   Future<List<UserModel>> getAllUsers({bool includeInactive = false}) async {
     final db = await _databaseService.database;
@@ -255,7 +305,8 @@ class AuthRepository implements IAuthRepository {
       limit: 1,
     );
     if (maps.isNotEmpty) {
-      final user = UserModel.fromMap(maps.first);
+      UserModel user = UserModel.fromMap(maps.first);
+      user = await _reconcileCampIds(db, user);
       final savedOrg = SessionService.current?.getOrganizationName();
       if (savedOrg != null &&
           savedOrg.trim().isNotEmpty &&
@@ -280,7 +331,8 @@ class AuthRepository implements IAuthRepository {
           limit: 1,
         );
         if (refreshed.isNotEmpty) {
-          final user = UserModel.fromMap(refreshed.first);
+          UserModel user = UserModel.fromMap(refreshed.first);
+          user = await _reconcileCampIds(db, user);
           final savedOrg = SessionService.current?.getOrganizationName();
           if (savedOrg != null &&
               savedOrg.trim().isNotEmpty &&
