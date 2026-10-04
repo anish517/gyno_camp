@@ -114,58 +114,41 @@ class AuthRepository implements IAuthRepository {
           localPass == defaultAnalystPass;
       final isLocalDefaultPin = localPin == defaultPin;
 
-      // LOCAL wins credentials ONLY when:
-      //   - local timestamp is STRICTLY NEWER than incoming, AND
-      //   - local credentials are not just the default bootstrap seeds.
-      // If timestamps are equal (or incoming is newer), server (incoming) wins.
-      // This handles the cross-browser password-reset race:
-      //   Chrome resets → PostgreSQL updated_at = NOW() → Opera fetches → incoming is newer → Opera gets new hash.
-      final localIsStrictlyNewer = localTs != null &&
-          incomingTs != null &&
-          localTs.isAfter(incomingTs) &&
-          !isLocalDefaultPass;
-
       final incomingPassEmpty =
           map['password_hash'] == null || map['password_hash'].toString().isEmpty;
       final incomingPinEmpty =
           map['pin_hash'] == null || map['pin_hash'].toString().isEmpty;
 
-      // Password resolution:
+      // ── Password resolution ──────────────────────────────────────────────
+      // Server ALWAYS wins when it has a real (non-empty) hash.
+      // We never use localIsStrictlyNewer for passwords because _reconcileCampIds
+      // or other local writes can bump updated_at without actually changing the
+      // password, making the local row look "newer" and blocking cross-device
+      // password changes (e.g. changed on Chrome → Opera/Android keeps old hash).
       if (incomingPassEmpty) {
-        // Server has no hash yet — keep local
+        // Server has no hash yet — keep local to preserve self-set passwords
         if (localPass != null && localPass.isNotEmpty) {
           map['password_hash'] = localPass;
         }
-      } else if (localIsStrictlyNewer) {
-        // Local has a genuinely newer custom password — keep it
-        map['password_hash'] = localPass;
       }
-      // else: incoming (server/reset) hash wins → map already has it
+      // else: incoming (server) hash wins — always. Covers password resets too.
 
-      // PIN resolution:
+      // ── PIN resolution ───────────────────────────────────────────────────
+      // Same rule: server wins when it has a real non-default PIN.
       if (incomingPinEmpty) {
         if (localPin != null && localPin.isNotEmpty) {
           map['pin_hash'] = localPin;
         }
-      } else if (localIsStrictlyNewer && !isLocalDefaultPin) {
-        map['pin_hash'] = localPin;
+      } else if (isLocalDefaultPin) {
+        // Server has a custom PIN; local still has default → server wins (already in map)
       }
       // else: incoming pin wins
 
-      // ── assigned_camp_ids resolution ────────────────────────────────────
-      // If local is strictly newer, keep the local camp assignments to prevent
-      // stale PostgreSQL snapshots from restoring removed/added camps.
-      // If incoming is newer (or same), the server wins — correctly
-      // propagating new assignments made from another device or browser.
-      if (localIsStrictlyNewer && localCampIds != null) {
-        map['assigned_camp_ids'] = localCampIds;
-      }
-      // else: incoming server camp IDs win (already in map from u.toMap())
-
-      // Preserve whichever timestamp is genuinely newer
-      if (localIsStrictlyNewer && localUpdatedAt != null) {
-        map['updated_at'] = localUpdatedAt;
-      }
+      // ── assigned_camp_ids resolution ─────────────────────────────────────
+      // Server wins (incoming map already has server's camp IDs).
+      // No localIsStrictlyNewer override — camp assignments are reconciled by
+      // _reconcileCampIds after login, which is the single source of truth.
+      // (No timestamp preservation needed — server timestamp is authoritative.)
     }
     await db.insert(
       DatabaseTables.tableUsers,
@@ -211,16 +194,17 @@ class AuthRepository implements IAuthRepository {
         }
       }
       if (reconciledCampIds.length != user.assignedCampIds.length) {
-        final now = DateTime.now().toUtc();
+        // ✅ Do NOT update updated_at here — bumping the timestamp would make
+        // this device look "newer" than the server, causing _upsertUserPreservingCredentials
+        // to ignore incoming password changes from other devices (Chrome → Opera/Android).
         final corrected = user.copyWith(
           assignedCampIds: reconciledCampIds,
-          updatedAt: now,
         );
         await db.update(
           DatabaseTables.tableUsers,
           {
             'assigned_camp_ids': reconciledCampIds.join(','),
-            'updated_at': now.toIso8601String(),
+            // updated_at intentionally NOT changed — preserve server's authoritative timestamp
           },
           where: 'id = ?',
           whereArgs: [user.id],
