@@ -1454,36 +1454,74 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   }
 
   Widget _buildStageSelector(String title, int current, List<int> allowed, ValueChanged<int> onSelect) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: allowed.map((stage) {
-            final isSelected = current == stage;
-            return Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: ChoiceChip(
-                label: Text('S$stage'),
-                selected: isSelected,
-                selectedColor: AppTheme.primaryTeal,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.black87,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                onSelected: (_) => onSelect(stage),
+    final chips = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: allowed.map((stage) {
+        final isSelected = current == stage;
+        return Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: ChoiceChip(
+            label: Text('S$stage'),
+            selected: isSelected,
+            selectedColor: AppTheme.primaryTeal,
+            labelStyle: TextStyle(
+              color: isSelected ? Colors.white : Colors.black87,
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            onSelected: (_) => onSelect(stage),
+          ),
+        );
+      }).toList(),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // On narrow screens or when many chips are needed, stack vertically
+        final needsStack = constraints.maxWidth < 420 || allowed.length >= 5;
+        if (needsStack) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: allowed.map((stage) {
+                  final isSelected = current == stage;
+                  return ChoiceChip(
+                    label: Text('S$stage'),
+                    selected: isSelected,
+                    selectedColor: AppTheme.primaryTeal,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    onSelected: (_) => onSelect(stage),
+                  );
+                }).toList(),
               ),
-            );
-          }).toList(),
-        ),
-      ],
+            ],
+          );
+        }
+        // Wide screen: label left, chips right
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
+            ),
+            chips,
+          ],
+        );
+      },
     );
   }
+
 
   Widget _buildDiagnosesAndSurgerySection() {
     final lookupState = ref.watch(masterLookupProvider);
