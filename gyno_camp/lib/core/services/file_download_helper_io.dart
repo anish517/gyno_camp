@@ -22,16 +22,24 @@ Future<DownloadResult> saveFile({
         dirPath = p.join(Directory.systemTemp.path, 'gynocamp_reports');
         displayLocation = 'Temp';
       } else if (Platform.isAndroid) {
-        // Priority 1: Primary public Downloads directory on Android devices
-        final publicDownloadDir = Directory('/storage/emulated/0/Download/Gynocamp');
+        // Android 10+ (API 29) scoped storage: direct writes to
+        // /storage/emulated/0/Download require MANAGE_EXTERNAL_STORAGE which
+        // most apps don't have. Use app-scoped external storage instead —
+        // always writable, no extra permission needed.
+
+        // Priority 1: App external storage (Android/data/<pkg>/files/Downloads/)
         try {
-          if (!publicDownloadDir.existsSync()) {
-            publicDownloadDir.createSync(recursive: true);
+          final extDir = await getExternalStorageDirectory();
+          if (extDir != null) {
+            final gynoDir = Directory(p.join(extDir.path, 'Gynocamp'));
+            if (!gynoDir.existsSync()) gynoDir.createSync(recursive: true);
+            dirPath = gynoDir.path;
+            displayLocation = 'Downloads/Gynocamp';
           }
-          dirPath = publicDownloadDir.path;
-          displayLocation = 'Downloads/Gynocamp';
-        } catch (_) {
-          // Priority 2: App's external storage downloads directory
+        } catch (_) {}
+
+        // Priority 2: getExternalStorageDirectories downloads type
+        if (dirPath.isEmpty) {
           try {
             final extDirs = await getExternalStorageDirectories(type: StorageDirectory.downloads);
             if (extDirs != null && extDirs.isNotEmpty) {

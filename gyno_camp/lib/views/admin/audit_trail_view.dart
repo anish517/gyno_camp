@@ -1033,76 +1033,82 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 700;
 
-    final content = Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+    // Wrap in scrollable to prevent overflow on small-screen phones
+    final content = SafeArea(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryLight,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.file_download_rounded, color: AppTheme.primaryTeal, size: 22),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.file_download_rounded, color: AppTheme.primaryTeal, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Export Audit Trail & Security Records',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                  IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
+                ],
               ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Export Audit Trail & Security Records',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
+              const SizedBox(height: 10),
+              Text(
+                isUsingFallback
+                    ? 'Current filter "$_selectedCategory" has 0 records. Exporting all ${allLogs.length} system audit logs instead.'
+                    : 'Exporting ${logsToExport.length} records (${_selectedCategory == "ALL" ? "All Categories" : _selectedCategory} filter).',
+                style: TextStyle(fontSize: 12.5, color: isUsingFallback ? Colors.amber.shade900 : const Color(0xFF64748B)),
               ),
-              IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
+              const SizedBox(height: 20),
+
+              // Option 1: CSV Report
+              ListTile(
+                tileColor: const Color(0xFFF8FAFC),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFECFDF5),
+                  child: Icon(Icons.table_chart_rounded, color: Color(0xFF059669)),
+                ),
+                title: const Text('Tabular Audit Report (.CSV)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('Human-readable spreadsheet with local time, actor, action, and SHA-256 signature.', style: TextStyle(fontSize: 11)),
+                trailing: const Icon(Icons.download_rounded, color: AppTheme.primaryTeal),
+                onTap: () {
+                  Navigator.pop(context);
+                  _exportCsv(logsToExport);
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Option 2: JSON Cryptographic Vault
+              ListTile(
+                tileColor: const Color(0xFFF8FAFC),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEFF6FF),
+                  child: Icon(Icons.data_object_rounded, color: Color(0xFF2563EB)),
+                ),
+                title: const Text('Forensic Cryptographic Vault (.JSON)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('Forensic JSON with chained hashes and payload signatures for legal verification.', style: TextStyle(fontSize: 11)),
+                trailing: const Icon(Icons.download_rounded, color: AppTheme.primaryTeal),
+                onTap: () {
+                  Navigator.pop(context);
+                  _exportJson(logsToExport);
+                },
+              ),
+              const SizedBox(height: 8),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            isUsingFallback
-                ? 'Current filter "$_selectedCategory" has 0 records. Exporting all ${allLogs.length} system audit logs instead.'
-                : 'Exporting ${logsToExport.length} records (${_selectedCategory == "ALL" ? "All Categories" : _selectedCategory} filter).',
-            style: TextStyle(fontSize: 12.5, color: isUsingFallback ? Colors.amber.shade900 : const Color(0xFF64748B)),
-          ),
-          const SizedBox(height: 20),
-
-          // Option 1: CSV Report
-          ListTile(
-            tileColor: const Color(0xFFF8FAFC),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xFFECFDF5),
-              child: Icon(Icons.table_chart_rounded, color: Color(0xFF059669)),
-            ),
-            title: const Text('Tabular Audit Report (.CSV)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            subtitle: const Text('Human-readable spreadsheet formatted with local time, actor, action, and SHA-256 signature.', style: TextStyle(fontSize: 11)),
-            trailing: const Icon(Icons.download_rounded, color: AppTheme.primaryTeal),
-            onTap: () {
-              Navigator.pop(context);
-              _exportCsv(logsToExport);
-            },
-          ),
-          const SizedBox(height: 12),
-
-          // Option 2: JSON Cryptographic Vault
-          ListTile(
-            tileColor: const Color(0xFFF8FAFC),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xFFEFF6FF),
-              child: Icon(Icons.data_object_rounded, color: Color(0xFF2563EB)),
-            ),
-            title: const Text('Forensic Cryptographic Vault (.JSON)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            subtitle: const Text('Machine-readable forensic JSON containing chained hashes and payload signatures for legal verification.', style: TextStyle(fontSize: 11)),
-            trailing: const Icon(Icons.download_rounded, color: AppTheme.primaryTeal),
-            onTap: () {
-              Navigator.pop(context);
-              _exportJson(logsToExport);
-            },
-          ),
-        ],
+        ),
       ),
     );
 
