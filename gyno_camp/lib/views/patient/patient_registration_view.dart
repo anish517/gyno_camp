@@ -392,7 +392,9 @@ class _PatientRegistrationViewState
           children: [
             Icon(Icons.auto_fix_high_rounded, color: AppTheme.primaryTeal),
             SizedBox(width: 8),
-            Text('Populate Demo Sample?'),
+            Expanded(
+              child: Text('Populate Demo Sample?'),
+            ),
           ],
         ),
         content: const Text(

@@ -588,9 +588,11 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                     children: [
                       Icon(Icons.assignment_outlined, size: 15, color: AppTheme.primaryTeal),
                       SizedBox(width: 6),
-                      Text(
-                        'Initial Intake Reasons (प्रारम्भिक समस्या):',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      Flexible(
+                        child: Text(
+                          'Initial Intake Reasons (प्रारम्भिक समस्या):',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        ),
                       ),
                     ],
                   ),
@@ -629,11 +631,15 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         leading: const Icon(Icons.history_rounded, color: AppTheme.primaryTeal),
         title: Row(
           children: [
-            const Text(
-              'Chronological Visit History (विगतका जाँच विवरण)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            const Flexible(
+              child: Text(
+                'Chronological Visit History (विगतका जाँच विवरण)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
@@ -820,10 +826,15 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Clinical Vitals & Screening Labs (स्वास्थ्य सूचक):',
-                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                          const Flexible(
+                            child: Text(
+                              'Clinical Vitals & Screening Labs (स्वास्थ्य सूचक):',
+                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
                           ),
+                          const SizedBox(width: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(
@@ -986,9 +997,12 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                             ),
                             if (v.followUpDestination?.isNotEmpty == true) ...[
                               const SizedBox(width: 6),
-                              Text(
-                                '• Center: ${v.followUpDestination}',
-                                style: const TextStyle(fontSize: 10, color: Color(0xFF334155)),
+                              Flexible(
+                                child: Text(
+                                  '• Center: ${v.followUpDestination}',
+                                  style: const TextStyle(fontSize: 10, color: Color(0xFF334155)),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ],
