@@ -78,7 +78,7 @@ class AuthRepository implements IAuthRepository {
   Future<void> _upsertUserPreservingCredentials(DatabaseExecutor db, UserModel u) async {
     final existing = await db.query(
       DatabaseTables.tableUsers,
-      columns: ['password_hash', 'pin_hash', 'updated_at'],
+      columns: ['password_hash', 'pin_hash', 'updated_at', 'assigned_camp_ids'],
       where: 'id = ?',
       whereArgs: [u.id],
       limit: 1,
@@ -89,6 +89,7 @@ class AuthRepository implements IAuthRepository {
       final localPass = row['password_hash'] as String?;
       final localPin = row['pin_hash'] as String?;
       final localUpdatedAt = row['updated_at'] as String?;
+      final localCampIds = row['assigned_camp_ids'] as String?;
 
       DateTime? localTs;
       DateTime? incomingTs;
@@ -150,6 +151,16 @@ class AuthRepository implements IAuthRepository {
         map['pin_hash'] = localPin;
       }
       // else: incoming pin wins
+
+      // ── assigned_camp_ids resolution ────────────────────────────────────
+      // If local is strictly newer, keep the local camp assignments to prevent
+      // stale PostgreSQL snapshots from restoring removed/added camps.
+      // If incoming is newer (or same), the server wins — correctly
+      // propagating new assignments made from another device or browser.
+      if (localIsStrictlyNewer && localCampIds != null) {
+        map['assigned_camp_ids'] = localCampIds;
+      }
+      // else: incoming server camp IDs win (already in map from u.toMap())
 
       // Preserve whichever timestamp is genuinely newer
       if (localIsStrictlyNewer && localUpdatedAt != null) {
