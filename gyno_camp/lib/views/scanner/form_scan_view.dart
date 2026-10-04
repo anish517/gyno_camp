@@ -2338,55 +2338,75 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          key: ValueKey('vital_sys_${result.scannedAt.millisecondsSinceEpoch}'),
-                          initialValue: '$sys',
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Systolic (सिस्टोलिक)',
-                            suffixText: 'mmHg',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                            prefixIcon: Icon(Icons.arrow_upward, size: 16, color: Colors.blueGrey),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          ),
-                          onChanged: (val) {
-                            final parsed = int.tryParse(val.trim());
-                            if (parsed != null) {
-                              vm.updateVital('systolicBp', parsed);
-                            }
-                          },
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrow = constraints.maxWidth < 400;
+                      final sysField = TextFormField(
+                        key: ValueKey('vital_sys_${result.scannedAt.millisecondsSinceEpoch}'),
+                        initialValue: '$sys',
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        decoration: InputDecoration(
+                          labelText: isNarrow ? 'Systolic' : 'Systolic (सिस्टोलिक)',
+                          suffixText: 'mmHg',
+                          suffixStyle: const TextStyle(fontSize: 13, color: Colors.blueGrey),
+                          border: const OutlineInputBorder(),
+                          isDense: false,
+                          prefixIcon: isNarrow
+                              ? null
+                              : const Icon(Icons.arrow_upward, size: 16, color: Colors.blueGrey),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                         ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('/', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.grey)),
-                      ),
-                      Expanded(
-                        child: TextFormField(
-                          key: ValueKey('vital_dia_${result.scannedAt.millisecondsSinceEpoch}'),
-                          initialValue: '$dia',
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Diastolic (डायस्टोलिक)',
-                            suffixText: 'mmHg',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                            prefixIcon: Icon(Icons.arrow_downward, size: 16, color: Colors.blueGrey),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          ),
-                          onChanged: (val) {
-                            final parsed = int.tryParse(val.trim());
-                            if (parsed != null) {
-                              vm.updateVital('diastolicBp', parsed);
-                            }
-                          },
+                        onChanged: (val) {
+                          final parsed = int.tryParse(val.trim());
+                          if (parsed != null) {
+                            vm.updateVital('systolicBp', parsed);
+                          }
+                        },
+                      );
+                      final diaField = TextFormField(
+                        key: ValueKey('vital_dia_${result.scannedAt.millisecondsSinceEpoch}'),
+                        initialValue: '$dia',
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        decoration: InputDecoration(
+                          labelText: isNarrow ? 'Diastolic' : 'Diastolic (डायस्टोलिक)',
+                          suffixText: 'mmHg',
+                          suffixStyle: const TextStyle(fontSize: 13, color: Colors.blueGrey),
+                          border: const OutlineInputBorder(),
+                          isDense: false,
+                          prefixIcon: isNarrow
+                              ? null
+                              : const Icon(Icons.arrow_downward, size: 16, color: Colors.blueGrey),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                         ),
-                      ),
-                    ],
+                        onChanged: (val) {
+                          final parsed = int.tryParse(val.trim());
+                          if (parsed != null) {
+                            vm.updateVital('diastolicBp', parsed);
+                          }
+                        },
+                      );
+                      if (isNarrow) {
+                        return Column(
+                          children: [
+                            sysField,
+                            const SizedBox(height: 10),
+                            diaField,
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: sysField),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text('/', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.grey)),
+                          ),
+                          Expanded(child: diaField),
+                        ],
+                      );
+                    },
                   ),
                   if (bpStatus.messageEn != null || bpDiaStatus.messageEn != null) ...[
                     const SizedBox(height: 8),
