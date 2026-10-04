@@ -775,7 +775,11 @@ class GynoCampSyncServer {
                 tenant_name = EXCLUDED.tenant_name,
                 password_hash = COALESCE(NULLIF(EXCLUDED.password_hash, ''), users.password_hash),
                 pin_hash = COALESCE(NULLIF(EXCLUDED.pin_hash, ''), users.pin_hash),
-                updated_at = EXCLUDED.updated_at;
+                updated_at = CASE
+                  WHEN EXCLUDED.password_hash IS NOT NULL AND EXCLUDED.password_hash != '' AND EXCLUDED.password_hash != users.password_hash
+                  THEN NOW()  -- credential changed: stamp NOW() so clients know this is fresh
+                  ELSE GREATEST(EXCLUDED.updated_at::timestamptz, users.updated_at)
+                END;
             '''),
             parameters: {
               'id': id,
@@ -1793,7 +1797,11 @@ class GynoCampSyncServer {
               tenant_name = EXCLUDED.tenant_name,
               password_hash = COALESCE(NULLIF(EXCLUDED.password_hash, ''), users.password_hash),
               pin_hash = COALESCE(NULLIF(EXCLUDED.pin_hash, ''), users.pin_hash),
-              updated_at = EXCLUDED.updated_at;
+              updated_at = CASE
+                WHEN EXCLUDED.password_hash IS NOT NULL AND EXCLUDED.password_hash != '' AND EXCLUDED.password_hash != users.password_hash
+                THEN NOW()  -- credential changed: stamp NOW() so clients know this is fresh
+                ELSE GREATEST(EXCLUDED.updated_at::timestamptz, users.updated_at)
+              END;
           '''),
           parameters: {
             'id': id,

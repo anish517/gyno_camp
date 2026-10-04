@@ -113,32 +113,46 @@ class AuthRepository implements IAuthRepository {
           localPass == defaultAnalystPass;
       final isLocalDefaultPin = localPin == defaultPin;
 
-      // If local record has a timestamp and is newer than incoming:
-      // local credentials win UNLESS local is still the default bootstrap and incoming has custom credentials!
-      final localIsNewer = localTs != null && (incomingTs == null || localTs.isAfter(incomingTs));
+      // LOCAL wins credentials ONLY when:
+      //   - local timestamp is STRICTLY NEWER than incoming, AND
+      //   - local credentials are not just the default bootstrap seeds.
+      // If timestamps are equal (or incoming is newer), server (incoming) wins.
+      // This handles the cross-browser password-reset race:
+      //   Chrome resets → PostgreSQL updated_at = NOW() → Opera fetches → incoming is newer → Opera gets new hash.
+      final localIsStrictlyNewer = localTs != null &&
+          incomingTs != null &&
+          localTs.isAfter(incomingTs) &&
+          !isLocalDefaultPass;
 
-      final incomingPassEmpty = map['password_hash'] == null || map['password_hash'].toString().isEmpty;
-      final incomingPinEmpty = map['pin_hash'] == null || map['pin_hash'].toString().isEmpty;
+      final incomingPassEmpty =
+          map['password_hash'] == null || map['password_hash'].toString().isEmpty;
+      final incomingPinEmpty =
+          map['pin_hash'] == null || map['pin_hash'].toString().isEmpty;
 
       // Password resolution:
       if (incomingPassEmpty) {
+        // Server has no hash yet — keep local
         if (localPass != null && localPass.isNotEmpty) {
           map['password_hash'] = localPass;
         }
-      } else if (localIsNewer && !isLocalDefaultPass) {
+      } else if (localIsStrictlyNewer) {
+        // Local has a genuinely newer custom password — keep it
         map['password_hash'] = localPass;
       }
+      // else: incoming (server/reset) hash wins → map already has it
 
       // PIN resolution:
       if (incomingPinEmpty) {
         if (localPin != null && localPin.isNotEmpty) {
           map['pin_hash'] = localPin;
         }
-      } else if (localIsNewer && !isLocalDefaultPin) {
+      } else if (localIsStrictlyNewer && !isLocalDefaultPin) {
         map['pin_hash'] = localPin;
       }
+      // else: incoming pin wins
 
-      if (localIsNewer && localUpdatedAt != null && (!isLocalDefaultPass || !isLocalDefaultPin)) {
+      // Preserve whichever timestamp is genuinely newer
+      if (localIsStrictlyNewer && localUpdatedAt != null) {
         map['updated_at'] = localUpdatedAt;
       }
     }
@@ -899,6 +913,16 @@ class AuthRepository implements IAuthRepository {
             detailsJson: '{"method":"smtp_otp_reset","email":"$email"}',
             deviceId: deviceId,
           );
+          // Broadcast updated user (new hash + fresh updated_at) to central server.
+          // Ensures SSE-connected browsers (Opera, Android, other tabs) receive the
+          // new credential immediately and won't be stuck with a stale local hash.
+          if (enableCentralSync) {
+            try {
+              await HttpCentralApiService().broadcastUser(u);
+            } catch (e) {
+              debugPrint('[AuthRepo] Broadcast after reset (non-fatal): $e');
+            }
+          }
         }
       } catch (e) {
         debugPrint('[AuthRepo] Local SQLite update error after reset: $e');
