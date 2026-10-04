@@ -88,30 +88,9 @@ class AuthRepository implements IAuthRepository {
       final row = existing.first;
       final localPass = row['password_hash'] as String?;
       final localPin = row['pin_hash'] as String?;
-      final localUpdatedAt = row['updated_at'] as String?;
-      final localCampIds = row['assigned_camp_ids'] as String?;
 
-      DateTime? localTs;
-      DateTime? incomingTs;
-      try {
-        if (localUpdatedAt != null && localUpdatedAt.isNotEmpty) {
-          localTs = DateTime.parse(localUpdatedAt).toUtc();
-        }
-        final incomingUpdatedAt = map['updated_at'] as String?;
-        if (incomingUpdatedAt != null && incomingUpdatedAt.isNotEmpty) {
-          incomingTs = DateTime.parse(incomingUpdatedAt).toUtc();
-        }
-      } catch (_) {}
-
-      // Identify whether local credentials are just unedited default bootstrap seeds
-      final defaultAdminPass = SecurityService.hashSha256('admin123');
-      final defaultNursePass = SecurityService.hashSha256('nurse123');
-      final defaultAnalystPass = SecurityService.hashSha256('analyst123');
+      // Identify whether local PIN is still the default bootstrap seed
       final defaultPin = SecurityService.hashPin('1234');
-
-      final isLocalDefaultPass = localPass == defaultAdminPass ||
-          localPass == defaultNursePass ||
-          localPass == defaultAnalystPass;
       final isLocalDefaultPin = localPin == defaultPin;
 
       final incomingPassEmpty =
