@@ -276,17 +276,12 @@ class AuthRepository implements IAuthRepository {
     final db = await _databaseService.database;
     final trimmed = email.trim();
     final lower = trimmed.toLowerCase();
-    final isSuperAdminAlias = lower == 'admin' ||
-        lower == 'superadmin' ||
-        lower == 'admin@gynocamp.org' ||
-        lower == 'super administrator' ||
-        lower == 'root';
-    
+
+    // Strict lookup: only the account's CURRENT email or phone can sign in.
+    // (No hard-coded 'admin' / 'admin@gynocamp.org' aliases once the email is changed.)
     final maps = await db.query(
       DatabaseTables.tableUsers,
-      where: isSuperAdminAlias
-          ? "LOWER(email) = ? OR phone = ? OR LOWER(email) = 'admin@gynocamp.org' OR id = 'usr-superadmin-01'"
-          : 'LOWER(email) = ? OR phone = ?',
+      where: 'LOWER(email) = ? OR phone = ?',
       whereArgs: [lower, trimmed],
       limit: 1,
     );
@@ -307,9 +302,7 @@ class AuthRepository implements IAuthRepository {
         // Re-read after potential update so we return the freshest record
         final refreshed = await db.query(
           DatabaseTables.tableUsers,
-          where: isSuperAdminAlias
-              ? "LOWER(email) = ? OR phone = ? OR LOWER(email) = 'admin@gynocamp.org' OR id = 'usr-superadmin-01'"
-              : 'LOWER(email) = ? OR phone = ?',
+          where: 'LOWER(email) = ? OR phone = ?',
           whereArgs: [lower, trimmed],
           limit: 1,
         );
@@ -332,9 +325,7 @@ class AuthRepository implements IAuthRepository {
         }
         final refreshed = await db.query(
           DatabaseTables.tableUsers,
-          where: isSuperAdminAlias
-              ? "LOWER(email) = ? OR phone = ? OR LOWER(email) = 'admin@gynocamp.org' OR id = 'usr-superadmin-01'"
-              : 'LOWER(email) = ? OR phone = ?',
+          where: 'LOWER(email) = ? OR phone = ?',
           whereArgs: [lower, trimmed],
           limit: 1,
         );
