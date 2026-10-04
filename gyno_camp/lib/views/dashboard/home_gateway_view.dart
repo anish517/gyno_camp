@@ -4395,7 +4395,21 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
   void _initCampAndData() {
     final campState = ref.read(campStateProvider);
-    if (campState.activeCamp != null && _selectedCampId != 'all') {
+    final user = ref.read(authStateProvider).currentUser;
+    final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
+    final visibleCamps = !isSuperAdmin && user != null
+        ? campState.camps
+            .where((c) =>
+                c.isStaffAssigned(user.id) ||
+                user.assignedCampIds.contains(c.id))
+            .toList()
+        : campState.camps;
+
+    if (!isSuperAdmin && visibleCamps.isNotEmpty) {
+      if (!visibleCamps.any((c) => c.id == _selectedCampId)) {
+        _selectedCampId = visibleCamps.length == 1 ? visibleCamps.first.id : 'all';
+      }
+    } else if (campState.activeCamp != null && _selectedCampId != 'all') {
       _selectedCampId = campState.activeCamp!.id;
     }
     _fetchDataForCamp(_selectedCampId);
@@ -4954,9 +4968,13 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final patientState = ref.watch(patientListProvider);
     final deviceState = ref.watch(deviceSecurityProvider);
 
-    final isPrivileged = user?.role == UserRole.superAdmin || user?.role == UserRole.dataAnalyst;
-    final visibleCamps = !isPrivileged && user != null
-        ? campState.camps.where((c) => user.assignedCampIds.contains(c.id)).toList()
+    final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
+    final visibleCamps = !isSuperAdmin && user != null
+        ? campState.camps
+            .where((c) =>
+                c.isStaffAssigned(user.id) ||
+                user.assignedCampIds.contains(c.id))
+            .toList()
         : campState.camps;
 
     final summary = reportingState.summary;
@@ -4965,8 +4983,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         ? _workstationPatients
         : (patientState.rawPatients.isNotEmpty ? patientState.rawPatients : patientState.patients);
 
-    final allPatients = !isPrivileged && user != null
-        ? basePatients.where((p) => user.assignedCampIds.contains(p.campId)).toList()
+    final visibleCampIds = visibleCamps.map((c) => c.id).toSet();
+    final allPatients = !isSuperAdmin && user != null
+        ? basePatients.where((p) => visibleCampIds.contains(p.campId)).toList()
         : basePatients;
 
     // Patients strictly scoped to currently selected camp (or all camps)
@@ -5624,7 +5643,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           child: DropdownButton<String>(
                             isExpanded: true,
                             dropdownColor: Colors.white,
-                            value: _selectedCampId,
+                            value: (visibleCamps.any((c) => c.id == _selectedCampId) || _selectedCampId == 'all')
+                                ? _selectedCampId
+                                : (visibleCamps.isNotEmpty ? visibleCamps.first.id : 'all'),
                             icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF475569)),
                             items: [
                               DropdownMenuItem<String>(
@@ -5635,7 +5656,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        (user?.role == UserRole.superAdmin || user?.role == UserRole.dataAnalyst)
+                                        (user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false))
                                             ? 'All Camps (Cross-Camp Intelligence)'
                                             : 'All Assigned Camps (${visibleCamps.length})',
                                         style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.bold),

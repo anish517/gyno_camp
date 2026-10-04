@@ -179,8 +179,11 @@ class AuthRepository implements IAuthRepository {
   /// Persists corrections to SQLite + server if anything changed.
   /// Must be called on every code path that loads a user into an active session.
   Future<UserModel> _reconcileCampIds(DatabaseExecutor db, UserModel user) async {
+    if (user.isSuperAdmin || user.role == UserRole.superAdmin) return user;
+    if (user.assignedCampIds.isEmpty) return user;
     try {
       final campRows = await db.query(DatabaseTables.tableCamps);
+      if (campRows.isEmpty) return user;
       final reconciledCampIds = <String>[];
       for (final campId in user.assignedCampIds) {
         final matches = campRows.where((r) => r['id'] == campId);
@@ -193,9 +196,11 @@ class AuthRepository implements IAuthRepository {
           if (staffIds.contains(user.id)) {
             reconciledCampIds.add(campId);
           }
-          // else: camp no longer lists this user → strip it
+          // else: camp is present locally and does not include user → strip it
+        } else {
+          // Camp not in local DB yet (e.g. pending sync) → keep it safely
+          reconciledCampIds.add(campId);
         }
-        // else: camp not in local DB → strip it
       }
       if (reconciledCampIds.length != user.assignedCampIds.length) {
         final now = DateTime.now().toUtc();
@@ -831,52 +836,9 @@ class AuthRepository implements IAuthRepository {
       tenantName: effectiveTenant,
     );
 
-    // ── Camp assignment reconciliation (authoritative source-of-truth check) ──
-    // Cross-check user.assignedCampIds against what the local camps table says.
-    // Any camp that no longer lists this user in assigned_staff_ids is stripped.
-    // This is the authoritative fix: it cleans stale PostgreSQL data on login
-    // regardless of timestamp race conditions.
-    try {
-      final campRows = await db.query(DatabaseTables.tableCamps);
-      final reconciledCampIds = <String>[];
-      for (final campId in _currentUser!.assignedCampIds) {
-        final matches = campRows.where((r) => r['id'] == campId);
-        if (matches.isNotEmpty) {
-          final staffIds = (matches.first['assigned_staff_ids'] as String? ?? '')
-              .split(',')
-              .map((s) => s.trim())
-              .where((s) => s.isNotEmpty)
-              .toSet();
-          if (staffIds.contains(_currentUser!.id)) {
-            reconciledCampIds.add(campId); // user is still assigned
-          }
-          // else: camp no longer lists this user → drop it
-        }
-        // else: camp not found locally → drop it (deleted or not yet synced)
-      }
-      if (reconciledCampIds.length != _currentUser!.assignedCampIds.length) {
-        _currentUser = _currentUser!.copyWith(assignedCampIds: reconciledCampIds);
-        final correctedUpdatedAt = DateTime.now().toUtc().toIso8601String();
-        await db.update(
-          DatabaseTables.tableUsers,
-          {
-            'assigned_camp_ids': reconciledCampIds.join(','),
-            'updated_at': correctedUpdatedAt,
-          },
-          where: 'id = ?',
-          whereArgs: [_currentUser!.id],
-        );
-        if (enableCentralSync) {
-          try {
-            HttpCentralApiService().broadcastUser(
-              _currentUser!.copyWith(updatedAt: DateTime.now().toUtc()),
-            );
-          } catch (_) {}
-        }
-        debugPrint('[AuthRepo] Reconciled camps for ${_currentUser!.email}: ${reconciledCampIds.join(",")}');
-      }
-    } catch (e) {
-      debugPrint('[AuthRepo] Camp reconciliation error (non-fatal): $e');
+    // ── Camp assignment reconciliation ──
+    if (_currentUser != null) {
+      _currentUser = await _reconcileCampIds(db, _currentUser!);
     }
 
     // Record audit trail
