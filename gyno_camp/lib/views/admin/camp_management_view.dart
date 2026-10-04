@@ -75,12 +75,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   int _computeAssignedStaffCount(CampModel camp) {
     final staffUsers = ref.read(staffUsersProvider).value ?? const <UserModel>[];
     final eligibleStaff = staffUsers.where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin).toList();
-    final staffIds = Set<String>.from(camp.assignedStaffIds);
-    for (final u in eligibleStaff) {
-      if (u.assignedCampIds.contains(camp.id)) {
-        staffIds.add(u.id);
-      }
-    }
+    // Only count staff actually listed in the camp's assigned_staff_ids (source of truth)
+    final staffIds = Set<String>.from(camp.assignedStaffIds)
+      ..removeWhere((id) => !eligibleStaff.any((u) => u.id == id));
     return eligibleStaff.where((u) => staffIds.contains(u.id)).length;
   }
 
@@ -2334,21 +2331,17 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   }
 
   void _showAssignStaffDialog(BuildContext context, CampModel camp) {
-    // ── Merge both assignment sources so the dialog shows the correct state ──
-    // Source A: camp.assignedStaffIds  (set from the Camp page)
-    // Source B: user.assignedCampIds   (set from the Staff/RBAC page)
-    // Either side may have been updated independently — union them so neither
-    // is lost and the checkboxes reflect the real truth.
+    // Use only camp.assignedStaffIds as the single source of truth.
+    // Previously we also unioned user.assignedCampIds here, which caused stale
+    // user records to pre-check staff in the wrong camps. The camp's own
+    // assigned_staff_ids is the authoritative list.
     final staffUsers = ref.read(staffUsersProvider).value ?? const <UserModel>[];
     final eligibleUsers = staffUsers.where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin).toList();
     final assigned = Set<String>.from(camp.assignedStaffIds);
     // Remove any orphaned or super-admin IDs that might have been saved in the past
     assigned.removeWhere((id) => !eligibleUsers.any((u) => u.id == id));
-    for (final u in eligibleUsers) {
-      if (u.assignedCampIds.contains(camp.id)) {
-        assigned.add(u.id); // staff assigned via RBAC page — show as checked
-      }
-    }
+    // NOTE: Do NOT add user.assignedCampIds here — that union caused phantom
+    // assignments when user records were stale from a previous sync.
 
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
