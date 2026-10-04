@@ -175,9 +175,13 @@ class AuthRepository implements IAuthRepository {
   }
 
   /// Cross-checks [user.assignedCampIds] against the camps table (source of truth).
-  /// Any camp that no longer lists [user.id] in its assigned_staff_ids is stripped.
-  /// Persists corrections to SQLite + server if anything changed.
-  /// Must be called on every code path that loads a user into an active session.
+  /// Only strips a camp if the camp is present locally AND has a non-empty
+  /// assigned_staff_ids list that does NOT contain the user.
+  ///
+  /// KEY RULE: An empty staff list on a local camp row means the camp data
+  /// hasn't synced yet (Opera/Android fresh start) — NOT that the user was
+  /// removed. We must keep the assignment in that case to avoid incorrectly
+  /// revoking access before sync completes.
   Future<UserModel> _reconcileCampIds(DatabaseExecutor db, UserModel user) async {
     if (user.isSuperAdmin || user.role == UserRole.superAdmin) return user;
     if (user.assignedCampIds.isEmpty) return user;
@@ -193,10 +197,14 @@ class AuthRepository implements IAuthRepository {
               .map((s) => s.trim())
               .where((s) => s.isNotEmpty)
               .toSet();
-          if (staffIds.contains(user.id)) {
+          // ✅ CRITICAL FIX: Only strip if the staff list is explicitly non-empty
+          // AND the user is not in it. An empty staff list means the local camp
+          // data is stale (not yet synced from server on Opera/Android) — keep
+          // the assignment to avoid stripping valid access before sync arrives.
+          if (staffIds.isEmpty || staffIds.contains(user.id)) {
             reconciledCampIds.add(campId);
           }
-          // else: camp is present locally and does not include user → strip it
+          // else: non-empty list explicitly excludes this user → strip
         } else {
           // Camp not in local DB yet (e.g. pending sync) → keep it safely
           reconciledCampIds.add(campId);
@@ -228,6 +236,7 @@ class AuthRepository implements IAuthRepository {
     }
     return user;
   }
+
 
   @override
   Future<List<UserModel>> getAllUsers({bool includeInactive = false}) async {
