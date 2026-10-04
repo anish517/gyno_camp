@@ -3930,7 +3930,12 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           children: [
             Icon(Icons.check_circle, color: AppTheme.successGreen, size: 28),
             SizedBox(width: 10),
-            Text('Scan Committed!'),
+            Flexible(
+              child: Text(
+                'Scan Committed!',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: Column(
@@ -3948,9 +3953,12 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Patient ID: ${patient.patientId}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(
+                    'Patient ID:\n${patient.patientId}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
                   const SizedBox(height: 4),
-                  Text('Name: ${patient.fullName}'),
+                  Text('Name: ${patient.fullName}', overflow: TextOverflow.ellipsis, maxLines: 2),
                   Text('Age: ${patient.age} • Ward ${patient.ward}'),
                 ],
               ),
