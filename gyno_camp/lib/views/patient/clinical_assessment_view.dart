@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/clinical_constants.dart';
+import '../../core/services/file_download_helper.dart';
 import '../../core/services/clinical_validation_service.dart';
 import '../../core/services/nepali_localization_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -219,10 +221,61 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
               );
 
               if (context.mounted && saved != null) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.clearSnackBars();
+                messenger.showSnackBar(
                   SnackBar(
-                    content: Text('Patient report downloaded: $saved'),
-                    backgroundColor: AppTheme.successGreen,
+                    backgroundColor: const Color(0xFF0F766E), // Deep Teal
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    duration: const Duration(seconds: 7),
+                    content: Row(
+                      children: [
+                        const Icon(Icons.check_circle_rounded, color: Colors.white, size: 22),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Summary PDF: ${widget.patient.fullName}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                kIsWeb ? 'Saved to browser Downloads folder' : 'Saved to Downloads/Gynocamp',
+                                style: const TextStyle(fontSize: 11, color: Colors.white70),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (!kIsWeb) ...[
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.white.withValues(alpha: 0.2),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            onPressed: () => FileDownloadHelper.openFile(saved),
+                            child: const Text('Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: const Icon(Icons.share_rounded, color: Colors.white, size: 18),
+                            tooltip: 'Share or Print',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => FileDownloadHelper.shareFile(saved, text: widget.patient.fullName),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 );
               }
