@@ -3133,9 +3133,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       case 'follow_up_slip':
                         await _downloadFollowUpSlip(context, patient, activeCamp);
                         break;
-                      case 'print_reg_form':
-                        await _printRegistrationForm(context, patient, activeCamp);
-                        break;
                     }
                   },
                   itemBuilder: (ctx) => [
@@ -3185,14 +3182,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       iconBg: const Color(0xFFF0F9FF),
                       title: 'Follow-Up Slip (PDF)',
                       subtitle: 'Patient visit slip & barcode',
-                    ),
-                    buildMenuItem(
-                      value: 'print_reg_form',
-                      icon: Icons.print_outlined,
-                      iconColor: const Color(0xFF475569),
-                      iconBg: const Color(0xFFF1F5F9),
-                      title: 'Registration Form (Yellow)',
-                      subtitle: 'Reprint physical block form',
                     ),
                   ],
                 );
@@ -3857,133 +3846,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         },
       ),
     );
-  }
-
-  // ─── Print Block-Letter Registration Form ─────────────────────────────────
-  Future<void> _printRegistrationForm(
-    BuildContext context,
-    PatientModel patient,
-    CampModel? camp,
-  ) async {
-    final effectiveOrg = ref.read(effectiveOrganizationProvider);
-    final orgName = (camp?.organizationName.isNotEmpty == true &&
-            !AppConstants.isLegacyDefaultOrganization(camp!.organizationName))
-        ? camp.organizationName
-        : effectiveOrg;
-
-    DoctorProfile? chosenDoctor;
-    final doctors = camp?.doctorProfiles ?? [];
-    final showDoctor = camp?.showDoctorOnForms ?? true;
-
-    if (showDoctor && doctors.length > 1) {
-      chosenDoctor = await showDialog<DoctorProfile?>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          title: Row(
-            children: [
-              const Icon(Icons.print_outlined, color: AppTheme.brandPurple, size: 22),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Select Doctor for ${patient.fullName}',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.65,
-              maxWidth: 480,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Choose which doctor\'s name and NMC registration number to stamp on this form:',
-                    style: TextStyle(fontSize: 12.5, color: Color(0xFF475569)),
-                  ),
-                  const SizedBox(height: 12),
-                  ...doctors.map(
-                    (doc) => ListTile(
-                      dense: true,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      leading: const Icon(Icons.medical_services_outlined, color: AppTheme.brandPurple, size: 18),
-                      title: Text(doc.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      subtitle: Text(doc.hasNmc ? 'NMC: ${doc.nmcNumber}' : 'NMC Certified', style: const TextStyle(fontSize: 11)),
-                      onTap: () => Navigator.pop(ctx, doc),
-                    ),
-                  ),
-                  const Divider(),
-                  ListTile(
-                    dense: true,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    leading: const Icon(Icons.edit_outlined, color: Color(0xFF64748B), size: 18),
-                    title: const Text('Blank Doctor Field', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    subtitle: const Text('Leave doctor & NMC line blank for handwritten on-site signature', style: TextStyle(fontSize: 11)),
-                    onTap: () => Navigator.pop(ctx, const DoctorProfile(name: '')),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, null),
-              child: const Text('Cancel'),
-            ),
-          ],
-        ),
-      );
-
-      if (chosenDoctor == null) return;
-      if (chosenDoctor.name.isEmpty) chosenDoctor = null;
-    } else if (doctors.length == 1) {
-      chosenDoctor = doctors.first;
-    }
-
-    if (!context.mounted) return;
-
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Generating registration form PDF...'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      final masterState = ref.read(masterLookupProvider);
-      final bytes = await PdfReportService().generatePatientRegistrationFormPdf(
-        patient: patient,
-        camp: camp,
-        doctor: chosenDoctor,
-        organizationName: orgName,
-        diagnoses: masterState.activeDiagnoses,
-        medications: masterState.activeMedicines,
-        referralHospitals: masterState.activeReferralHospitals,
-        visitReasons: masterState.activeVisitReasons,
-        chiefComplaints: masterState.activeChiefComplaints,
-      );
-      final result = await FileDownloadHelper.saveAndDownloadFile(
-        bytes: bytes,
-        filename: 'RegistrationForm_${patient.patientId}.pdf',
-        mimeType: 'application/pdf',
-      );
-      if (context.mounted) {
-        FileDownloadHelper.showDownloadFeedback(context, result);
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error generating form: $e'),
-            backgroundColor: AppTheme.dangerRose,
-          ),
-        );
-      }
-    }
   }
 
   // ─── Download Follow-Up Encounter Slip PDF ────────────────────────────────
