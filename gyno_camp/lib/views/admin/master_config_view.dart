@@ -375,8 +375,6 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
                         prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.primaryTeal),
-                        hintText: 'Search in ${_getCategoryPluralTitle(_tabController.index)} (English or Nepali)...',
-                        hintStyle: const TextStyle(fontSize: 13, color: Colors.blueGrey),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
                                 icon: const Icon(Icons.clear, size: 18),
@@ -1302,7 +1300,6 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                       controller: enCtrl,
                       decoration: const InputDecoration(
                         labelText: 'English Name / Term *',
-                        hintText: 'e.g. Polycystic Ovary Syndrome',
                         prefixIcon: Icon(Icons.language, size: 18),
                       ),
                     ),
@@ -1311,7 +1308,6 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                       controller: neCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Nepali Translation (नेपाली नाम)',
-                        hintText: 'e.g. पाठेघरको समस्या',
                         prefixIcon: Icon(Icons.translate, size: 18),
                       ),
                     ),
@@ -1361,7 +1357,6 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                           autofocus: true,
                           decoration: InputDecoration(
                             labelText: 'New Custom Category Name *',
-                            hintText: 'e.g. Specialized Endocrine / Oncology',
                             prefixIcon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.primaryTeal),
                             suffixIcon: IconButton(
                               icon: const Icon(Icons.close, size: 16),
@@ -1386,10 +1381,9 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                     const SizedBox(height: 14),
                     TextField(
                       controller: codeCtrl,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: 'Code / Identifier (कोड)',
-                        hintText: isEditing ? item.code : 'e.g. HOSP_MODEL_HOSPITAL',
-                        prefixIcon: const Icon(Icons.tag, size: 18),
+                        prefixIcon: Icon(Icons.tag, size: 18),
                         helperText: 'Standardized clinical identifier (auto-derived if blank)',
                       ),
                     ),
