@@ -2737,6 +2737,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     // ✅ Tracks in-flight save: declared in outer scope so it persists across
     //    StatefulBuilder rebuilds (inside the builder it would reset to false on every call).
     bool isSubmitting = false;
+    String? codeError;
+    String? nameError;
 
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
@@ -2861,16 +2863,28 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                           TextField(
                                             controller: codeCtrl,
                                             textCapitalization: TextCapitalization.characters,
+                                            onChanged: (val) {
+                                              if (codeError != null && val.trim().isNotEmpty) {
+                                                setDialogState(() => codeError = null);
+                                              }
+                                            },
                                             decoration: _dialogInputDecoration(
                                               labelText: 'Camp Code *',
+                                              errorText: codeError,
                                               prefixIcon: const Icon(Icons.tag, size: 18, color: AppTheme.primaryDark),
                                             ),
                                           ),
                                           const SizedBox(height: 12),
                                           TextField(
                                             controller: nameCtrl,
+                                            onChanged: (val) {
+                                              if (nameError != null && val.trim().isNotEmpty) {
+                                                setDialogState(() => nameError = null);
+                                              }
+                                            },
                                             decoration: _dialogInputDecoration(
                                               labelText: 'Official Camp Name *',
+                                              errorText: nameError,
                                               prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
                                             ),
                                           ),
@@ -2885,8 +2899,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                           child: TextField(
                                             controller: codeCtrl,
                                             textCapitalization: TextCapitalization.characters,
+                                            onChanged: (val) {
+                                              if (codeError != null && val.trim().isNotEmpty) {
+                                                setDialogState(() => codeError = null);
+                                              }
+                                            },
                                             decoration: _dialogInputDecoration(
                                               labelText: 'Camp Code *',
+                                              errorText: codeError,
                                               prefixIcon: const Icon(Icons.tag, size: 18, color: AppTheme.primaryDark),
                                             ),
                                           ),
@@ -2895,8 +2915,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         Expanded(
                                           child: TextField(
                                             controller: nameCtrl,
+                                            onChanged: (val) {
+                                              if (nameError != null && val.trim().isNotEmpty) {
+                                                setDialogState(() => nameError = null);
+                                              }
+                                            },
                                             decoration: _dialogInputDecoration(
                                               labelText: 'Official Camp Name *',
+                                              errorText: nameError,
                                               prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
                                             ),
                                           ),
@@ -3531,15 +3557,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
                           decoration: const BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+                            color: Color(0xFFF8FAFC),
                             border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                           ),
                           child: Wrap(
                             alignment: WrapAlignment.end,
                             crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 10,
-                            runSpacing: 8,
+                            spacing: 12,
+                            runSpacing: 10,
                             children: [
                               OutlinedButton(
                                 onPressed: () => Navigator.pop(ctx),
@@ -3562,10 +3587,18 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 onPressed: isSubmitting
                                     ? null
                                     : () {
-                                        setDialogState(() => isSubmitting = true);
                                         _submitCampForm(
                                           ctx: ctx,
                                           setDialogState: setDialogState,
+                                          setIsSubmitting: (submitting) {
+                                            setDialogState(() => isSubmitting = submitting);
+                                          },
+                                          onValidationFailed: (cErr, nErr) {
+                                            setDialogState(() {
+                                              codeError = cErr;
+                                              nameError = nErr;
+                                            });
+                                          },
                                           code: codeCtrl.text.trim(),
                                           name: nameCtrl.text.trim(),
                                           doctorNames: assignedDoctors.map((d) => d.toStorageString()).toList(),
@@ -3611,10 +3644,18 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 onPressed: isSubmitting
                                     ? null // Disable button while save is in-flight
                                     : () {
-                                        setDialogState(() => isSubmitting = true);
                                         _submitCampForm(
                                           ctx: ctx,
                                           setDialogState: setDialogState,
+                                          setIsSubmitting: (submitting) {
+                                            setDialogState(() => isSubmitting = submitting);
+                                          },
+                                          onValidationFailed: (cErr, nErr) {
+                                            setDialogState(() {
+                                              codeError = cErr;
+                                              nameError = nErr;
+                                            });
+                                          },
                                           code: codeCtrl.text.trim(),
                                           name: nameCtrl.text.trim(),
                                           doctorNames: assignedDoctors.map((d) => d.toStorageString()).toList(),
@@ -3631,7 +3672,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                           user: user,
                                           deviceState: deviceState,
                                         );
-                              },
+                                      },
                               ),
                             ],
                           ),
@@ -3651,6 +3692,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   Future<void> _submitCampForm({
     required BuildContext ctx,
     required void Function(void Function()) setDialogState,
+    required void Function(bool) setIsSubmitting,
+    void Function(String? codeError, String? nameError)? onValidationFailed,
     required String code,
     required String name,
     String doctorName = '',
@@ -3668,27 +3711,46 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     required UserModel? user,
     required DeviceSecurityState deviceState,
   }) async {
-    if (code.isEmpty || name.isEmpty) {
+    final cleanCode = code.trim();
+    final cleanName = name.trim();
+
+    if (cleanCode.isEmpty || cleanName.isEmpty) {
+      setIsSubmitting(false);
+      final codeErr = cleanCode.isEmpty ? 'Camp code is required (e.g. CAMP-001)' : null;
+      final nameErr = cleanName.isEmpty ? 'Camp name is required' : null;
+      if (onValidationFailed != null) {
+        onValidationFailed(codeErr, nameErr);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both Camp Code and Camp Name.')),
+        const SnackBar(
+          content: Text('Please enter both Camp Code and Camp Name.'),
+          backgroundColor: AppTheme.dangerRose,
+        ),
       );
       return;
     }
 
     if (endDate.isBefore(startDate)) {
+      setIsSubmitting(false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Camp end date cannot be before start date.')),
+        const SnackBar(
+          content: Text('Camp end date cannot be before start date.'),
+          backgroundColor: AppTheme.dangerRose,
+        ),
       );
       return;
     }
+
+    // Mark as submitting only after all synchronous validation checks pass
+    setIsSubmitting(true);
 
     final parsedDocList = doctorNames ?? _sanitizeDoctorList(doctorName);
     final primaryDoc = parsedDocList.isNotEmpty ? parsedDocList.first : _cleanDoctorName(doctorName);
 
     final newCamp = CampModel(
       id: '', // Repository generates collision-proof 'camp-{uuid}'
-      campCode: code.toUpperCase(),
-      name: name,
+      campCode: cleanCode.toUpperCase(),
+      name: cleanName,
       doctorName: primaryDoc,
       doctorNames: parsedDocList,
       showDoctorOnForms: showDoctorOnForms,
@@ -3706,52 +3768,24 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       createdAt: DateTime.now().toUtc(),
     );
 
-    // ✅ BUG FIX: Show loading state on dialog button BEFORE starting the async save.
-    // Previously Navigator.pop(ctx) was called here synchronously — this invalidated
-    // the context mid-async causing the mounted guard to fire and silently eat errors.
-    setDialogState(() {}); // triggers isSubmitting = true (set by caller before this call)
-
     final messenger = ScaffoldMessenger.of(context);
 
-    // ✅ Await the actual save BEFORE dismissing the dialog
-    final success = await ref.read(campStateProvider.notifier).createCamp(
-          newCamp,
-          adminUserId: user?.id ?? 'admin-user',
-          deviceId: deviceState.device?.deviceId ?? 'dev-admin',
-        );
+    bool success = false;
+    try {
+      // ✅ Await the actual save BEFORE dismissing the dialog
+      success = await ref.read(campStateProvider.notifier).createCamp(
+            newCamp,
+            adminUserId: user?.id ?? 'admin-user',
+            deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+          );
+    } catch (e) {
+      debugPrint('Failed to create camp: $e');
+      success = false;
+    }
 
-    // ✅ Pop dialog only after confirmed result — context is still valid here
-    if (ctx.mounted) Navigator.pop(ctx);
-
-    await ref.read(campStateProvider.notifier).loadCamps();
-    if (mounted) {
-      if (success) {
-        final statusLabel = status == CampStatus.draft ? 'saved as Draft' : 'scheduled';
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Camp "${newCamp.name}" $statusLabel with ${assignedStaffIds.length} assigned staff.'),
-            action: status == CampStatus.draft
-                ? SnackBarAction(
-                    label: 'View Drafts',
-                    textColor: Colors.amberAccent,
-                    onPressed: () {
-                      if (mounted) setState(() => _statusFilter = AppConstants.campStatusDraft);
-                    },
-                  )
-                : (assignedStaffIds.isEmpty
-                    ? SnackBarAction(
-                        label: 'Assign Staff',
-                        textColor: Colors.tealAccent,
-                        onPressed: () {
-                          if (mounted) _showAssignStaffDialog(context, newCamp);
-                        },
-                      )
-                    : null),
-            duration: const Duration(seconds: 6),
-          ),
-        );
-        setState(() {});
-      } else {
+    if (!success) {
+      setIsSubmitting(false);
+      if (mounted) {
         messenger.showSnackBar(
           SnackBar(
             content: Text('Failed to create camp: ${ref.read(campStateProvider).errorMessage ?? "Unknown error"}'),
@@ -3759,6 +3793,39 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           ),
         );
       }
+      return;
+    }
+
+    // ✅ Pop dialog only after confirmed result — context is still valid here
+    if (ctx.mounted) Navigator.pop(ctx);
+
+    await ref.read(campStateProvider.notifier).loadCamps();
+    if (mounted) {
+      final statusLabel = status == CampStatus.draft ? 'saved as Draft' : 'scheduled';
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Camp "${newCamp.name}" $statusLabel with ${assignedStaffIds.length} assigned staff.'),
+          action: status == CampStatus.draft
+              ? SnackBarAction(
+                  label: 'View Drafts',
+                  textColor: Colors.amberAccent,
+                  onPressed: () {
+                    if (mounted) setState(() => _statusFilter = AppConstants.campStatusDraft);
+                  },
+                )
+              : (assignedStaffIds.isEmpty
+                  ? SnackBarAction(
+                      label: 'Assign Staff',
+                      textColor: Colors.tealAccent,
+                      onPressed: () {
+                        if (mounted) _showAssignStaffDialog(context, newCamp);
+                      },
+                    )
+                  : null),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+      setState(() {});
     }
   }
   void _showEditCampDialog(BuildContext context, CampModel camp) {
@@ -5529,6 +5596,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     required String labelText,
     String? hintText,
     String? helperText,
+    String? errorText,
     Widget? prefixIcon,
     Widget? suffixIcon,
   }) {
@@ -5536,7 +5604,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       labelText: labelText,
       hintText: hintText,
       helperText: helperText,
+      errorText: errorText,
       helperMaxLines: 1,
+      errorMaxLines: 2,
       isDense: true,
       filled: true,
       fillColor: Colors.white,
@@ -5557,6 +5627,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppTheme.dangerRose, width: 1.2),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppTheme.dangerRose, width: 1.8),
       ),
     );
   }
