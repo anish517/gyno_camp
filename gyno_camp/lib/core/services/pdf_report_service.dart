@@ -3427,6 +3427,18 @@ class PdfReportService {
     final gray = PdfColor.fromHex('CBD5E1');
     final boxBg = PdfColor.fromHex('FAFAFA');
 
+    final String dynamicCampCode =
+        (camp?.campCode != null && camp!.campCode.trim().isNotEmpty)
+            ? camp.campCode.trim().toUpperCase()
+            : (patient?.campCode.trim().isNotEmpty == true
+                ? patient!.campCode.trim().toUpperCase()
+                : '');
+    final int dynamicYear =
+        (patient?.intakeDate ?? camp?.startDate ?? DateTime.now()).year;
+    final String dynamicTokenPrefix = dynamicCampCode.isNotEmpty
+        ? 'GC-$dynamicCampCode-$dynamicYear-'
+        : 'GC-____-$dynamicYear-';
+
     // ── Resolve Doctor Information ──
     final bool showDoctor = camp?.showDoctorOnForms ?? true;
     final List<String> campDoctors = camp?.doctorNames.isNotEmpty == true
@@ -4415,14 +4427,16 @@ class PdfReportService {
                                 ],
                               ),
                               pw.SizedBox(height: 3),
-                              buildCharBoxes(
-                                camp?.campCode != null
-                                    ? '${camp!.campCode}-'
-                                    : '',
-                                minBoxes: 10,
-                                maxBoxes: 14,
-                                boxSize: 12.0,
-                                boxMargin: 1.5,
+                              pw.FittedBox(
+                                fit: pw.BoxFit.scaleDown,
+                                alignment: pw.Alignment.centerRight,
+                                child: buildCharBoxes(
+                                  dynamicTokenPrefix,
+                                  minBoxes: dynamicTokenPrefix.length + 5,
+                                  maxBoxes: dynamicTokenPrefix.length + 5,
+                                  boxSize: 11.5,
+                                  boxMargin: 1.2,
+                                ),
                               ),
                             ],
                           ),
@@ -5498,12 +5512,16 @@ class PdfReportService {
                             ),
                           ),
                           pw.SizedBox(height: 2),
-                          buildCharBoxes(
-                            '',
-                            minBoxes: 10,
-                            maxBoxes: 10,
-                            boxSize: 13,
-                            boxMargin: 1.5,
+                          pw.FittedBox(
+                            fit: pw.BoxFit.scaleDown,
+                            alignment: pw.Alignment.centerRight,
+                            child: buildCharBoxes(
+                              dynamicTokenPrefix,
+                              minBoxes: dynamicTokenPrefix.length + 5,
+                              maxBoxes: dynamicTokenPrefix.length + 5,
+                              boxSize: 11.5,
+                              boxMargin: 1.2,
+                            ),
                           ),
                         ],
                       ),
