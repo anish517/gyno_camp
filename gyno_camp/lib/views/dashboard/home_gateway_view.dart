@@ -46,16 +46,8 @@ class HomeGatewayView extends ConsumerWidget {
         ref.read(campStateProvider.notifier).loadCamps(silent: true);
       }
     });
+    // Background sync updates camps via campStateProvider
 
-    // Automatically synchronize patients when active camp becomes available or changes
-    ref.listen<CampModel?>(userActiveCampProvider, (previous, next) {
-      if (next != null) {
-        final pState = ref.read(patientListProvider);
-        if (!pState.hasLoaded || pState.loadedCampId != next.id) {
-          ref.read(patientListProvider.notifier).loadPatients(next.id, true);
-        }
-      }
-    });
 
     final authState = ref.watch(authStateProvider);
     final user = authState.currentUser;

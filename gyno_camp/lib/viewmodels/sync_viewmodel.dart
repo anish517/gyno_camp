@@ -198,12 +198,11 @@ class SyncViewModel extends StateNotifier<SyncState> {
         try {
           await r.read(campStateProvider.notifier).loadCamps(silent: true);
           final patientState = r.read(patientListProvider);
-          // If the patient view explicitly selected 'all', keep 'all'.
-          // Otherwise, prefer loadedCampId, falling back to the active camp ID (never null).
+          final currentFilterCampId = patientState.filters.campId;
           final activeCampId = r.read(userActiveCampProvider)?.id ??
               r.read(campStateProvider).activeCamp?.id;
-          final campToReload = patientState.filters.campId == 'all'
-              ? 'all'
+          final campToReload = (currentFilterCampId != null && currentFilterCampId.isNotEmpty)
+              ? currentFilterCampId
               : (patientState.loadedCampId ?? activeCampId);
 
           if (campToReload != null) {

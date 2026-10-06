@@ -80,7 +80,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final targetCampId = widget.campId ?? ref.read(userActiveCampProvider)?.id;
       final currentFilters = ref.read(patientListProvider).filters;
-      if (currentFilters.campId == null && targetCampId != null) {
+      if ((widget.campId != null || currentFilters.campId == null) && targetCampId != null) {
         ref.read(patientListProvider.notifier).updateFilters(
           currentFilters.copyWith(campId: targetCampId),
         );
@@ -150,10 +150,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     // Only auto-switch patient roll on activeCamp change if not explicitly bound to a campId
     if (widget.campId == null) {
       ref.listen<CampModel?>(userActiveCampProvider, (previous, next) {
-        // If the user has explicitly selected 'all' or another camp in the filter,
-        // do not auto-switch their view on background camp updates.
-        if (patientState.filters.campId == 'all') return;
-        if (patientState.filters.campId != null && patientState.hasLoaded) return;
+        // Once the list has loaded, never auto-switch view on background updates
+        if (patientState.hasLoaded || patientState.filters.campId == 'all') return;
 
         if (next != null &&
             (previous?.id != next.id || !patientState.hasLoaded)) {
