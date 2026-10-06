@@ -875,16 +875,15 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text('Baden-Walker POP: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                    if (v.highestPopStage == 0) ...[
+                    if (v.popAnteriorStage == 0 && v.popMiddleStage == 0 && v.popPosteriorStage == 0) ...[
                       _pb('', 'Normal (No Prolapse)', isNormal: true),
-                      _pb('Ant', 'St 0'),
-                      _pb('Mid', 'St 0'),
-                      _pb('Post', 'St 0'),
+                      _pb('Ant', 'St 0', isNormal: true),
+                      _pb('Mid', 'St 0', isNormal: true),
+                      _pb('Post', 'St 0', isNormal: true),
                     ] else ...[
-                      _pb('Highest', 'St ${v.highestPopStage}', ip: v.highestPopStage == 2, ic: v.highestPopStage >= 3),
-                      _pb('Ant', 'St ${v.popAnteriorStage}'),
-                      _pb('Mid', 'St ${v.popMiddleStage}'),
-                      _pb('Post', 'St ${v.popPosteriorStage}'),
+                      _pb('Ant', 'St ${v.popAnteriorStage}', ip: v.popAnteriorStage == 2, ic: v.popAnteriorStage >= 3, isNormal: v.popAnteriorStage == 0),
+                      _pb('Mid', 'St ${v.popMiddleStage}', ip: v.popMiddleStage == 2, ic: v.popMiddleStage >= 3, isNormal: v.popMiddleStage == 0),
+                      _pb('Post', 'St ${v.popPosteriorStage}', ip: v.popPosteriorStage == 2, ic: v.popPosteriorStage >= 3, isNormal: v.popPosteriorStage == 0),
                     ],
                   ],
                 ),

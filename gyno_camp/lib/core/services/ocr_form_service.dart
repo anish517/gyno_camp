@@ -803,7 +803,7 @@ class OcrFormService {
       confidences['labs'] = 0.88;
 
       // ── POP Examination & Staging (Station 3) ──
-      int? ant, mid, post, explicitHighest;
+      int? ant, mid, post;
 
       int? parsePopStage(String? val) {
         if (val == null) return null;
@@ -828,16 +828,12 @@ class OcrFormService {
       final postValue = findValueForLabel(['posterior compartment', 'posterior', 'rectocele']);
       post = parsePopStage(postValue);
 
-      final highestValue = findValueForLabel(['highest pop stage', 'highest stage', 'highest pop']);
-      explicitHighest = parsePopStage(highestValue);
-
       ant ??= parseStageInt(RegExp(r'anterior(?: compartment)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
       mid ??= parseStageInt(RegExp(r'middle(?: compartment)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
       post ??= parseStageInt(RegExp(r'posterior(?: compartment)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
-      explicitHighest ??= parseStageInt(RegExp(r'highest(?: pop)?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
 
       // Multi-column Baden-Walker table fallback: when numbers appear on lines below headers
-      if (ant == null || mid == null || post == null || explicitHighest == null) {
+      if (ant == null || mid == null || post == null) {
         final bwIdx = lowerText.indexOf('baden-walker');
         if (bwIdx != -1) {
           final bwSnippet = text.substring(bwIdx, min(text.length, bwIdx + 500));
@@ -852,11 +848,6 @@ class OcrFormService {
             ant ??= isolatedDigits[0];
             mid ??= isolatedDigits[1];
             post ??= isolatedDigits[2];
-            if (isolatedDigits.length >= 4) {
-              explicitHighest ??= isolatedDigits[3];
-            } else {
-              explicitHighest ??= [isolatedDigits[0], isolatedDigits[1], isolatedDigits[2]].reduce(max);
-            }
           }
         }
       }
@@ -879,7 +870,7 @@ class OcrFormService {
       final a = ant ?? 0;
       final m = mid ?? 0;
       final p = post ?? 0;
-      final highest = explicitHighest ?? [a, m, p].reduce(max);
+      final highest = [a, m, p].reduce(max);
 
       popStaging['anteriorStage'] = a;
       popStaging['middleStage'] = m;
@@ -1178,7 +1169,6 @@ Pelvic Floor Tone: Weak
 Anterior Compartment Stage: 2
 Middle Compartment Stage: 3
 Posterior Compartment Stage: 1
-Highest POP Stage: 3
 Cervix Appearance: Erosion
 Vagina / Vulva: Mild discharge
 

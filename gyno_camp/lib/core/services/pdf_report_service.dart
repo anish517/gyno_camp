@@ -1674,12 +1674,6 @@ class PdfReportService {
                               : 'NEGATIVE / N/A',
                         ),
                       ),
-                      pw.Expanded(
-                        child: _buildPdfField(
-                          'ECG / Cardiac Notes',
-                          visit?.ecgNotes ?? 'Not indicated',
-                        ),
-                      ),
                     ],
                   ),
                 ],
@@ -1707,49 +1701,38 @@ class PdfReportService {
                 ),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
               ),
-              child: (visit?.highestPopStage ?? 0) == 0
-                  ? pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildPopBadge(
-                          'OVERALL STATUS',
-                          'Normal (No Prolapse)',
-                          isNormal: true,
-                        ),
-                        _buildPopBadge(
-                          'ANTERIOR (Cystocele)',
-                          'Stage 0 (Normal)',
-                        ),
-                        _buildPopBadge('MIDDLE (Uterine)', 'Stage 0 (Normal)'),
-                        _buildPopBadge(
-                          'POSTERIOR (Rectocele)',
-                          'Stage 0 (Normal)',
-                        ),
-                      ],
-                    )
-                  : pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildPopBadge(
-                          'HIGHEST POP STAGE',
-                          'Stage ${visit?.highestPopStage ?? 0}',
-                          isHighlight: (visit?.highestPopStage ?? 0) == 2,
-                          isCritical: (visit?.highestPopStage ?? 0) >= 3,
-                        ),
-                        _buildPopBadge(
-                          'ANTERIOR (Cystocele)',
-                          'Stage ${visit?.popAnteriorStage ?? 0}',
-                        ),
-                        _buildPopBadge(
-                          'MIDDLE (Uterine)',
-                          'Stage ${visit?.popMiddleStage ?? 0}',
-                        ),
-                        _buildPopBadge(
-                          'POSTERIOR (Rectocele)',
-                          'Stage ${visit?.popPosteriorStage ?? 0}',
-                        ),
-                      ],
-                    ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                children: [
+                  _buildPopBadge(
+                    'ANTERIOR (Cystocele)',
+                    (visit?.popAnteriorStage ?? 0) == 0
+                        ? 'Stage 0 (Normal)'
+                        : 'Stage ${visit?.popAnteriorStage ?? 0}',
+                    isHighlight: (visit?.popAnteriorStage ?? 0) == 2,
+                    isCritical: (visit?.popAnteriorStage ?? 0) >= 3,
+                    isNormal: (visit?.popAnteriorStage ?? 0) == 0,
+                  ),
+                  _buildPopBadge(
+                    'MIDDLE (Uterine)',
+                    (visit?.popMiddleStage ?? 0) == 0
+                        ? 'Stage 0 (Normal)'
+                        : 'Stage ${visit?.popMiddleStage ?? 0}',
+                    isHighlight: (visit?.popMiddleStage ?? 0) == 2,
+                    isCritical: (visit?.popMiddleStage ?? 0) >= 3,
+                    isNormal: (visit?.popMiddleStage ?? 0) == 0,
+                  ),
+                  _buildPopBadge(
+                    'POSTERIOR (Rectocele)',
+                    (visit?.popPosteriorStage ?? 0) == 0
+                        ? 'Stage 0 (Normal)'
+                        : 'Stage ${visit?.popPosteriorStage ?? 0}',
+                    isHighlight: (visit?.popPosteriorStage ?? 0) == 2,
+                    isCritical: (visit?.popPosteriorStage ?? 0) >= 3,
+                    isNormal: (visit?.popPosteriorStage ?? 0) == 0,
+                  ),
+                ],
+              ),
             ),
             pw.SizedBox(height: 7),
 
@@ -2550,12 +2533,6 @@ class PdfReportService {
                           (visit.pregnancyTest ?? 'Neg / N/A').toUpperCase(),
                         ),
                       ),
-                      pw.Expanded(
-                        child: _buildPdfField(
-                          'ECG / Cardiac',
-                          sanitizeText(visit.ecgNotes ?? 'Not indicated'),
-                        ),
-                      ),
                     ],
                   ),
                 ],
@@ -2579,49 +2556,38 @@ class PdfReportService {
                 ),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
               ),
-              child: visit.highestPopStage == 0
-                  ? pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildPopBadge(
-                          'OVERALL STATUS',
-                          'Normal (No Prolapse)',
-                          isNormal: true,
-                        ),
-                        _buildPopBadge(
-                          'ANTERIOR (Cystocele)',
-                          'Stage 0 (Normal)',
-                        ),
-                        _buildPopBadge('MIDDLE (Uterine)', 'Stage 0 (Normal)'),
-                        _buildPopBadge(
-                          'POSTERIOR (Rectocele)',
-                          'Stage 0 (Normal)',
-                        ),
-                      ],
-                    )
-                  : pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildPopBadge(
-                          'HIGHEST POP STAGE',
-                          'Stage ${visit.highestPopStage}',
-                          isHighlight: visit.highestPopStage == 2,
-                          isCritical: visit.highestPopStage >= 3,
-                        ),
-                        _buildPopBadge(
-                          'ANTERIOR (Cystocele)',
-                          'Stage ${visit.popAnteriorStage}',
-                        ),
-                        _buildPopBadge(
-                          'MIDDLE (Uterine)',
-                          'Stage ${visit.popMiddleStage}',
-                        ),
-                        _buildPopBadge(
-                          'POSTERIOR (Rectocele)',
-                          'Stage ${visit.popPosteriorStage}',
-                        ),
-                      ],
-                    ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                children: [
+                  _buildPopBadge(
+                    'ANTERIOR (Cystocele)',
+                    visit.popAnteriorStage == 0
+                        ? 'Stage 0 (Normal)'
+                        : 'Stage ${visit.popAnteriorStage}',
+                    isHighlight: visit.popAnteriorStage == 2,
+                    isCritical: visit.popAnteriorStage >= 3,
+                    isNormal: visit.popAnteriorStage == 0,
+                  ),
+                  _buildPopBadge(
+                    'MIDDLE (Uterine)',
+                    visit.popMiddleStage == 0
+                        ? 'Stage 0 (Normal)'
+                        : 'Stage ${visit.popMiddleStage}',
+                    isHighlight: visit.popMiddleStage == 2,
+                    isCritical: visit.popMiddleStage >= 3,
+                    isNormal: visit.popMiddleStage == 0,
+                  ),
+                  _buildPopBadge(
+                    'POSTERIOR (Rectocele)',
+                    visit.popPosteriorStage == 0
+                        ? 'Stage 0 (Normal)'
+                        : 'Stage ${visit.popPosteriorStage}',
+                    isHighlight: visit.popPosteriorStage == 2,
+                    isCritical: visit.popPosteriorStage >= 3,
+                    isNormal: visit.popPosteriorStage == 0,
+                  ),
+                ],
+              ),
             ),
             pw.SizedBox(height: 7),
 

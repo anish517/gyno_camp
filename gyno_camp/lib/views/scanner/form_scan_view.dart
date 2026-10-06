@@ -261,7 +261,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     isCaptured: ocrState.hasPage2,
                     ocrEngine: ocrState.page2Scan?.ocrEngine,
                     summaryText: ocrState.hasPage2
-                        ? 'POP Stage ${ocrState.page2Scan!.popStaging["highestPopStage"] ?? 3} • BP ${ocrState.page2Scan!.vitals["systolicBp"] ?? 120}/${ocrState.page2Scan!.vitals["diastolicBp"] ?? 80} • ${ocrState.page2Scan!.diagnoses.length} Diagnoses'
+                        ? 'BP ${ocrState.page2Scan!.vitals["systolicBp"] ?? 120}/${ocrState.page2Scan!.vitals["diastolicBp"] ?? 80} • ${ocrState.page2Scan!.diagnoses.length} Diagnoses'
                         : null,
                     onCamera: () => ocrVm.capturePage(2),
                     onGallery: () => ocrVm.pickPage(2),
@@ -1991,48 +1991,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ),
           ],
 
-          // Highest POP Stage Hero Banner
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: (pop['highestPopStage'] as int? ?? 0) >= 2
-                  ? AppTheme.warningAmber.withValues(alpha: 0.15)
-                  : AppTheme.successGreen.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: (pop['highestPopStage'] as int? ?? 0) >= 2
-                    ? AppTheme.warningAmber
-                    : AppTheme.successGreen,
-              ),
-            ),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('HIGHEST POP STAGE (अन्तिम आङ खसेको तह):', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Stage ${pop['highestPopStage'] ?? 0}',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                    ),
-                  ],
-                ),
-                Chip(
-                  label: Text(
-                    (pop['highestPopStage'] as int? ?? 0) >= 2 ? 'Significant Prolapse' : 'Mild / Normal',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  backgroundColor: Colors.white,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+
 
           // Compartments
           Card(
@@ -3534,7 +3493,6 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       {'key': 'anteriorStage',  'label': 'Anterior Stage',   'section': 'POP Staging',  'tabIndex': 2, 'value': pop['anteriorStage']?.toString() ?? '—',   'confKey': 'popStaging'},
       {'key': 'middleStage',    'label': 'Middle Stage',     'section': 'POP Staging',  'tabIndex': 2, 'value': pop['middleStage']?.toString() ?? '—',     'confKey': 'popStaging'},
       {'key': 'posteriorStage', 'label': 'Posterior Stage',  'section': 'POP Staging',  'tabIndex': 2, 'value': pop['posteriorStage']?.toString() ?? '—',  'confKey': 'popStaging'},
-      {'key': 'highestStage',   'label': 'Highest POP Stage','section': 'POP Staging',  'tabIndex': 2, 'value': pop['highestPopStage']?.toString() ?? '—', 'confKey': 'popStaging'},
       {'key': 'uterusInside',   'label': 'Uterus Inside',    'section': 'POP Staging',  'tabIndex': 2, 'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No (Prolapsed)', 'confKey': 'popStaging'},
       {'key': 'pelvicTone',     'label': 'Pelvic Floor Tone','section': 'POP Staging',  'tabIndex': 2, 'value': pop['pelvicFloorTone']?.toString() ?? '—', 'confKey': 'popStaging'},
       // ── Vitals ────────────────────────────────────────────
