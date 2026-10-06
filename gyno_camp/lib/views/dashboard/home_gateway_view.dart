@@ -84,15 +84,16 @@ class HomeGatewayView extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    final activeCamp = ref.watch(userActiveCampProvider) ?? ref.watch(campStateProvider).activeCamp;
+    final isSuperAdmin = user.isSuperAdmin || user.role == UserRole.superAdmin;
+    final activeCamp = isSuperAdmin
+        ? (ref.watch(userActiveCampProvider) ?? ref.watch(campStateProvider).activeCamp)
+        : ref.watch(userActiveCampProvider);
+
     final patientState = ref.watch(patientListProvider);
-    if (activeCamp != null &&
-        (!patientState.hasLoaded ||
-            (patientState.loadedCampId != activeCamp.id && patientState.filters.campId != 'all'))) {
+    if (activeCamp != null && !patientState.hasLoaded) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final currentPState = ref.read(patientListProvider);
-        if (!currentPState.hasLoaded ||
-            (currentPState.loadedCampId != activeCamp.id && currentPState.filters.campId != 'all')) {
+        if (!currentPState.hasLoaded) {
           ref.read(patientListProvider.notifier).loadPatients(activeCamp.id, true);
         }
       });
@@ -3186,14 +3187,21 @@ class HomeGatewayView extends ConsumerWidget {
                           ),
                           onChanged: (query) {
                             // Live search: navigate with query as soon as user types 3+ chars
-                            if (query.trim().length >= 3 && campState.hasActiveCamp) {
+                            final effectiveStaffCampId = userCamp?.id ??
+                                (user?.assignedCampIds.isNotEmpty == true
+                                    ? user!.assignedCampIds.first
+                                    : null);
+                            if (query.trim().length >= 3 && (campState.hasActiveCamp || effectiveStaffCampId != null)) {
                               // Debounce via postFrameCallback to avoid navigating mid-keystroke
                               WidgetsBinding.instance.addPostFrameCallback((_) {
                                 if (query.trim().length >= 3) {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => PatientListView(initialQuery: query.trim()),
+                                      builder: (_) => PatientListView(
+                                        initialQuery: query.trim(),
+                                        campId: effectiveStaffCampId,
+                                      ),
                                     ),
                                   );
                                 }
@@ -3201,11 +3209,18 @@ class HomeGatewayView extends ConsumerWidget {
                             }
                           },
                           onSubmitted: (query) {
-                            if (query.trim().isNotEmpty && campState.hasActiveCamp) {
+                            final effectiveStaffCampId = userCamp?.id ??
+                                (user?.assignedCampIds.isNotEmpty == true
+                                    ? user!.assignedCampIds.first
+                                    : null);
+                            if (query.trim().isNotEmpty && (campState.hasActiveCamp || effectiveStaffCampId != null)) {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => PatientListView(initialQuery: query),
+                                  builder: (_) => PatientListView(
+                                    initialQuery: query,
+                                    campId: effectiveStaffCampId,
+                                  ),
                                 ),
                               );
                             }
@@ -3222,15 +3237,15 @@ class HomeGatewayView extends ConsumerWidget {
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         onPressed: () {
-                          if (!campState.hasActiveCamp) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please open or select an active camp first!')),
-                            );
-                            return;
-                          }
+                          final effectiveStaffCampId = userCamp?.id ??
+                              (user?.assignedCampIds.isNotEmpty == true
+                                  ? user!.assignedCampIds.first
+                                  : null);
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const PatientListView()),
+                            MaterialPageRoute(
+                              builder: (_) => PatientListView(campId: effectiveStaffCampId),
+                            ),
                           );
                         },
                         child: const Text('Patient Roll', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),

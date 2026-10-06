@@ -1229,13 +1229,19 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     final filters = patientState.filters;
     // Scope visible camps: Super Admin sees all; Data Takers only see assigned camps
     final currentUser = ref.watch(authStateProvider).currentUser;
-    final visibleCamps = (currentUser?.isSuperAdmin ?? true)
+    final isSuperAdmin = currentUser?.isSuperAdmin ?? true;
+    final rawVisibleCamps = isSuperAdmin
         ? campState.camps
         : campState.camps
             .where((c) =>
                 c.isStaffAssigned(currentUser!.id) ||
                 currentUser.assignedCampIds.contains(c.id))
             .toList();
+    final uniqueCampsMap = <String, CampModel>{};
+    for (final c in rawVisibleCamps) {
+      uniqueCampsMap[c.id] = c;
+    }
+    final visibleCamps = uniqueCampsMap.values.toList();
 
     final allDoctors = <String>{};
     final campDoctorsMap = <String, List<String>>{};
@@ -1481,9 +1487,24 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final isWide = constraints.maxWidth >= 550;
+                        final isCampValid = filters.campId == 'all' ||
+                            visibleCamps.any((c) => c.id == filters.campId);
+                        final safeCampValue =
+                            isCampValid ? (filters.campId ?? 'all') : 'all';
+
+                        if (!isCampValid &&
+                            filters.campId != null &&
+                            filters.campId != 'all') {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              vm.updateFilters(filters.copyWith(campId: 'all'));
+                            }
+                          });
+                        }
+
                         final campDropdown = DropdownButtonFormField<String>(
-                          key: ValueKey('camp_dropdown_${filters.campId}'),
-                          initialValue: filters.campId ?? 'all',
+                          key: ValueKey('camp_dropdown_$safeCampValue'),
+                          initialValue: safeCampValue,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Camp (स्वास्थ्य शिविर)',
@@ -1503,7 +1524,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               (c) => DropdownMenuItem(
                                 value: c.id,
                                 child: Text(
-                                  '${c.name} (${c.campCode})',
+                                  '${c.name} (${c.campCode})${c.status == CampStatus.closed ? " [Closed]" : ""}',
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -2068,8 +2089,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     if (filters.surgeryDone == 'yes') ...[
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String?>(
-                        key: const ValueKey('surgery_type_dropdown'),
-                        initialValue: filters.surgeryType,
+                        key: ValueKey('surgery_type_dropdown_${filters.surgeryType}'),
+                        initialValue: (filters.surgeryType != null &&
+                                ClinicalConstants.surgeryTypes.contains(filters.surgeryType))
+                            ? filters.surgeryType
+                            : null,
                         decoration: const InputDecoration(
                           labelText: 'Surgical Route (शल्यक्रियाको प्रकार/मार्ग)',
                           prefixIcon: Icon(Icons.route_outlined, size: 18),
