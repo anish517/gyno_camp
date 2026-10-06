@@ -634,22 +634,27 @@ class PatientFollowUpSlipModal extends StatelessWidget {
     );
   }
 
-  pw.Widget _buildPdfStationRow(String title, {required bool isDone}) {
+  pw.Widget _buildPdfStationRow(
+    String title, {
+    required bool isDone,
+    required PdfColor brandViolet,
+    required PdfColor brandMagenta,
+  }) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 2.2),
+      padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
       child: pw.Row(
         children: [
           pw.Container(
-            width: 14,
-            height: 14,
+            width: 15,
+            height: 15,
             decoration: pw.BoxDecoration(
-              color: isDone ? PdfColors.teal700 : PdfColors.white,
+              color: isDone ? brandViolet : PdfColors.white,
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
-              border: pw.Border.all(color: isDone ? PdfColors.teal800 : PdfColors.grey400, width: 1),
+              border: pw.Border.all(color: isDone ? brandViolet : PdfColors.grey400, width: 1.2),
             ),
             alignment: pw.Alignment.center,
             child: isDone
-                ? pw.Text('X', style: pw.TextStyle(fontSize: 8.5, color: PdfColors.white, fontWeight: pw.FontWeight.bold))
+                ? pw.Text('X', style: pw.TextStyle(fontSize: 9.5, color: PdfColors.white, fontWeight: pw.FontWeight.bold))
                 : pw.SizedBox(),
           ),
           pw.SizedBox(width: 8),
@@ -657,7 +662,7 @@ class PatientFollowUpSlipModal extends StatelessWidget {
             child: pw.Text(
               title,
               style: pw.TextStyle(
-                fontSize: 9.5,
+                fontSize: 10.5,
                 fontWeight: isDone ? pw.FontWeight.bold : pw.FontWeight.normal,
                 color: isDone ? PdfColors.black : PdfColors.grey700,
               ),
@@ -666,9 +671,9 @@ class PatientFollowUpSlipModal extends StatelessWidget {
           pw.Text(
             isDone ? '[ COMPLETED ]' : '[ PENDING ]',
             style: pw.TextStyle(
-              fontSize: 8,
+              fontSize: 9.0,
               fontWeight: pw.FontWeight.bold,
-              color: isDone ? PdfColors.teal800 : PdfColors.grey500,
+              color: isDone ? brandMagenta : PdfColors.grey500,
             ),
           ),
         ],
@@ -691,6 +696,12 @@ class PatientFollowUpSlipModal extends StatelessWidget {
           : (patient.attendingDoctorNames.isNotEmpty ? patient.attendingDoctorNames.first : '');
       final docName = PdfReportService.sanitizeText(docRaw);
 
+      // WFWSN Brand Colors from logo
+      final brandViolet = PdfColor.fromHex('30026E');
+      final brandMagenta = PdfColor.fromHex('81005D');
+      final brandLightBg = PdfColor.fromHex('F5F3FF');
+      final brandBorder = PdfColor.fromHex('E9D5FF');
+
       doc.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a5,
@@ -703,26 +714,26 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                 pw.Container(
                   padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                   decoration: pw.BoxDecoration(
-                    color: PdfColors.teal50,
+                    color: brandLightBg,
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
-                    border: pw.Border.all(color: PdfColors.teal700, width: 1),
+                    border: pw.Border.all(color: brandViolet, width: 1.2),
                   ),
                   child: pw.Column(
                     children: [
                       pw.Text(
                         PdfReportService.sanitizeText(organizationName.toUpperCase()),
-                        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900),
+                        style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: brandViolet),
                         textAlign: pw.TextAlign.center,
                       ),
                       pw.SizedBox(height: 2),
                       pw.Text(
                         PdfReportService.sanitizeText(camp?.name, fallback: 'Gynecological Health Outreach Camp'),
-                        style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.black),
+                        style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.black),
                         textAlign: pw.TextAlign.center,
                       ),
                       pw.Text(
                         'PATIENT FOLLOW-UP TOKEN SLIP & TRIAGE ROUTING PASS',
-                        style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700, letterSpacing: 0.5),
+                        style: const pw.TextStyle(fontSize: 9.0, color: PdfColors.grey700, letterSpacing: 0.5),
                         textAlign: pw.TextAlign.center,
                       ),
                     ],
@@ -738,7 +749,7 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                       child: pw.Container(
                         padding: const pw.EdgeInsets.all(8),
                         decoration: pw.BoxDecoration(
-                          border: pw.Border.all(color: PdfColors.grey300),
+                          border: pw.Border.all(color: brandBorder),
                           borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                         ),
                         child: pw.Column(
@@ -746,17 +757,17 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                           children: [
                             pw.Row(
                               children: [
-                                pw.Text('PATIENT ID: ', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
-                                pw.Text(PdfReportService.sanitizeText(patient.patientId), style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
+                                pw.Text('PATIENT ID: ', style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                                pw.Text(PdfReportService.sanitizeText(patient.patientId), style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold, color: brandViolet)),
                               ],
                             ),
                             pw.SizedBox(height: 3),
-                            pw.Text('Name: ${PdfReportService.sanitizeText(patient.fullName)}', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-                            pw.Text('Age: ${patient.age} yrs | Marital: ${PdfReportService.sanitizeText(patient.maritalStatus)}', style: const pw.TextStyle(fontSize: 9.5)),
-                            pw.Text('Guardian/Spouse: ${PdfReportService.sanitizeText(patient.spouseOrFatherName, fallback: "N/A")}', style: const pw.TextStyle(fontSize: 9.5)),
-                            pw.Text('Address: Ward ${PdfReportService.sanitizeText(patient.ward)}, ${PdfReportService.sanitizeText(patient.municipality.isNotEmpty ? patient.municipality : patient.district)}', style: const pw.TextStyle(fontSize: 9.5)),
-                            pw.Text('Mobile: ${patient.mobile.isNotEmpty ? PdfReportService.sanitizeText(patient.mobile) : "N/A"}', style: const pw.TextStyle(fontSize: 9.5)),
-                            pw.Text('Intake Date: ${patient.intakeDate.toString().split(" ")[0]}', style: const pw.TextStyle(fontSize: 9.5)),
+                            pw.Text('Name: ${PdfReportService.sanitizeText(patient.fullName)}', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                            pw.Text('Age: ${patient.age} yrs | Marital: ${PdfReportService.sanitizeText(patient.maritalStatus)}', style: const pw.TextStyle(fontSize: 10.5)),
+                            pw.Text('Guardian/Spouse: ${PdfReportService.sanitizeText(patient.spouseOrFatherName, fallback: "N/A")}', style: const pw.TextStyle(fontSize: 10.5)),
+                            pw.Text('Address: Ward ${PdfReportService.sanitizeText(patient.ward)}, ${PdfReportService.sanitizeText(patient.municipality.isNotEmpty ? patient.municipality : patient.district)}', style: const pw.TextStyle(fontSize: 10.5)),
+                            pw.Text('Mobile: ${patient.mobile.isNotEmpty ? PdfReportService.sanitizeText(patient.mobile) : "N/A"}', style: const pw.TextStyle(fontSize: 10.5)),
+                            pw.Text('Intake Date: ${patient.intakeDate.toString().split(" ")[0]}', style: const pw.TextStyle(fontSize: 10.5)),
                           ],
                         ),
                       ),
@@ -771,7 +782,7 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                           height: 72,
                         ),
                         pw.SizedBox(height: 4),
-                        pw.Text('Scan at Station', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600)),
+                        pw.Text('Scan at Station', style: const pw.TextStyle(fontSize: 8.0, color: PdfColors.grey600)),
                       ],
                     ),
                   ],
@@ -794,9 +805,9 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                   pw.Container(
                     padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                     decoration: pw.BoxDecoration(
-                      color: PdfColors.grey100,
+                      color: brandLightBg,
                       borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                      border: pw.Border.all(color: PdfColors.grey300),
+                      border: pw.Border.all(color: brandBorder),
                     ),
                     child: pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -805,13 +816,13 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                           pw.Expanded(
                             child: pw.Text(
                               'Chief Complaint: $reasonsStr',
-                              style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800),
+                              style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800),
                             ),
                           ),
                         if (docName.isNotEmpty)
                           pw.Text(
                             'Doctor: $docName',
-                            style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900),
+                            style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: brandViolet),
                           ),
                         if (patient.highestPopStage != null) ...[
                           pw.SizedBox(width: 6),
@@ -820,9 +831,9 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                                 ? 'POP: Normal (No Prolapse)'
                                 : 'POP Stage: ${patient.highestPopStage}',
                             style: pw.TextStyle(
-                              fontSize: 8.5,
+                              fontSize: 9.5,
                               fontWeight: pw.FontWeight.bold,
-                              color: patient.highestPopStage == 0 ? PdfColors.green900 : PdfColors.teal900,
+                              color: brandMagenta,
                             ),
                           ),
                         ],
@@ -836,38 +847,38 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('CLINICAL STATIONS CHECKLIST', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
+                    pw.Text('CLINICAL STATIONS CHECKLIST', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: brandViolet)),
                     pw.Container(
                       padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: pw.BoxDecoration(
-                        color: hasClinical ? PdfColors.teal50 : PdfColors.amber50,
+                        color: hasClinical ? brandLightBg : const PdfColor(1, 0.98, 0.92),
                         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                        border: pw.Border.all(color: hasClinical ? PdfColors.teal700 : PdfColors.amber700, width: 0.8),
+                        border: pw.Border.all(color: hasClinical ? brandViolet : PdfColors.amber700, width: 0.8),
                       ),
                       child: pw.Text(
                         hasClinical ? 'ALL STATIONS COMPLETED' : 'IN PROGRESS / PENDING',
                         style: pw.TextStyle(
-                          fontSize: 8,
+                          fontSize: 8.5,
                           fontWeight: pw.FontWeight.bold,
-                          color: hasClinical ? PdfColors.teal800 : PdfColors.amber900,
+                          color: hasClinical ? brandViolet : PdfColors.amber900,
                         ),
                       ),
                     ),
                   ],
                 ),
                 pw.SizedBox(height: 6),
-                _buildPdfStationRow('Station 1: Registration & Intake', isDone: true),
-                _buildPdfStationRow('Station 2: Physical & POP Exam', isDone: hasClinical),
-                _buildPdfStationRow('Station 3: Vitals & Lab Testing', isDone: hasClinical),
-                _buildPdfStationRow('Station 4: Doctor Assessment & Diagnoses', isDone: hasClinical),
-                _buildPdfStationRow('Station 5: Treatment & Pharmacy', isDone: hasClinical),
-                _buildPdfStationRow('Station 6: Discharge & Referral', isDone: hasClinical),
+                _buildPdfStationRow('Station 1: Registration & Intake', isDone: true, brandViolet: brandViolet, brandMagenta: brandMagenta),
+                _buildPdfStationRow('Station 2: Physical & POP Exam', isDone: hasClinical, brandViolet: brandViolet, brandMagenta: brandMagenta),
+                _buildPdfStationRow('Station 3: Vitals & Lab Testing', isDone: hasClinical, brandViolet: brandViolet, brandMagenta: brandMagenta),
+                _buildPdfStationRow('Station 4: Doctor Assessment & Diagnoses', isDone: hasClinical, brandViolet: brandViolet, brandMagenta: brandMagenta),
+                _buildPdfStationRow('Station 5: Treatment & Pharmacy', isDone: hasClinical, brandViolet: brandViolet, brandMagenta: brandMagenta),
+                _buildPdfStationRow('Station 6: Discharge & Referral', isDone: hasClinical, brandViolet: brandViolet, brandMagenta: brandMagenta),
                 pw.Spacer(),
                 pw.Divider(color: PdfColors.grey300),
                 pw.Center(
                   child: pw.Text(
                     'Please hold this token pass while visiting each clinical station. Retain for follow-up verification.',
-                    style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                    style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600),
                   ),
                 ),
               ],
