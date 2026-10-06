@@ -462,9 +462,14 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     final deviceId = deviceState.device?.deviceId ?? 'dev-field';
 
     final isSuperAdmin = user?.role == UserRole.superAdmin;
-    final visibleCamps = !isSuperAdmin && user != null
+    final rawVisibleCamps = !isSuperAdmin && user != null
         ? campState.camps.where((c) => user.assignedCampIds.contains(c.id)).toList()
         : campState.camps;
+    final uniqueCampsMap = <String, CampModel>{};
+    for (final c in rawVisibleCamps) {
+      uniqueCampsMap[c.id] = c;
+    }
+    final visibleCamps = uniqueCampsMap.values.toList();
 
     final selectedCampObj = reportState.selectedCampId != null
         ? campState.camps.where((c) => c.id == reportState.selectedCampId).firstOrNull
@@ -874,6 +879,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             campState: campState,
             user: user,
             deviceId: deviceId,
+            visibleCamps: visibleCamps,
+            allCampsLabel: allCampsLabel,
           ),
           _buildFeedbackBanner(reportState, reportVm),
           const SizedBox(height: 12),
@@ -2404,14 +2411,47 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required CampState campState,
     required UserModel? user,
     required String deviceId,
+    required List<CampModel> visibleCamps,
+    required String allCampsLabel,
   }) {
-    final isSuperAdmin = user?.role == UserRole.superAdmin;
-    final visibleCamps = !isSuperAdmin && user != null
-        ? campState.camps.where((c) => user.assignedCampIds.contains(c.id)).toList()
-        : campState.camps;
-    final allCampsLabel = isSuperAdmin
-        ? 'All Camp Records (समग्र क्याम्प)'
-        : 'All My Assigned Camps (${visibleCamps.length})';
+    final uniqueCampsMap = <String, CampModel>{};
+    for (final c in visibleCamps) {
+      uniqueCampsMap[c.id] = c;
+    }
+    final effectiveCamps = uniqueCampsMap.values.toList();
+    final effectiveSelectedCampId = effectiveCamps.any((c) => c.id == reportState.selectedCampId)
+        ? reportState.selectedCampId
+        : null;
+
+    Widget buildCampDropdown({double fontSize = 13}) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppTheme.borderLight),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String?>(
+            isExpanded: true,
+            value: effectiveSelectedCampId,
+            hint: Text(allCampsLabel, style: TextStyle(fontSize: fontSize)),
+            items: [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text(allCampsLabel, style: TextStyle(fontSize: fontSize), overflow: TextOverflow.ellipsis),
+              ),
+              ...effectiveCamps.map(
+                (c) => DropdownMenuItem<String?>(
+                  value: c.id,
+                  child: Text('${c.campCode} - ${c.name}', style: TextStyle(fontSize: fontSize), overflow: TextOverflow.ellipsis),
+                ),
+              ),
+            ],
+            onChanged: _onCampChanged,
+          ),
+        ),
+      );
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2438,33 +2478,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.borderLight),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        isExpanded: true,
-                        value: reportState.selectedCampId,
-                        hint: Text(allCampsLabel),
-                        items: [
-                          DropdownMenuItem<String>(
-                            value: null,
-                            child: Text(allCampsLabel, overflow: TextOverflow.ellipsis),
-                          ),
-                          ...visibleCamps.map(
-                            (c) => DropdownMenuItem<String>(
-                              value: c.id,
-                              child: Text('${c.campCode} - ${c.name}', overflow: TextOverflow.ellipsis),
-                            ),
-                          ),
-                        ],
-                        onChanged: _onCampChanged,
-                      ),
-                    ),
-                  ),
+                  buildCampDropdown(fontSize: 12),
                 ] else ...[
                   Row(
                     children: [
@@ -2476,33 +2490,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppTheme.borderLight),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              isExpanded: true,
-                              value: reportState.selectedCampId,
-                              hint: Text(allCampsLabel),
-                              items: [
-                                DropdownMenuItem<String>(
-                                  value: null,
-                                  child: Text(allCampsLabel, overflow: TextOverflow.ellipsis),
-                                ),
-                                ...visibleCamps.map(
-                                  (c) => DropdownMenuItem<String>(
-                                    value: c.id,
-                                    child: Text('${c.campCode} - ${c.name}', overflow: TextOverflow.ellipsis),
-                                  ),
-                                ),
-                              ],
-                              onChanged: _onCampChanged,
-                            ),
-                          ),
-                        ),
+                        child: buildCampDropdown(fontSize: 13),
                       ),
                     ],
                   ),

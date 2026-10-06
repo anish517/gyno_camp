@@ -121,7 +121,7 @@ class HttpCentralApiService implements ICentralApiService {
       }
     } catch (_) {}
 
-    return 'http://192.168.1.3:8080';
+    return 'http://192.168.1.5:8080';
   }
 
   bool simulateNetworkFailure = false;
