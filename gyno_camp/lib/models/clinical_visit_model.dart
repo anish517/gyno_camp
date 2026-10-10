@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../core/constants/clinical_constants.dart';
+import 'nurse_profile.dart';
 
 class ClinicalVisitModel {
   final String id;
@@ -62,6 +63,10 @@ class ClinicalVisitModel {
   final List<String> attendingDoctorNames;
   final String? primaryDoctorName;
 
+  // Attending Nurses (camp-roster nurses, not login accounts)
+  final List<String> attendingNurseNames;
+  final String? primaryNurseName;
+
   // Metadata
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -112,6 +117,8 @@ class ClinicalVisitModel {
     this.surgeryType,
     this.attendingDoctorNames = const [],
     this.primaryDoctorName,
+    this.attendingNurseNames = const [],
+    this.primaryNurseName,
     required this.createdAt,
     this.updatedAt,
     required this.createdByUserId,
@@ -171,6 +178,8 @@ class ClinicalVisitModel {
       'surgery_type': surgeryType,
       'attending_doctor_names': attendingDoctorNames.join(','),
       'primary_doctor_name': primaryDoctorName,
+      'attending_nurse_names': attendingNurseNames.join(','),
+      'primary_nurse_name': primaryNurseName,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'created_by_user_id': createdByUserId,
@@ -246,6 +255,10 @@ class ClinicalVisitModel {
           ? (map['attending_doctor_names'] as String).split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
           : (map['primary_doctor_name'] != null && (map['primary_doctor_name'] as String).isNotEmpty ? [(map['primary_doctor_name'] as String).trim()] : const []),
       primaryDoctorName: map['primary_doctor_name'] as String?,
+      attendingNurseNames: map['attending_nurse_names'] != null && (map['attending_nurse_names'] as String).isNotEmpty
+          ? NurseProfile.splitList(map['attending_nurse_names'] as String).map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+          : (map['primary_nurse_name'] != null && (map['primary_nurse_name'] as String).isNotEmpty ? [(map['primary_nurse_name'] as String).trim()] : const []),
+      primaryNurseName: map['primary_nurse_name'] as String?,
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
       createdByUserId: map['created_by_user_id'] as String? ?? '',
@@ -299,6 +312,8 @@ class ClinicalVisitModel {
     String? surgeryType,
     List<String>? attendingDoctorNames,
     String? primaryDoctorName,
+    List<String>? attendingNurseNames,
+    String? primaryNurseName,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? createdByUserId,
@@ -348,6 +363,8 @@ class ClinicalVisitModel {
       surgeryType: surgeryType ?? this.surgeryType,
       attendingDoctorNames: attendingDoctorNames ?? this.attendingDoctorNames,
       primaryDoctorName: primaryDoctorName ?? this.primaryDoctorName,
+      attendingNurseNames: attendingNurseNames ?? this.attendingNurseNames,
+      primaryNurseName: primaryNurseName ?? this.primaryNurseName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       createdByUserId: createdByUserId ?? this.createdByUserId,

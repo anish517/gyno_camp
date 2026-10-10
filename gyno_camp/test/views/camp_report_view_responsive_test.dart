@@ -147,6 +147,7 @@ class FakeReportingRepo implements IReportingRepository {
     String? campId,
     List<String>? allowedCampIds,
     String? doctorFilter,
+    String? nurseFilter,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
@@ -454,7 +455,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify feedback snackbar
-      expect(find.textContaining('Saved dossier:'), findsOneWidget);
+      expect(find.textContaining('Patient dossier exported:'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

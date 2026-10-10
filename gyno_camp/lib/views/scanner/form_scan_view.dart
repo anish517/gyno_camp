@@ -6,6 +6,7 @@ import '../../core/constants/clinical_constants.dart';
 import '../../core/constants/nepal_geodata.dart';
 import '../../core/services/clinical_validation_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
 import '../../models/patient_model.dart';
 import '../../repositories/ocr_repository.dart';
@@ -1265,6 +1266,14 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                                   ? activeCamp.doctorNames.first
                                   : (activeCamp.doctorName.trim().isNotEmpty ? activeCamp.doctorName.trim() : null));
 
+                          final resultNurse = ocrState.scanResult?.examiningNurse ??
+                              (activeCamp.nurseProfiles.length == 1
+                                  ? activeCamp.nurseProfiles.first.displayName
+                                  : null);
+                          final List<String> resultAttendingNurses = ocrState.scanResult?.attendingNurses.isNotEmpty == true
+                              ? ocrState.scanResult!.attendingNurses
+                              : (resultNurse != null ? [resultNurse] : const <String>[]);
+
                           final savedPatient = await ocrVm.confirmAndCommit(
                             campId: activeCamp.id,
                             campCode: activeCamp.campCode,
@@ -1274,6 +1283,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             deviceId: deviceState.device?.deviceId ?? 'dev-local',
                             primaryDoctorName: resultDoc,
                             attendingDoctorNames: resultDoc != null ? [resultDoc] : const [],
+                            primaryNurseName: resultNurse,
+                            attendingNurseNames: resultAttendingNurses,
                           );
 
                           if (savedPatient != null && context.mounted) {
@@ -3450,6 +3461,95 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ),
           ),
           const SizedBox(height: 16),
+
+          // ── 10. ATTENDING NURSE ASSIGNMENT (सेवा दिने नर्स) ───
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: (result.attendingNurses.isNotEmpty || (result.examiningNurse != null && result.examiningNurse!.isNotEmpty))
+                    ? const Color(0xFF81005D)
+                    : Colors.pink.shade200,
+                width: 1.5,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.badge_outlined, color: Color(0xFF81005D), size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Attending Nurse (सेवा दिने नर्स)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF81005D)),
+                        ),
+                      ),
+                      if (result.attendingNurses.isNotEmpty || (result.examiningNurse != null && result.examiningNurse!.isNotEmpty))
+                        Chip(
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: const Color(0xFFFCE7F3),
+                          avatar: const Icon(Icons.check, size: 14, color: Color(0xFF81005D)),
+                          label: Text(
+                            result.attendingNurses.isNotEmpty ? result.attendingNurses.join(', ') : result.examiningNurse!,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF81005D)),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Select nurse(s) who assisted Station 2 examination or provided care (multi-select):',
+                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                  ),
+                  const SizedBox(height: 10),
+                  Builder(
+                    builder: (context) {
+                      final activeCamp = ref.watch(campStateProvider).activeCamp;
+                      final List<NurseProfile> campNurses = activeCamp?.nurseProfiles ?? <NurseProfile>[];
+
+                      if (campNurses.isEmpty) {
+                        return const Text(
+                          'No nurses assigned to active camp in settings.',
+                          style: TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+                        );
+                      }
+
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: campNurses.map((nurse) {
+                          final cleanNurse = nurse.displayName;
+                          final isSelected = result.attendingNurses.contains(cleanNurse) ||
+                              result.attendingNurses.any((n) => n.toLowerCase().contains(nurse.name.toLowerCase())) ||
+                              (result.examiningNurse?.toLowerCase().contains(nurse.name.toLowerCase()) ?? false);
+                          return FilterChip(
+                            avatar: CircleAvatar(
+                              radius: 12,
+                              backgroundColor: isSelected ? Colors.white : const Color(0xFF81005D).withValues(alpha: 0.15),
+                              child: Icon(Icons.person, size: 13, color: isSelected ? const Color(0xFF81005D) : Colors.pink.shade700),
+                            ),
+                            label: Text(nurse.formattedLabel, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                            selected: isSelected,
+                            selectedColor: const Color(0xFFFCE7F3),
+                            checkmarkColor: const Color(0xFF81005D),
+                            onSelected: (selected) {
+                              vm.toggleAttendingNurse(cleanNurse);
+                            },
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -3510,6 +3610,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       {'key': 'referral',       'label': 'Surgical Referral','section': 'Clinical',     'tabIndex': 3, 'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
       {'key': 'followUp',       'label': 'Follow-up',        'section': 'Clinical',     'tabIndex': 3, 'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
       {'key': 'examiningDoctor','label': 'Examining Doctor', 'section': 'Clinical',     'tabIndex': 3, 'value': result.examiningDoctor ?? 'Unassigned', 'confKey': 'diagnoses'},
+      {'key': 'attendingNurse', 'label': 'Attending Nurse',  'section': 'Clinical',     'tabIndex': 3, 'value': result.attendingNurses.isNotEmpty ? result.attendingNurses.join(', ') : (result.examiningNurse ?? 'Unassigned'), 'confKey': 'diagnoses'},
     ];
 
     final total = fields.length;

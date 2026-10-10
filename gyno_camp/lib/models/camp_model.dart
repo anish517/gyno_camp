@@ -1,7 +1,9 @@
 import '../core/constants/app_constants.dart';
 import 'doctor_profile.dart';
+import 'nurse_profile.dart';
 
 export 'doctor_profile.dart';
+export 'nurse_profile.dart';
 
 /// Splits a comma-separated doctor list while respecting parentheses
 /// (so "Dr. Anita Sharma (NMC: 12345), Dr. Ram Karki" splits correctly).
@@ -106,6 +108,8 @@ class CampModel {
   final String doctorName; // Legacy scalar (kept for backward compat)
   final List<String> doctorNames; // Multi-doctor list (preferred, may include NMC in format "Dr. X (NMC: 12345)")
   final bool showDoctorOnForms; // Camp setting: whether to pre-print doctor name & NMC on generated forms
+  final List<String> nurseNames; // Camp nurse roster (free-text, may include NNC in format "Sita (NNC: 12345)"); not login-based
+  final bool showNurseOnForms; // Camp setting: whether to pre-print nurse name(s) & NNC on generated forms
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -128,6 +132,8 @@ class CampModel {
     this.doctorName = '',
     this.doctorNames = const [],
     this.showDoctorOnForms = true,
+    this.nurseNames = const [],
+    this.showNurseOnForms = true,
     required this.createdAt,
     this.updatedAt,
   });
@@ -141,6 +147,13 @@ class CampModel {
 
   /// Whether the camp has any assigned doctors.
   bool get hasDoctors => doctorNames.isNotEmpty || doctorName.isNotEmpty;
+
+  /// Parsed list of NurseProfiles from the nurseNames list.
+  List<NurseProfile> get nurseProfiles =>
+      nurseNames.map(NurseProfile.parse).where((n) => n.isValid).toList();
+
+  /// Whether the camp has any assigned nurses.
+  bool get hasNurses => nurseNames.isNotEmpty;
 
   Map<String, dynamic> toMap() {
     return {
@@ -162,6 +175,8 @@ class CampModel {
       'doctor_name': doctorName,
       'doctor_names': doctorNames.join(','),
       'show_doctor_on_forms': showDoctorOnForms ? 1 : 0,
+      'nurse_names': nurseNames.join(','),
+      'show_nurse_on_forms': showNurseOnForms ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -207,6 +222,22 @@ class CampModel {
         if (raw is int) return raw != 0;
         return true;
       }(),
+      nurseNames: () {
+        final raw = map['nurse_names'] as String?;
+        if (raw == null || raw.trim().isEmpty) return <String>[];
+        // Parenthesis-aware splitting to avoid splitting within "Name (NNC: 12345)"
+        return NurseProfile.splitList(raw)
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }(),
+      showNurseOnForms: () {
+        final raw = map['show_nurse_on_forms'];
+        if (raw == null) return true; // Default ON for backward compat
+        if (raw is bool) return raw;
+        if (raw is int) return raw != 0;
+        return true;
+      }(),
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,
     );
@@ -231,6 +262,8 @@ class CampModel {
     String? doctorName,
     List<String>? doctorNames,
     bool? showDoctorOnForms,
+    List<String>? nurseNames,
+    bool? showNurseOnForms,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -253,6 +286,8 @@ class CampModel {
       doctorName: doctorName ?? this.doctorName,
       doctorNames: doctorNames ?? this.doctorNames,
       showDoctorOnForms: showDoctorOnForms ?? this.showDoctorOnForms,
+      nurseNames: nurseNames ?? this.nurseNames,
+      showNurseOnForms: showNurseOnForms ?? this.showNurseOnForms,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

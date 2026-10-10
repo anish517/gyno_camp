@@ -328,6 +328,9 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT (STATIONS 1-6):
 8. Page 2 Footer / Examining Clinician Sign-off:
    - Look for the Examining Doctor section / checkboxes: e.g. "[ ] Dr. Sita [ ] Dr. Gita" or signed doctor name under "Medical Officer / Gynecologist"
    - Extract the identified/checked doctor name into "examiningDoctor" (e.g. "Dr. Sita Karki").
+   - Look for the Attending Nurse section / checkboxes: e.g. "[x] Sita Sharma [ ] Gita Rai" or a signed/handwritten nurse name under "Attending Nurse / सेवा दिने नर्स".
+   - Put EVERY checked or written nurse name into "attendingNurses" (array, may contain several names) and the first/main one into "examiningNurse". Do NOT include the word "Nurse" or any registration number in the name.
+   - IMPORTANT: The follow-up destination "GynaeSupport Nurse" is NOT an attending nurse. Never put it into examiningNurse or attendingNurses.
 
 Extract the information accurately into this EXACT JSON structure:
 {
@@ -387,6 +390,8 @@ Extract the information accurately into this EXACT JSON structure:
   "followUpDestination": "Follow-up destination clinic or nurse",
   "surgicalReferral": "Scheer Memorial Hospital or Model Hospital or Local Government Hospital or None",
   "examiningDoctor": "Examining doctor name or checked doctor checkbox on Page 2 or null",
+  "examiningNurse": "Main attending nurse name (checked checkbox or handwritten) on Page 2 or null",
+  "attendingNurses": ["All checked or written attending nurse names on Page 2, empty list if none"],
   "clinicalNotes": "Clinical notes written in Station 6",
   "rawSummary": "A concise summary of all visible handwriting and marked fields on the page."
 }

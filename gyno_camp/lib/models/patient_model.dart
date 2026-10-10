@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'nurse_profile.dart';
 import '../core/constants/clinical_constants.dart';
 
 class PatientModel {
@@ -49,6 +50,8 @@ class PatientModel {
   final String? surgeryType;
   final String? primaryDoctorName;
   final List<String> attendingDoctorNames;
+  final String? primaryNurseName;
+  final List<String> attendingNurseNames;
 
   const PatientModel({
     required this.id,
@@ -88,6 +91,8 @@ class PatientModel {
     this.surgeryType,
     this.primaryDoctorName,
     this.attendingDoctorNames = const [],
+    this.primaryNurseName,
+    this.attendingNurseNames = const [],
   });
 
   String get fullName => '$firstName $surname'.trim();
@@ -165,6 +170,8 @@ class PatientModel {
     String? surgeryType,
     String? primaryDoctorName,
     List<String>? attendingDoctorNames,
+    String? primaryNurseName,
+    List<String>? attendingNurseNames,
   }) {
     return PatientModel(
       id: id ?? this.id,
@@ -204,6 +211,8 @@ class PatientModel {
       surgeryType: surgeryType ?? this.surgeryType,
       primaryDoctorName: primaryDoctorName ?? this.primaryDoctorName,
       attendingDoctorNames: attendingDoctorNames ?? this.attendingDoctorNames,
+      primaryNurseName: primaryNurseName ?? this.primaryNurseName,
+      attendingNurseNames: attendingNurseNames ?? this.attendingNurseNames,
     );
   }
 
@@ -312,6 +321,10 @@ class PatientModel {
       attendingDoctorNames: map['attending_doctor_names'] != null && (map['attending_doctor_names'] as String).isNotEmpty
           ? (map['attending_doctor_names'] as String).split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
           : (map['primary_doctor_name'] != null && (map['primary_doctor_name'] as String).isNotEmpty ? [(map['primary_doctor_name'] as String).trim()] : const []),
+      primaryNurseName: map['primary_nurse_name'] as String?,
+      attendingNurseNames: map['attending_nurse_names'] != null && (map['attending_nurse_names'] as String).isNotEmpty
+          ? NurseProfile.splitList(map['attending_nurse_names'] as String).map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+          : (map['primary_nurse_name'] != null && (map['primary_nurse_name'] as String).isNotEmpty ? [(map['primary_nurse_name'] as String).trim()] : const []),
     );
   }
 }

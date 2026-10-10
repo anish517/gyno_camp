@@ -39,6 +39,8 @@ abstract class IOcrRepository {
     required String deviceId,
     String? primaryDoctorName,
     List<String> attendingDoctorNames = const [],
+    String? primaryNurseName,
+    List<String> attendingNurseNames = const [],
   });
 }
 
@@ -202,6 +204,8 @@ class OcrRepository implements IOcrRepository {
     required String deviceId,
     String? primaryDoctorName,
     List<String> attendingDoctorNames = const [],
+    String? primaryNurseName,
+    List<String> attendingNurseNames = const [],
   }) async {
     final demo = verifiedScan.demographics;
     final obs = verifiedScan.obstetrics;
@@ -305,6 +309,14 @@ class OcrRepository implements IOcrRepository {
               ? verifiedScan.attendingDoctors
               : ((primaryDoctorName ?? verifiedScan.examiningDoctor) != null
                   ? [(primaryDoctorName ?? verifiedScan.examiningDoctor)!]
+                  : const [])),
+      primaryNurseName: primaryNurseName ?? verifiedScan.examiningNurse,
+      attendingNurseNames: attendingNurseNames.isNotEmpty
+          ? attendingNurseNames
+          : (verifiedScan.attendingNurses.isNotEmpty
+              ? verifiedScan.attendingNurses
+              : ((primaryNurseName ?? verifiedScan.examiningNurse) != null
+                  ? [(primaryNurseName ?? verifiedScan.examiningNurse)!]
                   : const [])),
       createdAt: DateTime.now(),
       createdByUserId: userId,

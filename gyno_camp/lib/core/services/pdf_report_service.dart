@@ -2843,6 +2843,8 @@ class PdfReportService {
     pw.Document pdf, {
     CampModel? camp,
     DoctorProfile? doctor,
+    NurseProfile? nurse,
+    bool blankNurseLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
     pw.MemoryImage? logoImage,
   }) {
@@ -2856,6 +2858,9 @@ class PdfReportService {
     final boxBg = PdfColor.fromHex('FAFAFA');
 
     final bool showDoctor = camp?.showDoctorOnForms ?? true;
+    final bool showNurse = camp?.showNurseOnForms ?? true;
+    final List<NurseProfile> campNurses =
+        camp?.nurseProfiles.toSet().toList() ?? <NurseProfile>[];
 
     pdf.addPage(
       pw.Page(
@@ -2951,6 +2956,18 @@ class PdfReportService {
                 ne(label, size: 8.5, color: 0xFF1E293B),
               ],
             ),
+          );
+
+          // Nurse signature block (empty when camp has no nurses & none requested)
+          final nurseWidgets = _buildNurseSignatureBlock(
+            cb: (label, checked) => cb(label),
+            campNurses: campNurses,
+            showNurse: showNurse,
+            blankNurseLines: blankNurseLines,
+            nurse: nurse,
+            primary: cyan,
+            dark: dark,
+            fsSmall: 7,
           );
 
           pw.Widget buildCharBoxes(
@@ -3208,7 +3225,7 @@ class PdfReportService {
                 children: [
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
+                    children: nurseWidgets.isNotEmpty ? nurseWidgets : [
                       pw.Container(
                         width: 120,
                         height: 0.8,
@@ -3320,9 +3337,180 @@ class PdfReportService {
     );
   }
 
+  /// Builds the attending-nurse block shown near the signatures.
+  ///
+  /// Returns an empty list when nothing should be printed, so forms for camps
+  /// without nurses stay identical to the previous layout.
+  ///  - blank lines   : [blankNurseLines] or nurse names hidden by camp setting
+  ///  - specific nurse: pre-printed name (+ optional NNC number)
+  ///  - checkbox list : every camp nurse (multi-select by ticking on paper);
+  ///                    nurses recorded on [visitNurseNames] are pre-ticked
+  static List<pw.Widget> _buildNurseSignatureBlock({
+    required pw.Widget Function(String label, bool checked) cb,
+    required List<NurseProfile> campNurses,
+    required bool showNurse,
+    bool blankNurseLines = false,
+    NurseProfile? nurse,
+    List<String> visitNurseNames = const [],
+    required PdfColor primary,
+    required PdfColor dark,
+    double width = 210,
+    double fsSmall = 8.0,
+  }) {
+    pw.Widget signLine(double w) =>
+        pw.Container(width: w, height: 0.8, color: PdfColors.black);
+
+    final visitNames = visitNurseNames
+        .map((n) => NurseProfile.parse(n).name.toLowerCase().trim())
+        .where((n) => n.isNotEmpty)
+        .toSet();
+    final rosterNames =
+        campNurses.map((n) => n.name.toLowerCase().trim()).toSet();
+    // Nurses recorded on a visit but missing from the camp roster
+    final extraVisitNurses = visitNurseNames
+        .map((n) => NurseProfile.parse(n))
+        .where((n) =>
+            n.isValid && !rosterNames.contains(n.name.toLowerCase().trim()))
+        .toSet()
+        .toList();
+    final hasAnyNurse =
+        campNurses.isNotEmpty || extraVisitNurses.isNotEmpty || nurse != null;
+
+    // 1) Blank lines (explicitly requested, or names hidden by camp setting)
+    if (blankNurseLines || (!showNurse && hasAnyNurse)) {
+      return [
+        pw.SizedBox(
+          width: width,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              signLine(120),
+              pw.SizedBox(height: 2),
+              pw.Text(
+                'Attending Nurse',
+                style: pw.TextStyle(
+                  fontSize: fsSmall,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.Text(
+                'Nurse Name, Signature & NNC: ______________',
+                style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey600),
+              ),
+              pw.SizedBox(height: 6),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    // 2) Specific nurse pre-printed
+    if (nurse != null) {
+      return [
+        pw.SizedBox(
+          width: width,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              signLine(120),
+              pw.SizedBox(height: 2),
+              pw.Text(
+                sanitizeText(nurse.displayName),
+                style: pw.TextStyle(
+                  fontSize: fsSmall,
+                  fontWeight: pw.FontWeight.bold,
+                  color: dark,
+                ),
+              ),
+              pw.Text(
+                'Attending Nurse',
+                style: const pw.TextStyle(fontSize: 6.2, color: PdfColors.grey700),
+              ),
+              if (nurse.hasRegistration)
+                pw.Text(
+                  'NNC No: ${sanitizeText(nurse.registrationNumber)}',
+                  style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey600),
+                ),
+              pw.SizedBox(height: 6),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    // 3) Checkbox list of camp nurses (+ pre-ticked visit nurses)
+    if (campNurses.isNotEmpty || extraVisitNurses.isNotEmpty) {
+      final entries = <NurseProfile>[...campNurses, ...extraVisitNurses];
+      return [
+        pw.SizedBox(
+          width: width,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(
+                    'Attending Nurse (',
+                    style: pw.TextStyle(
+                      fontSize: fsSmall,
+                      fontWeight: pw.FontWeight.bold,
+                      color: primary,
+                    ),
+                  ),
+                  ne(
+                    'सेवा दिने नर्स',
+                    size: fsSmall,
+                    bold: true,
+                    color: 0xFF81005D,
+                  ),
+                  pw.Text(
+                    '):',
+                    style: pw.TextStyle(
+                      fontSize: fsSmall,
+                      fontWeight: pw.FontWeight.bold,
+                      color: primary,
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 2),
+              pw.Wrap(
+                spacing: 4,
+                runSpacing: 1.5,
+                children: [
+                  ...entries.map(
+                    (n) => cb(
+                      n.formattedLabel,
+                      visitNames.contains(n.name.toLowerCase().trim()),
+                    ),
+                  ),
+                  cb('Other: _____', false),
+                ],
+              ),
+              pw.SizedBox(height: 2),
+              signLine(120),
+              pw.SizedBox(height: 2),
+              pw.Text(
+                'Nurse Signature & NNC No.: ______________',
+                style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey700),
+              ),
+              pw.SizedBox(height: 6),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    // 4) Camp has no nurses and none requested: keep the original layout
+    return const <pw.Widget>[];
+  }
+
   Future<Uint8List> generateBlankFollowUpSlipPdf({
     CampModel? camp,
     DoctorProfile? doctor,
+    NurseProfile? nurse,
+    bool blankNurseLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
   }) async {
     final theme = await getPdfTheme();
@@ -3333,6 +3521,8 @@ class PdfReportService {
         pdf,
         camp: camp,
         doctor: doctor,
+        nurse: nurse,
+        blankNurseLines: blankNurseLines,
         organizationName: organizationName,
         logoImage: logoImage,
       );
@@ -3343,6 +3533,8 @@ class PdfReportService {
   Future<Uint8List> generateBatchBlankFollowUpSlipsPdf({
     required List<DoctorProfile> doctors,
     CampModel? camp,
+    NurseProfile? nurse,
+    bool blankNurseLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
   }) async {
     final theme = await getPdfTheme();
@@ -3354,6 +3546,8 @@ class PdfReportService {
           pdf,
           camp: camp,
           doctor: doc,
+          nurse: nurse,
+          blankNurseLines: blankNurseLines,
           organizationName: organizationName,
           logoImage: logoImage,
         );
@@ -3373,6 +3567,8 @@ class PdfReportService {
     ClinicalVisitModel? visit,
     DoctorProfile? doctor,
     bool blankDoctorLines = false,
+    NurseProfile? nurse,
+    bool blankNurseLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
     List<LookupItemModel>? diagnoses,
     List<LookupItemModel>? medications,
@@ -3463,6 +3659,17 @@ class PdfReportService {
     } else {
       doctorHeaderPart = "";
     }
+
+    // ── Resolve Nurse Information ──
+    final bool showNurse = camp?.showNurseOnForms ?? true;
+    final List<NurseProfile> campNurses =
+        camp?.nurseProfiles.toSet().toList() ?? <NurseProfile>[];
+    final List<String> visitNurseNames = <String>[
+      ...?visit?.attendingNurseNames,
+      if (visit?.primaryNurseName != null &&
+          visit!.primaryNurseName!.trim().isNotEmpty)
+        visit.primaryNurseName!.trim(),
+    ];
 
     // ── Resolve dynamic master items with graceful fallbacks ──
     // 1. Diagnoses
@@ -5160,6 +5367,17 @@ class PdfReportService {
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
+                      ..._buildNurseSignatureBlock(
+                        cb: cb,
+                        campNurses: campNurses,
+                        showNurse: showNurse,
+                        blankNurseLines: blankNurseLines,
+                        nurse: nurse,
+                        visitNurseNames: visitNurseNames,
+                        primary: primary,
+                        dark: dark,
+                        fsSmall: fsSmall,
+                      ),
                       pw.Container(
                         width: 105,
                         height: 0.8,
@@ -5529,6 +5747,8 @@ class PdfReportService {
     ClinicalVisitModel? visit,
     DoctorProfile? doctor,
     bool blankDoctorLines = false,
+    NurseProfile? nurse,
+    bool blankNurseLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
     List<LookupItemModel>? diagnoses,
     List<LookupItemModel>? medications,
@@ -5547,6 +5767,8 @@ class PdfReportService {
         visit: visit,
         doctor: doctor,
         blankDoctorLines: blankDoctorLines,
+        nurse: nurse,
+        blankNurseLines: blankNurseLines,
         organizationName: organizationName,
         diagnoses: diagnoses,
         medications: medications,
@@ -5562,6 +5784,8 @@ class PdfReportService {
   Future<Uint8List> generateBatchBlankYellowFormsPdf({
     required List<DoctorProfile> doctors,
     CampModel? camp,
+    NurseProfile? nurse,
+    bool blankNurseLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
     List<LookupItemModel>? diagnoses,
     List<LookupItemModel>? medications,
@@ -5578,6 +5802,8 @@ class PdfReportService {
           pdf,
           camp: camp,
           doctor: doc,
+          nurse: nurse,
+          blankNurseLines: blankNurseLines,
           organizationName: organizationName,
           diagnoses: diagnoses,
           medications: medications,

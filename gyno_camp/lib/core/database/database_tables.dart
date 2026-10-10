@@ -68,6 +68,8 @@ class DatabaseTables {
       organization_name TEXT DEFAULT 'Community Health Outreach Mission',
       doctor_name TEXT DEFAULT '',
       doctor_names TEXT DEFAULT '',
+      nurse_names TEXT DEFAULT '',
+      show_nurse_on_forms INTEGER DEFAULT 1,
       created_at TEXT NOT NULL,
       updated_at TEXT
     );
@@ -153,6 +155,8 @@ class DatabaseTables {
       surgery_type TEXT,
       attending_doctor_names TEXT DEFAULT '',
       primary_doctor_name TEXT DEFAULT '',
+      attending_nurse_names TEXT DEFAULT '',
+      primary_nurse_name TEXT DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT,
       created_by_user_id TEXT NOT NULL,

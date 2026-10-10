@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/nurse_profile.dart';
 import '../models/patient_model.dart';
 import '../repositories/patient_repository.dart';
 import 'patient_registration_viewmodel.dart';
@@ -18,6 +19,7 @@ class PatientFilterCriteria {
   final String? chiefComplaint; // reason for visit key e.g. 'something hanging out'
   final String? clinicalIntake; // 'all', 'completed', 'pending', 'followup'
   final String? doctor; // 'all' or specific doctor name
+  final String? nurse; // 'all' or specific nurse name
   final Map<String, List<String>> campDoctorsMap; // campId -> doctorNames list
 
   const PatientFilterCriteria({
@@ -35,6 +37,7 @@ class PatientFilterCriteria {
     this.chiefComplaint,
     this.clinicalIntake,
     this.doctor,
+    this.nurse,
     this.campDoctorsMap = const {},
   });
 
@@ -52,7 +55,8 @@ class PatientFilterCriteria {
       (popStage != null && popStage != 'all') ||
       (chiefComplaint != null && chiefComplaint!.trim().isNotEmpty) ||
       (clinicalIntake != null && clinicalIntake != 'all') ||
-      (doctor != null && doctor != 'all' && doctor!.trim().isNotEmpty);
+      (doctor != null && doctor != 'all' && doctor!.trim().isNotEmpty) ||
+      (nurse != null && nurse != 'all' && nurse!.trim().isNotEmpty);
 
   int get activeFilterCount {
     int count = 0;
@@ -69,6 +73,7 @@ class PatientFilterCriteria {
     if (chiefComplaint != null && chiefComplaint!.trim().isNotEmpty) count++;
     if (clinicalIntake != null && clinicalIntake != 'all') count++;
     if (doctor != null && doctor != 'all' && doctor!.trim().isNotEmpty) count++;
+    if (nurse != null && nurse != 'all' && nurse!.trim().isNotEmpty) count++;
     return count;
   }
 
@@ -87,6 +92,7 @@ class PatientFilterCriteria {
     String? chiefComplaint,
     String? clinicalIntake,
     String? doctor,
+    String? nurse,
     Map<String, List<String>>? campDoctorsMap,
     bool clearMinAge = false,
     bool clearMaxAge = false,
@@ -101,6 +107,7 @@ class PatientFilterCriteria {
     bool clearChiefComplaint = false,
     bool clearClinicalIntake = false,
     bool clearDoctor = false,
+    bool clearNurse = false,
   }) {
     return PatientFilterCriteria(
       campId: campId ?? this.campId,
@@ -117,6 +124,7 @@ class PatientFilterCriteria {
       chiefComplaint: clearChiefComplaint ? null : (chiefComplaint ?? this.chiefComplaint),
       clinicalIntake: clearClinicalIntake ? null : (clinicalIntake ?? this.clinicalIntake),
       doctor: clearDoctor ? null : (doctor ?? this.doctor),
+      nurse: clearNurse ? null : (nurse ?? this.nurse),
       campDoctorsMap: campDoctorsMap ?? this.campDoctorsMap,
     );
   }
@@ -397,6 +405,23 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
             return false;
           }
         }
+      }
+
+      // 5. Nurse Filter — visit-based only (no solo-doctor-queue fallback)
+      if (filters.nurse != null && filters.nurse != 'all' && filters.nurse!.trim().isNotEmpty) {
+        final nurseFilter = filters.nurse!;
+
+        bool nurseNamesMatch(String a, String b) {
+          final cleanA = NurseProfile.stripPrefixes(a).toLowerCase();
+          final cleanB = NurseProfile.stripPrefixes(b).toLowerCase();
+          if (cleanA.isEmpty || cleanB.isEmpty) return false;
+          return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
+        }
+
+        final primaryMatch = p.primaryNurseName != null && nurseNamesMatch(p.primaryNurseName!, nurseFilter);
+        final attendingMatch = p.attendingNurseNames.any((n) => nurseNamesMatch(n, nurseFilter));
+
+        if (!primaryMatch && !attendingMatch) return false;
       }
 
       return true;

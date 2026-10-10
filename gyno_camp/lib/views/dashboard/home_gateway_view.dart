@@ -4374,6 +4374,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   String _selectedAgeBracket = 'all'; // 'all', '<20', '20-35', '36-50', '51-65', '>65'
   String _selectedIntakeStatus = 'all'; // 'all', 'completed', 'pending', 'followup'
   String _selectedDoctor = 'all'; // 'all' or doctor name
+  String _selectedNurse = 'all'; // 'all' or nurse name
   String _selectedDiagnosis = 'all'; // 'all' or specific dynamic diagnosis
   String _selectedTreatment = 'all'; // 'all', 'pessary', 'surgery', 'counseling', 'medications'
   bool _highBpOnly = false;
@@ -4480,6 +4481,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             popStageFilter: _selectedPopStage == 'all' ? null : _selectedPopStage,
             treatmentFilter: _selectedTreatment == 'all' ? null : _selectedTreatment,
             doctorFilter: _selectedDoctor == 'all' ? null : _selectedDoctor,
+            nurseFilter: _selectedNurse == 'all' ? null : _selectedNurse,
             visitReasonFilter: _selectedVisitReason == 'all' ? null : _selectedVisitReason,
             complaintFilter: _selectedComplaint == 'all' ? null : _selectedComplaint,
           );
@@ -4524,6 +4526,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       _registryPage = 0;
       // Reset camp-scoped filters so selections don't linger across camps
       _selectedDoctor = 'all';
+      _selectedNurse = 'all';
       _selectedVisitReason = 'all';
       _selectedComplaint = 'all';
       _selectedDiagnosis = 'all';
@@ -4567,6 +4570,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     if (_selectedTreatment != 'all') count++;
     if (_selectedIntakeStatus != 'all') count++;
     if (_selectedDoctor != 'all') count++;
+    if (_selectedNurse != 'all') count++;
     if (_highBpOnly) count++;
     if (_searchController.text.trim().isNotEmpty) count++;
     return count;
@@ -4584,6 +4588,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       _selectedTreatment = 'all';
       _selectedIntakeStatus = 'all';
       _selectedDoctor = 'all';
+      _selectedNurse = 'all';
       _highBpOnly = false;
       _registryPage = 0;
     });
@@ -5000,6 +5005,32 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     return false;
   }
 
+  bool _nurseNamesMatch(String a, String b) {
+    final cleanA = NurseProfile.stripPrefixes(a).trim().toLowerCase();
+    final cleanB = NurseProfile.stripPrefixes(b).trim().toLowerCase();
+    if (cleanA.isEmpty || cleanB.isEmpty) return false;
+    return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
+  }
+
+  bool _matchesNurse(PatientModel p, ClinicalVisitModel? visit, String nurseName) {
+    if (nurseName == 'all') return true;
+    final nurseLower = NurseProfile.stripPrefixes(nurseName).trim().toLowerCase();
+    if (nurseLower.isEmpty) return false;
+
+    if (visit != null) {
+      final primaryMatch = visit.primaryNurseName != null && _nurseNamesMatch(visit.primaryNurseName!, nurseLower);
+      final attendingMatch = visit.attendingNurseNames.any((n) => _nurseNamesMatch(n, nurseLower));
+      if (primaryMatch || attendingMatch) return true;
+    }
+
+    final patientPrimaryMatch = p.primaryNurseName != null && _nurseNamesMatch(p.primaryNurseName!, nurseLower);
+    final patientAttendingMatch = p.attendingNurseNames.any((n) => _nurseNamesMatch(n, nurseLower));
+    if (patientPrimaryMatch || patientAttendingMatch) return true;
+
+    // Decision 5: Visit-based accountability only (no solo-nurse fallback)
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider).currentUser;
@@ -5094,6 +5125,52 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         }
       }
       doctorCounts[doc] = count;
+    }
+
+    // Collect all dynamic nurses scoped strictly to the selected camp (or all visible camps)
+    final allNurses = <String>{};
+    for (final camp in relevantCamps) {
+      if (camp.nurseNames.isNotEmpty) {
+        allNurses.addAll(camp.nurseNames.map((n) => NurseProfile.stripPrefixes(n).trim()).where((n) => n.isNotEmpty));
+      }
+    }
+    for (final p in campScopedPatients) {
+      final v = _patientVisits[p.patientId];
+      if (v != null) {
+        if (v.primaryNurseName != null && v.primaryNurseName!.trim().isNotEmpty) {
+          final clean = NurseProfile.stripPrefixes(v.primaryNurseName!).trim();
+          if (clean.isNotEmpty) allNurses.add(clean);
+        }
+        for (final n in v.attendingNurseNames) {
+          final clean = NurseProfile.stripPrefixes(n).trim();
+          if (clean.isNotEmpty) allNurses.add(clean);
+        }
+      }
+      if (p.primaryNurseName != null && p.primaryNurseName!.trim().isNotEmpty) {
+        final clean = NurseProfile.stripPrefixes(p.primaryNurseName!).trim();
+        if (clean.isNotEmpty) allNurses.add(clean);
+      }
+      for (final n in p.attendingNurseNames) {
+        final clean = NurseProfile.stripPrefixes(n).trim();
+        if (clean.isNotEmpty) allNurses.add(clean);
+      }
+    }
+    final sortedNurses = allNurses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    if (_selectedNurse != 'all' && !sortedNurses.contains(_selectedNurse)) {
+      _selectedNurse = 'all';
+    }
+
+    // Compute live patient counts per nurse in the camp scope
+    final nurseCounts = <String, int>{};
+    for (final nurse in sortedNurses) {
+      int count = 0;
+      for (final p in campScopedPatients) {
+        final v = _patientVisits[p.patientId];
+        if (_matchesNurse(p, v, nurse)) {
+          count++;
+        }
+      }
+      nurseCounts[nurse] = count;
     }
 
     // 1. Visit Reason definitions (Master Data Category: visit_reason)
@@ -5407,6 +5484,11 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         if (!_matchesDoctor(p, visit, _selectedDoctor, campState)) return false;
       }
 
+      // 9b. Nurse filter (visit-based accountability)
+      if (_selectedNurse != 'all') {
+        if (!_matchesNurse(p, visit, _selectedNurse)) return false;
+      }
+
       // 10. Dynamic Diagnosis filter
       if (_selectedDiagnosis != 'all') {
         final targetDiag = _selectedDiagnosis.toLowerCase().trim();
@@ -5533,6 +5615,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                             campScopedPatientsCount: campScopedPatients.length,
                             allDoctors: sortedDoctors,
                             doctorCounts: doctorCounts,
+                            allNurses: sortedNurses,
+                            nurseCounts: nurseCounts,
                             allDiagnoses: sortedDiagnoses,
                             diagnosisCounts: diagnosisCounts,
                             visitReasonDefinitions: visitReasonDefinitions,
@@ -5571,6 +5655,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           campScopedPatientsCount: campScopedPatients.length,
                           allDoctors: sortedDoctors,
                           doctorCounts: doctorCounts,
+                          allNurses: sortedNurses,
+                          nurseCounts: nurseCounts,
                           allDiagnoses: sortedDiagnoses,
                           diagnosisCounts: diagnosisCounts,
                           visitReasonDefinitions: visitReasonDefinitions,
@@ -5969,6 +6055,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     required int campScopedPatientsCount,
     required List<String> allDoctors,
     required Map<String, int> doctorCounts,
+    required List<String> allNurses,
+    required Map<String, int> nurseCounts,
     required List<String> allDiagnoses,
     required Map<String, int> diagnosisCounts,
     required Map<String, String> visitReasonDefinitions,
@@ -6336,6 +6424,36 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             },
           );
 
+    final nurseDropdown = allNurses.isEmpty
+        ? const SizedBox.shrink()
+        : DropdownButtonFormField<String>(
+            key: ValueKey('nurse_filter_$_selectedNurse'),
+            initialValue: _selectedNurse,
+            isExpanded: true,
+            decoration: filterInputDecoration(
+              labelText: 'Attending Nurse',
+              prefixIcon: Icons.person_pin_circle_outlined,
+            ),
+            items: [
+              DropdownMenuItem(
+                value: 'all',
+                child: buildOptionRow('All Nurses', campScopedPatientsCount, isBold: true),
+              ),
+              ...allNurses.map((n) => DropdownMenuItem(
+                    value: n,
+                    child: buildOptionRow(n, nurseCounts[n] ?? 0),
+                  )),
+            ],
+            onChanged: (v) {
+              setState(() {
+                _selectedNurse = v ?? 'all';
+                _registryPage = 0;
+                if (_activeTab == 'charts' || _activeTab == 'camps') _activeTab = 'overview';
+              });
+              _fetchDataForCamp(_selectedCampId);
+            },
+          );
+
     final togglesWrap = Wrap(
       spacing: 8,
       runSpacing: 6,
@@ -6522,6 +6640,10 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   const SizedBox(height: 10),
                   doctorDropdown,
                 ],
+                if (allNurses.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  nurseDropdown,
+                ],
                 const SizedBox(height: 14),
                 const Text(
                   'CLINICAL ALERTS & STATUS',
@@ -6627,6 +6749,13 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                                 const SizedBox(width: 8),
                                 const Expanded(child: SizedBox.shrink()),
                               ],
+                              if (allNurses.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Expanded(child: nurseDropdown),
+                              ] else ...[
+                                const SizedBox(width: 8),
+                                const Expanded(child: SizedBox.shrink()),
+                              ],
                             ],
                           ),
                         ],
@@ -6670,6 +6799,16 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                             ],
                           ],
                         ),
+                        if (allNurses.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: nurseDropdown),
+                              const SizedBox(width: 8),
+                              const Expanded(child: SizedBox.shrink()),
+                            ],
+                          ),
+                        ],
                       ],
                     );
                   },

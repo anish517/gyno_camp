@@ -22,6 +22,8 @@ class OcrScanResultModel {
   final int? ringPessarySize; // in mm, e.g. 65, 70
   final String? examiningDoctor; // Lead/attending doctor identified on Page 2
   final List<String> attendingDoctors; // Multi-doctor list if multiple attended
+  final String? examiningNurse; // Lead nurse identified on Page 2
+  final List<String> attendingNurses; // Multi-nurse list if multiple nurses attended
   final Map<String, double> fieldConfidences;
   final double overallConfidence;
   final String rawText;
@@ -51,6 +53,8 @@ class OcrScanResultModel {
     this.ringPessarySize,
     this.examiningDoctor,
     this.attendingDoctors = const [],
+    this.examiningNurse,
+    this.attendingNurses = const [],
     required this.fieldConfidences,
     required this.overallConfidence,
     required this.rawText,
@@ -86,6 +90,9 @@ class OcrScanResultModel {
     String? examiningDoctor,
     bool clearExaminingDoctor = false,
     List<String>? attendingDoctors,
+    String? examiningNurse,
+    bool clearExaminingNurse = false,
+    List<String>? attendingNurses,
     Map<String, double>? fieldConfidences,
     double? overallConfidence,
     String? rawText,
@@ -115,6 +122,8 @@ class OcrScanResultModel {
       ringPessarySize: clearRingPessarySize ? null : (ringPessarySize ?? this.ringPessarySize),
       examiningDoctor: clearExaminingDoctor ? null : (examiningDoctor ?? this.examiningDoctor),
       attendingDoctors: attendingDoctors ?? List<String>.from(this.attendingDoctors),
+      examiningNurse: clearExaminingNurse ? null : (examiningNurse ?? this.examiningNurse),
+      attendingNurses: attendingNurses ?? List<String>.from(this.attendingNurses),
       fieldConfidences: fieldConfidences ?? Map<String, double>.from(this.fieldConfidences),
       overallConfidence: overallConfidence ?? this.overallConfidence,
       rawText: rawText ?? this.rawText,
@@ -151,6 +160,13 @@ ${page2.rawText}
       if (mergedDoctor != null && mergedDoctor.isNotEmpty) mergedDoctor,
     }.toList();
 
+    final mergedNurse = page2.examiningNurse ?? page1.examiningNurse;
+    final mergedNurses = <String>{
+      ...page1.attendingNurses,
+      ...page2.attendingNurses,
+      if (mergedNurse != null && mergedNurse.isNotEmpty) mergedNurse,
+    }.toList();
+
     return OcrScanResultModel(
       pageNumber: 0, // 0 = Full Combined Intake
       isDualPage: true,
@@ -184,6 +200,8 @@ ${page2.rawText}
       ringPessarySize: page2.ringPessarySize ?? page1.ringPessarySize,
       examiningDoctor: mergedDoctor,
       attendingDoctors: mergedDoctors,
+      examiningNurse: mergedNurse,
+      attendingNurses: mergedNurses,
       fieldConfidences: mergedConfidences,
       overallConfidence: double.parse(avgConf.toStringAsFixed(2)),
       rawText: combinedText,
@@ -224,6 +242,8 @@ ${page2.rawText}
       'ringPessarySize': ringPessarySize,
       'examiningDoctor': examiningDoctor,
       'attendingDoctors': attendingDoctors.join(','),
+      'examiningNurse': examiningNurse,
+      'attendingNurses': attendingNurses.join(','),
       'fieldConfidences': fieldConfidences,
       'overallConfidence': overallConfidence,
       'rawText': rawText,
@@ -243,6 +263,8 @@ ${page2.rawText}
       medications: [],
       examiningDoctor: null,
       attendingDoctors: const [],
+      examiningNurse: null,
+      attendingNurses: const [],
       fieldConfidences: {},
       overallConfidence: 0.0,
       rawText: '',

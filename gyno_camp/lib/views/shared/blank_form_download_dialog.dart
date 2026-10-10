@@ -22,6 +22,13 @@ enum DoctorSelectionMode {
   blankDoctorField,
 }
 
+/// How the attending nurse(s) appear on a printed blank form.
+enum NurseSelectionMode {
+  allNursesChecklist, // every camp nurse as a tick-box (multi-select on paper)
+  specificNurse, // one pre-printed nurse
+  blankNurseField, // blank nurse name / signature lines
+}
+
 class BlankFormDownloadDialog extends ConsumerStatefulWidget {
   final CampModel? camp;
 
@@ -46,6 +53,9 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   PrintableFormType _selectedFormType = PrintableFormType.yellowRegistrationForm;
   DoctorSelectionMode _doctorMode = DoctorSelectionMode.specificDoctor;
   DoctorProfile? _selectedDoctor;
+  NurseSelectionMode _nurseMode = NurseSelectionMode.allNursesChecklist;
+  NurseProfile? _selectedNurse;
+  bool _includeBlankNurseLine = false; // used only when the camp has no nurses
   bool _isGenerating = false;
 
   @override
@@ -56,6 +66,10 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
       _selectedDoctor = doctors.first;
     } else {
       _doctorMode = DoctorSelectionMode.blankDoctorField;
+    }
+    final nurses = widget.camp?.nurseProfiles ?? [];
+    if (nurses.isNotEmpty) {
+      _selectedNurse = nurses.first;
     }
   }
 
@@ -83,6 +97,14 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
 
       final pdfService = PdfReportService();
       final doctors = widget.camp?.doctorProfiles ?? [];
+      final nurses = widget.camp?.nurseProfiles ?? [];
+      final NurseProfile? nurseToUse =
+          (nurses.isNotEmpty && _nurseMode == NurseSelectionMode.specificNurse)
+              ? _selectedNurse
+              : null;
+      final bool blankNurse = nurses.isNotEmpty
+          ? _nurseMode == NurseSelectionMode.blankNurseField
+          : _includeBlankNurseLine;
 
       Uint8List pdfBytes;
       String filename;
@@ -100,6 +122,8 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           pdfBytes = await pdfService.generateBatchBlankYellowFormsPdf(
             doctors: doctors,
             camp: widget.camp,
+            nurse: nurseToUse,
+            blankNurseLines: blankNurse,
             organizationName: orgName,
             diagnoses: diagnoses,
             medications: medications,
@@ -114,6 +138,8 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           pdfBytes = await pdfService.generatePatientRegistrationFormPdf(
             camp: widget.camp,
             doctor: docToUse,
+            nurse: nurseToUse,
+            blankNurseLines: blankNurse,
             blankDoctorLines: isBlank,
             organizationName: orgName,
             diagnoses: diagnoses,
@@ -138,6 +164,8 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           pdfBytes = await pdfService.generateBatchBlankFollowUpSlipsPdf(
             doctors: doctors,
             camp: widget.camp,
+            nurse: nurseToUse,
+            blankNurseLines: blankNurse,
             organizationName: orgName,
           );
           filename = 'Blank_FollowUpSlips_${campCode}_AllDoctors.pdf';
@@ -146,6 +174,8 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           pdfBytes = await pdfService.generateBlankFollowUpSlipPdf(
             camp: widget.camp,
             doctor: docToUse,
+            nurse: nurseToUse,
+            blankNurseLines: blankNurse,
             organizationName: orgName,
           );
           final docSlug = docToUse != null ? '_${docToUse.name.replaceAll(' ', '_')}' : '_Blank';
@@ -418,6 +448,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                             onChanged: (val) => setState(() => _doctorMode = val!),
                           ),
                         ],
+
+                        const SizedBox(height: 22),
+                        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                        const SizedBox(height: 18),
+                        _buildNurseSection(isNarrow),
                       ],
                     ),
                   ),
@@ -515,6 +550,133 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           },
         ),
       ),
+    );
+  }
+
+  /// Attending nurse selection (camp-level roster; not login based).
+  Widget _buildNurseSection(bool isNarrow) {
+    final nurses = widget.camp?.nurseProfiles ?? [];
+    final hasNurses = nurses.isNotEmpty;
+    final showNurseSetting = widget.camp?.showNurseOnForms ?? true;
+
+    Widget infoBox(IconData icon, Color iconColor, Color bg, Color border, Color textColor, String text) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 20),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text, style: TextStyle(fontSize: 12, color: textColor))),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '3. ATTENDING NURSE & NNC (सेवा दिने नर्स)',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+            color: AppTheme.brandPurple,
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (!hasNurses) ...[
+          infoBox(
+            Icons.info_outline_rounded,
+            const Color(0xFF64748B),
+            const Color(0xFFF1F5F9),
+            const Color(0xFFE2E8F0),
+            const Color(0xFF475569),
+            'No nurses assigned to this camp. Forms keep the standard layout without a nurse section.',
+          ),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            activeColor: AppTheme.brandPurple,
+            title: const Text('Add blank nurse signature line', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            subtitle: const Text('Leaves nurse name, signature and NNC blank for manual entry', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+            value: _includeBlankNurseLine,
+            onChanged: (val) => setState(() => _includeBlankNurseLine = val),
+          ),
+        ] else if (!showNurseSetting) ...[
+          infoBox(
+            Icons.info_outline_rounded,
+            const Color(0xFFB45309),
+            const Color(0xFFFEF3C7),
+            const Color(0xFFFDE68A),
+            const Color(0xFF92400E),
+            'Camp setting has "Show on forms" switched OFF for nurses. Nurse name and signature will be generated with blank lines for manual signing.',
+          ),
+        ] else ...[
+          RadioListTile<NurseSelectionMode>(
+            dense: true,
+            activeColor: AppTheme.brandPurple,
+            contentPadding: EdgeInsets.zero,
+            value: NurseSelectionMode.allNursesChecklist,
+            groupValue: _nurseMode,
+            title: Text('All Camp Nurses Checklist (${nurses.length})', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            subtitle: const Text('Prints every assigned nurse as a tick-box; tick one or more on paper', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+            onChanged: (val) => setState(() => _nurseMode = val!),
+          ),
+          RadioListTile<NurseSelectionMode>(
+            dense: true,
+            activeColor: AppTheme.brandPurple,
+            contentPadding: EdgeInsets.zero,
+            value: NurseSelectionMode.specificNurse,
+            groupValue: _nurseMode,
+            title: const Text('Specific Nurse (तोकिएको नर्स)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            subtitle: const Text('Pre-prints the selected nurse\'s name and NNC number', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+            onChanged: (val) => setState(() => _nurseMode = val!),
+          ),
+          if (_nurseMode == NurseSelectionMode.specificNurse)
+            Padding(
+              padding: EdgeInsets.only(left: isNarrow ? 16 : 32, bottom: 8),
+              child: DropdownButtonFormField<NurseProfile>(
+                value: _selectedNurse,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'Choose Nurse (नर्स छान्नुहोस्)',
+                  isDense: true,
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                items: nurses.map((n) {
+                  return DropdownMenuItem(
+                    value: n,
+                    child: Text(
+                      n.formattedLabel,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (val) => setState(() => _selectedNurse = val),
+              ),
+            ),
+          RadioListTile<NurseSelectionMode>(
+            dense: true,
+            activeColor: AppTheme.brandPurple,
+            contentPadding: EdgeInsets.zero,
+            value: NurseSelectionMode.blankNurseField,
+            groupValue: _nurseMode,
+            title: const Text('Blank Nurse Lines (हस्तलिखित)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            subtitle: const Text('Leaves nurse name, signature and NNC blank for manual entry on-site', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+            onChanged: (val) => setState(() => _nurseMode = val!),
+          ),
+        ],
+      ],
     );
   }
 

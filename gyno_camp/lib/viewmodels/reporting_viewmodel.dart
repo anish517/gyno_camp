@@ -77,6 +77,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
     DateTime? startDate,
     DateTime? endDate,
     String? doctorFilter,
+    String? nurseFilter,
     String? diagnosisFilter,
     String? popStageFilter,
     String? treatmentFilter,
@@ -92,6 +93,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
         startDate: startDate,
         endDate: endDate,
         doctorFilter: doctorFilter,
+        nurseFilter: nurseFilter,
         diagnosisFilter: diagnosisFilter,
         popStageFilter: popStageFilter,
         treatmentFilter: treatmentFilter,
@@ -103,6 +105,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
       final bool hasFilters = startDate != null ||
           endDate != null ||
           (doctorFilter != null && doctorFilter.isNotEmpty && doctorFilter != 'all') ||
+          (nurseFilter != null && nurseFilter.isNotEmpty && nurseFilter != 'all') ||
           (diagnosisFilter != null && diagnosisFilter.isNotEmpty && diagnosisFilter != 'all') ||
           (popStageFilter != null && popStageFilter.isNotEmpty && popStageFilter != 'all') ||
           (treatmentFilter != null && treatmentFilter.isNotEmpty && treatmentFilter != 'all') ||

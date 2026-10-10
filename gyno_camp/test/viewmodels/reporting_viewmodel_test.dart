@@ -18,6 +18,7 @@ class MockReportingRepository implements IReportingRepository {
     String? campId,
     List<String>? allowedCampIds,
     String? doctorFilter,
+    String? nurseFilter,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,

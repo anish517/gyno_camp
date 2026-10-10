@@ -11,12 +11,29 @@ import 'package:gyno_camp/models/user_model.dart';
 import 'package:gyno_camp/repositories/lookup_repository.dart';
 import 'package:gyno_camp/repositories/patient_repository.dart';
 import 'package:gyno_camp/repositories/reporting_repository.dart';
+import 'package:gyno_camp/viewmodels/master_lookup_viewmodel.dart';
 import 'package:gyno_camp/viewmodels/auth_viewmodel.dart';
 import 'package:gyno_camp/viewmodels/camp_viewmodel.dart';
 import 'package:gyno_camp/viewmodels/patient_list_viewmodel.dart';
 import 'package:gyno_camp/viewmodels/patient_registration_viewmodel.dart';
 import 'package:gyno_camp/viewmodels/reporting_viewmodel.dart';
+import 'package:gyno_camp/viewmodels/sync_viewmodel.dart';
+import 'package:gyno_camp/viewmodels/device_security_viewmodel.dart';
 import 'package:gyno_camp/views/dashboard/home_gateway_view.dart';
+
+class _FakeSyncViewModel extends StateNotifier<SyncState> implements SyncViewModel {
+  _FakeSyncViewModel() : super(const SyncState(isOnline: false));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeDeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> implements DeviceSecurityViewModel {
+  _FakeDeviceSecurityViewModel() : super(const DeviceSecurityState(hardwareFingerprint: 'test-fp', isInitialized: true, isChecking: false, isAppLocked: false));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _FakePatientRepository implements IPatientRepository {
   List<PatientModel> storedPatients = [];
@@ -130,6 +147,7 @@ class _FakeReportingRepository implements IReportingRepository {
     String? campId,
     List<String>? allowedCampIds,
     String? doctorFilter,
+    String? nurseFilter,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
@@ -262,10 +280,12 @@ void main() {
       overrides: [
         patientRepositoryProvider.overrideWithValue(patientRepo),
         reportingRepositoryProvider.overrideWithValue(reportingRepo),
-        if (lookupRepo != null) lookupRepositoryProvider.overrideWithValue(lookupRepo),
+        lookupRepositoryProvider.overrideWithValue(lookupRepo ?? _FakeLookupRepository()),
         authStateProvider.overrideWith((ref) => _FakeAuthViewModel(user ?? testAnalystUser)),
         campStateProvider.overrideWith((ref) => campViewModel ?? _FakeCampViewModel(active: camp1, all: [camp1, camp2])),
         patientListProvider.overrideWith((ref) => PatientListViewModel(patientRepo)),
+        syncStateProvider.overrideWith((ref) => _FakeSyncViewModel()),
+        deviceSecurityProvider.overrideWith((ref) => _FakeDeviceSecurityViewModel()),
       ],
       child: MaterialApp(
         home: child,
@@ -408,7 +428,7 @@ void main() {
       // 1. Verify Command Header & Role Title
       expect(find.textContaining('CLINICAL DATA ANALYST WORKSTATION'), findsOneWidget);
       expect(find.textContaining('Dr. Sunita Adhikari'), findsWidgets);
-      expect(find.textContaining('Nepal Health Outreach Network'), findsWidgets);
+      expect(find.textContaining('Nepal Health Outreach'), findsWidgets);
 
       // 2. Verify 4 Telemetry Metric Cards
       expect(find.text('Registered Cohort'), findsOneWidget);
@@ -419,17 +439,17 @@ void main() {
       // 3. Verify Multi-Dimensional Filter Bar Controls
       expect(find.text('Multi-Dimensional Analytics Filters'), findsOneWidget);
       expect(find.text('POP Severity'), findsOneWidget);
-      expect(find.text('Chief Complaint'), findsOneWidget);
+      expect(find.text('Chief Clinical Complaint (मुख्य समस्या)'), findsOneWidget);
       expect(find.text('Surgery Status'), findsOneWidget);
       expect(find.text('Age Cohort'), findsOneWidget);
       expect(find.textContaining('Hypertension Alert (HTN >= 140/90)'), findsOneWidget);
 
       // 4. Verify 5 Charts Exist
-      expect(find.text('Pelvic Organ Prolapse (POP-Q) Severity Spectrum'), findsOneWidget);
-      expect(find.text('Chief Clinical Complaints Frequency & Ranking'), findsOneWidget);
-      expect(find.text('Demographic Age Cohort Distribution'), findsOneWidget);
-      expect(find.text('Clinical Treatment & Management Modalities'), findsOneWidget);
-      expect(find.text('Cross-Camp Volume & Epidemiological Comparison'), findsOneWidget);
+      expect(find.textContaining('Pelvic Organ Prolapse (POP-Q) Severity Spectrum'), findsOneWidget);
+      expect(find.textContaining('Chief Clinical Complaints Frequency & Ranking'), findsOneWidget);
+      expect(find.textContaining('Demographic Age Cohort Distribution'), findsOneWidget);
+      expect(find.textContaining('Clinical Treatment & Management Modalities'), findsOneWidget);
+      expect(find.textContaining('Cross-Camp Volume & Epidemiological Comparison'), findsOneWidget);
 
       // 5. Verify Camp-Wise Patient Registry with Camp Badges
       expect(find.textContaining('Individual Patient Clinical Dossiers'), findsOneWidget);
@@ -539,7 +559,7 @@ void main() {
 
       // Verify DataAnalystWorkstationPage AppBar title
       expect(find.text('Data Analyst Workstation'), findsOneWidget);
-      expect(find.text('Cross-Camp Epidemiology & Visual Analytics'), findsOneWidget);
+      expect(find.text('Cross-Camp Epidemiology & Visual Analytics'), findsWidgets);
 
       // Tap on "Camp-Wise Patients" tab
       final patientsTab = find.textContaining('Camp-Wise Patients');
@@ -667,6 +687,7 @@ void main() {
           category: 'visit_reason',
           code: 'vr_assigned_1',
           labelEn: 'Assigned Camp 1 Reason',
+          labelNe: 'तोकिएको शिविर १ कारण',
           campId: 'camp-1',
           isActive: true,
         ),
@@ -675,6 +696,7 @@ void main() {
           category: 'visit_reason',
           code: 'vr_unassigned_3',
           labelEn: 'Unassigned Camp 3 Reason',
+          labelNe: 'नतोकिएको शिविर ३ कारण',
           campId: 'camp-3',
           isActive: true,
         ),
@@ -683,6 +705,7 @@ void main() {
           category: 'visit_reason',
           code: 'vr_deleted_camp',
           labelEn: 'Deleted Camp Ghost Reason',
+          labelNe: 'हटाइएको शिविर कारण',
           campId: 'camp-deleted',
           isActive: true,
         ),
@@ -717,7 +740,12 @@ void main() {
       expect(lookupRepo.lastAllowedCampIdsQueried, contains('camp-2'));
       expect(lookupRepo.lastAllowedCampIdsQueried, isNot(contains('camp-3')));
 
-      // 2. Switch to Camp-Wise Patients tab
+      // 2. Verify lookup options strictly include assigned camp and exclude unassigned & deleted camps in overview
+      expect(find.textContaining('Assigned Camp 1 Reason'), findsWidgets);
+      expect(find.textContaining('Unassigned Camp 3 Reason'), findsNothing);
+      expect(find.textContaining('Deleted Camp Ghost Reason'), findsNothing);
+
+      // 3. Switch to Camp-Wise Patients tab
       final patientsTab = find.textContaining('Camp-Wise Patients');
       expect(patientsTab, findsOneWidget);
       await tester.tap(patientsTab);
@@ -728,11 +756,6 @@ void main() {
       expect(find.text('Binita Tamang'), findsOneWidget);
       // Unassigned camp patient is NOT rendered
       expect(find.text('Chandra Gurung'), findsNothing);
-
-      // 3. Verify lookup options strictly include assigned camp and exclude unassigned & deleted camps
-      expect(find.textContaining('Assigned Camp 1 Reason'), findsWidgets);
-      expect(find.textContaining('Unassigned Camp 3 Reason'), findsNothing);
-      expect(find.textContaining('Deleted Camp Ghost Reason'), findsNothing);
     });
 
     testWidgets('Deleting an assigned camp reactively resets selection and re-scopes queries to remaining visible camps', (tester) async {

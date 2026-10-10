@@ -71,6 +71,8 @@ class DatabaseService {
         {'name': 'doctor_name', 'def': "doctor_name TEXT DEFAULT ''"},
         {'name': 'doctor_names', 'def': "doctor_names TEXT DEFAULT ''"},
         {'name': 'show_doctor_on_forms', 'def': 'show_doctor_on_forms INTEGER DEFAULT 1'},
+        {'name': 'nurse_names', 'def': "nurse_names TEXT DEFAULT ''"},
+        {'name': 'show_nurse_on_forms', 'def': 'show_nurse_on_forms INTEGER DEFAULT 1'},
       ],
       DatabaseTables.tablePatients: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
@@ -84,6 +86,8 @@ class DatabaseService {
         {'name': 'surgery_type', 'def': 'surgery_type TEXT'},
         {'name': 'attending_doctor_names', 'def': "attending_doctor_names TEXT DEFAULT ''"},
         {'name': 'primary_doctor_name', 'def': "primary_doctor_name TEXT DEFAULT ''"},
+        {'name': 'attending_nurse_names', 'def': "attending_nurse_names TEXT DEFAULT ''"},
+        {'name': 'primary_nurse_name', 'def': "primary_nurse_name TEXT DEFAULT ''"},
       ],
       DatabaseTables.tableAuditLogs: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},

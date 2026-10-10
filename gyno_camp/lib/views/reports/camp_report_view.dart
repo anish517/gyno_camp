@@ -36,6 +36,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   DateTime? _startDate;
   DateTime? _endDate;
   String? _selectedDoctor;
+  String? _selectedNurse;
   String? _selectedDiagnosis;
   String? _selectedPopStage;
   String? _selectedTreatment;
@@ -96,6 +97,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         campId: isAll ? null : targetCampId,
         allowedCampIds: allowedCampIds,
         doctorFilter: _selectedDoctor,
+        nurseFilter: _selectedNurse,
         diagnosisFilter: _selectedDiagnosis,
         popStageFilter: _selectedPopStage,
         treatmentFilter: _selectedTreatment,
@@ -121,6 +123,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   void _onCampChanged(String? campId) {
     setState(() {
       _selectedDoctor = null;
+      _selectedNurse = null;
       _selectedDiagnosis = null;
       _selectedPopStage = null;
       _selectedTreatment = null;
@@ -145,6 +148,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       startDate: _startDate,
       endDate: _endDate,
       doctorFilter: null,
+      nurseFilter: null,
       diagnosisFilter: null,
       popStageFilter: null,
       treatmentFilter: null,
@@ -175,6 +179,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       startDate: _startDate,
       endDate: _endDate,
       doctorFilter: _selectedDoctor,
+      nurseFilter: _selectedNurse,
       diagnosisFilter: _selectedDiagnosis,
       popStageFilter: _selectedPopStage,
       treatmentFilter: _selectedTreatment,
@@ -213,6 +218,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _startDate = null;
       _endDate = null;
       _selectedDoctor = null;
+      _selectedNurse = null;
       _selectedDiagnosis = null;
       _selectedPopStage = null;
       _selectedTreatment = null;
@@ -221,6 +227,26 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _selectedPatient = null;
     });
     _onRefresh();
+  }
+
+  // ── Dynamic Filter Counts ───────────────────────────────────────────────
+  int _getNurseCount(String nurse, CampReportSummaryModel? summary) {
+    if (summary == null) return 0;
+    bool nurseMatch(String a, String b) {
+      final cleanA = NurseProfile.stripPrefixes(a).trim().toLowerCase();
+      final cleanB = NurseProfile.stripPrefixes(b).trim().toLowerCase();
+      return cleanA.isNotEmpty && cleanB.isNotEmpty && (cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA));
+    }
+    // Decision 5: Visit-based only
+    final matchingVisits = summary.visits.where((v) =>
+        (v.primaryNurseName != null && nurseMatch(v.primaryNurseName!, nurse)) ||
+        v.attendingNurseNames.any((n) => nurseMatch(n, nurse)));
+    final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+    final matchingFromPatients = summary.patients.where((p) =>
+        (p.primaryNurseName != null && nurseMatch(p.primaryNurseName!, nurse)) ||
+        p.attendingNurseNames.any((n) => nurseMatch(n, nurse))).map((p) => p.patientId);
+    matchingPatientIds.addAll(matchingFromPatients);
+    return matchingPatientIds.length;
   }
 
   // ── Dynamic Filter Counts ───────────────────────────────────────────────
@@ -554,6 +580,47 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     }
     final allDoctors = finalDoctors.toSet();
 
+    // 1b. DYNAMIC NURSES: Strictly scoped to the selected camp (or visible camps if All Camps)
+    final scopedNurses = <String>{};
+    for (final camp in relevantCamps) {
+      if (camp.nurseNames.isNotEmpty) {
+        scopedNurses.addAll(camp.nurseNames.map((n) => NurseProfile.stripPrefixes(n).trim()).where((n) => n.isNotEmpty));
+      }
+    }
+    if (docSummary != null) {
+      for (final v in docSummary.visits) {
+        if (v.primaryNurseName != null && v.primaryNurseName!.trim().isNotEmpty) {
+          final clean = NurseProfile.stripPrefixes(v.primaryNurseName!).trim();
+          if (clean.isNotEmpty) scopedNurses.add(clean);
+        }
+        for (final n in v.attendingNurseNames) {
+          final clean = NurseProfile.stripPrefixes(n).trim();
+          if (clean.isNotEmpty) scopedNurses.add(clean);
+        }
+      }
+      for (final p in docSummary.patients) {
+        if (p.primaryNurseName != null && p.primaryNurseName!.trim().isNotEmpty) {
+          final clean = NurseProfile.stripPrefixes(p.primaryNurseName!).trim();
+          if (clean.isNotEmpty) scopedNurses.add(clean);
+        }
+        for (final n in p.attendingNurseNames) {
+          final clean = NurseProfile.stripPrefixes(n).trim();
+          if (clean.isNotEmpty) scopedNurses.add(clean);
+        }
+      }
+    }
+
+    final activeNurses = scopedNurses
+        .where((nurse) => _getNurseCount(nurse, docSummary) > 0 || _selectedNurse == nurse)
+        .toList();
+    final finalNurses = activeNurses.isNotEmpty
+        ? (activeNurses..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())))
+        : (scopedNurses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())));
+    if (_selectedNurse != null && !finalNurses.contains(_selectedNurse)) {
+      _selectedNurse = null;
+    }
+    final allNurses = finalNurses.toSet();
+
     // 2. DYNAMIC DIAGNOSES: Master Data + Clinical Records
     final dynamicDiagnoses = <String>{};
     for (final m in _campDiagnoses) {
@@ -751,6 +818,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         deviceId: deviceId,
                         deviceState: deviceState,
                         allDoctors: allDoctors,
+                        allNurses: allNurses,
                         sortedDiagnoses: sortedDiagnoses,
                         dynamicTreatments: dynamicTreatments,
                         dynamicVisitReasons: dynamicVisitReasons,
@@ -768,6 +836,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       deviceId: deviceId,
                       deviceState: deviceState,
                       allDoctors: allDoctors,
+                      allNurses: allNurses,
                       sortedDiagnoses: sortedDiagnoses,
                       dynamicTreatments: dynamicTreatments,
                       dynamicVisitReasons: dynamicVisitReasons,
@@ -790,6 +859,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required String deviceId,
     required DeviceSecurityState deviceState,
     required Set<String> allDoctors,
+    required Set<String> allNurses,
     required List<String> sortedDiagnoses,
     required List<Map<String, String>> dynamicTreatments,
     required List<Map<String, String>> dynamicVisitReasons,
@@ -826,6 +896,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   user: user,
                   deviceId: deviceId,
                   allDoctors: allDoctors,
+                  allNurses: allNurses,
                   sortedDiagnoses: sortedDiagnoses,
                   dynamicTreatments: dynamicTreatments,
                   dynamicVisitReasons: dynamicVisitReasons,
@@ -882,6 +953,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required String deviceId,
     required DeviceSecurityState deviceState,
     required Set<String> allDoctors,
+    required Set<String> allNurses,
     required List<String> sortedDiagnoses,
     required List<Map<String, String>> dynamicTreatments,
     required List<Map<String, String>> dynamicVisitReasons,
@@ -919,6 +991,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
           _buildMobileFilterBar(
             reportState: reportState,
             allDoctors: allDoctors,
+            allNurses: allNurses,
             sortedDiagnoses: sortedDiagnoses,
             dynamicTreatments: dynamicTreatments,
             dynamicVisitReasons: dynamicVisitReasons,
@@ -1082,6 +1155,17 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         icon: Icons.medical_services_outlined,
         onDeleted: () {
           setState(() => _selectedDoctor = null);
+          _onRefresh();
+        },
+      ));
+    }
+
+    if (_selectedNurse != null) {
+      activeFilters.add(_buildFilterChip(
+        label: 'Nurse: $_selectedNurse',
+        icon: Icons.person_pin_circle_outlined,
+        onDeleted: () {
+          setState(() => _selectedNurse = null);
           _onRefresh();
         },
       ));
@@ -1277,6 +1361,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required UserModel? user,
     required String deviceId,
     required Set<String> allDoctors,
+    required Set<String> allNurses,
     required List<String> sortedDiagnoses,
     required List<Map<String, String>> dynamicTreatments,
     required List<Map<String, String>> dynamicVisitReasons,
@@ -1287,6 +1372,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     final activeFiltersCount = (_startDate != null ? 1 : 0) +
         (_endDate != null ? 1 : 0) +
         (_selectedDoctor != null ? 1 : 0) +
+        (_selectedNurse != null ? 1 : 0) +
         (_selectedDiagnosis != null ? 1 : 0) +
         (_selectedPopStage != null ? 1 : 0) +
         (_selectedVisitReason != null ? 1 : 0) +
@@ -1566,6 +1652,98 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   ],
                   onChanged: (val) {
                     setState(() => _selectedDoctor = val);
+                    _onRefresh();
+                    if (val != null && _tabController.index != 4) {
+                      _tabController.animateTo(4);
+                    }
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 3b. Dynamic Nurse Filter (with dynamic count)
+            const Row(
+              children: [
+                Icon(Icons.person_pin_circle_outlined, color: Color(0xFFDB2777), size: 16),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text('Attending Nurse Filter:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _selectedNurse != null ? const Color(0xFFDB2777) : const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: allNurses.contains(_selectedNurse) ? _selectedNurse : null,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Text('All Nurses', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'All Nurses',
+                              style: TextStyle(fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text('$totalPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ...allNurses.map((nurse) {
+                      final count = _getNurseCount(nurse, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: nurse,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                nurse,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: count > 0 ? const Color(0xFFFDF2F8) : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: count > 0 ? const Color(0xFFDB2777) : Colors.grey.shade600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedNurse = val);
                     _onRefresh();
                     if (val != null && _tabController.index != 4) {
                       _tabController.animateTo(4);
@@ -2015,6 +2193,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   Widget _buildMobileFilterBar({
     required ReportingState reportState,
     required Set<String> allDoctors,
+    required Set<String> allNurses,
     required List<String> sortedDiagnoses,
     required List<Map<String, String>> dynamicTreatments,
     required List<Map<String, String>> dynamicVisitReasons,
@@ -2023,6 +2202,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     final activeFiltersCount = (_startDate != null ? 1 : 0) +
         (_endDate != null ? 1 : 0) +
         (_selectedDoctor != null ? 1 : 0) +
+        (_selectedNurse != null ? 1 : 0) +
         (_selectedDiagnosis != null ? 1 : 0) +
         (_selectedPopStage != null ? 1 : 0) +
         (_selectedVisitReason != null ? 1 : 0) +
@@ -2153,6 +2333,58 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   ],
                   onChanged: (val) {
                     setState(() => _selectedDoctor = val);
+                    _onRefresh();
+                  },
+                ),
+              ),
+            ),
+            // Nurse Dropdown
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              constraints: const BoxConstraints(maxWidth: 175),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _selectedNurse != null ? const Color(0xFFDB2777) : const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: allNurses.contains(_selectedNurse) ? _selectedNurse : null,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.person_pin_circle_outlined, size: 13, color: Color(0xFFDB2777)),
+                      SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'All Nurses',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(
+                        'All Nurses ($totalPatients)',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    ...allNurses.map((nurse) {
+                      final count = _getNurseCount(nurse, baseSummary);
+                      return DropdownMenuItem<String?>(
+                        value: nurse,
+                        child: Text('$nurse ($count)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                      );
+                    }),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedNurse = val);
                     _onRefresh();
                   },
                 ),
@@ -3223,7 +3455,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     }
 
     // Source of truth is summary.patients (which reflects all active filters and camp selection)
-    final sourcePatients = summary?.patients ?? patientState.patients;
+    final sourcePatients = (summary != null && summary.patients.isNotEmpty)
+        ? summary.patients
+        : patientState.patients;
 
     final query = _patientSearchController.text.trim().toLowerCase();
     final patients = sourcePatients.where((p) {
@@ -3252,6 +3486,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     final hasActiveFilter = (_startDate != null) ||
         (_endDate != null) ||
         (_selectedDoctor != null) ||
+        (_selectedNurse != null) ||
         (_selectedDiagnosis != null) ||
         (_selectedPopStage != null) ||
         (_selectedTreatment != null) ||
@@ -3283,7 +3518,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                           TextField(
                             controller: _patientSearchController,
                             decoration: InputDecoration(
-                              hintText: 'Search by name, ID, ward, phone...',
+                              hintText: 'Search patients in this camp by name, ID, ward, phone...',
                               prefixIcon: const Icon(Icons.search, size: 18),
                               suffixIcon: _patientSearchController.text.isNotEmpty
                                   ? IconButton(
@@ -3435,7 +3670,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   TextField(
                     controller: _patientSearchController,
                     decoration: InputDecoration(
-                      hintText: 'Search patients by name, ID, ward, phone...',
+                      hintText: 'Search patients in this camp by name, ID, ward, phone...',
                       prefixIcon: const Icon(Icons.search, size: 18),
                       suffixIcon: _patientSearchController.text.isNotEmpty
                           ? IconButton(
@@ -4249,6 +4484,33 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       ],
                     ),
                   ),
+
+                // Attending Nurse Footer
+                if ((visit.primaryNurseName != null && visit.primaryNurseName!.trim().isNotEmpty) ||
+                    visit.attendingNurseNames.any((n) => n.trim().isNotEmpty)) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDF2F8),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFFBCFE8)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_pin_circle_outlined, size: 15, color: Color(0xFFDB2777)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Attending Nurse: ${(visit.primaryNurseName != null && visit.primaryNurseName!.trim().isNotEmpty) ? visit.primaryNurseName! : visit.attendingNurseNames.where((n) => n.trim().isNotEmpty).join(", ")}',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF9D174D)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ] else ...[
                 Container(
                   padding: const EdgeInsets.all(24),

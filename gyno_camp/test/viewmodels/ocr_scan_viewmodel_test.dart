@@ -176,6 +176,8 @@ void main() {
         userId: 'usr-1',
         userName: 'Sita Sharma',
         deviceId: 'dev-1',
+        primaryNurseName: 'Nurse Rita',
+        attendingNurseNames: ['Nurse Rita', 'Nurse Gita'],
       );
 
       expect(committed, isNotNull);
@@ -187,6 +189,28 @@ void main() {
       vm.resetScan();
       expect(vm.state.hasScanResult, false);
       expect(vm.state.committedPatient, isNull);
+    });
+
+    test('setExaminingNurse and toggleAttendingNurse update nurse assignment state', () async {
+      await vm.loadSample('full');
+
+      vm.setExaminingNurse('Sita Thapa');
+      expect(vm.state.scanResult!.examiningNurse, 'Sita Thapa');
+      expect(vm.state.scanResult!.attendingNurses, ['Sita Thapa']);
+
+      // Toggle additional nurse
+      vm.toggleAttendingNurse('Gita Rai');
+      expect(vm.state.scanResult!.attendingNurses, ['Sita Thapa', 'Gita Rai']);
+
+      // Untoggle first nurse
+      vm.toggleAttendingNurse('Sita Thapa');
+      expect(vm.state.scanResult!.attendingNurses, ['Gita Rai']);
+      expect(vm.state.scanResult!.examiningNurse, 'Gita Rai');
+
+      // Clear nurse
+      vm.setExaminingNurse(null);
+      expect(vm.state.scanResult!.examiningNurse, isNull);
+      expect(vm.state.scanResult!.attendingNurses, isEmpty);
     });
   });
 }

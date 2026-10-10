@@ -66,6 +66,8 @@ class ClinicalAssessmentState {
 
   final List<String> attendingDoctorNames;
   final String? primaryDoctorName;
+  final List<String> attendingNurseNames;
+  final String? primaryNurseName;
 
   final bool isSaving;
   final String? errorMessage;
@@ -118,6 +120,8 @@ class ClinicalAssessmentState {
     this.surgeryType,
     this.attendingDoctorNames = const [],
     this.primaryDoctorName,
+    this.attendingNurseNames = const [],
+    this.primaryNurseName,
     this.isSaving = false,
     this.errorMessage,
     this.savedVisit,
@@ -179,6 +183,8 @@ class ClinicalAssessmentState {
     bool clearSurgeryType = false,
     List<String>? attendingDoctorNames,
     String? primaryDoctorName,
+    List<String>? attendingNurseNames,
+    String? primaryNurseName,
     bool? isSaving,
     String? errorMessage,
     ClinicalVisitModel? savedVisit,
@@ -232,6 +238,8 @@ class ClinicalAssessmentState {
       surgeryType: clearSurgeryType ? null : (surgeryType ?? this.surgeryType),
       attendingDoctorNames: attendingDoctorNames ?? this.attendingDoctorNames,
       primaryDoctorName: primaryDoctorName ?? this.primaryDoctorName,
+      attendingNurseNames: attendingNurseNames ?? this.attendingNurseNames,
+      primaryNurseName: primaryNurseName ?? this.primaryNurseName,
       isSaving: isSaving ?? this.isSaving,
       errorMessage: errorMessage,
       savedVisit: clearSaved ? null : (savedVisit ?? this.savedVisit),
@@ -263,6 +271,26 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     state = state.copyWith(
       attendingDoctorNames: list,
       primaryDoctorName: list.isNotEmpty ? list.first : null,
+    );
+  }
+
+  void setAttendingNurses(List<String> nurses) {
+    state = state.copyWith(
+      attendingNurseNames: nurses,
+      primaryNurseName: nurses.isNotEmpty ? nurses.first : null,
+    );
+  }
+
+  void toggleAttendingNurse(String nurse) {
+    final list = List<String>.from(state.attendingNurseNames);
+    if (list.contains(nurse)) {
+      list.remove(nurse);
+    } else {
+      list.add(nurse);
+    }
+    state = state.copyWith(
+      attendingNurseNames: list,
+      primaryNurseName: list.isNotEmpty ? list.first : null,
     );
   }
 
@@ -554,6 +582,8 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
           surgeryType: visit.surgeryType,
           attendingDoctorNames: visit.attendingDoctorNames,
           primaryDoctorName: visit.primaryDoctorName,
+          attendingNurseNames: visit.attendingNurseNames,
+          primaryNurseName: visit.primaryNurseName,
           isSaving: false,
           savedVisit: visit,
           systolicValidation: visit.systolicBp != null
@@ -654,6 +684,9 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         attendingDoctorNames: state.attendingDoctorNames,
         primaryDoctorName: state.primaryDoctorName ??
             (state.attendingDoctorNames.isNotEmpty ? state.attendingDoctorNames.first : null),
+        attendingNurseNames: state.attendingNurseNames,
+        primaryNurseName: state.primaryNurseName ??
+            (state.attendingNurseNames.isNotEmpty ? state.attendingNurseNames.first : null),
         createdAt: DateTime.now(),
         createdByUserId: staffUserId,
       );

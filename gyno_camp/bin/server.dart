@@ -301,6 +301,8 @@ class GynoCampSyncServer {
           follow_up_notes TEXT,
           attending_doctor_names TEXT DEFAULT '',
           primary_doctor_name TEXT DEFAULT '',
+          attending_nurse_names TEXT DEFAULT '',
+          primary_nurse_name TEXT DEFAULT '',
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ,
           created_by_user_id TEXT NOT NULL,
@@ -372,6 +374,8 @@ class GynoCampSyncServer {
       await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS follow_up_notes TEXT;');
       await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS attending_doctor_names TEXT DEFAULT \'\';');
       await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS primary_doctor_name TEXT DEFAULT \'\';');
+      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS attending_nurse_names TEXT DEFAULT \'\';');
+      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS primary_nurse_name TEXT DEFAULT \'\';');
       await _connection!.execute('ALTER TABLE patients ADD COLUMN IF NOT EXISTS province TEXT DEFAULT \'Bagmati\';');
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS sub_category TEXT;');
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS is_deleted INTEGER NOT NULL DEFAULT 0;');
@@ -383,6 +387,9 @@ class GynoCampSyncServer {
       await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS province TEXT DEFAULT \'Bagmati\';');
       await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_name TEXT DEFAULT \'\';');
       await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_names TEXT DEFAULT \'\';');
+      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_doctor_on_forms INTEGER DEFAULT 1;');
+      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS nurse_names TEXT DEFAULT \'\';');
+      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_nurse_on_forms INTEGER DEFAULT 1;');
       await _connection!.execute('''
         CREATE TABLE IF NOT EXISTS deleted_entities (
           id TEXT PRIMARY KEY,
@@ -699,11 +706,11 @@ class GynoCampSyncServer {
               INSERT INTO camps (
                 id, camp_code, name, province, district, municipality, ward, venue,
                 start_date, end_date, status, assigned_staff_ids, total_patients_registered,
-                tenant_id, organization_name, doctor_name, doctor_names, created_at, updated_at
+                tenant_id, organization_name, doctor_name, doctor_names, show_doctor_on_forms, nurse_names, show_nurse_on_forms, created_at, updated_at
               ) VALUES (
                 @id, @camp_code, @name, @province, @district, @municipality, @ward, @venue,
                 @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered,
-                @tenant_id, @organization_name, @doctor_name, @doctor_names, @created_at::timestamptz, @updated_at::timestamptz
+                @tenant_id, @organization_name, @doctor_name, @doctor_names, @show_doctor_on_forms, @nurse_names, @show_nurse_on_forms, @created_at::timestamptz, @updated_at::timestamptz
               )
               ON CONFLICT (id) DO UPDATE SET
                 camp_code = EXCLUDED.camp_code,
@@ -722,6 +729,9 @@ class GynoCampSyncServer {
                 organization_name = EXCLUDED.organization_name,
                 doctor_name = EXCLUDED.doctor_name,
                 doctor_names = EXCLUDED.doctor_names,
+                show_doctor_on_forms = EXCLUDED.show_doctor_on_forms,
+                nurse_names = EXCLUDED.nurse_names,
+                show_nurse_on_forms = EXCLUDED.show_nurse_on_forms,
                 updated_at = COALESCE(EXCLUDED.updated_at, NOW());
             '''),
             parameters: {
@@ -742,6 +752,13 @@ class GynoCampSyncServer {
               'organization_name': map['organization_name'] ?? 'Nepal Health Outreach Network',
               'doctor_name': map['doctor_name'] ?? '',
               'doctor_names': map['doctor_names'] ?? '',
+              'show_doctor_on_forms': (map['show_doctor_on_forms'] is bool)
+                  ? (map['show_doctor_on_forms'] == true ? 1 : 0)
+                  : (map['show_doctor_on_forms'] ?? 1),
+              'nurse_names': map['nurse_names'] ?? '',
+              'show_nurse_on_forms': (map['show_nurse_on_forms'] is bool)
+                  ? (map['show_nurse_on_forms'] == true ? 1 : 0)
+                  : (map['show_nurse_on_forms'] ?? 1),
               'created_at': map['created_at'] ?? DateTime.now().toUtc().toIso8601String(),
               'updated_at': map['updated_at'] ?? DateTime.now().toUtc().toIso8601String(),
             },
@@ -926,6 +943,7 @@ class GynoCampSyncServer {
                 counseling, pessary_type, pessary_size, surgical_referral, medications,
                 custom_medication, follow_up_needed, follow_up_destination, outtake_notes,
                 surgery_done, surgery_type, is_follow_up, follow_up_notes, attending_doctor_names, primary_doctor_name,
+                attending_nurse_names, primary_nurse_name,
                 created_at, created_by_user_id, tenant_id, is_synced
               ) VALUES (
                 @id, @patient_id, @camp_id, @visit_date, @deliveries, @living_children, @abortions,
@@ -936,6 +954,7 @@ class GynoCampSyncServer {
                 @counseling, @pessary_type, @pessary_size, @surgical_referral, @medications,
                 @custom_medication, @follow_up_needed, @follow_up_destination, @outtake_notes,
                 @surgery_done, @surgery_type, @is_follow_up, @follow_up_notes, @attending_doctor_names, @primary_doctor_name,
+                @attending_nurse_names, @primary_nurse_name,
                 @created_at, @created_by_user_id, @tenant_id, 1
               )
               ON CONFLICT (id) DO UPDATE SET
@@ -957,6 +976,8 @@ class GynoCampSyncServer {
                 follow_up_notes = EXCLUDED.follow_up_notes,
                 attending_doctor_names = EXCLUDED.attending_doctor_names,
                 primary_doctor_name = EXCLUDED.primary_doctor_name,
+                attending_nurse_names = EXCLUDED.attending_nurse_names,
+                primary_nurse_name = EXCLUDED.primary_nurse_name,
                 updated_at = NOW();
             '''),
             parameters: {
@@ -1008,6 +1029,8 @@ class GynoCampSyncServer {
               'follow_up_notes': map['follow_up_notes'],
               'attending_doctor_names': map['attending_doctor_names'] ?? '',
               'primary_doctor_name': map['primary_doctor_name'] ?? '',
+              'attending_nurse_names': map['attending_nurse_names'] ?? '',
+              'primary_nurse_name': map['primary_nurse_name'] ?? '',
               'created_at': map['created_at'] ?? DateTime.now().toIso8601String(),
               'created_by_user_id': map['created_by_user_id'] ?? '',
               'tenant_id': map['tenant_id'] ?? 'tenant_default',
@@ -1112,7 +1135,8 @@ class GynoCampSyncServer {
         String campSql = '''
           SELECT id, camp_code, name, district, municipality, ward, venue,
                  start_date, end_date, status, assigned_staff_ids, total_patients_registered,
-                 tenant_id, organization_name, created_at, updated_at, province, doctor_name, doctor_names
+                 tenant_id, organization_name, created_at, updated_at, province, doctor_name, doctor_names,
+                 show_doctor_on_forms, nurse_names, show_nurse_on_forms
           FROM camps
         ''';
         final campConditions = <String>[];
@@ -1155,6 +1179,9 @@ class GynoCampSyncServer {
             'province': row[16] ?? 'Bagmati',
             'doctor_name': row[17] ?? '',
             'doctor_names': row[18] ?? '',
+            'show_doctor_on_forms': row[19] is int ? row[19] : (row[19] == false ? 0 : 1),
+            'nurse_names': row[20] ?? '',
+            'show_nurse_on_forms': row[21] is int ? row[21] : (row[21] == false ? 0 : 1),
           });
         }
 
@@ -1268,7 +1295,8 @@ class GynoCampSyncServer {
                  custom_medication, follow_up_needed, follow_up_destination, outtake_notes,
                  created_at, updated_at, created_by_user_id, tenant_id,
                  COALESCE(surgery_done, 0), surgery_type,
-                 COALESCE(is_follow_up, 0), follow_up_notes, attending_doctor_names, primary_doctor_name
+                 COALESCE(is_follow_up, 0), follow_up_notes, attending_doctor_names, primary_doctor_name,
+                 attending_nurse_names, primary_nurse_name
           FROM clinical_visits
         ''';
         final visitConditions = <String>['camp_id IN (SELECT id FROM camps)'];
@@ -1338,6 +1366,8 @@ class GynoCampSyncServer {
             'follow_up_notes': row[43]?.toString(),
             'attending_doctor_names': row[44]?.toString() ?? '',
             'primary_doctor_name': row[45]?.toString() ?? '',
+            'attending_nurse_names': row[46]?.toString() ?? '',
+            'primary_nurse_name': row[47]?.toString() ?? '',
             'is_synced': 1,
           });
         }
@@ -1452,7 +1482,8 @@ class GynoCampSyncServer {
       try {
         String sql = 'SELECT id, camp_code, name, district, municipality, ward, venue, '
             'start_date, end_date, status, assigned_staff_ids, total_patients_registered, '
-            'tenant_id, organization_name, created_at, updated_at, province, doctor_name, doctor_names '
+            'tenant_id, organization_name, created_at, updated_at, province, doctor_name, doctor_names, '
+            'show_doctor_on_forms, nurse_names, show_nurse_on_forms '
             'FROM camps ';
         final params = <String, dynamic>{};
         if (hasTenant) {
@@ -1486,6 +1517,9 @@ class GynoCampSyncServer {
             'province': row[16] ?? 'Bagmati',
             'doctor_name': row[17] ?? '',
             'doctor_names': row[18] ?? '',
+            'show_doctor_on_forms': row[19] is int ? row[19] : (row[19] == false ? 0 : 1),
+            'nurse_names': row[20] ?? '',
+            'show_nurse_on_forms': row[21] is int ? row[21] : (row[21] == false ? 0 : 1),
           });
         }
       } catch (e) {
@@ -1548,11 +1582,11 @@ class GynoCampSyncServer {
             INSERT INTO camps (
               id, camp_code, name, province, district, municipality, ward, venue,
               start_date, end_date, status, assigned_staff_ids, total_patients_registered,
-              tenant_id, organization_name, doctor_name, doctor_names, created_at, updated_at
+              tenant_id, organization_name, doctor_name, doctor_names, show_doctor_on_forms, nurse_names, show_nurse_on_forms, created_at, updated_at
             ) VALUES (
               @id, @camp_code, @name, @province, @district, @municipality, @ward, @venue,
               @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered,
-              @tenant_id, @organization_name, @doctor_name, @doctor_names, @created_at::timestamptz, @updated_at::timestamptz
+              @tenant_id, @organization_name, @doctor_name, @doctor_names, @show_doctor_on_forms, @nurse_names, @show_nurse_on_forms, @created_at::timestamptz, @updated_at::timestamptz
             )
             ON CONFLICT (id) DO UPDATE SET
               camp_code = EXCLUDED.camp_code,
@@ -1571,6 +1605,9 @@ class GynoCampSyncServer {
               organization_name = EXCLUDED.organization_name,
               doctor_name = EXCLUDED.doctor_name,
               doctor_names = EXCLUDED.doctor_names,
+              show_doctor_on_forms = EXCLUDED.show_doctor_on_forms,
+              nurse_names = EXCLUDED.nurse_names,
+              show_nurse_on_forms = EXCLUDED.show_nurse_on_forms,
               updated_at = EXCLUDED.updated_at
             -- ✅ FIX: Only update when the incoming row is actually newer.
             -- This prevents a stale CLOSED push (with an older timestamp) from
@@ -1596,6 +1633,13 @@ class GynoCampSyncServer {
             'organization_name': map['organization_name'] ?? 'NEPAL',
             'doctor_name': map['doctor_name'] ?? '',
             'doctor_names': map['doctor_names'] ?? '',
+            'show_doctor_on_forms': (map['show_doctor_on_forms'] is bool)
+                ? (map['show_doctor_on_forms'] == true ? 1 : 0)
+                : (map['show_doctor_on_forms'] ?? 1),
+            'nurse_names': map['nurse_names'] ?? '',
+            'show_nurse_on_forms': (map['show_nurse_on_forms'] is bool)
+                ? (map['show_nurse_on_forms'] == true ? 1 : 0)
+                : (map['show_nurse_on_forms'] ?? 1),
             'created_at': map['created_at'] ?? utcNow,
             'updated_at': utcNow,
           },

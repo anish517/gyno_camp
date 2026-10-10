@@ -274,11 +274,14 @@ class PatientRepository implements IPatientRepository {
              cv.surgery_type,
              cv.is_follow_up,
              cv.primary_doctor_name,
-             cv.attending_doctor_names
+             cv.attending_doctor_names,
+             cv.primary_nurse_name,
+             cv.attending_nurse_names
       FROM ${DatabaseTables.tablePatients} p
       LEFT JOIN (
         SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
-               cv1.primary_doctor_name, cv1.attending_doctor_names
+               cv1.primary_doctor_name, cv1.attending_doctor_names,
+               cv1.primary_nurse_name, cv1.attending_nurse_names
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
@@ -320,11 +323,14 @@ class PatientRepository implements IPatientRepository {
              cv.surgery_type,
              cv.is_follow_up,
              cv.primary_doctor_name,
-             cv.attending_doctor_names
+             cv.attending_doctor_names,
+             cv.primary_nurse_name,
+             cv.attending_nurse_names
       FROM ${DatabaseTables.tablePatients} p
       LEFT JOIN (
         SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
-               cv1.primary_doctor_name, cv1.attending_doctor_names
+               cv1.primary_doctor_name, cv1.attending_doctor_names,
+               cv1.primary_nurse_name, cv1.attending_nurse_names
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
@@ -384,6 +390,10 @@ class PatientRepository implements IPatientRepository {
       attendingDoctorNames: visit.attendingDoctorNames.isNotEmpty
           ? visit.attendingDoctorNames
           : (visit.primaryDoctorName != null && visit.primaryDoctorName!.trim().isNotEmpty ? [visit.primaryDoctorName!.trim()] : const []),
+      primaryNurseName: visit.primaryNurseName ?? (visit.attendingNurseNames.isNotEmpty ? visit.attendingNurseNames.first : null),
+      attendingNurseNames: visit.attendingNurseNames.isNotEmpty
+          ? visit.attendingNurseNames
+          : (visit.primaryNurseName != null && visit.primaryNurseName!.trim().isNotEmpty ? [visit.primaryNurseName!.trim()] : const []),
       createdAt: DateTime.now(),
       createdByUserId: createdByUserId,
       isSynced: false,

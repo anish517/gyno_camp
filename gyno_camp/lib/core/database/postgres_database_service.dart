@@ -168,6 +168,8 @@ class PostgresDatabaseService {
         organization_name TEXT DEFAULT 'Community Health Outreach Mission',
         doctor_name TEXT DEFAULT '',
         doctor_names TEXT DEFAULT '',
+        nurse_names TEXT DEFAULT '',
+        show_nurse_on_forms INTEGER DEFAULT 1,
         created_at TEXT NOT NULL,
         updated_at TEXT
       );
@@ -253,6 +255,8 @@ class PostgresDatabaseService {
         surgery_type TEXT,
         attending_doctor_names TEXT DEFAULT '',
         primary_doctor_name TEXT DEFAULT '',
+        attending_nurse_names TEXT DEFAULT '',
+        primary_nurse_name TEXT DEFAULT '',
         created_at TEXT NOT NULL,
         updated_at TEXT,
         created_by_user_id TEXT NOT NULL,
@@ -267,6 +271,8 @@ class PostgresDatabaseService {
       await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_name TEXT DEFAULT '';");
       await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_names TEXT DEFAULT '';");
       await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_doctor_on_forms INTEGER DEFAULT 1;");
+      await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS nurse_names TEXT DEFAULT '';");
+      await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_nurse_on_forms INTEGER DEFAULT 1;");
       await conn.execute("ALTER TABLE patients ADD COLUMN IF NOT EXISTS province TEXT DEFAULT 'Bagmati';");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS is_follow_up INTEGER DEFAULT 0;");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS follow_up_notes TEXT;");
@@ -274,6 +280,8 @@ class PostgresDatabaseService {
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_type TEXT;");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS attending_doctor_names TEXT DEFAULT '';");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS primary_doctor_name TEXT DEFAULT '';");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS attending_nurse_names TEXT DEFAULT '';");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS primary_nurse_name TEXT DEFAULT '';");
     } catch (_) {}
 
     // Audit Logs table
@@ -404,11 +412,11 @@ class PostgresDatabaseService {
             INSERT INTO camps (
               id, camp_code, name, province, district, municipality, ward, venue,
               start_date, end_date, status, assigned_staff_ids, total_patients_registered,
-              tenant_id, organization_name, doctor_name, doctor_names, show_doctor_on_forms, created_at, updated_at
+              tenant_id, organization_name, doctor_name, doctor_names, show_doctor_on_forms, nurse_names, show_nurse_on_forms, created_at, updated_at
             ) VALUES (
               @id, @camp_code, @name, @province, @district, @municipality, @ward, @venue,
               @start_date, @end_date, @status, @assigned_staff_ids, @total_patients_registered,
-              @tenant_id, @organization_name, @doctor_name, @doctor_names, @show_doctor_on_forms, @created_at, @updated_at
+              @tenant_id, @organization_name, @doctor_name, @doctor_names, @show_doctor_on_forms, @nurse_names, @show_nurse_on_forms, @created_at, @updated_at
             )
             ON CONFLICT (id) DO UPDATE SET
               name = EXCLUDED.name,
@@ -427,6 +435,8 @@ class PostgresDatabaseService {
               doctor_name = EXCLUDED.doctor_name,
               doctor_names = EXCLUDED.doctor_names,
               show_doctor_on_forms = EXCLUDED.show_doctor_on_forms,
+              nurse_names = EXCLUDED.nurse_names,
+              show_nurse_on_forms = EXCLUDED.show_nurse_on_forms,
               updated_at = EXCLUDED.updated_at;
           '''),
           parameters: {
@@ -450,6 +460,8 @@ class PostgresDatabaseService {
             'doctor_name': c['doctor_name']?.toString() ?? '',
             'doctor_names': c['doctor_names']?.toString() ?? '',
             'show_doctor_on_forms': (c['show_doctor_on_forms'] is int ? c['show_doctor_on_forms'] : 1),
+            'nurse_names': c['nurse_names']?.toString() ?? '',
+            'show_nurse_on_forms': (c['show_nurse_on_forms'] is int ? c['show_nurse_on_forms'] : 1),
             'created_at':
                 c['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': c['updated_at']?.toString(),
@@ -562,6 +574,7 @@ class PostgresDatabaseService {
               custom_medication, follow_up_needed, follow_up_destination, outtake_notes,
               is_follow_up, follow_up_notes, surgery_done, surgery_type,
               attending_doctor_names, primary_doctor_name,
+              attending_nurse_names, primary_nurse_name,
               created_at, updated_at, created_by_user_id, tenant_id, is_synced
             ) VALUES (
               @id, @patient_id, @camp_id, @visit_date, @deliveries, @living_children, @abortions,
@@ -573,6 +586,7 @@ class PostgresDatabaseService {
               @custom_medication, @follow_up_needed, @follow_up_destination, @outtake_notes,
               @is_follow_up, @follow_up_notes, @surgery_done, @surgery_type,
               @attending_doctor_names, @primary_doctor_name,
+              @attending_nurse_names, @primary_nurse_name,
               @created_at, @updated_at, @created_by_user_id, @tenant_id, 1
             )
             ON CONFLICT (id) DO UPDATE SET
@@ -614,6 +628,8 @@ class PostgresDatabaseService {
               surgery_type = EXCLUDED.surgery_type,
               attending_doctor_names = EXCLUDED.attending_doctor_names,
               primary_doctor_name = EXCLUDED.primary_doctor_name,
+              attending_nurse_names = EXCLUDED.attending_nurse_names,
+              primary_nurse_name = EXCLUDED.primary_nurse_name,
               updated_at = EXCLUDED.updated_at,
               is_synced = 1;
           '''),
@@ -672,6 +688,8 @@ class PostgresDatabaseService {
             'surgery_type': v['surgery_type']?.toString(),
             'attending_doctor_names': v['attending_doctor_names']?.toString() ?? '',
             'primary_doctor_name': v['primary_doctor_name']?.toString() ?? '',
+            'attending_nurse_names': v['attending_nurse_names']?.toString() ?? '',
+            'primary_nurse_name': v['primary_nurse_name']?.toString() ?? '',
             'created_at':
                 v['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': v['updated_at']?.toString(),

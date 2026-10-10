@@ -20,6 +20,7 @@ abstract class IReportingRepository {
     DateTime? startDate,
     DateTime? endDate,
     String? doctorFilter,
+    String? nurseFilter,
     String? diagnosisFilter,
     String? popStageFilter,
     String? treatmentFilter,
@@ -79,6 +80,7 @@ class ReportingRepository implements IReportingRepository {
     DateTime? startDate,
     DateTime? endDate,
     String? doctorFilter,
+    String? nurseFilter,
     String? diagnosisFilter,
     String? popStageFilter,
     String? treatmentFilter,
@@ -199,6 +201,26 @@ class ReportingRepository implements IReportingRepository {
       final matchingVisits = visits.where((v) {
         final primaryMatch = v.primaryDoctorName != null && docNamesMatch(v.primaryDoctorName!, doctorFilter);
         final attendingMatch = v.attendingDoctorNames.any((d) => docNamesMatch(d, doctorFilter));
+        return primaryMatch || attendingMatch;
+      }).toList();
+
+      final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+      visits = matchingVisits;
+      patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
+    }
+
+    // Apply Nurse Filter if requested (visit-based only, no solo-nurse-queue fallback)
+    if (nurseFilter != null && nurseFilter.trim().isNotEmpty && nurseFilter != 'all') {
+      bool nurseNamesMatch(String a, String b) {
+        final cleanA = NurseProfile.stripPrefixes(a).toLowerCase().trim();
+        final cleanB = NurseProfile.stripPrefixes(b).toLowerCase().trim();
+        if (cleanA.isEmpty || cleanB.isEmpty) return false;
+        return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
+      }
+
+      final matchingVisits = visits.where((v) {
+        final primaryMatch = v.primaryNurseName != null && nurseNamesMatch(v.primaryNurseName!, nurseFilter);
+        final attendingMatch = v.attendingNurseNames.any((n) => nurseNamesMatch(n, nurseFilter));
         return primaryMatch || attendingMatch;
       }).toList();
 

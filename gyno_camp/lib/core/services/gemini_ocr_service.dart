@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
 import '../constants/nepal_geodata.dart';
+import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
 import '../security/security_service.dart';
 import 'http_central_api_service.dart';
@@ -204,6 +205,24 @@ class GeminiOcrService {
     final String? examiningDoctor = (rawExaminingDoctor != null && rawExaminingDoctor.isNotEmpty && rawExaminingDoctor.toLowerCase() != 'null')
         ? (rawExaminingDoctor.toLowerCase().startsWith('dr') ? rawExaminingDoctor : 'Dr. $rawExaminingDoctor')
         : null;
+    final rawExaminingNurse = parsedData['examiningNurse']?.toString().trim();
+    final String? examiningNurse = (rawExaminingNurse != null &&
+            rawExaminingNurse.isNotEmpty &&
+            rawExaminingNurse.toLowerCase() != 'null')
+        ? NurseProfile.stripPrefixes(rawExaminingNurse)
+        : null;
+    final List<String> rawAttendingNurses = (parsedData['attendingNurses'] as List?)
+            ?.map((e) => NurseProfile.stripPrefixes(e.toString().trim()))
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList()
+            .cast<String>() ??
+        <String>[];
+    if (examiningNurse != null &&
+        examiningNurse.isNotEmpty &&
+        !rawAttendingNurses.contains(examiningNurse)) {
+      rawAttendingNurses.insert(0, examiningNurse);
+    }
     final rawSummary = parsedData['rawSummary']?.toString().trim() ?? '';
 
     // Normalize Province (case-insensitive)
@@ -440,6 +459,9 @@ class GeminiOcrService {
     if (examiningDoctor != null && examiningDoctor.isNotEmpty) {
       buffer.writeln('Examining Doctor: $examiningDoctor');
     }
+    if (examiningNurse != null && examiningNurse.isNotEmpty) {
+      buffer.writeln('Examining Nurse: $examiningNurse');
+    }
     if (rawSummary.isNotEmpty) {
       buffer.writeln('\n--- DETECTED TEXT SUMMARY ---\n$rawSummary');
     }
@@ -464,6 +486,8 @@ class GeminiOcrService {
       ringPessarySize: ringPessarySize,
       examiningDoctor: examiningDoctor,
       attendingDoctors: examiningDoctor != null ? [examiningDoctor] : const [],
+      examiningNurse: examiningNurse,
+      attendingNurses: rawAttendingNurses,
       fieldConfidences: confidences,
       overallConfidence: overallConf,
       rawText: buffer.toString(),

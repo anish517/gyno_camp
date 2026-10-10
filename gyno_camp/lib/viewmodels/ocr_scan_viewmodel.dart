@@ -639,6 +639,38 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     state = state.copyWith(scanResult: updated);
   }
 
+  /// Sets examining nurse on scan result during human verification
+  void setExaminingNurse(String? nurse) {
+    if (state.scanResult == null) return;
+    final clean = nurse?.trim();
+    final updated = state.scanResult!.copyWith(
+      examiningNurse: clean,
+      clearExaminingNurse: clean == null || clean.isEmpty,
+      attendingNurses: clean != null && clean.isNotEmpty ? [clean] : const [],
+    );
+    state = state.copyWith(scanResult: updated);
+  }
+
+  /// Toggles attending nurse in multi-nurse list during verification
+  void toggleAttendingNurse(String nurse) {
+    if (state.scanResult == null) return;
+    final clean = nurse.trim();
+    if (clean.isEmpty) return;
+    final list = List<String>.from(state.scanResult!.attendingNurses);
+    if (list.contains(clean)) {
+      list.remove(clean);
+    } else {
+      list.add(clean);
+    }
+    final primary = list.isNotEmpty ? list.first : null;
+    final updated = state.scanResult!.copyWith(
+      examiningNurse: primary,
+      clearExaminingNurse: primary == null,
+      attendingNurses: list,
+    );
+    state = state.copyWith(scanResult: updated);
+  }
+
   /// Commits verified scanned patient and clinical record to SQLite
   Future<PatientModel?> confirmAndCommit({
     required String campId,
@@ -649,6 +681,8 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     required String deviceId,
     String? primaryDoctorName,
     List<String> attendingDoctorNames = const [],
+    String? primaryNurseName,
+    List<String> attendingNurseNames = const [],
   }) async {
     if (state.scanResult == null) return null;
 
@@ -661,6 +695,13 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
               ? state.scanResult!.attendingDoctors
               : (effectiveDoctor != null ? [effectiveDoctor] : const <String>[]));
 
+      final effectiveNurse = primaryNurseName ?? state.scanResult!.examiningNurse;
+      final effectiveAttendingNurses = attendingNurseNames.isNotEmpty
+          ? attendingNurseNames
+          : (state.scanResult!.attendingNurses.isNotEmpty
+              ? state.scanResult!.attendingNurses
+              : (effectiveNurse != null ? [effectiveNurse] : const <String>[]));
+
       final savedPatient = await _repository.commitVerifiedScan(
         verifiedScan: state.scanResult!,
         campId: campId,
@@ -671,6 +712,8 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         deviceId: deviceId,
         primaryDoctorName: effectiveDoctor,
         attendingDoctorNames: effectiveAttending,
+        primaryNurseName: effectiveNurse,
+        attendingNurseNames: effectiveAttendingNurses,
       );
 
       if (!mounted) return savedPatient;

@@ -2169,6 +2169,48 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             );
           },
         ),
+        const SizedBox(height: 18),
+        const Text('Attending / Assisting Nurse(s) (सेवा दिने नर्सहरू)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF81005D))),
+        const SizedBox(height: 8),
+        Builder(
+          builder: (context) {
+            final campState = ref.watch(campStateProvider);
+            CampModel? pCamp;
+            try {
+              pCamp = campState.camps.firstWhere((c) => c.id == widget.patient.campId);
+            } catch (_) {}
+            final nurses = pCamp?.nurseProfiles ?? <NurseProfile>[];
+
+            if (nurses.isEmpty) {
+              return const Text(
+                'No nurses assigned to this camp in camp settings.',
+                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+              );
+            }
+
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: nurses.map((nurse) {
+                final nurseKey = nurse.displayName;
+                final isSelected = state.attendingNurseNames.contains(nurseKey) ||
+                    state.attendingNurseNames.any((n) => n.toLowerCase().trim() == nurse.name.toLowerCase().trim());
+                return FilterChip(
+                  avatar: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: isSelected ? Colors.white : const Color(0xFF81005D).withValues(alpha: 0.15),
+                    child: Icon(Icons.badge_outlined, size: 14, color: isSelected ? const Color(0xFF81005D) : Colors.pink.shade700),
+                  ),
+                  label: Text(nurse.formattedLabel, style: TextStyle(fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                  selected: isSelected,
+                  selectedColor: const Color(0xFFFCE7F3),
+                  checkmarkColor: const Color(0xFF81005D),
+                  onSelected: (_) => vm.toggleAttendingNurse(nurseKey),
+                );
+              }).toList(),
+            );
+          },
+        ),
       ],
     );
   }

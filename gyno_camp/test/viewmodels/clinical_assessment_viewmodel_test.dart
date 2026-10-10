@@ -145,6 +145,9 @@ void main() {
         notes: 'Patient advised to return if discomfort occurs.',
       );
 
+      vm.setAttendingDoctors(['Dr. Sita']);
+      vm.setAttendingNurses(['Nurse Sita', 'Nurse Gita']);
+
       final saved = await vm.submitAssessment(
         patientId: 'GC-KTM-2026-00001',
         campId: 'camp-ktm-01',
@@ -156,7 +159,27 @@ void main() {
       expect(saved!.highestPopStage, 2);
       expect(saved.surgicalReferral, 'Dhulikhel Hospital');
       expect(saved.pessarySize, '70');
+      expect(saved.attendingNurseNames, ['Nurse Sita', 'Nurse Gita']);
+      expect(saved.primaryNurseName, 'Nurse Sita');
       expect(vm.state.isSaving, isFalse);
+    });
+
+    test('Nurse assignment toggling and setting updates state correctly', () {
+      expect(vm.state.attendingNurseNames, isEmpty);
+      expect(vm.state.primaryNurseName, isNull);
+
+      vm.setAttendingNurses(['Sita Thapa', 'Gita Rai']);
+      expect(vm.state.attendingNurseNames, ['Sita Thapa', 'Gita Rai']);
+      expect(vm.state.primaryNurseName, 'Sita Thapa');
+
+      // Toggle off
+      vm.toggleAttendingNurse('Sita Thapa');
+      expect(vm.state.attendingNurseNames, ['Gita Rai']);
+      expect(vm.state.primaryNurseName, 'Gita Rai');
+
+      // Toggle on
+      vm.toggleAttendingNurse('Maya BK');
+      expect(vm.state.attendingNurseNames, ['Gita Rai', 'Maya BK']);
     });
   });
 }

@@ -2,6 +2,7 @@ import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
 import '../../models/camp_report_summary_model.dart';
 import '../../models/clinical_visit_model.dart';
+import '../../models/nurse_profile.dart';
 
 class ExcelReportService {
   List<int> generateCampSummaryExcel(CampReportSummaryModel summary) {
@@ -180,6 +181,7 @@ class ExcelReportService {
       TextCellValue('Surgical Referral'),
       TextCellValue('Follow-up Destination'),
       TextCellValue('Examining Doctor'),
+      TextCellValue('Attending Nurse'),
       TextCellValue('Intake Date'),
     ]);
 
@@ -198,6 +200,25 @@ class ExcelReportService {
               : (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty
                   ? p.primaryDoctorName!.trim()
                   : 'None'));
+
+      final nurseName = (v?.primaryNurseName != null && v!.primaryNurseName!.trim().isNotEmpty)
+          ? NurseProfile.stripPrefixes(v.primaryNurseName!).trim()
+          : (v?.attendingNurseNames.any((n) => n.trim().isNotEmpty) == true
+              ? v!.attendingNurseNames
+                  .where((n) => n.trim().isNotEmpty)
+                  .map((n) => NurseProfile.stripPrefixes(n).trim())
+                  .where((n) => n.isNotEmpty)
+                  .join(', ')
+              : (p.primaryNurseName != null && p.primaryNurseName!.trim().isNotEmpty
+                  ? NurseProfile.stripPrefixes(p.primaryNurseName!).trim()
+                  : (p.attendingNurseNames.any((n) => n.trim().isNotEmpty) == true
+                      ? p.attendingNurseNames
+                          .where((n) => n.trim().isNotEmpty)
+                          .map((n) => NurseProfile.stripPrefixes(n).trim())
+                          .where((n) => n.isNotEmpty)
+                          .join(', ')
+                      : 'None')));
+      final finalNurseName = nurseName.isNotEmpty ? nurseName : 'None';
 
       final campCode = p.campCode.isNotEmpty
           ? p.campCode
@@ -235,6 +256,7 @@ class ExcelReportService {
         TextCellValue(v?.surgicalReferral ?? 'None'),
         TextCellValue(v?.followUpDestination ?? 'None'),
         TextCellValue(docName),
+        TextCellValue(finalNurseName),
         TextCellValue(dateFormatter.format(p.intakeDate)),
       ]);
     }

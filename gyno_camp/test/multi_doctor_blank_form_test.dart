@@ -309,6 +309,81 @@ void main() {
     expect(text.contains('Signature'), true);
     expect(text.contains('Gynecologist'), true);
   });
+
+  test('Camp blank form with doctors and multiple nurses generates valid 2-page PDF', () async {
+    final campWithNurses = CampModel(
+      id: 'camp-doc-nurse',
+      campCode: 'NURSE1',
+      name: 'Lalitpur Outreach Camp',
+      province: 'Bagmati',
+      district: 'Lalitpur',
+      municipality: 'Godawari',
+      ward: '02',
+      venue: 'Health Post',
+      startDate: DateTime(2026, 9, 20),
+      endDate: DateTime(2026, 9, 22),
+      status: CampStatus.open,
+      doctorNames: ['Anita Sharma (NMC: 12345)', 'Ramesh Karki (NMC: 67890)'],
+      nurseNames: ['Sita Thapa (NNC: 5544)', 'Gita Rai (NNC: 7788)', 'Maya BK'],
+      showDoctorOnForms: true,
+      showNurseOnForms: true,
+      createdAt: DateTime(2026, 9, 20),
+    );
+
+    final pdfService = PdfReportService();
+    final bytes = await pdfService.generatePatientRegistrationFormPdf(
+      camp: campWithNurses,
+      organizationName: 'Community Health Outreach Mission',
+    );
+
+    expect(bytes.isNotEmpty, true);
+    final text = _extractPdfText(bytes);
+
+    // Doctors present
+    expect(text.contains('Anita'), true);
+    expect(text.contains('Ramesh'), true);
+
+    // Nurses present
+    expect(text.contains('Sita'), true);
+    expect(text.contains('Gita'), true);
+    expect(text.contains('Maya'), true);
+    expect(text.contains('Attending'), true);
+    expect(text.contains('Nurse'), true);
+  });
+
+  test('Blank Follow-Up Slip with assigned nurse includes nurse signature section', () async {
+    final camp = CampModel(
+      id: 'camp-fu-nurse',
+      campCode: 'FU01',
+      name: 'Kavre Health Camp',
+      district: 'Kavre',
+      municipality: 'Dhulikhel',
+      ward: '01',
+      venue: 'Hospital',
+      startDate: DateTime(2026, 9, 20),
+      endDate: DateTime(2026, 9, 21),
+      status: CampStatus.open,
+      doctorNames: ['Anita Sharma'],
+      nurseNames: ['Sita Thapa (NNC: 9988)'],
+      createdAt: DateTime(2026, 9, 20),
+    );
+
+    final pdfService = PdfReportService();
+    final bytes = await pdfService.generateBlankFollowUpSlipPdf(
+      camp: camp,
+      doctor: const DoctorProfile(name: 'Anita Sharma', nmcNumber: '1122'),
+      nurse: const NurseProfile(name: 'Sita Thapa', registrationNumber: '9988'),
+    );
+
+    expect(bytes.isNotEmpty, true);
+    final text = _extractPdfText(bytes);
+    expect(text.contains('Sita'), true);
+    expect(text.contains('Thapa'), true);
+    expect(text.contains('Attending'), true);
+    expect(text.contains('Nurse'), true);
+    expect(text.contains('NNC'), true);
+    expect(text.contains('9988'), true);
+  });
 }
 
 String _extractPdfText(List<int> bytes) {

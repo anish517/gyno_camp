@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 import '../constants/nepal_geodata.dart';
+import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
 import 'omr_service.dart';
 
@@ -992,6 +993,29 @@ class OcrFormService {
       }
     }
 
+    // Attending / Examining Nurse (Station 6 / Footer)
+    String? examiningNurse;
+    final List<String> attendingNurses = [];
+    final nurseMatch = RegExp(
+      r'(?:attending\s*nurse|staff\s*nurse|examining\s*nurse|sister|नर्स|nurse)[:\s]+([a-zA-Z\s\.]+)',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (nurseMatch != null) {
+      final name = nurseMatch.group(1)?.split(RegExp(r'[\r\n]')).first.trim();
+      if (name != null &&
+          name.length >= 3 &&
+          !_isLabel(name) &&
+          !name.toLowerCase().contains('signature') &&
+          !name.toLowerCase().contains('certified') &&
+          !name.toLowerCase().contains('gynaesupport')) {
+        final cleanNurse = NurseProfile.stripPrefixes(name).trim();
+        if (cleanNurse.isNotEmpty && cleanNurse.length >= 3) {
+          examiningNurse = cleanNurse;
+          attendingNurses.add(cleanNurse);
+        }
+      }
+    }
+
     final totalConf = confidences.values.fold<double>(0.0, (sum, val) => sum + val);
     final avgConf = confidences.isNotEmpty ? totalConf / confidences.length : 0.80;
 
@@ -1008,6 +1032,8 @@ class OcrFormService {
       followUpDestination: followUp,
       examiningDoctor: examiningDoctor,
       attendingDoctors: examiningDoctor != null ? [examiningDoctor] : const [],
+      examiningNurse: examiningNurse,
+      attendingNurses: attendingNurses,
       fieldConfidences: confidences,
       overallConfidence: double.parse(avgConf.toStringAsFixed(2)),
       rawText: text,

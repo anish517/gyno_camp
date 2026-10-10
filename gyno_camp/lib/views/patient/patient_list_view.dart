@@ -888,6 +888,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       }));
     }
 
+    // Nurse
+    if (filters.nurse != null && filters.nurse != 'all' && filters.nurse!.isNotEmpty) {
+      pills.add(_buildFilterPill('Nurse: ${filters.nurse}', () {
+        vm.updateFilters(filters.copyWith(nurse: 'all'));
+      }));
+    }
+
     // Clinical Intake
     if (filters.clinicalIntake != null && filters.clinicalIntake != 'all') {
       pills.add(_buildFilterPill('Intake: ${filters.clinicalIntake}', () {
@@ -1268,6 +1275,29 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       if (clean.isNotEmpty) allDoctors.add(clean);
     }
     final sortedDoctors = allDoctors.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    final allNurses = <String>{};
+    for (final camp in visibleCamps) {
+      for (final n in camp.nurseNames) {
+        final clean = NurseProfile.stripPrefixes(n).trim();
+        if (clean.isNotEmpty) allNurses.add(clean);
+      }
+    }
+    for (final p in patientState.rawPatients) {
+      if (p.primaryNurseName != null && p.primaryNurseName!.trim().isNotEmpty) {
+        final clean = NurseProfile.stripPrefixes(p.primaryNurseName!).trim();
+        if (clean.isNotEmpty) allNurses.add(clean);
+      }
+      for (final nurse in p.attendingNurseNames) {
+        final clean = NurseProfile.stripPrefixes(nurse).trim();
+        if (clean.isNotEmpty) allNurses.add(clean);
+      }
+    }
+    if (filters.nurse != null && filters.nurse != 'all' && filters.nurse!.trim().isNotEmpty) {
+      final clean = NurseProfile.stripPrefixes(filters.nurse!).trim();
+      if (clean.isNotEmpty) allNurses.add(clean);
+    }
+    final sortedNurses = allNurses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     // Dynamic Diagnoses: active camp lookups + patient records + current filter (NO hardcoded static defaults)
     final activeDiagnoses = ref.watch(activeDiagnosesProvider);
@@ -1903,6 +1933,42 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             const SizedBox(width: 8),
                             Expanded(child: doctorDropdown),
                           ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Row 1b: Attending Nurse Dropdown
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final currentNurseClean = (filters.nurse != null && filters.nurse != 'all' && filters.nurse!.trim().isNotEmpty)
+                            ? NurseProfile.stripPrefixes(filters.nurse!).trim()
+                            : null;
+
+                        return DropdownButtonFormField<String?>(
+                          key: ValueKey('nurse_filter_$currentNurseClean'),
+                          initialValue: sortedNurses.contains(currentNurseClean) ? currentNurseClean : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Attending Nurse (सेवा दिने नर्स)',
+                            prefixIcon: Icon(Icons.person_pin_circle_outlined, size: 18),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            isDense: true,
+                          ),
+                          isExpanded: true,
+                          items: [
+                            const DropdownMenuItem(value: null, child: Text('All Nurses (सबै नर्स)', style: TextStyle(fontSize: 13, color: Colors.grey))),
+                            ...sortedNurses.map((nurse) => DropdownMenuItem(
+                              value: nurse,
+                              child: Text(nurse, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
+                            )),
+                          ],
+                          onChanged: (val) => vm.updateFilters(
+                            filters.copyWith(
+                              nurse: val,
+                              clearNurse: val == null,
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -2646,6 +2712,39 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   fontSize: 10.5,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1D4ED8),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if ((patient.primaryNurseName != null && patient.primaryNurseName!.trim().isNotEmpty) ||
+        patient.attendingNurseNames.any((n) => n.trim().isNotEmpty)) {
+      final nurseRaw = (patient.primaryNurseName != null && patient.primaryNurseName!.trim().isNotEmpty)
+          ? patient.primaryNurseName!
+          : patient.attendingNurseNames.firstWhere((n) => n.trim().isNotEmpty);
+      final nurseProf = NurseProfile.parse(nurseRaw);
+      clinicalBadges.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFDF2F8),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFFFBCFE8)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.person_pin_circle_outlined, size: 11, color: Color(0xFFDB2777)),
+              const SizedBox(width: 3.5),
+              Text(
+                nurseProf.formattedLabel,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF9D174D),
                 ),
               ),
             ],

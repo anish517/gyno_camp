@@ -82,6 +82,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   final Set<String> _selectedMedications = {};
   final Set<String> _selectedCounseling = {};
   final Set<String> _selectedDoctors = {};
+  final Set<String> _selectedNurses = {};
   String? _pessaryType;
   String? _pessarySize;
   String? _followUpDestination;
@@ -156,6 +157,9 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             }
             if (_latestVisit!.attendingDoctorNames.isNotEmpty) {
               _selectedDoctors.addAll(_latestVisit!.attendingDoctorNames);
+            }
+            if (_latestVisit!.attendingNurseNames.isNotEmpty) {
+              _selectedNurses.addAll(_latestVisit!.attendingNurseNames);
             }
           }
           _isLoadingHistory = false;
@@ -265,6 +269,8 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
       surgeryType: _surgeryDone ? _selectedSurgeryType : null,
       attendingDoctorNames: _selectedDoctors.toList(),
       primaryDoctorName: _selectedDoctors.isNotEmpty ? _selectedDoctors.first : null,
+      attendingNurseNames: _selectedNurses.toList(),
+      primaryNurseName: _selectedNurses.isNotEmpty ? _selectedNurses.first : null,
       createdAt: DateTime.now(),
       createdByUserId: auth?.id ?? 'usr-staff',
     );
@@ -2178,6 +2184,63 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                             _selectedDoctors.add(doc);
                           } else {
                             _selectedDoctors.remove(doc);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            const Text(
+              'Attending / Assisting Nurse(s) (सेवा दिने नर्सहरू):',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: Color(0xFF81005D)),
+            ),
+            const SizedBox(height: 6),
+            Builder(
+              builder: (context) {
+                final campState = ref.watch(campStateProvider);
+                final cCamp = widget.camp ??
+                    campState.camps.cast<CampModel?>().firstWhere(
+                      (c) => c?.id == widget.patient.campId,
+                      orElse: () => null,
+                    );
+                final nurses = cCamp?.nurseProfiles ?? <NurseProfile>[];
+
+                if (nurses.isEmpty) {
+                  return const Text(
+                    'No specific nurses assigned to this camp in camp settings.',
+                    style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+                  );
+                }
+
+                return Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: nurses.map((nurse) {
+                    final nurseKey = nurse.displayName;
+                    final isSelected = _selectedNurses.contains(nurseKey) ||
+                        _selectedNurses.any((n) => n.toLowerCase().trim() == nurse.name.toLowerCase().trim());
+                    return FilterChip(
+                      avatar: CircleAvatar(
+                        radius: 10,
+                        backgroundColor: isSelected ? Colors.white : const Color(0xFF81005D).withValues(alpha: 0.15),
+                        child: Icon(Icons.badge_outlined, size: 12, color: isSelected ? const Color(0xFF81005D) : Colors.pink.shade700),
+                      ),
+                      label: Text(nurse.formattedLabel, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFFFCE7F3),
+                      checkmarkColor: const Color(0xFF81005D),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedNurses.add(nurseKey);
+                          } else {
+                            _selectedNurses.remove(nurseKey);
+                            _selectedNurses.removeWhere((n) => n.toLowerCase().trim() == nurse.name.toLowerCase().trim());
                           }
                         });
                       },

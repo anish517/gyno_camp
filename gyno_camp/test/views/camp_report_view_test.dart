@@ -54,6 +54,7 @@ class FakeReportingRepository implements IReportingRepository {
     String? campId,
     List<String>? allowedCampIds,
     String? doctorFilter,
+    String? nurseFilter,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
@@ -146,6 +147,10 @@ void main() {
     });
 
     testWidgets('switching tabs displays corresponding clinical sections', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [

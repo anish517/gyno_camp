@@ -917,6 +917,25 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   ],
                 ),
               ],
+              if (camp.nurseNames.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(Icons.health_and_safety_outlined, size: 15, color: AppTheme.brandMagenta),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Nurse: ${camp.nurseProfiles.map((n) => n.displayName).join(' • ')}',
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.brandMagenta),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 8),
 
               // Dual Date Range (Nepali BS & English AD)
@@ -2002,6 +2021,25 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           ],
                         ),
                       ],
+                      if (c.nurseNames.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.health_and_safety_outlined, size: 14, color: AppTheme.brandMagenta),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Nurse: ${c.nurseProfiles.map((n) => n.displayName).join(' • ')}',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.brandMagenta),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const Divider(height: 20),
                       Row(
                         children: [
@@ -2724,6 +2762,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     final docNmcCtrl = TextEditingController();
     final assignedDoctors = <DoctorProfile>[];
     bool showDoctorOnForms = true;
+    // Nurse roster state (camp-level, not login based)
+    final nurseNameCtrl = TextEditingController();
+    final nurseRegCtrl = TextEditingController();
+    final assignedNurses = <NurseProfile>[];
+    bool showNurseOnForms = true;
     String selectedProvince = 'Bagmati';
     String selectedDistrict = 'Kathmandu';
     final munCtrl = TextEditingController();
@@ -2940,6 +2983,16 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   showDoctorOnForms: showDoctorOnForms,
                                   setDialogState: setDialogState,
                                   onShowDoctorChanged: (val) => setDialogState(() => showDoctorOnForms = val),
+                                ),
+                                const SizedBox(height: 12),
+                                _buildNurseRoster(
+                                  context: context,
+                                  assignedNurses: assignedNurses,
+                                  nurseNameCtrl: nurseNameCtrl,
+                                  nurseRegCtrl: nurseRegCtrl,
+                                  showNurseOnForms: showNurseOnForms,
+                                  setDialogState: setDialogState,
+                                  onShowNurseChanged: (val) => setDialogState(() => showNurseOnForms = val),
                                 ),
                                 const SizedBox(height: 20),
 
@@ -3603,6 +3656,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                           name: nameCtrl.text.trim(),
                                           doctorNames: assignedDoctors.map((d) => d.toStorageString()).toList(),
                                           showDoctorOnForms: showDoctorOnForms,
+                                          nurseNames: assignedNurses.map((n) => n.toStorageString()).toList(),
+                                          showNurseOnForms: showNurseOnForms,
                                           province: selectedProvince,
                                           district: selectedDistrict,
                                           municipality: munCtrl.text.trim(),
@@ -3660,6 +3715,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                           name: nameCtrl.text.trim(),
                                           doctorNames: assignedDoctors.map((d) => d.toStorageString()).toList(),
                                           showDoctorOnForms: showDoctorOnForms,
+                                          nurseNames: assignedNurses.map((n) => n.toStorageString()).toList(),
+                                          showNurseOnForms: showNurseOnForms,
                                           province: selectedProvince,
                                           district: selectedDistrict,
                                           municipality: munCtrl.text.trim(),
@@ -3699,6 +3756,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     String doctorName = '',
     List<String>? doctorNames,
     bool showDoctorOnForms = true,
+    List<String> nurseNames = const [],
+    bool showNurseOnForms = true,
     required String province,
     required String district,
     required String municipality,
@@ -3754,6 +3813,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       doctorName: primaryDoc,
       doctorNames: parsedDocList,
       showDoctorOnForms: showDoctorOnForms,
+      nurseNames: nurseNames,
+      showNurseOnForms: showNurseOnForms,
       province: province,
       district: district.isNotEmpty ? district : 'Bagmati',
       municipality: municipality,
@@ -3837,6 +3898,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
         ? camp.doctorProfiles.toList()
         : (camp.doctorName.isNotEmpty ? [DoctorProfile.parse(camp.doctorName)] : <DoctorProfile>[]);
     bool showDoctorOnForms = camp.showDoctorOnForms;
+    // Nurse roster state — pre-populated from existing camp data
+    final nurseNameCtrl = TextEditingController();
+    final nurseRegCtrl = TextEditingController();
+    final assignedNurses = camp.nurseProfiles.toList();
+    bool showNurseOnForms = camp.showNurseOnForms;
     String selectedProvince = camp.province.isNotEmpty ? camp.province : 'Bagmati';
     final availableDistricts = NepalGeodata.districtsFor(selectedProvince);
     String selectedDistrict = availableDistricts.contains(camp.district)
@@ -3973,6 +4039,16 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               showDoctorOnForms: showDoctorOnForms,
                               setDialogState: setDialogState,
                               onShowDoctorChanged: (val) => setDialogState(() => showDoctorOnForms = val),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildNurseRoster(
+                              context: context,
+                              assignedNurses: assignedNurses,
+                              nurseNameCtrl: nurseNameCtrl,
+                              nurseRegCtrl: nurseRegCtrl,
+                              showNurseOnForms: showNurseOnForms,
+                              setDialogState: setDialogState,
+                              onShowNurseChanged: (val) => setDialogState(() => showNurseOnForms = val),
                             ),
                             const SizedBox(height: 20),
 
@@ -4380,6 +4456,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 doctorName: primaryDoc,
                                 doctorNames: storedDoctors,
                                 showDoctorOnForms: showDoctorOnForms,
+                                nurseNames: assignedNurses.map((n) => n.toStorageString()).toList(),
+                                showNurseOnForms: showNurseOnForms,
                                 province: selectedProvince,
                                 district: selectedDistrict,
                                 municipality: munCtrl.text.trim(),
@@ -4685,6 +4763,265 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               const SizedBox(width: 4),
                               Text(
                                 doc.hasNmc ? '${doc.displayName} · ${doc.nmcNumber}' : doc.displayName,
+                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155), fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds the Attending Nurse roster component for camp dialogs.
+  /// Mirrors [_buildDoctorNmcRoster]: chip list, name + optional NNC inputs,
+  /// quick-pick from nurses used in other camps, and a separate show-on-forms toggle.
+  /// Nurses are camp-level free-text profiles (not login accounts).
+  Widget _buildNurseRoster({
+    required BuildContext context,
+    required List<NurseProfile> assignedNurses,
+    required TextEditingController nurseNameCtrl,
+    required TextEditingController nurseRegCtrl,
+    required bool showNurseOnForms,
+    required StateSetter setDialogState,
+    required ValueChanged<bool> onShowNurseChanged,
+  }) {
+    final allCamps = ref.read(campStateProvider).camps;
+    final previousNurses = <NurseProfile>{};
+    for (final c in allCamps) {
+      for (final n in c.nurseProfiles) {
+        if (n.isValid) previousNurses.add(n);
+      }
+    }
+    final suggestions = previousNurses.where((n) => !assignedNurses.contains(n)).take(6).toList();
+
+    void addNurse() {
+      final name = nurseNameCtrl.text.trim();
+      final reg = nurseRegCtrl.text.trim();
+      if (name.isEmpty) return;
+      final profile = NurseProfile(name: NurseProfile.parse(name).name, registrationNumber: reg);
+      if (profile.isValid && !assignedNurses.contains(profile)) {
+        setDialogState(() => assignedNurses.add(profile));
+      }
+      nurseNameCtrl.clear();
+      nurseRegCtrl.clear();
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFDF2F8),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              border: Border(bottom: BorderSide(color: Color(0xFFFBCFE8))),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.brandMagenta.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.health_and_safety_rounded, color: AppTheme.brandMagenta, size: 16),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Attending Nurses & NNC Numbers',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.brandPurple),
+                      ),
+                      Text(
+                        'नर्स नाम र NNC नम्बर (वैकल्पिक, एक वा धेरै नर्स)',
+                        style: TextStyle(fontSize: 10.5, color: AppTheme.brandMagenta),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'Show on forms',
+                      style: TextStyle(fontSize: 10, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+                    ),
+                    Transform.scale(
+                      scale: 0.78,
+                      child: Switch(
+                        value: showNurseOnForms,
+                        onChanged: onShowNurseChanged,
+                        activeThumbColor: AppTheme.brandMagenta,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (assignedNurses.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: assignedNurses.map((nurse) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.brandMagenta.withValues(alpha: 0.06),
+                              AppTheme.brandMagenta.withValues(alpha: 0.12),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppTheme.brandMagenta.withValues(alpha: 0.35)),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.person_rounded, size: 14, color: AppTheme.brandMagenta),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      nurse.displayName,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.brandPurpleDark,
+                                      ),
+                                    ),
+                                    if (nurse.hasRegistration)
+                                      Text(
+                                        'NNC: ${nurse.registrationNumber}',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: AppTheme.brandMagenta,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              InkWell(
+                                onTap: () => setDialogState(() => assignedNurses.remove(nurse)),
+                                borderRadius: BorderRadius.circular(10),
+                                child: const Icon(Icons.close_rounded, size: 14, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: TextField(
+                        controller: nurseNameCtrl,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: _dialogInputDecoration(
+                          labelText: 'Nurse Name',
+                          hintText: 'e.g. Sita Sharma',
+                          prefixIcon: const Icon(Icons.person_outline_rounded, size: 17, color: AppTheme.primaryDark),
+                        ),
+                        onSubmitted: (_) => addNurse(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        controller: nurseRegCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: _dialogInputDecoration(
+                          labelText: 'NNC No. (optional)',
+                          hintText: 'e.g. 14256',
+                          prefixIcon: const Icon(Icons.badge_outlined, size: 17, color: AppTheme.primaryDark),
+                        ),
+                        onSubmitted: (_) => addNurse(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: ElevatedButton(
+                        onPressed: addNurse,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.brandMagenta,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Icon(Icons.add_rounded, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+                if (suggestions.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Previously assigned nurses:',
+                    style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: suggestions.map((nurse) {
+                      return InkWell(
+                        onTap: () {
+                          if (!assignedNurses.contains(nurse)) {
+                            setDialogState(() => assignedNurses.add(nurse));
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.add_circle_outline_rounded, size: 13, color: Color(0xFF64748B)),
+                              const SizedBox(width: 4),
+                              Text(
+                                nurse.hasRegistration ? '${nurse.displayName} · ${nurse.registrationNumber}' : nurse.displayName,
                                 style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155), fontWeight: FontWeight.w500),
                               ),
                             ],
