@@ -130,6 +130,14 @@ void main() {
       // Search non-existent
       final emptyResult = await patientRepo.searchPatients(campId: 'camp-ktm-01', query: 'NonExistent');
       expect(emptyResult, isEmpty);
+
+      // Verify allowedCampIds filtering
+      final scopedList = await patientRepo.getPatientsByCamp('all', ['camp-ktm-01']);
+      expect(scopedList.length, 1);
+      final unallowedList = await patientRepo.getPatientsByCamp('all', ['other-camp']);
+      expect(unallowedList, isEmpty);
+      final emptyAllowedList = await patientRepo.getPatientsByCamp('all', []);
+      expect(emptyAllowedList, isEmpty);
     });
 
     test('checkDuplicate detects existing patient in SQLite store', () async {

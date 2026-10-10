@@ -159,6 +159,13 @@ void main() {
 
       final campBMeds = await lookupRepo.getItemsByCategory('medicine', campId: 'camp-B');
       expect(campBMeds, isEmpty, reason: 'New camp B must have empty medicines list');
+
+      // Verify allowedCampIds scoping
+      final scopedMeds = await lookupRepo.getItemsByCategory('medicine', allowedCampIds: ['camp-A']);
+      expect(scopedMeds.any((m) => m.labelEn == 'Paracetamol 500mg'), isTrue);
+
+      final otherScopedMeds = await lookupRepo.getItemsByCategory('medicine', allowedCampIds: ['camp-B']);
+      expect(otherScopedMeds.any((m) => m.labelEn == 'Paracetamol 500mg'), isFalse);
     });
 
     test('addItem and updateItem sanitize stray single-character or "k" codes', () async {

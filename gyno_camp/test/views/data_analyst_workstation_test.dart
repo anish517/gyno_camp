@@ -5,8 +5,10 @@ import 'package:gyno_camp/core/services/duplicate_detection_service.dart';
 import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/camp_report_summary_model.dart';
 import 'package:gyno_camp/models/clinical_visit_model.dart';
+import 'package:gyno_camp/models/lookup_item_model.dart';
 import 'package:gyno_camp/models/patient_model.dart';
 import 'package:gyno_camp/models/user_model.dart';
+import 'package:gyno_camp/repositories/lookup_repository.dart';
 import 'package:gyno_camp/repositories/patient_repository.dart';
 import 'package:gyno_camp/repositories/reporting_repository.dart';
 import 'package:gyno_camp/viewmodels/auth_viewmodel.dart';
@@ -19,6 +21,8 @@ import 'package:gyno_camp/views/dashboard/home_gateway_view.dart';
 class _FakePatientRepository implements IPatientRepository {
   List<PatientModel> storedPatients = [];
   List<ClinicalVisitModel> visits = [];
+  String? lastCampIdQueried;
+  List<String>? lastAllowedCampIdsQueried;
 
   @override
   Future<PatientModel> registerPatient(
@@ -50,9 +54,16 @@ class _FakePatientRepository implements IPatientRepository {
   }
 
   @override
-  Future<List<PatientModel>> getPatientsByCamp([String? campId]) async {
-    if (campId == null || campId == 'all') return storedPatients;
-    return storedPatients.where((p) => p.campId == campId).toList();
+  Future<List<PatientModel>> getPatientsByCamp([String? campId, List<String>? allowedCampIds]) async {
+    lastCampIdQueried = campId;
+    lastAllowedCampIdsQueried = allowedCampIds;
+    if (campId != null && campId != 'all') {
+      return storedPatients.where((p) => p.campId == campId).toList();
+    }
+    if (allowedCampIds != null) {
+      return storedPatients.where((p) => allowedCampIds.contains(p.campId)).toList();
+    }
+    return storedPatients;
   }
 
   @override
@@ -111,10 +122,13 @@ class _FakePatientRepository implements IPatientRepository {
 
 class _FakeReportingRepository implements IReportingRepository {
   CampReportSummaryModel? customSummary;
+  String? lastCampIdQueried;
+  List<String>? lastAllowedCampIdsQueried;
 
   @override
   Future<CampReportSummaryModel> getCampSummary({
     String? campId,
+    List<String>? allowedCampIds,
     String? doctorFilter,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
@@ -125,6 +139,8 @@ class _FakeReportingRepository implements IReportingRepository {
     String? complaintFilter,
     String? visitReasonFilter,
   }) async {
+    lastCampIdQueried = campId;
+    lastAllowedCampIdsQueried = allowedCampIds;
     return customSummary ?? CampReportSummaryModel.empty(
       generatedBy: generatedBy,
     );
@@ -134,9 +150,48 @@ class _FakeReportingRepository implements IReportingRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _FakeLookupRepository implements ILookupRepository {
+  List<LookupItemModel> items = [];
+  String? lastCampIdQueried;
+  List<String>? lastAllowedCampIdsQueried;
+
+  @override
+  Future<List<LookupItemModel>> getAllItems({String? campId, String? tenantId}) async => items;
+
+  @override
+  Future<List<LookupItemModel>> getItemsByCategory(
+    String category, {
+    String? campId,
+    String? tenantId,
+    List<String>? allowedCampIds,
+    bool activeOnly = false,
+  }) async {
+    lastCampIdQueried = campId;
+    lastAllowedCampIdsQueried = allowedCampIds;
+    return items.where((i) {
+      if (i.category != category) return false;
+      if (activeOnly && !i.isActive) return false;
+      if (campId != null && i.campId != null && i.campId != campId) return false;
+      if (allowedCampIds != null && i.campId != null && !allowedCampIds.contains(i.campId)) return false;
+      return true;
+    }).toList();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _FakeCampViewModel extends StateNotifier<CampState> implements CampViewModel {
   _FakeCampViewModel({required CampModel active, required List<CampModel> all})
       : super(CampState(activeCamp: active, selectedCamp: active, camps: all));
+
+  void setCamps(List<CampModel> newCamps) {
+    state = state.copyWith(
+      camps: newCamps,
+      activeCamp: newCamps.contains(state.activeCamp) ? state.activeCamp : (newCamps.isNotEmpty ? newCamps.first : null),
+      selectedCamp: newCamps.contains(state.selectedCamp) ? state.selectedCamp : (newCamps.isNotEmpty ? newCamps.first : null),
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -199,13 +254,17 @@ void main() {
     required Widget child,
     required _FakePatientRepository patientRepo,
     required _FakeReportingRepository reportingRepo,
+    _FakeLookupRepository? lookupRepo,
+    _FakeCampViewModel? campViewModel,
+    UserModel? user,
   }) {
     return ProviderScope(
       overrides: [
         patientRepositoryProvider.overrideWithValue(patientRepo),
         reportingRepositoryProvider.overrideWithValue(reportingRepo),
-        authStateProvider.overrideWith((ref) => _FakeAuthViewModel(testAnalystUser)),
-        campStateProvider.overrideWith((ref) => _FakeCampViewModel(active: camp1, all: [camp1, camp2])),
+        if (lookupRepo != null) lookupRepositoryProvider.overrideWithValue(lookupRepo),
+        authStateProvider.overrideWith((ref) => _FakeAuthViewModel(user ?? testAnalystUser)),
+        campStateProvider.overrideWith((ref) => campViewModel ?? _FakeCampViewModel(active: camp1, all: [camp1, camp2])),
         patientListProvider.overrideWith((ref) => PatientListViewModel(patientRepo)),
       ],
       child: MaterialApp(
@@ -503,6 +562,239 @@ void main() {
       // Verify diagnosis chips in dossier
       expect(find.text('fistula'), findsOneWidget);
       expect(find.text('cervicitis'), findsOneWidget);
+    });
+
+    testWidgets('All Camps filter strictly scopes patient queries and lookups to assigned camps, excluding unassigned and deleted camps', (tester) async {
+      tester.view.physicalSize = const Size(1200, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final patientRepo = _FakePatientRepository();
+      final reportingRepo = _FakeReportingRepository();
+      final lookupRepo = _FakeLookupRepository();
+
+      final camp3 = CampModel(
+        id: 'camp-3',
+        name: 'Unassigned Pokhara Camp',
+        campCode: 'CAMP-PKR-03',
+        organizationName: 'Global Health',
+        venue: 'Pokhara Clinic',
+        district: 'Kaski',
+        province: 'Gandaki',
+        municipality: 'Pokhara',
+        ward: '1',
+        startDate: DateTime(2026, 3, 1),
+        endDate: DateTime(2026, 3, 5),
+        status: CampStatus.open,
+        createdAt: DateTime.now(),
+      );
+
+      final p1 = PatientModel(
+        id: 'pat-1',
+        patientId: 'GC-2026-0010',
+        campId: 'camp-1',
+        campCode: 'CAMP-SIN-01',
+        intakeDate: DateTime(2026, 1, 2),
+        firstName: 'Asha',
+        surname: 'Rai',
+        age: 34,
+        mobile: '9841111111',
+        district: 'Sindhupalchok',
+        province: 'Bagmati',
+        municipality: 'Chautara',
+        ward: '4',
+        reasonsForVisit: ['something hanging out'],
+        highestPopStage: 2,
+        hasClinicalVisit: true,
+        createdAt: DateTime.now(),
+        createdByUserId: 'user-1',
+        createdByDeviceId: 'dev-1',
+      );
+
+      final p2 = PatientModel(
+        id: 'pat-2',
+        patientId: 'GC-2026-0020',
+        campId: 'camp-2',
+        campCode: 'CAMP-KAV-02',
+        intakeDate: DateTime(2026, 2, 2),
+        firstName: 'Binita',
+        surname: 'Tamang',
+        age: 42,
+        mobile: '9842222222',
+        district: 'Kavrepalanchok',
+        province: 'Bagmati',
+        municipality: 'Dhulikhel',
+        ward: '2',
+        reasonsForVisit: ['pain'],
+        highestPopStage: 3,
+        hasClinicalVisit: true,
+        createdAt: DateTime.now(),
+        createdByUserId: 'user-1',
+        createdByDeviceId: 'dev-1',
+      );
+
+      final p3Unassigned = PatientModel(
+        id: 'pat-3',
+        patientId: 'GC-2026-0030',
+        campId: 'camp-3',
+        campCode: 'CAMP-PKR-03',
+        intakeDate: DateTime(2026, 3, 2),
+        firstName: 'Chandra',
+        surname: 'Gurung',
+        age: 50,
+        mobile: '9843333333',
+        district: 'Kaski',
+        province: 'Gandaki',
+        municipality: 'Pokhara',
+        ward: '1',
+        reasonsForVisit: ['unassigned reason'],
+        highestPopStage: 4,
+        hasClinicalVisit: true,
+        createdAt: DateTime.now(),
+        createdByUserId: 'user-1',
+        createdByDeviceId: 'dev-1',
+      );
+
+      patientRepo.storedPatients = [p1, p2, p3Unassigned];
+
+      // Seed lookups: assigned camp 1, unassigned camp 3, and a deleted camp
+      lookupRepo.items = [
+        const LookupItemModel(
+          id: 'vr-1',
+          category: 'visit_reason',
+          code: 'vr_assigned_1',
+          labelEn: 'Assigned Camp 1 Reason',
+          campId: 'camp-1',
+          isActive: true,
+        ),
+        const LookupItemModel(
+          id: 'vr-3',
+          category: 'visit_reason',
+          code: 'vr_unassigned_3',
+          labelEn: 'Unassigned Camp 3 Reason',
+          campId: 'camp-3',
+          isActive: true,
+        ),
+        const LookupItemModel(
+          id: 'vr-del',
+          category: 'visit_reason',
+          code: 'vr_deleted_camp',
+          labelEn: 'Deleted Camp Ghost Reason',
+          campId: 'camp-deleted',
+          isActive: true,
+        ),
+      ];
+
+      // testAnalystUser is only assigned to ['camp-1', 'camp-2']
+      final campVM = _FakeCampViewModel(active: camp1, all: [camp1, camp2, camp3]);
+
+      await tester.pumpWidget(createTestWidget(
+        child: const DataAnalystWorkstationPage(),
+        patientRepo: patientRepo,
+        reportingRepo: reportingRepo,
+        lookupRepo: lookupRepo,
+        campViewModel: campVM,
+      ));
+      await tester.pumpAndSettle();
+
+      // 1. Verify queries passed allowedCampIds strictly matching assigned visible camps
+      expect(patientRepo.lastAllowedCampIdsQueried, isNotNull);
+      expect(patientRepo.lastAllowedCampIdsQueried, contains('camp-1'));
+      expect(patientRepo.lastAllowedCampIdsQueried, contains('camp-2'));
+      expect(patientRepo.lastAllowedCampIdsQueried, isNot(contains('camp-3')));
+      expect(patientRepo.lastAllowedCampIdsQueried, isNot(contains('camp-deleted')));
+
+      expect(reportingRepo.lastAllowedCampIdsQueried, isNotNull);
+      expect(reportingRepo.lastAllowedCampIdsQueried, contains('camp-1'));
+      expect(reportingRepo.lastAllowedCampIdsQueried, contains('camp-2'));
+      expect(reportingRepo.lastAllowedCampIdsQueried, isNot(contains('camp-3')));
+
+      expect(lookupRepo.lastAllowedCampIdsQueried, isNotNull);
+      expect(lookupRepo.lastAllowedCampIdsQueried, contains('camp-1'));
+      expect(lookupRepo.lastAllowedCampIdsQueried, contains('camp-2'));
+      expect(lookupRepo.lastAllowedCampIdsQueried, isNot(contains('camp-3')));
+
+      // 2. Switch to Camp-Wise Patients tab
+      final patientsTab = find.textContaining('Camp-Wise Patients');
+      expect(patientsTab, findsOneWidget);
+      await tester.tap(patientsTab);
+      await tester.pumpAndSettle();
+
+      // Assigned patients appear
+      expect(find.text('Asha Rai'), findsOneWidget);
+      expect(find.text('Binita Tamang'), findsOneWidget);
+      // Unassigned camp patient is NOT rendered
+      expect(find.text('Chandra Gurung'), findsNothing);
+
+      // 3. Verify lookup options strictly include assigned camp and exclude unassigned & deleted camps
+      expect(find.textContaining('Assigned Camp 1 Reason'), findsWidgets);
+      expect(find.textContaining('Unassigned Camp 3 Reason'), findsNothing);
+      expect(find.textContaining('Deleted Camp Ghost Reason'), findsNothing);
+    });
+
+    testWidgets('Deleting an assigned camp reactively resets selection and re-scopes queries to remaining visible camps', (tester) async {
+      tester.view.physicalSize = const Size(1200, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final patientRepo = _FakePatientRepository();
+      final reportingRepo = _FakeReportingRepository();
+      final lookupRepo = _FakeLookupRepository();
+
+      final p1 = PatientModel(
+        id: 'pat-1',
+        patientId: 'GC-2026-0010',
+        campId: 'camp-1',
+        campCode: 'CAMP-SIN-01',
+        intakeDate: DateTime(2026, 1, 2),
+        firstName: 'Asha',
+        surname: 'Rai',
+        age: 34,
+        mobile: '9841111111',
+        district: 'Sindhupalchok',
+        province: 'Bagmati',
+        municipality: 'Chautara',
+        ward: '4',
+        reasonsForVisit: ['something hanging out'],
+        highestPopStage: 2,
+        hasClinicalVisit: true,
+        createdAt: DateTime.now(),
+        createdByUserId: 'user-1',
+        createdByDeviceId: 'dev-1',
+      );
+      patientRepo.storedPatients = [p1];
+
+      final campVM = _FakeCampViewModel(active: camp1, all: [camp1, camp2]);
+
+      await tester.pumpWidget(createTestWidget(
+        child: const DataAnalystWorkstationPage(),
+        patientRepo: patientRepo,
+        reportingRepo: reportingRepo,
+        lookupRepo: lookupRepo,
+        campViewModel: campVM,
+      ));
+      await tester.pumpAndSettle();
+
+      // Initially All Assigned Camps (2) is present
+      expect(find.textContaining('All Assigned Camps (2)'), findsOneWidget);
+
+      // Simulate deletion of camp2: camps list now contains only camp1
+      campVM.setCamps([camp1]);
+      await tester.pumpAndSettle();
+
+      // Reactive listener fired and refreshed workstation with only camp1 remaining
+      expect(patientRepo.lastAllowedCampIdsQueried, isNotNull);
+      expect(patientRepo.lastAllowedCampIdsQueried, contains('camp-1'));
+      expect(patientRepo.lastAllowedCampIdsQueried, isNot(contains('camp-2')));
+
+      // UI updates gracefully without errors
+      expect(find.text('Data Analyst Workstation'), findsOneWidget);
     });
   });
 }

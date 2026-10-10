@@ -37,7 +37,7 @@ class _FakeLookupRepository implements ILookupRepository {
   Future<List<LookupItemModel>> getAllItems({String? campId, String? tenantId}) async => items;
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? campId, String? tenantId, bool activeOnly = false}) async {
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? campId, String? tenantId, List<String>? allowedCampIds, bool activeOnly = false}) async {
     return items.where((i) => i.category == category && (!activeOnly || i.isActive)).toList();
   }
 
@@ -100,7 +100,7 @@ class _FakePatientRepository implements IPatientRepository {
   }
 
   @override
-  Future<List<PatientModel>> getPatientsByCamp([String? campId]) async => storedPatients;
+  Future<List<PatientModel>> getPatientsByCamp([String? campId, List<String>? allowedCampIds]) async => storedPatients;
 
   @override
   Future<PatientModel?> getPatientByPatientId(String patientId) async {

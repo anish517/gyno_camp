@@ -20,8 +20,14 @@ class FakeLookupRepository implements ILookupRepository {
   Future<List<LookupItemModel>> getAllItems({String? campId, String? tenantId}) async => items;
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? campId, String? tenantId, bool activeOnly = false}) async {
-    return items.where((i) => i.category == category && (!activeOnly || i.isActive)).toList();
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? campId, String? tenantId, List<String>? allowedCampIds, bool activeOnly = false}) async {
+    return items.where((i) {
+      if (i.category != category) return false;
+      if (activeOnly && !i.isActive) return false;
+      if (campId != null && i.campId != null && i.campId != campId) return false;
+      if (allowedCampIds != null && i.campId != null && !allowedCampIds.contains(i.campId)) return false;
+      return true;
+    }).toList();
   }
 
   @override

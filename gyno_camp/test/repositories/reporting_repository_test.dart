@@ -99,10 +99,37 @@ void main() {
       expect(summary.significantPopCount, 1);
       expect(summary.diagnosisCounts['PID'], 1);
 
-      // Test all camps summary
+      // Insert orphaned/deleted camp patient (camp not in tableCamps)
+      final pDeleted = PatientModel(
+        id: 'pat-deleted-99',
+        patientId: 'GC-DEL-2026-9999',
+        campId: 'camp-deleted-99',
+        campCode: 'DEL99',
+        intakeDate: DateTime(2026, 3, 2),
+        firstName: 'Ghost',
+        surname: 'Patient',
+        age: 40,
+        ward: '01',
+        mobile: '9841000999',
+        createdByUserId: 'usr-1',
+        createdByDeviceId: 'dev-1',
+        createdAt: DateTime.now(),
+      );
+      await testDb.insert(DatabaseTables.tablePatients, pDeleted.toMap());
+
+      // Test all camps summary without allowedCampIds (filters only existing camps via subquery)
       final allSummary = await reportingRepo.getCampSummary(campId: 'all');
-      expect(allSummary.totalPatientsRegistered, 1);
+      expect(allSummary.totalPatientsRegistered, 1, reason: 'Orphaned/deleted camp patient must not leak into all camps summary');
       expect(allSummary.totalVisitsRecorded, 1);
+
+      // Test scoped allowedCampIds
+      final scopedSummary = await reportingRepo.getCampSummary(campId: 'all', allowedCampIds: ['camp-rep-01']);
+      expect(scopedSummary.totalPatientsRegistered, 1);
+      expect(scopedSummary.totalVisitsRecorded, 1);
+
+      // Test empty allowedCampIds returns empty summary
+      final emptySummary = await reportingRepo.getCampSummary(campId: 'all', allowedCampIds: []);
+      expect(emptySummary.totalPatientsRegistered, 0);
     });
 
     test('generatePdfReport and generateExcelReport produce valid binaries', () async {

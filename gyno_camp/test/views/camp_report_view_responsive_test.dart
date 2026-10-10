@@ -121,7 +121,7 @@ class FakePatientRepoForReports implements IPatientRepository {
   @override
   Future<PatientModel> updatePatient(PatientModel patient, {required String updatedByUserId, required String updatedByUserName, required String updatedByUserRole, required String deviceId}) async => patient;
   @override
-  Future<List<PatientModel>> getPatientsByCamp([String? campId]) async => patients;
+  Future<List<PatientModel>> getPatientsByCamp([String? campId, List<String>? allowedCampIds]) async => patients;
   @override
   Future<PatientModel?> getPatientByPatientId(String patientId) async =>
       patients.firstWhere((p) => p.patientId == patientId, orElse: () => patients.first);
@@ -145,6 +145,7 @@ class FakeReportingRepo implements IReportingRepository {
   @override
   Future<CampReportSummaryModel> getCampSummary({
     String? campId,
+    List<String>? allowedCampIds,
     String? doctorFilter,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,

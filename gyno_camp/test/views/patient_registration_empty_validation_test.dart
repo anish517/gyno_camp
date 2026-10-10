@@ -46,9 +46,14 @@ class _FakePatientRepository implements IPatientRepository {
   }
 
   @override
-  Future<List<PatientModel>> getPatientsByCamp([String? campId]) async {
-    if (campId == null || campId == 'all') return storedPatients;
-    return storedPatients.where((p) => p.campId == campId).toList();
+  Future<List<PatientModel>> getPatientsByCamp([String? campId, List<String>? allowedCampIds]) async {
+    if (campId != null && campId != 'all') {
+      return storedPatients.where((p) => p.campId == campId).toList();
+    }
+    if (allowedCampIds != null) {
+      return storedPatients.where((p) => allowedCampIds.contains(p.campId)).toList();
+    }
+    return storedPatients;
   }
 
   @override

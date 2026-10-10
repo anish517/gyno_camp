@@ -16,6 +16,7 @@ class MockReportingRepository implements IReportingRepository {
   @override
   Future<CampReportSummaryModel> getCampSummary({
     String? campId,
+    List<String>? allowedCampIds,
     String? doctorFilter,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,

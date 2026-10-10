@@ -50,16 +50,16 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   List<LookupItemModel> _campMedicines = [];
   List<LookupItemModel> _campReferralHospitals = [];
 
-  Future<void> _loadCampMasterData(String? campId) async {
+  Future<void> _loadCampMasterData(String? campId, [List<String>? allowedCampIds]) async {
     final cleanCampId = (campId == null || campId == 'all' || campId.trim().isEmpty) ? null : campId.trim();
     try {
       final repo = ref.read(lookupRepositoryProvider);
       final tenantId = ref.read(authStateProvider).currentUser?.tenantId;
-      final diags = await repo.getItemsByCategory('diagnosis', tenantId: tenantId, campId: cleanCampId, activeOnly: true);
-      final complaints = await repo.getItemsByCategory('chief_complaint', tenantId: tenantId, campId: cleanCampId, activeOnly: true);
-      final reasons = await repo.getItemsByCategory('visit_reason', tenantId: tenantId, campId: cleanCampId, activeOnly: true);
-      final meds = await repo.getItemsByCategory('medicine', tenantId: tenantId, campId: cleanCampId, activeOnly: true);
-      final hosps = await repo.getItemsByCategory('referral_hospital', tenantId: tenantId, campId: cleanCampId, activeOnly: true);
+      final diags = await repo.getItemsByCategory('diagnosis', tenantId: tenantId, campId: cleanCampId, allowedCampIds: allowedCampIds, activeOnly: true);
+      final complaints = await repo.getItemsByCategory('chief_complaint', tenantId: tenantId, campId: cleanCampId, allowedCampIds: allowedCampIds, activeOnly: true);
+      final reasons = await repo.getItemsByCategory('visit_reason', tenantId: tenantId, campId: cleanCampId, allowedCampIds: allowedCampIds, activeOnly: true);
+      final meds = await repo.getItemsByCategory('medicine', tenantId: tenantId, campId: cleanCampId, allowedCampIds: allowedCampIds, activeOnly: true);
+      final hosps = await repo.getItemsByCategory('referral_hospital', tenantId: tenantId, campId: cleanCampId, allowedCampIds: allowedCampIds, activeOnly: true);
       if (mounted) {
         setState(() {
           _campDiagnoses = diags;
@@ -80,11 +80,21 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     _tabController = TabController(length: 5, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final campState = ref.read(campStateProvider);
-      final activeCamp = campState.activeCamp ?? (campState.camps.isNotEmpty ? campState.camps.first : null);
+      final user = ref.read(authStateProvider).currentUser;
+      final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
+      final visibleCamps = !isSuperAdmin && user != null
+          ? campState.camps.where((c) => c.isStaffAssigned(user.id) || user.assignedCampIds.contains(c.id)).toList()
+          : campState.camps;
+      final visibleCampIds = visibleCamps.map((c) => c.id).toList();
+      final activeCamp = campState.activeCamp ?? (visibleCamps.isNotEmpty ? visibleCamps.first : null);
       final targetCampId = widget.initialCampId ?? activeCamp?.id;
-      _loadCampMasterData(targetCampId);
+      final isAll = targetCampId == null || targetCampId == 'all';
+      final allowedCampIds = isAll ? (!isSuperAdmin ? visibleCampIds : null) : [targetCampId];
+
+      _loadCampMasterData(targetCampId, allowedCampIds);
       ref.read(reportingViewModelProvider.notifier).loadSummary(
-        campId: targetCampId,
+        campId: isAll ? null : targetCampId,
+        allowedCampIds: allowedCampIds,
         doctorFilter: _selectedDoctor,
         diagnosisFilter: _selectedDiagnosis,
         popStageFilter: _selectedPopStage,
@@ -118,9 +128,20 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _selectedComplaint = null;
       _selectedPatient = null;
     });
-    _loadCampMasterData(campId);
+    final campState = ref.read(campStateProvider);
+    final user = ref.read(authStateProvider).currentUser;
+    final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
+    final visibleCamps = !isSuperAdmin && user != null
+        ? campState.camps.where((c) => c.isStaffAssigned(user.id) || user.assignedCampIds.contains(c.id)).toList()
+        : campState.camps;
+    final visibleCampIds = visibleCamps.map((c) => c.id).toList();
+    final isAll = campId == null || campId == 'all';
+    final allowedCampIds = isAll ? (!isSuperAdmin ? visibleCampIds : null) : [campId];
+
+    _loadCampMasterData(campId, allowedCampIds);
     ref.read(reportingViewModelProvider.notifier).loadSummary(
-      campId: campId,
+      campId: isAll ? null : campId,
+      allowedCampIds: allowedCampIds,
       startDate: _startDate,
       endDate: _endDate,
       doctorFilter: null,
@@ -137,9 +158,20 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   void _onRefresh() {
     final reportState = ref.read(reportingViewModelProvider);
     final currentCampId = reportState.selectedCampId;
-    _loadCampMasterData(currentCampId);
+    final campState = ref.read(campStateProvider);
+    final user = ref.read(authStateProvider).currentUser;
+    final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
+    final visibleCamps = !isSuperAdmin && user != null
+        ? campState.camps.where((c) => c.isStaffAssigned(user.id) || user.assignedCampIds.contains(c.id)).toList()
+        : campState.camps;
+    final visibleCampIds = visibleCamps.map((c) => c.id).toList();
+    final isAll = currentCampId == null || currentCampId == 'all';
+    final allowedCampIds = isAll ? (!isSuperAdmin ? visibleCampIds : null) : [currentCampId];
+
+    _loadCampMasterData(currentCampId, allowedCampIds);
     ref.read(reportingViewModelProvider.notifier).loadSummary(
-      campId: currentCampId,
+      campId: isAll ? null : currentCampId,
+      allowedCampIds: allowedCampIds,
       startDate: _startDate,
       endDate: _endDate,
       doctorFilter: _selectedDoctor,

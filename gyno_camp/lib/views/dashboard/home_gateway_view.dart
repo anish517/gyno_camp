@@ -4400,17 +4400,22 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     });
   }
 
+  List<CampModel> _getVisibleCamps(CampState campState, UserModel? user) {
+    final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
+    if (isSuperAdmin) return campState.camps;
+    if (user == null) return [];
+    return campState.camps
+        .where((c) =>
+            c.isStaffAssigned(user.id) ||
+            user.assignedCampIds.contains(c.id))
+        .toList();
+  }
+
   void _initCampAndData() {
     final campState = ref.read(campStateProvider);
     final user = ref.read(authStateProvider).currentUser;
     final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
-    final visibleCamps = !isSuperAdmin && user != null
-        ? campState.camps
-            .where((c) =>
-                c.isStaffAssigned(user.id) ||
-                user.assignedCampIds.contains(c.id))
-            .toList()
-        : campState.camps;
+    final visibleCamps = _getVisibleCamps(campState, user);
 
     if (!isSuperAdmin && visibleCamps.isNotEmpty) {
       if (!visibleCamps.any((c) => c.id == _selectedCampId)) {
@@ -4423,7 +4428,34 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   }
 
   Future<void> _fetchDataForCamp(String campId) async {
+    final campState = ref.read(campStateProvider);
+    final user = ref.read(authStateProvider).currentUser;
+    final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
+    final visibleCamps = _getVisibleCamps(campState, user);
+    final visibleCampIds = visibleCamps.map((c) => c.id).toList();
+
+    // If non-superadmin and no assigned camps exist, clear immediately
+    if (!isSuperAdmin && visibleCamps.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _workstationPatients = [];
+          _patientVisits.clear();
+          _campVisitReasons = [];
+          _campChiefComplaints = [];
+          _campDiagnoses = [];
+          _campMedicines = [];
+          _campReferralHospitals = [];
+          _isLoadingPatients = false;
+        });
+      }
+      return;
+    }
+
     final effectiveCampId = campId == 'all' ? null : campId;
+    final allowedCampIds = campId == 'all'
+        ? (!isSuperAdmin ? visibleCampIds : null)
+        : [campId];
+
     if (mounted) {
       setState(() {
         _isLoadingPatients = true;
@@ -4432,17 +4464,18 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     }
     try {
       final repo = ref.read(patientRepositoryProvider);
-      final patients = await repo.getPatientsByCamp(effectiveCampId);
+      final patients = await repo.getPatientsByCamp(effectiveCampId, allowedCampIds);
 
       final lookupRepo = ref.read(lookupRepositoryProvider);
-      final masterReasons = await lookupRepo.getItemsByCategory('visit_reason', campId: effectiveCampId, activeOnly: true);
-      final masterComplaints = await lookupRepo.getItemsByCategory('chief_complaint', campId: effectiveCampId, activeOnly: true);
-      final masterDiags = await lookupRepo.getItemsByCategory('diagnosis', campId: effectiveCampId, activeOnly: true);
-      final masterMeds = await lookupRepo.getItemsByCategory('medicine', campId: effectiveCampId, activeOnly: true);
-      final masterHosps = await lookupRepo.getItemsByCategory('referral_hospital', campId: effectiveCampId, activeOnly: true);
+      final masterReasons = await lookupRepo.getItemsByCategory('visit_reason', campId: effectiveCampId, allowedCampIds: allowedCampIds, activeOnly: true);
+      final masterComplaints = await lookupRepo.getItemsByCategory('chief_complaint', campId: effectiveCampId, allowedCampIds: allowedCampIds, activeOnly: true);
+      final masterDiags = await lookupRepo.getItemsByCategory('diagnosis', campId: effectiveCampId, allowedCampIds: allowedCampIds, activeOnly: true);
+      final masterMeds = await lookupRepo.getItemsByCategory('medicine', campId: effectiveCampId, allowedCampIds: allowedCampIds, activeOnly: true);
+      final masterHosps = await lookupRepo.getItemsByCategory('referral_hospital', campId: effectiveCampId, allowedCampIds: allowedCampIds, activeOnly: true);
 
       await ref.read(reportingViewModelProvider.notifier).loadSummary(
             campId: effectiveCampId,
+            allowedCampIds: allowedCampIds,
             diagnosisFilter: _selectedDiagnosis == 'all' ? null : _selectedDiagnosis,
             popStageFilter: _selectedPopStage == 'all' ? null : _selectedPopStage,
             treatmentFilter: _selectedTreatment == 'all' ? null : _selectedTreatment,
@@ -4976,13 +5009,30 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final deviceState = ref.watch(deviceSecurityProvider);
 
     final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
-    final visibleCamps = !isSuperAdmin && user != null
-        ? campState.camps
-            .where((c) =>
-                c.isStaffAssigned(user.id) ||
-                user.assignedCampIds.contains(c.id))
-            .toList()
-        : campState.camps;
+    final visibleCamps = _getVisibleCamps(campState, user);
+
+    ref.listen<CampState>(campStateProvider, (previous, next) {
+      final currentUser = ref.read(authStateProvider).currentUser;
+      final currentVisible = _getVisibleCamps(next, currentUser);
+      final currentVisibleIds = currentVisible.map((c) => c.id).toSet();
+
+      // If a specific camp was selected and it no longer exists (e.g. was deleted)
+      if (_selectedCampId != 'all' && !currentVisibleIds.contains(_selectedCampId)) {
+        setState(() {
+          _selectedCampId = currentVisible.length == 1 ? currentVisible.first.id : 'all';
+          _registryPage = 0;
+          _selectedDoctor = 'all';
+          _selectedVisitReason = 'all';
+          _selectedComplaint = 'all';
+          _selectedDiagnosis = 'all';
+          _selectedTreatment = 'all';
+        });
+        _fetchDataForCamp(_selectedCampId);
+      } else if (_selectedCampId == 'all' && previous?.camps.length != next.camps.length) {
+        // Camp list changed (camp deleted or added); re-fetch to adjust scope
+        _fetchDataForCamp('all');
+      }
+    });
 
     final summary = reportingState.summary;
     // Prefer isolated workstation cohort to prevent background sync from wiping patient list
@@ -5056,11 +5106,27 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         visitReasonDefinitions[item.code] = label;
       }
     }
+    // Include visit reasons actually recorded in existing camp patients
+    for (final p in campScopedPatients) {
+      for (final r in p.reasonsForVisit) {
+        final rTrim = r.trim();
+        if (rTrim.isNotEmpty) {
+          final rCode = rTrim.toLowerCase();
+          if (!visitReasonDefinitions.containsKey(rCode)) {
+            final label = ClinicalConstants.visitReasonOptions[rCode] ?? rTrim;
+            visitReasonDefinitions[rCode] = label;
+          }
+        }
+      }
+    }
     // Only fallback to ClinicalConstants when viewing All Camps and no visit reasons are configured
     if (_selectedCampId == 'all' && visitReasonDefinitions.isEmpty) {
       ClinicalConstants.visitReasonOptions.forEach((key, label) {
         visitReasonDefinitions[key] = label;
       });
+    }
+    if (_selectedVisitReason != 'all' && !visitReasonDefinitions.containsKey(_selectedVisitReason)) {
+      _selectedVisitReason = 'all';
     }
 
     final visitReasonCounts = <String, int>{};
@@ -5083,6 +5149,24 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             : item.labelEn;
         complaintDefinitions[item.code] = label;
       }
+    }
+    // Include complaints actually recorded in existing camp visits
+    for (final p in campScopedPatients) {
+      final v = _patientVisits[p.patientId];
+      if (v != null) {
+        final complaints = (v.anamnesisComplaints['clinicalComplaints'] as List?)
+            ?.map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty) ?? const [];
+        for (final c in complaints) {
+          final cCode = c.toLowerCase();
+          if (!complaintDefinitions.containsKey(cCode)) {
+            complaintDefinitions[cCode] = c;
+          }
+        }
+      }
+    }
+    if (_selectedComplaint != 'all' && !complaintDefinitions.containsKey(_selectedComplaint)) {
+      _selectedComplaint = 'all';
     }
 
     final complaintCounts = <String, int>{};
@@ -5208,14 +5292,14 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         dynamicDiagnoses.addAll(v.diagnoses.where((d) => d.trim().isNotEmpty));
       }
     }
-    if (summary != null && (_selectedCampId == 'all' || summary.campId == _selectedCampId) && summary.diagnosisCounts.isNotEmpty) {
-      dynamicDiagnoses.addAll(summary.diagnosisCounts.keys.where((d) => d.trim().isNotEmpty));
-    }
     // Only fall back to ClinicalConstants default diagnoses when viewing All Camps and no diagnoses exist
     if (_selectedCampId == 'all' && dynamicDiagnoses.isEmpty) {
       dynamicDiagnoses.addAll(ClinicalConstants.defaultDiagnoses);
     }
     final sortedDiagnoses = dynamicDiagnoses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    if (_selectedDiagnosis != 'all' && !sortedDiagnoses.contains(_selectedDiagnosis)) {
+      _selectedDiagnosis = 'all';
+    }
 
     final diagnosisCounts = <String, int>{};
     for (final diag in sortedDiagnoses) {
@@ -5428,7 +5512,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                       // 3. CROSS-CAMP COMPARISON
                       if (_activeTab == 'overview' || _activeTab == 'camps') ...[
                         // Cross-Camp Comparison Chart
-                        _buildCampWiseComparisonChart(campState.camps, allPatients),
+                        _buildCampWiseComparisonChart(visibleCamps, allPatients),
                         const SizedBox(height: 18),
                       ],
                     ],

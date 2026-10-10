@@ -72,6 +72,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
 
   Future<void> loadSummary({
     String? campId,
+    List<String>? allowedCampIds,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
@@ -86,6 +87,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
     try {
       final res = await reportingRepository.getCampSummary(
         campId: campId,
+        allowedCampIds: allowedCampIds,
         generatedBy: generatedBy,
         startDate: startDate,
         endDate: endDate,
@@ -114,6 +116,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
         } else {
           newUnfiltered = await reportingRepository.getCampSummary(
             campId: campId,
+            allowedCampIds: allowedCampIds,
             generatedBy: generatedBy,
           );
         }

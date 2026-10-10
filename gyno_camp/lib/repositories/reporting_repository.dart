@@ -15,6 +15,7 @@ import 'audit_repository.dart';
 abstract class IReportingRepository {
   Future<CampReportSummaryModel> getCampSummary({
     String? campId,
+    List<String>? allowedCampIds,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
@@ -73,6 +74,7 @@ class ReportingRepository implements IReportingRepository {
   @override
   Future<CampReportSummaryModel> getCampSummary({
     String? campId,
+    List<String>? allowedCampIds,
     String generatedBy = 'Data Analyst',
     DateTime? startDate,
     DateTime? endDate,
@@ -95,6 +97,10 @@ class ReportingRepository implements IReportingRepository {
       if (campRows.isNotEmpty) {
         camp = CampModel.fromMap(campRows.first);
       }
+    }
+
+    if (allowedCampIds != null && allowedCampIds.isEmpty) {
+      return CampReportSummaryModel.empty(generatedBy: generatedBy);
     }
 
     // Build date range WHERE clause
@@ -122,6 +128,18 @@ class ReportingRepository implements IReportingRepository {
         whereArgs: campArgs,
         orderBy: 'created_at ASC',
       );
+    } else if (allowedCampIds != null) {
+      final placeholders = List.filled(allowedCampIds.length, '?').join(', ');
+      final campFilter = dateWhere != null
+          ? 'camp_id IN ($placeholders) AND $dateWhere'
+          : 'camp_id IN ($placeholders)';
+      final campArgs = [...allowedCampIds, ...dateArgs];
+      patientRows = await db.query(
+        DatabaseTables.tablePatients,
+        where: campFilter,
+        whereArgs: campArgs,
+        orderBy: 'created_at ASC',
+      );
     } else {
       final baseFilter = 'camp_id IN (SELECT id FROM ${DatabaseTables.tableCamps})';
       final fullFilter = dateWhere != null ? '$baseFilter AND $dateWhere' : baseFilter;
@@ -139,6 +157,18 @@ class ReportingRepository implements IReportingRepository {
     if (campId != null && campId != 'all') {
       final visitFilter = dateWhere != null ? 'camp_id = ? AND $dateWhere' : 'camp_id = ?';
       final visitArgs = [campId, ...dateArgs];
+      visitRows = await db.query(
+        DatabaseTables.tableClinicalVisits,
+        where: visitFilter,
+        whereArgs: visitArgs,
+        orderBy: 'created_at ASC',
+      );
+    } else if (allowedCampIds != null) {
+      final placeholders = List.filled(allowedCampIds.length, '?').join(', ');
+      final visitFilter = dateWhere != null
+          ? 'camp_id IN ($placeholders) AND $dateWhere'
+          : 'camp_id IN ($placeholders)';
+      final visitArgs = [...allowedCampIds, ...dateArgs];
       visitRows = await db.query(
         DatabaseTables.tableClinicalVisits,
         where: visitFilter,

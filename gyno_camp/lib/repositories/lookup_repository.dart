@@ -13,7 +13,7 @@ import 'audit_repository.dart';
 
 abstract class ILookupRepository {
   Future<List<LookupItemModel>> getAllItems({String? tenantId, String? campId});
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, String? campId, bool activeOnly = false});
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, String? campId, List<String>? allowedCampIds, bool activeOnly = false});
   Future<LookupItemModel> addItem(LookupItemModel item, {required String userId, required String userName, required String deviceId});
   Future<LookupItemModel> updateItem(LookupItemModel item, {required String userId, required String userName, required String deviceId});
   Future<bool> toggleItemStatus(String id, bool isActive, {required String userId, required String userName, required String deviceId, String? campId});
@@ -90,7 +90,13 @@ class LookupRepository implements ILookupRepository {
   }
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? tenantId, String? campId, bool activeOnly = false}) async {
+  Future<List<LookupItemModel>> getItemsByCategory(
+    String category, {
+    String? tenantId,
+    String? campId,
+    List<String>? allowedCampIds,
+    bool activeOnly = false,
+  }) async {
     final db = await _databaseService.database;
     final whereClauses = <String>['category = ?', 'is_deleted = 0'];
     final whereArgs = <dynamic>[category];
@@ -103,6 +109,16 @@ class LookupRepository implements ILookupRepository {
     if (campId != null && campId.isNotEmpty && campId != 'all') {
       whereClauses.add("camp_id = ?");
       whereArgs.add(campId);
+    } else if (allowedCampIds != null) {
+      if (allowedCampIds.isEmpty) {
+        return [];
+      }
+      final placeholders = List.filled(allowedCampIds.length, '?').join(', ');
+      whereClauses.add("(camp_id IS NULL OR camp_id = '' OR camp_id IN ($placeholders))");
+      whereArgs.addAll(allowedCampIds);
+    } else {
+      // Viewing all camps: only include global defaults and camps currently existing in tableCamps
+      whereClauses.add("(camp_id IS NULL OR camp_id = '' OR camp_id IN (SELECT id FROM ${DatabaseTables.tableCamps}))");
     }
 
     if (activeOnly) {
@@ -118,6 +134,15 @@ class LookupRepository implements ILookupRepository {
     var items = maps.map((m) => LookupItemModel.fromMap(m)).toList();
     if (campId != null && campId.isNotEmpty && campId != 'all') {
       items = items.where((i) => !i.excludedCampIds.contains(campId)).toList();
+    } else if (allowedCampIds != null) {
+      // Exclude item if it is camp-specific and not in allowedCampIds
+      // Or if it is a global default that has been excluded from ALL allowed camps
+      items = items.where((i) {
+        if (i.campId != null && i.campId!.isNotEmpty) {
+          return allowedCampIds.contains(i.campId);
+        }
+        return !allowedCampIds.every((cid) => i.excludedCampIds.contains(cid));
+      }).toList();
     }
     return items;
   }

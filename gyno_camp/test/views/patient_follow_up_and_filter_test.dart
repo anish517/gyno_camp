@@ -29,8 +29,14 @@ class _FakeLookupRepository implements ILookupRepository {
   Future<List<LookupItemModel>> getAllItems({String? campId, String? tenantId}) async => items;
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? campId, String? tenantId, bool activeOnly = false}) async {
-    return items.where((i) => i.category == category && (!activeOnly || i.isActive)).toList();
+  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? campId, String? tenantId, List<String>? allowedCampIds, bool activeOnly = false}) async {
+    return items.where((i) {
+      if (i.category != category) return false;
+      if (activeOnly && !i.isActive) return false;
+      if (campId != null && i.campId != null && i.campId != campId) return false;
+      if (allowedCampIds != null && i.campId != null && !allowedCampIds.contains(i.campId)) return false;
+      return true;
+    }).toList();
   }
 
   @override
@@ -92,9 +98,14 @@ class _FakePatientRepository implements IPatientRepository {
   }
 
   @override
-  Future<List<PatientModel>> getPatientsByCamp([String? campId]) async {
-    if (campId == null || campId == 'all') return storedPatients;
-    return storedPatients.where((p) => p.campId == campId).toList();
+  Future<List<PatientModel>> getPatientsByCamp([String? campId, List<String>? allowedCampIds]) async {
+    if (campId != null && campId != 'all') {
+      return storedPatients.where((p) => p.campId == campId).toList();
+    }
+    if (allowedCampIds != null) {
+      return storedPatients.where((p) => allowedCampIds.contains(p.campId)).toList();
+    }
+    return storedPatients;
   }
 
   @override

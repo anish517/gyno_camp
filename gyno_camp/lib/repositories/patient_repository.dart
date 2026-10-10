@@ -28,7 +28,7 @@ abstract class IPatientRepository {
     required String updatedByUserRole,
     required String deviceId,
   });
-  Future<List<PatientModel>> getPatientsByCamp([String? campId]);
+  Future<List<PatientModel>> getPatientsByCamp([String? campId, List<String>? allowedCampIds]);
   Future<PatientModel?> getPatientByPatientId(String patientId);
   Future<List<PatientModel>> searchPatients({required String campId, required String query});
   Future<DuplicateCheckResult> checkDuplicate({
@@ -244,9 +244,27 @@ class PatientRepository implements IPatientRepository {
   }
 
   @override
-  Future<List<PatientModel>> getPatientsByCamp([String? campId]) async {
+  Future<List<PatientModel>> getPatientsByCamp([String? campId, List<String>? allowedCampIds]) async {
     final db = await _databaseService.database;
     final bool filterCamp = campId != null && campId.isNotEmpty && campId != 'all';
+
+    if (!filterCamp && allowedCampIds != null && allowedCampIds.isEmpty) {
+      return [];
+    }
+
+    String whereClause;
+    List<dynamic> whereArgs = [];
+    if (filterCamp) {
+      whereClause = 'WHERE p.camp_id = ?';
+      whereArgs = [campId];
+    } else if (allowedCampIds != null) {
+      final placeholders = List.filled(allowedCampIds.length, '?').join(', ');
+      whereClause = 'WHERE p.camp_id IN ($placeholders)';
+      whereArgs = List.from(allowedCampIds);
+    } else {
+      whereClause = 'WHERE p.camp_id IN (SELECT id FROM ${DatabaseTables.tableCamps})';
+    }
+
     final query = '''
       SELECT p.*,
              CASE WHEN cv.patient_id IS NOT NULL THEN 1 ELSE 0 END AS has_clinical_visit,
@@ -268,10 +286,10 @@ class PatientRepository implements IPatientRepository {
           WHERE cv2.patient_id = cv1.patient_id
         )
       ) cv ON cv.patient_id = p.patient_id OR cv.patient_id = p.id
-      ${filterCamp ? 'WHERE p.camp_id = ?' : 'WHERE p.camp_id IN (SELECT id FROM ${DatabaseTables.tableCamps})'}
+      $whereClause
       ORDER BY p.created_at DESC
     ''';
-    final maps = await db.rawQuery(query, filterCamp ? [campId] : []);
+    final maps = await db.rawQuery(query, whereArgs);
     return maps.map((m) => PatientModel.fromMap(m)).toList();
   }
 
