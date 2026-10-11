@@ -5,6 +5,7 @@ Future<DownloadResult> saveFile({
   required String filename,
   String? mimeType,
   String? targetDirectoryPath,
+  bool autoOpen = false,
 }) async {
   return DownloadResult(
     isSuccess: true,

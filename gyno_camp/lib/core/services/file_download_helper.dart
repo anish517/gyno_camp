@@ -17,19 +17,27 @@ class FileDownloadHelper {
     required String filename,
     String? mimeType,
     String? targetDirectoryPath,
-  }) {
-    return impl.saveFile(
+    bool autoOpen = false,
+  }) async {
+    final result = await impl.saveFile(
       bytes: bytes,
       filename: filename,
       mimeType: mimeType,
       targetDirectoryPath: targetDirectoryPath,
+      autoOpen: autoOpen,
     );
+    if (autoOpen && !kIsWeb && result.isSuccess && result.filePath != null) {
+      await openFile(result.filePath!);
+    }
+    return result;
   }
 
   /// Opens the file with the default device application (Mobile & Desktop).
   static Future<void> openFile(String filePath) async {
     try {
       if (kIsWeb) return;
+      final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+      if (isTest) return;
       await OpenFilex.open(filePath);
     } catch (e) {
       debugPrint('[FileDownloadHelper] Could not open file: $e');
@@ -51,8 +59,215 @@ class FileDownloadHelper {
     }
   }
 
+  /// Displays a prominent foreground bottom sheet directly over the active route/modal
+  /// with 'Open & Review' and 'Share / Print' actions so the user never has to pop or go back.
+  static Future<void> showForegroundReviewModal(
+    BuildContext context,
+    DownloadResult result,
+  ) async {
+    if (!context.mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Material(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              elevation: 16,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Grab handle
+                      Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      if (!result.isSuccess) ...[
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppTheme.dangerRose.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.error_outline_rounded, color: AppTheme.dangerRose, size: 26),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Download Failed',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    result.errorMessage ?? 'An error occurred while generating file.',
+                                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F172A),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Dismiss', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppTheme.successGreen.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.check_circle_rounded, color: AppTheme.successGreen, size: 26),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Document Ready for Review',
+                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    result.filename,
+                                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    'Saved to ${result.displayLocation}',
+                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xFFF1F5F9),
+                                foregroundColor: const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        if (result.filePath != null && result.filePath!.isNotEmpty) ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryTeal,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 13),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    elevation: 0,
+                                  ),
+                                  icon: const Icon(Icons.visibility_rounded, size: 18),
+                                  label: const Text('Open & Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                  onPressed: () {
+                                    openFile(result.filePath!);
+                                    Navigator.of(ctx).pop();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF1E293B),
+                                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                    padding: const EdgeInsets.symmetric(vertical: 13),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  icon: const Icon(Icons.share_rounded, size: 18),
+                                  label: const Text('Share / Print', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                  onPressed: () {
+                                    shareFile(result.filePath!, text: result.filename);
+                                    Navigator.of(ctx).pop();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryTeal,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 13),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                elevation: 0,
+                              ),
+                              icon: const Icon(Icons.check_rounded, size: 18),
+                              label: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                              onPressed: () => Navigator.of(ctx).pop(),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// Shows unified, user-friendly feedback with 'Open' and 'Share/Print' actions on mobile devices.
-  static void showDownloadFeedback(BuildContext context, DownloadResult result) {
+  /// If [forceForegroundModal] is true, or if called within an active [Dialog], displays
+  /// [showForegroundReviewModal] in the foreground so the feedback is never obscured by a modal barrier.
+  static void showDownloadFeedback(
+    BuildContext context,
+    DownloadResult result, {
+    bool forceForegroundModal = false,
+  }) {
+    if (!context.mounted) return;
+
+    final isInsideDialog = context.findAncestorWidgetOfExactType<Dialog>() != null;
+    if (forceForegroundModal || isInsideDialog) {
+      showForegroundReviewModal(context, result);
+      return;
+    }
     if (!context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();

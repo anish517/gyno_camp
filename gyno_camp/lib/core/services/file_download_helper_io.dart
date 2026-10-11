@@ -9,6 +9,7 @@ Future<DownloadResult> saveFile({
   required String filename,
   String? mimeType,
   String? targetDirectoryPath,
+  bool autoOpen = false,
 }) async {
   try {
     String dirPath = targetDirectoryPath ?? '';

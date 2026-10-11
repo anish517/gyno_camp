@@ -1291,30 +1291,35 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.filter_alt, size: 16, color: AppTheme.primaryTeal),
-          const SizedBox(width: 8),
-          const Text(
-            'Active Filters:',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+          Row(
+            children: [
+              const Icon(Icons.filter_alt, size: 16, color: AppTheme.primaryTeal),
+              const SizedBox(width: 8),
+              Text(
+                'Active Filters (${activeFilters.length}):',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: _clearAllFilters,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  foregroundColor: AppTheme.dangerRose,
+                ),
+                child: const Text('Clear All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: activeFilters,
-            ),
-          ),
-          TextButton(
-            onPressed: _clearAllFilters,
-            style: TextButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              foregroundColor: AppTheme.dangerRose,
-            ),
-            child: const Text('Clear All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: activeFilters,
           ),
         ],
       ),
@@ -1327,7 +1332,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required VoidCallback onDeleted,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -1340,9 +1345,14 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             Icon(icon, size: 12, color: AppTheme.primaryTeal),
             const SizedBox(width: 4),
           ],
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+            ),
           ),
           const SizedBox(width: 4),
           InkWell(

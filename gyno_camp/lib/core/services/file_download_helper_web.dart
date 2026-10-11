@@ -8,6 +8,7 @@ Future<DownloadResult> saveFile({
   required String filename,
   String? mimeType,
   String? targetDirectoryPath,
+  bool autoOpen = false,
 }) async {
   try {
     final defaultMime = filename.endsWith('.pdf')
@@ -36,8 +37,14 @@ Future<DownloadResult> saveFile({
     anchor.click();
     anchor.remove();
 
-    // Delay revocation so the browser download engine has time to read the blob stream
-    Future.delayed(const Duration(seconds: 2), () {
+    if (autoOpen) {
+      try {
+        web.window.open(url, '_blank');
+      } catch (_) {}
+    }
+
+    // Delay revocation so the browser download engine and newly opened tab have time to read the blob stream
+    Future.delayed(const Duration(seconds: 15), () {
       web.URL.revokeObjectURL(url);
     });
 

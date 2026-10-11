@@ -192,9 +192,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         bytes: bytes,
         filename: 'EncounterSlip_${widget.patient.patientId}_$ds.pdf',
         mimeType: 'application/pdf',
+        autoOpen: true,
       );
       if (mounted) {
-        FileDownloadHelper.showDownloadFeedback(context, result);
+        FileDownloadHelper.showDownloadFeedback(context, result, forceForegroundModal: true);
       }
     } catch (e) {
       if (mounted) {

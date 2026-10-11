@@ -11,7 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/patient_model.dart';
 
-class PatientFollowUpSlipModal extends StatelessWidget {
+class PatientFollowUpSlipModal extends StatefulWidget {
   final PatientModel patient;
   final CampModel? camp;
   final String organizationName;
@@ -62,7 +62,20 @@ class PatientFollowUpSlipModal extends StatelessWidget {
   }
 
   @override
+  State<PatientFollowUpSlipModal> createState() => _PatientFollowUpSlipModalState();
+}
+
+class _PatientFollowUpSlipModalState extends State<PatientFollowUpSlipModal> {
+  bool _isPrinting = false;
+  DownloadResult? _lastDownloadedResult;
+
+  @override
   Widget build(BuildContext context) {
+    final patient = widget.patient;
+    final camp = widget.camp;
+    final organizationName = widget.organizationName;
+    final showProceedButton = widget.showProceedButton;
+
     final campName = camp?.name ?? 'Gynecological Health Outreach Camp';
     final campCode = camp?.campCode ?? patient.campCode;
     final venue = camp?.venue ?? 'Health Center';
@@ -488,6 +501,66 @@ class PatientFollowUpSlipModal extends StatelessWidget {
               ),
               const SizedBox(height: 18),
 
+              // Persistent In-Modal Download Feedback & Quick Actions
+              if (_lastDownloadedResult != null && _lastDownloadedResult!.isSuccess) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_rounded, color: AppTheme.successGreen, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Slip Downloaded Successfully',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF166534)),
+                            ),
+                            Text(
+                              'Saved to ${_lastDownloadedResult!.displayLocation}',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF15803D)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_lastDownloadedResult!.filePath != null && _lastDownloadedResult!.filePath!.isNotEmpty) ...[
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF166534),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          icon: const Icon(Icons.visibility_rounded, size: 16),
+                          label: const Text('Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          onPressed: () => FileDownloadHelper.openFile(_lastDownloadedResult!.filePath!),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.share_rounded, size: 18, color: Color(0xFF166534)),
+                          tooltip: 'Share Slip',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => FileDownloadHelper.shareFile(
+                            _lastDownloadedResult!.filePath!,
+                            text: _lastDownloadedResult!.filename,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+
               // Action Buttons (Responsive side-by-side or stacked)
               if (isNarrow)
                 Column(
@@ -500,9 +573,20 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        icon: const Icon(Icons.print_rounded, size: 18),
-                        label: const Text('Print PDF Slip', style: TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: () => _printPdfSlip(context),
+                        icon: _isPrinting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryTeal),
+                              )
+                            : const Icon(Icons.print_rounded, size: 18),
+                        label: Text(
+                          _isPrinting
+                              ? 'Preparing Slip...'
+                              : (_lastDownloadedResult != null ? 'Re-print PDF Slip' : 'Print PDF Slip'),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: _isPrinting ? null : _printPdfSlip,
                       ),
                     ),
                     if (showProceedButton) ...[
@@ -535,9 +619,20 @@ class PatientFollowUpSlipModal extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        icon: const Icon(Icons.print_rounded, size: 18),
-                        label: const Text('Print PDF Slip', style: TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: () => _printPdfSlip(context),
+                        icon: _isPrinting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryTeal),
+                              )
+                            : const Icon(Icons.print_rounded, size: 18),
+                        label: Text(
+                          _isPrinting
+                              ? 'Preparing Slip...'
+                              : (_lastDownloadedResult != null ? 'Re-print PDF Slip' : 'Print PDF Slip'),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: _isPrinting ? null : _printPdfSlip,
                       ),
                     ),
                     if (showProceedButton) ...[
@@ -681,8 +776,13 @@ class PatientFollowUpSlipModal extends StatelessWidget {
     );
   }
 
-  Future<void> _printPdfSlip(BuildContext context) async {
+  Future<void> _printPdfSlip() async {
+    setState(() => _isPrinting = true);
     try {
+      final patient = widget.patient;
+      final camp = widget.camp;
+      final organizationName = widget.organizationName;
+
       final doc = pw.Document();
       final hasClinical = patient.hasClinicalVisit;
       final reasonsStr = patient.reasonsForVisit.isNotEmpty
@@ -893,16 +993,22 @@ class PatientFollowUpSlipModal extends StatelessWidget {
         bytes: pdfBytes,
         filename: filename,
         mimeType: 'application/pdf',
+        autoOpen: true,
       );
 
-      if (context.mounted) {
-        FileDownloadHelper.showDownloadFeedback(context, result);
+      if (mounted) {
+        setState(() => _lastDownloadedResult = result);
+        FileDownloadHelper.showForegroundReviewModal(context, result);
       }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Print preview error: $e'), backgroundColor: Colors.red),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPrinting = false);
       }
     }
   }

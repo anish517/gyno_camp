@@ -4233,10 +4233,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         bytes: bytes,
         filename: 'FollowUpSlip_${patient.patientId}.pdf',
         mimeType: 'application/pdf',
+        autoOpen: true,
       );
 
       if (context.mounted) {
-        FileDownloadHelper.showDownloadFeedback(context, result);
+        FileDownloadHelper.showDownloadFeedback(context, result, forceForegroundModal: true);
       }
     } catch (e) {
       messenger.showSnackBar(
@@ -4282,29 +4283,33 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           alignment: Alignment.centerRight,
           child: Material(
             color: Colors.transparent,
-            child: Container(
-              width: MediaQuery.of(context).size.width >= 700
-                  ? MediaQuery.of(context).size.width * 0.88
-                  : MediaQuery.of(context).size.width,
-              height: MediaQuery.of(context).size.height,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.horizontal(
-                  left: Radius.circular(20),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 24,
-                    offset: Offset(-4, 0),
+            child: SafeArea(
+              top: true,
+              bottom: true,
+              child: Container(
+                width: MediaQuery.of(context).size.width >= 700
+                    ? MediaQuery.of(context).size.width * 0.88
+                    : MediaQuery.of(context).size.width,
+                height: MediaQuery.of(context).size.height,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.horizontal(
+                    left: Radius.circular(20),
                   ),
-                ],
-              ),
-              child: ClinicalHistoryPanel(
-                patient: patient,
-                camp: camp,
-                orgName: orgName,
-                repo: repo,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 24,
+                      offset: Offset(-4, 0),
+                    ),
+                  ],
+                ),
+                child: ClinicalHistoryPanel(
+                  patient: patient,
+                  camp: camp,
+                  orgName: orgName,
+                  repo: repo,
+                ),
               ),
             ),
           ),
