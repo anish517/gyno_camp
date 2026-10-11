@@ -3022,7 +3022,7 @@ class PdfReportService {
                           if (logoImage != null)
                             pw.Padding(
                               padding: const pw.EdgeInsets.only(right: 10),
-                              child: pw.Image(logoImage, width: 44, height: 44),
+                              child: pw.Image(logoImage, width: 56, height: 56),
                             ),
                           pw.Expanded(
                             child: pw.Column(
@@ -3194,7 +3194,7 @@ class PdfReportService {
                 ],
               ),
 
-              pw.Spacer(),
+              pw.SizedBox(height: 8),
 
               // Signatures
               pw.Row(
@@ -4427,7 +4427,7 @@ class PdfReportService {
                     if (logo != null)
                       pw.Padding(
                         padding: const pw.EdgeInsets.only(right: 8),
-                        child: pw.Image(logo, width: 36, height: 36),
+                        child: pw.Image(logo, width: 52, height: 52),
                       ),
                     pw.Expanded(
                       child: pw.Column(
@@ -5287,8 +5287,8 @@ class PdfReportService {
               ),
               pw.SizedBox(height: 2),
               pw.Text('Clinical Notes:', style: bold(size: fsSmall)),
-              line(h: 12, text: visit?.outtakeNotes),
-              line(h: 12),
+              line(h: 20, text: visit?.outtakeNotes),
+              line(h: 20),
               pw.SizedBox(height: 6),
 
               // Signatures
@@ -5561,7 +5561,7 @@ class PdfReportService {
                     if (logo != null)
                       pw.Padding(
                         padding: const pw.EdgeInsets.only(right: 8),
-                        child: pw.Image(logo, width: 32, height: 32),
+                        child: pw.Image(logo, width: 48, height: 48),
                       ),
                     pw.Expanded(
                       child: pw.Column(
