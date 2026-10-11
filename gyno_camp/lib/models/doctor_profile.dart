@@ -10,12 +10,13 @@ class DoctorProfile {
 
   /// Full formatted name including "Dr." prefix
   String get displayName {
-    final clean = name.trim();
+    final clean = _stripDrPrefix(name);
     if (clean.isEmpty) return '';
-    final lower = clean.toLowerCase();
-    if (lower.startsWith('dr.') || lower.startsWith('dr ')) return clean;
     return 'Dr. $clean';
   }
+
+  /// Strip Dr. prefix from a raw string
+  static String stripDrPrefix(String raw) => _stripDrPrefix(raw);
 
   /// Formatted label for UI chips and PDF headers
   String get formattedLabel =>

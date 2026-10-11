@@ -1263,53 +1263,75 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Row(
                       children: [
-                        const Icon(Icons.tune_rounded, size: 20, color: AppTheme.primaryTeal),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Patient Filters (बिरामी फिल्टर)',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1E293B),
+                        Expanded(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.tune_rounded, size: 20, color: AppTheme.primaryTeal),
+                              const SizedBox(width: 8),
+                              const Flexible(
+                                child: Text(
+                                  'Patient Filters (बिरामी फिल्टर)',
+                                  style: TextStyle(
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              if (currentFilters.hasActiveFilters) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryTeal,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${currentFilters.activeFilterCount}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         if (currentFilters.hasActiveFilters) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryTeal,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '${currentFilters.activeFilterCount}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                        const Spacer(),
-                        if (currentFilters.hasActiveFilters)
-                          TextButton.icon(
+                          const SizedBox(width: 4),
+                          TextButton(
                             style: TextButton.styleFrom(
                               foregroundColor: AppTheme.dangerRose,
                               visualDensity: VisualDensity.compact,
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            ),
-                            icon: const Icon(Icons.refresh_rounded, size: 14),
-                            label: const Text(
-                              'Reset All',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             onPressed: () => _clearAllFilters(vm),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.refresh_rounded, size: 13),
+                                SizedBox(width: 3),
+                                Text(
+                                  'Reset',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
                           ),
+                        ],
                         IconButton(
                           icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF64748B)),
                           tooltip: 'Close',
                           visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.only(left: 4),
+                          constraints: const BoxConstraints(),
                           onPressed: () => Navigator.pop(bottomSheetContext),
                         ),
                       ],

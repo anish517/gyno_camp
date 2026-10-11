@@ -149,6 +149,17 @@ void main() {
     expect(doc3.nmcNumber, '');
     expect(doc3.hasNmc, false);
     expect(doc3.formattedLabel, 'Dr. Priya Thapa');
+
+    // Test duplicate Dr. Dr. prefix stripping
+    final docDouble = DoctorProfile.parse('Dr. Dr. anisha Pathak (NMC: 890)');
+    expect(docDouble.name, 'anisha Pathak');
+    expect(docDouble.nmcNumber, '890');
+    expect(docDouble.formattedLabel, 'Dr. anisha Pathak (NMC: 890)');
+
+    // Test direct instantiation with Dr. prefix
+    const docDirect = DoctorProfile(name: 'Dr. anisha Pathak', nmcNumber: '890');
+    expect(docDirect.displayName, 'Dr. anisha Pathak');
+    expect(docDirect.formattedLabel, 'Dr. anisha Pathak (NMC: 890)');
   });
 
   test('Blank Follow-Up Slip PDF generation', () async {

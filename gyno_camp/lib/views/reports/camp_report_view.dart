@@ -1151,7 +1151,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
 
     if (_selectedDoctor != null) {
       activeFilters.add(_buildFilterChip(
-        label: 'Dr. $_selectedDoctor',
+        label: DoctorProfile.parse(_selectedDoctor!).formattedLabel,
         icon: Icons.medical_services_outlined,
         onDeleted: () {
           setState(() => _selectedDoctor = null);
@@ -1635,7 +1635,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                           children: [
                             Expanded(
                               child: Text(
-                                'Dr. $doc',
+                                DoctorProfile.parse(doc).formattedLabel,
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -2337,7 +2337,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       final count = _getDoctorCount(doc, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: doc,
-                        child: Text('Dr. $doc ($count)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                        child: Text('${DoctorProfile.parse(doc).formattedLabel} ($count)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -3419,8 +3419,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               )),
         const Divider(height: 24),
         const Text(
-          'Prescribed Medications Dispensed',
+          'Prescribed Medications Dispensed (Prescription Counts)',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        const SizedBox(height: 2),
+        const Text(
+          'Total patients / prescriptions issued per medication during this camp:',
+          style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
         ),
         const SizedBox(height: 8),
         if (summary.medicationDispensedCounts.isEmpty)
@@ -3430,9 +3435,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             spacing: 8,
             runSpacing: 6,
             children: summary.medicationDispensedCounts.entries.map((e) {
+              final patientUnit = e.value == 1 ? 'patient' : 'patients';
               return Chip(
-                label: Text('${e.key}: ${e.value}'),
-                backgroundColor: AppTheme.accentCyan.withValues(alpha: 0.15),
+                avatar: CircleAvatar(
+                  backgroundColor: AppTheme.primaryTeal,
+                  radius: 9,
+                  child: Text(
+                    '${e.value}',
+                    style: const TextStyle(fontSize: 9.5, color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                label: Text('${e.key} (${e.value} $patientUnit)'),
+                backgroundColor: AppTheme.accentCyan.withValues(alpha: 0.12),
               );
             }).toList(),
           ),
@@ -3933,7 +3947,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                           border: Border.all(color: AppTheme.brandPurpleBorder),
                         ),
                         child: Text(
-                          '🩺 Dr. $docName',
+                          '🩺 ${DoctorProfile.parse(docName).formattedLabel}',
                           style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: AppTheme.brandPurple),
                           overflow: TextOverflow.ellipsis,
                         ),
