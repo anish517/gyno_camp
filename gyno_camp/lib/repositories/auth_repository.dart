@@ -340,14 +340,14 @@ class AuthRepository implements IAuthRepository {
       limit: 1,
     );
 
-    // ── Fix 1A: Always try to refresh from central on login ────────────────
-    // Even if the user exists locally, their assignedCampIds may be stale
-    // (e.g. admin assigned them to a new camp from a different device). We
-    // attempt a background upsert here, which is timestamp-safe: local
-    // credentials always win if the local record is newer.
-    if (maps.isNotEmpty &&
-        enableCentralSync &&
-        !HttpCentralApiService.isServerCooldownActive) {
+    // ── Always try to refresh from central on login ────────────────────────
+    // Even if the user exists locally, their credentials or assignedCampIds may
+    // be stale (e.g. admin changed password or assigned a new camp from another
+    // device). We attempt a central upsert here so the freshest hash is in SQLite
+    // before credential verification. We intentionally do NOT gate this on
+    // isServerCooldownActive: a 30-second offline cooldown should not prevent
+    // staff from logging in with a password that was just changed by the admin.
+    if (maps.isNotEmpty && enableCentralSync) {
       try {
         final centralUsers = await HttpCentralApiService().fetchCentralUsers();
         for (final u in centralUsers) {
