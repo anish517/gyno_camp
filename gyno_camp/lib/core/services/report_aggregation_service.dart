@@ -173,6 +173,26 @@ class ReportAggregationService {
       totalSurgical += count;
     }
 
+    // Level of Treatment Distribution
+    int councilLevelCount = 0;
+    int fullCheckUpCount = 0;
+    int unassignedTreatmentLevelCount = 0;
+
+    final visitMap = {for (final v in visits) v.patientId: v};
+    for (final p in patients) {
+      final v = visitMap[p.patientId];
+      final level = (v?.treatmentLevel?.trim().isNotEmpty == true)
+          ? v!.treatmentLevel!.trim()
+          : (p.treatmentLevel?.trim() ?? '');
+      if (level == 'council_level') {
+        councilLevelCount++;
+      } else if (level == 'full_check_up') {
+        fullCheckUpCount++;
+      } else {
+        unassignedTreatmentLevelCount++;
+      }
+    }
+
     return CampReportSummaryModel(
       campId: camp?.id ?? 'all',
       campCode: camp?.campCode ?? 'ALL',
@@ -209,6 +229,9 @@ class ReportAggregationService {
       followUpDestinationCounts: followUpDestinations,
       medicationDispensedCounts: sortedMeds,
       totalPrescriptionsCount: totalPrescriptions,
+      councilLevelCount: councilLevelCount,
+      fullCheckUpCount: fullCheckUpCount,
+      unassignedTreatmentLevelCount: unassignedTreatmentLevelCount,
       patients: patients,
       visits: visits,
     );

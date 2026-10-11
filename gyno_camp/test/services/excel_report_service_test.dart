@@ -90,6 +90,10 @@ void main() {
       final registerSheet = decoded.tables['Patient_Register']!;
       expect(registerSheet.maxRows, greaterThanOrEqualTo(2)); // Header + 1 patient
 
+      // Verify Level of Treatment column in header
+      final headerValues = registerSheet.row(0).map((c) => c?.value?.toString() ?? '').toList();
+      expect(headerValues.any((v) => v.contains('Level of Treatment')), isTrue);
+
       // Check rows in Pathology_Prescriptions
       final pathologySheet = decoded.tables['Pathology_Prescriptions']!;
       expect(pathologySheet.maxRows, greaterThanOrEqualTo(3));

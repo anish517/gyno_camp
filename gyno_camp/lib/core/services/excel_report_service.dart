@@ -76,6 +76,21 @@ class ExcelReportService {
       IntCellValue(summary.pelvicFloorCounselingCount),
       TextCellValue('Patients instructed'),
     ]);
+    summarySheet.appendRow([
+      TextCellValue('Treatment Level: Full Check Up (पूर्ण जाँच)'),
+      IntCellValue(summary.fullCheckUpCount),
+      TextCellValue('${summary.totalPatientsRegistered > 0 ? ((summary.fullCheckUpCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1) : "0.0"}% of registered'),
+    ]);
+    summarySheet.appendRow([
+      TextCellValue('Treatment Level: Council Level (काउन्सिलिङ)'),
+      IntCellValue(summary.councilLevelCount),
+      TextCellValue('${summary.totalPatientsRegistered > 0 ? ((summary.councilLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1) : "0.0"}% of registered'),
+    ]);
+    summarySheet.appendRow([
+      TextCellValue('Treatment Level: Unassigned (तह नतोकिएको)'),
+      IntCellValue(summary.unassignedTreatmentLevelCount),
+      TextCellValue('${summary.totalPatientsRegistered > 0 ? ((summary.unassignedTreatmentLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1) : "0.0"}% of registered'),
+    ]);
     summarySheet.appendRow([TextCellValue('')]);
 
     // POP Staging Matrix
@@ -160,6 +175,40 @@ class ExcelReportService {
         DoubleCellValue(pct),
       ]);
     }
+    summarySheet.appendRow([TextCellValue('')]);
+
+    // Treatment Level Distribution
+    summarySheet.appendRow([TextCellValue('LEVEL OF TREATMENT DISTRIBUTION (उपचारको तह)')]);
+    summarySheet.appendRow([
+      TextCellValue('Treatment Level'),
+      TextCellValue('Patient Count'),
+      TextCellValue('Percentage'),
+    ]);
+    final fullCheckPct = summary.totalPatientsRegistered > 0
+        ? double.parse(((summary.fullCheckUpCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1))
+        : 0.0;
+    final councilPct = summary.totalPatientsRegistered > 0
+        ? double.parse(((summary.councilLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1))
+        : 0.0;
+    final unassignedPct = summary.totalPatientsRegistered > 0
+        ? double.parse(((summary.unassignedTreatmentLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1))
+        : 0.0;
+    summarySheet.appendRow([
+      TextCellValue('Full Check Up (पूर्ण जाँच)'),
+      IntCellValue(summary.fullCheckUpCount),
+      DoubleCellValue(fullCheckPct),
+    ]);
+    summarySheet.appendRow([
+      TextCellValue('Council Level (काउन्सिलिङ तह)'),
+      IntCellValue(summary.councilLevelCount),
+      DoubleCellValue(councilPct),
+    ]);
+    summarySheet.appendRow([
+      TextCellValue('Unassigned (तह नतोकिएको)'),
+      IntCellValue(summary.unassignedTreatmentLevelCount),
+      DoubleCellValue(unassignedPct),
+    ]);
+    summarySheet.appendRow([TextCellValue('')]);
 
     // 2. Sheet: Patient_Register
     final registerSheet = excel['Patient_Register'];
@@ -174,6 +223,7 @@ class ExcelReportService {
       TextCellValue('Marital Status'),
       TextCellValue('Relative / Guardian'),
       TextCellValue('Complaints / Reasons for Visit'),
+      TextCellValue('Level of Treatment (उपचारको तह)'),
       TextCellValue('Highest POP Stage'),
       TextCellValue('Diagnoses List'),
       TextCellValue('Prescribed Medications'),
@@ -238,6 +288,15 @@ class ExcelReportService {
 
       final complaintsStr = p.reasonsForVisit.isNotEmpty ? p.reasonsForVisit.join(', ') : 'None';
 
+      final rawTLevel = (v?.treatmentLevel?.trim().isNotEmpty == true)
+          ? v!.treatmentLevel!.trim()
+          : (p.treatmentLevel?.trim() ?? '');
+      final treatmentLevelLabel = rawTLevel == 'full_check_up'
+          ? 'Full Check Up (पूर्ण जाँच)'
+          : (rawTLevel == 'council_level'
+              ? 'Council Level (काउन्सिलिङ)'
+              : (rawTLevel.isNotEmpty ? rawTLevel : 'Unassigned'));
+
       registerSheet.appendRow([
         TextCellValue(p.patientId),
         TextCellValue(p.firstName),
@@ -249,6 +308,7 @@ class ExcelReportService {
         TextCellValue(p.maritalStatus),
         TextCellValue(p.spouseOrFatherName ?? ''),
         TextCellValue(complaintsStr),
+        TextCellValue(treatmentLevelLabel),
         IntCellValue(v?.highestPopStage ?? 0),
         TextCellValue(v?.diagnoses.join(', ') ?? 'None'),
         TextCellValue(medsStr),

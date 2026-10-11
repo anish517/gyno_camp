@@ -83,6 +83,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
     String? treatmentFilter,
     String? complaintFilter,
     String? visitReasonFilter,
+    String? treatmentLevelFilter,
   }) async {
     state = state.copyWith(isLoading: true, clearFeedback: true);
     try {
@@ -99,6 +100,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
         treatmentFilter: treatmentFilter,
         complaintFilter: complaintFilter,
         visitReasonFilter: visitReasonFilter,
+        treatmentLevelFilter: treatmentLevelFilter,
       );
       if (!mounted) return;
 
@@ -110,7 +112,8 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
           (popStageFilter != null && popStageFilter.isNotEmpty && popStageFilter != 'all') ||
           (treatmentFilter != null && treatmentFilter.isNotEmpty && treatmentFilter != 'all') ||
           (complaintFilter != null && complaintFilter.isNotEmpty && complaintFilter != 'all') ||
-          (visitReasonFilter != null && visitReasonFilter.isNotEmpty && visitReasonFilter != 'all');
+          (visitReasonFilter != null && visitReasonFilter.isNotEmpty && visitReasonFilter != 'all') ||
+          (treatmentLevelFilter != null && treatmentLevelFilter.isNotEmpty && treatmentLevelFilter != 'all');
 
       CampReportSummaryModel? newUnfiltered = state.unfilteredSummary;
       if (!hasFilters || state.selectedCampId != campId || newUnfiltered == null) {

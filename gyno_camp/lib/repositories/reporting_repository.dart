@@ -26,6 +26,7 @@ abstract class IReportingRepository {
     String? treatmentFilter,
     String? complaintFilter,
     String? visitReasonFilter,
+    String? treatmentLevelFilter,
   });
   Future<Uint8List> generatePdfReport(CampReportSummaryModel summary);
   Future<Uint8List> generateIndividualPatientPdf({
@@ -86,6 +87,7 @@ class ReportingRepository implements IReportingRepository {
     String? treatmentFilter,
     String? complaintFilter,
     String? visitReasonFilter,
+    String? treatmentLevelFilter,
   }) async {
     final db = await _databaseService.database;
 
@@ -371,6 +373,30 @@ class ReportingRepository implements IReportingRepository {
 
       final matchingPatientIds = matchingPatients.map((p) => p.patientId).toSet();
       patients = matchingPatients;
+      visits = visits.where((v) => matchingPatientIds.contains(v.patientId)).toList();
+    }
+
+    // Apply Level of Treatment Filter if requested (Council level vs Full check up vs None)
+    if (treatmentLevelFilter != null && treatmentLevelFilter.trim().isNotEmpty && treatmentLevelFilter != 'all') {
+      final target = treatmentLevelFilter.trim().toLowerCase();
+      final visitMap = {for (final v in visits) v.patientId: v};
+
+      patients = patients.where((p) {
+        final v = visitMap[p.patientId];
+        final level = (v?.treatmentLevel?.trim().isNotEmpty == true)
+            ? v!.treatmentLevel!.trim().toLowerCase()
+            : (p.treatmentLevel?.trim().toLowerCase() ?? '');
+        if (target == 'council_level') {
+          return level == 'council_level';
+        } else if (target == 'full_check_up') {
+          return level == 'full_check_up';
+        } else if (target == 'none' || target == 'unassigned') {
+          return level.isEmpty;
+        }
+        return level == target;
+      }).toList();
+
+      final matchingPatientIds = patients.map((p) => p.patientId).toSet();
       visits = visits.where((v) => matchingPatientIds.contains(v.patientId)).toList();
     }
 

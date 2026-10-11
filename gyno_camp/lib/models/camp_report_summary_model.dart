@@ -53,6 +53,11 @@ class CampReportSummaryModel {
   final Map<String, int> medicationDispensedCounts; // Medicine name -> count
   final int totalPrescriptionsCount;
 
+  // Level of Treatment Distribution
+  final int councilLevelCount;
+  final int fullCheckUpCount;
+  final int unassignedTreatmentLevelCount;
+
   // Individual Patient Records (for register sheet)
   final List<PatientModel> patients;
   final List<ClinicalVisitModel> visits;
@@ -93,6 +98,9 @@ class CampReportSummaryModel {
     required this.followUpDestinationCounts,
     required this.medicationDispensedCounts,
     required this.totalPrescriptionsCount,
+    this.councilLevelCount = 0,
+    this.fullCheckUpCount = 0,
+    this.unassignedTreatmentLevelCount = 0,
     this.patients = const [],
     this.visits = const [],
   });
@@ -138,6 +146,9 @@ class CampReportSummaryModel {
       followUpDestinationCounts: {},
       medicationDispensedCounts: {},
       totalPrescriptionsCount: 0,
+      councilLevelCount: 0,
+      fullCheckUpCount: 0,
+      unassignedTreatmentLevelCount: 0,
       patients: const [],
       visits: const [],
     );

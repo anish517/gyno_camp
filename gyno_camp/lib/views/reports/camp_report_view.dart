@@ -42,6 +42,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   String? _selectedTreatment;
   String? _selectedVisitReason;
   String? _selectedComplaint;
+  String? _selectedTreatmentLevel;
   PatientModel? _selectedPatient;
 
   // ── Master Lookup Data for Selected Camp ──────────────────────────────────
@@ -103,6 +104,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         treatmentFilter: _selectedTreatment,
         visitReasonFilter: _selectedVisitReason,
         complaintFilter: _selectedComplaint,
+        treatmentLevelFilter: _selectedTreatmentLevel,
       );
       if (targetCampId != null) {
         ref.read(patientListProvider.notifier).loadPatients(targetCampId);
@@ -129,6 +131,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _selectedTreatment = null;
       _selectedVisitReason = null;
       _selectedComplaint = null;
+      _selectedTreatmentLevel = null;
       _selectedPatient = null;
     });
     final campState = ref.read(campStateProvider);
@@ -154,6 +157,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       treatmentFilter: null,
       visitReasonFilter: null,
       complaintFilter: null,
+      treatmentLevelFilter: null,
     );
     // When null or 'all', load all patients across all camps without filtering
     ref.read(patientListProvider.notifier).loadPatients(campId == 'all' ? null : campId);
@@ -185,6 +189,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       treatmentFilter: _selectedTreatment,
       visitReasonFilter: _selectedVisitReason,
       complaintFilter: _selectedComplaint,
+      treatmentLevelFilter: _selectedTreatmentLevel,
     );
     ref.read(patientListProvider.notifier).loadPatients(currentCampId == 'all' ? null : currentCampId);
   }
@@ -224,6 +229,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _selectedTreatment = null;
       _selectedVisitReason = null;
       _selectedComplaint = null;
+      _selectedTreatmentLevel = null;
       _selectedPatient = null;
     });
     _onRefresh();
@@ -1281,6 +1287,22 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       ));
     }
 
+    if (_selectedTreatmentLevel != null) {
+      final tLabel = _selectedTreatmentLevel == 'council_level'
+          ? 'Level: Council level (काउन्सिलिङ तह)'
+          : (_selectedTreatmentLevel == 'full_check_up'
+              ? 'Level: Full check up (पूर्ण जाँच)'
+              : 'Level: Unassigned');
+      activeFilters.add(_buildFilterChip(
+        label: tLabel,
+        icon: Icons.layers_outlined,
+        onDeleted: () {
+          setState(() => _selectedTreatmentLevel = null);
+          _onRefresh();
+        },
+      ));
+    }
+
     if (activeFilters.isEmpty) return const SizedBox.shrink();
 
     return Container(
@@ -1387,7 +1409,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         (_selectedPopStage != null ? 1 : 0) +
         (_selectedVisitReason != null ? 1 : 0) +
         (_selectedTreatment != null ? 1 : 0) +
-        (_selectedComplaint != null ? 1 : 0);
+        (_selectedComplaint != null ? 1 : 0) +
+        (_selectedTreatmentLevel != null ? 1 : 0);
     final hasActiveFilter = activeFiltersCount > 0;
     final baseSummary = reportState.unfilteredSummary ?? reportState.summary;
     final totalPatients = baseSummary?.totalPatientsRegistered ?? 0;
@@ -2145,6 +2168,95 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                 ),
               ),
             ),
+            const SizedBox(height: 14),
+
+            // 7b. Level of Treatment Filter (उपचारको तह)
+            const Row(
+              children: [
+                Icon(Icons.layers_outlined, color: AppTheme.primaryTeal, size: 16),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text('Level of Treatment (उपचारको तह):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _selectedTreatmentLevel != null ? AppTheme.primaryTeal : const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: _selectedTreatmentLevel,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Text('All Treatment Levels', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Row(
+                        children: [
+                          const Expanded(child: Text('All Levels (सबै तह)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
+                            child: Text('$totalPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'council_level',
+                      child: Row(
+                        children: [
+                          const Expanded(child: Text('Council level (काउन्सिलिङ तह)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: (baseSummary?.councilLevelCount ?? 0) > 0 ? const Color(0xFF7C3AED).withValues(alpha: 0.12) : Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${baseSummary?.councilLevelCount ?? 0}',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: (baseSummary?.councilLevelCount ?? 0) > 0 ? const Color(0xFF7C3AED) : Colors.grey.shade600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'full_check_up',
+                      child: Row(
+                        children: [
+                          const Expanded(child: Text('Full check up (पूर्ण जाँच)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: (baseSummary?.fullCheckUpCount ?? 0) > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${baseSummary?.fullCheckUpCount ?? 0}',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: (baseSummary?.fullCheckUpCount ?? 0) > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedTreatmentLevel = val);
+                    _onRefresh();
+                    if (val != null && _tabController.index != 4) {
+                      _tabController.animateTo(4);
+                    }
+                  },
+                ),
+              ),
+            ),
 
             const Divider(height: 28),
 
@@ -2217,7 +2329,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         (_selectedPopStage != null ? 1 : 0) +
         (_selectedVisitReason != null ? 1 : 0) +
         (_selectedTreatment != null ? 1 : 0) +
-        (_selectedComplaint != null ? 1 : 0);
+        (_selectedComplaint != null ? 1 : 0) +
+        (_selectedTreatmentLevel != null ? 1 : 0);
     final hasActiveFilter = activeFiltersCount > 0;
     final baseSummary = reportState.unfilteredSummary ?? reportState.summary;
     final totalPatients = baseSummary?.totalPatientsRegistered ?? 0;
@@ -2595,6 +2708,54 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   ],
                   onChanged: (val) {
                     setState(() => _selectedComplaint = val);
+                    _onRefresh();
+                  },
+                ),
+              ),
+            ),
+            // Level of Treatment Dropdown
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              constraints: const BoxConstraints(maxWidth: 185),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _selectedTreatmentLevel != null ? AppTheme.primaryTeal : const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: _selectedTreatmentLevel,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Text('All Levels (तह)', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(
+                        'All Levels ($totalPatients)',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'council_level',
+                      child: Text(
+                        'Council (${baseSummary?.councilLevelCount ?? 0})',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'full_check_up',
+                      child: Text(
+                        'Full Check (${baseSummary?.fullCheckUpCount ?? 0})',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedTreatmentLevel = val);
                     _onRefresh();
                   },
                 ),
@@ -3199,6 +3360,91 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             );
           }).toList(),
         ),
+        const Divider(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Expanded(
+              child: Text(
+                'Level of Treatment Breakdown (उपचारको तह विवरण)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Protocols',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF7C3AED),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...[
+          {
+            'label': 'Council level (काउन्सिलिङ तह)',
+            'count': summary.councilLevelCount,
+            'color': const Color(0xFF7C3AED),
+          },
+          {
+            'label': 'Full check up (पूर्ण जाँच)',
+            'count': summary.fullCheckUpCount,
+            'color': AppTheme.primaryTeal,
+          },
+          {
+            'label': 'Unassigned / Routine (तोकिएको छैन)',
+            'count': summary.unassignedTreatmentLevelCount,
+            'color': Colors.blueGrey,
+          },
+        ].map((item) {
+          final count = item['count'] as int;
+          final color = item['color'] as Color;
+          final label = item['label'] as String;
+          final pct = summary.totalPatientsRegistered > 0
+              ? (count / summary.totalPatientsRegistered)
+              : 0.0;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '$label: $count patients',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('${(pct * 100).toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: color)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: pct,
+                    backgroundColor: AppTheme.borderLight,
+                    color: color,
+                    minHeight: 6,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
@@ -3514,7 +3760,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         (_selectedDiagnosis != null) ||
         (_selectedPopStage != null) ||
         (_selectedTreatment != null) ||
-        (_selectedComplaint != null);
+        (_selectedComplaint != null) ||
+        (_selectedTreatmentLevel != null);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -3857,6 +4104,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                 ? patient.primaryDoctorName!.trim()
                 : null));
 
+    final effectiveLevel = (visit?.treatmentLevel?.trim().isNotEmpty == true)
+        ? visit!.treatmentLevel!.trim()
+        : (patient.treatmentLevel?.trim() ?? '');
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
@@ -3966,12 +4217,16 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               ),
               const SizedBox(height: 5),
 
-              // Row 4: Clinical Status Pills (if visit available)
-              if (visit != null) ...[
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 3,
-                  children: [
+              // Row 4: Clinical Status Pills & Treatment Level
+              Wrap(
+                spacing: 4,
+                runSpacing: 3,
+                children: [
+                  if (effectiveLevel == 'council_level')
+                    _buildSmallStatusChip('Council Level (काउन्सिलिङ)', const Color(0xFF7C3AED), const Color(0xFFF5F3FF)),
+                  if (effectiveLevel == 'full_check_up')
+                    _buildSmallStatusChip('Full Check (पूर्ण जाँच)', AppTheme.primaryTeal, const Color(0xFFE6FFFA)),
+                  if (visit != null) ...[
                     _buildPopStageChip(visit.highestPopStage),
                     if (visit.pessaryType != null && visit.pessaryType!.isNotEmpty)
                       _buildSmallStatusChip('💍 Pessary', AppTheme.brandPurple, AppTheme.brandPurpleLight),
@@ -3980,9 +4235,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     if (visit.diagnoses.isNotEmpty)
                       _buildSmallStatusChip(visit.diagnoses.first, const Color(0xFF2563EB), const Color(0xFFDBEAFE)),
                   ],
-                ),
-                const SizedBox(height: 6),
-              ],
+                ],
+              ),
+              const SizedBox(height: 6),
 
               // Row 5: Action Buttons
               Row(

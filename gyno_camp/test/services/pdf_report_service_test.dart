@@ -187,6 +187,9 @@ void main() {
       expect(bytes.length, greaterThan(1500));
       final header = utf8.decode(bytes.sublist(0, 5));
       expect(header, equals('%PDF-'));
+      final pdfStr = latin1.decode(bytes);
+      final pageMatches = RegExp(r'/Type\s*/Page\b').allMatches(pdfStr);
+      expect(pageMatches.length, equals(1));
     });
 
     test('generatePatientRegistrationFormPdf creates exactly 2 pages', () async {
@@ -488,6 +491,64 @@ void main() {
       expect(utf8.decode(bytes3rd.sublist(0, 5)), equals('%PDF-'));
       expect(bytes11, isNotEmpty);
       expect(utf8.decode(bytes11.sublist(0, 5)), equals('%PDF-'));
+    });
+
+    test('generateFollowUpEncounterSlipPdf generates valid PDF with Level of Treatment', () async {
+      final camp = CampModel(
+        id: 'camp-slip-01',
+        campCode: 'KTM99',
+        name: 'Kathmandu Health Camp',
+        district: 'Kathmandu',
+        municipality: 'Kathmandu',
+        ward: '04',
+        venue: 'Health Center',
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 2)),
+        status: CampStatus.open,
+        createdAt: DateTime.now(),
+      );
+
+      final patient = PatientModel(
+        id: 'p-slip',
+        patientId: 'GC-KTM99-001',
+        campId: camp.id,
+        campCode: camp.campCode,
+        intakeDate: DateTime.now(),
+        firstName: 'Sita',
+        surname: 'Thapa',
+        age: 42,
+        treatmentLevel: 'full_check_up',
+        ward: '04',
+        mobile: '9841112233',
+        reasonsForVisit: ['Pelvic heaviness'],
+        createdByUserId: 'u1',
+        createdByDeviceId: 'd1',
+        createdAt: DateTime.now(),
+      );
+
+      final visit = ClinicalVisitModel(
+        id: 'v-slip',
+        patientId: patient.patientId,
+        campId: camp.id,
+        visitDate: DateTime.now(),
+        treatmentLevel: 'full_check_up',
+        popAnteriorStage: 1,
+        popMiddleStage: 2,
+        highestPopStage: 2,
+        diagnoses: ['POP Stage 2'],
+        medications: ['Metronidazole'],
+        createdByUserId: 'u1',
+        createdAt: DateTime.now(),
+      );
+
+      final bytes = await pdfService.generateFollowUpEncounterSlipPdf(
+        patient: patient,
+        visit: visit,
+        camp: camp,
+      );
+
+      expect(bytes, isNotEmpty);
+      expect(utf8.decode(bytes.sublist(0, 5)), equals('%PDF-'));
     });
   });
 }

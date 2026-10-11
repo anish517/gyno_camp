@@ -4377,6 +4377,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   String _selectedNurse = 'all'; // 'all' or nurse name
   String _selectedDiagnosis = 'all'; // 'all' or specific dynamic diagnosis
   String _selectedTreatment = 'all'; // 'all', 'pessary', 'surgery', 'counseling', 'medications'
+  String _selectedTreatmentLevel = 'all'; // 'all', 'council_level', 'full_check_up', 'none'
   bool _highBpOnly = false;
   String _activeTab = 'overview'; // 'overview', 'patients', 'charts', 'camps'
   bool _filtersExpanded = true;
@@ -4568,6 +4569,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     if (_selectedAgeBracket != 'all') count++;
     if (_selectedDiagnosis != 'all') count++;
     if (_selectedTreatment != 'all') count++;
+    if (_selectedTreatmentLevel != 'all') count++;
     if (_selectedIntakeStatus != 'all') count++;
     if (_selectedDoctor != 'all') count++;
     if (_selectedNurse != 'all') count++;
@@ -4586,6 +4588,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       _selectedAgeBracket = 'all';
       _selectedDiagnosis = 'all';
       _selectedTreatment = 'all';
+      _selectedTreatmentLevel = 'all';
       _selectedIntakeStatus = 'all';
       _selectedDoctor = 'all';
       _selectedNurse = 'all';
@@ -5326,6 +5329,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     int surgeryYesCount = 0;
     int surgeryNoCount = 0;
     int surgeryReferralCount = 0;
+    int councilLevelCount = 0;
+    int fullCheckUpCount = 0;
     int ageUnder20 = 0;
     int age20to35 = 0;
     int age36to50 = 0;
@@ -5341,6 +5346,15 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       }
       if (v != null && v.surgicalReferral != null && v.surgicalReferral!.trim().isNotEmpty) {
         surgeryReferralCount++;
+      }
+
+      final tLevel = (v?.treatmentLevel?.trim().isNotEmpty == true)
+          ? v!.treatmentLevel!.trim().toLowerCase()
+          : (p.treatmentLevel?.trim().toLowerCase() ?? '');
+      if (tLevel == 'council_level') {
+        councilLevelCount++;
+      } else if (tLevel == 'full_check_up') {
+        fullCheckUpCount++;
       }
 
       if (p.age < 20) {
@@ -5502,6 +5516,16 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         if (!_matchesTreatment(p, visit, _selectedTreatment)) return false;
       }
 
+      // 12. Level of Treatment filter (उपचारको तह)
+      if (_selectedTreatmentLevel != 'all') {
+        final currentTLevel = (visit?.treatmentLevel?.trim().isNotEmpty == true)
+            ? visit!.treatmentLevel!.trim().toLowerCase()
+            : (p.treatmentLevel?.trim().toLowerCase() ?? '');
+        if (_selectedTreatmentLevel == 'council_level' && currentTLevel != 'council_level') return false;
+        if (_selectedTreatmentLevel == 'full_check_up' && currentTLevel != 'full_check_up') return false;
+        if (_selectedTreatmentLevel == 'none' && currentTLevel.isNotEmpty) return false;
+      }
+
       return true;
     }).toList();
 
@@ -5634,6 +5658,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                             age36To50Count: age36to50,
                             age51To65Count: age51to65,
                             ageOver65Count: ageOver65,
+                            councilLevelCount: councilLevelCount,
+                            fullCheckUpCount: fullCheckUpCount,
                             user: user,
                             deviceState: deviceState,
                           ),
@@ -5674,6 +5700,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           age36To50Count: age36to50,
                           age51To65Count: age51to65,
                           ageOver65Count: ageOver65,
+                          councilLevelCount: councilLevelCount,
+                          fullCheckUpCount: fullCheckUpCount,
                           user: user,
                           deviceState: deviceState,
                         ),
@@ -6074,6 +6102,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     required int age36To50Count,
     required int age51To65Count,
     required int ageOver65Count,
+    required int councilLevelCount,
+    required int fullCheckUpCount,
     required UserModel? user,
     required DeviceSecurityState deviceState,
   }) {
@@ -6394,6 +6424,38 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       },
     );
 
+    final treatmentLevelDropdown = DropdownButtonFormField<String>(
+      key: ValueKey('treatment_level_filter_$_selectedTreatmentLevel'),
+      initialValue: _selectedTreatmentLevel,
+      isExpanded: true,
+      decoration: filterInputDecoration(
+        labelText: 'Treatment Level (उपचारको तह)',
+        prefixIcon: Icons.layers_outlined,
+      ),
+      items: [
+        DropdownMenuItem(
+          value: 'all',
+          child: buildOptionRow('All Levels (सबै तह)', campScopedPatientsCount, isBold: true),
+        ),
+        DropdownMenuItem(
+          value: 'council_level',
+          child: buildOptionRow('Council level (काउन्सिलिङ तह)', councilLevelCount),
+        ),
+        DropdownMenuItem(
+          value: 'full_check_up',
+          child: buildOptionRow('Full check up (पूर्ण जाँच)', fullCheckUpCount),
+        ),
+      ],
+      onChanged: (v) {
+        setState(() {
+          _selectedTreatmentLevel = v ?? 'all';
+          _registryPage = 0;
+          if (_activeTab == 'charts' || _activeTab == 'camps') _activeTab = 'overview';
+        });
+        _fetchDataForCamp(_selectedCampId);
+      },
+    );
+
     final doctorDropdown = allDoctors.isEmpty
         ? const SizedBox.shrink()
         : DropdownButtonFormField<String>(
@@ -6636,6 +6698,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 diagnosisDropdown,
                 const SizedBox(height: 10),
                 treatmentDropdown,
+                const SizedBox(height: 10),
+                treatmentLevelDropdown,
                 if (allDoctors.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   doctorDropdown,
@@ -6742,6 +6806,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                               Expanded(child: diagnosisDropdown),
                               const SizedBox(width: 8),
                               Expanded(child: treatmentDropdown),
+                              const SizedBox(width: 8),
+                              Expanded(child: treatmentLevelDropdown),
                               if (allDoctors.isNotEmpty) ...[
                                 const SizedBox(width: 8),
                                 Expanded(child: doctorDropdown),
@@ -6790,13 +6856,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                         Row(
                           children: [
                             Expanded(child: treatmentDropdown),
-                            if (allDoctors.isNotEmpty) ...[
-                              const SizedBox(width: 8),
-                              Expanded(child: doctorDropdown),
-                            ] else ...[
-                              const SizedBox(width: 8),
-                              const Expanded(child: SizedBox.shrink()),
-                            ],
+                            const SizedBox(width: 8),
+                            Expanded(child: treatmentLevelDropdown),
                           ],
                         ),
                         if (allNurses.isNotEmpty) ...[

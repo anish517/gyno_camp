@@ -451,6 +451,43 @@ class PdfReportService {
                 ),
               ],
             ),
+            pw.SizedBox(height: 8),
+            // Level of Treatment KPI Cards
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                _buildKpiBox(
+                  title: 'Full Check Up',
+                  value: '${summary.fullCheckUpCount}',
+                  subtitle: summary.totalPatientsRegistered > 0
+                      ? '(${((summary.fullCheckUpCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1)}%)'
+                      : '(0.0%)',
+                  color: PdfColor.fromHex('2563EB'),
+                ),
+                _buildKpiBox(
+                  title: 'Council Level',
+                  value: '${summary.councilLevelCount}',
+                  subtitle: summary.totalPatientsRegistered > 0
+                      ? '(${((summary.councilLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1)}%)'
+                      : '(0.0%)',
+                  color: PdfColor.fromHex('0D9488'),
+                ),
+                _buildKpiBox(
+                  title: 'Unassigned Level',
+                  value: '${summary.unassignedTreatmentLevelCount}',
+                  subtitle: summary.totalPatientsRegistered > 0
+                      ? '(${((summary.unassignedTreatmentLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1)}%)'
+                      : '(0.0%)',
+                  color: PdfColor.fromHex('64748B'),
+                ),
+                _buildKpiBox(
+                  title: 'Pessary Fitted',
+                  value: '${summary.totalPessariesInserted}',
+                  subtitle: '(${summary.pelvicFloorCounselingCount} Counseled)',
+                  color: PdfColor.fromHex('059669'),
+                ),
+              ],
+            ),
             pw.SizedBox(height: 18),
 
             // 1. Demographics Section
@@ -589,6 +626,63 @@ class PdfReportService {
                 ],
               ),
             ],
+            pw.SizedBox(height: 10),
+            pw.Table(
+              border: pw.TableBorder.all(color: borderGray, width: 0.5),
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColors.grey200,
+                  ),
+                  children: [
+                    _buildTableHeader(
+                      'Level of Treatment Distribution (उपचारको तह)',
+                    ),
+                    _buildTableHeader('Patient Count'),
+                    _buildTableHeader('% of Registered'),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    _buildTableCell('Full Check Up (पूर्ण जाँच)', isBold: true),
+                    _buildTableCell(
+                      '${summary.fullCheckUpCount}',
+                      align: pw.TextAlign.center,
+                    ),
+                    _buildTableCell(
+                      '${summary.totalPatientsRegistered > 0 ? ((summary.fullCheckUpCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1) : "0.0"}%',
+                      align: pw.TextAlign.right,
+                    ),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    _buildTableCell('Council Level (काउन्सिलिङ तह)', isBold: true),
+                    _buildTableCell(
+                      '${summary.councilLevelCount}',
+                      align: pw.TextAlign.center,
+                    ),
+                    _buildTableCell(
+                      '${summary.totalPatientsRegistered > 0 ? ((summary.councilLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1) : "0.0"}%',
+                      align: pw.TextAlign.right,
+                    ),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    _buildTableCell('Unassigned (तह नतोकिएको)'),
+                    _buildTableCell(
+                      '${summary.unassignedTreatmentLevelCount}',
+                      align: pw.TextAlign.center,
+                    ),
+                    _buildTableCell(
+                      '${summary.totalPatientsRegistered > 0 ? ((summary.unassignedTreatmentLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1) : "0.0"}%',
+                      align: pw.TextAlign.right,
+                    ),
+                  ],
+                ),
+              ],
+            ),
             pw.SizedBox(height: 18),
 
             // 2. POP Staging Matrix
@@ -988,6 +1082,7 @@ class PdfReportService {
                   'Marital',
                   'Guardian',
                   'Complaints',
+                  'Level',
                   'POP',
                   'Diagnoses',
                   'Meds',
@@ -1006,15 +1101,16 @@ class PdfReportService {
                   5: const pw.FlexColumnWidth(0.9), // Ward
                   6: const pw.FlexColumnWidth(0.8), // Marital
                   7: const pw.FlexColumnWidth(1.2), // Guardian
-                  8: const pw.FlexColumnWidth(1.7), // Complaints
-                  9: const pw.FlexColumnWidth(0.7), // POP
-                  10: const pw.FlexColumnWidth(1.8), // Diagnoses
-                  11: const pw.FlexColumnWidth(1.8), // Meds
-                  12: const pw.FlexColumnWidth(1.1), // Pessary
-                  13: const pw.FlexColumnWidth(1.1), // Referral
-                  14: const pw.FlexColumnWidth(1.1), // Destination
-                  15: const pw.FlexColumnWidth(1.4), // Doctor
-                  16: const pw.FlexColumnWidth(1.0), // Date
+                  8: const pw.FlexColumnWidth(1.6), // Complaints
+                  9: const pw.FlexColumnWidth(1.0), // Level
+                  10: const pw.FlexColumnWidth(0.7), // POP
+                  11: const pw.FlexColumnWidth(1.7), // Diagnoses
+                  12: const pw.FlexColumnWidth(1.7), // Meds
+                  13: const pw.FlexColumnWidth(1.1), // Pessary
+                  14: const pw.FlexColumnWidth(1.1), // Referral
+                  15: const pw.FlexColumnWidth(1.1), // Destination
+                  16: const pw.FlexColumnWidth(1.4), // Doctor
+                  17: const pw.FlexColumnWidth(1.0), // Date
                 },
                 data: summary.patients.map((p) {
                   final v = visitByPatientId[p.patientId];
@@ -1060,6 +1156,13 @@ class PdfReportService {
                                   ? p.primaryDoctorName!.trim()
                                   : '-'));
 
+                  final pTLevel = (v?.treatmentLevel?.trim().isNotEmpty == true)
+                      ? v!.treatmentLevel!.trim()
+                      : (p.treatmentLevel?.trim() ?? '');
+                  final tLevelShort = pTLevel == 'full_check_up'
+                      ? 'Full Check'
+                      : (pTLevel == 'council_level' ? 'Council' : '-');
+
                   return [
                     PdfReportService.sanitizeText(p.patientId),
                     PdfReportService.sanitizeText(
@@ -1080,6 +1183,7 @@ class PdfReportService {
                           ? p.reasonsForVisit.join(', ')
                           : '-',
                     ),
+                    PdfReportService.sanitizeText(tLevelShort),
                     v != null ? 'Stage ${v.highestPopStage}' : '-',
                     PdfReportService.sanitizeText(
                       v?.diagnoses.isNotEmpty == true
@@ -1250,6 +1354,18 @@ class PdfReportService {
           bpColor = primaryColor;
         }
       }
+
+      final effectiveTreatmentLevel =
+          (visit?.treatmentLevel?.trim().isNotEmpty == true)
+              ? visit!.treatmentLevel!.trim()
+              : (patient.treatmentLevel?.trim() ?? '');
+      final treatmentLevelLabel = effectiveTreatmentLevel == 'full_check_up'
+          ? 'Full check up (पूर्ण जाँच)'
+          : (effectiveTreatmentLevel == 'council_level'
+              ? 'Council level (काउन्सिलिङ)'
+              : (effectiveTreatmentLevel.isNotEmpty
+                  ? effectiveTreatmentLevel
+                  : 'Not Specified (तह नतोकिएको)'));
 
       // Map structured complaints
       final complaintsMap = visit?.anamnesisComplaints ?? {};
@@ -1425,6 +1541,12 @@ class PdfReportService {
                         ),
                       ),
                     ],
+                  ),
+                  pw.SizedBox(height: 3),
+                  _buildPdfField(
+                    'Level of Treatment (उपचारको तह)',
+                    treatmentLevelLabel,
+                    isBold: true,
                   ),
                   if (patient.reasonsForVisit.isNotEmpty) ...[
                     pw.SizedBox(height: 3),
@@ -2154,6 +2276,18 @@ class PdfReportService {
       final visitDate = dateFormatter.format(visit.visitDate);
       final visitTime = timeFormatter.format(visit.visitDate);
 
+      final effectiveTreatmentLevel =
+          (visit.treatmentLevel?.trim().isNotEmpty == true)
+              ? visit.treatmentLevel!.trim()
+              : (patient.treatmentLevel?.trim() ?? '');
+      final treatmentLevelLabel = effectiveTreatmentLevel == 'full_check_up'
+          ? 'Full check up (पूर्ण जाँच)'
+          : (effectiveTreatmentLevel == 'council_level'
+              ? 'Council level (काउन्सिलिङ)'
+              : (effectiveTreatmentLevel.isNotEmpty
+                  ? effectiveTreatmentLevel
+                  : 'Not Specified (तह नतोकिएको)'));
+
       // BP classification
       String bpStatus = 'N/A';
       PdfColor bpColor = dark;
@@ -2324,6 +2458,18 @@ class PdfReportService {
                         child: _buildPdfField(
                           'Mobile',
                           patient.mobile.isNotEmpty ? patient.mobile : 'N/A',
+                        ),
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 3),
+                  pw.Row(
+                    children: [
+                      pw.Expanded(
+                        child: _buildPdfField(
+                          'Level of Treatment (उपचारको तह)',
+                          treatmentLevelLabel,
+                          isBold: true,
                         ),
                       ),
                     ],
