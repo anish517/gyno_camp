@@ -400,5 +400,95 @@ void main() {
       expect(copied.doctorName, equals('Dr. Ramesh Adhikari'));
       expect(copied.campCode, equals('KTM99'));
     });
+
+    test('generatePatientRegistrationFormPdf with blank doctor and nurse lines succeeds', () async {
+      final camp = CampModel(
+        id: 'camp-inspect',
+        campCode: 'KTM01',
+        name: 'Gyno Health Outreach Camp',
+        venue: 'Primary Health Care Center',
+        district: 'Kathmandu',
+        municipality: 'Budhanilkantha Municipality',
+        ward: '03',
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 3)),
+        status: CampStatus.open,
+        createdAt: DateTime.now(),
+      );
+
+      final bytes = await pdfService.generatePatientRegistrationFormPdf(
+        camp: camp,
+        blankDoctorLines: true,
+        blankNurseLines: true,
+      );
+      expect(bytes, isNotEmpty);
+      expect(bytes.length, greaterThan(20000));
+      final header = utf8.decode(bytes.sublist(0, 5));
+      expect(header, equals('%PDF-'));
+    });
+
+    test('generate and export camp 3RD and camp 11 for visual inspection', () async {
+      final camp3rd = CampModel(
+        id: 'c-3rd',
+        campCode: '3RD',
+        name: 'old testing camp',
+        venue: 'Health Post',
+        district: 'Kathmandu',
+        municipality: 'Kathmandu',
+        ward: '01',
+        doctorName: 'sugam tiwari',
+        doctorNames: ['sugam tiwari'],
+        startDate: DateTime(2026, 10, 11),
+        endDate: DateTime(2026, 10, 15),
+        status: CampStatus.open,
+        createdAt: DateTime.now(),
+      );
+
+      final doc3rd = DoctorProfile(
+        name: 'sugam tiwari',
+        nmcNumber: '456',
+      );
+
+      final visitReasons4 = [
+        LookupItemModel(id: '1', category: 'visit_reason', code: 'follow_up', labelEn: 'Follow-up Visit', labelNe: 'पुन: जाँच', isActive: true),
+        LookupItemModel(id: '2', category: 'visit_reason', code: 'new_consultation', labelEn: 'New Consultation', labelNe: 'नयाँ परामर्श', isActive: true),
+        LookupItemModel(id: '3', category: 'visit_reason', code: 'pap_smear', labelEn: 'Pap Smear / Cervical Screening', labelNe: 'पाठेघरको मुखको क्यान्सर जाँच', isActive: true),
+        LookupItemModel(id: '4', category: 'visit_reason', code: 'pre_surgical', labelEn: 'Pre-surgical Screening', labelNe: 'शल्यक्रिया पूर्व जाँच', isActive: true),
+      ];
+
+      final bytes3rd = await pdfService.generatePatientRegistrationFormPdf(
+        camp: camp3rd,
+        doctor: doc3rd,
+        organizationName: 'Women for Society',
+        visitReasons: visitReasons4,
+      );
+
+      final camp11 = CampModel(
+        id: 'c-11',
+        campCode: '11',
+        name: 'new nurse testing',
+        venue: 'Health Post',
+        district: 'Kathmandu',
+        municipality: 'Budhanilkantha Municipality',
+        ward: '03',
+        startDate: DateTime(2026, 10, 11),
+        endDate: DateTime(2026, 10, 15),
+        status: CampStatus.open,
+        createdAt: DateTime.now(),
+      );
+
+      final bytes11 = await pdfService.generatePatientRegistrationFormPdf(
+        camp: camp11,
+        blankDoctorLines: true,
+        blankNurseLines: true,
+        organizationName: 'Women for Society',
+      );
+
+      expect(bytes3rd, isNotEmpty);
+      expect(utf8.decode(bytes3rd.sublist(0, 5)), equals('%PDF-'));
+      expect(bytes11, isNotEmpty);
+      expect(utf8.decode(bytes11.sublist(0, 5)), equals('%PDF-'));
+    });
   });
 }
+

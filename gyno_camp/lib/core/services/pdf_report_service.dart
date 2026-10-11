@@ -3865,6 +3865,7 @@ class PdfReportService {
       int minBoxes = 20,
       int? maxBoxes,
       double boxSize = 16,
+      double? boxHeight,
       double boxMargin = 2,
     }) {
       final cleanVal = value.trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -3873,6 +3874,7 @@ class PdfReportService {
       if (maxBoxes != null && total > maxBoxes) {
         total = maxBoxes;
       }
+      final h = boxHeight ?? (boxSize + 3);
       return pw.Row(
         mainAxisSize: pw.MainAxisSize.min,
         children: List.generate(total, (i) {
@@ -3882,11 +3884,19 @@ class PdfReportService {
           }
           if (char.isNotEmpty) {
             return pw.Container(
-              margin: const pw.EdgeInsets.only(right: 1.2),
+              width: boxSize,
+              height: h,
+              margin: pw.EdgeInsets.only(right: boxMargin),
+              decoration: pw.BoxDecoration(
+                color: boxBg,
+                border: pw.Border.all(color: PdfColor.fromHex('94A3B8'), width: 0.8),
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+              ),
+              alignment: pw.Alignment.center,
               child: pw.Text(
                 char,
                 style: pw.TextStyle(
-                  fontSize: 9.0,
+                  fontSize: boxSize * 0.68,
                   fontWeight: pw.FontWeight.bold,
                   color: dark,
                 ),
@@ -3895,12 +3905,12 @@ class PdfReportService {
           }
           return pw.Container(
             width: boxSize,
-            height: boxSize + 2,
+            height: h,
             margin: pw.EdgeInsets.only(right: boxMargin),
             decoration: pw.BoxDecoration(
               color: boxBg,
-              border: pw.Border.all(color: gray, width: 0.5),
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(1.5)),
+              border: pw.Border.all(color: PdfColor.fromHex('94A3B8'), width: 0.8),
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
             ),
           );
         }),
@@ -3918,8 +3928,8 @@ class PdfReportService {
             // Nepali portion is rendered via pw.Text (ASCII-safe section names).
             return pw.Container(
               width: double.infinity,
-              margin: const pw.EdgeInsets.only(bottom: 3, top: 5),
-              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+              margin: const pw.EdgeInsets.only(bottom: 5, top: 4),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4.0),
               decoration: pw.BoxDecoration(
                 color: primary,
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
@@ -3944,49 +3954,74 @@ class PdfReportService {
             int minBoxes = 16,
             int? maxBoxes,
             double boxSize = 14,
+            double? boxHeight,
             double boxMargin = 2,
+            double bottomPadding = 18.0,
+            bool stackedLabel = false,
           }) => pw.Padding(
-            padding: const pw.EdgeInsets.only(bottom: 5),
+            padding: pw.EdgeInsets.only(bottom: bottomPadding),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Text(
-                      '$labelEn: ',
-                      style: pw.TextStyle(
-                        fontSize: 8.8,
-                        fontWeight: pw.FontWeight.bold,
-                        color: dark,
+                if (stackedLabel)
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        '$labelEn: ',
+                        style: pw.TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: dark,
+                        ),
                       ),
-                    ),
-                    ne(labelNe, size: 8.2, color: 0xFF6B7280),
-                  ],
-                ),
-                pw.SizedBox(height: 2),
+                      ne(labelNe, size: 7.5, color: 0xFF6B7280),
+                    ],
+                  )
+                else
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        '$labelEn: ',
+                        style: pw.TextStyle(
+                          fontSize: 9.0,
+                          fontWeight: pw.FontWeight.bold,
+                          color: dark,
+                        ),
+                      ),
+                      ne(labelNe, size: 8.4, color: 0xFF6B7280),
+                    ],
+                  ),
+                pw.SizedBox(height: 3.0),
                 buildCharBoxes(
                   value,
                   minBoxes: minBoxes,
                   maxBoxes: maxBoxes ?? minBoxes,
                   boxSize: boxSize,
+                  boxHeight: boxHeight,
                   boxMargin: boxMargin,
                 ),
               ],
             ),
           );
 
-          // ── Professional checkbox — 13 × 13 pt, 1.2 pt border, light fill ──
-          pw.Widget cb(String label, bool checked, {bool isExpanded = false}) =>
+          // ── Professional checkbox — 13.5 × 13.5 pt, 1.2 pt border, light fill ──
+          pw.Widget cb(
+            String label,
+            bool checked, {
+            bool isExpanded = false,
+            double bottom = 12.0,
+          }) =>
               pw.Padding(
-                padding: const pw.EdgeInsets.only(right: 6, bottom: 2.5),
+                padding: pw.EdgeInsets.only(right: 6, bottom: bottom),
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Container(
-                      width: 13.0,
-                      height: 13.0,
-                      margin: const pw.EdgeInsets.only(right: 4, top: 0.5),
+                      width: 13.5,
+                      height: 13.5,
+                      margin: const pw.EdgeInsets.only(right: 4.5, top: 0.5),
                       decoration: pw.BoxDecoration(
                         color: checked
                             ? PdfColor.fromHex('EDE9FF')
@@ -4045,8 +4080,10 @@ class PdfReportService {
                 patient?.firstName ?? '',
                 minBoxes: 14,
                 maxBoxes: 14,
-                boxSize: 12.0,
-                boxMargin: 1.5,
+                boxSize: 15.5,
+                boxHeight: 22.0,
+                boxMargin: 2.0,
+                bottomPadding: 18.0,
               ),
               field(
                 'Surname',
@@ -4054,8 +4091,10 @@ class PdfReportService {
                 patient?.surname ?? '',
                 minBoxes: 14,
                 maxBoxes: 14,
-                boxSize: 12.0,
-                boxMargin: 1.5,
+                boxSize: 15.5,
+                boxHeight: 22.0,
+                boxMargin: 2.0,
+                bottomPadding: 18.0,
               ),
 
               // Patient Age label & Marital status
@@ -4063,21 +4102,23 @@ class PdfReportService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.SizedBox(
-                    width: 65,
+                    width: 72,
                     child: field(
                       'Patient Age',
                       'उमेर',
                       patient != null ? patient.age.toString() : '',
                       minBoxes: 3,
                       maxBoxes: 3,
-                      boxSize: 15,
-                      boxMargin: 2,
+                      boxSize: 17.5,
+                      boxHeight: 23.0,
+                      boxMargin: 2.5,
+                      bottomPadding: 18.0,
                     ),
                   ),
                   pw.SizedBox(width: 8),
                   pw.Expanded(
                     child: pw.Padding(
-                      padding: const pw.EdgeInsets.only(bottom: 5),
+                      padding: const pw.EdgeInsets.only(bottom: 18.0),
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
@@ -4086,36 +4127,43 @@ class PdfReportService {
                               pw.Text(
                                 'Marital Status / ',
                                 style: pw.TextStyle(
-                                  fontSize: 7.5,
+                                  fontSize: 8.0,
                                   fontWeight: pw.FontWeight.bold,
                                   color: dark,
                                 ),
                               ),
                               ne(
                                 'वैवाहिक स्थिति',
-                                size: 7.5,
+                                size: 8.0,
                                 bold: true,
                                 color: 0xFF1E293B,
                               ),
                             ],
                           ),
-                          pw.SizedBox(height: 3),
+                          pw.SizedBox(height: 4.0),
                           pw.Wrap(
                             spacing: 8,
-                            runSpacing: 2,
+                            runSpacing: 3.0,
                             children: [
                               cb(
                                 'Married',
                                 patient?.maritalStatus == 'married',
+                                bottom: 0,
                               ),
-                              cb('Widow', patient?.maritalStatus == 'widow'),
+                              cb(
+                                'Widow',
+                                patient?.maritalStatus == 'widow',
+                                bottom: 0,
+                              ),
                               cb(
                                 'Unmarried',
                                 patient?.maritalStatus == 'unmarried',
+                                bottom: 0,
                               ),
                               cb(
                                 'Divorced',
                                 patient?.maritalStatus == 'divorced',
+                                bottom: 0,
                               ),
                             ],
                           ),
@@ -4138,30 +4186,33 @@ class PdfReportService {
                     ? 'बुबाको नाम'
                     : (hasPatient ? 'श्रीमानको नाम' : 'श्रीमान् / बुबाको नाम'),
                 patient?.spouseOrFatherName ?? '',
-                minBoxes: 20,
-                maxBoxes: 20,
-                boxSize: 12.0,
-                boxMargin: 1.5,
+                minBoxes: 16,
+                maxBoxes: 16,
+                boxSize: 14.5,
+                boxHeight: 22.0,
+                boxMargin: 2.0,
+                bottomPadding: 18.0,
               ),
 
               pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
                   pw.Expanded(
-                    flex: 52,
                     child: field(
                       'Mobile No.',
                       'मोबाइल नम्बर',
                       patient?.mobile ?? '',
                       minBoxes: 10,
                       maxBoxes: 10,
-                      boxSize: 12,
-                      boxMargin: 1.5,
+                      boxSize: 15.0,
+                      boxHeight: 22.0,
+                      boxMargin: 1.8,
+                      bottomPadding: 18.0,
                     ),
                   ),
                   pw.SizedBox(width: 8),
-                  pw.Expanded(
-                    flex: 48,
+                  pw.SizedBox(
+                    width: 76,
                     child: field(
                       'Age at Marriage',
                       'विवाह भएको उमेर',
@@ -4170,8 +4221,11 @@ class PdfReportService {
                           : '',
                       minBoxes: 3,
                       maxBoxes: 3,
-                      boxSize: 13,
-                      boxMargin: 2,
+                      boxSize: 15.5,
+                      boxHeight: 22.0,
+                      boxMargin: 2.0,
+                      bottomPadding: 18.0,
+                      stackedLabel: true,
                     ),
                   ),
                 ],
@@ -4183,8 +4237,10 @@ class PdfReportService {
                 patient?.contactPerson ?? '',
                 minBoxes: 16,
                 maxBoxes: 16,
-                boxSize: 12.5,
-                boxMargin: 1.5,
+                boxSize: 14.5,
+                boxHeight: 22.0,
+                boxMargin: 2.0,
+                bottomPadding: 18.0,
               ),
               field(
                 'Contact Mobile No.',
@@ -4192,8 +4248,10 @@ class PdfReportService {
                 patient?.contactMobile ?? '',
                 minBoxes: 10,
                 maxBoxes: 10,
-                boxSize: 13,
-                boxMargin: 1.5,
+                boxSize: 15.0,
+                boxHeight: 22.0,
+                boxMargin: 1.8,
+                bottomPadding: 18.0,
               ),
 
               // Location Row 1: District & Province
@@ -4207,8 +4265,10 @@ class PdfReportService {
                       patient?.district ?? '',
                       minBoxes: 10,
                       maxBoxes: 10,
-                      boxSize: 11.5,
-                      boxMargin: 1.5,
+                      boxSize: 11.8,
+                      boxHeight: 20.0,
+                      boxMargin: 1.2,
+                      bottomPadding: 18.0,
                     ),
                   ),
                   pw.SizedBox(width: 8),
@@ -4219,8 +4279,10 @@ class PdfReportService {
                       patient?.province ?? '',
                       minBoxes: 10,
                       maxBoxes: 10,
-                      boxSize: 11.5,
-                      boxMargin: 1.5,
+                      boxSize: 11.8,
+                      boxHeight: 20.0,
+                      boxMargin: 1.2,
+                      bottomPadding: 18.0,
                     ),
                   ),
                 ],
@@ -4235,23 +4297,27 @@ class PdfReportService {
                       'Palika / Municipality',
                       'गाउँपालिका / नगरपालिका',
                       palikaVal,
-                      minBoxes: 15,
-                      maxBoxes: 15,
-                      boxSize: 12,
+                      minBoxes: 14,
+                      maxBoxes: 14,
+                      boxSize: 13.0,
+                      boxHeight: 20.0,
                       boxMargin: 1.5,
+                      bottomPadding: 10.0,
                     ),
                   ),
                   pw.SizedBox(width: 8),
                   pw.SizedBox(
-                    width: 56,
+                    width: 66,
                     child: field(
                       'Ward No.',
                       'वडा नं.',
                       patient?.ward ?? '',
-                      minBoxes: 2,
+                      minBoxes: 3,
                       maxBoxes: 3,
-                      boxSize: 14,
-                      boxMargin: 2,
+                      boxSize: 16.5,
+                      boxHeight: 22.0,
+                      boxMargin: 2.0,
+                      bottomPadding: 10.0,
                     ),
                   ),
                 ],
@@ -4273,7 +4339,12 @@ class PdfReportService {
                   }) ??
               false;
 
-
+          // Dynamic spacing based on number of visit reasons to prevent vertical gap
+          final bool hasFewReasons = effectiveVisitReasons.length <= 5;
+          final double reasonBottom = hasFewReasons ? 14.0 : 11.5;
+          final double spaceBeforeConsent = hasFewReasons ? 20.0 : 12.0;
+          final double spaceBeforeSig = hasFewReasons ? 40.0 : 26.0;
+          final double spaceBeforeOfficial = hasFewReasons ? 30.0 : 18.0;
 
           // Signatures flow naturally below consent items.
           final rightCol = pw.Column(
@@ -4287,22 +4358,24 @@ class PdfReportService {
                   e.value,
                   isVisitReasonChecked(e.key, e.value),
                   isExpanded: true,
+                  bottom: reasonBottom,
                 ),
               ),
-              pw.SizedBox(height: 4),
+              pw.SizedBox(height: spaceBeforeConsent),
               secHdr('SECTION C: PATIENT CONSENT / सहमति'),
               cb(
                 'I consent to examination and treatment / जाँच तथा उपचारका लागि मेरो सहमति छ',
                 patient?.consentTreatment ?? false,
                 isExpanded: true,
+                bottom: hasFewReasons ? 16.0 : 13.0,
               ),
-              pw.SizedBox(height: 2),
               cb(
                 'I consent to storage of my medical information / मेरो स्वास्थ्य विवरण भण्डारण गर्न सहमति छ',
                 patient?.consentStoreMedicalInfo ?? false,
                 isExpanded: true,
+                bottom: hasFewReasons ? 16.0 : 13.0,
               ),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: spaceBeforeSig),
 
               // Signature lines
               pw.Row(
@@ -4313,22 +4386,22 @@ class PdfReportService {
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Container(
-                        width: 105,
+                        width: 120,
                         height: 0.8,
                         color: PdfColors.black,
                       ),
-                      pw.SizedBox(height: 2),
+                      pw.SizedBox(height: 3),
                       pw.Text(
                         'Patient Signature / Thumbprint',
                         style: pw.TextStyle(
-                          fontSize: 7,
+                          fontSize: 7.2,
                           fontWeight: pw.FontWeight.bold,
                         ),
                       ),
                       pw.Text(
                         '(Required for consent)',
                         style: pw.TextStyle(
-                          fontSize: 6,
+                          fontSize: 6.2,
                           color: PdfColors.grey600,
                         ),
                       ),
@@ -4338,22 +4411,22 @@ class PdfReportService {
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
                       pw.Container(
-                        width: 95,
+                        width: 120,
                         height: 0.8,
                         color: PdfColors.black,
                       ),
-                      pw.SizedBox(height: 2),
+                      pw.SizedBox(height: 3),
                       pw.Text(
                         'Data Entry Operator',
                         style: pw.TextStyle(
-                          fontSize: 7,
+                          fontSize: 7.2,
                           fontWeight: pw.FontWeight.bold,
                         ),
                       ),
                       pw.Text(
                         'Date: ${dateFormatter.format(DateTime.now())}',
                         style: pw.TextStyle(
-                          fontSize: 6,
+                          fontSize: 6.2,
                           color: PdfColors.grey600,
                         ),
                       ),
@@ -4361,12 +4434,12 @@ class PdfReportService {
                   ),
                 ],
               ),
-              pw.SizedBox(height: 8),
+              pw.SizedBox(height: spaceBeforeOfficial),
               pw.Container(
                 width: double.infinity,
                 padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 5,
+                  horizontal: 10,
+                  vertical: 8,
                 ),
                 decoration: pw.BoxDecoration(
                   color: PdfColor.fromHex('F8FAFC'),
@@ -4381,7 +4454,7 @@ class PdfReportService {
                     pw.Text(
                       'FOR OFFICIAL USE ONLY',
                       style: pw.TextStyle(
-                        fontSize: 7,
+                        fontSize: 7.5,
                         fontWeight: pw.FontWeight.bold,
                         color: primary,
                       ),
@@ -4392,7 +4465,7 @@ class PdfReportService {
                           ? 'Patient ID: ${patient.patientId} | Camp: ${camp?.campCode ?? patient.campCode}'
                           : 'Camp: ${camp?.campCode ?? "CAMP"} | Venue: ${sanitizeText(camp?.venue ?? "Health Center")}',
                       style: pw.TextStyle(
-                        fontSize: 6.5,
+                        fontSize: 7.0,
                         color: PdfColors.grey700,
                       ),
                       textAlign: pw.TextAlign.center,
@@ -4427,7 +4500,7 @@ class PdfReportService {
                     if (logo != null)
                       pw.Padding(
                         padding: const pw.EdgeInsets.only(right: 8),
-                        child: pw.Image(logo, width: 52, height: 52),
+                        child: pw.Image(logo, width: 48, height: 48),
                       ),
                     pw.Expanded(
                       child: pw.Column(
@@ -4436,76 +4509,61 @@ class PdfReportService {
                           pw.Text(
                             sanitizeText(organizationName.toUpperCase()),
                             style: pw.TextStyle(
-                              fontSize: 10.5,
+                              fontSize: 10.0,
                               fontWeight: pw.FontWeight.bold,
                               color: primary,
                             ),
                           ),
                           pw.Text(
-                            'PATIENT REGISTRATION — PAGE 1 (FRONT) | Yellow Form',
+                            'PATIENT REGISTRATION — PAGE 1 (FRONT)',
                             style: pw.TextStyle(
-                              fontSize: 12,
+                              fontSize: 10.5,
                               fontWeight: pw.FontWeight.bold,
                               color: dark,
                             ),
                           ),
                           pw.Row(
+                            mainAxisSize: pw.MainAxisSize.min,
                             children: [
                               pw.Text(
                                 'PLEASE FILL IN BLOCK LETTERS — ',
                                 style: pw.TextStyle(
-                                  fontSize: 7.8,
+                                  fontSize: 7.2,
                                   color: PdfColors.grey700,
                                 ),
                               ),
                               ne(
                                 'ठूला अक्षरमा भर्नुहोस्',
-                                size: 7.8,
+                                size: 7.2,
                                 color: 0xFF616161,
-                              ),
-                              pw.Text(
-                                ' | Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} | Date: ${dateFormatter.format(intakeDate)}',
-                                style: pw.TextStyle(
-                                  fontSize: 7.8,
-                                  color: PdfColors.grey700,
-                                ),
                               ),
                             ],
                           ),
+                          pw.Text(
+                            'Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} | Date: ${dateFormatter.format(intakeDate)}',
+                            style: pw.TextStyle(
+                              fontSize: 7.0,
+                              color: PdfColors.grey700,
+                            ),
+                            maxLines: 1,
+                          ),
                           if (doctorHeaderPart.isNotEmpty)
                             pw.Padding(
-                              padding: const pw.EdgeInsets.only(top: 1.5),
-                              child: pw.Row(
-                                children: [
-                                  pw.Text(
-                                    'Examining Doctors (',
-                                    style: pw.TextStyle(
-                                      fontSize: 7.8,
-                                      fontWeight: pw.FontWeight.bold,
-                                      color: primary,
-                                    ),
-                                  ),
-                                  ne(
-                                    'चिकित्सक',
-                                    size: 7.8,
-                                    bold: true,
-                                    color: 0xFF81005D,
-                                  ),
-                                  pw.Text(
-                                    '): $doctorHeaderPart',
-                                    style: pw.TextStyle(
-                                      fontSize: 7.8,
-                                      fontWeight: pw.FontWeight.bold,
-                                      color: primary,
-                                    ),
-                                  ),
-                                ],
+                              padding: const pw.EdgeInsets.only(top: 1.0),
+                              child: pw.Text(
+                                'Examining Doctor: $doctorHeaderPart',
+                                style: pw.TextStyle(
+                                  fontSize: 7.0,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: primary,
+                                ),
+                                maxLines: 1,
                               ),
                             ),
                         ],
                       ),
                     ),
-                    pw.SizedBox(width: 10),
+                    pw.SizedBox(width: 8),
                     hasPatient
                         ? pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -4535,14 +4593,14 @@ class PdfReportService {
                                   pw.Text(
                                     'PATIENT TOKEN ID / ',
                                     style: pw.TextStyle(
-                                      fontSize: 8.5,
+                                      fontSize: 8.0,
                                       fontWeight: pw.FontWeight.bold,
                                       color: primary,
                                     ),
                                   ),
                                   ne(
                                     'बिरामी टोकन नं.',
-                                    size: 8.5,
+                                    size: 8.0,
                                     bold: true,
                                     color: 0xFF81005D,
                                   ),
@@ -4557,6 +4615,7 @@ class PdfReportService {
                                   minBoxes: dynamicTokenPrefix.length + 5,
                                   maxBoxes: dynamicTokenPrefix.length + 5,
                                   boxSize: 11.5,
+                                  boxHeight: 16.5,
                                   boxMargin: 1.2,
                                 ),
                               ),
@@ -4640,21 +4699,26 @@ class PdfReportService {
             );
           }
 
-          pw.Widget numBox(String v, {double w = 28, double h = 22}) =>
+          pw.Widget numBox(
+            String v, {
+            double w = 38,
+            double h = 26,
+            double fontSize = 11.0,
+          }) =>
               pw.Container(
                 width: w,
                 height: h,
                 margin: const pw.EdgeInsets.only(right: 3),
                 decoration: pw.BoxDecoration(
                   color: v.isNotEmpty ? lightBg : PdfColor.fromHex('F8F8F8'),
-                  border: pw.Border.all(color: gray, width: 1.0),
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(1.5)),
+                  border: pw.Border.all(color: PdfColor.fromHex('94A3B8'), width: 0.8),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
                 ),
                 child: pw.Center(
                   child: pw.Text(
                     v,
                     style: pw.TextStyle(
-                      fontSize: 9.0,
+                      fontSize: fontSize,
                       fontWeight: pw.FontWeight.bold,
                       color: dark,
                     ),
@@ -4662,15 +4726,15 @@ class PdfReportService {
                 ),
               );
 
-          // ── Professional checkbox (page 2) — 13 × 13 pt, 1.2 pt border, light fill ──
+          // ── Professional checkbox (page 2) — 13.5 × 13.5 pt, 1.2 pt border, light fill ──
           pw.Widget cb(String label, bool checked) => pw.Padding(
-            padding: const pw.EdgeInsets.only(right: 7, bottom: 2),
+            padding: const pw.EdgeInsets.only(right: 7, bottom: 2.5),
             child: pw.Row(
               mainAxisSize: pw.MainAxisSize.min,
               children: [
                 pw.Container(
-                  width: 13.0,
-                  height: 13.0,
+                  width: 13.5,
+                  height: 13.5,
                   margin: const pw.EdgeInsets.only(right: 3.5, top: 0.5),
                   decoration: pw.BoxDecoration(
                     color: checked
@@ -4705,7 +4769,7 @@ class PdfReportService {
             ),
           );
 
-          pw.Widget line({double h = 16, String? text}) => pw.Container(
+          pw.Widget line({double h = 20, String? text}) => pw.Container(
             height: h,
             padding: const pw.EdgeInsets.symmetric(horizontal: 4),
             margin: const pw.EdgeInsets.only(top: 1.5, bottom: 2.5),
@@ -4714,7 +4778,7 @@ class PdfReportService {
                   ? lightBg
                   : PdfColor.fromHex('F8F8F8'),
               border: pw.Border(
-                bottom: pw.BorderSide(color: gray, width: 1.0),
+                bottom: pw.BorderSide(color: PdfColor.fromHex('94A3B8'), width: 0.8),
               ),
             ),
             alignment: pw.Alignment.centerLeft,
@@ -4722,7 +4786,7 @@ class PdfReportService {
                 ? pw.Text(
                     sanitizeText(text),
                     style: pw.TextStyle(
-                      fontSize: 7.8,
+                      fontSize: 8.2,
                       fontWeight: pw.FontWeight.bold,
                       color: dark,
                     ),
@@ -4748,21 +4812,25 @@ class PdfReportService {
             children: [
               // ── STATION 1: ANAMNESIS ─────────────────────────────────────
               sectionHeader('STATION 1: ANAMNESIS & OBSTETRIC HISTORY'),
-              pw.Row(
-                children: [
-                  pw.Text('Deliveries (P): ', style: bold()),
-                  numBox(visit?.deliveries?.toString() ?? ''),
-                  pw.SizedBox(width: 8),
-                  pw.Text('Living Children: ', style: bold()),
-                  numBox(visit?.livingChildren?.toString() ?? ''),
-                  pw.SizedBox(width: 8),
-                  pw.Text('Abortions: ', style: bold()),
-                  numBox(visit?.abortions?.toString() ?? ''),
-                ],
+              pw.FittedBox(
+                fit: pw.BoxFit.scaleDown,
+                alignment: pw.Alignment.centerLeft,
+                child: pw.Row(
+                  children: [
+                    pw.Text('Deliveries (P): ', style: bold()),
+                    numBox(visit?.deliveries?.toString() ?? '', w: 32, h: 26),
+                    pw.SizedBox(width: 6),
+                    pw.Text('Living Children: ', style: bold()),
+                    numBox(visit?.livingChildren?.toString() ?? '', w: 32, h: 26),
+                    pw.SizedBox(width: 6),
+                    pw.Text('Abortions: ', style: bold()),
+                    numBox(visit?.abortions?.toString() ?? '', w: 32, h: 26),
+                  ],
+                ),
               ),
-              pw.SizedBox(height: 3),
+              pw.SizedBox(height: 5),
               pw.Text('Complaints Duration:', style: bold()),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 3),
               pw.Row(
                 children: [
                   cb(
@@ -4782,12 +4850,12 @@ class PdfReportService {
                   ),
                 ],
               ),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 4),
               pw.Text('Clinical Complaints:', style: bold()),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 3),
               pw.Wrap(
-                spacing: 0,
-                runSpacing: 1,
+                spacing: 6,
+                runSpacing: 3.5,
                 children: effectiveComplaints.map((item) {
                   final lbl = item['label'] ?? '';
                   final code = item['code'] ?? '';
@@ -4804,7 +4872,7 @@ class PdfReportService {
                   return cb(sanitizeText(lbl), isChecked);
                 }).toList(),
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 12),
 
               // ── STATION 2: POP EXAMINATION ───────────────────────────────
               sectionHeader('STATION 2: POP EXAMINATION (BADEN-WALKER)'),
@@ -4815,7 +4883,7 @@ class PdfReportService {
                   cb('No (Prolapsed)', visit?.uterusInside == false),
                 ],
               ),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 4),
               pw.Row(
                 children: [
                   pw.Text('Pelvic Tone: ', style: bold()),
@@ -4824,9 +4892,9 @@ class PdfReportService {
                   cb('Hypertonic', tone == 'hypertonic' || tone == 'torn'),
                 ],
               ),
-              pw.SizedBox(height: 3),
+              pw.SizedBox(height: 5),
               pw.Text('Baden-Walker Staging:', style: bold()),
-              pw.SizedBox(height: 3),
+              pw.SizedBox(height: 4),
               pw.Row(
                 children: [
                   pw.Column(
@@ -4846,8 +4914,9 @@ class PdfReportService {
                       pw.SizedBox(height: 2),
                       numBox(
                         visit != null ? '${visit.popAnteriorStage}' : '',
-                        w: 32,
-                        h: 20,
+                        w: 50,
+                        h: 30,
+                        fontSize: 13.0,
                       ),
                     ],
                   ),
@@ -4866,8 +4935,9 @@ class PdfReportService {
                       pw.SizedBox(height: 2),
                       numBox(
                         visit != null ? '${visit.popMiddleStage}' : '',
-                        w: 32,
-                        h: 20,
+                        w: 50,
+                        h: 30,
+                        fontSize: 13.0,
                       ),
                     ],
                   ),
@@ -4889,14 +4959,15 @@ class PdfReportService {
                       pw.SizedBox(height: 2),
                       numBox(
                         visit != null ? '${visit.popPosteriorStage}' : '',
-                        w: 32,
-                        h: 20,
+                        w: 50,
+                        h: 30,
+                        fontSize: 13.0,
                       ),
                     ],
                   ),
                 ],
               ),
-              pw.SizedBox(height: 3),
+              pw.SizedBox(height: 6),
               pw.Row(
                 children: [
                   pw.Expanded(
@@ -4907,7 +4978,9 @@ class PdfReportService {
                           'Cervix Appearance:',
                           style: bold(size: fsSmall),
                         ),
-                        line(text: visit?.cervixRemarks),
+                        line(text: visit?.cervixRemarks, h: 22),
+                        pw.SizedBox(height: 2),
+                        line(h: 22),
                       ],
                     ),
                   ),
@@ -4917,13 +4990,15 @@ class PdfReportService {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text('Vagina / Vulva:', style: bold(size: fsSmall)),
-                        line(text: visit?.vaginaRemarks),
+                        line(text: visit?.vaginaRemarks, h: 22),
+                        pw.SizedBox(height: 2),
+                        line(h: 22),
                       ],
                     ),
                   ),
                 ],
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 12),
 
               // ── STATION 3: VITALS & LABS ─────────────────────────────────
               sectionHeader('STATION 3: VITALS & POINT-OF-CARE LABS'),
@@ -4932,63 +5007,68 @@ class PdfReportService {
                 alignment: pw.Alignment.centerLeft,
                 child: pw.Row(
                   children: [
-                    pw.Text('Blood Pressure: ', style: bold(size: 8.0)),
+                    pw.Text('Blood Pressure: ', style: bold(size: 8.5)),
                     buildCharBoxes(
                       visit?.systolicBp?.toString() ?? '',
                       minBoxes: 3,
                       maxBoxes: 3,
-                      boxSize: 10.5,
-                      boxMargin: 1,
+                      boxSize: 14.5,
+                      boxHeight: 22.0,
+                      boxMargin: 1.5,
                     ),
-                    pw.Text(' / ', style: normal(size: 8.0)),
+                    pw.Text(' / ', style: normal(size: 8.5)),
                     buildCharBoxes(
                       visit?.diastolicBp?.toString() ?? '',
                       minBoxes: 3,
                       maxBoxes: 3,
-                      boxSize: 10.5,
-                      boxMargin: 1,
+                      boxSize: 14.5,
+                      boxHeight: 22.0,
+                      boxMargin: 1.5,
                     ),
-                    pw.Text(' mmHg  ', style: normal(size: 7.2)),
-                    pw.Text('Pulse: ', style: bold(size: 8.0)),
+                    pw.Text(' mmHg   ', style: normal(size: 7.8)),
+                    pw.Text('Pulse: ', style: bold(size: 8.5)),
                     buildCharBoxes(
                       visit?.pulse?.toString() ?? '',
                       minBoxes: 3,
                       maxBoxes: 3,
-                      boxSize: 10.5,
-                      boxMargin: 1,
+                      boxSize: 14.5,
+                      boxHeight: 22.0,
+                      boxMargin: 1.5,
                     ),
-                    pw.Text(' bpm', style: normal(size: 7.2)),
+                    pw.Text(' bpm', style: normal(size: 7.8)),
                   ],
                 ),
               ),
-              pw.SizedBox(height: 3),
+              pw.SizedBox(height: 6),
               pw.FittedBox(
                 fit: pw.BoxFit.scaleDown,
                 alignment: pw.Alignment.centerLeft,
                 child: pw.Row(
                   children: [
-                    pw.Text('SpO2: ', style: bold(size: 8.0)),
+                    pw.Text('SpO2: ', style: bold(size: 8.5)),
                     buildCharBoxes(
                       visit?.spo2?.toString() ?? '',
                       minBoxes: 3,
                       maxBoxes: 3,
-                      boxSize: 10.5,
-                      boxMargin: 1,
+                      boxSize: 14.5,
+                      boxHeight: 22.0,
+                      boxMargin: 1.5,
                     ),
-                    pw.Text(' %    ', style: normal(size: 7.2)),
-                    pw.Text('Blood Glucose: ', style: bold(size: 8.0)),
+                    pw.Text(' %     ', style: normal(size: 7.8)),
+                    pw.Text('Blood Glucose: ', style: bold(size: 8.5)),
                     buildCharBoxes(
                       visit?.glucose?.toString() ?? '',
                       minBoxes: 3,
                       maxBoxes: 3,
-                      boxSize: 10.5,
-                      boxMargin: 1,
+                      boxSize: 14.5,
+                      boxHeight: 22.0,
+                      boxMargin: 1.5,
                     ),
-                    pw.Text(' mg/dL', style: normal(size: 7.2)),
+                    pw.Text(' mg/dL', style: normal(size: 7.8)),
                   ],
                 ),
               ),
-              pw.SizedBox(height: 3),
+              pw.SizedBox(height: 6),
               pw.Row(
                 children: [
                   pw.Text('Urine Test: ', style: bold()),
@@ -4998,7 +5078,7 @@ class PdfReportService {
                   cb('Blood+', visit?.urineTest?.contains('blood') == true),
                 ],
               ),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 4),
               pw.Row(
                 children: [
                   pw.Text('Pregnancy Test (UPT): ', style: bold()),
@@ -5038,11 +5118,15 @@ class PdfReportService {
                         ],
                       ),
                       pw.SizedBox(height: 3),
-                      line(h: 12),
-                      pw.SizedBox(height: 2.5),
-                      line(h: 12),
-                      pw.SizedBox(height: 2.5),
-                      line(h: 12),
+                      line(h: 20),
+                      pw.SizedBox(height: 3),
+                      line(h: 20),
+                      pw.SizedBox(height: 3),
+                      line(h: 20),
+                      pw.SizedBox(height: 3),
+                      line(h: 20),
+                      pw.SizedBox(height: 3),
+                      line(h: 20),
                     ],
                   ),
                 ),
@@ -5107,9 +5191,9 @@ class PdfReportService {
                 }),
                 pw.SizedBox(height: 1.5),
                 pw.Text('Other: ', style: bold(size: fsSmall)),
-                line(h: 10),
+                line(h: 14),
               ],
-              pw.SizedBox(height: 3),
+              pw.SizedBox(height: 6),
 
               // ── STATION 5: TREATMENT ─────────────────────────────────────
               sectionHeader('STATION 5: TREATMENT & PRESCRIPTIONS / उपचार'),
@@ -5138,11 +5222,15 @@ class PdfReportService {
                         ],
                       ),
                       pw.SizedBox(height: 3),
-                      line(h: 12),
-                      pw.SizedBox(height: 2.5),
-                      line(h: 12),
-                      pw.SizedBox(height: 2.5),
-                      line(h: 12),
+                      line(h: 20),
+                      pw.SizedBox(height: 3),
+                      line(h: 20),
+                      pw.SizedBox(height: 3),
+                      line(h: 20),
+                      pw.SizedBox(height: 3),
+                      line(h: 20),
+                      pw.SizedBox(height: 3),
+                      line(h: 20),
                     ],
                   ),
                 ),
@@ -5207,9 +5295,9 @@ class PdfReportService {
                 }),
                 pw.SizedBox(height: 1.5),
                 pw.Text('Other: ', style: bold(size: fsSmall)),
-                line(h: 10),
+                line(h: 14),
               ],
-              pw.SizedBox(height: 3),
+              pw.SizedBox(height: 6),
               pw.Row(
                 children: [
                   pw.Text('Ring Pessary: ', style: bold()),
@@ -5220,7 +5308,9 @@ class PdfReportService {
                     visit?.pessarySize ?? '',
                     minBoxes: 3,
                     maxBoxes: 3,
-                    boxSize: 13,
+                    boxSize: 14.5,
+                    boxHeight: 20.0,
+                    boxMargin: 1.5,
                   ),
                   pw.Text(' mm', style: normal(size: fsSmall)),
                 ],
@@ -5242,7 +5332,7 @@ class PdfReportService {
                   ),
                 ],
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 6),
 
               // ── STATION 6: DISCHARGE & CONTINUITY OF CARE ─────────────────────────
               sectionHeader(
@@ -5260,7 +5350,7 @@ class PdfReportService {
               ),
               pw.SizedBox(height: 2),
               pw.Text('Follow-up Destination:', style: bold(size: fsSmall)),
-              line(h: 12, text: visit?.followUpDestination),
+              line(h: 18, text: visit?.followUpDestination),
               pw.SizedBox(height: 2),
               pw.Text('Surgical Referral:', style: bold(size: fsSmall)),
               pw.SizedBox(height: 2),
@@ -5288,8 +5378,13 @@ class PdfReportService {
               pw.SizedBox(height: 2),
               pw.Text('Clinical Notes:', style: bold(size: fsSmall)),
               line(h: 20, text: visit?.outtakeNotes),
+              pw.SizedBox(height: 3),
               line(h: 20),
-              pw.SizedBox(height: 6),
+              pw.SizedBox(height: 3),
+              line(h: 20),
+              pw.SizedBox(height: 3),
+              line(h: 20),
+              pw.SizedBox(height: 8),
 
               // Signatures
               pw.Row(
@@ -5332,14 +5427,14 @@ class PdfReportService {
                       ),
                     ],
                   ),
-                  pw.SizedBox(width: 12),
+                  pw.SizedBox(width: 8),
                   pw.Expanded(
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
                         if (!showDoctor || blankDoctorLines) ...[
                           pw.Container(
-                            width: 130,
+                            width: 125,
                             height: 0.8,
                             color: PdfColors.black,
                           ),
@@ -5347,14 +5442,15 @@ class PdfReportService {
                           pw.Text(
                             'Medical Officer / Gynecologist',
                             style: pw.TextStyle(
-                              fontSize: fsSmall,
+                              fontSize: 7.0,
                               fontWeight: pw.FontWeight.bold,
+                              color: dark,
                             ),
                           ),
                           pw.Text(
-                            'Doctor Signature & NMC: _________________________',
+                            'Doctor Signature & NMC: ___________',
                             style: pw.TextStyle(
-                              fontSize: 6,
+                              fontSize: 5.8,
                               color: PdfColors.grey600,
                             ),
                           ),
@@ -5420,6 +5516,7 @@ class PdfReportService {
                               color: PdfColors.grey600,
                             ),
                           ),
+                        ] else if (campDoctors.length > 1) ...[
                           pw.Row(
                             mainAxisSize: pw.MainAxisSize.min,
                             children: [
@@ -5519,6 +5616,7 @@ class PdfReportService {
                             style: pw.TextStyle(
                               fontSize: fsSmall,
                               fontWeight: pw.FontWeight.bold,
+                              color: dark,
                             ),
                           ),
                           pw.Text(
@@ -5636,6 +5734,7 @@ class PdfReportService {
                               minBoxes: dynamicTokenPrefix.length + 5,
                               maxBoxes: dynamicTokenPrefix.length + 5,
                               boxSize: 11.5,
+                              boxHeight: 16.5,
                               boxMargin: 1.2,
                             ),
                           ),
