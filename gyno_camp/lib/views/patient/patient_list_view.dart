@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
@@ -78,13 +77,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final targetCampId = widget.campId ?? ref.read(userActiveCampProvider)?.id;
-      final currentFilters = ref.read(patientListProvider).filters;
-      if ((widget.campId != null || currentFilters.campId == null) && targetCampId != null) {
-        ref.read(patientListProvider.notifier).updateFilters(
-          currentFilters.copyWith(campId: targetCampId),
-        );
-      }
+      final targetCampId = widget.campId ??
+          ref.read(userActiveCampProvider)?.id ??
+          ref.read(campStateProvider).activeCamp?.id ??
+          (ref.read(campStateProvider).camps.isNotEmpty
+              ? ref.read(campStateProvider).camps.first.id
+              : null);
       ref.read(masterLookupProvider.notifier).setCampScope(targetCampId);
       if (widget.initialQuery != null &&
           widget.initialQuery!.trim().isNotEmpty) {
@@ -114,7 +112,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     } else if (currentFilter != null && currentFilter.isNotEmpty) {
       vm.loadPatients(currentFilter, silent);
     } else {
-      final active = ref.read(userActiveCampProvider);
+      final active = ref.read(userActiveCampProvider) ??
+          ref.read(campStateProvider).activeCamp ??
+          (ref.read(campStateProvider).camps.isNotEmpty
+              ? ref.read(campStateProvider).camps.first
+              : null);
       if (active != null) {
         vm.loadPatients(active.id, silent);
       } else {
@@ -129,7 +131,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     final patientState = ref.watch(patientListProvider);
     final vm = ref.read(patientListProvider.notifier);
     // Use user-scoped camp so staff see their assigned camp, not the global one
-    final activeCamp = ref.watch(userActiveCampProvider);
+    final activeCamp = ref.watch(userActiveCampProvider) ??
+        campState.activeCamp ??
+        (campState.camps.isNotEmpty ? campState.camps.first : null);
     final filterCampId = patientState.filters.campId;
     final bool isAllCamps = filterCampId == 'all';
     final effectiveCamp = isAllCamps
@@ -366,6 +370,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         patientState: patientState,
                         vm: vm,
                         isWide: true,
+                        isDesktop: true,
+                        campState: campState,
                       ),
 
                       // Full-width Statistics Bar with Edge Padding
@@ -424,32 +430,14 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       patientState: patientState,
                       vm: vm,
                       isWide: viewportConstraints.maxWidth >= 700,
+                      isDesktop: false,
+                      campState: campState,
                     ),
 
-                    // Dedicated Filter Section (Collapsible with safe bounded height)
-                    if (_showFilterPanel) ...[
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: math.min(
-                            viewportConstraints.maxHeight * 0.45,
-                            300.0,
-                          ),
-                        ),
-                        child: _buildDedicatedFilterSection(
-                          context,
-                          campState,
-                          patientState,
-                          vm,
-                          isSidebar: false,
-                        ),
-                      ),
-                      const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                    ],
-
-                    // Patient Roll Statistics Bar
+                    // Patient Roll Statistics Bar (Includes active filter pills & Reset All)
                     _buildStatisticsBar(patientState, vm, isWide: false),
 
-                    // Patient Cards List
+                    // Patient Cards List (100% full height on mobile)
                     Expanded(
                       child: _buildPatientCardsList(
                         effectiveCampId,
@@ -473,6 +461,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     required PatientListState patientState,
     required PatientListViewModel vm,
     required bool isWide,
+    required bool isDesktop,
+    required CampState campState,
   }) {
     final searchField = TextField(
       controller: _searchController,
@@ -531,7 +521,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       icon: Icon(
-        _showFilterPanel ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
+        isDesktop
+            ? (_showFilterPanel ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded)
+            : Icons.tune_rounded,
         size: 17,
       ),
       label: Text(
@@ -541,7 +533,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
       ),
       onPressed: () {
-        setState(() => _showFilterPanel = !_showFilterPanel);
+        if (isDesktop) {
+          setState(() => _showFilterPanel = !_showFilterPanel);
+        } else {
+          _showMobileFilterBottomSheet(context, campState, patientState, vm);
+        }
       },
     );
 
@@ -1224,12 +1220,175 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     );
   }
 
+  void _showMobileFilterBottomSheet(
+    BuildContext context,
+    CampState campState,
+    PatientListState patientState,
+    PatientListViewModel vm,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final currentPatientState = ref.watch(patientListProvider);
+            final currentCampState = ref.watch(campStateProvider);
+            final currentFilters = currentPatientState.filters;
+            final patientCount = currentPatientState.patients.length;
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  // Drag Handle
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 6),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+
+                  // Header with Title, Count, Reset All, and Close
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.tune_rounded, size: 20, color: AppTheme.primaryTeal),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Patient Filters (बिरामी फिल्टर)',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        if (currentFilters.hasActiveFilters) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryTeal,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${currentFilters.activeFilterCount}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        if (currentFilters.hasActiveFilters)
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppTheme.dangerRose,
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            ),
+                            icon: const Icon(Icons.refresh_rounded, size: 14),
+                            label: const Text(
+                              'Reset All',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () => _clearAllFilters(vm),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF64748B)),
+                          tooltip: 'Close',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => Navigator.pop(bottomSheetContext),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
+
+                  // Scrollable Filter Sections Body
+                  Expanded(
+                    child: _buildDedicatedFilterSection(
+                      context,
+                      currentCampState,
+                      currentPatientState,
+                      vm,
+                      isSidebar: false,
+                      hideHeader: true,
+                    ),
+                  ),
+
+                  // Sticky Bottom Action Bar with "Show X Patients"
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: const Border(
+                        top: BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, -4),
+                        ),
+                      ],
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryTeal,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          icon: const Icon(Icons.check_rounded, size: 18),
+                          label: Text(
+                            'Show $patientCount ${patientCount == 1 ? "Patient" : "Patients"}',
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          onPressed: () => Navigator.pop(bottomSheetContext),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildDedicatedFilterSection(
     BuildContext context,
     CampState campState,
     PatientListState patientState,
     PatientListViewModel vm, {
     bool isSidebar = false,
+    bool hideHeader = false,
   }) {
     final filters = patientState.filters;
     // Scope visible camps: Super Admin sees all; Data Takers only see assigned camps
@@ -1391,91 +1550,89 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Filter Header & Reset Action
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
+            if (!hideHeader) ...[
+              Row(
+                children: [
+                  const Icon(
+                    Icons.tune,
+                    size: 18,
+                    color: AppTheme.primaryTeal,
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Dedicated Patient Filters (बिरामी फिल्टर)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13.5,
+                        color: AppTheme.textPrimaryLight,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (filters.hasActiveFilters)
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.dangerRose,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.refresh, size: 13),
+                      label: const Text(
+                        'Reset All',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onPressed: () => _clearAllFilters(vm),
+                    ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: AppTheme.textSecondaryLight,
+                    ),
+                    tooltip: 'Close Filter Panel',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => setState(() => _showFilterPanel = false),
+                  ),
+                ],
+              ),
+              if (filters.hasActiveFilters) ...[
+                const SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                  ),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.tune,
-                        size: 18,
-                        color: AppTheme.primaryTeal,
-                      ),
-                      const SizedBox(width: 8),
-                      const Flexible(
+                      const Icon(Icons.filter_alt, size: 12, color: AppTheme.primaryTeal),
+                      const SizedBox(width: 4),
+                      Expanded(
                         child: Text(
-                          'Dedicated Patient Filters (बिरामी फिल्टर)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13.5,
-                            color: AppTheme.textPrimaryLight,
-                          ),
+                          '${filters.activeFilterCount} active filter${filters.activeFilterCount == 1 ? "" : "s"} applied',
                           overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primaryTeal,
+                          ),
                         ),
                       ),
-                      if (filters.hasActiveFilters) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryTeal,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${filters.activeFilterCount} Active',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (filters.hasActiveFilters)
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.dangerRose,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        icon: const Icon(Icons.refresh, size: 14),
-                        label: const Text(
-                          'Reset All',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        onPressed: () => _clearAllFilters(vm),
-                      ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        size: 18,
-                        color: AppTheme.textSecondaryLight,
-                      ),
-                      tooltip: 'Close Filter Panel',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => setState(() => _showFilterPanel = false),
-                    ),
-                  ],
-                ),
               ],
-            ),
-            const SizedBox(height: 10),
+              const SizedBox(height: 10),
+            ],
 
             // SECTION 1: Demographic & Patient Filters
             Card(
@@ -1515,10 +1672,21 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final isWide = constraints.maxWidth >= 550;
+                        final activeCamp = ref.watch(userActiveCampProvider) ??
+                            campState.activeCamp ??
+                            (campState.camps.isNotEmpty ? campState.camps.first : null);
+                        final defaultCampId = activeCamp?.id ??
+                            (visibleCamps.isNotEmpty ? visibleCamps.first.id : 'all');
                         final isCampValid = filters.campId == 'all' ||
-                            visibleCamps.any((c) => c.id == filters.campId);
-                        final safeCampValue =
-                            isCampValid ? (filters.campId ?? 'all') : 'all';
+                            (filters.campId != null &&
+                                visibleCamps.any((c) => c.id == filters.campId));
+                        final safeCampValue = filters.campId == 'all'
+                            ? 'all'
+                            : (isCampValid
+                                ? filters.campId!
+                                : (visibleCamps.any((c) => c.id == defaultCampId)
+                                    ? defaultCampId
+                                    : (visibleCamps.isNotEmpty ? visibleCamps.first.id : 'all')));
 
                         if (!isCampValid &&
                             filters.campId != null &&
@@ -2926,29 +3094,33 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildStepIndicator(
-            label: 'S1: Intake',
-            done: true,
-            color: const Color(0xFF10B981),
-          ),
-          _buildStepConnector(done: true),
-          _buildStepIndicator(
-            label: 'S2: Clinical',
-            done: hasClinical,
-            color: hasClinical ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
-          ),
-          _buildStepConnector(done: hasClinical),
-          _buildStepIndicator(
-            label: 'S3–6: Specialist',
-            done: hasClinical,
-            color: hasClinical ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
-          ),
-          const SizedBox(width: 8),
-          statusPill,
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildStepIndicator(
+              label: 'S1: Intake',
+              done: true,
+              color: const Color(0xFF10B981),
+            ),
+            _buildStepConnector(done: true),
+            _buildStepIndicator(
+              label: 'S2: Clinical',
+              done: hasClinical,
+              color: hasClinical ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
+            ),
+            _buildStepConnector(done: hasClinical),
+            _buildStepIndicator(
+              label: 'S3–6: Specialist',
+              done: hasClinical,
+              color: hasClinical ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
+            ),
+            const SizedBox(width: 8),
+            statusPill,
+          ],
+        ),
       ),
     );
 
@@ -3302,10 +3474,18 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           wardBadge,
                           if (locationStr.isNotEmpty) ...[
                             const SizedBox(width: 8),
-                            locationChip,
+                            Flexible(
+                              flex: 0,
+                              child: locationChip,
+                            ),
                           ],
-                          const Spacer(),
-                          stepperWidget,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: stepperWidget,
+                            ),
+                          ),
                           const SizedBox(width: 10),
                           chartCue,
                         ],

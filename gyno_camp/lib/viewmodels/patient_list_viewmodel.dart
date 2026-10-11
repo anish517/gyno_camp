@@ -42,7 +42,6 @@ class PatientFilterCriteria {
   });
 
   bool get hasActiveFilters =>
-      (campId != null && campId != 'all') ||
       minAge != null ||
       maxAge != null ||
       (district != null && district!.trim().isNotEmpty) ||
@@ -60,7 +59,6 @@ class PatientFilterCriteria {
 
   int get activeFilterCount {
     int count = 0;
-    if (campId != null && campId != 'all') count++;
     if (minAge != null || maxAge != null) count++;
     if (district != null && district!.trim().isNotEmpty) count++;
     if (province != null && province!.trim().isNotEmpty && province != 'all') count++;
