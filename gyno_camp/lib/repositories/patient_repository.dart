@@ -276,12 +276,20 @@ class PatientRepository implements IPatientRepository {
              cv.primary_doctor_name,
              cv.attending_doctor_names,
              cv.primary_nurse_name,
-             cv.attending_nurse_names
+             cv.attending_nurse_names,
+             cv.medications,
+             cv.custom_medication,
+             cv.counseling,
+             cv.pessary_type,
+             cv.pessary_size,
+             cv.surgical_referral
       FROM ${DatabaseTables.tablePatients} p
       LEFT JOIN (
         SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
                cv1.primary_doctor_name, cv1.attending_doctor_names,
-               cv1.primary_nurse_name, cv1.attending_nurse_names
+               cv1.primary_nurse_name, cv1.attending_nurse_names,
+               cv1.medications, cv1.custom_medication, cv1.counseling,
+               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
@@ -325,12 +333,20 @@ class PatientRepository implements IPatientRepository {
              cv.primary_doctor_name,
              cv.attending_doctor_names,
              cv.primary_nurse_name,
-             cv.attending_nurse_names
+             cv.attending_nurse_names,
+             cv.medications,
+             cv.custom_medication,
+             cv.counseling,
+             cv.pessary_type,
+             cv.pessary_size,
+             cv.surgical_referral
       FROM ${DatabaseTables.tablePatients} p
       LEFT JOIN (
         SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
                cv1.primary_doctor_name, cv1.attending_doctor_names,
-               cv1.primary_nurse_name, cv1.attending_nurse_names
+               cv1.primary_nurse_name, cv1.attending_nurse_names,
+               cv1.medications, cv1.custom_medication, cv1.counseling,
+               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)

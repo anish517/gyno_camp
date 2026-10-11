@@ -784,30 +784,69 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     final availableWidth = constraints.maxWidth;
                     final double horizontalPadding = availableWidth >= 1200
                         ? 24.0
-                        : (availableWidth >= 800 ? 20.0 : 16.0);
+                        : (availableWidth >= 800 ? 18.0 : 12.0);
+                    const double minTableWidth = 1260.0;
+                    final double contentWidth = availableWidth - (horizontalPadding * 2);
+                    final double effectiveTableWidth = contentWidth > minTableWidth
+                        ? contentWidth
+                        : minTableWidth;
 
-                    return Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1200),
-                        child: ListView.separated(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: horizontalPadding,
-                            vertical: 14,
+                    return Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                        vertical: 14,
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x0A000000),
+                              blurRadius: 10,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: SizedBox(
+                            width: effectiveTableWidth,
+                            height: constraints.maxHeight.isFinite
+                                ? (constraints.maxHeight - 28)
+                                : null,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildTableHeader(),
+                                Expanded(
+                                  child: ListView.separated(
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    itemCount: patientState.patients.length,
+                                    separatorBuilder: (_, _) => const Divider(
+                                      height: 1,
+                                      thickness: 1,
+                                      color: Color(0xFFF1F5F9),
+                                    ),
+                                    itemBuilder: (context, index) {
+                                      final patient = patientState.patients[index];
+                                      return _buildTableRow(
+                                        context: context,
+                                        patient: patient,
+                                        activeCamp: effectiveCamp,
+                                        vm: vm,
+                                        campState: campState,
+                                        isEven: index.isEven,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          itemCount: patientState.patients.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 14),
-                          itemBuilder: (context, index) {
-                            final patient = patientState.patients[index];
-                            return _buildPatientCard(
-                              context,
-                              patient,
-                              effectiveCamp,
-                              vm,
-                              campState,
-                            );
-                          },
                         ),
                       ),
                     );
@@ -2471,13 +2510,174 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     );
   }
 
-  Widget _buildPatientCard(
-    BuildContext context,
-    PatientModel patient,
-    CampModel? activeCamp,
-    PatientListViewModel vm,
-    CampState campState,
-  ) {
+  Widget _buildTableHeader() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: const Row(
+        children: [
+          Expanded(
+            flex: 15,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.badge_outlined, size: 13, color: Color(0xFF64748B)),
+                SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    'PATIENT ID',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF475569),
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            flex: 22,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.person_outline_rounded, size: 13, color: Color(0xFF64748B)),
+                SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    'PATIENT NAME & DETAILS',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF475569),
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            flex: 16,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.people_outline_rounded, size: 13, color: Color(0xFF64748B)),
+                SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    'HUSBAND / FATHER',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF475569),
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            flex: 17,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.location_on_outlined, size: 13, color: Color(0xFF64748B)),
+                SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    'LOCATION & WARD',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF475569),
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            flex: 18,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.timeline_rounded, size: 13, color: Color(0xFF64748B)),
+                SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    'ENCOUNTER STATUS',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF475569),
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            flex: 28,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.touch_app_outlined, size: 13, color: Color(0xFF64748B)),
+                SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    'ACTIONS',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF475569),
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableRow({
+    required BuildContext context,
+    required PatientModel patient,
+    required CampModel? activeCamp,
+    required PatientListViewModel vm,
+    required CampState campState,
+    required bool isEven,
+  }) {
     // CAMP LOCK CHECK: check if this patient's specific camp is closed/archived
     // EXCEPTION: Super Admin can always access and edit regardless of camp status.
     CampModel? patientCamp;
@@ -2501,41 +2701,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             ? AppTheme.brandPurple
             : const Color(0xFFF59E0B);
 
-    final urgentReasons = {
-      'something hanging out',
-      'something_hanging_out',
-      'problems passing urine',
-      'problems_passing_urine',
-      'problems passing stool',
-      'problems_passing_stool',
-      'pain',
-      'lower_abdominal_pain',
-      'post_menopausal_bleeding',
-    };
-
-    final clinicalLabelMap = {
-      'routine_checkup': 'Routine Checkup (नियमित जाँच)',
-      'checkup': 'Routine Checkup (नियमित जाँच)',
-      'something hanging out': 'Uterine Prolapse / आङ खस्ने',
-      'something_hanging_out': 'Uterine Prolapse / आङ खस्ने',
-      'discharge and or itching': 'Discharge & Itching / सेतो पानी',
-      'discharge_and_or_itching': 'Discharge & Itching / सेतो पानी',
-      'discharge_itching': 'Discharge & Itching / सेतो पानी',
-      'problems passing urine': 'Urinary Issue / पिसाबको समस्या',
-      'problems_passing_urine': 'Urinary Issue / पिसाबको समस्या',
-      'problems passing stool': 'Anorectal Issue / दिसाको समस्या',
-      'problems_passing_stool': 'Anorectal Issue / दिसाको समस्या',
-      'menstrual problem': 'Menstrual Disorder / महिनावारी गडबडी',
-      'menstrual_problem': 'Menstrual Disorder / महिनावारी गडबडी',
-      'infertility': 'Infertility / निसन्तान समस्या',
-      'pain': 'Pelvic / Abdominal Pain / पेट दुख्ने',
-      'lower_abdominal_pain': 'Lower Abdominal Pain / तल्लो पेट दुख्ने',
-      'post_menopausal_bleeding': 'Post-Menopausal Bleeding',
-    };
-
     // Format guardian info gracefully — never print empty "Father: "
     final guardianName = patient.spouseOrFatherName?.trim() ?? '';
     final hasGuardian = guardianName.isNotEmpty && guardianName.toLowerCase() != 'null';
+    final isFather = patient.maritalStatus == 'unmarried' || patient.age < 20;
+    final familyLabel = isFather ? "Father's Name" : "Husband's Name";
     final relType = patient.relationshipType?.trim() ?? 'Guardian';
 
     final maritalStr = patient.maritalStatus.isNotEmpty ? patient.maritalStatus : 'N/A';
@@ -2546,7 +2716,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     if (patient.district.isNotEmpty) locationParts.add(patient.district);
     final locationStr = locationParts.isNotEmpty ? locationParts.join(', ') : 'Nepal';
 
-    // ── Header Meta Widgets ──
+    // ── Column 1: Patient ID Badge ──
     final tokenIdBadge = InkWell(
       onTap: () {
         Clipboard.setData(ClipboardData(text: patient.patientId));
@@ -2576,17 +2746,19 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 160),
-              child: Text(
-                patient.patientId,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11.5,
-                  color: AppTheme.brandPurple,
-                  fontFamily: 'monospace',
+            Flexible(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 130),
+                child: Text(
+                  patient.patientId,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11.5,
+                    color: AppTheme.brandPurple,
+                    fontFamily: 'monospace',
+                  ),
                 ),
               ),
             ),
@@ -2597,491 +2769,52 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       ),
     );
 
-    final wardBadge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Text(
-        'Ward ${patient.ward}',
-        style: const TextStyle(
-          fontSize: 11,
-          color: Color(0xFF334155),
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-
-    final locationChip = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
-        const SizedBox(width: 3),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 140),
-          child: Text(
-            locationStr,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF64748B),
-            ),
-          ),
-        ),
-      ],
-    );
-
-    final chartCue = InkWell(
-      onTap: () => _showClinicalHistoryPanel(context, patient, activeCamp),
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryTeal.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.25)),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.history_edu_rounded, size: 12, color: AppTheme.primaryTeal),
-            SizedBox(width: 4),
-            Text(
-              'View Chart →',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryDark,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
     final campLockedBadge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: const Color(0xFFF87171)),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.lock_rounded, size: 12, color: Color(0xFFDC2626)),
-          SizedBox(width: 4),
+          Icon(Icons.lock_rounded, size: 10, color: Color(0xFFDC2626)),
+          SizedBox(width: 3),
           Text(
             'Camp Closed',
-            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
           ),
         ],
       ),
     );
 
-    // Patient Identity Widget
-    final patientIdentityWidget = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF30026E), Color(0xFF81005D)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.brandPurple.withValues(alpha: 0.2),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            patient.firstName.isNotEmpty ? patient.firstName[0].toUpperCase() : 'P',
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 18,
-              color: Colors.white,
-              letterSpacing: -0.5,
-            ),
-          ),
+    final wardBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Text(
+        'Ward ${patient.ward}',
+        style: const TextStyle(
+          fontSize: 10.5,
+          color: Color(0xFF334155),
+          fontWeight: FontWeight.w700,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                patient.fullName,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
-                  letterSpacing: -0.2,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 3),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Age ${patient.age}y',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
-                    ),
-                  ),
-                  if (maritalStr != 'N/A')
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        maritalStr,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
-                      ),
-                    ),
-                ],
-              ),
-              if (hasGuardian) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      patient.isBelowAdultAge ? Icons.escalator_warning : Icons.people_outline,
-                      size: 13,
-                      color: const Color(0xFF64748B),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        '$relType: $guardianName',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              if (hasPhone) ...[
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    const Icon(Icons.phone_outlined, size: 12, color: Color(0xFF64748B)),
-                    const SizedBox(width: 4),
-                    Text(
-                      patient.mobile,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
+      ),
     );
 
-    // Build Chief Complaint Chips
-    final activeVisitReasons = ref.watch(activeVisitReasonsProvider);
-    final activeChiefComplaints = ref.watch(activeChiefComplaintsProvider);
-    final combinedLookups = [...activeVisitReasons, ...activeChiefComplaints];
-
-    final complaintChips = patient.reasonsForVisit.map((reason) {
-      final normReason = reason.toLowerCase().trim().replaceAll('_', ' ');
-      final matchingItems = combinedLookups.where((item) =>
-          item.code.toLowerCase().trim().replaceAll('_', ' ') == normReason ||
-          item.labelEn.toLowerCase().trim().replaceAll('_', ' ') == normReason ||
-          item.labelNe.toLowerCase().trim() == normReason);
-
-      final String label;
-      final bool isUrgent;
-
-      if (matchingItems.isNotEmpty) {
-        final item = matchingItems.first;
-        label = item.labelNe.isNotEmpty ? '${item.labelEn} (${item.labelNe})' : item.labelEn;
-        isUrgent = item.subCategory?.toLowerCase().contains('urgent') == true ||
-            normReason == 'post menopausal bleeding';
-      } else {
-        label = clinicalLabelMap[normReason] ??
-            clinicalLabelMap[reason] ??
-            clinicalLabelMap[normReason.replaceAll(' ', '_')] ??
-            reason.replaceAll('_', ' ');
-        isUrgent = urgentReasons.contains(normReason) ||
-            urgentReasons.contains(reason) ||
-            urgentReasons.contains(normReason.replaceAll(' ', '_'));
-      }
-
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3),
-        decoration: BoxDecoration(
-          color: isUrgent ? const Color(0xFFFFF1F2) : const Color(0xFFF5F3FF),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isUrgent ? const Color(0xFFFDA4AF) : const Color(0xFFE9D5FF),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isUrgent) ...[
-              const Icon(Icons.priority_high_rounded, size: 10.5, color: Color(0xFFE11D48)),
-              const SizedBox(width: 3),
-            ],
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 220),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                  color: isUrgent ? const Color(0xFFBE123C) : AppTheme.brandPurple,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
-
-    // Build Clinical Findings & Diagnoses Chips
-    final clinicalBadges = <Widget>[];
-
-    if ((patient.primaryDoctorName != null && patient.primaryDoctorName!.trim().isNotEmpty) ||
-        patient.attendingDoctorNames.any((d) => d.trim().isNotEmpty)) {
-      final docRaw = (patient.primaryDoctorName != null && patient.primaryDoctorName!.trim().isNotEmpty)
-          ? patient.primaryDoctorName!
-          : patient.attendingDoctorNames.firstWhere((d) => d.trim().isNotEmpty);
-      final docProf = DoctorProfile.parse(docRaw);
-      clinicalBadges.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3),
-          decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFFBFDBFE)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.medical_services_outlined, size: 11, color: Color(0xFF2563EB)),
-              const SizedBox(width: 3.5),
-              Text(
-                docProf.formattedLabel,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1D4ED8),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if ((patient.primaryNurseName != null && patient.primaryNurseName!.trim().isNotEmpty) ||
-        patient.attendingNurseNames.any((n) => n.trim().isNotEmpty)) {
-      final nurseRaw = (patient.primaryNurseName != null && patient.primaryNurseName!.trim().isNotEmpty)
-          ? patient.primaryNurseName!
-          : patient.attendingNurseNames.firstWhere((n) => n.trim().isNotEmpty);
-      final nurseProf = NurseProfile.parse(nurseRaw);
-      clinicalBadges.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFDF2F8),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFFFBCFE8)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.person_pin_circle_outlined, size: 11, color: Color(0xFFDB2777)),
-              const SizedBox(width: 3.5),
-              Text(
-                nurseProf.formattedLabel,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF9D174D),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (patient.highestPopStage != null) {
-      final stage = patient.highestPopStage!;
-      final Color badgeBg = stage >= 3
-          ? const Color(0xFFFEE2E2)
-          : stage == 2
-              ? const Color(0xFFFEF3C7)
-              : const Color(0xFFF0FDF4);
-      final Color badgeBorder = stage >= 3
-          ? const Color(0xFFFCA5A5)
-          : stage == 2
-              ? const Color(0xFFFDE68A)
-              : const Color(0xFFBBF7D0);
-      final Color badgeText = stage >= 3
-          ? const Color(0xFF991B1B)
-          : stage == 2
-              ? const Color(0xFF92400E)
-              : const Color(0xFF166534);
-      clinicalBadges.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3),
-          decoration: BoxDecoration(
-            color: badgeBg,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: badgeBorder),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.healing_rounded, size: 10.5, color: badgeText),
-              const SizedBox(width: 3.5),
-              Text(
-                'POP Stage $stage',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.bold,
-                  color: badgeText,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (patient.surgeryDone == true) {
-      clinicalBadges.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0FDF4),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFF86EFAC)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.check_circle_outline_rounded, size: 11, color: Color(0xFF166534)),
-              const SizedBox(width: 3.5),
-              Text(
-                'Surgery: ${patient.surgeryType ?? "Done"}',
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF166534),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    for (final dx in patient.diagnoses.take(3)) {
-      clinicalBadges.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Text(
-            dx,
-            style: const TextStyle(
-              fontSize: 10.5,
-              color: Color(0xFF334155),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      );
-    }
-
-    final hasClinicalBadges = clinicalBadges.isNotEmpty;
-
-    final clinicalSummaryWidget = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (complaintChips.isNotEmpty) ...[
-          Wrap(
-            spacing: 6,
-            runSpacing: 4.5,
-            children: complaintChips,
-          ),
-        ],
-        if (hasClinicalBadges) ...[
-          if (complaintChips.isNotEmpty) const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: clinicalBadges,
-          ),
-        ],
-        if (complaintChips.isEmpty && !hasClinicalBadges)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 4),
-            child: Text(
-              'No complaints or clinical notes recorded yet',
-              style: TextStyle(
-                fontSize: 11,
-                color: Color(0xFF94A3B8),
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-      ],
-    );
-
-    // Stepper & Status Badge
     final statusPill = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
       decoration: BoxDecoration(
         color: hasClinical
             ? const Color(0xFFECFDF5)
             : hasReasons
                 ? const Color(0xFFEFF6FF)
                 : const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(5),
         border: Border.all(
           color: hasClinical
               ? const Color(0xFFA7F3D0)
@@ -3099,7 +2832,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w800,
-          letterSpacing: 0.5,
+          letterSpacing: 0.4,
           color: hasClinical
               ? const Color(0xFF047857)
               : hasReasons
@@ -3109,38 +2842,29 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       ),
     );
 
-    final stepperWidget = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(
+    final chartCue = InkWell(
+      onTap: () => _showClinicalHistoryPanel(context, patient, activeCamp),
+      borderRadius: BorderRadius.circular(5),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryTeal.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.25)),
+        ),
+        child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildStepIndicator(
-              label: 'S1: Intake',
-              done: true,
-              color: const Color(0xFF10B981),
+            Icon(Icons.history_edu_rounded, size: 11, color: AppTheme.primaryTeal),
+            SizedBox(width: 3),
+            Text(
+              'Chart →',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryDark,
+              ),
             ),
-            _buildStepConnector(done: true),
-            _buildStepIndicator(
-              label: 'S2: Clinical',
-              done: hasClinical,
-              color: hasClinical ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
-            ),
-            _buildStepConnector(done: hasClinical),
-            _buildStepIndicator(
-              label: 'S3–6: Specialist',
-              done: hasClinical,
-              color: hasClinical ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
-            ),
-            const SizedBox(width: 8),
-            statusPill,
           ],
         ),
       ),
@@ -3153,11 +2877,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               backgroundColor: AppTheme.brandPurple,
               foregroundColor: Colors.white,
               elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
             ),
-            icon: const Icon(Icons.assignment_rounded, size: 15),
-            label: const Text('Clinical Intake', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            icon: const Icon(Icons.assignment_rounded, size: 14),
+            label: const Text('Clinical Intake', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
             onPressed: () async {
               await Navigator.push(
                 context,
@@ -3173,11 +2897,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
               backgroundColor: AppTheme.brandMagenta,
               foregroundColor: Colors.white,
               elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
             ),
-            icon: const Icon(Icons.replay_rounded, size: 15),
-            label: const Text('Follow-Up', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            icon: const Icon(Icons.replay_rounded, size: 14),
+            label: const Text('Follow-Up', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
             onPressed: () async {
               final updated = await Navigator.push(
                 context,
@@ -3195,11 +2919,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       style: OutlinedButton.styleFrom(
         foregroundColor: const Color(0xFF334155),
         side: const BorderSide(color: Color(0xFFCBD5E1)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
       ),
-      icon: const Icon(Icons.qr_code_2_rounded, size: 15, color: AppTheme.brandPurple),
-      label: const Text('Slip / QR', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+      icon: const Icon(Icons.qr_code_2_rounded, size: 14, color: AppTheme.brandPurple),
+      label: const Text('Slip / QR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
       onPressed: () async {
         final proceed = await PatientFollowUpSlipModal.show(
           context,
@@ -3307,20 +3031,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
       ),
       icon: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         decoration: BoxDecoration(
           color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(7),
           border: Border.all(color: const Color(0xFFCBD5E1)),
         ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.more_horiz_rounded, size: 16, color: Color(0xFF334155)),
-            SizedBox(width: 3),
-            Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: Color(0xFF64748B)),
-          ],
-        ),
+        child: const Icon(Icons.more_horiz_rounded, size: 16, color: Color(0xFF334155)),
       ),
       onSelected: (action) async {
         switch (action) {
@@ -3445,260 +3162,302 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       ],
     );
 
-    return Container(
-      margin: EdgeInsets.zero,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x08000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-          BoxShadow(
-            color: Color(0x04000000),
-            blurRadius: 2,
-            offset: Offset(0, 1),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: () => _showClinicalHistoryPanel(context, patient, activeCamp),
-          hoverColor: const Color(0xFFF8FAFC),
-          splashColor: AppTheme.primaryTeal.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(color: statusColor, width: 4.5),
-              ),
+    return Material(
+      color: isEven ? Colors.white : const Color(0xFFFBFDFF),
+      child: InkWell(
+        onTap: () => _showClinicalHistoryPanel(context, patient, activeCamp),
+        hoverColor: const Color(0xFFF1F5F9).withValues(alpha: 0.6),
+        splashColor: AppTheme.primaryTeal.withValues(alpha: 0.05),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(color: statusColor, width: 3.5),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 840;
-
-                if (isWide) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── Top Meta & Workflow Header ──
-                      Row(
-                        children: [
-                          tokenIdBadge,
-                          const SizedBox(width: 8),
-                          wardBadge,
-                          if (locationStr.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            Flexible(
-                              flex: 0,
-                              child: locationChip,
-                            ),
-                          ],
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: stepperWidget,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          chartCue,
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                      const SizedBox(height: 12),
-
-                      // ── Body: Patient Identity + Framed Clinical Panel ──
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Section 1: Patient Profile
-                          SizedBox(
-                            width: 270,
-                            child: patientIdentityWidget,
-                          ),
-
-                          const SizedBox(width: 20),
-
-                          // Section 2: Clinical Summary Panel
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                              ),
-                              child: clinicalSummaryWidget,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                      const SizedBox(height: 10),
-
-                      // ── Footer: Security Info + Proportional Action Buttons ──
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.shield_outlined, size: 13, color: Color(0xFF64748B)),
-                                const SizedBox(width: 5),
-                                const Flexible(
-                                  child: Text(
-                                    'Encrypted Record  •  Station Validated',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF64748B),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                if (isCampLocked) ...[
-                                  const SizedBox(width: 10),
-                                  campLockedBadge,
-                                ],
-                              ],
-                            ),
-                          ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              slipBtn,
-                              const SizedBox(width: 8),
-                              primaryCta,
-                              const SizedBox(width: 8),
-                              moreMenu,
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                }
-
-                // ── Mobile & Narrow Viewports (< 840px) ──
-                return Column(
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Col 1: PATIENT ID (flex: 15)
+              Expanded(
+                flex: 15,
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Top Meta Row
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 6,
+                    tokenIdBadge,
+                    const SizedBox(height: 4),
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        tokenIdBadge,
-                        wardBadge,
-                        if (locationStr.isNotEmpty) locationChip,
-                        chartCue,
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Patient Profile Row
-                    patientIdentityWidget,
-                    const SizedBox(height: 12),
-
-                    // Clinical Summary Panel
-                    if (complaintChips.isNotEmpty || hasClinicalBadges)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        Icon(Icons.shield_outlined, size: 10.5, color: Color(0xFF94A3B8)),
+                        SizedBox(width: 3.5),
+                        Text(
+                          'Encrypted',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: Color(0xFF94A3B8),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                        child: clinicalSummaryWidget,
-                      ),
-
-                    const SizedBox(height: 12),
-
-                    // Stepper & Status
-                    stepperWidget,
-
-                    const SizedBox(height: 12),
-                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                    const SizedBox(height: 10),
-
-                    // Actions Row
-                    Row(
-                      children: [
-                        Expanded(child: primaryCta),
-                        const SizedBox(width: 8),
-                        slipBtn,
-                        const SizedBox(width: 8),
-                        moreMenu,
                       ],
                     ),
                     if (isCampLocked) ...[
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 3),
                       campLockedBadge,
                     ],
                   ],
-                );
-              },
-            ),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Col 2: PATIENT NAME & DETAILS (flex: 22)
+              Expanded(
+                flex: 22,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      patient.fullName,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: -0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3.5),
+                    Wrap(
+                      spacing: 5,
+                      runSpacing: 3.5,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Age ${patient.age}y',
+                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                          ),
+                        ),
+                        if (maritalStr != 'N/A')
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              maritalStr,
+                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (hasPhone) ...[
+                      const SizedBox(height: 3.5),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.phone_outlined, size: 11, color: Color(0xFF64748B)),
+                          const SizedBox(width: 3),
+                          Text(
+                            patient.mobile,
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Col 3: HUSBAND / FATHER (flex: 16)
+              Expanded(
+                flex: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isFather ? Icons.escalator_warning_outlined : Icons.people_outline,
+                          size: 11.5,
+                          color: const Color(0xFF64748B),
+                        ),
+                        const SizedBox(width: 3.5),
+                        Text(
+                          familyLabel.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF64748B),
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      hasGuardian ? guardianName : '—',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: hasGuardian ? const Color(0xFF1E293B) : const Color(0xFF94A3B8),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (hasGuardian &&
+                        relType.isNotEmpty &&
+                        relType.toLowerCase() != 'null' &&
+                        relType.toLowerCase() != 'husband' &&
+                        relType.toLowerCase() != 'father') ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '($relType)',
+                        style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Col 4: LOCATION & WARD (flex: 17)
+              Expanded(
+                flex: 17,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    wardBadge,
+                    const SizedBox(height: 3.5),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.location_on_outlined, size: 11.5, color: Color(0xFF64748B)),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            locationStr,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Col 5: ENCOUNTER STATUS (flex: 18)
+              Expanded(
+                flex: 18,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    statusPill,
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: 5,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildCompactStageDot('S1', done: true),
+                            _buildCompactStageLine(done: hasClinical),
+                            _buildCompactStageDot('S2', done: hasClinical),
+                            _buildCompactStageLine(done: hasClinical),
+                            _buildCompactStageDot('S3-6', done: hasClinical),
+                          ],
+                        ),
+                        chartCue,
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Col 6: ACTIONS (flex: 28)
+              Expanded(
+                flex: 28,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 5,
+                    runSpacing: 4,
+                    children: [
+                      slipBtn,
+                      primaryCta,
+                      moreMenu,
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildStepIndicator({
-    required String label,
-    required bool done,
-    required Color color,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: done ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 9.5,
-            fontWeight: FontWeight.w600,
-            color: done ? const Color(0xFF065F46) : const Color(0xFF94A3B8),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStepConnector({required bool done}) {
+  Widget _buildCompactStageDot(String label, {required bool done}) {
     return Container(
-      width: 16,
-      height: 1.5,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: done ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+      padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: done ? const Color(0xFF10B981).withValues(alpha: 0.12) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: done ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
+          width: 0.8,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          color: done ? const Color(0xFF047857) : const Color(0xFF94A3B8),
+        ),
+      ),
     );
   }
 
-  void _showScanTokenDialog(
+  Widget _buildCompactStageLine({required bool done}) {
+    return Container(
+      width: 8,
+      height: 1.5,
+      color: done ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
+    );
+  }
+
+
+    void _showScanTokenDialog(
     BuildContext context,
     String campId,
     PatientListViewModel vm,

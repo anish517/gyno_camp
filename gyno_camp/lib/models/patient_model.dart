@@ -52,6 +52,12 @@ class PatientModel {
   final List<String> attendingDoctorNames;
   final String? primaryNurseName;
   final List<String> attendingNurseNames;
+  final List<String> medications;
+  final String? customMedication;
+  final List<String> counseling;
+  final String? pessaryType;
+  final String? pessarySize;
+  final String? surgicalReferral;
 
   const PatientModel({
     required this.id,
@@ -93,10 +99,35 @@ class PatientModel {
     this.attendingDoctorNames = const [],
     this.primaryNurseName,
     this.attendingNurseNames = const [],
+    this.medications = const [],
+    this.customMedication,
+    this.counseling = const [],
+    this.pessaryType,
+    this.pessarySize,
+    this.surgicalReferral,
   });
 
   String get fullName => '$firstName $surname'.trim();
   bool get isBelowAdultAge => age < ClinicalConstants.adultAgeThreshold;
+
+  /// Aggregated list of treatments, medications, pessary fittings, and counseling
+  List<String> get treatments {
+    final list = <String>[];
+    if (medications.isNotEmpty) list.addAll(medications);
+    if (customMedication != null && customMedication!.trim().isNotEmpty) {
+      list.add(customMedication!.trim());
+    }
+    if (pessarySize != null && pessarySize!.trim().isNotEmpty) {
+      list.add('Pessary: ${pessaryType ?? "Ring"} $pessarySize');
+    } else if (pessaryType != null && pessaryType!.trim().isNotEmpty) {
+      list.add('Pessary: $pessaryType');
+    }
+    if (counseling.isNotEmpty) list.addAll(counseling);
+    if (surgicalReferral != null && surgicalReferral!.trim().isNotEmpty) {
+      list.add('Referral: $surgicalReferral');
+    }
+    return list;
+  }
 
   /// Checks duplicate criteria according to specifications:
   /// Match mobile OR (match full name + age +/- 1 + ward + father/husband)
@@ -172,6 +203,12 @@ class PatientModel {
     List<String>? attendingDoctorNames,
     String? primaryNurseName,
     List<String>? attendingNurseNames,
+    List<String>? medications,
+    String? customMedication,
+    List<String>? counseling,
+    String? pessaryType,
+    String? pessarySize,
+    String? surgicalReferral,
   }) {
     return PatientModel(
       id: id ?? this.id,
@@ -213,6 +250,12 @@ class PatientModel {
       attendingDoctorNames: attendingDoctorNames ?? this.attendingDoctorNames,
       primaryNurseName: primaryNurseName ?? this.primaryNurseName,
       attendingNurseNames: attendingNurseNames ?? this.attendingNurseNames,
+      medications: medications ?? this.medications,
+      customMedication: customMedication ?? this.customMedication,
+      counseling: counseling ?? this.counseling,
+      pessaryType: pessaryType ?? this.pessaryType,
+      pessarySize: pessarySize ?? this.pessarySize,
+      surgicalReferral: surgicalReferral ?? this.surgicalReferral,
     );
   }
 
@@ -325,6 +368,32 @@ class PatientModel {
       attendingNurseNames: map['attending_nurse_names'] != null && (map['attending_nurse_names'] as String).isNotEmpty
           ? NurseProfile.splitList(map['attending_nurse_names'] as String).map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
           : (map['primary_nurse_name'] != null && (map['primary_nurse_name'] as String).isNotEmpty ? [(map['primary_nurse_name'] as String).trim()] : const []),
+      medications: map['medications'] != null
+          ? (map['medications'] is String
+              ? (() {
+                  try {
+                    final decoded = jsonDecode(map['medications'] as String);
+                    if (decoded is List) return decoded.map((e) => e.toString()).toList();
+                  } catch (_) {}
+                  return (map['medications'] as String).split(',').where((s) => s.isNotEmpty).toList();
+                })()
+              : (map['medications'] as List).map((e) => e.toString()).toList())
+          : const [],
+      customMedication: map['custom_medication'] as String?,
+      counseling: map['counseling'] != null
+          ? (map['counseling'] is String
+              ? (() {
+                  try {
+                    final decoded = jsonDecode(map['counseling'] as String);
+                    if (decoded is List) return decoded.map((e) => e.toString()).toList();
+                  } catch (_) {}
+                  return (map['counseling'] as String).split(',').where((s) => s.isNotEmpty).toList();
+                })()
+              : (map['counseling'] as List).map((e) => e.toString()).toList())
+          : const [],
+      pessaryType: map['pessary_type'] as String?,
+      pessarySize: map['pessary_size'] as String?,
+      surgicalReferral: map['surgical_referral'] as String?,
     );
   }
 }
