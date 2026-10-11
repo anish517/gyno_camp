@@ -3549,6 +3549,88 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               ),
             ),
           ),
+          // ── 11. LEVEL OF TREATMENT (उपचारको तह) ───
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: (result.treatmentLevel != null && result.treatmentLevel!.isNotEmpty)
+                    ? const Color(0xFF7C3AED)
+                    : Colors.purple.shade200,
+                width: 1.5,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.layers_rounded, color: Color(0xFF7C3AED), size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Level of Treatment (उपचारको तह)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF5B21B6)),
+                        ),
+                      ),
+                      if (result.treatmentLevel != null && result.treatmentLevel!.isNotEmpty)
+                        Chip(
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: const Color(0xFFEDE9FE),
+                          avatar: const Icon(Icons.check, size: 14, color: Color(0xFF7C3AED)),
+                          label: Text(
+                            result.treatmentLevel == 'council_level' ? 'Council level' : 'Full check up',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF7C3AED)),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Select triage level of care identified on form (Council level / Full check up):',
+                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        avatar: Icon(Icons.do_not_disturb_alt_rounded, size: 14, color: (result.treatmentLevel == null || result.treatmentLevel!.isEmpty) ? const Color(0xFF64748B) : Colors.grey),
+                        label: const Text('None / Unassigned (तोकिएको छैन)', style: TextStyle(fontSize: 12)),
+                        selected: result.treatmentLevel == null || result.treatmentLevel!.isEmpty,
+                        selectedColor: const Color(0xFFF1F5F9),
+                        onSelected: (selected) {
+                          if (selected) vm.setTreatmentLevel(null);
+                        },
+                      ),
+                      ChoiceChip(
+                        avatar: Icon(Icons.record_voice_over_rounded, size: 14, color: result.treatmentLevel == 'council_level' ? const Color(0xFF7C3AED) : Colors.grey),
+                        label: const Text('Council level (काउन्सिलिङ तह)', style: TextStyle(fontSize: 12)),
+                        selected: result.treatmentLevel == 'council_level',
+                        selectedColor: const Color(0xFFEDE9FE),
+                        onSelected: (selected) {
+                          vm.setTreatmentLevel(selected ? 'council_level' : null);
+                        },
+                      ),
+                      ChoiceChip(
+                        avatar: Icon(Icons.health_and_safety_rounded, size: 14, color: result.treatmentLevel == 'full_check_up' ? const Color(0xFF0D9488) : Colors.grey),
+                        label: const Text('Full check up (पूर्ण जाँच)', style: TextStyle(fontSize: 12)),
+                        selected: result.treatmentLevel == 'full_check_up',
+                        selectedColor: const Color(0xFFCCFBF1),
+                        onSelected: (selected) {
+                          vm.setTreatmentLevel(selected ? 'full_check_up' : null);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
         ],
       ),
@@ -3609,6 +3691,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       {'key': 'ringPessary',    'label': 'Ring Pessary',     'section': 'Clinical',     'tabIndex': 3, 'value': result.ringPessary ? (result.ringPessarySize != null ? 'Inserted (${result.ringPessarySize}mm)' : 'Inserted') : 'None', 'confKey': 'diagnoses'},
       {'key': 'referral',       'label': 'Surgical Referral','section': 'Clinical',     'tabIndex': 3, 'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
       {'key': 'followUp',       'label': 'Follow-up',        'section': 'Clinical',     'tabIndex': 3, 'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
+      {'key': 'treatmentLevel', 'label': 'Level of Treatment','section': 'Clinical',    'tabIndex': 3, 'value': result.treatmentLevel == 'council_level' ? 'Council level (काउन्सिलिङ तह)' : (result.treatmentLevel == 'full_check_up' ? 'Full check up (पूर्ण जाँच)' : 'Unassigned'), 'confKey': 'treatmentLevel'},
       {'key': 'examiningDoctor','label': 'Examining Doctor', 'section': 'Clinical',     'tabIndex': 3, 'value': result.examiningDoctor ?? 'Unassigned', 'confKey': 'diagnoses'},
       {'key': 'attendingNurse', 'label': 'Attending Nurse',  'section': 'Clinical',     'tabIndex': 3, 'value': result.attendingNurses.isNotEmpty ? result.attendingNurses.join(', ') : (result.examiningNurse ?? 'Unassigned'), 'confKey': 'diagnoses'},
     ];

@@ -20,6 +20,7 @@ class PatientRegistrationState {
   final String maritalStatus;
   final int? maritalAge;
   final List<String> selectedReasons;
+  final String? treatmentLevel;
   final bool consentTreatment;
   final bool consentStoreMedicalInfo;
 
@@ -44,6 +45,7 @@ class PatientRegistrationState {
     this.maritalStatus = 'married',
     this.maritalAge,
     this.selectedReasons = const [],
+    this.treatmentLevel,
     this.consentTreatment = true,
     this.consentStoreMedicalInfo = true,
     this.duplicateResult = const DuplicateCheckResult.none(),
@@ -96,6 +98,8 @@ class PatientRegistrationState {
     int? maritalAge,
     bool clearMaritalAge = false,
     List<String>? selectedReasons,
+    String? treatmentLevel,
+    bool clearTreatmentLevel = false,
     bool? consentTreatment,
     bool? consentStoreMedicalInfo,
     DuplicateCheckResult? duplicateResult,
@@ -120,6 +124,7 @@ class PatientRegistrationState {
       maritalStatus: maritalStatus ?? this.maritalStatus,
       maritalAge: clearMaritalAge ? null : (maritalAge ?? this.maritalAge),
       selectedReasons: selectedReasons ?? this.selectedReasons,
+      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
       consentTreatment: consentTreatment ?? this.consentTreatment,
       consentStoreMedicalInfo: consentStoreMedicalInfo ?? this.consentStoreMedicalInfo,
       duplicateResult: duplicateResult ?? this.duplicateResult,
@@ -201,6 +206,11 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     state = state.copyWith(selectedReasons: list);
   }
 
+  void setTreatmentLevel(String? level) {
+    final clean = (level == null || level.trim().isEmpty || level.trim() == 'none') ? null : level.trim();
+    state = state.copyWith(treatmentLevel: clean, clearTreatmentLevel: clean == null);
+  }
+
   Future<void> runLiveDuplicateCheck(String campId) async {
     if (state.firstName.trim().isEmpty || state.surname.trim().isEmpty || state.age == null) {
       state = state.copyWith(duplicateResult: const DuplicateCheckResult.none());
@@ -265,6 +275,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         maritalStatus: state.maritalStatus,
         maritalAge: state.maritalAge,
         reasonsForVisit: state.selectedReasons,
+        treatmentLevel: state.treatmentLevel,
         consentTreatment: state.consentTreatment,
         consentStoreMedicalInfo: state.consentStoreMedicalInfo,
         createdAt: DateTime.now(),
@@ -318,6 +329,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
       maritalStatus: patient.maritalStatus,
       maritalAge: patient.maritalAge,
       selectedReasons: List<String>.from(patient.reasonsForVisit),
+      treatmentLevel: patient.treatmentLevel,
       consentTreatment: patient.consentTreatment,
       consentStoreMedicalInfo: patient.consentStoreMedicalInfo,
       registeredPatient: patient,
@@ -355,6 +367,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         maritalStatus: state.maritalStatus,
         maritalAge: state.maritalAge,
         reasonsForVisit: state.selectedReasons,
+        treatmentLevel: state.treatmentLevel,
         consentTreatment: state.consentTreatment,
         consentStoreMedicalInfo: state.consentStoreMedicalInfo,
         updatedAt: DateTime.now(),

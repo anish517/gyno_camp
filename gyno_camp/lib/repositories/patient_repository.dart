@@ -282,14 +282,15 @@ class PatientRepository implements IPatientRepository {
              cv.counseling,
              cv.pessary_type,
              cv.pessary_size,
-             cv.surgical_referral
+             cv.surgical_referral,
+             COALESCE(NULLIF(cv.treatment_level, ''), p.treatment_level) AS treatment_level
       FROM ${DatabaseTables.tablePatients} p
       LEFT JOIN (
         SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
                cv1.primary_doctor_name, cv1.attending_doctor_names,
                cv1.primary_nurse_name, cv1.attending_nurse_names,
                cv1.medications, cv1.custom_medication, cv1.counseling,
-               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral
+               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
@@ -339,14 +340,15 @@ class PatientRepository implements IPatientRepository {
              cv.counseling,
              cv.pessary_type,
              cv.pessary_size,
-             cv.surgical_referral
+             cv.surgical_referral,
+             COALESCE(NULLIF(cv.treatment_level, ''), p.treatment_level) AS treatment_level
       FROM ${DatabaseTables.tablePatients} p
       LEFT JOIN (
         SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
                cv1.primary_doctor_name, cv1.attending_doctor_names,
                cv1.primary_nurse_name, cv1.attending_nurse_names,
                cv1.medications, cv1.custom_medication, cv1.counseling,
-               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral
+               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
@@ -420,6 +422,13 @@ class PatientRepository implements IPatientRepository {
       newVisit.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+
+    if (newVisit.treatmentLevel != null && newVisit.treatmentLevel!.trim().isNotEmpty) {
+      await db.rawUpdate(
+        'UPDATE ${DatabaseTables.tablePatients} SET treatment_level = ? WHERE patient_id = ? OR id = ?',
+        [newVisit.treatmentLevel!.trim(), newVisit.patientId, newVisit.patientId],
+      );
+    }
 
     // Auto-push to central server immediately (fire-and-forget)
     if (_enableCentralSync) unawaited(_pushVisitToServer(newVisit));

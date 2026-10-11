@@ -260,6 +260,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
       medications: _selectedMedications.toList(),
       pessaryType: _pessaryType,
       pessarySize: _pessarySize,
+      treatmentLevel: _latestVisit?.treatmentLevel ?? widget.patient.treatmentLevel,
       surgicalReferral: _surgicalReferral,
       followUpNeeded: _followUpNeeded,
       followUpDestination: _followUpDestination,

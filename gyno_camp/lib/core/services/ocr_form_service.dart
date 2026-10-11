@@ -1016,6 +1016,31 @@ class OcrFormService {
       }
     }
 
+    // ── Level of Treatment (उपचारको तह) ──
+    String? treatmentLevel;
+    if (isOptionSelected(['council level', 'काउन्सिलिङ', 'counseling level', 'council'])) {
+      treatmentLevel = 'council_level';
+      confidences['treatmentLevel'] = 0.90;
+    } else if (isOptionSelected(['full check up', 'full checkup', 'पूर्ण जाँच', 'full check'])) {
+      treatmentLevel = 'full_check_up';
+      confidences['treatmentLevel'] = 0.90;
+    } else {
+      final treatmentMatch = RegExp(
+        r'(?:level\s*of\s*treatment|treatment\s*level|उपचारको\s*तह)[:\s]+(council[^\r\n]*|full[^\r\n]*|पूर्ण[^\r\n]*|काउन्सिलिङ[^\r\n]*)',
+        caseSensitive: false,
+      ).firstMatch(text);
+      if (treatmentMatch != null) {
+        final val = treatmentMatch.group(1)?.toLowerCase() ?? '';
+        if (val.contains('council') || val.contains('काउन्सिलिङ')) {
+          treatmentLevel = 'council_level';
+          confidences['treatmentLevel'] = 0.85;
+        } else if (val.contains('full') || val.contains('पूर्ण')) {
+          treatmentLevel = 'full_check_up';
+          confidences['treatmentLevel'] = 0.85;
+        }
+      }
+    }
+
     final totalConf = confidences.values.fold<double>(0.0, (sum, val) => sum + val);
     final avgConf = confidences.isNotEmpty ? totalConf / confidences.length : 0.80;
 
@@ -1034,6 +1059,7 @@ class OcrFormService {
       attendingDoctors: examiningDoctor != null ? [examiningDoctor] : const [],
       examiningNurse: examiningNurse,
       attendingNurses: attendingNurses,
+      treatmentLevel: treatmentLevel,
       fieldConfidences: confidences,
       overallConfidence: double.parse(avgConf.toStringAsFixed(2)),
       rawText: text,

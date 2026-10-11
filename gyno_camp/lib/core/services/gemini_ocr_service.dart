@@ -224,6 +224,16 @@ class GeminiOcrService {
       rawAttendingNurses.insert(0, examiningNurse);
     }
     final rawSummary = parsedData['rawSummary']?.toString().trim() ?? '';
+    final rawTreatmentLevel = parsedData['treatmentLevel']?.toString().toLowerCase().trim() ??
+        parsedData['levelOfTreatment']?.toString().toLowerCase().trim();
+    String? treatmentLevel;
+    if (rawTreatmentLevel != null && rawTreatmentLevel.isNotEmpty) {
+      if (rawTreatmentLevel.contains('council') || rawTreatmentLevel.contains('काउन्सिलिङ')) {
+        treatmentLevel = 'council_level';
+      } else if (rawTreatmentLevel.contains('full') || rawTreatmentLevel.contains('पूर्ण')) {
+        treatmentLevel = 'full_check_up';
+      }
+    }
 
     // Normalize Province (case-insensitive)
     String normProvince(String? raw) {
@@ -409,6 +419,7 @@ class GeminiOcrService {
     if (rawMeds.isNotEmpty) confidences['medications'] = 0.95;
     if (surgicalRef != null && surgicalRef.isNotEmpty && surgicalRef != 'None') confidences['surgicalReferral'] = 0.95;
     if (followUp != null && followUp.isNotEmpty) confidences['followUpDestination'] = 0.95;
+    if (treatmentLevel != null) confidences['treatmentLevel'] = 0.95;
 
     final overallConf = confidences.isNotEmpty ? 0.96 : 0.50;
 
@@ -416,6 +427,9 @@ class GeminiOcrService {
     final buffer = StringBuffer();
     buffer.writeln('[GEMINI FLASH CLOUD OCR]');
     buffer.writeln('Page: $detectedPage');
+    if (treatmentLevel != null) {
+      buffer.writeln('Level of Treatment: ${treatmentLevel == "council_level" ? "Council level" : "Full check up"}');
+    }
     if (demographics['firstName'] != '' || demographics['surname'] != '') {
       buffer.writeln('Patient Name: ${demographics['firstName']} ${demographics['surname']}');
       buffer.writeln('Age: ${demographics['age'] ?? 'N/A'}, Marital: ${demographics['maritalStatus']}, Relative: ${demographics['relativeName']}');
@@ -488,6 +502,7 @@ class GeminiOcrService {
       attendingDoctors: examiningDoctor != null ? [examiningDoctor] : const [],
       examiningNurse: examiningNurse,
       attendingNurses: rawAttendingNurses,
+      treatmentLevel: treatmentLevel,
       fieldConfidences: confidences,
       overallConfidence: overallConf,
       rawText: buffer.toString(),

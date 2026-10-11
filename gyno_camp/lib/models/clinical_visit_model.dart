@@ -49,6 +49,7 @@ class ClinicalVisitModel {
   final String? surgicalReferral; // 'Scheer Memorial', 'Model Hosp', 'loc government'
   final List<String> medications;
   final String? customMedication;
+  final String? treatmentLevel;
 
   // Outtake & Follow-up (Page 2 Bottom)
   final bool followUpNeeded;
@@ -108,6 +109,7 @@ class ClinicalVisitModel {
     this.surgicalReferral,
     this.medications = const [],
     this.customMedication,
+    this.treatmentLevel,
     this.followUpNeeded = false,
     this.followUpDestination,
     this.outtakeNotes,
@@ -133,6 +135,9 @@ class ClinicalVisitModel {
     if (posterior > highest) highest = posterior;
     return highest.clamp(0, 4);
   }
+
+  bool get isCouncilLevel => treatmentLevel == 'council_level';
+  bool get isFullCheckUp => treatmentLevel == 'full_check_up';
 
   Map<String, dynamic> toMap() {
     return {
@@ -169,6 +174,7 @@ class ClinicalVisitModel {
       'surgical_referral': surgicalReferral,
       'medications': medications.join(','),
       'custom_medication': customMedication,
+      'treatment_level': treatmentLevel,
       'follow_up_needed': followUpNeeded ? 1 : 0,
       'follow_up_destination': followUpDestination,
       'outtake_notes': outtakeNotes,
@@ -238,6 +244,7 @@ class ClinicalVisitModel {
           ? (map['medications'] as String).split(',')
           : [],
       customMedication: map['custom_medication'] as String?,
+      treatmentLevel: map['treatment_level'] as String?,
       followUpNeeded: (map['follow_up_needed'] is int)
           ? (map['follow_up_needed'] as int) == 1
           : (map['follow_up_needed'] as bool? ?? false),
@@ -303,6 +310,8 @@ class ClinicalVisitModel {
     String? surgicalReferral,
     List<String>? medications,
     String? customMedication,
+    String? treatmentLevel,
+    bool clearTreatmentLevel = false,
     bool? followUpNeeded,
     String? followUpDestination,
     String? outtakeNotes,
@@ -354,6 +363,7 @@ class ClinicalVisitModel {
       surgicalReferral: surgicalReferral ?? this.surgicalReferral,
       medications: medications ?? this.medications,
       customMedication: customMedication ?? this.customMedication,
+      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
       followUpNeeded: followUpNeeded ?? this.followUpNeeded,
       followUpDestination: followUpDestination ?? this.followUpDestination,
       outtakeNotes: outtakeNotes ?? this.outtakeNotes,

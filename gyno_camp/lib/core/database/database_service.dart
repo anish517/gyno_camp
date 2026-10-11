@@ -77,6 +77,7 @@ class DatabaseService {
       DatabaseTables.tablePatients: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
         {'name': 'province', 'def': "province TEXT DEFAULT 'Bagmati'"},
+        {'name': 'treatment_level', 'def': "treatment_level TEXT DEFAULT ''"},
       ],
       DatabaseTables.tableClinicalVisits: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
@@ -88,6 +89,7 @@ class DatabaseService {
         {'name': 'primary_doctor_name', 'def': "primary_doctor_name TEXT DEFAULT ''"},
         {'name': 'attending_nurse_names', 'def': "attending_nurse_names TEXT DEFAULT ''"},
         {'name': 'primary_nurse_name', 'def': "primary_nurse_name TEXT DEFAULT ''"},
+        {'name': 'treatment_level', 'def': "treatment_level TEXT DEFAULT ''"},
       ],
       DatabaseTables.tableAuditLogs: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},

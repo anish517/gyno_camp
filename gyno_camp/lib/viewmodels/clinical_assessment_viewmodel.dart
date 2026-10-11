@@ -48,6 +48,7 @@ class ClinicalAssessmentState {
   final List<String> selectedDiagnoses;
 
   // Station 5: Treatment & Medication
+  final String? treatmentLevel;
   final List<String> selectedCounseling;
   final String? pessaryType;
   final String? pessarySize;
@@ -105,6 +106,7 @@ class ClinicalAssessmentState {
     this.glucoseValidation = const ValidationResult.normal(),
     this.obstetricValidation = const ValidationResult.normal(),
     this.selectedDiagnoses = const [],
+    this.treatmentLevel,
     this.selectedCounseling = const [],
     this.pessaryType,
     this.pessarySize,
@@ -167,6 +169,8 @@ class ClinicalAssessmentState {
     ValidationResult? glucoseValidation,
     ValidationResult? obstetricValidation,
     List<String>? selectedDiagnoses,
+    String? treatmentLevel,
+    bool clearTreatmentLevel = false,
     List<String>? selectedCounseling,
     String? pessaryType,
     String? pessarySize,
@@ -223,6 +227,7 @@ class ClinicalAssessmentState {
       glucoseValidation: glucoseValidation ?? this.glucoseValidation,
       obstetricValidation: obstetricValidation ?? this.obstetricValidation,
       selectedDiagnoses: selectedDiagnoses ?? this.selectedDiagnoses,
+      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
       selectedCounseling: selectedCounseling ?? this.selectedCounseling,
       pessaryType: pessaryType ?? this.pessaryType,
       pessarySize: pessarySize ?? this.pessarySize,
@@ -474,6 +479,13 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
   }
 
   // --- Station 5: Treatment & Medications ---
+  void setTreatmentLevel(String? level) {
+    state = state.copyWith(
+      treatmentLevel: level,
+      clearTreatmentLevel: level == null || level.isEmpty,
+    );
+  }
+
   void toggleCounseling(String point) {
     final list = List<String>.from(state.selectedCounseling);
     if (list.contains(point)) {
@@ -567,6 +579,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
           glucose: visit.glucose,
           ecgNotes: visit.ecgNotes,
           selectedDiagnoses: visit.diagnoses,
+          treatmentLevel: visit.treatmentLevel,
           selectedCounseling: visit.counseling,
           pessaryType: visit.pessaryType,
           pessarySize: visit.pessarySize,
@@ -667,6 +680,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         spo2: state.spo2,
         glucose: state.glucose,
         ecgNotes: state.ecgNotes,
+        treatmentLevel: state.treatmentLevel,
         diagnoses: state.selectedDiagnoses,
         counseling: state.selectedCounseling,
         pessaryType: state.pessaryType,

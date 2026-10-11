@@ -785,7 +785,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     final double horizontalPadding = availableWidth >= 1200
                         ? 24.0
                         : (availableWidth >= 800 ? 18.0 : 12.0);
-                    const double minTableWidth = 1260.0;
+                    const double minTableWidth = 860.0;
                     final double contentWidth = availableWidth - (horizontalPadding * 2);
                     final double effectiveTableWidth = contentWidth > minTableWidth
                         ? contentWidth
@@ -934,6 +934,18 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     if (filters.clinicalIntake != null && filters.clinicalIntake != 'all') {
       pills.add(_buildFilterPill('Intake: ${filters.clinicalIntake}', () {
         vm.updateFilters(filters.copyWith(clinicalIntake: 'all'));
+      }));
+    }
+
+    // Level of Treatment
+    if (filters.treatmentLevel != null &&
+        filters.treatmentLevel!.isNotEmpty &&
+        filters.treatmentLevel != 'all') {
+      final label = filters.treatmentLevel == 'council_level'
+          ? 'Level: Council'
+          : (filters.treatmentLevel == 'full_check_up' ? 'Level: Full Check' : 'Level: ${filters.treatmentLevel}');
+      pills.add(_buildFilterPill(label, () {
+        vm.setTreatmentLevelFilter(null);
       }));
     }
 
@@ -2408,6 +2420,36 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         ),
                       ),
                     ],
+
+                    // Row 4: Level of Treatment Filter
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      key: ValueKey('treatment_level_dropdown_${filters.treatmentLevel}'),
+                      initialValue: filters.treatmentLevel ?? 'all',
+                      decoration: const InputDecoration(
+                        labelText: 'Level of Treatment (उपचारको तह)',
+                        prefixIcon: Icon(Icons.layers_outlined, size: 18),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        isDense: true,
+                      ),
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'all',
+                          child: Text('All Treatment Levels (सबै तह)', style: TextStyle(fontSize: 13)),
+                        ),
+                        DropdownMenuItem(
+                          value: 'council_level',
+                          child: Text('Council level (काउन्सिलिङ तह)', style: TextStyle(fontSize: 13)),
+                        ),
+                        DropdownMenuItem(
+                          value: 'full_check_up',
+                          child: Text('Full check up (पूर्ण जाँच)', style: TextStyle(fontSize: 13)),
+                        ),
+                      ],
+                      onChanged: (val) => vm.setTreatmentLevelFilter(val),
+                    ),
                   ],
                 ),
               ),
@@ -3255,6 +3297,54 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             child: Text(
                               maritalStr,
                               style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
+                            ),
+                          ),
+                        if (patient.isCouncilLevel)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.35)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.record_voice_over_rounded, size: 10, color: Color(0xFF7C3AED)),
+                                SizedBox(width: 3),
+                                Text(
+                                  'Council Level (काउन्सिलिङ)',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF7C3AED),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (patient.isFullCheckUp)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0D9488).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFF0D9488).withValues(alpha: 0.35)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.medical_services_rounded, size: 10, color: Color(0xFF0D9488)),
+                                SizedBox(width: 3),
+                                Text(
+                                  'Full Check Up (पूर्ण जाँच)',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF0D9488),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                       ],

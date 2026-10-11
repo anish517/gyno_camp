@@ -1820,6 +1820,105 @@ class _PatientRegistrationViewState
                 ),
                 const SizedBox(height: 16),
 
+                // Section: Level of Treatment (उपचारको तह)
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: BorderSide(
+                      color: state.treatmentLevel != null && state.treatmentLevel!.isNotEmpty
+                          ? const Color(0xFF7C3AED)
+                          : const Color(0xFFE2E8F0),
+                      width: state.treatmentLevel != null && state.treatmentLevel!.isNotEmpty ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.layers_rounded, color: Color(0xFF7C3AED), size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Level of Treatment (उपचारको तह)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                  Text(
+                                    'Triage assessment level — Council level or Full check up (Optional)',
+                                    style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (state.treatmentLevel != null && state.treatmentLevel!.isNotEmpty)
+                              Chip(
+                                visualDensity: VisualDensity.compact,
+                                backgroundColor: const Color(0xFFEDE9FE),
+                                avatar: const Icon(Icons.check, size: 14, color: Color(0xFF7C3AED)),
+                                label: Text(
+                                  state.treatmentLevel == 'council_level' ? 'Council level' : 'Full check up',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF7C3AED)),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          children: [
+                            ChoiceChip(
+                              avatar: Icon(Icons.do_not_disturb_alt_rounded, size: 14, color: (state.treatmentLevel == null || state.treatmentLevel!.isEmpty) ? const Color(0xFF64748B) : Colors.grey),
+                              label: const Text('None / Unassigned (तोकिएको छैन)', style: TextStyle(fontSize: 12)),
+                              selected: state.treatmentLevel == null || state.treatmentLevel!.isEmpty,
+                              selectedColor: const Color(0xFFF1F5F9),
+                              onSelected: (selected) {
+                                if (selected) vm.setTreatmentLevel(null);
+                              },
+                            ),
+                            ChoiceChip(
+                              avatar: Icon(Icons.record_voice_over_rounded, size: 14, color: state.treatmentLevel == 'council_level' ? const Color(0xFF7C3AED) : Colors.grey),
+                              label: const Text('Council level (काउन्सिलिङ तह)', style: TextStyle(fontSize: 12)),
+                              selected: state.treatmentLevel == 'council_level',
+                              selectedColor: const Color(0xFFEDE9FE),
+                              onSelected: (selected) {
+                                vm.setTreatmentLevel(selected ? 'council_level' : null);
+                              },
+                            ),
+                            ChoiceChip(
+                              avatar: Icon(Icons.health_and_safety_rounded, size: 14, color: state.treatmentLevel == 'full_check_up' ? const Color(0xFF0D9488) : Colors.grey),
+                              label: const Text('Full check up (पूर्ण जाँच)', style: TextStyle(fontSize: 12)),
+                              selected: state.treatmentLevel == 'full_check_up',
+                              selectedColor: const Color(0xFFCCFBF1),
+                              onSelected: (selected) {
+                                vm.setTreatmentLevel(selected ? 'full_check_up' : null);
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 // 7. Section 5: Clinical Consents
                 Card(
                   elevation: 0,

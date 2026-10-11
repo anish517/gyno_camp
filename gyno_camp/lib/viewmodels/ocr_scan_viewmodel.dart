@@ -671,6 +671,17 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     state = state.copyWith(scanResult: updated);
   }
 
+  /// Sets level of treatment on scan result during human verification
+  void setTreatmentLevel(String? level) {
+    if (state.scanResult == null) return;
+    final clean = (level == null || level.trim().isEmpty || level.trim() == 'none') ? null : level.trim();
+    final updated = state.scanResult!.copyWith(
+      treatmentLevel: clean,
+      clearTreatmentLevel: clean == null,
+    );
+    state = state.copyWith(scanResult: updated);
+  }
+
   /// Commits verified scanned patient and clinical record to SQLite
   Future<PatientModel?> confirmAndCommit({
     required String campId,

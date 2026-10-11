@@ -58,6 +58,7 @@ class PatientModel {
   final String? pessaryType;
   final String? pessarySize;
   final String? surgicalReferral;
+  final String? treatmentLevel;
 
   const PatientModel({
     required this.id,
@@ -105,10 +106,13 @@ class PatientModel {
     this.pessaryType,
     this.pessarySize,
     this.surgicalReferral,
+    this.treatmentLevel,
   });
 
   String get fullName => '$firstName $surname'.trim();
   bool get isBelowAdultAge => age < ClinicalConstants.adultAgeThreshold;
+  bool get isCouncilLevel => treatmentLevel == 'council_level';
+  bool get isFullCheckUp => treatmentLevel == 'full_check_up';
 
   /// Aggregated list of treatments, medications, pessary fittings, and counseling
   List<String> get treatments {
@@ -209,6 +213,8 @@ class PatientModel {
     String? pessaryType,
     String? pessarySize,
     String? surgicalReferral,
+    String? treatmentLevel,
+    bool clearTreatmentLevel = false,
   }) {
     return PatientModel(
       id: id ?? this.id,
@@ -256,6 +262,7 @@ class PatientModel {
       pessaryType: pessaryType ?? this.pessaryType,
       pessarySize: pessarySize ?? this.pessarySize,
       surgicalReferral: surgicalReferral ?? this.surgicalReferral,
+      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
     );
   }
 
@@ -294,6 +301,7 @@ class PatientModel {
       'reasons_for_visit': reasonsForVisit.join(','),
       'consent_treatment': consentTreatment ? 1 : 0,
       'consent_store_medical_info': consentStoreMedicalInfo ? 1 : 0,
+      'treatment_level': treatmentLevel,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'created_by_user_id': createdByUserId,
@@ -394,6 +402,7 @@ class PatientModel {
       pessaryType: map['pessary_type'] as String?,
       pessarySize: map['pessary_size'] as String?,
       surgicalReferral: map['surgical_referral'] as String?,
+      treatmentLevel: map['treatment_level'] as String?,
     );
   }
 }

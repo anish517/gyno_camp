@@ -26,6 +26,12 @@ typedef _NeSpec = ({
   double? maxWidth,
 });
 
+/// Layout modes for Yellow Registration Form Page 1
+enum BlankFormPage1Layout {
+  grid,    // 2-column stacked field grid (modern full-width)
+  classic, // single demographics column split (earlier side-by-side)
+}
+
 class PdfReportService {
   static pw.ThemeData? _cachedTheme;
   static pw.MemoryImage? _cachedLogoImage;
@@ -3547,6 +3553,7 @@ class PdfReportService {
     bool blankDoctorLines = false,
     NurseProfile? nurse,
     bool blankNurseLines = false,
+    BlankFormPage1Layout page1Layout = BlankFormPage1Layout.grid,
     String organizationName = AppConstants.defaultOrganizationName,
     List<LookupItemModel>? diagnoses,
     List<LookupItemModel>? medications,
@@ -3996,28 +4003,36 @@ class PdfReportService {
                     ],
                   )
                 else
-                  pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Text(
-                        '$labelEn: ',
-                        style: pw.TextStyle(
-                          fontSize: 9.6,
-                          fontWeight: pw.FontWeight.bold,
-                          color: dark,
+                  pw.FittedBox(
+                    fit: pw.BoxFit.scaleDown,
+                    alignment: pw.Alignment.centerLeft,
+                    child: pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          '$labelEn: ',
+                          style: pw.TextStyle(
+                            fontSize: 9.6,
+                            fontWeight: pw.FontWeight.bold,
+                            color: dark,
+                          ),
                         ),
-                      ),
-                      ne(labelNe, size: 8.8, color: 0xFF6B7280),
-                    ],
+                        ne(labelNe, size: 8.8, color: 0xFF6B7280),
+                      ],
+                    ),
                   ),
                 pw.SizedBox(height: 3.5),
-                buildCharBoxes(
-                  value,
-                  minBoxes: minBoxes,
-                  maxBoxes: maxBoxes ?? minBoxes,
-                  boxSize: boxSize,
-                  boxHeight: boxHeight,
-                  boxMargin: boxMargin,
+                pw.FittedBox(
+                  fit: pw.BoxFit.scaleDown,
+                  alignment: pw.Alignment.centerLeft,
+                  child: buildCharBoxes(
+                    value,
+                    minBoxes: minBoxes,
+                    maxBoxes: maxBoxes ?? minBoxes,
+                    boxSize: boxSize,
+                    boxHeight: boxHeight,
+                    boxMargin: boxMargin,
+                  ),
                 ),
               ],
             ),
@@ -4029,12 +4044,13 @@ class PdfReportService {
             bool checked, {
             double? textWidth,
             double bottom = 7.0,
+            bool isExpanded = false,
           }) =>
               pw.Padding(
                 padding: pw.EdgeInsets.only(right: 6, bottom: bottom),
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  mainAxisSize: pw.MainAxisSize.min,
+                  mainAxisSize: isExpanded ? pw.MainAxisSize.max : pw.MainAxisSize.min,
                   children: [
                     pw.Container(
                       width: 13.5,
@@ -4070,6 +4086,14 @@ class PdfReportService {
                         width: textWidth,
                         child: ne(label, size: 9.6, maxWidth: textWidth),
                       )
+                    else if (isExpanded)
+                      pw.Expanded(
+                        child: pw.FittedBox(
+                          fit: pw.BoxFit.scaleDown,
+                          alignment: pw.Alignment.centerLeft,
+                          child: ne(label, size: 9.6),
+                        ),
+                      )
                     else
                       ne(label, size: 9.6),
                   ],
@@ -4087,6 +4111,307 @@ class PdfReportService {
                 '',
               )
               .trim();
+
+          // ── Level of Treatment Triage Status ──
+          final String currentTreatmentLevel =
+              (visit?.treatmentLevel?.trim().isNotEmpty == true)
+                  ? visit!.treatmentLevel!.trim()
+                  : (patient?.treatmentLevel?.trim().isNotEmpty == true
+                      ? patient!.treatmentLevel!.trim()
+                      : '');
+          final bool isCouncilLevel = currentTreatmentLevel == 'council_level';
+          final bool isFullCheckUp = currentTreatmentLevel == 'full_check_up';
+
+          final treatmentLevelBar = pw.Container(
+            width: double.infinity,
+            margin: const pw.EdgeInsets.only(bottom: 6.0),
+            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromHex('F8FAFC'),
+              border: pw.Border.all(color: primary, width: 0.8),
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
+            ),
+            child: pw.Row(
+              children: [
+                pw.Text(
+                  'Level of Treatment / ',
+                  style: pw.TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: dark,
+                  ),
+                ),
+                ne(
+                  'उपचारको तह:',
+                  size: 8.2,
+                  bold: true,
+                  color: 0xFF1E293B,
+                ),
+                pw.SizedBox(width: 14),
+                cb(
+                  'Council level / काउन्सिलिङ तह',
+                  isCouncilLevel,
+                  bottom: 0,
+                ),
+                pw.SizedBox(width: 16),
+                cb(
+                  'Full check up / पूर्ण जाँच',
+                  isFullCheckUp,
+                  bottom: 0,
+                ),
+              ],
+            ),
+          );
+
+          // ── CLASSIC SINGLE-COLUMN DEMOGRAPHICS (LEFT PANEL) ──
+          final leftColClassic = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              secHdr('SECTION A: PATIENT DEMOGRAPHICS / बिरामी विवरण'),
+              field(
+                'First Name',
+                'पहिलो नाम',
+                patient?.firstName ?? '',
+                minBoxes: 14,
+                maxBoxes: 14,
+                boxSize: 15.5,
+                boxHeight: 22.0,
+                boxMargin: 2.0,
+                bottomPadding: 16.0,
+              ),
+              field(
+                'Surname',
+                'थर',
+                patient?.surname ?? '',
+                minBoxes: 14,
+                maxBoxes: 14,
+                boxSize: 15.5,
+                boxHeight: 22.0,
+                boxMargin: 2.0,
+                bottomPadding: 16.0,
+              ),
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.SizedBox(
+                    width: 72,
+                    child: field(
+                      'Patient Age',
+                      'उमेर',
+                      patient != null ? patient.age.toString() : '',
+                      minBoxes: 3,
+                      maxBoxes: 3,
+                      boxSize: 17.5,
+                      boxHeight: 23.0,
+                      boxMargin: 2.5,
+                      bottomPadding: 16.0,
+                      stackedLabel: true,
+                    ),
+                  ),
+                  pw.SizedBox(width: 8),
+                  pw.Expanded(
+                    child: pw.Padding(
+                      padding: const pw.EdgeInsets.only(bottom: 16.0),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Row(
+                            children: [
+                              pw.Text(
+                                'Marital Status / ',
+                                style: pw.TextStyle(
+                                  fontSize: 8.0,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: dark,
+                                ),
+                              ),
+                              ne(
+                                'वैवाहिक स्थिति',
+                                size: 8.0,
+                                bold: true,
+                                color: 0xFF1E293B,
+                              ),
+                            ],
+                          ),
+                          pw.SizedBox(height: 4.0),
+                          pw.Wrap(
+                            spacing: 8,
+                            runSpacing: 3.0,
+                            children: [
+                              cb(
+                                'Married',
+                                patient?.maritalStatus == 'married',
+                                bottom: 0,
+                              ),
+                              cb(
+                                'Widow',
+                                patient?.maritalStatus == 'widow',
+                                bottom: 0,
+                              ),
+                              cb(
+                                'Unmarried',
+                                patient?.maritalStatus == 'unmarried',
+                                bottom: 0,
+                              ),
+                              cb(
+                                'Divorced',
+                                patient?.maritalStatus == 'divorced',
+                                bottom: 0,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              field(
+                (patient?.maritalStatus == 'unmarried' ||
+                        (patient != null && patient.age < 20))
+                    ? "Father's Name"
+                    : (hasPatient
+                          ? "Husband's Name"
+                          : "Husband's / Father's Name"),
+                (patient?.maritalStatus == 'unmarried' ||
+                        (patient != null && patient.age < 20))
+                    ? 'बुबाको नाम'
+                    : (hasPatient ? 'श्रीमानको नाम' : 'श्रीमान् / बुबाको नाम'),
+                patient?.spouseOrFatherName ?? '',
+                minBoxes: 16,
+                maxBoxes: 16,
+                boxSize: 14.5,
+                boxHeight: 22.0,
+                boxMargin: 2.0,
+                bottomPadding: 16.0,
+              ),
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Expanded(
+                    child: field(
+                      'Mobile No.',
+                      'मोबाइल नम्बर',
+                      patient?.mobile ?? '',
+                      minBoxes: 10,
+                      maxBoxes: 10,
+                      boxSize: 15.0,
+                      boxHeight: 22.0,
+                      boxMargin: 1.8,
+                      bottomPadding: 16.0,
+                    ),
+                  ),
+                  pw.SizedBox(width: 8),
+                  pw.SizedBox(
+                    width: 76,
+                    child: field(
+                      'Age at Marriage',
+                      'विवाह भएको उमेर',
+                      patient?.maritalAge != null
+                          ? patient!.maritalAge.toString()
+                          : '',
+                      minBoxes: 3,
+                      maxBoxes: 3,
+                      boxSize: 15.5,
+                      boxHeight: 22.0,
+                      boxMargin: 2.0,
+                      bottomPadding: 16.0,
+                      stackedLabel: true,
+                    ),
+                  ),
+                ],
+              ),
+              field(
+                'Contact Person (Secondary)',
+                'सम्पर्क व्यक्ति',
+                patient?.contactPerson ?? '',
+                minBoxes: 16,
+                maxBoxes: 16,
+                boxSize: 14.5,
+                boxHeight: 22.0,
+                boxMargin: 2.0,
+                bottomPadding: 16.0,
+              ),
+              field(
+                'Contact Mobile No.',
+                'सम्पर्क मोबाइल नम्बर',
+                patient?.contactMobile ?? '',
+                minBoxes: 10,
+                maxBoxes: 10,
+                boxSize: 15.0,
+                boxHeight: 22.0,
+                boxMargin: 1.8,
+                bottomPadding: 16.0,
+              ),
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(
+                    child: field(
+                      'District',
+                      'जिल्ला',
+                      patient?.district ?? '',
+                      minBoxes: 10,
+                      maxBoxes: 10,
+                      boxSize: 11.8,
+                      boxHeight: 20.0,
+                      boxMargin: 1.2,
+                      bottomPadding: 16.0,
+                    ),
+                  ),
+                  pw.SizedBox(width: 8),
+                  pw.Expanded(
+                    child: field(
+                      'Province',
+                      'प्रदेश',
+                      patient?.province ?? '',
+                      minBoxes: 10,
+                      maxBoxes: 10,
+                      boxSize: 11.8,
+                      boxHeight: 20.0,
+                      boxMargin: 1.2,
+                      bottomPadding: 16.0,
+                    ),
+                  ),
+                ],
+              ),
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(
+                    child: field(
+                      'Palika / Municipality',
+                      'गाउँपालिका / नगरपालिका',
+                      palikaVal,
+                      minBoxes: 14,
+                      maxBoxes: 14,
+                      boxSize: 13.0,
+                      boxHeight: 20.0,
+                      boxMargin: 1.5,
+                      bottomPadding: 8.0,
+                      stackedLabel: true,
+                    ),
+                  ),
+                  pw.SizedBox(width: 8),
+                  pw.SizedBox(
+                    width: 66,
+                    child: field(
+                      'Ward No.',
+                      'वडा नं.',
+                      patient?.ward ?? '',
+                      minBoxes: 3,
+                      maxBoxes: 3,
+                      boxSize: 16.5,
+                      boxHeight: 22.0,
+                      boxMargin: 2.0,
+                      bottomPadding: 8.0,
+                      stackedLabel: true,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
 
           // ── SECTION A: PATIENT DEMOGRAPHICS (Full width 2-column stacked rows) ──
           final sectionA = pw.Column(
@@ -4571,6 +4896,143 @@ class PdfReportService {
             ],
           );
 
+          // ── CLASSIC SINGLE-COLUMN RIGHT PANEL ──
+          final bool hasFewReasons = effectiveVisitReasons.length <= 5;
+          final double reasonBottom = hasFewReasons ? 12.0 : 9.5;
+          final double spaceBeforeConsent = hasFewReasons ? 16.0 : 10.0;
+          final double spaceBeforeSig = hasFewReasons ? 32.0 : 20.0;
+          final double spaceBeforeOfficial = hasFewReasons ? 24.0 : 14.0;
+
+          final rightColClassic = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              secHdr('SECTION B: REASONS FOR VISIT / जाँचको कारण'),
+              ...effectiveVisitReasons.entries.map(
+                (e) => cb(
+                  e.value,
+                  isVisitReasonChecked(e.key, e.value),
+                  isExpanded: true,
+                  bottom: reasonBottom,
+                ),
+              ),
+              pw.SizedBox(height: spaceBeforeConsent),
+              secHdr('SECTION C: PATIENT CONSENT / सहमति'),
+              cb(
+                'I consent to examination and treatment / जाँच तथा उपचारका लागि मेरो सहमति छ',
+                patient?.consentTreatment ?? false,
+                isExpanded: true,
+                bottom: hasFewReasons ? 14.0 : 10.0,
+              ),
+              cb(
+                'I consent to storage of my medical information / मेरो स्वास्थ्य विवरण भण्डारण गर्न सहमति छ',
+                patient?.consentStoreMedicalInfo ?? false,
+                isExpanded: true,
+                bottom: hasFewReasons ? 14.0 : 10.0,
+              ),
+              pw.SizedBox(height: spaceBeforeSig),
+              pw.FittedBox(
+                fit: pw.BoxFit.scaleDown,
+                alignment: pw.Alignment.centerLeft,
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Container(
+                          width: 110,
+                          height: 0.8,
+                          color: PdfColors.black,
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          'Patient Signature / Thumbprint',
+                          style: pw.TextStyle(
+                            fontSize: 7.2,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.Text(
+                          '(Required for consent)',
+                          style: const pw.TextStyle(
+                            fontSize: 6.2,
+                            color: PdfColors.grey600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    pw.SizedBox(width: 20),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Container(
+                          width: 110,
+                          height: 0.8,
+                          color: PdfColors.black,
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          'Data Entry Operator',
+                          style: pw.TextStyle(
+                            fontSize: 7.2,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.Text(
+                          'Date: ${dateFormatter.format(DateTime.now())}',
+                          style: const pw.TextStyle(
+                            fontSize: 6.2,
+                            color: PdfColors.grey600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: spaceBeforeOfficial),
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 5,
+                ),
+                decoration: pw.BoxDecoration(
+                  color: PdfColor.fromHex('F8FAFC'),
+                  border: pw.Border.all(color: primary, width: 0.8),
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(3),
+                  ),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Text(
+                      'FOR OFFICIAL USE ONLY',
+                      style: pw.TextStyle(
+                        fontSize: 7.5,
+                        fontWeight: pw.FontWeight.bold,
+                        color: primary,
+                      ),
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      hasPatient
+                          ? 'Patient ID: ${patient.patientId} | Camp: ${camp?.campCode ?? patient.campCode}'
+                          : 'Camp: ${camp?.campCode ?? "CAMP"} | Venue: ${sanitizeText(camp?.venue ?? "Health Center")}',
+                      style: const pw.TextStyle(
+                        fontSize: 7.0,
+                        color: PdfColors.grey700,
+                      ),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -4721,23 +5183,42 @@ class PdfReportService {
               ),
               pw.SizedBox(height: 6),
 
-              // Full-width stacked sections: A (Demographics) -> B (Reasons) -> C (Consent & Sigs)
+              // Render either Classic (2-panel single column) or Grid (full-width stacked 2-column)
               pw.Expanded(
                 child: pw.FittedBox(
                   fit: pw.BoxFit.scaleDown,
                   alignment: pw.Alignment.topCenter,
                   child: pw.SizedBox(
                     width: 551.28,
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        sectionA,
-                        pw.SizedBox(height: 10),
-                        sectionB,
-                        pw.SizedBox(height: 10),
-                        sectionC,
-                      ],
-                    ),
+                    child: page1Layout == BlankFormPage1Layout.classic
+                        ? pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              treatmentLevelBar,
+                              pw.SizedBox(height: 4),
+                              pw.Row(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Expanded(flex: 53, child: leftColClassic),
+                                  pw.SizedBox(width: 10),
+                                  pw.Container(width: 0.5, color: gray),
+                                  pw.SizedBox(width: 10),
+                                  pw.Expanded(flex: 47, child: rightColClassic),
+                                ],
+                              ),
+                            ],
+                          )
+                        : pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              treatmentLevelBar,
+                              sectionA,
+                              pw.SizedBox(height: 10),
+                              sectionB,
+                              pw.SizedBox(height: 10),
+                              sectionC,
+                            ],
+                          ),
                   ),
                 ),
               ),
@@ -4896,6 +5377,14 @@ class PdfReportService {
                       '')
                   .toLowerCase();
           final tone = (visit?.pelvicFloorTone ?? '').toLowerCase();
+          final String currentTreatmentLevel =
+              (visit?.treatmentLevel?.trim().isNotEmpty == true)
+                  ? visit!.treatmentLevel!.trim()
+                  : (patient?.treatmentLevel?.trim().isNotEmpty == true
+                      ? patient!.treatmentLevel!.trim()
+                      : '');
+          final bool isCouncilLevel = currentTreatmentLevel == 'council_level';
+          final bool isFullCheckUp = currentTreatmentLevel == 'full_check_up';
 
           // Build columns
           // LEFT COLUMN: Stations 1-3 (Anamnesis, POP, Vitals)
@@ -5289,6 +5778,17 @@ class PdfReportService {
 
               // ── STATION 5: TREATMENT ─────────────────────────────────────
               sectionHeader('STATION 5: TREATMENT & PRESCRIPTIONS / उपचार'),
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 3.5),
+                child: pw.Row(
+                  children: [
+                    pw.Text('Level of Treatment: ', style: bold(size: fsSmall)),
+                    cb('Council level', isCouncilLevel),
+                    pw.SizedBox(width: 8),
+                    cb('Full check up', isFullCheckUp),
+                  ],
+                ),
+              ),
               if (effectiveMedicationsItems.isEmpty) ...[
                 pw.Padding(
                   padding: const pw.EdgeInsets.symmetric(vertical: 2),
@@ -6014,6 +6514,7 @@ class PdfReportService {
     bool blankDoctorLines = false,
     NurseProfile? nurse,
     bool blankNurseLines = false,
+    BlankFormPage1Layout page1Layout = BlankFormPage1Layout.grid,
     String organizationName = AppConstants.defaultOrganizationName,
     List<LookupItemModel>? diagnoses,
     List<LookupItemModel>? medications,
@@ -6034,6 +6535,7 @@ class PdfReportService {
         blankDoctorLines: blankDoctorLines,
         nurse: nurse,
         blankNurseLines: blankNurseLines,
+        page1Layout: page1Layout,
         organizationName: organizationName,
         diagnoses: diagnoses,
         medications: medications,
@@ -6051,6 +6553,7 @@ class PdfReportService {
     CampModel? camp,
     NurseProfile? nurse,
     bool blankNurseLines = false,
+    BlankFormPage1Layout page1Layout = BlankFormPage1Layout.grid,
     String organizationName = AppConstants.defaultOrganizationName,
     List<LookupItemModel>? diagnoses,
     List<LookupItemModel>? medications,
@@ -6069,6 +6572,7 @@ class PdfReportService {
           doctor: doc,
           nurse: nurse,
           blankNurseLines: blankNurseLines,
+          page1Layout: page1Layout,
           organizationName: organizationName,
           diagnoses: diagnoses,
           medications: medications,

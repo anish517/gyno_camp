@@ -24,6 +24,7 @@ class OcrScanResultModel {
   final List<String> attendingDoctors; // Multi-doctor list if multiple attended
   final String? examiningNurse; // Lead nurse identified on Page 2
   final List<String> attendingNurses; // Multi-nurse list if multiple nurses attended
+  final String? treatmentLevel; // 'council_level', 'full_check_up', or null
   final Map<String, double> fieldConfidences;
   final double overallConfidence;
   final String rawText;
@@ -55,6 +56,7 @@ class OcrScanResultModel {
     this.attendingDoctors = const [],
     this.examiningNurse,
     this.attendingNurses = const [],
+    this.treatmentLevel,
     required this.fieldConfidences,
     required this.overallConfidence,
     required this.rawText,
@@ -93,6 +95,8 @@ class OcrScanResultModel {
     String? examiningNurse,
     bool clearExaminingNurse = false,
     List<String>? attendingNurses,
+    String? treatmentLevel,
+    bool clearTreatmentLevel = false,
     Map<String, double>? fieldConfidences,
     double? overallConfidence,
     String? rawText,
@@ -124,6 +128,7 @@ class OcrScanResultModel {
       attendingDoctors: attendingDoctors ?? List<String>.from(this.attendingDoctors),
       examiningNurse: clearExaminingNurse ? null : (examiningNurse ?? this.examiningNurse),
       attendingNurses: attendingNurses ?? List<String>.from(this.attendingNurses),
+      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
       fieldConfidences: fieldConfidences ?? Map<String, double>.from(this.fieldConfidences),
       overallConfidence: overallConfidence ?? this.overallConfidence,
       rawText: rawText ?? this.rawText,
@@ -202,6 +207,7 @@ ${page2.rawText}
       attendingDoctors: mergedDoctors,
       examiningNurse: mergedNurse,
       attendingNurses: mergedNurses,
+      treatmentLevel: page2.treatmentLevel ?? page1.treatmentLevel,
       fieldConfidences: mergedConfidences,
       overallConfidence: double.parse(avgConf.toStringAsFixed(2)),
       rawText: combinedText,
@@ -244,6 +250,7 @@ ${page2.rawText}
       'attendingDoctors': attendingDoctors.join(','),
       'examiningNurse': examiningNurse,
       'attendingNurses': attendingNurses.join(','),
+      'treatmentLevel': treatmentLevel,
       'fieldConfidences': fieldConfidences,
       'overallConfidence': overallConfidence,
       'rawText': rawText,
@@ -265,6 +272,7 @@ ${page2.rawText}
       attendingDoctors: const [],
       examiningNurse: null,
       attendingNurses: const [],
+      treatmentLevel: null,
       fieldConfidences: {},
       overallConfidence: 0.0,
       rawText: '',

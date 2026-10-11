@@ -198,6 +198,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 medications: state.selectedMedications,
                 pessaryType: state.pessaryType,
                 pessarySize: state.pessarySize,
+                treatmentLevel: state.treatmentLevel,
                 counseling: state.selectedCounseling,
                 followUpNeeded: state.followUpNeeded,
                 followUpDestination: state.followUpDestination,
@@ -1708,6 +1709,114 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Level of Treatment Selector
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          color: const Color(0xFFF8FAFC),
+          child: Padding(
+            padding: const EdgeInsets.all(14.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.layers_rounded, color: AppTheme.primaryTeal, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Level of Treatment (उपचारको तह)',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                    ),
+                    if (state.treatmentLevel != null && state.treatmentLevel!.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: state.treatmentLevel == 'council_level'
+                              ? const Color(0xFF7C3AED).withValues(alpha: 0.12)
+                              : const Color(0xFF0D9488).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: state.treatmentLevel == 'council_level'
+                                ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
+                                : const Color(0xFF0D9488).withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Text(
+                          state.treatmentLevel == 'council_level'
+                              ? 'Council Level'
+                              : 'Full Check Up',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: state.treatmentLevel == 'council_level'
+                                ? const Color(0xFF7C3AED)
+                                : const Color(0xFF0D9488),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Select the tier of treatment planned or provided at this camp encounter:',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('None / Unassigned (तोकिएको छैन)'),
+                      selected: state.treatmentLevel == null || state.treatmentLevel!.isEmpty,
+                      onSelected: (selected) {
+                        if (selected) vm.setTreatmentLevel(null);
+                      },
+                      selectedColor: const Color(0xFFE2E8F0),
+                    ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.record_voice_over_rounded, size: 16),
+                      label: const Text('Council level (काउन्सिलिङ तह)'),
+                      selected: state.treatmentLevel == 'council_level',
+                      selectedColor: const Color(0xFFEDE9FE),
+                      labelStyle: TextStyle(
+                        fontWeight: state.treatmentLevel == 'council_level' ? FontWeight.bold : FontWeight.normal,
+                        color: state.treatmentLevel == 'council_level' ? const Color(0xFF7C3AED) : null,
+                      ),
+                      onSelected: (selected) {
+                        vm.setTreatmentLevel(selected ? 'council_level' : null);
+                      },
+                    ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.medical_services_rounded, size: 16),
+                      label: const Text('Full check up (पूर्ण जाँच)'),
+                      selected: state.treatmentLevel == 'full_check_up',
+                      selectedColor: const Color(0xFFCCFBF1),
+                      labelStyle: TextStyle(
+                        fontWeight: state.treatmentLevel == 'full_check_up' ? FontWeight.bold : FontWeight.normal,
+                        color: state.treatmentLevel == 'full_check_up' ? const Color(0xFF0F766E) : null,
+                      ),
+                      onSelected: (selected) {
+                        vm.setTreatmentLevel(selected ? 'full_check_up' : null);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
         const Text('Specialized Counseling (परामर्श)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Wrap(

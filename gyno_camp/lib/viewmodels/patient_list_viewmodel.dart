@@ -18,6 +18,7 @@ class PatientFilterCriteria {
   final String? popStage; // 'all', '0', '1', '2', '3', '4'
   final String? chiefComplaint; // reason for visit key e.g. 'something hanging out'
   final String? clinicalIntake; // 'all', 'completed', 'pending', 'followup'
+  final String? treatmentLevel; // 'all', 'council_level', 'full_check_up'
   final String? doctor; // 'all' or specific doctor name
   final String? nurse; // 'all' or specific nurse name
   final Map<String, List<String>> campDoctorsMap; // campId -> doctorNames list
@@ -36,6 +37,7 @@ class PatientFilterCriteria {
     this.popStage,
     this.chiefComplaint,
     this.clinicalIntake,
+    this.treatmentLevel,
     this.doctor,
     this.nurse,
     this.campDoctorsMap = const {},
@@ -54,6 +56,7 @@ class PatientFilterCriteria {
       (popStage != null && popStage != 'all') ||
       (chiefComplaint != null && chiefComplaint!.trim().isNotEmpty) ||
       (clinicalIntake != null && clinicalIntake != 'all') ||
+      (treatmentLevel != null && treatmentLevel != 'all' && treatmentLevel!.trim().isNotEmpty) ||
       (doctor != null && doctor != 'all' && doctor!.trim().isNotEmpty) ||
       (nurse != null && nurse != 'all' && nurse!.trim().isNotEmpty);
 
@@ -70,6 +73,7 @@ class PatientFilterCriteria {
     if (popStage != null && popStage != 'all') count++;
     if (chiefComplaint != null && chiefComplaint!.trim().isNotEmpty) count++;
     if (clinicalIntake != null && clinicalIntake != 'all') count++;
+    if (treatmentLevel != null && treatmentLevel != 'all' && treatmentLevel!.trim().isNotEmpty) count++;
     if (doctor != null && doctor != 'all' && doctor!.trim().isNotEmpty) count++;
     if (nurse != null && nurse != 'all' && nurse!.trim().isNotEmpty) count++;
     return count;
@@ -89,6 +93,7 @@ class PatientFilterCriteria {
     String? popStage,
     String? chiefComplaint,
     String? clinicalIntake,
+    String? treatmentLevel,
     String? doctor,
     String? nurse,
     Map<String, List<String>>? campDoctorsMap,
@@ -104,6 +109,7 @@ class PatientFilterCriteria {
     bool clearPopStage = false,
     bool clearChiefComplaint = false,
     bool clearClinicalIntake = false,
+    bool clearTreatmentLevel = false,
     bool clearDoctor = false,
     bool clearNurse = false,
   }) {
@@ -121,6 +127,7 @@ class PatientFilterCriteria {
       popStage: clearPopStage ? null : (popStage ?? this.popStage),
       chiefComplaint: clearChiefComplaint ? null : (chiefComplaint ?? this.chiefComplaint),
       clinicalIntake: clearClinicalIntake ? null : (clinicalIntake ?? this.clinicalIntake),
+      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
       doctor: clearDoctor ? null : (doctor ?? this.doctor),
       nurse: clearNurse ? null : (nurse ?? this.nurse),
       campDoctorsMap: campDoctorsMap ?? this.campDoctorsMap,
@@ -250,6 +257,13 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
     );
   }
 
+  void setTreatmentLevelFilter(String? level) {
+    updateFilters(state.filters.copyWith(
+      treatmentLevel: (level == null || level == 'all') ? null : level,
+      clearTreatmentLevel: level == null || level == 'all',
+    ));
+  }
+
   List<PatientModel> _filterList(
     List<PatientModel> list,
     String query,
@@ -370,6 +384,13 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         if (filters.clinicalIntake == 'completed' && !p.hasClinicalVisit) return false;
         if (filters.clinicalIntake == 'pending' && p.hasClinicalVisit) return false;
         if (filters.clinicalIntake == 'followup' && !p.isFollowUp) return false;
+      }
+
+      // Treatment Level
+      if (filters.treatmentLevel != null &&
+          filters.treatmentLevel != 'all' &&
+          filters.treatmentLevel!.trim().isNotEmpty) {
+        if (p.treatmentLevel != filters.treatmentLevel) return false;
       }
 
       // 4. Doctor Filter — match strictly by attending/primary doctor when visit exists
