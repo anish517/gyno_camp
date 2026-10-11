@@ -2865,53 +2865,27 @@ class PdfReportService {
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 22, vertical: 16),
         build: (ctx) {
+          // ── Professional full-width section header (solid band, matches Pages 1 & 2) ──
           pw.Widget secHeader(String title) {
-            if (title.contains(' / ')) {
-              final parts = title.split(' / ');
-              return pw.Container(
-                margin: const pw.EdgeInsets.only(top: 8, bottom: 4),
-                padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 3.5,
-                ),
-                decoration: pw.BoxDecoration(
-                  color: cyanBg,
-                  border: pw.Border(left: pw.BorderSide(color: cyan, width: 3)),
-                ),
-                child: pw.Row(
-                  mainAxisSize: pw.MainAxisSize.min,
-                  children: [
-                    pw.Text(
-                      '${parts[0]} / ',
-                      style: pw.TextStyle(
-                        fontSize: 10.0,
-                        fontWeight: pw.FontWeight.bold,
-                        color: cyan,
-                      ),
-                    ),
-                    ne(
-                      parts.sublist(1).join(' / '),
-                      size: 9.5,
-                      bold: true,
-                      color: 0xFF81005D,
-                    ),
-                  ],
-                ),
-              );
-            }
             return pw.Container(
-              margin: const pw.EdgeInsets.only(top: 8, bottom: 4),
-              padding: const pw.EdgeInsets.symmetric(
-                horizontal: 6,
-                vertical: 3.5,
-              ),
+              width: double.infinity,
+              margin: const pw.EdgeInsets.only(top: 5, bottom: 3),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
               decoration: pw.BoxDecoration(
-                color: cyanBg,
-                border: pw.Border(left: pw.BorderSide(color: cyan, width: 3)),
+                color: cyan,
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
               ),
-              child: ne(title, size: 10.0, bold: true, color: 0xFF30026E),
+              child: pw.Text(
+                title,
+                style: pw.TextStyle(
+                  fontSize: 9.0,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                  letterSpacing: 0.2,
+                ),
+              ),
             );
           }
 
@@ -2939,17 +2913,21 @@ class PdfReportService {
             ),
           );
 
+          // ── Professional checkbox — 13 × 13 pt, 1.2 pt border, light fill ──
           pw.Widget cb(String label) => pw.Padding(
-            padding: const pw.EdgeInsets.only(right: 8, bottom: 3),
+            padding: const pw.EdgeInsets.only(right: 7, bottom: 2.5),
             child: pw.Row(
               mainAxisSize: pw.MainAxisSize.min,
               children: [
                 pw.Container(
-                  width: 10.5,
-                  height: 10.5,
+                  width: 13.0,
+                  height: 13.0,
                   decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: gray, width: 0.8),
-                    color: boxBg,
+                    color: PdfColor.fromHex('F8F8F8'),
+                    border: pw.Border.all(color: gray, width: 1.2),
+                    borderRadius: const pw.BorderRadius.all(
+                      pw.Radius.circular(2.5),
+                    ),
                   ),
                 ),
                 pw.SizedBox(width: 4),
@@ -3934,56 +3912,27 @@ class PdfReportService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.symmetric(horizontal: 22, vertical: 18),
         build: (ctx) {
-          // ── Compact section header ──
+          // ── Professional full-width section header (solid band) ──
           pw.Widget secHdr(String title) {
-            if (title.contains(' / ')) {
-              final parts = title.split(' / ');
-              return pw.Container(
-                margin: const pw.EdgeInsets.only(bottom: 4, top: 6),
-                padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 7,
-                  vertical: 3.5,
-                ),
-                decoration: pw.BoxDecoration(
-                  color: lightBg,
-                  border: pw.Border(
-                    left: pw.BorderSide(color: primary, width: 3),
-                  ),
-                ),
-                child: pw.Row(
-                  mainAxisSize: pw.MainAxisSize.min,
-                  children: [
-                    pw.Text(
-                      '${parts[0]} / ',
-                      style: pw.TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: pw.FontWeight.bold,
-                        color: primary,
-                      ),
-                    ),
-                    ne(
-                      parts.sublist(1).join(' / '),
-                      size: 9.0,
-                      bold: true,
-                      color: 0xFF81005D,
-                    ),
-                  ],
-                ),
-              );
-            }
+            // Solid-primary-band header: full width, white label.
+            // Nepali portion is rendered via pw.Text (ASCII-safe section names).
             return pw.Container(
-              margin: const pw.EdgeInsets.only(bottom: 4, top: 6),
-              padding: const pw.EdgeInsets.symmetric(
-                horizontal: 7,
-                vertical: 3.5,
-              ),
+              width: double.infinity,
+              margin: const pw.EdgeInsets.only(bottom: 3, top: 5),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
               decoration: pw.BoxDecoration(
-                color: lightBg,
-                border: pw.Border(
-                  left: pw.BorderSide(color: primary, width: 3),
+                color: primary,
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+              ),
+              child: pw.Text(
+                title,
+                style: pw.TextStyle(
+                  fontSize: 9.0,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                  letterSpacing: 0.2,
                 ),
               ),
-              child: ne(title, size: 9.5, bold: true, color: 0xFF30026E),
             );
           }
 
@@ -4027,25 +3976,27 @@ class PdfReportService {
             ),
           );
 
-          // ── Compact checkbox ──
+          // ── Professional checkbox — 13 × 13 pt, 1.2 pt border, light fill ──
           pw.Widget cb(String label, bool checked, {bool isExpanded = false}) =>
               pw.Padding(
-                padding: const pw.EdgeInsets.only(right: 8, bottom: 3),
+                padding: const pw.EdgeInsets.only(right: 6, bottom: 2.5),
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Container(
-                      width: 10.5,
-                      height: 10.5,
-                      margin: const pw.EdgeInsets.only(right: 4, top: 1),
+                      width: 13.0,
+                      height: 13.0,
+                      margin: const pw.EdgeInsets.only(right: 4, top: 0.5),
                       decoration: pw.BoxDecoration(
-                        color: PdfColors.white,
+                        color: checked
+                            ? PdfColor.fromHex('EDE9FF')
+                            : PdfColor.fromHex('F8F8F8'),
                         border: pw.Border.all(
                           color: checked ? primary : gray,
-                          width: checked ? 1.2 : 0.8,
+                          width: 1.2,
                         ),
                         borderRadius: const pw.BorderRadius.all(
-                          pw.Radius.circular(2),
+                          pw.Radius.circular(2.5),
                         ),
                       ),
                       child: checked
@@ -4053,7 +4004,7 @@ class PdfReportService {
                               child: pw.Text(
                                 'X',
                                 style: pw.TextStyle(
-                                  fontSize: 8.0,
+                                  fontSize: 8.5,
                                   fontWeight: pw.FontWeight.bold,
                                   color: primary,
                                 ),
@@ -4309,147 +4260,180 @@ class PdfReportService {
           );
 
           // ── RIGHT COLUMN: Section B (Reasons) + Section C (Consent) + Signatures ──
+          // Helper: match a visit reason entry by key or display value.
+          bool isVisitReasonChecked(String key, String val) =>
+              patient?.reasonsForVisit.any((r) {
+                    final rNorm = r.toLowerCase().trim();
+                    final kNorm = key.toLowerCase().trim();
+                    final vNorm = val.toLowerCase().trim();
+                    if (rNorm == kNorm || rNorm == vNorm) return true;
+                    if (rNorm.replaceAll('_', ' ') == kNorm.replaceAll('_', ' ')) return true;
+                    if (rNorm.replaceAll(' ', '_') == kNorm.replaceAll(' ', '_')) return true;
+                    return false;
+                  }) ??
+              false;
+
+          // 2-column grid for visit reasons — halves vertical height of Section B.
+          final reasonEntries = effectiveVisitReasons.entries.toList();
+          final reasonRows = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: List.generate((reasonEntries.length + 1) ~/ 2, (i) {
+              final left = reasonEntries[i * 2];
+              final rightIdx = i * 2 + 1;
+              final right = rightIdx < reasonEntries.length
+                  ? reasonEntries[rightIdx]
+                  : null;
+              return pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(
+                    child: cb(
+                      left.value,
+                      isVisitReasonChecked(left.key, left.value),
+                      isExpanded: true,
+                    ),
+                  ),
+                  if (right != null)
+                    pw.Expanded(
+                      child: cb(
+                        right.value,
+                        isVisitReasonChecked(right.key, right.value),
+                        isExpanded: true,
+                      ),
+                    )
+                  else
+                    pw.Expanded(child: pw.SizedBox()),
+                ],
+              );
+            }),
+          );
+
           final rightCol = pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              secHdr('SECTION B: REASONS FOR VISIT / जाँचको कारण'),
-              ...effectiveVisitReasons.entries.map(
-                (e) => cb(
-                  e.value,
-                  patient?.reasonsForVisit.any((r) {
-                        final rNorm = r.toLowerCase().trim();
-                        final keyNorm = e.key.toLowerCase().trim();
-                        final valNorm = e.value.toLowerCase().trim();
-                        if (rNorm == keyNorm || rNorm == valNorm) {
-                          return true;
-                        }
-                        if (rNorm.replaceAll('_', ' ') ==
-                            keyNorm.replaceAll('_', ' ')) {
-                          return true;
-                        }
-                        if (rNorm.replaceAll(' ', '_') ==
-                            keyNorm.replaceAll(' ', '_')) {
-                          return true;
-                        }
-                        return false;
-                      }) ??
-                      false,
-                  isExpanded: true,
-                ),
-              ),
-
-              pw.SizedBox(height: 6),
-              secHdr('SECTION C: PATIENT CONSENT / सहमति'),
-              cb(
-                'I consent to examination and treatment / जाँच तथा उपचारका लागि मेरो सहमति छ',
-                patient?.consentTreatment ?? false,
-                isExpanded: true,
-              ),
-              pw.SizedBox(height: 3),
-              cb(
-                'I consent to storage of my medical information / मेरो स्वास्थ्य विवरण भण्डारण गर्न सहमति छ',
-                patient?.consentStoreMedicalInfo ?? false,
-                isExpanded: true,
-              ),
-
-              pw.SizedBox(height: 10),
-
-              // Signature lines (clean 2-column signature block without square box)
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
+              // Top content block
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Container(
-                        width: 105,
-                        height: 0.8,
-                        color: PdfColors.black,
-                      ),
-                      pw.SizedBox(height: 2),
-                      pw.Text(
-                        'Patient Signature / Thumbprint',
-                        style: pw.TextStyle(
-                          fontSize: 7,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.Text(
-                        '(Required for consent)',
-                        style: pw.TextStyle(
-                          fontSize: 6,
-                          color: PdfColors.grey600,
-                        ),
-                      ),
-                    ],
+                  secHdr('SECTION B: REASONS FOR VISIT / जाँचको कारण'),
+                  reasonRows,
+                  pw.SizedBox(height: 4),
+                  secHdr('SECTION C: PATIENT CONSENT / सहमति'),
+                  cb(
+                    'I consent to examination and treatment / जाँच तथा उपचारका लागि मेरो सहमति छ',
+                    patient?.consentTreatment ?? false,
+                    isExpanded: true,
                   ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Container(
-                        width: 95,
-                        height: 0.8,
-                        color: PdfColors.black,
-                      ),
-                      pw.SizedBox(height: 2),
-                      pw.Text(
-                        'Data Entry Operator',
-                        style: pw.TextStyle(
-                          fontSize: 7,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.Text(
-                        'Date: ${dateFormatter.format(DateTime.now())}',
-                        style: pw.TextStyle(
-                          fontSize: 6,
-                          color: PdfColors.grey600,
-                        ),
-                      ),
-                    ],
+                  pw.SizedBox(height: 2),
+                  cb(
+                    'I consent to storage of my medical information / मेरो स्वास्थ्य विवरण भण्डारण गर्न सहमति छ',
+                    patient?.consentStoreMedicalInfo ?? false,
+                    isExpanded: true,
                   ),
                 ],
               ),
 
-              pw.SizedBox(height: 8),
-              pw.Container(
-                width: double.infinity,
-                padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 5,
-                ),
-                decoration: pw.BoxDecoration(
-                  color: PdfColor.fromHex('F8FAFC'),
-                  border: pw.Border.all(color: gray, width: 0.8),
-                  borderRadius: const pw.BorderRadius.all(
-                    pw.Radius.circular(3),
+              // Bottom block — signature lines + official-use box pinned to page bottom
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Container(
+                            width: 105,
+                            height: 0.8,
+                            color: PdfColors.black,
+                          ),
+                          pw.SizedBox(height: 2),
+                          pw.Text(
+                            'Patient Signature / Thumbprint',
+                            style: pw.TextStyle(
+                              fontSize: 7,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                          pw.Text(
+                            '(Required for consent)',
+                            style: pw.TextStyle(
+                              fontSize: 6,
+                              color: PdfColors.grey600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Container(
+                            width: 95,
+                            height: 0.8,
+                            color: PdfColors.black,
+                          ),
+                          pw.SizedBox(height: 2),
+                          pw.Text(
+                            'Data Entry Operator',
+                            style: pw.TextStyle(
+                              fontSize: 7,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                          pw.Text(
+                            'Date: ${dateFormatter.format(DateTime.now())}',
+                            style: pw.TextStyle(
+                              fontSize: 6,
+                              color: PdfColors.grey600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    pw.Text(
-                      'FOR OFFICIAL USE ONLY',
-                      style: pw.TextStyle(
-                        fontSize: 7,
-                        fontWeight: pw.FontWeight.bold,
-                        color: primary,
+                  pw.SizedBox(height: 6),
+                  pw.Container(
+                    width: double.infinity,
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColor.fromHex('F8FAFC'),
+                      border: pw.Border.all(color: primary, width: 0.8),
+                      borderRadius: const pw.BorderRadius.all(
+                        pw.Radius.circular(3),
                       ),
                     ),
-                    pw.SizedBox(height: 2),
-                    pw.Text(
-                      hasPatient
-                          ? 'Patient ID: ${patient.patientId} | Camp: ${camp?.campCode ?? patient.campCode}'
-                          : 'Camp: ${camp?.campCode ?? "CAMP"} | Venue: ${sanitizeText(camp?.venue ?? "Health Center")}',
-                      style: pw.TextStyle(
-                        fontSize: 6.5,
-                        color: PdfColors.grey700,
-                      ),
-                      textAlign: pw.TextAlign.center,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Text(
+                          'FOR OFFICIAL USE ONLY',
+                          style: pw.TextStyle(
+                            fontSize: 7,
+                            fontWeight: pw.FontWeight.bold,
+                            color: primary,
+                          ),
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          hasPatient
+                              ? 'Patient ID: ${patient.patientId} | Camp: ${camp?.campCode ?? patient.campCode}'
+                              : 'Camp: ${camp?.campCode ?? "CAMP"} | Venue: ${sanitizeText(camp?.venue ?? "Health Center")}',
+                          style: pw.TextStyle(
+                            fontSize: 6.5,
+                            color: PdfColors.grey700,
+                          ),
+                          textAlign: pw.TextAlign.center,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           );
@@ -4667,67 +4651,45 @@ class PdfReportService {
               pw.TextStyle(fontSize: size, color: dark);
 
           pw.Widget sectionHeader(String title) {
-            final pw.Widget content;
-            if (title.contains(' / ')) {
-              final parts = title.split(' / ');
-              content = pw.Row(
-                mainAxisSize: pw.MainAxisSize.min,
-                children: [
-                  pw.Text(
-                    '${parts[0]} / ',
-                    style: pw.TextStyle(
-                      fontSize: 8.8,
-                      fontWeight: pw.FontWeight.bold,
-                      color: primary,
-                    ),
-                  ),
-                  ne(
-                    parts.sublist(1).join(' / '),
-                    size: 8.5,
-                    bold: true,
-                    color: 0xFF81005D,
-                  ),
-                ],
-              );
-            } else {
-              content = ne(title, size: 8.8, bold: true, color: 0xFF30026E);
-            }
-
+            // Solid-primary-band header matching page 1 style.
             return pw.Container(
               width: double.infinity,
               margin: const pw.EdgeInsets.only(bottom: 2.5),
               padding: const pw.EdgeInsets.symmetric(
-                horizontal: 6,
-                vertical: 2.5,
+                horizontal: 7,
+                vertical: 3,
               ),
               decoration: pw.BoxDecoration(
-                color: lightBg,
-                border: pw.Border(
-                  left: pw.BorderSide(color: primary, width: 2.5),
-                ),
+                color: primary,
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
               ),
-              child: pw.FittedBox(
-                fit: pw.BoxFit.scaleDown,
-                alignment: pw.Alignment.centerLeft,
-                child: content,
+              child: pw.Text(
+                title,
+                style: pw.TextStyle(
+                  fontSize: 8.8,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                  letterSpacing: 0.2,
+                ),
               ),
             );
           }
 
-          pw.Widget numBox(String v, {double w = 24, double h = 18}) =>
+          pw.Widget numBox(String v, {double w = 28, double h = 22}) =>
               pw.Container(
                 width: w,
                 height: h,
                 margin: const pw.EdgeInsets.only(right: 3),
                 decoration: pw.BoxDecoration(
-                  color: v.isNotEmpty ? lightBg : boxBg,
-                  border: pw.Border.all(color: gray, width: 0.7),
+                  color: v.isNotEmpty ? lightBg : PdfColor.fromHex('F8F8F8'),
+                  border: pw.Border.all(color: gray, width: 1.0),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(1.5)),
                 ),
                 child: pw.Center(
                   child: pw.Text(
                     v,
                     style: pw.TextStyle(
-                      fontSize: 8.5,
+                      fontSize: 9.0,
                       fontWeight: pw.FontWeight.bold,
                       color: dark,
                     ),
@@ -4735,23 +4697,26 @@ class PdfReportService {
                 ),
               );
 
+          // ── Professional checkbox (page 2) — 13 × 13 pt, 1.2 pt border, light fill ──
           pw.Widget cb(String label, bool checked) => pw.Padding(
-            padding: const pw.EdgeInsets.only(right: 8, bottom: 1.5),
+            padding: const pw.EdgeInsets.only(right: 7, bottom: 2),
             child: pw.Row(
               mainAxisSize: pw.MainAxisSize.min,
               children: [
                 pw.Container(
-                  width: 10.5,
-                  height: 10.5,
-                  margin: const pw.EdgeInsets.only(right: 3, top: 0.5),
+                  width: 13.0,
+                  height: 13.0,
+                  margin: const pw.EdgeInsets.only(right: 3.5, top: 0.5),
                   decoration: pw.BoxDecoration(
-                    color: PdfColors.white,
+                    color: checked
+                        ? PdfColor.fromHex('EDE9FF')
+                        : PdfColor.fromHex('F8F8F8'),
                     border: pw.Border.all(
                       color: checked ? primary : gray,
-                      width: checked ? 1.2 : 0.8,
+                      width: 1.2,
                     ),
                     borderRadius: const pw.BorderRadius.all(
-                      pw.Radius.circular(1.5),
+                      pw.Radius.circular(2.5),
                     ),
                   ),
                   child: checked
@@ -4759,7 +4724,7 @@ class PdfReportService {
                           child: pw.Text(
                             'X',
                             style: pw.TextStyle(
-                              fontSize: 7.5,
+                              fontSize: 8.5,
                               fontWeight: pw.FontWeight.bold,
                               color: primary,
                             ),
@@ -4775,15 +4740,17 @@ class PdfReportService {
             ),
           );
 
-          pw.Widget line({double h = 12, String? text}) => pw.Container(
+          pw.Widget line({double h = 16, String? text}) => pw.Container(
             height: h,
             padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-            margin: const pw.EdgeInsets.only(top: 1.5, bottom: 2),
+            margin: const pw.EdgeInsets.only(top: 1.5, bottom: 2.5),
             decoration: pw.BoxDecoration(
               color: (text != null && text.isNotEmpty)
                   ? lightBg
-                  : boxBg,
-              border: pw.Border(bottom: pw.BorderSide(color: gray, width: 0.7)),
+                  : PdfColor.fromHex('F8F8F8'),
+              border: pw.Border(
+                bottom: pw.BorderSide(color: gray, width: 1.0),
+              ),
             ),
             alignment: pw.Alignment.centerLeft,
             child: text != null && text.isNotEmpty
@@ -5133,21 +5100,21 @@ class PdfReportService {
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.only(
-                          top: 1.5,
-                          bottom: 0.5,
+                          top: 2,
+                          bottom: 1,
                         ),
                         child: pw.Text(
                           category.toUpperCase(),
                           style: pw.TextStyle(
-                            fontSize: 5.6,
+                            fontSize: 6.5,
                             fontWeight: pw.FontWeight.bold,
                             color: primary,
                           ),
                         ),
                       ),
                       pw.Wrap(
-                        spacing: 0,
-                        runSpacing: 0.5,
+                        spacing: 2,
+                        runSpacing: 1.5,
                         children: catItems.map((d) {
                           final isChecked =
                               visit?.diagnoses.any((diag) {
@@ -5233,21 +5200,21 @@ class PdfReportService {
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.only(
-                          top: 1.5,
-                          bottom: 0.5,
+                          top: 2,
+                          bottom: 1,
                         ),
                         child: pw.Text(
                           category.toUpperCase(),
                           style: pw.TextStyle(
-                            fontSize: 5.6,
+                            fontSize: 6.5,
                             fontWeight: pw.FontWeight.bold,
                             color: primary,
                           ),
                         ),
                       ),
                       pw.Wrap(
-                        spacing: 0,
-                        runSpacing: 0.5,
+                        spacing: 2,
+                        runSpacing: 1.5,
                         children: catItems.map((m) {
                           final isChecked =
                               visit?.medications.any((med) {
