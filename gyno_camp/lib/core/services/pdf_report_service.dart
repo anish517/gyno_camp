@@ -4273,48 +4273,22 @@ class PdfReportService {
                   }) ??
               false;
 
-          // 2-column grid for visit reasons — halves vertical height of Section B.
-          final reasonEntries = effectiveVisitReasons.entries.toList();
-          final reasonRows = pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: List.generate((reasonEntries.length + 1) ~/ 2, (i) {
-              final left = reasonEntries[i * 2];
-              final rightIdx = i * 2 + 1;
-              final right = rightIdx < reasonEntries.length
-                  ? reasonEntries[rightIdx]
-                  : null;
-              return pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Expanded(
-                    child: cb(
-                      left.value,
-                      isVisitReasonChecked(left.key, left.value),
-                      isExpanded: true,
-                    ),
-                  ),
-                  if (right != null)
-                    pw.Expanded(
-                      child: cb(
-                        right.value,
-                        isVisitReasonChecked(right.key, right.value),
-                        isExpanded: true,
-                      ),
-                    )
-                  else
-                    pw.Expanded(child: pw.SizedBox()),
-                ],
-              );
-            }),
-          );
 
-          // Flat column — no spaceBetween (pdf package requires bounded height for that).
+
           // Signatures flow naturally below consent items.
           final rightCol = pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               secHdr('SECTION B: REASONS FOR VISIT / जाँचको कारण'),
-              reasonRows,
+              // Single-column list — pw.Expanded nested in pw.Row inside pw.Column
+              // triggers childSize<=maxChildExtent in dart_pdf; keep 1-col here.
+              ...effectiveVisitReasons.entries.map(
+                (e) => cb(
+                  e.value,
+                  isVisitReasonChecked(e.key, e.value),
+                  isExpanded: true,
+                ),
+              ),
               pw.SizedBox(height: 4),
               secHdr('SECTION C: PATIENT CONSENT / सहमति'),
               cb(
