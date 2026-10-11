@@ -4308,132 +4308,123 @@ class PdfReportService {
             }),
           );
 
+          // Flat column — no spaceBetween (pdf package requires bounded height for that).
+          // Signatures flow naturally below consent items.
           final rightCol = pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              // Top content block
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  secHdr('SECTION B: REASONS FOR VISIT / जाँचको कारण'),
-                  reasonRows,
-                  pw.SizedBox(height: 4),
-                  secHdr('SECTION C: PATIENT CONSENT / सहमति'),
-                  cb(
-                    'I consent to examination and treatment / जाँच तथा उपचारका लागि मेरो सहमति छ',
-                    patient?.consentTreatment ?? false,
-                    isExpanded: true,
-                  ),
-                  pw.SizedBox(height: 2),
-                  cb(
-                    'I consent to storage of my medical information / मेरो स्वास्थ्य विवरण भण्डारण गर्न सहमति छ',
-                    patient?.consentStoreMedicalInfo ?? false,
-                    isExpanded: true,
-                  ),
-                ],
+              secHdr('SECTION B: REASONS FOR VISIT / जाँचको कारण'),
+              reasonRows,
+              pw.SizedBox(height: 4),
+              secHdr('SECTION C: PATIENT CONSENT / सहमति'),
+              cb(
+                'I consent to examination and treatment / जाँच तथा उपचारका लागि मेरो सहमति छ',
+                patient?.consentTreatment ?? false,
+                isExpanded: true,
               ),
+              pw.SizedBox(height: 2),
+              cb(
+                'I consent to storage of my medical information / मेरो स्वास्थ्य विवरण भण्डारण गर्न सहमति छ',
+                patient?.consentStoreMedicalInfo ?? false,
+                isExpanded: true,
+              ),
+              pw.SizedBox(height: 10),
 
-              // Bottom block — signature lines + official-use box pinned to page bottom
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
+              // Signature lines
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Container(
-                            width: 105,
-                            height: 0.8,
-                            color: PdfColors.black,
-                          ),
-                          pw.SizedBox(height: 2),
-                          pw.Text(
-                            'Patient Signature / Thumbprint',
-                            style: pw.TextStyle(
-                              fontSize: 7,
-                              fontWeight: pw.FontWeight.bold,
-                            ),
-                          ),
-                          pw.Text(
-                            '(Required for consent)',
-                            style: pw.TextStyle(
-                              fontSize: 6,
-                              color: PdfColors.grey600,
-                            ),
-                          ),
-                        ],
+                      pw.Container(
+                        width: 105,
+                        height: 0.8,
+                        color: PdfColors.black,
                       ),
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.end,
-                        children: [
-                          pw.Container(
-                            width: 95,
-                            height: 0.8,
-                            color: PdfColors.black,
-                          ),
-                          pw.SizedBox(height: 2),
-                          pw.Text(
-                            'Data Entry Operator',
-                            style: pw.TextStyle(
-                              fontSize: 7,
-                              fontWeight: pw.FontWeight.bold,
-                            ),
-                          ),
-                          pw.Text(
-                            'Date: ${dateFormatter.format(DateTime.now())}',
-                            style: pw.TextStyle(
-                              fontSize: 6,
-                              color: PdfColors.grey600,
-                            ),
-                          ),
-                        ],
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        'Patient Signature / Thumbprint',
+                        style: pw.TextStyle(
+                          fontSize: 7,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.Text(
+                        '(Required for consent)',
+                        style: pw.TextStyle(
+                          fontSize: 6,
+                          color: PdfColors.grey600,
+                        ),
                       ),
                     ],
                   ),
-                  pw.SizedBox(height: 6),
-                  pw.Container(
-                    width: double.infinity,
-                    padding: const pw.EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
-                    ),
-                    decoration: pw.BoxDecoration(
-                      color: PdfColor.fromHex('F8FAFC'),
-                      border: pw.Border.all(color: primary, width: 0.8),
-                      borderRadius: const pw.BorderRadius.all(
-                        pw.Radius.circular(3),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Container(
+                        width: 95,
+                        height: 0.8,
+                        color: PdfColors.black,
                       ),
-                    ),
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.center,
-                      children: [
-                        pw.Text(
-                          'FOR OFFICIAL USE ONLY',
-                          style: pw.TextStyle(
-                            fontSize: 7,
-                            fontWeight: pw.FontWeight.bold,
-                            color: primary,
-                          ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        'Data Entry Operator',
+                        style: pw.TextStyle(
+                          fontSize: 7,
+                          fontWeight: pw.FontWeight.bold,
                         ),
-                        pw.SizedBox(height: 2),
-                        pw.Text(
-                          hasPatient
-                              ? 'Patient ID: ${patient.patientId} | Camp: ${camp?.campCode ?? patient.campCode}'
-                              : 'Camp: ${camp?.campCode ?? "CAMP"} | Venue: ${sanitizeText(camp?.venue ?? "Health Center")}',
-                          style: pw.TextStyle(
-                            fontSize: 6.5,
-                            color: PdfColors.grey700,
-                          ),
-                          textAlign: pw.TextAlign.center,
+                      ),
+                      pw.Text(
+                        'Date: ${dateFormatter.format(DateTime.now())}',
+                        style: pw.TextStyle(
+                          fontSize: 6,
+                          color: PdfColors.grey600,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
+              ),
+              pw.SizedBox(height: 8),
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 5,
+                ),
+                decoration: pw.BoxDecoration(
+                  color: PdfColor.fromHex('F8FAFC'),
+                  border: pw.Border.all(color: primary, width: 0.8),
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(3),
+                  ),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Text(
+                      'FOR OFFICIAL USE ONLY',
+                      style: pw.TextStyle(
+                        fontSize: 7,
+                        fontWeight: pw.FontWeight.bold,
+                        color: primary,
+                      ),
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      hasPatient
+                          ? 'Patient ID: ${patient.patientId} | Camp: ${camp?.campCode ?? patient.campCode}'
+                          : 'Camp: ${camp?.campCode ?? "CAMP"} | Venue: ${sanitizeText(camp?.venue ?? "Health Center")}',
+                      style: pw.TextStyle(
+                        fontSize: 6.5,
+                        color: PdfColors.grey700,
+                      ),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             ],
           );
