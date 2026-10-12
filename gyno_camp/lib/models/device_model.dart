@@ -159,4 +159,18 @@ class DeviceModel {
       pinHash: pinHash ?? this.pinHash,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DeviceModel &&
+          runtimeType == other.runtimeType &&
+          deviceId == other.deviceId &&
+          status == other.status &&
+          approvedAt == other.approvedAt &&
+          pinHash == other.pinHash &&
+          hardwareFingerprint == other.hardwareFingerprint;
+
+  @override
+  int get hashCode => Object.hash(deviceId, status, approvedAt, pinHash, hardwareFingerprint);
 }

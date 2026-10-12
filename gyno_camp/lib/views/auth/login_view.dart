@@ -19,6 +19,7 @@ class LoginView extends ConsumerStatefulWidget {
 class _LoginViewState extends ConsumerState<LoginView> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _isSubmitting = false;
 
@@ -26,55 +27,93 @@ class _LoginViewState extends ConsumerState<LoginView> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin(String deviceId) async {
+  void _togglePasswordVisibility() {
+    final curSel = _passwordController.selection;
+    setState(() {
+      _obscurePassword = !_obscurePassword;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (curSel.isValid && curSel.end <= _passwordController.text.length) {
+        _passwordController.selection = curSel;
+      } else {
+        _passwordController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _passwordController.text.length),
+        );
+      }
+      _passwordFocusNode.requestFocus();
+    });
+  }
+
+  Future<void> _handleLogin([String? deviceIdParam]) async {
+    final deviceId = deviceIdParam ?? ref.read(deviceSecurityProvider).device?.deviceId ?? 'dev-local';
     // Debounce: prevent overlapping login calls from rapid Enter key / button taps
     if (_isSubmitting) return;
     if (ref.read(authStateProvider).isLoading) return;
     _isSubmitting = true;
 
     try {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-    if (email.isEmpty) {
-      if (mounted) {
-        final messenger = ScaffoldMessenger.of(context);
-        messenger.clearSnackBars();
-        messenger.showSnackBar(
-          SnackBar(
-            content: const Text('Please enter your staff email, username, or mobile number.'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
-      return;
-    }
-    if (password.isEmpty) {
-      if (mounted) {
-        final messenger = ScaffoldMessenger.of(context);
-        messenger.clearSnackBars();
-        messenger.showSnackBar(
-          SnackBar(
-            content: const Text('Please enter your password or station PIN.'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
-      return;
-    }
+      // Unfocus immediately so Flutter Web cleanly tears down previous DOM text state
+      FocusScope.of(context).unfocus();
 
-    final authVm = ref.read(authStateProvider.notifier);
-    final success = await authVm.login(
-      email: email,
-      password: password,
-      deviceId: deviceId,
-    );
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+      if (email.isEmpty) {
+        if (mounted) {
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.clearSnackBars();
+          messenger.showSnackBar(
+            SnackBar(
+              content: const Text('Please enter your staff email, username, or mobile number.'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+        return;
+      }
+      if (password.isEmpty) {
+        if (mounted) {
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.clearSnackBars();
+          messenger.showSnackBar(
+            SnackBar(
+              content: const Text('Please enter your password or station PIN.'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+        return;
+      }
 
-    if (!mounted || !success) return;
+      final authVm = ref.read(authStateProvider.notifier);
+      final success = await authVm.login(
+        email: email,
+        password: password,
+        deviceId: deviceId,
+      );
+
+      if (!mounted) return;
+
+      if (!success) {
+        // Re-focus password field with fresh DOM binding after state settles
+        Future.delayed(const Duration(milliseconds: 60), () {
+          if (mounted) {
+            _passwordFocusNode.requestFocus();
+            _passwordController.selection = TextSelection(
+              baseOffset: 0,
+              extentOffset: _passwordController.text.length,
+            );
+          }
+        });
+        return;
+      }
 
     final user = ref.read(authStateProvider).currentUser;
     if (user == null) return;
@@ -247,7 +286,8 @@ class _LoginViewState extends ConsumerState<LoginView> {
     }
   }
 
-  void _showForgotPasswordModal(BuildContext context, String deviceId) {
+  void _showForgotPasswordModal(BuildContext context, [String? deviceIdParam]) {
+    final deviceId = deviceIdParam ?? ref.read(deviceSecurityProvider).device?.deviceId ?? 'dev-local';
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -282,8 +322,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
-    final deviceState = ref.watch(deviceSecurityProvider);
-    final deviceId = deviceState.device?.deviceId ?? 'dev-local';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -293,9 +331,9 @@ class _LoginViewState extends ConsumerState<LoginView> {
             final isDesktop = constraints.maxWidth >= 960;
 
             if (isDesktop) {
-              return _buildDesktopLayout(context, authState, deviceState, deviceId);
+              return _buildDesktopLayout(context, authState);
             } else {
-              return _buildMobileLayout(context, authState, deviceState, deviceId);
+              return _buildMobileLayout(context, authState);
             }
           },
         ),
@@ -309,8 +347,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
   Widget _buildDesktopLayout(
     BuildContext context,
     AuthState authState,
-    DeviceSecurityState deviceState,
-    String deviceId,
   ) {
     return Row(
       children: [
@@ -462,52 +498,58 @@ class _LoginViewState extends ConsumerState<LoginView> {
                         ),
                         const SizedBox(height: 36),
 
-                        // Terminal Status Box
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                deviceState.isApproved ? Icons.check_circle_rounded : Icons.sensors_rounded,
-                                color: deviceState.isApproved ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
-                                size: 18,
+                        // Terminal Status Box (scoped Consumer so periodic device polls do not rebuild the login form)
+                        Consumer(
+                          builder: (context, ref, child) {
+                            final deviceState = ref.watch(deviceSecurityProvider);
+                            final deviceId = deviceState.device?.deviceId ?? 'dev-local';
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      deviceState.device?.deviceName != null
-                                          ? 'Workstation: ${deviceState.device!.deviceName}'
-                                          : 'Clinical Workstation: $deviceId',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    deviceState.isApproved ? Icons.check_circle_rounded : Icons.sensors_rounded,
+                                    color: deviceState.isApproved ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          deviceState.device?.deviceName != null
+                                              ? 'Workstation: ${deviceState.device!.deviceName}'
+                                              : 'Clinical Workstation: $deviceId',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          deviceState.isApproved
+                                              ? 'Cryptographic Station Approved (Local Vault Ready)'
+                                              : 'Pending Hardware Authorization',
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.75),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    Text(
-                                      deviceState.isApproved
-                                          ? 'Cryptographic Station Approved (Local Vault Ready)'
-                                          : 'Pending Hardware Authorization',
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.75),
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -528,7 +570,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                 constraints: const BoxConstraints(maxWidth: 480),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 36.0, vertical: 40.0),
-                  child: _buildCredentialCard(context, authState, deviceState, deviceId),
+                  child: _buildCredentialCard(context, authState),
                 ),
               ),
             ),
@@ -589,8 +631,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
   Widget _buildMobileLayout(
     BuildContext context,
     AuthState authState,
-    DeviceSecurityState deviceState,
-    String deviceId,
   ) {
     return Center(
       child: ConstrainedBox(
@@ -646,37 +686,42 @@ class _LoginViewState extends ConsumerState<LoginView> {
               ),
               const SizedBox(height: 12),
 
-              // Hardware Security Badge
+              // Hardware Security Badge (scoped Consumer)
               Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFECFDF5),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFA7F3D0)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.verified_user_rounded, color: Color(0xFF059669), size: 14),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          deviceState.device?.deviceName != null
-                              ? 'Terminal: ${deviceState.device!.deviceName} (RBAC)'
-                              : 'Clinical Workstation (RBAC)',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF065F46)),
-                        ),
+                child: Consumer(
+                  builder: (context, ref, child) {
+                    final deviceState = ref.watch(deviceSecurityProvider);
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFA7F3D0)),
                       ),
-                    ],
-                  ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.verified_user_rounded, color: Color(0xFF059669), size: 14),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              deviceState.device?.deviceName != null
+                                  ? 'Terminal: ${deviceState.device!.deviceName} (RBAC)'
+                                  : 'Clinical Workstation (RBAC)',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF065F46)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 16),
 
               // Sign-in Card
-              _buildCredentialCard(context, authState, deviceState, deviceId),
+              _buildCredentialCard(context, authState),
             ],
           ),
         ),
@@ -690,49 +735,11 @@ class _LoginViewState extends ConsumerState<LoginView> {
   Widget _buildCredentialCard(
     BuildContext context,
     AuthState authState,
-    DeviceSecurityState deviceState,
-    String deviceId,
   ) {
     return Column(
       key: const ValueKey('credential_card_column'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Error Message Banner — always present in widget tree to prevent
-        // Flutter Web TextField desync caused by widget tree restructuring.
-        AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          alignment: Alignment.topCenter,
-          child: authState.errorMessage != null
-              ? Container(
-                  key: const ValueKey('login_error_banner_box'),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.dangerRose.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.4)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.error_outline_rounded, color: AppTheme.dangerRose, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          authState.errorMessage!,
-                          style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, height: 1.3),
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () => ref.read(authStateProvider.notifier).clearError(),
-                        child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.dangerRose),
-                      ),
-                    ],
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-
         Card(
           key: const ValueKey('login_credential_card'),
           elevation: 2,
@@ -847,12 +854,16 @@ class _LoginViewState extends ConsumerState<LoginView> {
                 ),
                 const SizedBox(height: 5),
                 TextField(
-                  key: const ValueKey('login_password_field'),
+                  key: ValueKey('login_password_field_${_obscurePassword ? "hidden" : "visible"}'),
                   controller: _passwordController,
+                  focusNode: _passwordFocusNode,
                   obscureText: _obscurePassword,
                   enableSuggestions: false,
                   autocorrect: false,
                   textInputAction: TextInputAction.done,
+                  onTap: () {
+                    _passwordFocusNode.requestFocus();
+                  },
                   decoration: InputDecoration(
                     hintText: 'Enter account password or 4-digit PIN',
                     hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
@@ -863,12 +874,12 @@ class _LoginViewState extends ConsumerState<LoginView> {
                         size: 18,
                         color: const Color(0xFF64748B),
                       ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      onPressed: _togglePasswordVisibility,
                     ),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
-                  onSubmitted: authState.isLoading ? null : (_) => _handleLogin(deviceId),
+                  onSubmitted: authState.isLoading ? null : (_) => _handleLogin(),
                 ),
                 const SizedBox(height: 6),
                 Align(
@@ -880,7 +891,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    onPressed: () => _showForgotPasswordModal(context, deviceId),
+                    onPressed: () => _showForgotPasswordModal(context),
                     child: const Text(
                       'Forgot Password?',
                       style: TextStyle(
@@ -891,6 +902,37 @@ class _LoginViewState extends ConsumerState<LoginView> {
                     ),
                   ),
                 ),
+
+                // Error Message Banner (stationary placement inside Card below inputs)
+                if (authState.errorMessage != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    key: const ValueKey('login_error_banner_box'),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerRose.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.dangerRose.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: AppTheme.dangerRose, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            authState.errorMessage!,
+                            style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, height: 1.3),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () => ref.read(authStateProvider.notifier).clearError(),
+                          child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.dangerRose),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
 
                 // Submit Action Button
@@ -916,7 +958,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       authState.isLoading ? 'Authenticating Session...' : 'Sign In to GynoCamp',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, letterSpacing: 0.2),
                     ),
-                    onPressed: authState.isLoading ? null : () => _handleLogin(deviceId),
+                    onPressed: authState.isLoading ? null : () => _handleLogin(),
                   ),
                 ),
               ],

@@ -53,6 +53,30 @@ class DeviceSecurityState {
       isInitialized: isInitialized ?? this.isInitialized,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DeviceSecurityState &&
+          runtimeType == other.runtimeType &&
+          device == other.device &&
+          hardwareFingerprint == other.hardwareFingerprint &&
+          isChecking == other.isChecking &&
+          isAppLocked == other.isAppLocked &&
+          latestOtp == other.latestOtp &&
+          errorMessage == other.errorMessage &&
+          isInitialized == other.isInitialized;
+
+  @override
+  int get hashCode => Object.hash(
+        device,
+        hardwareFingerprint,
+        isChecking,
+        isAppLocked,
+        latestOtp,
+        errorMessage,
+        isInitialized,
+      );
 }
 
 class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
@@ -103,12 +127,23 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
       final dev = await _repository.getDeviceByFingerprint(state.hardwareFingerprint);
       if (!mounted) return;
       final isLocked = dev?.isApproved == true && (dev?.hasPinSet == true);
-      state = state.copyWith(
-        device: dev,
-        isChecking: false,
-        isAppLocked: isLocked,
-        isInitialized: true,
-      );
+
+      // If silent poll and data is completely unchanged, skip re-emitting state
+      final isUnchanged = silent &&
+          state.isInitialized &&
+          state.device == dev &&
+          state.isAppLocked == isLocked &&
+          !state.isChecking &&
+          state.errorMessage == null;
+
+      if (!isUnchanged) {
+        state = state.copyWith(
+          device: dev,
+          isChecking: false,
+          isAppLocked: isLocked,
+          isInitialized: true,
+        );
+      }
 
       if (dev?.status == DeviceActivationStatus.pendingApproval) {
         _startPollingApproval();
