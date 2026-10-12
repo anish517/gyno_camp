@@ -608,6 +608,55 @@ void main() {
       expect(bytes, isNotEmpty);
       expect(utf8.decode(bytes.sublist(0, 5)), equals('%PDF-'));
     });
+
+    test('generatePatientTokenSlipPdf generates valid A5 token pass PDF with barcodes', () async {
+      final patient = PatientModel(
+        id: 'pt-slip-01',
+        patientId: 'KTM-2026-0042',
+        campId: 'camp-01',
+        campCode: 'KTM',
+        intakeDate: DateTime(2026, 3, 15),
+        firstName: 'Sita',
+        surname: 'Devi Shrestha',
+        age: 38,
+        maritalStatus: 'married',
+        spouseOrFatherName: 'Ram Shrestha',
+        mobile: '9841234567',
+        district: 'Kathmandu',
+        municipality: 'Kathmandu Metro',
+        ward: '03',
+        reasonsForVisit: ['pelvic_pain', 'white_discharge'],
+        primaryDoctorName: 'Dr. Aarav Sharma',
+        highestPopStage: 2,
+        hasClinicalVisit: true,
+        createdByUserId: 'usr-1',
+        createdByDeviceId: 'dev-1',
+        createdAt: DateTime(2026, 3, 15),
+        updatedAt: DateTime(2026, 3, 15),
+      );
+
+      final camp = CampModel(
+        id: 'camp-01',
+        campCode: 'KTM',
+        name: 'Kathmandu Camp',
+        district: 'Kathmandu',
+        municipality: 'Kathmandu Metro',
+        ward: '03',
+        venue: 'City Health Clinic',
+        startDate: DateTime(2026, 3, 1),
+        endDate: DateTime(2026, 3, 5),
+        createdAt: DateTime(2026, 2, 20),
+      );
+
+      final bytes = await pdfService.generatePatientTokenSlipPdf(
+        patient: patient,
+        camp: camp,
+        organizationName: 'Manmohan Memorial Hospital',
+      );
+
+      expect(bytes, isNotEmpty);
+      expect(utf8.decode(bytes.sublist(0, 5)), equals('%PDF-'));
+    });
   });
 }
 

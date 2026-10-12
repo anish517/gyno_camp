@@ -187,10 +187,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         visit: v,
         camp: widget.camp,
       );
-      final ds = DateFormat('yyyyMMdd').format(v.visitDate);
+      final filename = ReportFilenameHelper.encounterSlip(widget.patient.patientId, v.visitDate);
       final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
-        filename: 'EncounterSlip_${widget.patient.patientId}_$ds.pdf',
+        filename: filename,
         mimeType: 'application/pdf',
         autoOpen: true,
       );

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../core/constants/app_constants.dart';
+import '../core/services/file_download_helper.dart';
+import '../core/services/pdf_report_service.dart';
 import '../models/camp_model.dart';
 import '../models/camp_report_summary_model.dart';
 import '../models/clinical_visit_model.dart';
@@ -161,8 +162,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
       final summary = state.summary!;
       final bytes = await reportingRepository.generatePdfReport(summary);
 
-      final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final filename = 'Gynocamp_${summary.campCode}_Report_$dateStr.pdf';
+      final filename = ReportFilenameHelper.campSummary(summary.campCode);
 
       final savedPath = await reportingRepository.saveReportToFile(
         bytes: bytes,
@@ -216,8 +216,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
       final summary = state.summary!;
       final bytes = await reportingRepository.generateExcelReport(summary);
 
-      final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final filename = 'Gynocamp_${summary.campCode}_Register_$dateStr.xlsx';
+      final filename = ReportFilenameHelper.campExcelRegister(summary.campCode);
 
       final savedPath = await reportingRepository.saveReportToFile(
         bytes: bytes,
@@ -259,6 +258,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
     ClinicalVisitModel? visit,
     List<ClinicalVisitModel>? allVisits,
     CampModel? camp,
+    String? organizationName,
     String userId = 'usr-analyst',
     String userName = 'Data Analyst',
     String userRole = AppConstants.roleDataAnalyst,
@@ -267,15 +267,20 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
   }) async {
     state = state.copyWith(isExportingPdf: true, clearFeedback: true);
     try {
+      final effectiveOrgName = PdfReportService.resolveEffectiveOrganizationName(
+        organizationName: organizationName,
+        camp: camp,
+      );
+
       final bytes = await reportingRepository.generateIndividualPatientPdf(
         patient: patient,
         visit: visit,
         allVisits: allVisits,
         camp: camp,
+        organizationName: effectiveOrgName,
       );
 
-      final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final filename = 'Patient_${patient.patientId}_Summary_$dateStr.pdf';
+      final filename = ReportFilenameHelper.patientDossier(patient.patientId);
 
       final savedPath = await reportingRepository.saveReportToFile(
         bytes: bytes,

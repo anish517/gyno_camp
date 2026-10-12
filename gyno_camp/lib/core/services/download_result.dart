@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class DownloadResult {
   final bool isSuccess;
   final String filename;
@@ -16,6 +18,22 @@ class DownloadResult {
     this.canOpenLocally = false,
     this.errorMessage,
   });
+
+  /// Creates a successful DownloadResult from an existing saved file path.
+  factory DownloadResult.fromSavedPath({
+    required String savedPath,
+    required String filename,
+    String? mimeType,
+  }) {
+    return DownloadResult(
+      isSuccess: true,
+      filename: filename,
+      filePath: kIsWeb ? null : savedPath,
+      displayLocation: kIsWeb ? "browser's Downloads folder" : savedPath,
+      mimeType: mimeType,
+      canOpenLocally: !kIsWeb,
+    );
+  }
 
   /// Backward-compatible string representation:
   /// provides clean human-readable text instead of raw path.

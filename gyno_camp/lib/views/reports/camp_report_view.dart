@@ -457,7 +457,6 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     UserModel? user,
     DeviceSecurityState deviceState,
   ) async {
-    final messenger = ScaffoldMessenger.of(context);
     setState(() => _exportingPatientId = patient.patientId);
     try {
       final visit = await ref.read(patientRepositoryProvider).getLatestClinicalVisit(
@@ -474,40 +473,19 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             patient: patient,
             visit: visit,
             camp: targetCamp,
+            organizationName: targetCamp?.organizationName,
             userId: user?.id ?? 'usr-analyst',
             userName: user?.name ?? 'Data Analyst',
             userRole: user?.role.toDbString() ?? 'DATA_ANALYST',
             deviceId: deviceState.device?.deviceId ?? 'dev-field',
           );
       if (mounted && saved != null) {
-        messenger.clearSnackBars();
-        messenger.showSnackBar(
-          SnackBar(
-            backgroundColor: AppTheme.primaryTeal,
-            behavior: SnackBarBehavior.floating,
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 10),
-                Expanded(child: Text('Patient dossier exported: ${patient.fullName}')),
-                if (!kIsWeb) ...[
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.white.withValues(alpha: 0.2),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    onPressed: () => FileDownloadHelper.openFile(saved),
-                    child: const Text('Review', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ],
-            ),
-            duration: const Duration(seconds: 5),
-          ),
+        final result = DownloadResult.fromSavedPath(
+          savedPath: saved,
+          filename: ReportFilenameHelper.patientDossier(patient.patientId),
+          mimeType: 'application/pdf',
         );
+        FileDownloadHelper.showDownloadFeedback(context, result);
       }
     } finally {
       if (mounted) setState(() => _exportingPatientId = null);

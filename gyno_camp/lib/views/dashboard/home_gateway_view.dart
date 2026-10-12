@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/database_service.dart';
@@ -2828,20 +2827,14 @@ class HomeGatewayView extends ConsumerWidget {
       final list = logs.map((l) => l.toMap()).toList();
       final jsonString = const JsonEncoder.withIndent('  ').convert(list);
       final bytes = utf8.encode(jsonString);
-      final dateStr = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
-      final filename = 'audit_trail_export_$dateStr.json';
-      await FileDownloadHelper.saveAndDownloadFile(
+      final filename = ReportFilenameHelper.auditTrailJson();
+      final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
         filename: filename,
         mimeType: 'application/json',
       );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Audit trail exported successfully: $filename'),
-            backgroundColor: AppTheme.successGreen,
-          ),
-        );
+        FileDownloadHelper.showDownloadFeedback(context, result);
       }
     } catch (e) {
       if (context.mounted) {
@@ -4608,65 +4601,19 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             deviceId: deviceId,
           );
       if (mounted) {
-        final messenger = ScaffoldMessenger.of(context);
         if (savedPath != null) {
-          messenger.showSnackBar(
-            SnackBar(
-              backgroundColor: AppTheme.brandPurple,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white, size: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'Excel Workbook Exported Successfully',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          kIsWeb ? 'Saved to browser Downloads folder' : 'Saved to $savedPath',
-                          style: const TextStyle(fontSize: 11, color: Colors.white70),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!kIsWeb) ...[
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: Colors.white.withValues(alpha: 0.2),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      ),
-                      onPressed: () => FileDownloadHelper.openFile(savedPath),
-                      child: const Text('Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(Icons.share_rounded, color: Colors.white, size: 18),
-                      tooltip: 'Share',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => FileDownloadHelper.shareFile(savedPath),
-                    ),
-                  ],
-                ],
-              ),
-              duration: const Duration(seconds: 6),
-            ),
+          final campState = ref.read(campStateProvider);
+          final campCode = campState.selectedCamp?.campCode ??
+              campState.activeCamp?.campCode ??
+              (_selectedCampId != 'all' ? _selectedCampId : 'CAMP');
+          final result = DownloadResult.fromSavedPath(
+            savedPath: savedPath,
+            filename: ReportFilenameHelper.campExcelRegister(campCode),
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           );
+          FileDownloadHelper.showDownloadFeedback(context, result);
         } else {
-          messenger.showSnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: Colors.red.shade700,
               content: const Text('Failed to export Excel report.'),
@@ -4719,6 +4666,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             patient: patient,
             visit: visit,
             camp: targetCamp,
+            organizationName: targetCamp?.organizationName,
             userId: user?.id ?? 'usr-analyst',
             userName: user?.name ?? 'Data Analyst',
             userRole: user?.role.toDbString() ?? 'DATA_ANALYST',
@@ -4726,65 +4674,15 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
           );
 
       if (mounted) {
-        final messenger = ScaffoldMessenger.of(context);
         if (savedPath != null) {
-          messenger.showSnackBar(
-            SnackBar(
-              backgroundColor: AppTheme.brandPurple,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white, size: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Individual Dossier: ${patient.fullName}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          kIsWeb ? 'Saved to browser Downloads folder' : 'Saved to $savedPath',
-                          style: const TextStyle(fontSize: 11, color: Colors.white70),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!kIsWeb) ...[
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: Colors.white.withValues(alpha: 0.2),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      ),
-                      onPressed: () => FileDownloadHelper.openFile(savedPath),
-                      child: const Text('Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(Icons.share_rounded, color: Colors.white, size: 18),
-                      tooltip: 'Share',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => FileDownloadHelper.shareFile(savedPath),
-                    ),
-                  ],
-                ],
-              ),
-              duration: const Duration(seconds: 4),
-            ),
+          final result = DownloadResult.fromSavedPath(
+            savedPath: savedPath,
+            filename: ReportFilenameHelper.patientDossier(patient.patientId),
+            mimeType: 'application/pdf',
           );
+          FileDownloadHelper.showDownloadFeedback(context, result);
         } else {
-          messenger.showSnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: Colors.red.shade700,
               content: Text('Failed to generate individual dossier for ${patient.fullName}.'),

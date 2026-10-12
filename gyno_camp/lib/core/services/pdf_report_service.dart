@@ -17,6 +17,7 @@ import '../../models/patient_model.dart';
 import '../../repositories/lookup_repository.dart';
 import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
+import 'session_service.dart';
 
 typedef _NeSpec = ({
   String text,
@@ -35,6 +36,31 @@ enum BlankFormPage1Layout {
 class PdfReportService {
   static pw.ThemeData? _cachedTheme;
   static pw.MemoryImage? _cachedLogoImage;
+
+  /// Resolves the effective, non-placeholder organization name from explicit argument,
+  /// active camp metadata, or current session preferences.
+  static String resolveEffectiveOrganizationName({
+    String? organizationName,
+    CampModel? camp,
+  }) {
+    if (organizationName != null &&
+        organizationName.trim().isNotEmpty &&
+        !AppConstants.isLegacyDefaultOrganization(organizationName)) {
+      return organizationName.trim();
+    }
+    if (camp != null &&
+        camp.organizationName.trim().isNotEmpty &&
+        !AppConstants.isLegacyDefaultOrganization(camp.organizationName)) {
+      return camp.organizationName.trim();
+    }
+    final sessionOrg = SessionService.current?.getOrganizationName()?.trim();
+    if (sessionOrg != null &&
+        sessionOrg.isNotEmpty &&
+        !AppConstants.isLegacyDefaultOrganization(sessionOrg)) {
+      return sessionOrg;
+    }
+    return AppConstants.defaultOrganizationName;
+  }
 
   /// Loads the WFWSN branding logo as a [pw.MemoryImage] for PDF reports.
   /// Tries the optimized PNG first, followed by small JPG and original JPG fallbacks.
@@ -1320,6 +1346,10 @@ class PdfReportService {
     CampModel? camp,
     String organizationName = AppConstants.defaultOrganizationName,
   }) async {
+    final effectiveOrgName = resolveEffectiveOrganizationName(
+      organizationName: organizationName,
+      camp: camp,
+    );
     final theme = await getPdfTheme();
     final logoImage = await loadLogoImage();
     return _saveWithNepali(() async {
@@ -1367,6 +1397,25 @@ class PdfReportService {
                   ? effectiveTreatmentLevel
                   : 'Not Specified (तह नतोकिएको)'));
 
+      final effectiveDiagnoses = (visit != null && visit.diagnoses.isNotEmpty)
+          ? visit.diagnoses
+          : patient.diagnoses;
+      final effectiveMedications = (visit != null && visit.medications.isNotEmpty)
+          ? visit.medications
+          : patient.medications;
+      final effectiveCustomMed = (visit?.customMedication != null && visit!.customMedication!.isNotEmpty)
+          ? visit.customMedication
+          : patient.customMedication;
+      final effectiveCounseling = (visit?.counseling != null && visit!.counseling.isNotEmpty)
+          ? visit.counseling
+          : patient.counseling;
+      final effectivePessaryType = (visit?.pessaryType != null && visit!.pessaryType!.isNotEmpty)
+          ? visit.pessaryType
+          : patient.pessaryType;
+      final effectivePessarySize = (visit?.pessarySize != null && visit!.pessarySize!.isNotEmpty)
+          ? visit.pessarySize
+          : patient.pessarySize;
+
       // Map structured complaints
       final complaintsMap = visit?.anamnesisComplaints ?? {};
       final friendlyComplaintTitles = {
@@ -1408,7 +1457,7 @@ class PdfReportService {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text(
-                          organizationName.toUpperCase(),
+                          effectiveOrgName.toUpperCase(),
                           style: pw.TextStyle(
                             color: primaryColor,
                             fontSize: 11,
@@ -1881,41 +1930,40 @@ class PdfReportService {
                 children: [
                   _buildPdfField(
                     'Confirmed Diagnoses',
-                    visit != null && visit.diagnoses.isNotEmpty
-                        ? visit.diagnoses.join(', ')
+                    effectiveDiagnoses.isNotEmpty
+                        ? effectiveDiagnoses.join(', ')
                         : 'No acute gynecological pathology diagnosed',
                     isBold: true,
                   ),
                   pw.SizedBox(height: 3),
                   _buildPdfField(
                     'Prescribed Formulary',
-                    visit != null && visit.medications.isNotEmpty
-                        ? visit.medications.join(' | ')
+                    effectiveMedications.isNotEmpty
+                        ? effectiveMedications.join(' | ')
                         : 'None Dispensed',
                   ),
-                  if (visit?.customMedication != null &&
-                      visit!.customMedication!.isNotEmpty) ...[
+                  if (effectiveCustomMed != null &&
+                      effectiveCustomMed.isNotEmpty) ...[
                     pw.SizedBox(height: 2),
                     _buildPdfField(
                       'Special Prescriptions',
-                      visit.customMedication!,
+                      effectiveCustomMed,
                     ),
                   ],
-                  if (visit?.pessarySize != null &&
-                      visit!.pessarySize!.isNotEmpty) ...[
+                  if (effectivePessarySize != null &&
+                      effectivePessarySize.isNotEmpty) ...[
                     pw.SizedBox(height: 2),
                     _buildPdfField(
                       'Ring Pessary Fitted',
-                      '${visit.pessaryType ?? "Ring Pessary"} (Size: ${visit.pessarySize})',
+                      '${effectivePessaryType ?? "Ring Pessary"} (Size: $effectivePessarySize)',
                       isBold: true,
                     ),
                   ],
-                  if (visit?.counseling != null &&
-                      visit!.counseling.isNotEmpty) ...[
+                  if (effectiveCounseling.isNotEmpty) ...[
                     pw.SizedBox(height: 2),
                     _buildPdfField(
                       'Patient Counseling Provided',
-                      visit.counseling.join(', '),
+                      effectiveCounseling.join(', '),
                     ),
                   ],
                 ],
@@ -2250,6 +2298,10 @@ class PdfReportService {
     CampModel? camp,
     String organizationName = AppConstants.defaultOrganizationName,
   }) async {
+    final effectiveOrgName = resolveEffectiveOrganizationName(
+      organizationName: organizationName,
+      camp: camp,
+    );
     final theme = await getPdfTheme();
     return _saveWithNepali(() async {
       final pdf = pw.Document(theme: theme);
@@ -2337,7 +2389,7 @@ class PdfReportService {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text(
-                          sanitizeText(organizationName.toUpperCase()),
+                          sanitizeText(effectiveOrgName.toUpperCase()),
                           style: pw.TextStyle(
                             fontSize: 11,
                             fontWeight: pw.FontWeight.bold,
@@ -6953,6 +7005,258 @@ class PdfReportService {
         );
       }
       return pdf;
+    });
+  }
+
+  /// Generates an A5 Patient Token Slip & Triage Routing Pass with QR & Barcode
+  /// for patients to carry across Stations 1 through 6.
+  Future<Uint8List> generatePatientTokenSlipPdf({
+    required PatientModel patient,
+    CampModel? camp,
+    String organizationName = AppConstants.defaultOrganizationName,
+  }) async {
+    final effectiveOrgName = resolveEffectiveOrganizationName(
+      organizationName: organizationName,
+      camp: camp,
+    );
+    final theme = await getPdfTheme();
+    return _saveWithNepali(() async {
+      final doc = pw.Document(theme: theme);
+      final hasClinical = patient.hasClinicalVisit;
+      final reasonsStr = patient.reasonsForVisit.isNotEmpty
+          ? patient.reasonsForVisit
+              .map((r) => sanitizeText(r.replaceAll('_', ' ')))
+              .where((s) => s.isNotEmpty)
+              .join(', ')
+          : '';
+      final docRaw = patient.primaryDoctorName?.trim().isNotEmpty == true
+          ? patient.primaryDoctorName!
+          : (patient.attendingDoctorNames.isNotEmpty ? patient.attendingDoctorNames.first : '');
+      final docName = sanitizeText(docRaw);
+
+      final brandViolet = PdfColor.fromHex('30026E');
+      final brandMagenta = PdfColor.fromHex('81005D');
+      final brandLightBg = PdfColor.fromHex('F5F3FF');
+      final brandBorder = PdfColor.fromHex('E9D5FF');
+
+      pw.Widget stationRow(String title, {required bool isDone}) {
+        return pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
+          child: pw.Row(
+            children: [
+              pw.Container(
+                width: 15,
+                height: 15,
+                decoration: pw.BoxDecoration(
+                  color: isDone ? brandViolet : PdfColors.white,
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
+                  border: pw.Border.all(color: isDone ? brandViolet : PdfColors.grey400, width: 1.2),
+                ),
+                alignment: pw.Alignment.center,
+                child: isDone
+                    ? pw.Text('X', style: pw.TextStyle(fontSize: 9.5, color: PdfColors.white, fontWeight: pw.FontWeight.bold))
+                    : pw.SizedBox(),
+              ),
+              pw.SizedBox(width: 8),
+              pw.Expanded(
+                child: pw.Text(
+                  title,
+                  style: pw.TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: isDone ? pw.FontWeight.bold : pw.FontWeight.normal,
+                    color: isDone ? PdfColors.black : PdfColors.grey700,
+                  ),
+                ),
+              ),
+              pw.Text(
+                isDone ? '[ COMPLETED ]' : '[ PENDING ]',
+                style: pw.TextStyle(
+                  fontSize: 9.0,
+                  fontWeight: pw.FontWeight.bold,
+                  color: isDone ? brandMagenta : PdfColors.grey500,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      doc.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a5,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          build: (pw.Context ctx) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                  decoration: pw.BoxDecoration(
+                    color: brandLightBg,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                    border: pw.Border.all(color: brandViolet, width: 1.2),
+                  ),
+                  child: pw.Column(
+                    children: [
+                      pw.Text(
+                        sanitizeText(effectiveOrgName.toUpperCase()),
+                        style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: brandViolet),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        sanitizeText(camp?.name, fallback: 'Gynecological Health Outreach Camp'),
+                        style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.black),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                      pw.Text(
+                        'PATIENT FOLLOW-UP TOKEN SLIP & TRIAGE ROUTING PASS',
+                        style: const pw.TextStyle(fontSize: 9.0, color: PdfColors.grey700, letterSpacing: 0.5),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Expanded(
+                      child: pw.Container(
+                        padding: const pw.EdgeInsets.all(8),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: brandBorder),
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                        ),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Row(
+                              children: [
+                                pw.Text('PATIENT ID: ', style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                                pw.Text(sanitizeText(patient.patientId), style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold, color: brandViolet)),
+                              ],
+                            ),
+                            pw.SizedBox(height: 3),
+                            pw.Text('Name: ${sanitizeText(patient.fullName)}', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                            pw.Text('Age: ${patient.age} yrs | Marital: ${sanitizeText(patient.maritalStatus)}', style: const pw.TextStyle(fontSize: 10.5)),
+                            pw.Text('Guardian/Spouse: ${sanitizeText(patient.spouseOrFatherName, fallback: "N/A")}', style: const pw.TextStyle(fontSize: 10.5)),
+                            pw.Text('Address: Ward ${sanitizeText(patient.ward)}, ${sanitizeText(patient.municipality.isNotEmpty ? patient.municipality : patient.district)}', style: const pw.TextStyle(fontSize: 10.5)),
+                            pw.Text('Mobile: ${patient.mobile.isNotEmpty ? sanitizeText(patient.mobile) : "N/A"}', style: const pw.TextStyle(fontSize: 10.5)),
+                            pw.Text('Intake Date: ${patient.intakeDate.toString().split(" ")[0]}', style: const pw.TextStyle(fontSize: 10.5)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    pw.SizedBox(width: 10),
+                    pw.Column(
+                      children: [
+                        pw.BarcodeWidget(
+                          barcode: pw.Barcode.qrCode(),
+                          data: patient.patientId,
+                          width: 72,
+                          height: 72,
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text('Scan at Station', style: const pw.TextStyle(fontSize: 8.0, color: PdfColors.grey600)),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 8),
+                pw.Center(
+                  child: pw.BarcodeWidget(
+                    barcode: pw.Barcode.code128(),
+                    data: patient.patientId,
+                    width: 220,
+                    height: 34,
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                if (reasonsStr.isNotEmpty || docName.isNotEmpty || patient.highestPopStage != null) ...[
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: pw.BoxDecoration(
+                      color: brandLightBg,
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                      border: pw.Border.all(color: brandBorder),
+                    ),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        if (reasonsStr.isNotEmpty)
+                          pw.Expanded(
+                            child: pw.Text(
+                              'Chief Complaint: $reasonsStr',
+                              style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800),
+                            ),
+                          ),
+                        if (docName.isNotEmpty)
+                          pw.Text(
+                            'Doctor: $docName',
+                            style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: brandViolet),
+                          ),
+                        if (patient.highestPopStage != null) ...[
+                          pw.SizedBox(width: 6),
+                          pw.Text(
+                            patient.highestPopStage == 0
+                                ? 'POP: Normal (No Prolapse)'
+                                : 'POP Stage: ${patient.highestPopStage}',
+                            style: pw.TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: pw.FontWeight.bold,
+                              color: brandMagenta,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: 8),
+                ],
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('CLINICAL STATIONS CHECKLIST', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: brandViolet)),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: pw.BoxDecoration(
+                        color: hasClinical ? brandLightBg : const PdfColor(1, 0.98, 0.92),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                        border: pw.Border.all(color: hasClinical ? brandViolet : PdfColors.amber700, width: 0.8),
+                      ),
+                      child: pw.Text(
+                        hasClinical ? 'ALL STATIONS COMPLETED' : 'IN PROGRESS / PENDING',
+                        style: pw.TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: hasClinical ? brandViolet : PdfColors.amber900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 6),
+                stationRow('Station 1: Registration & Intake', isDone: true),
+                stationRow('Station 2: Physical & POP Exam', isDone: hasClinical),
+                stationRow('Station 3: Vitals & Lab Testing', isDone: hasClinical),
+                stationRow('Station 4: Doctor Assessment & Diagnoses', isDone: hasClinical),
+                stationRow('Station 5: Treatment & Pharmacy', isDone: hasClinical),
+                stationRow('Station 6: Discharge & Referral', isDone: hasClinical),
+                pw.Spacer(),
+                pw.Divider(color: PdfColors.grey300),
+                pw.Center(
+                  child: pw.Text(
+                    'Please hold this token pass while visiting each clinical station. Retain for follow-up verification.',
+                    style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+      return doc;
     });
   }
 }

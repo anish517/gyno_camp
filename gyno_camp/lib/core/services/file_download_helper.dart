@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_theme.dart';
@@ -362,5 +363,61 @@ class FileDownloadHelper {
         ),
       );
     }
+  }
+}
+
+/// Centralized utility for consistent, predictable document and report filenames.
+class ReportFilenameHelper {
+  /// Follow-up encounter slips: EncounterSlip_GC-DHN-2026-00042_20260401.pdf
+  static String encounterSlip(String patientId, [DateTime? date]) {
+    final ds = DateFormat('yyyyMMdd').format(date ?? DateTime.now());
+    final cleanId = _clean(patientId);
+    return 'EncounterSlip_${cleanId}_$ds.pdf';
+  }
+
+  /// Patient clinical dossiers: PatientDossier_GC-DHN-2026-00042_20260401.pdf
+  static String patientDossier(String patientId, [DateTime? date]) {
+    final ds = DateFormat('yyyyMMdd').format(date ?? DateTime.now());
+    final cleanId = _clean(patientId);
+    return 'PatientDossier_${cleanId}_$ds.pdf';
+  }
+
+  /// Camp summary PDF reports: CampReport_DHN_20260401_1430.pdf
+  static String campSummary(String campCode, [DateTime? date]) {
+    final ds = DateFormat('yyyyMMdd_HHmm').format(date ?? DateTime.now());
+    final cleanCode = _clean(campCode);
+    return 'CampReport_${cleanCode}_$ds.pdf';
+  }
+
+  /// Camp summary Excel registers: CampRegister_DHN_20260401_1430.xlsx
+  static String campExcelRegister(String campCode, [DateTime? date]) {
+    final ds = DateFormat('yyyyMMdd_HHmm').format(date ?? DateTime.now());
+    final cleanCode = _clean(campCode);
+    return 'CampRegister_${cleanCode}_$ds.xlsx';
+  }
+
+  /// Audit trail CSV report
+  static String auditTrailCsv(String category, [DateTime? date]) {
+    final ds = DateFormat('yyyyMMdd_HHmm').format(date ?? DateTime.now());
+    final cleanCat = _clean(category.toLowerCase());
+    return 'AuditTrail_${cleanCat}_$ds.csv';
+  }
+
+  /// Audit trail JSON vault
+  static String auditTrailJson([DateTime? date]) {
+    final ds = DateFormat('yyyyMMdd_HHmm').format(date ?? DateTime.now());
+    return 'AuditTrail_Vault_$ds.json';
+  }
+
+  /// Database backup JSON snapshot
+  static String databaseBackup([DateTime? date]) {
+    final ds = DateFormat('yyyyMMdd_HHmm').format(date ?? DateTime.now());
+    return 'Gynocamp_Backup_$ds.json';
+  }
+
+  static String _clean(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) return 'Doc';
+    return trimmed.replaceAll(RegExp(r'[^\w-]'), '_');
   }
 }

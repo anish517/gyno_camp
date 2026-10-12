@@ -72,6 +72,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
   final TextEditingController _maxAgeController = TextEditingController();
 
   bool _showFilterPanel = false;
+  String? _downloadingSlipPatientId;
 
   @override
   void initState() {
@@ -3113,12 +3114,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             _showClinicalHistoryPanel(context, patient, activeCamp);
             break;
           case 'pdf_summary':
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Generating ${patient.fullName} health summary PDF...'),
-                duration: const Duration(seconds: 1),
-              ),
-            );
             final visit = await ref
                 .read(clinicalAssessmentProvider.notifier)
                 .loadPatientAssessment(patient.patientId, patientUuid: patient.id);
@@ -3127,25 +3122,18 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   patient: patient,
                   visit: visit,
                   camp: activeCamp,
+                  organizationName: activeCamp?.organizationName,
                   userId: auth?.id ?? 'usr-data-taker',
                   userName: auth?.name ?? 'Health Worker',
                   userRole: auth?.role.toDbString() ?? 'DATA_TAKER',
                 );
             if (context.mounted && saved != null) {
-              ScaffoldMessenger.of(context).clearSnackBars();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Row(
-                    children: [
-                      const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text('Summary PDF downloaded for ${patient.fullName}')),
-                    ],
-                  ),
-                  backgroundColor: AppTheme.successGreen,
-                  behavior: SnackBarBehavior.floating,
-                ),
+              final result = DownloadResult.fromSavedPath(
+                savedPath: saved,
+                filename: ReportFilenameHelper.patientDossier(patient.patientId),
+                mimeType: 'application/pdf',
               );
+              FileDownloadHelper.showDownloadFeedback(context, result);
             }
             break;
           case 'follow_up_slip':
@@ -4067,14 +4055,9 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     PatientModel patient,
     CampModel? camp,
   ) async {
-    final messenger = ScaffoldMessenger.of(context);
+    if (_downloadingSlipPatientId != null) return;
+    setState(() => _downloadingSlipPatientId = patient.patientId);
     try {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Generating follow-up slip for ${patient.fullName}...'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
       final visit = await ref
           .read(clinicalAssessmentProvider.notifier)
           .loadPatientAssessment(patient.patientId, patientUuid: patient.id);
@@ -4100,9 +4083,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         );
       }
 
+      final filename = ReportFilenameHelper.encounterSlip(patient.patientId);
       final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
-        filename: 'FollowUpSlip_${patient.patientId}.pdf',
+        filename: filename,
         mimeType: 'application/pdf',
         autoOpen: true,
       );
@@ -4111,12 +4095,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         FileDownloadHelper.showDownloadFeedback(context, result, forceForegroundModal: true);
       }
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Failed to download follow-up slip: $e'),
-          backgroundColor: AppTheme.dangerRose,
-        ),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to download follow-up slip: $e'),
+            backgroundColor: AppTheme.dangerRose,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloadingSlipPatientId = null);
     }
   }
 

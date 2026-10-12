@@ -1153,8 +1153,7 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
       }
 
       final bytes = utf8.encode(buffer.toString());
-      final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final filename = 'gynocamp_audit_report_${_selectedCategory.toLowerCase()}_$dateStr.csv';
+      final filename = ReportFilenameHelper.auditTrailCsv(_selectedCategory);
 
       final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
@@ -1191,8 +1190,7 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
         'records': list,
       });
       final bytes = utf8.encode(jsonString);
-      final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final filename = 'gynocamp_audit_vault_$dateStr.json';
+      final filename = ReportFilenameHelper.auditTrailJson();
 
       final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,

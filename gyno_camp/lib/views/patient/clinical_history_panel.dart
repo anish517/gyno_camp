@@ -40,10 +40,10 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
       final bytes = await PdfReportService().generateFollowUpEncounterSlipPdf(
         patient: _patient, visit: v, camp: widget.camp, organizationName: widget.orgName,
       );
-      final ds = DateFormat('yyyyMMdd').format(v.visitDate);
+      final filename = ReportFilenameHelper.encounterSlip(_patient.patientId, v.visitDate);
       final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
-        filename: 'EncounterSlip_${_patient.patientId}_$ds.pdf',
+        filename: filename,
         mimeType: 'application/pdf',
         autoOpen: true,
       );
@@ -852,14 +852,15 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                       try {
                         final bytes = await PdfReportService().generateIndividualPatientPdf(
                           patient: widget.patient,
-                          visit: visits.last,
+                          visit: visits.isNotEmpty ? visits.first : null,
                           allVisits: visits,
                           camp: widget.camp,
                           organizationName: widget.orgName,
                         );
+                        final filename = ReportFilenameHelper.patientDossier(widget.patient.patientId);
                         final result = await FileDownloadHelper.saveAndDownloadFile(
                           bytes: bytes,
-                          filename: 'Dossier_${widget.patient.patientId}.pdf',
+                          filename: filename,
                           mimeType: 'application/pdf',
                           autoOpen: true,
                         );
