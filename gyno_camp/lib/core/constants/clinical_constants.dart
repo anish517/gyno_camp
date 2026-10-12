@@ -81,11 +81,11 @@ class ClinicalConstants {
     'clobetasol',
   ];
 
-  // Referral Hospitals (from Yellow Form)
+  // Referral Hospitals (Default / Fallback)
   static const List<String> referralHospitals = [
-    'Scheer Memorial Hospital',
-    'Model Hospital',
     'Local Government Hospital',
+    'District Hospital',
+    'Provincial Hospital',
   ];
 
   // Nepal Administrative Divisions

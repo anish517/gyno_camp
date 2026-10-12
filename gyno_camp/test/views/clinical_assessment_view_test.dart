@@ -16,7 +16,7 @@ class FakeLookupRepository implements ILookupRepository {
   List<LookupItemModel> items = [
     const LookupItemModel(id: 'd1', category: 'diagnosis', code: 'candid', labelEn: 'Candid Infection', labelNe: 'कन्डिडा', isActive: true),
     const LookupItemModel(id: 'm1', category: 'medicine', code: 'metronidazole', labelEn: 'Metronidazole 400mg', labelNe: 'मेट्रोनिडाजोल', isActive: true),
-    const LookupItemModel(id: 'h1', category: 'referral_hospital', code: 'scheer', labelEn: 'Scheer Memorial Hospital', labelNe: 'शीर मेमोरियल', isActive: true),
+    const LookupItemModel(id: 'h1', category: 'referral_hospital', code: 'bpkihs', labelEn: 'B.P. Koirala Institute of Health Sciences', labelNe: 'बीपी कोइराला स्वास्थ्य विज्ञान प्रतिष्ठान', isActive: true),
   ];
 
   @override
@@ -360,14 +360,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify the dropdown is present with partner hospital
-      expect(find.text('Hospital: Scheer Memorial Hospital (अस्पताल)'), findsOneWidget);
+      expect(find.text('Hospital: B.P. Koirala Institute of Health Sciences (अस्पताल)'), findsOneWidget);
 
       // Tap the dropdown to open choices
-      await tester.tap(find.text('Hospital: Scheer Memorial Hospital (अस्पताल)'));
+      await tester.tap(find.text('Hospital: B.P. Koirala Institute of Health Sciences (अस्पताल)'));
       await tester.pumpAndSettle();
 
       // Verify partner hospital and Other / Custom options exist in the opened menu
-      expect(find.text('Hospital: Scheer Memorial Hospital (अस्पताल)'), findsWidgets);
+      expect(find.text('Hospital: B.P. Koirala Institute of Health Sciences (अस्पताल)'), findsWidgets);
       expect(find.text('Other / Custom Hospital (अन्य / म्यानुअल अस्पताल)'), findsOneWidget);
 
       // Select 'Other / Custom Hospital'

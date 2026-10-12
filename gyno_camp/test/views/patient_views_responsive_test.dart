@@ -30,7 +30,7 @@ class _FakeLookupRepository implements ILookupRepository {
   List<LookupItemModel> items = [
     const LookupItemModel(id: 'd1', category: 'diagnosis', code: 'candid', labelEn: 'Candid Infection', labelNe: 'कन्डिडा', isActive: true),
     const LookupItemModel(id: 'm1', category: 'medicine', code: 'metronidazole', labelEn: 'Metronidazole 400mg', labelNe: 'मेट्रोनिडाजोल', isActive: true),
-    const LookupItemModel(id: 'h1', category: 'referral_hospital', code: 'scheer', labelEn: 'Scheer Memorial Hospital', labelNe: 'शीर मेमोरियल', isActive: true),
+    const LookupItemModel(id: 'h1', category: 'referral_hospital', code: 'bpkihs', labelEn: 'B.P. Koirala Institute of Health Sciences', labelNe: 'बीपी कोइराला स्वास्थ्य विज्ञान प्रतिष्ठान', isActive: true),
   ];
 
   @override

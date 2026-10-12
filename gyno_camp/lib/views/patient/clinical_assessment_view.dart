@@ -2070,7 +2070,12 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     final lookupState = ref.watch(masterLookupProvider);
     final partnerHospitals = lookupState.activeReferralHospitals
         .map((h) => h.labelEn)
-        .where((h) => h != 'Health Post' && h != 'GynaeSupport Nurse' && h != 'Other')
+        .where((h) =>
+            h != 'Health Post' &&
+            h != 'GynaeSupport Nurse' &&
+            h != 'Other' &&
+            !h.toLowerCase().contains('scheer') &&
+            !h.toLowerCase().contains('model'))
         .toList();
 
     final standardOptions = [
@@ -2083,6 +2088,8 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         currentDest.trim().isNotEmpty &&
         currentDest != 'Health Post' &&
         currentDest != 'GynaeSupport Nurse' &&
+        !currentDest.toLowerCase().contains('scheer') &&
+        !currentDest.toLowerCase().contains('model') &&
         !isKnownHospital;
 
     final dropdownValue = isKnownHospital

@@ -13,6 +13,7 @@ import '../../repositories/ocr_repository.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
+import '../../viewmodels/master_lookup_viewmodel.dart';
 import '../../viewmodels/ocr_scan_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
 import '../patient/patient_list_view.dart';
@@ -3450,55 +3451,87 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   const SizedBox(height: 10),
                   const Text('Referral Hospital Destination (सिफारिस गरिएको अस्पताल):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      {'val': null, 'label': 'None (छैन)'},
-                      {'val': 'Scheer Memorial Hospital', 'label': 'Scheer Memorial Hospital'},
-                      {'val': 'Model Hospital', 'label': 'Model Hospital'},
-                      {'val': 'Local Government Hospital', 'label': 'Local Government Hospital'},
-                    ].map((item) {
-                      final val = item['val'];
-                      final isSelected = (val == null && (result.surgicalReferral == null || result.surgicalReferral!.isEmpty)) ||
-                          (val != null && result.surgicalReferral?.toLowerCase().contains(val.toLowerCase().split(' ').first) == true);
-                      return ChoiceChip(
-                        label: Text(item['label']!),
-                        selected: isSelected,
-                        selectedColor: val == null ? Colors.grey.shade200 : Colors.red.shade100,
-                        labelStyle: TextStyle(
-                          color: isSelected ? (val == null ? Colors.black87 : Colors.red.shade900) : const Color(0xFF334155),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 11.5,
-                        ),
-                        onSelected: (_) => vm.updateSurgicalReferral(val),
+                  Builder(
+                    builder: (context) {
+                      final lookupState = ref.watch(masterLookupProvider);
+                      final referralHosps = lookupState.activeReferralHospitals
+                          .map((h) => h.labelEn)
+                          .where((h) =>
+                              !h.toLowerCase().contains('scheer') &&
+                              !h.toLowerCase().contains('model') &&
+                              h != 'Health Post' &&
+                              h != 'GynaeSupport Nurse')
+                          .toList();
+
+                      final items = [
+                        {'val': null, 'label': 'None (छैन)'},
+                        ...referralHosps.map((h) => {'val': h, 'label': h}),
+                        if (referralHosps.isEmpty)
+                          {'val': 'Local Government Hospital', 'label': 'Local Government Hospital'},
+                      ];
+
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: items.map((item) {
+                          final val = item['val'];
+                          final isSelected = (val == null && (result.surgicalReferral == null || result.surgicalReferral!.isEmpty)) ||
+                              (val != null && result.surgicalReferral?.toLowerCase().contains(val.toLowerCase().split(' ').first) == true);
+                          return ChoiceChip(
+                            label: Text(item['label']!),
+                            selected: isSelected,
+                            selectedColor: val == null ? Colors.grey.shade200 : Colors.red.shade100,
+                            labelStyle: TextStyle(
+                              color: isSelected ? (val == null ? Colors.black87 : Colors.red.shade900) : const Color(0xFF334155),
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 11.5,
+                            ),
+                            onSelected: (_) => vm.updateSurgicalReferral(val),
+                          );
+                        }).toList(),
                       );
-                    }).toList(),
+                    },
                   ),
                   const Divider(height: 20),
                   const Text('Follow-up Destination (फलो-अप कहाँ गर्ने):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      {'val': 'Camp Follow-up Day', 'label': 'Camp Follow-up Day (पुनः शिविर)'},
-                      {'val': 'Scheer Memorial Hospital', 'label': 'Scheer Memorial Hospital (अस्पताल)'},
-                    ].map((item) {
-                      final val = item['val']!;
-                      final isSelected = (result.followUpDestination ?? '').toLowerCase().contains(val.toLowerCase().split(' ').first);
-                      return ChoiceChip(
-                        label: Text(item['label']!),
-                        selected: isSelected,
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 11.5,
-                        ),
-                        onSelected: (_) => vm.updateFollowUpDestination(val),
+                  Builder(
+                    builder: (context) {
+                      final lookupState = ref.watch(masterLookupProvider);
+                      final referralHosps = lookupState.activeReferralHospitals
+                          .map((h) => h.labelEn)
+                          .where((h) =>
+                              !h.toLowerCase().contains('scheer') &&
+                              !h.toLowerCase().contains('model') &&
+                              h != 'Health Post' &&
+                              h != 'GynaeSupport Nurse')
+                          .toList();
+
+                      final destItems = [
+                        {'val': 'Camp Follow-up Day', 'label': 'Camp Follow-up Day (पुनः शिविर)'},
+                        ...referralHosps.map((h) => {'val': h, 'label': '$h (अस्पताल)'}),
+                      ];
+
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: destItems.map((item) {
+                          final val = item['val']!;
+                          final isSelected = (result.followUpDestination ?? '').toLowerCase().contains(val.toLowerCase().split(' ').first);
+                          return ChoiceChip(
+                            label: Text(item['label']!),
+                            selected: isSelected,
+                            selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                            labelStyle: TextStyle(
+                              color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 11.5,
+                            ),
+                            onSelected: (_) => vm.updateFollowUpDestination(val),
+                          );
+                        }).toList(),
                       );
-                    }).toList(),
+                    },
                   ),
                 ],
               ),

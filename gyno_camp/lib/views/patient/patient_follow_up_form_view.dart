@@ -135,12 +135,24 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             _pelvicFloorTone = _latestVisit!.pelvicFloorTone;
             _surgeryDone = _latestVisit!.surgeryDone;
             _selectedSurgeryType = _latestVisit!.surgeryType;
-            _surgicalReferral = _latestVisit!.surgicalReferral;
+            final histSurgRef = _latestVisit!.surgicalReferral;
+            _surgicalReferral = (histSurgRef != null &&
+                    !histSurgRef.toLowerCase().contains('scheer') &&
+                    !histSurgRef.toLowerCase().contains('model'))
+                ? histSurgRef
+                : null;
             _urineTest = _latestVisit!.urineTest;
             _pregnancyTest = _latestVisit!.pregnancyTest;
             _pessaryType = _latestVisit!.pessaryType;
             _pessarySize = _latestVisit!.pessarySize;
-            _followUpDestination = _latestVisit!.followUpDestination;
+            final histFollowDest = _latestVisit!.followUpDestination;
+            _followUpDestination = (histFollowDest != null &&
+                    !histFollowDest.toLowerCase().contains('scheer') &&
+                    !histFollowDest.toLowerCase().contains('model') &&
+                    histFollowDest != 'Health Post' &&
+                    histFollowDest != 'GynaeSupport Nurse')
+                ? histFollowDest
+                : null;
             _followUpNeeded = _latestVisit!.followUpNeeded;
             _selectedCounseling.addAll(_latestVisit!.counseling);
             if (_latestVisit!.systolicBp != null) {
@@ -1461,19 +1473,49 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               }).toList(),
             ),
             const SizedBox(height: 14),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            _buildStageSelector('Anterior Compartment (Cystocele)', _anteriorStage, [0, 1, 2, 3], (val) {
-              setState(() => _anteriorStage = val);
-            }),
-            const SizedBox(height: 8),
-            _buildStageSelector('Middle Compartment (Uterine/Apex)', _middleStage, [0, 1, 2, 3, 4], (val) {
-              setState(() => _middleStage = val);
-            }),
-            const SizedBox(height: 8),
-            _buildStageSelector('Posterior Compartment (Rectocele)', _posteriorStage, [0, 1, 2, 3], (val) {
-              setState(() => _posteriorStage = val);
-            }),
+            Material(
+              color: const Color(0xFFF8FAFC),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.straighten_rounded, size: 15, color: AppTheme.primaryTeal),
+                      SizedBox(width: 6),
+                      Text(
+                        'Baden-Walker POP Compartment Staging (अङ्ग खस्ने स्टेज मूल्याङ्कन)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF1E293B)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _buildStageSelector('Anterior Compartment (Cystocele)', _anteriorStage, [0, 1, 2, 3], (val) {
+                    setState(() => _anteriorStage = val);
+                  }),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  ),
+                  _buildStageSelector('Middle Compartment (Uterine/Apex)', _middleStage, [0, 1, 2, 3, 4], (val) {
+                    setState(() => _middleStage = val);
+                  }),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  ),
+                  _buildStageSelector('Posterior Compartment (Rectocele)', _posteriorStage, [0, 1, 2, 3], (val) {
+                    setState(() => _posteriorStage = val);
+                  }),
+                ],
+              ),
+            ),
+          ),
           ],
         ),
       ),
@@ -1481,69 +1523,83 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   }
 
   Widget _buildStageSelector(String title, int current, List<int> allowed, ValueChanged<int> onSelect) {
-    final chips = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: allowed.map((stage) {
-        final isSelected = current == stage;
-        return Padding(
-          padding: const EdgeInsets.only(left: 4),
-          child: ChoiceChip(
-            label: Text('S$stage'),
-            selected: isSelected,
-            selectedColor: AppTheme.primaryTeal,
-            labelStyle: TextStyle(
-              color: isSelected ? Colors.white : Colors.black87,
-              fontWeight: FontWeight.bold,
-              fontSize: 11,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            onSelected: (_) => onSelect(stage),
-          ),
-        );
-      }).toList(),
-    );
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        // On narrow screens or when many chips are needed, stack vertically
-        final needsStack = constraints.maxWidth < 420 || allowed.length >= 5;
-        if (needsStack) {
+        final bool isCompact = constraints.maxWidth < 460;
+
+        final chips = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: allowed.map((stage) {
+            final isSelected = current == stage;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2.5),
+              child: SizedBox(
+                width: 44,
+                child: ChoiceChip(
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  label: Center(
+                    child: Text(
+                      'S$stage',
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : const Color(0xFF334155),
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                  selected: isSelected,
+                  selectedColor: AppTheme.primaryTeal,
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: BorderSide(
+                      color: isSelected ? AppTheme.primaryTeal : const Color(0xFFCBD5E1),
+                      width: 1,
+                    ),
+                  ),
+                  padding: EdgeInsets.zero,
+                  labelPadding: EdgeInsets.zero,
+                  onSelected: (_) => onSelect(stage),
+                ),
+              ),
+            );
+          }).toList(),
+        );
+
+        if (isCompact) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+              ),
               const SizedBox(height: 6),
-              Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                children: allowed.map((stage) {
-                  final isSelected = current == stage;
-                  return ChoiceChip(
-                    label: Text('S$stage'),
-                    selected: isSelected,
-                    selectedColor: AppTheme.primaryTeal,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.black87,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    onSelected: (_) => onSelect(stage),
-                  );
-                }).toList(),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: chips,
               ),
             ],
           );
         }
-        // Wide screen: label left, chips right
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
-            ),
-            chips,
-          ],
+
+        // Wide layout: label on left, chips symmetrically aligned on right
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              chips,
+            ],
+          ),
         );
       },
     );
@@ -1751,94 +1807,157 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 );
               }).toList(),
               ),
-            const Divider(height: 24),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'Surgery Performed (शल्यक्रिया भएको हो?)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+            const SizedBox(height: 16),
+            Material(
+              color: const Color(0xFFF8FAFC),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
-              subtitle: const Text(
-                'Indicate if surgical intervention was performed prior to or during follow-up',
-                style: TextStyle(fontSize: 11),
-              ),
-              value: _surgeryDone,
-              activeThumbColor: AppTheme.primaryTeal,
-              onChanged: (val) {
-                setState(() {
-                  _surgeryDone = val;
-                  if (!_surgeryDone) _selectedSurgeryType = null;
-                });
-              },
-            ),
-            if (_surgeryDone) ...[
-              const SizedBox(height: 8),
-              const Text(
-                'Surgical Route / Procedure Type (शल्यक्रियाको प्रकार):',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
-              ),
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 8,
-                children: [
-                  'Open surgery',
-                  'Laparoscopy',
-                  'Vaginal route',
-                ].map((type) {
-                  final isSelected = _selectedSurgeryType == type;
-                  return ChoiceChip(
-                    label: Text(type),
-                    selected: isSelected,
-                    selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                    onSelected: (selected) {
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(Icons.medical_services_rounded, size: 16, color: AppTheme.primaryTeal),
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Surgical Evaluation & Intervention (शल्यक्रिया मूल्याङ्कन)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Surgery Performed (शल्यक्रिया भएको हो?)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    subtitle: const Text(
+                      'Indicate if surgical intervention was performed prior to or during follow-up',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    ),
+                    value: _surgeryDone,
+                    activeThumbColor: AppTheme.primaryTeal,
+                    onChanged: (val) {
                       setState(() {
-                        _selectedSurgeryType = selected ? type : null;
+                        _surgeryDone = val;
+                        if (!_surgeryDone) _selectedSurgeryType = null;
                       });
                     },
-                  );
-                }).toList(),
-              ),
-            ],
-            Builder(
-              builder: (context) {
-                final lookupState = ref.watch(masterLookupProvider);
-                final Set<String> referralHospitalsSet = {};
-                for (final h in lookupState.activeReferralHospitals) {
-                  final name = h.labelEn.trim();
-                  if (name.isNotEmpty) referralHospitalsSet.add(name);
-                }
-                for (final h in ClinicalConstants.referralHospitals) {
-                  final name = h.trim();
-                  if (name.isNotEmpty) referralHospitalsSet.add(name);
-                }
-                if (_surgicalReferral != null && _surgicalReferral!.trim().isNotEmpty) {
-                  referralHospitalsSet.add(_surgicalReferral!.trim());
-                }
-
-                final referralHospitalsList = referralHospitalsSet.toList()
-                  ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
-                final safeSurgicalReferral = (_surgicalReferral != null && referralHospitalsSet.contains(_surgicalReferral!.trim()))
-                    ? _surgicalReferral!.trim()
-                    : null;
-
-                return DropdownButtonFormField<String>(
-                  key: ValueKey('surgical_referral_$safeSurgicalReferral'),
-                  initialValue: safeSurgicalReferral,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Surgical Referral Center (शल्यक्रिया सिफारिस अस्पताल)',
-                    border: OutlineInputBorder(),
-                    isDense: true,
                   ),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('No Surgical Referral')),
-                    ...referralHospitalsList.map((h) => DropdownMenuItem(value: h, child: Text(h))),
+                  if (_surgeryDone) ...[
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Surgical Route / Procedure Type (शल्यक्रियाको प्रकार):',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        'Open surgery',
+                        'Laparoscopy',
+                        'Vaginal route',
+                      ].map((type) {
+                        final isSelected = _selectedSurgeryType == type;
+                        return ChoiceChip(
+                          label: Text(type),
+                          selected: isSelected,
+                          selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                          labelStyle: TextStyle(
+                            color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            fontSize: 11.5,
+                          ),
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedSurgeryType = selected ? type : null;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 18),
+                  ] else ...[
+                    const SizedBox(height: 8),
                   ],
-                  onChanged: (val) => setState(() => _surgicalReferral = val),
-                );
-              },
+                  Builder(
+                    builder: (context) {
+                      final lookupState = ref.watch(masterLookupProvider);
+                      final Set<String> referralHospitalsSet = {};
+                      for (final h in lookupState.activeReferralHospitals) {
+                        final name = h.labelEn.trim();
+                        if (name.isNotEmpty &&
+                            !name.toLowerCase().contains('scheer') &&
+                            !name.toLowerCase().contains('model') &&
+                            name != 'Health Post' &&
+                            name != 'GynaeSupport Nurse') {
+                          referralHospitalsSet.add(name);
+                        }
+                      }
+                      // If no active referral hospitals configured for the camp, fallback to defaults
+                      if (referralHospitalsSet.isEmpty) {
+                        for (final h in ClinicalConstants.referralHospitals) {
+                          final name = h.trim();
+                          if (name.isNotEmpty &&
+                              !name.toLowerCase().contains('scheer') &&
+                              !name.toLowerCase().contains('model')) {
+                            referralHospitalsSet.add(name);
+                          }
+                        }
+                      }
+                      if (_surgicalReferral != null &&
+                          _surgicalReferral!.trim().isNotEmpty &&
+                          !_surgicalReferral!.toLowerCase().contains('scheer') &&
+                          !_surgicalReferral!.toLowerCase().contains('model')) {
+                        referralHospitalsSet.add(_surgicalReferral!.trim());
+                      }
+
+                      final referralHospitalsList = referralHospitalsSet.toList()
+                        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+                      final safeSurgicalReferral = (_surgicalReferral != null &&
+                              referralHospitalsSet.contains(_surgicalReferral!.trim()) &&
+                              !_surgicalReferral!.toLowerCase().contains('scheer') &&
+                              !_surgicalReferral!.toLowerCase().contains('model'))
+                          ? _surgicalReferral!.trim()
+                          : null;
+
+                      return DropdownButtonFormField<String>(
+                        key: ValueKey('surgical_referral_$safeSurgicalReferral'),
+                        initialValue: safeSurgicalReferral,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Surgical Referral Center (शल्यक्रिया सिफारिस अस्पताल)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('No Surgical Referral')),
+                          ...referralHospitalsList.map((h) => DropdownMenuItem(value: h, child: Text(h))),
+                        ],
+                        onChanged: (val) => setState(() => _surgicalReferral = val),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
+          ),
           ],
         ),
       ),
@@ -2149,27 +2268,42 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 final Set<String> followUpDestSet = {};
                 for (final h in lookupState.activeReferralHospitals) {
                   final name = h.labelEn.trim();
-                  if (name.isNotEmpty && name != 'Health Post' && name != 'GynaeSupport Nurse') {
+                  if (name.isNotEmpty &&
+                      name != 'Health Post' &&
+                      name != 'GynaeSupport Nurse' &&
+                      !name.toLowerCase().contains('scheer') &&
+                      !name.toLowerCase().contains('model')) {
                     followUpDestSet.add(name);
                   }
                 }
-                for (final h in ClinicalConstants.referralHospitals) {
-                  final name = h.trim();
-                  if (name.isNotEmpty && name != 'Health Post' && name != 'GynaeSupport Nurse') {
-                    followUpDestSet.add(name);
+                if (followUpDestSet.isEmpty) {
+                  for (final h in ClinicalConstants.referralHospitals) {
+                    final name = h.trim();
+                    if (name.isNotEmpty &&
+                        name != 'Health Post' &&
+                        name != 'GynaeSupport Nurse' &&
+                        !name.toLowerCase().contains('scheer') &&
+                        !name.toLowerCase().contains('model')) {
+                      followUpDestSet.add(name);
+                    }
                   }
                 }
                 if (_followUpDestination != null &&
                     _followUpDestination!.trim().isNotEmpty &&
                     _followUpDestination != 'Health Post' &&
-                    _followUpDestination != 'GynaeSupport Nurse') {
+                    _followUpDestination != 'GynaeSupport Nurse' &&
+                    !_followUpDestination!.toLowerCase().contains('scheer') &&
+                    !_followUpDestination!.toLowerCase().contains('model')) {
                   followUpDestSet.add(_followUpDestination!.trim());
                 }
 
                 final followUpDestList = followUpDestSet.toList()
                   ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-                final safeFollowUpDest = (_followUpDestination != null && followUpDestSet.contains(_followUpDestination!.trim()))
+                final safeFollowUpDest = (_followUpDestination != null &&
+                        followUpDestSet.contains(_followUpDestination!.trim()) &&
+                        !_followUpDestination!.toLowerCase().contains('scheer') &&
+                        !_followUpDestination!.toLowerCase().contains('model'))
                     ? _followUpDestination!.trim()
                     : null;
 

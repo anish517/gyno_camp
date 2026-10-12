@@ -474,6 +474,16 @@ void main() {
       await tester.tap(weakChip);
       await tester.pumpAndSettle();
 
+      // Verify POP Compartment Staging layout
+      expect(find.textContaining('Baden-Walker POP Compartment Staging'), findsOneWidget);
+      expect(find.textContaining('Anterior Compartment (Cystocele)'), findsOneWidget);
+      expect(find.textContaining('Middle Compartment (Uterine/Apex)'), findsOneWidget);
+      expect(find.textContaining('Posterior Compartment (Rectocele)'), findsOneWidget);
+
+      // Verify Scheer Memorial Hospital and Model Hospital are NOT shown
+      expect(find.text('Scheer Memorial Hospital'), findsNothing);
+      expect(find.text('Model Hospital'), findsNothing);
+
       // Verify save follow-up button exists
       expect(find.textContaining('Save Follow-Up Record'), findsOneWidget);
     });
