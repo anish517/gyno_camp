@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/camp_model.dart';
 import '../../models/clinical_visit_model.dart';
+import '../../models/lookup_item_model.dart';
 import '../../models/patient_model.dart';
 import '../../models/user_model.dart';
 
@@ -93,6 +94,11 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   @override
   void initState() {
     super.initState();
+    if (widget.patient.campId.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(masterLookupProvider.notifier).setCampScope(widget.patient.campId);
+      });
+    }
     _loadPatientHistory();
   }
 
@@ -1552,10 +1558,42 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         : ClinicalConstants.defaultDiagnoses;
 
     final Map<String, String> itemToCategory = {};
-    for (final d in activeDiagItems) {
-      if (d.subCategory != null && d.subCategory!.isNotEmpty) {
-        itemToCategory[d.labelEn] = d.subCategory!;
+    final List<String> dynamicCategories = [];
+    if (activeDiagItems.isNotEmpty) {
+      for (final d in activeDiagItems) {
+        final cat = (d.subCategory != null && d.subCategory!.trim().isNotEmpty)
+            ? d.subCategory!.trim()
+            : (ClinicalConstants.diagnosisCategoryMap[d.labelEn.toLowerCase()] ?? 'General / Other (सामान्य)');
+        itemToCategory[d.labelEn] = cat;
+        if (!dynamicCategories.contains(cat)) {
+          dynamicCategories.add(cat);
+        }
       }
+    } else {
+      for (final d in diagnosesList) {
+        final cat = ClinicalConstants.diagnosisCategoryMap[d.toLowerCase()] ?? 'General / Other (सामान्य)';
+        itemToCategory[d] = cat;
+        if (!dynamicCategories.contains(cat)) {
+          dynamicCategories.add(cat);
+        }
+      }
+    }
+
+    final categoriesToDisplay = dynamicCategories.isNotEmpty
+        ? dynamicCategories
+        : ClinicalConstants.diagnosisCategories;
+
+    String getDiagnosisDisplayLabel(String diag) {
+      final masterItem = activeDiagItems.cast<LookupItemModel?>().firstWhere(
+        (d) => d != null && d.labelEn.toLowerCase() == diag.toLowerCase(),
+        orElse: () => null,
+      );
+      final labelNe = (masterItem != null && masterItem.labelNe.isNotEmpty && masterItem.labelNe.toLowerCase() != masterItem.labelEn.toLowerCase())
+          ? masterItem.labelNe
+          : NepaliLocalizationService.translate(diag);
+      return (labelNe.isNotEmpty && labelNe.toLowerCase() != diag.toLowerCase())
+          ? '$labelNe ($diag)'
+          : diag;
     }
 
     return Card(
@@ -1602,9 +1640,9 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 spacing: 6,
                 runSpacing: 6,
                 children: diagnosesList.map((d) {
-                  final isSelected = _selectedDiagnoses.contains(d);
+                  final isSelected = _selectedDiagnoses.any((x) => x.toLowerCase().trim() == d.toLowerCase().trim());
                   return FilterChip(
-                    label: Text('${NepaliLocalizationService.translate(d)} ($d)', style: const TextStyle(fontSize: 11.5)),
+                    label: Text(getDiagnosisDisplayLabel(d), style: const TextStyle(fontSize: 11.5)),
                     selected: isSelected,
                     selectedColor: AppTheme.primaryLight,
                     checkmarkColor: AppTheme.primaryTeal,
@@ -1613,7 +1651,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                         if (val) {
                           _selectedDiagnoses.add(d);
                         } else {
-                          _selectedDiagnoses.remove(d);
+                          _selectedDiagnoses.removeWhere((x) => x.toLowerCase().trim() == d.toLowerCase().trim());
                         }
                       });
                     },
@@ -1622,14 +1660,14 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               )
             else
               Column(
-                children: ClinicalConstants.diagnosisCategories.map((category) {
+                children: categoriesToDisplay.map((category) {
                   final itemsInCategory = diagnosesList.where((d) {
                     final cat = itemToCategory[d] ?? ClinicalConstants.diagnosisCategoryMap[d] ?? 'General / Other (सामान्य)';
                     return cat == category;
                   }).toList();
 
                   if (itemsInCategory.isEmpty) return const SizedBox.shrink();
-                  final selectedCount = itemsInCategory.where((d) => _selectedDiagnoses.contains(d)).length;
+                  final selectedCount = itemsInCategory.where((d) => _selectedDiagnoses.any((x) => x.toLowerCase().trim() == d.toLowerCase().trim())).length;
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -1681,11 +1719,11 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                             spacing: 6,
                             runSpacing: 6,
                             children: itemsInCategory.map((d) {
-                              final isSelected = _selectedDiagnoses.contains(d);
+                              final isSelected = _selectedDiagnoses.any((x) => x.toLowerCase().trim() == d.toLowerCase().trim());
                               return FilterChip(
                                 visualDensity: VisualDensity.compact,
                                 label: Text(
-                                  '${NepaliLocalizationService.translate(d)} ($d)',
+                                  getDiagnosisDisplayLabel(d),
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -1815,10 +1853,40 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         : ClinicalConstants.defaultMedications;
 
     final Map<String, String> medToCategory = {};
-    for (final m in activeMedItems) {
-      if (m.subCategory != null && m.subCategory!.isNotEmpty) {
-        medToCategory[m.labelEn] = m.subCategory!;
+    final List<String> dynamicMedCategories = [];
+    if (activeMedItems.isNotEmpty) {
+      for (final m in activeMedItems) {
+        final cat = (m.subCategory != null && m.subCategory!.trim().isNotEmpty)
+            ? m.subCategory!.trim()
+            : (ClinicalConstants.medicationCategoryMap[m.labelEn.toLowerCase()] ?? 'Other / Custom (अन्य औषधिहरू)');
+        medToCategory[m.labelEn] = cat;
+        if (!dynamicMedCategories.contains(cat)) {
+          dynamicMedCategories.add(cat);
+        }
       }
+    } else {
+      for (final m in medicinesList) {
+        final cat = ClinicalConstants.medicationCategoryMap[m.toLowerCase()] ?? 'Other / Custom (अन्य औषधिहरू)';
+        medToCategory[m] = cat;
+        if (!dynamicMedCategories.contains(cat)) {
+          dynamicMedCategories.add(cat);
+        }
+      }
+    }
+
+    final medCategoriesToDisplay = dynamicMedCategories.isNotEmpty
+        ? dynamicMedCategories
+        : ClinicalConstants.medicationCategories;
+
+    String getMedicationDisplayLabel(String med) {
+      final masterItem = activeMedItems.cast<LookupItemModel?>().firstWhere(
+        (m) => m != null && m.labelEn.toLowerCase() == med.toLowerCase(),
+        orElse: () => null,
+      );
+      final labelNe = (masterItem != null && masterItem.labelNe.isNotEmpty && masterItem.labelNe.toLowerCase() != masterItem.labelEn.toLowerCase())
+          ? masterItem.labelNe
+          : '';
+      return labelNe.isNotEmpty ? '$med ($labelNe)' : med;
     }
 
     return Card(
@@ -1865,9 +1933,9 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 spacing: 6,
                 runSpacing: 6,
                 children: medicinesList.map((med) {
-                  final isSelected = _selectedMedications.contains(med);
+                  final isSelected = _selectedMedications.any((x) => x.toLowerCase().trim() == med.toLowerCase().trim());
                   return FilterChip(
-                    label: Text(med, style: const TextStyle(fontSize: 12)),
+                    label: Text(getMedicationDisplayLabel(med), style: const TextStyle(fontSize: 12)),
                     selected: isSelected,
                     selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                     onSelected: (selected) {
@@ -1875,7 +1943,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                         if (selected) {
                           _selectedMedications.add(med);
                         } else {
-                          _selectedMedications.remove(med);
+                          _selectedMedications.removeWhere((x) => x.toLowerCase().trim() == med.toLowerCase().trim());
                         }
                       });
                     },
@@ -1884,14 +1952,14 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               )
             else
               Column(
-                children: ClinicalConstants.medicationCategories.map((category) {
+                children: medCategoriesToDisplay.map((category) {
                   final itemsInCategory = medicinesList.where((m) {
                     final cat = medToCategory[m] ?? ClinicalConstants.medicationCategoryMap[m] ?? 'Other / Custom (अन्य औषधिहरू)';
                     return cat == category;
                   }).toList();
 
                   if (itemsInCategory.isEmpty) return const SizedBox.shrink();
-                  final selectedCount = itemsInCategory.where((m) => _selectedMedications.contains(m)).length;
+                  final selectedCount = itemsInCategory.where((m) => _selectedMedications.any((x) => x.toLowerCase().trim() == m.toLowerCase().trim())).length;
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -1943,10 +2011,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                             spacing: 6,
                             runSpacing: 6,
                             children: itemsInCategory.map((med) {
-                              final isSelected = _selectedMedications.contains(med);
+                              final isSelected = _selectedMedications.any((x) => x.toLowerCase().trim() == med.toLowerCase().trim());
                               return FilterChip(
                                 visualDensity: VisualDensity.compact,
-                                label: Text(med, style: const TextStyle(fontSize: 11)),
+                                label: Text(getMedicationDisplayLabel(med), style: const TextStyle(fontSize: 11)),
                                 selected: isSelected,
                                 selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                                 onSelected: (selected) {
@@ -1967,7 +2035,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   ),
                 );
               }).toList(),
-              ),
+            ),
             const SizedBox(height: 14),
             const Divider(height: 1),
             const SizedBox(height: 12),

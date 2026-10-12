@@ -11,6 +11,7 @@ import '../../models/user_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../models/camp_model.dart';
+import '../../models/lookup_item_model.dart';
 import '../../viewmodels/clinical_assessment_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
@@ -52,6 +53,9 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (widget.patient.campId.isNotEmpty) {
+        ref.read(masterLookupProvider.notifier).setCampScope(widget.patient.campId);
+      }
       final existing = await ref.read(clinicalAssessmentProvider.notifier).loadPatientAssessment(
         widget.patient.patientId,
         patientUuid: widget.patient.id,
@@ -678,12 +682,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
           ];
 
           final List<Map<String, dynamic>> resolvedComplaints = [];
-          final Set<String> processedKeys = {};
 
           if (activeMasterComplaints.isNotEmpty) {
             for (final masterItem in activeMasterComplaints) {
               final code = masterItem.code.toLowerCase().trim();
-              processedKeys.add(code);
 
               final stdMatch = standardComplaints.cast<Map<String, dynamic>?>().firstWhere(
                 (s) => s != null && (s['key'] == code ||
@@ -707,22 +709,6 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     r.contains(masterItem.labelEn.toLowerCase()) ||
                     (masterItem.labelNe.isNotEmpty && r.contains(masterItem.labelNe.toLowerCase()))),
               });
-            }
-
-            // Also keep standard Yellow Form baseline complaints that haven't been customized
-            for (final std in standardComplaints) {
-              final stdKey = std['key'] as String;
-              if (!processedKeys.contains(stdKey) && !resolvedComplaints.any((r) => r['key'] == stdKey)) {
-                final matchesFn = std['matches'] as bool Function(List<String>);
-                resolvedComplaints.add({
-                  'key': stdKey,
-                  'title': std['title'] as String,
-                  'subCategory': std['subCategory'] as String?,
-                  'hasDuration': std['hasDuration'] as bool,
-                  'options': std['options'] as List<String>,
-                  'isIntakeReason': matchesFn(patientReasons),
-                });
-              }
             }
           } else {
             for (final std in standardComplaints) {
@@ -768,8 +754,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     String? subCategory,
     bool isIntakeReason = false,
   }) {
-    final complaintData = (state.complaints[complaintKey] as Map?) ?? {};
-    final selectedDuration = complaintData['duration'] as String?;
+    final complaintData = (state.complaints[complaintKey] as Map?) ??
+        (state.complaints[complaintKey.toLowerCase()] as Map?) ??
+        {};
+    final selectedDuration = (complaintData['duration'] as String?) ??
+        (state.complaints['complaintsDuration'] as String?);
     final rawOptions = complaintData['options'];
     final List<String> selectedOptions = rawOptions is List ? List<String>.from(rawOptions) : [];
 
@@ -1472,7 +1461,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     );
   }
 
-  // --- 4. Diagnoses (21 Standard Yellow Form Options) ---
+  // --- 4. Diagnoses (Dynamic Camp Master Data & Standard Options) ---
   Widget _buildStation4Diagnoses(ClinicalAssessmentState state, ClinicalAssessmentViewModel vm) {
     final lookupState = ref.watch(masterLookupProvider);
     final diagnosesList = lookupState.activeDiagnoses.isNotEmpty
@@ -1480,10 +1469,42 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         : ClinicalConstants.defaultDiagnoses;
 
     final Map<String, String> itemToCategory = {};
-    for (final d in lookupState.activeDiagnoses) {
-      if (d.subCategory != null && d.subCategory!.isNotEmpty) {
-        itemToCategory[d.labelEn] = d.subCategory!;
+    final List<String> dynamicCategories = [];
+    if (lookupState.activeDiagnoses.isNotEmpty) {
+      for (final d in lookupState.activeDiagnoses) {
+        final cat = (d.subCategory != null && d.subCategory!.trim().isNotEmpty)
+            ? d.subCategory!.trim()
+            : (ClinicalConstants.diagnosisCategoryMap[d.labelEn.toLowerCase()] ?? 'General / Other');
+        itemToCategory[d.labelEn] = cat;
+        if (!dynamicCategories.contains(cat)) {
+          dynamicCategories.add(cat);
+        }
       }
+    } else {
+      for (final d in diagnosesList) {
+        final cat = ClinicalConstants.diagnosisCategoryMap[d.toLowerCase()] ?? 'General / Other';
+        itemToCategory[d] = cat;
+        if (!dynamicCategories.contains(cat)) {
+          dynamicCategories.add(cat);
+        }
+      }
+    }
+
+    final categoriesToDisplay = dynamicCategories.isNotEmpty
+        ? dynamicCategories
+        : ClinicalConstants.diagnosisCategories;
+
+    String getDiagnosisDisplayLabel(String diag) {
+      final masterItem = lookupState.activeDiagnoses.cast<LookupItemModel?>().firstWhere(
+        (d) => d != null && d.labelEn.toLowerCase() == diag.toLowerCase(),
+        orElse: () => null,
+      );
+      final labelNe = (masterItem != null && masterItem.labelNe.isNotEmpty && masterItem.labelNe.toLowerCase() != masterItem.labelEn.toLowerCase())
+          ? masterItem.labelNe
+          : NepaliLocalizationService.translate(diag);
+      return (labelNe.isNotEmpty && labelNe.toLowerCase() != diag.toLowerCase())
+          ? '$labelNe ($diag)'
+          : diag;
     }
 
     return Column(
@@ -1526,10 +1547,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             spacing: 8,
             runSpacing: 6,
             children: diagnosesList.map((diag) {
-              final isSelected = state.selectedDiagnoses.contains(diag);
+              final isSelected = state.selectedDiagnoses.any((d) => d.toLowerCase().trim() == diag.toLowerCase().trim());
               return FilterChip(
                 label: Text(
-                  '${NepaliLocalizationService.translate(diag)} ($diag)',
+                  getDiagnosisDisplayLabel(diag),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -1544,14 +1565,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
           )
         else
           Column(
-            children: ClinicalConstants.diagnosisCategories.map((category) {
+            children: categoriesToDisplay.map((category) {
               final itemsInCategory = diagnosesList.where((d) {
                 final cat = itemToCategory[d] ?? ClinicalConstants.diagnosisCategoryMap[d] ?? 'General / Other';
                 return cat == category;
               }).toList();
 
               if (itemsInCategory.isEmpty) return const SizedBox.shrink();
-              final selectedCount = itemsInCategory.where((d) => state.selectedDiagnoses.contains(d)).length;
+              final selectedCount = itemsInCategory.where((d) => state.selectedDiagnoses.any((x) => x.toLowerCase().trim() == d.toLowerCase().trim())).length;
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -1575,7 +1596,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                             child: Row(
                               children: [
                                 Icon(Icons.folder_open_rounded, size: 16, color: selectedCount > 0 ? AppTheme.primaryTeal : Colors.blueGrey),
-                                const SizedBox(width: 6),
+                                SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
                                     category,
@@ -1611,10 +1632,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                         spacing: 8,
                         runSpacing: 6,
                         children: itemsInCategory.map((diag) {
-                          final isSelected = state.selectedDiagnoses.contains(diag);
+                          final isSelected = state.selectedDiagnoses.any((d) => d.toLowerCase().trim() == diag.toLowerCase().trim());
                           return FilterChip(
                             label: Text(
-                              '${NepaliLocalizationService.translate(diag)} ($diag)',
+                              getDiagnosisDisplayLabel(diag),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -1644,11 +1665,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         ? lookupState.activeMedicines.map((m) => m.labelEn).toList()
         : ClinicalConstants.defaultMedications;
     final Set<String> hospitalsSet = {};
-    for (final h in lookupState.activeReferralHospitals) {
-      if (h.labelEn.trim().isNotEmpty) hospitalsSet.add(h.labelEn.trim());
-    }
-    for (final h in ClinicalConstants.referralHospitals) {
-      if (h.trim().isNotEmpty) hospitalsSet.add(h.trim());
+    if (lookupState.activeReferralHospitals.isNotEmpty) {
+      for (final h in lookupState.activeReferralHospitals) {
+        if (h.labelEn.trim().isNotEmpty) hospitalsSet.add(h.labelEn.trim());
+      }
+    } else {
+      for (final h in ClinicalConstants.referralHospitals) {
+        if (h.trim().isNotEmpty) hospitalsSet.add(h.trim());
+      }
     }
     if (state.surgicalReferral != null && state.surgicalReferral!.trim().isNotEmpty) {
       hospitalsSet.add(state.surgicalReferral!.trim());
@@ -1886,114 +1910,146 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         ),
         const SizedBox(height: 8),
 
-        if (!_groupMedicationsByCategory)
-          Wrap(
-            spacing: 6,
-            children: medicinesList.map((m) {
-              final isSelected = state.selectedMedications.contains(m);
-              return FilterChip(
-                visualDensity: VisualDensity.compact,
-                label: Text(m, style: const TextStyle(fontSize: 11)),
-                selected: isSelected,
-                onSelected: (_) => vm.toggleMedication(m),
-              );
-            }).toList(),
-          )
-        else ...[
-          Builder(
-            builder: (context) {
-              final Map<String, String> medToCategory = {};
-              for (final m in lookupState.activeMedicines) {
-                if (m.subCategory != null && m.subCategory!.isNotEmpty) {
-                  medToCategory[m.labelEn] = m.subCategory!;
-                }
-              }
+        ...() {
+          String getMedicationDisplayLabel(String med) {
+            final masterItem = lookupState.activeMedicines.cast<LookupItemModel?>().firstWhere(
+              (m) => m != null && m.labelEn.toLowerCase() == med.toLowerCase(),
+              orElse: () => null,
+            );
+            final labelNe = (masterItem != null && masterItem.labelNe.isNotEmpty && masterItem.labelNe.toLowerCase() != masterItem.labelEn.toLowerCase())
+                ? masterItem.labelNe
+                : '';
+            return labelNe.isNotEmpty ? '$med ($labelNe)' : med;
+          }
 
-              return Column(
-                children: ClinicalConstants.medicationCategories.map((category) {
-                  final itemsInCategory = medicinesList.where((m) {
-                    final cat = medToCategory[m] ?? ClinicalConstants.medicationCategoryMap[m] ?? 'Other / Custom';
-                    return cat == category;
-                  }).toList();
-
-                  if (itemsInCategory.isEmpty) return const SizedBox.shrink();
-                  final selectedCount = itemsInCategory.where((m) => state.selectedMedications.contains(m)).length;
-
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(
-                        color: selectedCount > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.5) : const Color(0xFFE2E8F0),
-                        width: selectedCount > 0 ? 1.5 : 1,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.medication_outlined, size: 16, color: selectedCount > 0 ? AppTheme.primaryTeal : Colors.blueGrey),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        category,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: selectedCount > 0 ? AppTheme.primaryTeal : const Color(0xFF1E293B),
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (selectedCount > 0) ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryTeal,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    '$selectedCount selected',
-                                    style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 6,
-                            children: itemsInCategory.map((m) {
-                              final isSelected = state.selectedMedications.contains(m);
-                              return FilterChip(
-                                visualDensity: VisualDensity.compact,
-                                label: Text(m, style: const TextStyle(fontSize: 11)),
-                                selected: isSelected,
-                                onSelected: (_) => vm.toggleMedication(m),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                    ),
+          if (!_groupMedicationsByCategory) {
+            return [
+              Wrap(
+                spacing: 6,
+                children: medicinesList.map((m) {
+                  final isSelected = state.selectedMedications.any((x) => x.toLowerCase().trim() == m.toLowerCase().trim());
+                  return FilterChip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(getMedicationDisplayLabel(m), style: const TextStyle(fontSize: 11)),
+                    selected: isSelected,
+                    onSelected: (_) => vm.toggleMedication(m),
                   );
                 }).toList(),
-              );
-            },
-          ),
-        ],
+              ),
+            ];
+          }
+
+          final Map<String, String> medToCategory = {};
+          final List<String> dynamicMedCategories = [];
+          if (lookupState.activeMedicines.isNotEmpty) {
+            for (final m in lookupState.activeMedicines) {
+              final cat = (m.subCategory != null && m.subCategory!.trim().isNotEmpty)
+                  ? m.subCategory!.trim()
+                  : (ClinicalConstants.medicationCategoryMap[m.labelEn.toLowerCase()] ?? 'Other / Custom');
+              medToCategory[m.labelEn] = cat;
+              if (!dynamicMedCategories.contains(cat)) {
+                dynamicMedCategories.add(cat);
+              }
+            }
+          } else {
+            for (final m in medicinesList) {
+              final cat = ClinicalConstants.medicationCategoryMap[m.toLowerCase()] ?? 'Other / Custom';
+              medToCategory[m] = cat;
+              if (!dynamicMedCategories.contains(cat)) {
+                dynamicMedCategories.add(cat);
+              }
+            }
+          }
+
+          final medCategoriesToDisplay = dynamicMedCategories.isNotEmpty
+              ? dynamicMedCategories
+              : ClinicalConstants.medicationCategories;
+
+          return [
+            Column(
+              children: medCategoriesToDisplay.map((category) {
+                final itemsInCategory = medicinesList.where((m) {
+                  final cat = medToCategory[m] ?? ClinicalConstants.medicationCategoryMap[m] ?? 'Other / Custom';
+                  return cat == category;
+                }).toList();
+
+                if (itemsInCategory.isEmpty) return const SizedBox.shrink();
+                final selectedCount = itemsInCategory.where((m) => state.selectedMedications.any((x) => x.toLowerCase().trim() == m.toLowerCase().trim())).length;
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(
+                      color: selectedCount > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.5) : const Color(0xFFE2E8F0),
+                      width: selectedCount > 0 ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Icon(Icons.medication_outlined, size: 16, color: selectedCount > 0 ? AppTheme.primaryTeal : Colors.blueGrey),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      category,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: selectedCount > 0 ? AppTheme.primaryTeal : const Color(0xFF1E293B),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (selectedCount > 0) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryTeal,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '$selectedCount selected',
+                                  style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          children: itemsInCategory.map((m) {
+                            final isSelected = state.selectedMedications.any((x) => x.toLowerCase().trim() == m.toLowerCase().trim());
+                            return FilterChip(
+                              visualDensity: VisualDensity.compact,
+                              label: Text(getMedicationDisplayLabel(m), style: const TextStyle(fontSize: 11)),
+                              selected: isSelected,
+                              onSelected: (_) => vm.toggleMedication(m),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ];
+        }(),
         const SizedBox(height: 8),
         TextField(
           controller: _customMedController,

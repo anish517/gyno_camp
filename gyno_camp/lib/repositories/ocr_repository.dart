@@ -263,12 +263,65 @@ class OcrRepository implements IOcrRepository {
     final rawComplaints = obs['clinicalComplaints'];
     final List<String> complaintsList = rawComplaints is List ? List<String>.from(rawComplaints) : [];
     final duration = obs['complaintsDuration'] as String? ?? '';
-    final Map<String, dynamic> anamnesisMap = {};
+    final Map<String, dynamic> anamnesisMap = {
+      'clinicalComplaints': complaintsList,
+      'complaintsDuration': duration,
+    };
     for (final c in complaintsList) {
       anamnesisMap[c] = {
         'present': true,
         'duration': duration,
       };
+      final lowerC = c.toLowerCase();
+      if (lowerC.contains('mass') || lowerC.contains('vagina') || lowerC.contains('prolapse') || lowerC.contains('hanging')) {
+        anamnesisMap['prolapse'] = {'present': true, 'duration': duration};
+        anamnesisMap['something hanging out'] = {'present': true, 'duration': duration};
+      }
+      if (lowerC.contains('discharge') || lowerC.contains('foul') || lowerC.contains('white') || lowerC.contains('itching')) {
+        anamnesisMap['discharge'] = {'present': true, 'duration': duration};
+        anamnesisMap['discharge and or itching'] = {'present': true, 'duration': duration};
+      }
+      if (lowerC.contains('micturition') || lowerC.contains('incontinence') || lowerC.contains('urine')) {
+        anamnesisMap['urine'] = {'present': true, 'duration': duration};
+        anamnesisMap['problems passing urine'] = {'present': true, 'duration': duration};
+      }
+      if (lowerC.contains('pain') || lowerC.contains('backache') || lowerC.contains('heaviness')) {
+        anamnesisMap['pain'] = {'present': true, 'duration': duration};
+      }
+      if (lowerC.contains('stool') || lowerC.contains('bowel')) {
+        anamnesisMap['stool'] = {'present': true, 'duration': duration};
+        anamnesisMap['problems passing stool'] = {'present': true, 'duration': duration};
+      }
+    }
+
+    final intakeReasons = List<String>.from(demo['reasonsForVisit'] as List? ?? const <String>[]);
+    for (final r in intakeReasons) {
+      final lowerR = r.toLowerCase();
+      if (lowerR.contains('hanging') || lowerR.contains('prolapse')) {
+        anamnesisMap.putIfAbsent('prolapse', () => {'present': true, 'duration': duration});
+        anamnesisMap.putIfAbsent('something hanging out', () => {'present': true, 'duration': duration});
+      }
+      if (lowerR.contains('discharge') || lowerR.contains('itching')) {
+        anamnesisMap.putIfAbsent('discharge', () => {'present': true, 'duration': duration});
+        anamnesisMap.putIfAbsent('discharge and or itching', () => {'present': true, 'duration': duration});
+      }
+      if (lowerR.contains('urine')) {
+        anamnesisMap.putIfAbsent('urine', () => {'present': true, 'duration': duration});
+        anamnesisMap.putIfAbsent('problems passing urine', () => {'present': true, 'duration': duration});
+      }
+      if (lowerR.contains('pain')) {
+        anamnesisMap.putIfAbsent('pain', () => {'present': true, 'duration': duration});
+      }
+      if (lowerR.contains('stool')) {
+        anamnesisMap.putIfAbsent('stool', () => {'present': true, 'duration': duration});
+        anamnesisMap.putIfAbsent('problems passing stool', () => {'present': true, 'duration': duration});
+      }
+      if (lowerR.contains('menstrual')) {
+        anamnesisMap.putIfAbsent('menstrual', () => {'present': true, 'duration': duration});
+      }
+      if (lowerR.contains('infertility')) {
+        anamnesisMap.putIfAbsent('infertility', () => {'present': true, 'duration': duration});
+      }
     }
 
     final clinicalVisit = ClinicalVisitModel(
