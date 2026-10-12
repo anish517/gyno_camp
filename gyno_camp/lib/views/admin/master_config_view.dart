@@ -346,14 +346,14 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                                   ...campState.camps.map(
                                     (c) => DropdownMenuItem<String?>(
                                       value: c.id,
-                                      child: Text('🏕️ ${c.campCode} - ${c.name}'),
+                                      child: Text('${c.campCode} - ${c.name}'),
                                     ),
                                   ),
                                   if (state.selectedCampId != null &&
                                       !campState.camps.any((c) => c.id == state.selectedCampId))
                                     DropdownMenuItem<String?>(
                                       value: state.selectedCampId,
-                                      child: Text('🏕️ Selected Camp (${state.selectedCampId})'),
+                                      child: Text('Selected Camp (${state.selectedCampId})'),
                                     ),
                                 ],
                                 onChanged: (val) {
