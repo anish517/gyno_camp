@@ -1171,7 +1171,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           child: TabBarView(
             controller: _tabController,
             children: [
-              _buildDemographicsTab(result, ocrVm, ocrState, campState.activeCamp?.id),
+              _buildDemographicsTab(
+                result,
+                ocrVm,
+                ocrState,
+                campState.activeCamp?.id,
+                campCode: campState.activeCamp?.campCode,
+              ),
               _buildObstetricsTab(result, ocrVm),
               _buildPopStagingTab(result, ocrVm),
               _buildVitalsAndDiagnosesTab(result, ocrVm),
@@ -1310,7 +1316,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
   }
 
   // Tab 1: Demographics
-  Widget _buildDemographicsTab(OcrScanResultModel result, OcrScanViewModel vm, OcrScanState ocrState, String? campId) {
+  Widget _buildDemographicsTab(
+    OcrScanResultModel result,
+    OcrScanViewModel vm,
+    OcrScanState ocrState,
+    String? campId, {
+    String? campCode,
+  }) {
     final demo = result.demographics;
 
     final rawProv = demo['province']?.toString().trim() ?? '';
@@ -1335,6 +1347,49 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Token Conflict Warning Card
+          if (ocrState.isPatientIdConflict) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 24),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'TOKEN ID CONFLICT (टोकन नं. दोहोरिएको छ)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF991B1B)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          ocrState.patientIdConflictReason ?? 'This Patient Token ID is already registered.',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(foregroundColor: AppTheme.primaryPurple),
+                    icon: const Icon(Icons.autorenew, size: 16),
+                    label: const Text('Auto-Generate', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      vm.updateDemographic('patientId', '', campId: campId, campCode: campCode);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           // Live Duplicate Detection Warning Card
           if (ocrState.duplicateResult.hasDuplicate) ...[
             Container(
@@ -1414,6 +1469,89 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               ),
             ),
           ],
+
+          // ── Patient Token ID Section ──
+          Builder(
+            builder: (context) {
+              final detectedId = (demo['patientId'] as String? ?? demo['patientTokenId'] as String? ?? '').trim();
+              final isDetected = detectedId.isNotEmpty;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDetected ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDetected ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1),
+                    width: 1.2,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          isDetected ? Icons.qr_code_scanner : Icons.tag,
+                          size: 18,
+                          color: isDetected ? const Color(0xFF16A34A) : AppTheme.primaryPurple,
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Patient Token ID / बिरामी टोकन नं.',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: isDetected ? const Color(0xFFDCFCE7) : const Color(0xFFEDE9FE),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isDetected ? const Color(0xFF86EFAC) : const Color(0xFFDDD6FE),
+                            ),
+                          ),
+                          child: Text(
+                            isDetected ? 'Detected from Form (फारमबाट पहिचान)' : 'Auto-Generate on Save (स्वतः उत्पन्न हुनेछ)',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: isDetected ? const Color(0xFF15803D) : AppTheme.primaryPurple,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      key: ValueKey('token_id_$detectedId'),
+                      initialValue: detectedId,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        hintText: 'Leave blank to auto-generate sequentially (e.g. 00042 or GC-DHN-2026-00042)',
+                        hintStyle: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                        suffixIcon: detectedId.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 16),
+                                tooltip: 'Clear to auto-generate',
+                                onPressed: () {
+                                  vm.updateDemographic('patientId', '', campId: campId, campCode: campCode);
+                                },
+                              )
+                            : null,
+                      ),
+                      onChanged: (val) {
+                        vm.updateDemographic('patientId', val, campId: campId, campCode: campCode);
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
 
           _buildFieldWithConfidence(
             label: 'First Name (नाम)',

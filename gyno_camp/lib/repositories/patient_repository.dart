@@ -30,6 +30,7 @@ abstract class IPatientRepository {
   });
   Future<List<PatientModel>> getPatientsByCamp([String? campId, List<String>? allowedCampIds]);
   Future<PatientModel?> getPatientByPatientId(String patientId);
+  Future<bool> isPatientIdTaken(String patientId);
   Future<List<PatientModel>> searchPatients({required String campId, required String query});
   Future<DuplicateCheckResult> checkDuplicate({
     required String campId,
@@ -64,6 +65,21 @@ class PatientRepository implements IPatientRepository {
         _auditRepository = auditRepository ?? AuditRepository();
 
   @override
+  Future<bool> isPatientIdTaken(String patientId) async {
+    final clean = patientId.trim().toUpperCase();
+    if (clean.isEmpty) return false;
+    final db = await _databaseService.database;
+    final existing = await db.query(
+      DatabaseTables.tablePatients,
+      columns: ['id'],
+      where: 'UPPER(patient_id) = ?',
+      whereArgs: [clean],
+      limit: 1,
+    );
+    return existing.isNotEmpty;
+  }
+
+  @override
   Future<PatientModel> registerPatient(
     PatientModel patient, {
     required String createdByUserId,
@@ -73,9 +89,28 @@ class PatientRepository implements IPatientRepository {
   }) async {
     final db = await _databaseService.database;
 
-    // Generate formatted unique Patient ID if not present
-    String finalPatientId = patient.patientId;
-    if (finalPatientId.isEmpty) {
+    // Normalize and resolve unique Patient ID
+    String finalPatientId = PatientModel.normalizePatientId(
+      rawInput: patient.patientId,
+      campCode: patient.campCode,
+      year: patient.intakeDate.year,
+    );
+
+    if (finalPatientId.isNotEmpty) {
+      // Custom / pre-assigned / OCR token supplied - verify uniqueness
+      final existing = await db.query(
+        DatabaseTables.tablePatients,
+        columns: ['id', 'first_name', 'surname'],
+        where: 'UPPER(patient_id) = ?',
+        whereArgs: [finalPatientId.toUpperCase()],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) {
+        final prevName = '${existing.first['first_name'] ?? ''} ${existing.first['surname'] ?? ''}'.trim();
+        throw Exception('Patient Token ID "$finalPatientId" is already registered to $prevName. Please verify token or leave blank to auto-generate.');
+      }
+    } else {
+      // Auto-generate formatted unique sequential Patient ID
       final countResult = Sqflite.firstIntValue(await db.rawQuery(
         'SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} WHERE camp_id = ?',
         [patient.campId],

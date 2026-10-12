@@ -8,8 +8,10 @@ import '../../core/services/file_download_helper.dart';
 import '../../core/services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
+import '../../models/patient_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
+import '../../viewmodels/patient_registration_viewmodel.dart';
 
 enum PrintableFormType {
   yellowRegistrationForm,
@@ -59,6 +61,21 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   bool _includeBlankNurseLine = false; // used only when the camp has no nurses
   bool _isGenerating = false;
 
+  // Pre-numbered Patient Token Range State
+  bool _enablePreNumberedTokens = false;
+  final TextEditingController _startTokenController = TextEditingController(text: '1');
+  final TextEditingController _tokenCountController = TextEditingController(text: '50');
+
+  int get safeStartToken {
+    final val = int.tryParse(_startTokenController.text.trim());
+    return (val != null && val > 0) ? val : 1;
+  }
+
+  int get safeTokenCount {
+    final val = int.tryParse(_tokenCountController.text.trim());
+    return (val != null && val > 0 && val <= 500) ? val : 50;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +89,38 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
     if (nurses.isNotEmpty) {
       _selectedNurse = nurses.first;
     }
+    _initStartingToken();
+  }
+
+  @override
+  void dispose() {
+    _startTokenController.dispose();
+    _tokenCountController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initStartingToken() async {
+    if (widget.camp == null) return;
+    try {
+      final patients = await ref.read(patientRepositoryProvider).getPatientsByCamp(widget.camp!.id);
+      int highestSeq = 0;
+      for (final p in patients) {
+        final pid = p.patientId.toUpperCase();
+        final lastHyphen = pid.lastIndexOf('-');
+        if (lastHyphen != -1 && lastHyphen < pid.length - 1) {
+          final seqPart = pid.substring(lastHyphen + 1);
+          final num = int.tryParse(seqPart);
+          if (num != null && num > highestSeq) {
+            highestSeq = num;
+          }
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _startTokenController.text = '${highestSeq + 1}';
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _generateAndDownload() async {
@@ -111,7 +160,59 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
       String filename;
       final campCode = widget.camp?.campCode ?? 'CAMP';
 
-      if (_selectedFormType == PrintableFormType.yellowRegistrationForm) {
+      if (_enablePreNumberedTokens && widget.camp != null) {
+        final startSeq = safeStartToken;
+        final count = safeTokenCount;
+        final endSeq = startSeq + count - 1;
+        final startPad = startSeq.toString().padLeft(5, '0');
+        final endPad = endSeq.toString().padLeft(5, '0');
+
+        if (_selectedFormType == PrintableFormType.yellowRegistrationForm) {
+          final isBlank = _doctorMode == DoctorSelectionMode.blankDoctorField;
+          final docToUse = _doctorMode == DoctorSelectionMode.specificDoctor ? _selectedDoctor : null;
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Generating $count pre-numbered blank forms ($startPad to $endPad, ${count * 2} pages)...'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          pdfBytes = await pdfService.generatePreNumberedBlankFormsPdf(
+            camp: widget.camp!,
+            startSequence: startSeq,
+            count: count,
+            doctor: docToUse,
+            nurse: nurseToUse,
+            blankNurseLines: blankNurse,
+            blankDoctorLines: isBlank,
+            page1Layout: _page1Layout,
+            organizationName: orgName,
+            diagnoses: diagnoses,
+            medications: medications,
+            referralHospitals: referralHospitals,
+            visitReasons: visitReasons,
+            chiefComplaints: chiefComplaints,
+          );
+          filename = 'Blank_YellowForms_${campCode}_${startPad}_to_$endPad.pdf';
+        } else {
+          final docToUse = _doctorMode == DoctorSelectionMode.specificDoctor ? _selectedDoctor : null;
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Generating $count pre-numbered follow-up sheets ($startPad to $endPad, $count pages)...'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          pdfBytes = await pdfService.generatePreNumberedBlankFollowUpSlipsPdf(
+            camp: widget.camp!,
+            startSequence: startSeq,
+            count: count,
+            doctor: docToUse,
+            nurse: nurseToUse,
+            blankNurseLines: blankNurse,
+            organizationName: orgName,
+          );
+          filename = 'Blank_FollowUpSlips_${campCode}_${startPad}_to_$endPad.pdf';
+        }
+      } else if (_selectedFormType == PrintableFormType.yellowRegistrationForm) {
         if (_doctorMode == DoctorSelectionMode.allDoctorsBatch && doctors.isNotEmpty) {
           // Batch download: generate combined multi-page PDF with 2 pages for each doctor
           messenger.showSnackBar(
@@ -513,6 +614,10 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                         const Divider(height: 1, color: Color(0xFFE2E8F0)),
                         const SizedBox(height: 18),
                         _buildNurseSection(isNarrow),
+                        const SizedBox(height: 22),
+                        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                        const SizedBox(height: 18),
+                        _buildTokenRangeSection(isNarrow),
                       ],
                     ),
                   ),
@@ -543,7 +648,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                                     )
                                   : const Icon(Icons.download_rounded, size: 18),
                               label: Text(
-                                _isGenerating ? 'Generating PDF...' : 'Download Printable PDF',
+                                _isGenerating
+                                    ? 'Generating PDF...'
+                                    : (_enablePreNumberedTokens
+                                        ? 'Download $safeTokenCount Pre-Numbered Forms'
+                                        : 'Download Printable PDF'),
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -591,7 +700,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                                     )
                                   : const Icon(Icons.download_rounded, size: 18),
                               label: Text(
-                                _isGenerating ? 'Generating PDF...' : 'Download Printable PDF',
+                                _isGenerating
+                                    ? 'Generating PDF...'
+                                    : (_enablePreNumberedTokens
+                                        ? 'Download $safeTokenCount Pre-Numbered Forms'
+                                        : 'Download Printable PDF'),
                                 style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -925,6 +1038,202 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTokenRangeSection(bool isNarrow) {
+    final campCode = widget.camp?.campCode ?? 'CAMP';
+    final year = widget.camp?.startDate.year ?? DateTime.now().year;
+    final startSeq = safeStartToken;
+    final count = safeTokenCount;
+    final endSeq = startSeq + count - 1;
+    final startId = PatientModel.generatePatientId(campCode: campCode, sequenceNumber: startSeq, year: year);
+    final endId = PatientModel.generatePatientId(campCode: campCode, sequenceNumber: endSeq, year: year);
+    final totalPages = _selectedFormType == PrintableFormType.yellowRegistrationForm ? count * 2 : count;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.pin_outlined, size: 16, color: AppTheme.brandPurple),
+            const SizedBox(width: 6),
+            const Expanded(
+              child: Text(
+                '4. PRE-NUMBER PATIENT TOKEN IDs (टोकन नं. छापिएको फाराम)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                  color: AppTheme.brandPurple,
+                ),
+              ),
+            ),
+            Switch.adaptive(
+              value: _enablePreNumberedTokens,
+              activeColor: AppTheme.brandPurple,
+              onChanged: (val) => setState(() => _enablePreNumberedTokens = val),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _enablePreNumberedTokens
+              ? 'Print sequentially numbered forms with pre-filled character boxes and QR codes in the header.'
+              : 'Switch ON to print a batch of blank forms sequentially numbered (e.g. 00001 to 00050).',
+          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+        ),
+        if (_enablePreNumberedTokens) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F3FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFDDD6FE)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Starting Number (सुरु नम्बर)',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                          ),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _startTokenController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              hintText: '1',
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                              ),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Quantity (फाराम संख्या)',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                          ),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _tokenCountController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              hintText: '50',
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                              ),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Quick quantity chips
+                Row(
+                  children: [
+                    const Text('Quick:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 8),
+                    for (final q in [10, 25, 50, 100]) ...[
+                      InkWell(
+                        onTap: () {
+                          _tokenCountController.text = '$q';
+                          setState(() {});
+                        },
+                        borderRadius: BorderRadius.circular(4),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: safeTokenCount == q ? AppTheme.brandPurple : Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: safeTokenCount == q ? AppTheme.brandPurple : const Color(0xFFCBD5E1),
+                            ),
+                          ),
+                          child: Text(
+                            '$q',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: safeTokenCount == q ? Colors.white : const Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Range Summary Preview Banner
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE9D5FF)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.qr_code_2_rounded, size: 28, color: AppTheme.brandPurple),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$startId → $endId',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2E1065),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$count forms ($totalPages pages) • Header boxes pre-printed with token & QR code',
+                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF6B21A8)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

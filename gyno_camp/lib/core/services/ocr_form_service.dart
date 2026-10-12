@@ -180,6 +180,45 @@ class OcrFormService {
     final obstetrics = <String, dynamic>{};
 
     if (!isPage2Only) {
+      // ── Patient Token ID / बिरामी टोकन नं ──
+      String? extractedTokenId;
+
+      // 1. Regex check for full standard format: GC-[CODE]-[YEAR]-[SEQ]
+      final fullTokenMatch = RegExp(
+        r'\bGC-([A-Za-z0-9_-]+)-(\d{4})-(\d{1,6})\b',
+        caseSensitive: false,
+      ).firstMatch(text);
+
+      if (fullTokenMatch != null) {
+        final code = fullTokenMatch.group(1)!.toUpperCase();
+        final yr = fullTokenMatch.group(2)!;
+        final seq = fullTokenMatch.group(3)!.padLeft(5, '0');
+        extractedTokenId = 'GC-$code-$yr-$seq';
+      } else {
+        // 2. Search for Token ID label followed by sequence digits or code
+        final rawTokenVal = findValueForLabel([
+          'patient token id', 'patient token', 'token id', 'token no', 'token number',
+          'बिरामी टोकन नं', 'बिरामी टोकन', 'टोकन नं', 'टोकन', 'token',
+        ], multiLine: false);
+
+        if (rawTokenVal != null && rawTokenVal.isNotEmpty) {
+          final digits = rawTokenVal.replaceAll(RegExp(r'[^0-9]'), '');
+          if (digits.isNotEmpty && digits.length <= 6) {
+            extractedTokenId = digits.padLeft(5, '0');
+          } else if (RegExp(r'GC-[A-Za-z0-9_-]+-\d{4}-\d{1,6}', caseSensitive: false).hasMatch(rawTokenVal)) {
+            final m = RegExp(r'GC-([A-Za-z0-9_-]+)-(\d{4})-(\d{1,6})', caseSensitive: false).firstMatch(rawTokenVal);
+            if (m != null) {
+              extractedTokenId = 'GC-${m.group(1)!.toUpperCase()}-${m.group(2)}-${m.group(3)!.padLeft(5, "0")}';
+            }
+          }
+        }
+      }
+
+      if (extractedTokenId != null && extractedTokenId.isNotEmpty) {
+        demographics['patientId'] = extractedTokenId;
+        confidences['patientId'] = 0.95;
+      }
+
       // ── First & Last Name ──
       // Check for distinct First Name / Surname fields first (from block-letter forms)
       final extractedFirstName = findValueForLabel(['first name', 'पहिलो नाम', 'given name']);
@@ -1094,6 +1133,21 @@ class OcrFormService {
 
     // 0. Decode OCR circled/cross box symbols: '@' or circled marks as checked boxes '[x]'
     text = text.replaceAll(RegExp(r'(?:^|(?<=\s))@\s*'), '[x] ');
+
+    // 0.5 Collapse spaced characters for Patient Token ID: "G C - D H N - 2 0 2 6 - 0 0 0 4 2" or "GC-DHN-2026- 0 0 0 4 2"
+    text = text.replaceAllMapped(
+      RegExp(r'\b(?:G[ \t]*C|GC)[ \t]*-[ \t]*([A-Za-z0-9_][A-Za-z0-9_ \t]{1,9})[ \t]*-[ \t]*(\d[ \t]*\d[ \t]*\d[ \t]*\d)[ \t]*-[ \t]*([0-9][0-9 \t]{0,10})(?=[^0-9A-Za-z]|$)', caseSensitive: false),
+      (m) {
+        final code = m[1]!.replaceAll(RegExp(r'[ \t]+'), '').toUpperCase();
+        final year = m[2]!.replaceAll(RegExp(r'[ \t]+'), '');
+        final seq = m[3]!.replaceAll(RegExp(r'[ \t]+'), '');
+        return 'GC-$code-$year-$seq';
+      },
+    );
+    text = text.replaceAllMapped(
+      RegExp(r'\b(?:token(?:[ \t]*id|[ \t]*no)?|बिरामी[ \t]*टोकन(?:[ \t]*नं)?)[ \t]*[:\-]?[ \t]*(\d)[ \t]+(\d)[ \t]+(\d)(?:[ \t]+(\d))?(?:[ \t]+(\d))?', caseSensitive: false),
+      (m) => 'Token ID: ${m[1]}${m[2]}${m[3]}${m[4] ?? ""}${m[5] ?? ""}',
+    );
 
     // 1. Collapse spaced single digits for Nepali mobile numbers: "9 8 4 1 9 8 7 6 5 4" -> "9841987654"
     text = text.replaceAllMapped(

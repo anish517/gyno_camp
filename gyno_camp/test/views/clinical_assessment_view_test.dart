@@ -107,6 +107,9 @@ class FakePatientRepository implements IPatientRepository {
 
   @override
   Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId, {String? patientUuid}) async => lastSavedVisit;
+
+  @override
+  Future<bool> isPatientIdTaken(String patientId) async => false;
 }
 
 void main() {

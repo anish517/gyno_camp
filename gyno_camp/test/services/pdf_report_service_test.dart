@@ -560,6 +560,54 @@ void main() {
       expect(bytes, isNotEmpty);
       expect(utf8.decode(bytes.sublist(0, 5)), equals('%PDF-'));
     });
+
+    test('generatePreNumberedBlankFormsPdf generates valid PDF batch with sequential tokens', () async {
+      final camp = CampModel(
+        id: 'camp-range-01',
+        campCode: 'DHN',
+        name: 'Dhangadhi Women Health Camp',
+        district: 'Kailali',
+        municipality: 'Dhangadhi',
+        ward: '01',
+        venue: 'Zonal Hospital',
+        startDate: DateTime(2026, 4, 1),
+        endDate: DateTime(2026, 4, 5),
+        createdAt: DateTime(2026, 3, 20),
+      );
+
+      final bytes = await pdfService.generatePreNumberedBlankFormsPdf(
+        camp: camp,
+        startSequence: 1,
+        count: 3,
+      );
+
+      expect(bytes, isNotEmpty);
+      expect(utf8.decode(bytes.sublist(0, 5)), equals('%PDF-'));
+    });
+
+    test('generatePreNumberedBlankFollowUpSlipsPdf generates valid PDF batch with sequential tokens', () async {
+      final camp = CampModel(
+        id: 'camp-range-02',
+        campCode: 'DHN',
+        name: 'Dhangadhi Women Health Camp',
+        district: 'Kailali',
+        municipality: 'Dhangadhi',
+        ward: '01',
+        venue: 'Zonal Hospital',
+        startDate: DateTime(2026, 4, 1),
+        endDate: DateTime(2026, 4, 5),
+        createdAt: DateTime(2026, 3, 20),
+      );
+
+      final bytes = await pdfService.generatePreNumberedBlankFollowUpSlipsPdf(
+        camp: camp,
+        startSequence: 10,
+        count: 2,
+      );
+
+      expect(bytes, isNotEmpty);
+      expect(utf8.decode(bytes.sublist(0, 5)), equals('%PDF-'));
+    });
   });
 }
 

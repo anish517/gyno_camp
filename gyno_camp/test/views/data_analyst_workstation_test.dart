@@ -135,6 +135,10 @@ class _FakePatientRepository implements IPatientRepository {
     if (vList.isEmpty) return null;
     return vList.last;
   }
+
+  @override
+  Future<bool> isPatientIdTaken(String patientId) async =>
+      storedPatients.any((p) => p.patientId == patientId);
 }
 
 class _FakeReportingRepository implements IReportingRepository {

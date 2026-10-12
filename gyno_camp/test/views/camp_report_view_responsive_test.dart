@@ -136,6 +136,8 @@ class FakePatientRepoForReports implements IPatientRepository {
   Future<List<ClinicalVisitModel>> getClinicalVisits(String patientId, {String? patientUuid}) async => [];
   @override
   Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId, {String? patientUuid}) async => null;
+  @override
+  Future<bool> isPatientIdTaken(String patientId) async => false;
 }
 
 class FakeReportingRepo implements IReportingRepository {

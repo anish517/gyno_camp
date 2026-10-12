@@ -226,4 +226,53 @@ void main() {
       }
     });
   });
+
+  // ──────────────────────────────────────────────────────────
+  // PATIENT TOKEN ID EXTRACTION (BLANK & PRE-PRINTED FORMS)
+  // ──────────────────────────────────────────────────────────
+  group('Patient Token ID — OCR Detection', () {
+    test('Extracts full Patient Token ID from header', () {
+      const text = '''
+PATIENT TOKEN ID / बिरामी टोकन नं.
+GC-DHN-2026-00042
+First Name: Sita
+Surname: Sharma
+Patient Age: 35
+''';
+      final res = service.parseFormText(text, pageNumber: 1);
+      expect(res.demographics['patientId'], 'GC-DHN-2026-00042');
+      expect(res.fieldConfidences['patientId'], 0.95);
+    });
+
+    test('Normalizes and extracts spaced OCR character boxes', () {
+      const text = '''
+PATIENT TOKEN ID / बिरामी टोकन नं.
+G C - D H N - 2 0 2 6 - 0 0 0 4 2
+First Name: M A Y A
+Surname: T A M A N G
+''';
+      final res = service.parseFormText(text, pageNumber: 1);
+      expect(res.demographics['patientId'], 'GC-DHN-2026-00042');
+    });
+
+    test('Extracts token sequence digits following Nepali label', () {
+      const text = '''
+बिरामी टोकन नं: 00015
+First Name: Sita
+Surname: Sharma
+''';
+      final res = service.parseFormText(text, pageNumber: 1);
+      expect(res.demographics['patientId'], '00015');
+    });
+
+    test('Leaves patientId empty when no token header exists (triggers auto-generation)', () {
+      const text = '''
+First Name: Sita
+Surname: Sharma
+Patient Age: 35
+''';
+      final res = service.parseFormText(text, pageNumber: 1);
+      expect(res.demographics['patientId'], isNull);
+    });
+  });
 }

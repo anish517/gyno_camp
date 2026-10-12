@@ -213,9 +213,15 @@ class OcrRepository implements IOcrRepository {
     final pop = verifiedScan.popStaging;
 
     // 1. Construct Patient Model
+    final rawToken = (demo['patientId'] as String? ?? demo['patientTokenId'] as String? ?? '').trim();
+    final normalizedPatientId = PatientModel.normalizePatientId(
+      rawInput: rawToken,
+      campCode: campCode,
+    );
+
     final patient = PatientModel(
       id: 'pat-${_uuid.v4()}',
-      patientId: '', // Auto-generated sequentially in repository
+      patientId: normalizedPatientId, // Pre-assigned token or auto-generated sequentially by repository if empty
       campId: campId,
       campCode: campCode,
       intakeDate: DateTime.now(),

@@ -37,6 +37,7 @@ class PatientRegistrationView extends ConsumerStatefulWidget {
 
 class _PatientRegistrationViewState
     extends ConsumerState<PatientRegistrationView> {
+  final _patientIdController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _surnameController = TextEditingController();
   final _ageController = TextEditingController();
@@ -50,6 +51,7 @@ class _PatientRegistrationViewState
   final _contactMobileController = TextEditingController();
 
   // FocusNodes for block-grid interactive inputs
+  final _patientIdFocus = FocusNode();
   final _firstNameFocus = FocusNode();
   final _surnameFocus = FocusNode();
   final _districtFocus = FocusNode();
@@ -85,6 +87,7 @@ class _PatientRegistrationViewState
 
   void _applyPatientToEdit(PatientModel patient) {
     ref.read(patientRegistrationProvider.notifier).loadPatientForEditing(patient);
+    _patientIdController.text = patient.patientId;
     _firstNameController.text = patient.firstName.toUpperCase();
     _surnameController.text = patient.surname.toUpperCase();
     _ageController.text = patient.age.toString();
@@ -100,6 +103,7 @@ class _PatientRegistrationViewState
   }
 
   void _resetToFreshRegistration() {
+    _patientIdController.clear();
     _firstNameController.clear();
     _surnameController.clear();
     _ageController.clear();
@@ -136,6 +140,8 @@ class _PatientRegistrationViewState
     final maritalAgeInt = int.tryParse(maritalAgeText);
 
     vm.updateField(
+      patientId: _patientIdController.text.trim(),
+      clearPatientId: _patientIdController.text.trim().isEmpty,
       firstName: _firstNameController.text.trim().toUpperCase(),
       surname: _surnameController.text.trim().toUpperCase(),
       age: ageInt,
@@ -154,6 +160,7 @@ class _PatientRegistrationViewState
 
   @override
   void dispose() {
+    _patientIdController.dispose();
     _firstNameController.dispose();
     _surnameController.dispose();
     _ageController.dispose();
@@ -165,6 +172,7 @@ class _PatientRegistrationViewState
     _maritalAgeController.dispose();
     _contactPersonController.dispose();
     _contactMobileController.dispose();
+    _patientIdFocus.dispose();
     _firstNameFocus.dispose();
     _surnameFocus.dispose();
     _districtFocus.dispose();
@@ -896,6 +904,81 @@ class _PatientRegistrationViewState
                           ],
                         ),
                         const SizedBox(height: 16),
+                        // Patient Token ID / Auto-generation Notice
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.tag_rounded, size: 16, color: AppTheme.primaryPurple),
+                                  const SizedBox(width: 6),
+                                  const Expanded(
+                                    child: Text(
+                                      'Patient Token ID (बिरामी टोकन नं.) [Optional / ऐच्छिक]',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155)),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _patientIdController.text.trim().isNotEmpty
+                                          ? const Color(0xFFDCFCE7)
+                                          : const Color(0xFFEDE9FE),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      _patientIdController.text.trim().isNotEmpty
+                                          ? 'Custom Token'
+                                          : 'Auto-Generate on Save',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: _patientIdController.text.trim().isNotEmpty
+                                            ? const Color(0xFF15803D)
+                                            : AppTheme.primaryPurple,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _patientIdController,
+                                focusNode: _patientIdFocus,
+                                textCapitalization: TextCapitalization.characters,
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  labelText: 'Pre-assigned Token / Blank Form ID',
+                                  hintText: 'Leave empty to auto-generate sequentially (e.g. 00042 or GC-DHN-2026-00042)',
+                                  hintStyle: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                                  suffixIcon: _patientIdController.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear, size: 16),
+                                          onPressed: () {
+                                            _patientIdController.clear();
+                                            vm.setPatientId(null);
+                                            setState(() {});
+                                          },
+                                        )
+                                      : null,
+                                ),
+                                onChanged: (val) {
+                                  vm.setPatientId(val);
+                                  setState(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
                         if (isMobile) ...[
                           _buildBlockGrid(
                             _firstNameController.text, 14,

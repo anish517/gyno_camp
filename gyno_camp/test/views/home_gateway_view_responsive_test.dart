@@ -157,6 +157,10 @@ class FakePatientRepoForResponsive implements IPatientRepository {
 
   @override
   Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId, {String? patientUuid}) async => null;
+
+  @override
+  Future<bool> isPatientIdTaken(String patientId) async =>
+      patients.any((p) => p.patientId == patientId);
 }
 
 class FakeReportingRepoForResponsive implements IReportingRepository {

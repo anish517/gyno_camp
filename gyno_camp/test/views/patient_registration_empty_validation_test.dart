@@ -108,6 +108,10 @@ class _FakePatientRepository implements IPatientRepository {
     if (list.isEmpty) return null;
     return list.last;
   }
+
+  @override
+  Future<bool> isPatientIdTaken(String patientId) async =>
+      storedPatients.any((p) => p.patientId == patientId);
 }
 
 class _FakeCampViewModel extends StateNotifier<CampState> implements CampViewModel {
@@ -136,6 +140,7 @@ void main() {
     email: 'sita@gynocamp.org',
     phone: '9841234567',
     role: UserRole.dataTaker,
+    assignedCampIds: const ['camp-ktm-01'],
   );
 
   final testCamp = CampModel(
@@ -147,6 +152,8 @@ void main() {
     municipality: 'Budhanilkantha Municipality',
     ward: '03',
     venue: 'Health Post',
+    status: CampStatus.open,
+    assignedStaffIds: const ['user-nurse-1'],
     startDate: DateTime(2026, 3, 1),
     endDate: DateTime(2026, 3, 5),
     createdAt: DateTime(2026, 3, 1),
@@ -160,6 +167,7 @@ void main() {
         patientRepositoryProvider.overrideWithValue(fakePatientRepo),
         campStateProvider.overrideWith((ref) => _FakeCampViewModel(testCamp)),
         authStateProvider.overrideWith((ref) => _FakeAuthViewModel(testUser)),
+        userActiveCampProvider.overrideWithValue(testCamp),
       ],
       child: const MaterialApp(
         home: PatientRegistrationView(),
@@ -268,6 +276,13 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Fill Sample'));
+      await tester.pumpAndSettle();
+
+      // Tap a visit reason to satisfy the required visit reason validation
+      final reasonTile = find.textContaining('Something Hanging Out').first;
+      await tester.ensureVisible(reasonTile);
+      await tester.pumpAndSettle();
+      await tester.tap(reasonTile);
       await tester.pumpAndSettle();
 
       // Tap submit button

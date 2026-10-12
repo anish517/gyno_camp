@@ -160,6 +160,10 @@ class _FakePatientRepository implements IPatientRepository {
     if (list.isEmpty) return null;
     return list.last;
   }
+
+  @override
+  Future<bool> isPatientIdTaken(String patientId) async =>
+      storedPatients.any((p) => p.patientId == patientId);
 }
 
 class _FakeCampViewModel extends StateNotifier<CampState> implements CampViewModel {

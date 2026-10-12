@@ -93,5 +93,42 @@ void main() {
 
       expect(notDup, isFalse);
     });
+
+    test('normalizePatientId correctly handles empty, digits, and full formats', () {
+      // 1. Empty raw input preserves empty string (signals auto-generation fallback)
+      expect(PatientModel.normalizePatientId(rawInput: '', campCode: 'DHN', year: 2026), '');
+      expect(PatientModel.normalizePatientId(rawInput: '   ', campCode: 'DHN', year: 2026), '');
+
+      // 2. Pure digits (short or padded) auto-resolve with camp prefix and padded sequence
+      expect(
+        PatientModel.normalizePatientId(rawInput: '42', campCode: 'DHN', year: 2026),
+        'GC-DHN-2026-00042',
+      );
+      expect(
+        PatientModel.normalizePatientId(rawInput: '00042', campCode: 'DHN', year: 2026),
+        'GC-DHN-2026-00042',
+      );
+
+      // 3. Full standard IDs with lowercase or without GC- prefix normalize properly
+      expect(
+        PatientModel.normalizePatientId(rawInput: 'gc-dhn-2026-00042', campCode: 'DHN', year: 2026),
+        'GC-DHN-2026-00042',
+      );
+      expect(
+        PatientModel.normalizePatientId(rawInput: 'DHN-2026-00042', campCode: 'DHN', year: 2026),
+        'GC-DHN-2026-00042',
+      );
+      expect(
+        PatientModel.normalizePatientId(rawInput: 'GC-DHN-2026-42', campCode: 'DHN', year: 2026),
+        'GC-DHN-2026-00042',
+      );
+    });
+
+    test('isValidPatientIdFormat validates format', () {
+      expect(PatientModel.isValidPatientIdFormat('GC-DHN-2026-00042'), isTrue);
+      expect(PatientModel.isValidPatientIdFormat('gc-dhn-2026-00042'), isTrue);
+      expect(PatientModel.isValidPatientIdFormat('00042'), isFalse);
+      expect(PatientModel.isValidPatientIdFormat('INVALID'), isFalse);
+    });
   });
 }

@@ -341,7 +341,8 @@ class GeminiOcrService {
       'reasonsForVisit': normalizedReasons,
       'consentTreatment': rawDemo['consentTreatment'] ?? true,
       'consentStoreMedicalInfo': rawDemo['consentStoreMedicalInfo'] ?? true,
-      'patientTokenId': rawDemo['patientTokenId']?.toString().trim() ?? (parsedData['patientId']?.toString().trim() ?? ''),
+      'patientId': (rawDemo['patientId'] ?? rawDemo['patientTokenId'] ?? parsedData['patientId'] ?? parsedData['patientTokenId'] ?? '').toString().trim(),
+      'patientTokenId': (rawDemo['patientId'] ?? rawDemo['patientTokenId'] ?? parsedData['patientId'] ?? parsedData['patientTokenId'] ?? '').toString().trim(),
     };
 
     // Normalize obstetrics (strictly Yellow Form Station 1 fields — NO gravida/deliveries-years-ago)

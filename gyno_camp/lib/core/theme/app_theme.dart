@@ -13,6 +13,7 @@ class AppTheme {
   static const Color brandPurpleBorder = Color(0xFFE9D5FF); // Light violet border
 
   // Brand aliases (migrated to WFWSN official brand purple palette)
+  static const Color primaryPurple = brandPurple;
   static const Color primaryTeal = brandPurple; // Alias for backward compatibility
   static const Color primaryDark = brandPurpleDark; // Alias
   static const Color primaryLight = brandPurpleLight; // Soft violet tint

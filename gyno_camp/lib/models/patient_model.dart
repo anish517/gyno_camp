@@ -274,7 +274,61 @@ class PatientModel {
   }) {
     final yr = year ?? DateTime.now().year;
     final seqFormatted = sequenceNumber.toString().padLeft(5, '0');
-    return 'GC-$campCode-$yr-$seqFormatted';
+    final code = campCode.trim().isEmpty ? 'CAMP' : campCode.trim().toUpperCase();
+    return 'GC-$code-$yr-$seqFormatted';
+  }
+
+  /// Checks if a string conforms to the standard Patient ID format: GC-[CAMP]-[YEAR]-[5 DIGITS]
+  static bool isValidPatientIdFormat(String id) {
+    return RegExp(r'^GC-[A-Za-z0-9_-]+-\d{4}-\d{5}$', caseSensitive: false).hasMatch(id.trim());
+  }
+
+  /// Normalizes raw input from OCR or manual entry into standard format.
+  /// - Returns '' if input is blank (signaling automatic sequential generation).
+  /// - Converts numeric sequence (e.g., '42' or '00042') into 'GC-[campCode]-[year]-00042'.
+  /// - Normalizes standard strings like 'gc-dhn-2026-42' into 'GC-DHN-2026-00042'.
+  static String normalizePatientId({
+    required String rawInput,
+    required String campCode,
+    int? year,
+  }) {
+    final clean = rawInput.trim();
+    if (clean.isEmpty) return '';
+
+    final upper = clean.toUpperCase();
+    final effectiveYear = year ?? DateTime.now().year;
+    final cleanCampCode = campCode.trim().isEmpty ? 'CAMP' : campCode.trim().toUpperCase();
+
+    // 1. If input is pure digits (e.g., '42', '00042')
+    final digitsOnly = upper.replaceAll(RegExp(r'[^0-9]'), '');
+    if (upper == digitsOnly && digitsOnly.isNotEmpty && digitsOnly.length <= 6) {
+      final seq = int.tryParse(digitsOnly);
+      if (seq != null) {
+        return generatePatientId(
+          campCode: cleanCampCode,
+          sequenceNumber: seq,
+          year: effectiveYear,
+        );
+      }
+    }
+
+    // 2. If missing the 'GC-' prefix but has the rest (e.g. 'DHN-2026-00042')
+    final withPrefix = upper.startsWith('GC-') ? upper : 'GC-$upper';
+
+    // 3. Match 'GC-[CODE]-[YEAR]-[SEQ]'
+    final match = RegExp(r'^GC-([A-Za-z0-9_-]+)-(\d{4})-(\d{1,6})$').firstMatch(withPrefix);
+    if (match != null) {
+      final code = match.group(1)!;
+      final yr = int.tryParse(match.group(2)!) ?? effectiveYear;
+      final seqNum = int.tryParse(match.group(3)!) ?? 1;
+      return generatePatientId(
+        campCode: code,
+        sequenceNumber: seqNum,
+        year: yr,
+      );
+    }
+
+    return withPrefix;
   }
 
   Map<String, dynamic> toMap() {

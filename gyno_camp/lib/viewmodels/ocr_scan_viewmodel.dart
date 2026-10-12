@@ -20,6 +20,8 @@ class OcrScanState {
   final String? successMessage;
   final PatientModel? committedPatient;
   final DuplicateCheckResult duplicateResult;
+  final bool isPatientIdConflict;
+  final String? patientIdConflictReason;
 
   const OcrScanState({
     this.isProcessing = false,
@@ -33,6 +35,8 @@ class OcrScanState {
     this.successMessage,
     this.committedPatient,
     this.duplicateResult = const DuplicateCheckResult.none(),
+    this.isPatientIdConflict = false,
+    this.patientIdConflictReason,
   });
 
   bool get hasPage1 => page1Scan != null;
@@ -53,6 +57,9 @@ class OcrScanState {
     String? successMessage,
     PatientModel? committedPatient,
     DuplicateCheckResult? duplicateResult,
+    bool? isPatientIdConflict,
+    String? patientIdConflictReason,
+    bool clearPatientIdConflict = false,
     bool clearPage1 = false,
     bool clearPage2 = false,
     bool clearScanResult = false,
@@ -69,6 +76,8 @@ class OcrScanState {
       successMessage: successMessage,
       committedPatient: committedPatient ?? this.committedPatient,
       duplicateResult: duplicateResult ?? this.duplicateResult,
+      isPatientIdConflict: clearPatientIdConflict ? false : (isPatientIdConflict ?? this.isPatientIdConflict),
+      patientIdConflictReason: clearPatientIdConflict ? null : (patientIdConflictReason ?? this.patientIdConflictReason),
     );
   }
 }
@@ -352,15 +361,42 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
   }
 
   /// Updates a demographic field during human verification
-  void updateDemographic(String key, dynamic value, {String? campId}) {
+  void updateDemographic(String key, dynamic value, {String? campId, String? campCode}) {
     if (state.scanResult == null) return;
     final updatedDemo = Map<String, dynamic>.from(state.scanResult!.demographics);
     updatedDemo[key] = value;
     state = state.copyWith(
       scanResult: state.scanResult!.copyWith(demographics: updatedDemo),
     );
+    if (key == 'patientId') {
+      checkPatientIdAvailability(value?.toString() ?? '', campCode: campCode);
+    }
     if (campId != null && campId.isNotEmpty) {
       runLiveDuplicateCheck(campId);
+    }
+  }
+
+  /// Checks whether a scanned or manually entered patient token ID is already taken
+  Future<void> checkPatientIdAvailability(String candidateId, {String? campCode}) async {
+    final clean = candidateId.trim();
+    if (clean.isEmpty) {
+      state = state.copyWith(clearPatientIdConflict: true);
+      return;
+    }
+    final normalized = PatientModel.normalizePatientId(
+      rawInput: clean,
+      campCode: campCode ?? '',
+    );
+    final target = normalized.isNotEmpty ? normalized : clean;
+    final isTaken = await _patientRepository.isPatientIdTaken(target);
+    if (!mounted) return;
+    if (isTaken) {
+      state = state.copyWith(
+        isPatientIdConflict: true,
+        patientIdConflictReason: 'Token ID "$target" is already registered in the local database.',
+      );
+    } else {
+      state = state.copyWith(clearPatientIdConflict: true);
     }
   }
 

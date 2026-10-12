@@ -2994,6 +2994,7 @@ class PdfReportService {
   void _addBlankFollowUpSlipPage(
     pw.Document pdf, {
     CampModel? camp,
+    String? preprintedTokenId,
     DoctorProfile? doctor,
     NurseProfile? nurse,
     bool blankNurseLines = false,
@@ -3228,12 +3229,32 @@ class PdfReportService {
                           ),
                         ),
                         pw.SizedBox(height: 3),
-                        buildCharBoxes(
-                          camp?.campCode != null ? '${camp!.campCode}-' : '',
-                          minBoxes: 10,
-                          maxBoxes: 10,
-                          boxSize: 13,
-                        ),
+                        (preprintedTokenId != null && preprintedTokenId.isNotEmpty)
+                            ? pw.Row(
+                                mainAxisSize: pw.MainAxisSize.min,
+                                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                                children: [
+                                  buildCharBoxes(
+                                    preprintedTokenId,
+                                    minBoxes: preprintedTokenId.length,
+                                    maxBoxes: preprintedTokenId.length,
+                                    boxSize: 11.0,
+                                  ),
+                                  pw.SizedBox(width: 5),
+                                  pw.BarcodeWidget(
+                                    barcode: pw.Barcode.qrCode(),
+                                    data: preprintedTokenId,
+                                    width: 22,
+                                    height: 22,
+                                  ),
+                                ],
+                              )
+                            : buildCharBoxes(
+                                camp?.campCode != null ? '${camp!.campCode}-' : '',
+                                minBoxes: 10,
+                                maxBoxes: 10,
+                                boxSize: 13,
+                              ),
                         pw.SizedBox(height: 2),
                         pw.Text(
                           'Date: ${dateFormatter.format(DateTime.now())}',
@@ -3693,6 +3714,7 @@ class PdfReportService {
   Future<void> _addPatientRegistrationFormPages(
     pw.Document pdf, {
     PatientModel? patient,
+    String? preprintedPatientId,
     CampModel? camp,
     ClinicalVisitModel? visit,
     DoctorProfile? doctor,
@@ -5301,43 +5323,94 @@ class PdfReportService {
                               ),
                             ],
                           )
-                        : pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.end,
-                            children: [
-                              pw.Row(
-                                mainAxisSize: pw.MainAxisSize.min,
+                        : (preprintedPatientId != null && preprintedPatientId.isNotEmpty)
+                            ? pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.end,
                                 children: [
-                                  pw.Text(
-                                    'PATIENT TOKEN ID / ',
-                                    style: pw.TextStyle(
-                                      fontSize: 8.0,
-                                      fontWeight: pw.FontWeight.bold,
-                                      color: primary,
-                                    ),
+                                  pw.Row(
+                                    mainAxisSize: pw.MainAxisSize.min,
+                                    children: [
+                                      pw.Text(
+                                        'PATIENT TOKEN ID / ',
+                                        style: pw.TextStyle(
+                                          fontSize: 8.0,
+                                          fontWeight: pw.FontWeight.bold,
+                                          color: primary,
+                                        ),
+                                      ),
+                                      ne(
+                                        'बिरामी टोकन नं.',
+                                        size: 8.0,
+                                        bold: true,
+                                        color: 0xFF81005D,
+                                      ),
+                                    ],
                                   ),
-                                  ne(
-                                    'बिरामी टोकन नं.',
-                                    size: 8.0,
-                                    bold: true,
-                                    color: 0xFF81005D,
+                                  pw.SizedBox(height: 3),
+                                  pw.Row(
+                                    mainAxisSize: pw.MainAxisSize.min,
+                                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                                    children: [
+                                      pw.FittedBox(
+                                        fit: pw.BoxFit.scaleDown,
+                                        alignment: pw.Alignment.centerRight,
+                                        child: buildCharBoxes(
+                                          preprintedPatientId,
+                                          minBoxes: preprintedPatientId.length,
+                                          maxBoxes: preprintedPatientId.length,
+                                          boxSize: 11.5,
+                                          boxHeight: 16.5,
+                                          boxMargin: 1.2,
+                                        ),
+                                      ),
+                                      pw.SizedBox(width: 6),
+                                      pw.BarcodeWidget(
+                                        barcode: pw.Barcode.qrCode(),
+                                        data: preprintedPatientId,
+                                        width: 24,
+                                        height: 24,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            : pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                                children: [
+                                  pw.Row(
+                                    mainAxisSize: pw.MainAxisSize.min,
+                                    children: [
+                                      pw.Text(
+                                        'PATIENT TOKEN ID / ',
+                                        style: pw.TextStyle(
+                                          fontSize: 8.0,
+                                          fontWeight: pw.FontWeight.bold,
+                                          color: primary,
+                                        ),
+                                      ),
+                                      ne(
+                                        'बिरामी टोकन नं.',
+                                        size: 8.0,
+                                        bold: true,
+                                        color: 0xFF81005D,
+                                      ),
+                                    ],
+                                  ),
+                                  pw.SizedBox(height: 3),
+                                  pw.FittedBox(
+                                    fit: pw.BoxFit.scaleDown,
+                                    alignment: pw.Alignment.centerRight,
+                                    child: buildCharBoxes(
+                                      dynamicTokenPrefix,
+                                      minBoxes: dynamicTokenPrefix.length + 5,
+                                      maxBoxes: dynamicTokenPrefix.length + 5,
+                                      boxSize: 11.5,
+                                      boxHeight: 16.5,
+                                      boxMargin: 1.2,
+                                    ),
                                   ),
                                 ],
                               ),
-                              pw.SizedBox(height: 3),
-                              pw.FittedBox(
-                                fit: pw.BoxFit.scaleDown,
-                                alignment: pw.Alignment.centerRight,
-                                child: buildCharBoxes(
-                                  dynamicTokenPrefix,
-                                  minBoxes: dynamicTokenPrefix.length + 5,
-                                  maxBoxes: dynamicTokenPrefix.length + 5,
-                                  boxSize: 11.5,
-                                  boxHeight: 16.5,
-                                  boxMargin: 1.2,
-                                ),
-                              ),
-                            ],
-                          ),
                   ],
                 ),
               ),
@@ -6600,6 +6673,46 @@ class PdfReportService {
                           ),
                         ],
                       )
+                    else if (preprintedPatientId != null && preprintedPatientId.isNotEmpty)
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Text(
+                            'Patient ID:',
+                            style: pw.TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: pw.FontWeight.bold,
+                              color: primary,
+                            ),
+                          ),
+                          pw.SizedBox(height: 2),
+                          pw.Row(
+                            mainAxisSize: pw.MainAxisSize.min,
+                            crossAxisAlignment: pw.CrossAxisAlignment.center,
+                            children: [
+                              pw.FittedBox(
+                                fit: pw.BoxFit.scaleDown,
+                                alignment: pw.Alignment.centerRight,
+                                child: buildCharBoxes(
+                                  preprintedPatientId,
+                                  minBoxes: preprintedPatientId.length,
+                                  maxBoxes: preprintedPatientId.length,
+                                  boxSize: 11.5,
+                                  boxHeight: 16.5,
+                                  boxMargin: 1.2,
+                                ),
+                              ),
+                              pw.SizedBox(width: 6),
+                              pw.BarcodeWidget(
+                                barcode: pw.Barcode.qrCode(),
+                                data: preprintedPatientId,
+                                width: 22,
+                                height: 22,
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
                     else
                       pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -6739,6 +6852,103 @@ class PdfReportService {
           referralHospitals: referralHospitals,
           visitReasons: visitReasons,
           chiefComplaints: chiefComplaints,
+          logoImage: logoImage,
+        );
+      }
+      return pdf;
+    });
+  }
+
+  /// Generates a batch PDF containing blank Yellow registration forms (2 pages each)
+  /// sequentially pre-printed with Patient Token IDs (e.g., GC-DHN-2026-00001 to GC-DHN-2026-00050)
+  /// and matching QR codes in the header.
+  Future<Uint8List> generatePreNumberedBlankFormsPdf({
+    required CampModel camp,
+    required int startSequence,
+    required int count,
+    DoctorProfile? doctor,
+    bool blankDoctorLines = false,
+    NurseProfile? nurse,
+    bool blankNurseLines = false,
+    BlankFormPage1Layout page1Layout = BlankFormPage1Layout.grid,
+    String organizationName = AppConstants.defaultOrganizationName,
+    List<LookupItemModel>? diagnoses,
+    List<LookupItemModel>? medications,
+    List<LookupItemModel>? referralHospitals,
+    List<LookupItemModel>? visitReasons,
+    List<LookupItemModel>? chiefComplaints,
+  }) async {
+    final theme = await getPdfTheme();
+    final logoImage = await loadLogoImage();
+    return _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme);
+      final year = camp.startDate.year;
+      final campCode = camp.campCode.trim().toUpperCase();
+
+      for (int i = 0; i < count; i++) {
+        final seq = startSequence + i;
+        final patientId = PatientModel.generatePatientId(
+          campCode: campCode,
+          sequenceNumber: seq,
+          year: year,
+        );
+
+        await _addPatientRegistrationFormPages(
+          pdf,
+          camp: camp,
+          preprintedPatientId: patientId,
+          doctor: doctor,
+          blankDoctorLines: blankDoctorLines,
+          nurse: nurse,
+          blankNurseLines: blankNurseLines,
+          page1Layout: page1Layout,
+          organizationName: organizationName,
+          diagnoses: diagnoses,
+          medications: medications,
+          referralHospitals: referralHospitals,
+          visitReasons: visitReasons,
+          chiefComplaints: chiefComplaints,
+          logoImage: logoImage,
+        );
+      }
+      return pdf;
+    });
+  }
+
+  /// Generates a batch PDF containing 1-page blank Follow-Up Encounter Slips
+  /// sequentially pre-printed with Token IDs (e.g., GC-DHN-2026-00001 to GC-DHN-2026-00050).
+  Future<Uint8List> generatePreNumberedBlankFollowUpSlipsPdf({
+    required CampModel camp,
+    required int startSequence,
+    required int count,
+    DoctorProfile? doctor,
+    NurseProfile? nurse,
+    bool blankNurseLines = false,
+    String organizationName = AppConstants.defaultOrganizationName,
+  }) async {
+    final theme = await getPdfTheme();
+    final logoImage = await loadLogoImage();
+    return _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme);
+      final year = camp.startDate.year;
+      final campCode = camp.campCode.trim().toUpperCase();
+
+      for (int i = 0; i < count; i++) {
+        final seq = startSequence + i;
+        final tokenId = PatientModel.generatePatientId(
+          campCode: campCode,
+          sequenceNumber: seq,
+          year: year,
+        );
+
+        _addBlankFollowUpSlipPage(
+          pdf,
+          camp: camp,
+          preprintedTokenId: tokenId,
+          doctor: doctor,
+          nurse: nurse,
+          blankNurseLines: blankNurseLines,
+          organizationName: organizationName,
           logoImage: logoImage,
         );
       }

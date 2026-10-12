@@ -150,6 +150,10 @@ class _FakePatientRepository implements IPatientRepository {
   @override
   Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId, {String? patientUuid}) async =>
       lastSavedVisit;
+
+  @override
+  Future<bool> isPatientIdTaken(String patientId) async =>
+      storedPatients.any((p) => p.patientId == patientId);
 }
 
 class _FakeCampViewModel extends StateNotifier<CampState> implements CampViewModel {
