@@ -3482,12 +3482,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      {'val': 'Health Post', 'label': 'Health Post / PHC (स्वास्थ्य चौकी)'},
                       {'val': 'Camp Follow-up Day', 'label': 'Camp Follow-up Day (पुनः शिविर)'},
                       {'val': 'Scheer Memorial Hospital', 'label': 'Scheer Memorial Hospital (अस्पताल)'},
                     ].map((item) {
                       final val = item['val']!;
-                      final isSelected = (result.followUpDestination ?? 'Health Post').toLowerCase().contains(val.toLowerCase().split(' ').first);
+                      final isSelected = (result.followUpDestination ?? '').toLowerCase().contains(val.toLowerCase().split(' ').first);
                       return ChoiceChip(
                         label: Text(item['label']!),
                         selected: isSelected,

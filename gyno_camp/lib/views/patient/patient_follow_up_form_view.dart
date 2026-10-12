@@ -2146,19 +2146,23 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             ),
             Builder(
               builder: (context) {
-                final Set<String> followUpDestSet = {
-                  'Health Post',
-                  'GynaeSupport Nurse',
-                };
+                final Set<String> followUpDestSet = {};
                 for (final h in lookupState.activeReferralHospitals) {
                   final name = h.labelEn.trim();
-                  if (name.isNotEmpty) followUpDestSet.add(name);
+                  if (name.isNotEmpty && name != 'Health Post' && name != 'GynaeSupport Nurse') {
+                    followUpDestSet.add(name);
+                  }
                 }
                 for (final h in ClinicalConstants.referralHospitals) {
                   final name = h.trim();
-                  if (name.isNotEmpty) followUpDestSet.add(name);
+                  if (name.isNotEmpty && name != 'Health Post' && name != 'GynaeSupport Nurse') {
+                    followUpDestSet.add(name);
+                  }
                 }
-                if (_followUpDestination != null && _followUpDestination!.trim().isNotEmpty) {
+                if (_followUpDestination != null &&
+                    _followUpDestination!.trim().isNotEmpty &&
+                    _followUpDestination != 'Health Post' &&
+                    _followUpDestination != 'GynaeSupport Nurse') {
                   followUpDestSet.add(_followUpDestination!.trim());
                 }
 
@@ -2179,14 +2183,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                     isDense: true,
                   ),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('Local Health Post / Camp')),
+                    const DropdownMenuItem(value: null, child: Text('None / Not Specified')),
                     ...followUpDestList.map((h) => DropdownMenuItem(
                           value: h,
-                          child: Text(h == 'Health Post'
-                              ? 'Local Health Post (स्वास्थ्य चौकी)'
-                              : h == 'GynaeSupport Nurse'
-                                  ? 'GynaeSupport Nurse (गाइनोसपोर्ट नर्स)'
-                                  : h),
+                          child: Text(h),
                         )),
                   ],
                   onChanged: (val) => setState(() => _followUpDestination = val),

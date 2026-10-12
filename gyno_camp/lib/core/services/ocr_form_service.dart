@@ -1018,7 +1018,7 @@ class OcrFormService {
       if (highest >= 3 || lowerText.contains('scheer') || lowerText.contains('surgical referral')) {
         surgicalReferral = 'Scheer Memorial Hospital';
       }
-      followUp = highest >= 2 ? 'GynaeSupport Nurse' : 'Health Post';
+      followUp = surgicalReferral;
     }
 
     // Calculate overall confidence based on active fields
@@ -1300,7 +1300,7 @@ Treatments & Prescriptions:
 
 Station 6: Outtake & Referral
 Surgical Referral: Scheer Memorial Hospital (Vaginal Hysterectomy evaluation)
-Follow-up: GynaeSupport Nurse in 2 weeks
+Follow-up: Scheer Memorial Hospital
 ''';
 
   /// Sample 3: Full 2-Page Combined Intake

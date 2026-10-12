@@ -932,7 +932,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Surgical Referral Centers: Configure tertiary surgical partner hospitals for Station 5 (Referral for Surgery). Community follow-up destinations (Local Health Post, GynaeSupport Nurse) in Station 6 follow standardized medical protocols.',
+                    'Referral Centers: Configure tertiary surgical partner hospitals and follow-up destinations for clinical referral workflows.',
                     style: TextStyle(fontSize: 12, color: Color(0xFF3730A3), height: 1.3),
                   ),
                 ),

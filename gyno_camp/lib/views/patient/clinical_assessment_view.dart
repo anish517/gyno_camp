@@ -81,10 +81,15 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     if (visit.pessarySize != null && visit.pessarySize!.isNotEmpty) _pessarySizeController.text = visit.pessarySize!;
     if (visit.customMedication != null && visit.customMedication!.isNotEmpty) _customMedController.text = visit.customMedication!;
     if (visit.outtakeNotes != null && visit.outtakeNotes!.isNotEmpty) _outtakeNotesController.text = visit.outtakeNotes!;
+    final partnerHospitals = ref.read(masterLookupProvider).activeReferralHospitals
+        .map((h) => h.labelEn)
+        .where((h) => h != 'Health Post' && h != 'GynaeSupport Nurse' && h != 'Other')
+        .toList();
     if (visit.followUpDestination != null &&
         visit.followUpDestination!.isNotEmpty &&
         visit.followUpDestination != 'Health Post' &&
-        visit.followUpDestination != 'GynaeSupport Nurse') {
+        visit.followUpDestination != 'GynaeSupport Nurse' &&
+        !partnerHospitals.contains(visit.followUpDestination)) {
       _customFollowUpHospitalController.text = visit.followUpDestination!;
     }
     setState(() {});
@@ -2069,19 +2074,22 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         .toList();
 
     final standardOptions = [
-      'Health Post',
-      'GynaeSupport Nurse',
       ...partnerHospitals,
     ];
 
     final currentDest = state.followUpDestination;
+    final bool isKnownHospital = currentDest != null && standardOptions.contains(currentDest);
     final bool isCustom = currentDest != null &&
         currentDest.trim().isNotEmpty &&
-        !standardOptions.contains(currentDest);
+        currentDest != 'Health Post' &&
+        currentDest != 'GynaeSupport Nurse' &&
+        !isKnownHospital;
 
-    final dropdownValue = isCustom
-        ? 'Other'
-        : (standardOptions.contains(currentDest) ? currentDest : 'Health Post');
+    final dropdownValue = isKnownHospital
+        ? currentDest
+        : (isCustom
+            ? 'Other'
+            : (partnerHospitals.isNotEmpty ? partnerHospitals.first : 'Other'));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2092,7 +2100,15 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
           child: RadioGroup<bool>(
             groupValue: state.followUpNeeded,
             onChanged: (val) {
-              if (val != null) vm.setOuttake(followUpNeeded: val);
+              if (val != null) {
+                final defaultDest = partnerHospitals.isNotEmpty ? partnerHospitals.first : 'Other';
+                final effectiveDest = val
+                    ? (standardOptions.contains(state.followUpDestination)
+                        ? state.followUpDestination
+                        : defaultDest)
+                    : null;
+                vm.setOuttake(followUpNeeded: val, destination: effectiveDest);
+              }
             },
             child: Column(
               children: [
@@ -2111,17 +2127,9 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                           isExpanded: true,
                           initialValue: dropdownValue,
                           decoration: const InputDecoration(
-                            labelText: 'Follow-up Destination / Provider (पुनः जाँच गराउने स्थान/व्यक्ति)',
+                            labelText: 'Follow-up Destination / Hospital (पुनः जाँच गराउने अस्पताल)',
                           ),
                           items: [
-                            const DropdownMenuItem(
-                              value: 'Health Post',
-                              child: Text('Local Health Post (स्वास्थ्य चौकी)'),
-                            ),
-                            const DropdownMenuItem(
-                              value: 'GynaeSupport Nurse',
-                              child: Text('GynaeSupport Nurse (गाइनोसपोर्ट नर्स)'),
-                            ),
                             if (partnerHospitals.isNotEmpty) ...[
                               for (final h in partnerHospitals)
                                 DropdownMenuItem(

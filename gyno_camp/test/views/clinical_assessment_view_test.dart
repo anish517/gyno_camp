@@ -359,15 +359,15 @@ void main() {
       await tester.tap(find.text('Follow-up Needed (थप जाँच आवश्यक)'));
       await tester.pumpAndSettle();
 
-      // Verify the dropdown is present
-      expect(find.text('Local Health Post (स्वास्थ्य चौकी)'), findsOneWidget);
+      // Verify the dropdown is present with partner hospital
+      expect(find.text('Hospital: Scheer Memorial Hospital (अस्पताल)'), findsOneWidget);
 
       // Tap the dropdown to open choices
-      await tester.tap(find.text('Local Health Post (स्वास्थ्य चौकी)'));
+      await tester.tap(find.text('Hospital: Scheer Memorial Hospital (अस्पताल)'));
       await tester.pumpAndSettle();
 
-      // Verify partner hospital and Other / Custom options exist
-      expect(find.text('Hospital: Scheer Memorial Hospital (अस्पताल)'), findsOneWidget);
+      // Verify partner hospital and Other / Custom options exist in the opened menu
+      expect(find.text('Hospital: Scheer Memorial Hospital (अस्पताल)'), findsWidgets);
       expect(find.text('Other / Custom Hospital (अन्य / म्यानुअल अस्पताल)'), findsOneWidget);
 
       // Select 'Other / Custom Hospital'

@@ -361,7 +361,7 @@ class OcrRepository implements IOcrRepository {
       surgeryType: verifiedScan.surgeryType ?? pop['surgeryType'] as String?,
       surgicalReferral: verifiedScan.surgicalReferral,
       followUpNeeded: (pop['highestPopStage'] as int? ?? 0) >= 2,
-      followUpDestination: verifiedScan.followUpDestination ?? 'Health Post',
+      followUpDestination: verifiedScan.followUpDestination,
       primaryDoctorName: primaryDoctorName ?? verifiedScan.examiningDoctor,
       attendingDoctorNames: attendingDoctorNames.isNotEmpty
           ? attendingDoctorNames
