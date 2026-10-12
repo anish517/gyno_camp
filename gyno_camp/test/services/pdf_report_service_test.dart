@@ -200,6 +200,16 @@ void main() {
       expect(pageMatches.length, equals(2));
     });
 
+    test('generatePatientRegistrationFormPdf with BlankFormPage1Layout.classic stays strictly 2 pages', () async {
+      final bytes = await pdfService.generatePatientRegistrationFormPdf(
+        page1Layout: BlankFormPage1Layout.classic,
+      );
+      expect(bytes, isNotEmpty);
+      final pdfStr = latin1.decode(bytes);
+      final pageMatches = RegExp(r'/Type\s*/Page\b').allMatches(pdfStr);
+      expect(pageMatches.length, equals(2));
+    });
+
     test('generatePatientRegistrationFormPdf with camp generates 2 pages for blank form without bullet glyph errors', () async {
       final camp = CampModel(
         id: 'c-ktm-01',

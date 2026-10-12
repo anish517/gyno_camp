@@ -4184,13 +4184,15 @@ class PdfReportService {
             ),
           );
 
-          // ── Professional checkbox — 13.5 × 13.5 pt, 1.2 pt border, light fill ──
+          // ── Professional checkbox — crisp square with customizable size and text width ──
           pw.Widget cb(
             String label,
             bool checked, {
             double? textWidth,
             double bottom = 7.0,
             bool isExpanded = false,
+            double boxSize = 13.5,
+            double fontSize = 9.5,
           }) =>
               pw.Padding(
                 padding: pw.EdgeInsets.only(right: 6, bottom: bottom),
@@ -4199,9 +4201,9 @@ class PdfReportService {
                   mainAxisSize: isExpanded ? pw.MainAxisSize.max : pw.MainAxisSize.min,
                   children: [
                     pw.Container(
-                      width: 13.5,
-                      height: 13.5,
-                      margin: const pw.EdgeInsets.only(right: 5.0, top: 0.5),
+                      width: boxSize,
+                      height: boxSize,
+                      margin: const pw.EdgeInsets.only(right: 5.5, top: 0.5),
                       decoration: pw.BoxDecoration(
                         color: checked
                             ? PdfColor.fromHex('EDE9FF')
@@ -4219,7 +4221,7 @@ class PdfReportService {
                               child: pw.Text(
                                 'X',
                                 style: pw.TextStyle(
-                                  fontSize: 8.5,
+                                  fontSize: boxSize * 0.65,
                                   fontWeight: pw.FontWeight.bold,
                                   color: primary,
                                 ),
@@ -4230,18 +4232,14 @@ class PdfReportService {
                     if (textWidth != null)
                       pw.SizedBox(
                         width: textWidth,
-                        child: ne(label, size: 9.6, maxWidth: textWidth),
+                        child: ne(label, size: fontSize, maxWidth: textWidth),
                       )
                     else if (isExpanded)
                       pw.Expanded(
-                        child: pw.FittedBox(
-                          fit: pw.BoxFit.scaleDown,
-                          alignment: pw.Alignment.centerLeft,
-                          child: ne(label, size: 9.6),
-                        ),
+                        child: ne(label, size: fontSize),
                       )
                     else
-                      ne(label, size: 9.6),
+                      ne(label, size: fontSize),
                   ],
                 ),
               );
@@ -4899,6 +4897,8 @@ class PdfReportService {
                               isVisitReasonChecked(e.key, e.value),
                               textWidth: 238,
                               bottom: 7.0,
+                              boxSize: 15.5,
+                              fontSize: 9.3,
                             ),
                           )
                           .toList(),
@@ -4915,6 +4915,8 @@ class PdfReportService {
                               isVisitReasonChecked(e.key, e.value),
                               textWidth: 238,
                               bottom: 7.0,
+                              boxSize: 15.5,
+                              fontSize: 9.3,
                             ),
                           )
                           .toList(),
@@ -4936,12 +4938,16 @@ class PdfReportService {
                 patient?.consentTreatment ?? false,
                 textWidth: 500,
                 bottom: 6.0,
+                boxSize: 15.5,
+                fontSize: 9.0,
               ),
               cb(
                 'I consent to storage of my medical information / मेरो स्वास्थ्य विवरण भण्डारण गर्न सहमति छ',
                 patient?.consentStoreMedicalInfo ?? false,
                 textWidth: 500,
                 bottom: 12.0,
+                boxSize: 15.5,
+                fontSize: 9.0,
               ),
 
               // Signatures and Official Use in balanced horizontal row
@@ -5044,10 +5050,12 @@ class PdfReportService {
 
           // ── CLASSIC SINGLE-COLUMN RIGHT PANEL ──
           final bool hasFewReasons = effectiveVisitReasons.length <= 5;
-          final double reasonBottom = hasFewReasons ? 12.0 : 9.5;
-          final double spaceBeforeConsent = hasFewReasons ? 16.0 : 10.0;
-          final double spaceBeforeSig = hasFewReasons ? 32.0 : 20.0;
-          final double spaceBeforeOfficial = hasFewReasons ? 24.0 : 14.0;
+          final double reasonBottom = hasFewReasons ? 10.0 : 8.0;
+          final double spaceBeforeConsent = hasFewReasons ? 14.0 : 9.0;
+          final double spaceBeforeSig = hasFewReasons ? 22.0 : 14.0;
+          final double spaceBeforeOfficial = hasFewReasons ? 16.0 : 10.0;
+          const double rightColTextWidth = 213.0;
+          const double rightColBoxSize = 16.0;
 
           final rightColClassic = pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -5057,8 +5065,10 @@ class PdfReportService {
                 (e) => cb(
                   e.value,
                   isVisitReasonChecked(e.key, e.value),
-                  isExpanded: true,
+                  textWidth: rightColTextWidth,
                   bottom: reasonBottom,
+                  boxSize: rightColBoxSize,
+                  fontSize: 9.3,
                 ),
               ),
               pw.SizedBox(height: spaceBeforeConsent),
@@ -5066,14 +5076,18 @@ class PdfReportService {
               cb(
                 'I consent to examination and treatment / जाँच तथा उपचारका लागि मेरो सहमति छ',
                 patient?.consentTreatment ?? false,
-                isExpanded: true,
-                bottom: hasFewReasons ? 14.0 : 10.0,
+                textWidth: rightColTextWidth,
+                bottom: hasFewReasons ? 12.0 : 8.0,
+                boxSize: rightColBoxSize,
+                fontSize: 8.8,
               ),
               cb(
                 'I consent to storage of my medical information / मेरो स्वास्थ्य विवरण भण्डारण गर्न सहमति छ',
                 patient?.consentStoreMedicalInfo ?? false,
-                isExpanded: true,
-                bottom: hasFewReasons ? 14.0 : 10.0,
+                textWidth: rightColTextWidth,
+                bottom: hasFewReasons ? 12.0 : 8.0,
+                boxSize: rightColBoxSize,
+                fontSize: 8.8,
               ),
               pw.SizedBox(height: spaceBeforeSig),
               pw.FittedBox(
