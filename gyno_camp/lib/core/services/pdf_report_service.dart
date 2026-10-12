@@ -5535,11 +5535,11 @@ class PdfReportService {
           pw.TextStyle normal({double size = fs}) =>
               pw.TextStyle(fontSize: size, color: dark);
 
-          pw.Widget sectionHeader(String title) {
+          pw.Widget sectionHeader(String title, {double bottomMargin = 5.5}) {
             // Solid-primary-band header matching page 1 style.
             return pw.Container(
               width: double.infinity,
-              margin: const pw.EdgeInsets.only(bottom: 2.5),
+              margin: pw.EdgeInsets.only(bottom: bottomMargin),
               padding: const pw.EdgeInsets.symmetric(
                 horizontal: 7,
                 vertical: 3,
@@ -5662,14 +5662,6 @@ class PdfReportService {
                       '')
                   .toLowerCase();
           final tone = (visit?.pelvicFloorTone ?? '').toLowerCase();
-          final String currentTreatmentLevel =
-              (visit?.treatmentLevel?.trim().isNotEmpty == true)
-                  ? visit!.treatmentLevel!.trim()
-                  : (patient?.treatmentLevel?.trim().isNotEmpty == true
-                      ? patient!.treatmentLevel!.trim()
-                      : '');
-          final bool isCouncilLevel = currentTreatmentLevel == 'council_level';
-          final bool isFullCheckUp = currentTreatmentLevel == 'full_check_up';
 
           // Build columns
           // LEFT COLUMN: Stations 1-3 (Anamnesis, POP, Vitals)
@@ -6059,21 +6051,10 @@ class PdfReportService {
                 pw.Text('Other: ', style: bold(size: fsSmall)),
                 line(h: 14),
               ],
-              pw.SizedBox(height: 6),
+              pw.SizedBox(height: 8),
 
               // ── STATION 5: TREATMENT ─────────────────────────────────────
               sectionHeader('STATION 5: TREATMENT & PRESCRIPTIONS / उपचार'),
-              pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 3.5),
-                child: pw.Row(
-                  children: [
-                    pw.Text('Level of Treatment: ', style: bold(size: fsSmall)),
-                    cb('Council level', isCouncilLevel),
-                    pw.SizedBox(width: 8),
-                    cb('Full check up', isFullCheckUp),
-                  ],
-                ),
-              ),
               if (effectiveMedicationsItems.isEmpty) ...[
                 pw.Padding(
                   padding: const pw.EdgeInsets.symmetric(vertical: 2),
@@ -6209,7 +6190,7 @@ class PdfReportService {
                   ),
                 ],
               ),
-              pw.SizedBox(height: 6),
+              pw.SizedBox(height: 8),
 
               // ── STATION 6: DISCHARGE & CONTINUITY OF CARE ─────────────────────────
               sectionHeader(

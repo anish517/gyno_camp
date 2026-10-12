@@ -92,10 +92,15 @@ class HomeGatewayView extends ConsumerWidget {
 
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isCompact = screenWidth < 600;
+    final isMedium = screenWidth >= 600 && screenWidth < 900;
+
+    final double logoSize = isCompact ? 48.0 : (isMedium ? 60.0 : 72.0);
+    final double headerToolbarHeight = isCompact ? 70.0 : (isMedium ? 80.0 : 88.0);
+    final double titleFontSize = isCompact ? 16.0 : (isMedium ? 18.5 : 21.0);
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: isCompact ? 64 : 72,
+        toolbarHeight: headerToolbarHeight,
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -134,48 +139,53 @@ class HomeGatewayView extends ConsumerWidget {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Brand Logo mark with clean circular border and subtle brand shadow
-            Container(
-              width: isCompact ? 34 : 50,
-              height: isCompact ? 34 : 50,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                border: Border.all(
-                  color: const Color(0xFF30026E).withValues(alpha: 0.22),
-                  width: isCompact ? 1.5 : 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF30026E).withValues(alpha: 0.12),
-                    blurRadius: isCompact ? 4 : 8,
-                    offset: const Offset(0, 2),
+            // Brand Logo mark - large, clearly visible with clean circular border & soft glow
+            Tooltip(
+              message: 'Women For Women Social Network (WFWSN) • SoDeSI Nepal',
+              child: Container(
+                width: logoSize,
+                height: logoSize,
+                padding: const EdgeInsets.all(2.5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(
+                    color: const Color(0xFF81005D).withValues(alpha: 0.28),
+                    width: isCompact ? 1.5 : 2.0,
                   ),
-                ],
-              ),
-              child: ClipOval(
-                child: Image.asset(
-                  'assets/WFWSNPrimaryCircle.jpg',
-                  fit: BoxFit.cover,
-                  errorBuilder: (ctx, err, stack) => Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF30026E), Color(0xFF81005D)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF30026E).withValues(alpha: 0.14),
+                      blurRadius: isCompact ? 6 : 12,
+                      offset: const Offset(0, 3),
                     ),
-                    child: Icon(
-                      Icons.health_and_safety_rounded,
-                      color: Colors.white,
-                      size: isCompact ? 18 : 26,
+                  ],
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/WFWSNPrimaryCircle.jpg',
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                    errorBuilder: (ctx, err, stack) => Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF30026E), Color(0xFF81005D)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.health_and_safety_rounded,
+                        color: Colors.white,
+                        size: logoSize * 0.5,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-            SizedBox(width: isCompact ? 6 : 14),
+            SizedBox(width: isCompact ? 8 : 16),
             Flexible(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,14 +199,14 @@ class HomeGatewayView extends ConsumerWidget {
                         style: TextStyle(
                           color: const Color(0xFF1E0A38),
                           fontWeight: FontWeight.w900,
-                          fontSize: isCompact ? 15.5 : 18,
+                          fontSize: titleFontSize,
                           letterSpacing: -0.4,
                         ),
                       ),
                       if (!isCompact) ...[
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                           decoration: BoxDecoration(
                             color: const Color(0xFF30026E).withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(6),
@@ -205,7 +215,7 @@ class HomeGatewayView extends ConsumerWidget {
                           child: Text(
                             (user.isSuperAdmin ? UserRole.superAdmin : user.role).displayNameEn,
                             style: const TextStyle(
-                              fontSize: 9.5,
+                              fontSize: 10,
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF30026E),
                               letterSpacing: 0.3,
@@ -215,7 +225,7 @@ class HomeGatewayView extends ConsumerWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: 2),
                   Builder(
                     builder: (ctx) {
                       final org = ref.watch(effectiveOrganizationProvider);
@@ -224,7 +234,7 @@ class HomeGatewayView extends ConsumerWidget {
                             ? (deviceState.device?.deviceName ?? org)
                             : '$org • ${deviceState.device?.deviceName ?? "Authorized Device"}',
                         style: TextStyle(
-                          fontSize: isCompact ? 9.5 : 11,
+                          fontSize: isCompact ? 10 : 11.5,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF64748B),
                         ),
