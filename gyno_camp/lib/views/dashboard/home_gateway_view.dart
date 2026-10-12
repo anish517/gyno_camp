@@ -283,39 +283,6 @@ class HomeGatewayView extends ConsumerWidget {
             ),
           ),
           SizedBox(width: isCompact ? 4 : 8),
-          // Lock button with clean light frame
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: IconButton(
-              tooltip: 'Lock App Session',
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.all(isCompact ? 4 : 7),
-              constraints: BoxConstraints(
-                minWidth: isCompact ? 28 : 36,
-                minHeight: isCompact ? 28 : 36,
-              ),
-              icon: Icon(
-                Icons.lock_outline_rounded,
-                color: const Color(0xFF475569),
-                size: isCompact ? 15 : 18,
-              ),
-              onPressed: () {
-                ref.read(deviceSecurityProvider.notifier).lockApp();
-              },
-            ),
-          ),
-          SizedBox(width: isCompact ? 4 : 8),
           // User Profile chip with sign out (professional light enterprise style)
           Container(
             margin: EdgeInsets.only(right: isCompact ? 6 : 16),
