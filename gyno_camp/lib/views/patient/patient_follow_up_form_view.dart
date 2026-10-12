@@ -1460,6 +1460,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               ].map((t) {
                 final isSelected = _pelvicFloorTone.toLowerCase() == t['key'];
                 return ChoiceChip(
+                  showCheckmark: false,
                   label: Text(t['label']!),
                   selected: isSelected,
                   selectedColor: AppTheme.primaryTeal,
@@ -1527,47 +1528,51 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
       builder: (context, constraints) {
         final bool isCompact = constraints.maxWidth < 460;
 
-        final chips = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: allowed.map((stage) {
-            final isSelected = current == stage;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2.5),
-              child: SizedBox(
-                width: 44,
-                child: ChoiceChip(
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  label: Center(
-                    child: Text(
-                      'S$stage',
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF334155),
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                        fontSize: 11,
-                      ),
+        Widget buildChip(int stage) {
+          final isSelected = current == stage;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2.5),
+            child: SizedBox(
+              width: 48,
+              height: 32,
+              child: ChoiceChip(
+                showCheckmark: false,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                label: Center(
+                  child: Text(
+                    'S$stage',
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : const Color(0xFF334155),
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      fontSize: 12,
                     ),
                   ),
-                  selected: isSelected,
-                  selectedColor: AppTheme.primaryTeal,
-                  backgroundColor: const Color(0xFFF1F5F9),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    side: BorderSide(
-                      color: isSelected ? AppTheme.primaryTeal : const Color(0xFFCBD5E1),
-                      width: 1,
-                    ),
-                  ),
-                  padding: EdgeInsets.zero,
-                  labelPadding: EdgeInsets.zero,
-                  onSelected: (_) => onSelect(stage),
                 ),
+                selected: isSelected,
+                selectedColor: AppTheme.primaryTeal,
+                backgroundColor: const Color(0xFFF1F5F9),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  side: BorderSide(
+                    color: isSelected ? AppTheme.primaryTeal : const Color(0xFFCBD5E1),
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+                padding: EdgeInsets.zero,
+                labelPadding: EdgeInsets.zero,
+                onSelected: (_) => onSelect(stage),
               ),
-            );
-          }).toList(),
-        );
+            ),
+          );
+        }
 
         if (isCompact) {
+          final compactChips = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: allowed.map((stage) => buildChip(stage)).toList(),
+          );
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1578,13 +1583,28 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               const SizedBox(height: 6),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: chips,
+                child: compactChips,
               ),
             ],
           );
         }
 
-        // Wide layout: label on left, chips symmetrically aligned on right
+        // Wide layout: exactly 5 slots so S0..S4 are in identical column positions
+        final alignedChips = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(5, (index) {
+            final stage = index;
+            final isAllowed = allowed.contains(stage);
+            if (!isAllowed) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 2.5),
+                child: SizedBox(width: 48, height: 32),
+              );
+            }
+            return buildChip(stage);
+          }),
+        );
+
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
@@ -1597,7 +1617,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 ),
               ),
               const SizedBox(width: 12),
-              chips,
+              alignedChips,
             ],
           ),
         );
@@ -1875,6 +1895,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                       ].map((type) {
                         final isSelected = _selectedSurgeryType == type;
                         return ChoiceChip(
+                          showCheckmark: false,
                           label: Text(type),
                           selected: isSelected,
                           selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
