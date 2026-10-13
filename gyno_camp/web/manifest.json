@@ -1,11 +1,11 @@
 {
-    "name": "gyno_camp",
-    "short_name": "gyno_camp",
+    "name": "GynoCamp Clinical Health System",
+    "short_name": "GynoCamp",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0F172A",
+    "theme_color": "#81005D",
+    "description": "Nepal Rural Women's Health & Gynecological Outreach Mission Clinical System.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

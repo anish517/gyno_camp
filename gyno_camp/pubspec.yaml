@@ -82,6 +82,7 @@ flutter:
 
   assets:
     - assets/
+    - assets/icons/
     - assets/WFWSNPrimaryCircle.png
     - assets/WFWSNPrimaryCircle.jpg
     - assets/wfwsn_logo_small.png
