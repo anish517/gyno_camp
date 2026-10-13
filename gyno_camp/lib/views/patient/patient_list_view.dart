@@ -3222,12 +3222,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       children: [
                         Icon(Icons.shield_outlined, size: 10.5, color: Color(0xFF94A3B8)),
                         SizedBox(width: 3.5),
-                        Text(
-                          'Encrypted',
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            color: Color(0xFF94A3B8),
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            'Encrypted',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              color: Color(0xFF94A3B8),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -3344,12 +3348,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         children: [
                           const Icon(Icons.phone_outlined, size: 11, color: Color(0xFF64748B)),
                           const SizedBox(width: 3),
-                          Text(
-                            patient.mobile,
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w600,
+                          Flexible(
+                            child: Text(
+                              patient.mobile,
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -3376,13 +3384,17 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           color: const Color(0xFF64748B),
                         ),
                         const SizedBox(width: 3.5),
-                        Text(
-                          familyLabel.toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF64748B),
-                            letterSpacing: 0.4,
+                        Flexible(
+                          child: Text(
+                            familyLabel.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF64748B),
+                              letterSpacing: 0.4,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -3407,6 +3419,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       Text(
                         '($relType)',
                         style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ],

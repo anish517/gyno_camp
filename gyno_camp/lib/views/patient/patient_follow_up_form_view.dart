@@ -1489,9 +1489,11 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                     children: [
                       Icon(Icons.straighten_rounded, size: 15, color: AppTheme.primaryTeal),
                       SizedBox(width: 6),
-                      Text(
-                        'Baden-Walker POP Compartment Staging (अङ्ग खस्ने स्टेज मूल्याङ्कन)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF1E293B)),
+                      Expanded(
+                        child: Text(
+                          'Baden-Walker POP Compartment Staging (अङ्ग खस्ने स्टेज मूल्याङ्कन)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF1E293B)),
+                        ),
                       ),
                     ],
                   ),

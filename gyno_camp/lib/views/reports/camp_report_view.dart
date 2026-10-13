@@ -4652,18 +4652,16 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.healing, color: AppTheme.primaryTeal, size: 16),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Pelvic Organ Prolapse (POP) Staging',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                              ],
+                            const Icon(Icons.healing, color: AppTheme.primaryTeal, size: 16),
+                            const SizedBox(width: 6),
+                            const Expanded(
+                              child: Text(
+                                'Pelvic Organ Prolapse (POP) Staging',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             _buildPopStageBadge(visit.highestPopStage),
                           ],
                         ),
