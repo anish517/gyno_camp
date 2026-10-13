@@ -1167,20 +1167,28 @@ class PdfReportService {
                       : '-';
 
                   final docName =
-                      v?.primaryDoctorName != null &&
-                          v!.primaryDoctorName!.trim().isNotEmpty
-                      ? v.primaryDoctorName!.trim()
-                      : (v?.attendingDoctorNames.any(
-                                  (d) => d.trim().isNotEmpty,
-                                ) ==
-                                true
-                            ? v!.attendingDoctorNames
-                                  .where((d) => d.trim().isNotEmpty)
-                                  .join(', ')
-                            : (p.primaryDoctorName != null &&
-                                      p.primaryDoctorName!.trim().isNotEmpty
-                                  ? p.primaryDoctorName!.trim()
-                                  : '-'));
+                      (v?.attendingDoctorNames
+                                      .where((d) => d.trim().isNotEmpty)
+                                      .length ??
+                                  0) >
+                              1
+                          ? v!.attendingDoctorNames
+                              .where((d) => d.trim().isNotEmpty)
+                              .join(', ')
+                          : (v?.primaryDoctorName != null &&
+                                  v!.primaryDoctorName!.trim().isNotEmpty
+                              ? v.primaryDoctorName!.trim()
+                              : (v?.attendingDoctorNames.any(
+                                          (d) => d.trim().isNotEmpty,
+                                        ) ==
+                                        true
+                                    ? v!.attendingDoctorNames
+                                          .where((d) => d.trim().isNotEmpty)
+                                          .first
+                                    : (p.primaryDoctorName != null &&
+                                              p.primaryDoctorName!.trim().isNotEmpty
+                                          ? p.primaryDoctorName!.trim()
+                                          : '-')));
 
                   final pTLevel = (v?.treatmentLevel?.trim().isNotEmpty == true)
                       ? v!.treatmentLevel!.trim()
@@ -2933,6 +2941,62 @@ class PdfReportService {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
+                    if (visit.attendingNurseNames.isNotEmpty) ...[
+                      pw.Text(
+                        sanitizeText(
+                          visit.attendingNurseNames
+                              .map((n) => NurseProfile.parse(n).displayName)
+                              .join(' & '),
+                        ),
+                        style: pw.TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: encounterColor,
+                        ),
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Container(
+                        width: 140,
+                        height: 0.8,
+                        color: PdfColors.black,
+                      ),
+                      pw.SizedBox(height: 3),
+                      pw.Text(
+                        'Attending Nurse / Health Worker',
+                        style: const pw.TextStyle(
+                          fontSize: 8,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                      pw.SizedBox(height: 4),
+                    ] else if (visit.primaryNurseName != null &&
+                        visit.primaryNurseName!.trim().isNotEmpty) ...[
+                      pw.Text(
+                        sanitizeText(
+                          NurseProfile.parse(visit.primaryNurseName!).displayName,
+                        ),
+                        style: pw.TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: encounterColor,
+                        ),
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Container(
+                        width: 140,
+                        height: 0.8,
+                        color: PdfColors.black,
+                      ),
+                      pw.SizedBox(height: 3),
+                      pw.Text(
+                        'Attending Nurse / Health Worker',
+                        style: const pw.TextStyle(
+                          fontSize: 8,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                      pw.SizedBox(height: 4),
+                    ],
                     pw.Text(
                       'Doc Ref: ENCOUNTER-${patient.patientId}-$visitDate',
                       style: const pw.TextStyle(
@@ -3997,6 +4061,21 @@ class PdfReportService {
       doctorHeaderPart = doctor.hasNmc
           ? "${doctor.displayName} | NMC: ${doctor.nmcNumber}"
           : doctor.displayName;
+    } else if (visit != null &&
+        visit.attendingDoctorNames
+                .where((d) => d.trim().isNotEmpty)
+                .length >
+            1) {
+      doctorHeaderPart = visit.attendingDoctorNames
+          .where((d) => d.trim().isNotEmpty)
+          .map((d) {
+            final clean = d
+                .trim()
+                .replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '')
+                .trim();
+            return 'Dr. ${sanitizeText(clean)}';
+          })
+          .join(', ');
     } else if (assignedDoctor != null) {
       final clean = assignedDoctor
           .trim()
@@ -4012,6 +4091,16 @@ class PdfReportService {
     } else {
       doctorHeaderPart = "";
     }
+
+    final Set<String> visitDoctorNames = <String>[
+      ...?visit?.attendingDoctorNames,
+      if (visit?.primaryDoctorName != null &&
+          visit!.primaryDoctorName!.trim().isNotEmpty)
+        visit.primaryDoctorName!.trim(),
+    ]
+        .map((d) => DoctorProfile.parse(d).name.toLowerCase().trim())
+        .where((d) => d.isNotEmpty)
+        .toSet();
 
     // ── Resolve Nurse Information ──
     final bool showNurse = camp?.showNurseOnForms ?? true;
@@ -6630,6 +6719,46 @@ class PdfReportService {
                               color: PdfColors.grey600,
                             ),
                           ),
+                        ] else if (visit != null &&
+                            visit.attendingDoctorNames
+                                    .where((d) => d.trim().isNotEmpty)
+                                    .length >
+                                1) ...[
+                          pw.Container(
+                            width: 140,
+                            height: 0.8,
+                            color: PdfColors.black,
+                          ),
+                          pw.SizedBox(height: 2.5),
+                          pw.Text(
+                            visit.attendingDoctorNames
+                                .where((d) => d.trim().isNotEmpty)
+                                .map(
+                                  (d) => d.toLowerCase().startsWith('dr')
+                                      ? sanitizeText(d)
+                                      : 'Dr. ${sanitizeText(d)}',
+                                )
+                                .join(' & '),
+                            style: pw.TextStyle(
+                              fontSize: fsSmall,
+                              fontWeight: pw.FontWeight.bold,
+                              color: dark,
+                            ),
+                          ),
+                          pw.Text(
+                            'Medical Officers / Attending Clinicians',
+                            style: const pw.TextStyle(
+                              fontSize: 6.5,
+                              color: PdfColors.grey700,
+                            ),
+                          ),
+                          pw.Text(
+                            'NMC Certified — Date: ${dateFormatter.format(visit.visitDate)}',
+                            style: const pw.TextStyle(
+                              fontSize: 6.0,
+                              color: PdfColors.grey600,
+                            ),
+                          ),
                         ] else if (assignedDoctor != null) ...[
                           pw.Container(
                             width: 120,
@@ -6698,7 +6827,12 @@ class PdfReportService {
                               ...campDoctors.map(
                                 (doc) => cb(
                                   DoctorProfile.parse(doc).formattedLabel,
-                                  false,
+                                  visitDoctorNames.contains(
+                                    DoctorProfile.parse(doc)
+                                        .name
+                                        .toLowerCase()
+                                        .trim(),
+                                  ),
                                 ),
                               ),
                               cb('Other: _____', false),

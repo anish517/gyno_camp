@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gyno_camp/core/services/excel_report_service.dart';
 import 'package:gyno_camp/core/services/pdf_report_service.dart';
 import 'package:gyno_camp/core/services/ocr_form_service.dart';
+import 'package:gyno_camp/core/services/report_aggregation_service.dart';
 import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/clinical_visit_model.dart';
 import 'package:gyno_camp/models/patient_model.dart';
@@ -545,6 +547,171 @@ Doctor: Dr. Ramesh Thapa
       final file = File('test_samples/Blank_FollowUpSlips_11_AllNursesBatch.pdf');
       file.writeAsBytesSync(pdfBytes);
       expect(file.existsSync(), true);
+    });
+  });
+
+  group('Part 5: PDF, Excel & Audit Generation — Single vs Multiple Clinician Attestation', () {
+    final camp = CampModel(
+      id: 'camp-attestation',
+      campCode: 'AT01',
+      name: 'Attestation Camp',
+      province: 'Bagmati',
+      district: 'Kathmandu',
+      municipality: 'Kathmandu Metro',
+      ward: '04',
+      venue: 'Central Clinic',
+      startDate: DateTime(2026, 10, 15),
+      endDate: DateTime(2026, 10, 16),
+      status: CampStatus.open,
+      doctorNames: ['Dr. Sita Karki (NMC: 14256)', 'Dr. Ramesh Thapa (NMC: 22334)'],
+      nurseNames: ['Pooja Thapa (NNC: 8901)', 'Gita Sharma (NNC: 9912)'],
+      createdAt: DateTime(2026, 10, 1),
+    );
+
+    final patientSingle = PatientModel(
+      id: 'p-single',
+      patientId: 'PAT-AT01-0001',
+      campId: 'camp-attestation',
+      campCode: 'AT01',
+      firstName: 'Maya',
+      surname: 'Devi',
+      age: 45,
+      mobile: '9841234567',
+      ward: '01',
+      primaryDoctorName: 'Dr. Sita Karki',
+      attendingDoctorNames: ['Dr. Sita Karki'],
+      primaryNurseName: 'Pooja Thapa',
+      attendingNurseNames: ['Pooja Thapa'],
+      intakeDate: DateTime(2026, 10, 15),
+      createdAt: DateTime(2026, 10, 15),
+      createdByUserId: 'usr-1',
+      createdByDeviceId: 'dev-1',
+    );
+
+    final visitSingle = ClinicalVisitModel(
+      id: 'v-single',
+      patientId: 'PAT-AT01-0001',
+      campId: 'camp-attestation',
+      createdByUserId: 'user-01',
+      visitDate: DateTime(2026, 10, 15),
+      primaryDoctorName: 'Dr. Sita Karki',
+      attendingDoctorNames: ['Dr. Sita Karki'],
+      primaryNurseName: 'Pooja Thapa',
+      attendingNurseNames: ['Pooja Thapa'],
+      diagnoses: ['POP Stage 2'],
+      treatmentLevel: 'full_check_up',
+      createdAt: DateTime(2026, 10, 15),
+    );
+
+    final patientMulti = PatientModel(
+      id: 'p-multi',
+      patientId: 'PAT-AT01-0002',
+      campId: 'camp-attestation',
+      campCode: 'AT01',
+      firstName: 'Sunita',
+      surname: 'Shrestha',
+      age: 52,
+      mobile: '9847654321',
+      ward: '01',
+      primaryDoctorName: 'Dr. Sita Karki',
+      attendingDoctorNames: ['Dr. Sita Karki', 'Dr. Ramesh Thapa'],
+      primaryNurseName: 'Pooja Thapa',
+      attendingNurseNames: ['Pooja Thapa', 'Gita Sharma'],
+      intakeDate: DateTime(2026, 10, 15),
+      createdAt: DateTime(2026, 10, 15),
+      createdByUserId: 'usr-1',
+      createdByDeviceId: 'dev-1',
+    );
+
+    final visitMulti = ClinicalVisitModel(
+      id: 'v-multi',
+      patientId: 'PAT-AT01-0002',
+      campId: 'camp-attestation',
+      createdByUserId: 'user-01',
+      visitDate: DateTime(2026, 10, 15),
+      primaryDoctorName: 'Dr. Sita Karki',
+      attendingDoctorNames: ['Dr. Sita Karki', 'Dr. Ramesh Thapa'],
+      primaryNurseName: 'Pooja Thapa',
+      attendingNurseNames: ['Pooja Thapa', 'Gita Sharma'],
+      diagnoses: ['POP Stage 3', 'Vaginal Ulcer'],
+      treatmentLevel: 'full_check_up',
+      createdAt: DateTime(2026, 10, 15),
+    );
+
+    test('5.1 Patient Individual PDF: Single Doctor & Single Nurse', () async {
+      final pdfBytes = await pdfService.generateIndividualPatientPdf(
+        patient: patientSingle,
+        visit: visitSingle,
+        camp: camp,
+        organizationName: 'Women For Society (SoDeSI Nepal)',
+      );
+      expect(pdfBytes.isNotEmpty, true);
+      final file = File('test_samples/test_patient_single_doctor_single_nurse.pdf');
+      file.writeAsBytesSync(pdfBytes);
+      expect(file.existsSync(), true);
+    });
+
+    test('5.2 Patient Individual PDF: Multiple Doctors & Multiple Nurses', () async {
+      final pdfBytes = await pdfService.generateIndividualPatientPdf(
+        patient: patientMulti,
+        visit: visitMulti,
+        camp: camp,
+        organizationName: 'Women For Society (SoDeSI Nepal)',
+      );
+      expect(pdfBytes.isNotEmpty, true);
+      final file = File('test_samples/test_patient_multi_doctor_multi_nurse.pdf');
+      file.writeAsBytesSync(pdfBytes);
+      expect(file.existsSync(), true);
+    });
+
+    test('5.3 Follow-Up Encounter Slip PDF: Single Doctor & Single Nurse', () async {
+      final pdfBytes = await pdfService.generateFollowUpEncounterSlipPdf(
+        patient: patientSingle,
+        visit: visitSingle,
+        camp: camp,
+        organizationName: 'Women For Society (SoDeSI Nepal)',
+      );
+      expect(pdfBytes.isNotEmpty, true);
+      final file = File('test_samples/test_followup_single_doctor_single_nurse.pdf');
+      file.writeAsBytesSync(pdfBytes);
+      expect(file.existsSync(), true);
+    });
+
+    test('5.4 Follow-Up Encounter Slip PDF: Multiple Doctors & Multiple Nurses', () async {
+      final pdfBytes = await pdfService.generateFollowUpEncounterSlipPdf(
+        patient: patientMulti,
+        visit: visitMulti,
+        camp: camp,
+        organizationName: 'Women For Society (SoDeSI Nepal)',
+      );
+      expect(pdfBytes.isNotEmpty, true);
+      final file = File('test_samples/test_followup_multi_doctor_multi_nurse.pdf');
+      file.writeAsBytesSync(pdfBytes);
+      expect(file.existsSync(), true);
+    });
+
+    test('5.5 Camp Summary PDF & Excel Report with Single vs Multiple Clinicians', () async {
+      final summary = ReportAggregationService().aggregate(
+        camp: camp,
+        patients: [patientSingle, patientMulti],
+        visits: [visitSingle, visitMulti],
+        generatedBy: 'Admin',
+      );
+
+      // PDF Camp Summary
+      final pdfBytes = await pdfService.generateCampSummaryPdf(summary);
+      expect(pdfBytes.isNotEmpty, true);
+      final pdfFile = File('test_samples/test_camp_summary_single_and_multi_clinicians.pdf');
+      pdfFile.writeAsBytesSync(pdfBytes);
+      expect(pdfFile.existsSync(), true);
+
+      // Excel Camp Summary
+      final excelService = ExcelReportService();
+      final excelBytes = excelService.generateCampSummaryExcel(summary);
+      expect(excelBytes.isNotEmpty, true);
+      final excelFile = File('test_samples/test_camp_summary_single_and_multi_clinicians.xlsx');
+      excelFile.writeAsBytesSync(excelBytes);
+      expect(excelFile.existsSync(), true);
     });
   });
 }

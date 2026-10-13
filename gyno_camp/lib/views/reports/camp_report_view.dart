@@ -4733,7 +4733,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Attending Clinician: ${(visit.primaryDoctorName != null && visit.primaryDoctorName!.trim().isNotEmpty) ? visit.primaryDoctorName! : visit.attendingDoctorNames.where((d) => d.trim().isNotEmpty).join(", ")}',
+                            'Attending Clinician: ${(visit.attendingDoctorNames.where((d) => d.trim().isNotEmpty).length > 1) ? visit.attendingDoctorNames.where((d) => d.trim().isNotEmpty).join(", ") : ((visit.primaryDoctorName != null && visit.primaryDoctorName!.trim().isNotEmpty) ? visit.primaryDoctorName! : visit.attendingDoctorNames.where((d) => d.trim().isNotEmpty).join(", "))}',
                             style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -4759,7 +4759,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Attending Nurse: ${(visit.primaryNurseName != null && visit.primaryNurseName!.trim().isNotEmpty) ? visit.primaryNurseName! : visit.attendingNurseNames.where((n) => n.trim().isNotEmpty).join(", ")}',
+                            'Attending Nurse: ${(visit.attendingNurseNames.where((n) => n.trim().isNotEmpty).length > 1) ? visit.attendingNurseNames.where((n) => n.trim().isNotEmpty).join(", ") : ((visit.primaryNurseName != null && visit.primaryNurseName!.trim().isNotEmpty) ? visit.primaryNurseName! : visit.attendingNurseNames.where((n) => n.trim().isNotEmpty).join(", "))}',
                             style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF9D174D)),
                             overflow: TextOverflow.ellipsis,
                           ),

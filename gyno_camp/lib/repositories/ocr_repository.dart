@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
@@ -398,7 +399,15 @@ class OcrRepository implements IOcrRepository {
       action: AppConstants.auditActionPatientRegisteredViaOcr,
       entityType: 'PATIENT',
       entityId: registeredPatient.id,
-      detailsJson: '{"patientId":"${registeredPatient.patientId}","confidence":${verifiedScan.overallConfidence},"ocrEngine":"${verifiedScan.ocrEngine}"}',
+      detailsJson: jsonEncode({
+        'patientId': registeredPatient.patientId,
+        'confidence': verifiedScan.overallConfidence,
+        'ocrEngine': verifiedScan.ocrEngine,
+        'primaryDoctor': clinicalVisit.primaryDoctorName,
+        'attendingDoctors': clinicalVisit.attendingDoctorNames,
+        'primaryNurse': clinicalVisit.primaryNurseName,
+        'attendingNurses': clinicalVisit.attendingNurseNames,
+      }),
       deviceId: deviceId,
     );
 

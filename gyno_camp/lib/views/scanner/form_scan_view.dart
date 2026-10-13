@@ -3566,13 +3566,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
                         ),
                       ),
-                      if (result.examiningDoctor != null && result.examiningDoctor!.isNotEmpty)
+                      if (result.attendingDoctors.isNotEmpty || (result.examiningDoctor != null && result.examiningDoctor!.isNotEmpty))
                         Chip(
                           visualDensity: VisualDensity.compact,
                           backgroundColor: AppTheme.primaryLight,
                           avatar: const Icon(Icons.check, size: 14, color: AppTheme.primaryDark),
                           label: Text(
-                            result.examiningDoctor!,
+                            result.attendingDoctors.isNotEmpty ? result.attendingDoctors.join(', ') : result.examiningDoctor!,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryDark),
                           ),
                         ),
@@ -3580,7 +3580,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Select the clinician who performed Station 2 POP exam & treatment for this patient:',
+                    'Select clinician(s) who performed Station 2 POP exam & treatment for this patient (multi-select):',
                     style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
                   ),
                   const SizedBox(height: 10),
@@ -3619,7 +3619,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                             checkmarkColor: AppTheme.primaryTeal,
                             onSelected: (selected) {
-                              vm.setExaminingDoctor(selected ? cleanDoc : null);
+                              vm.toggleAttendingDoctor(cleanDoc);
                             },
                           );
                         }).toList(),

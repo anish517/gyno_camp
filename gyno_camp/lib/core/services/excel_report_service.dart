@@ -243,31 +243,35 @@ class ExcelReportService {
 
     for (final p in summary.patients) {
       final v = visitByPatientId[p.patientId];
-      final docName = (v?.primaryDoctorName != null && v!.primaryDoctorName!.trim().isNotEmpty)
-          ? v.primaryDoctorName!.trim()
-          : (v?.attendingDoctorNames.any((d) => d.trim().isNotEmpty) == true
-              ? v!.attendingDoctorNames.where((d) => d.trim().isNotEmpty).join(', ')
-              : (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty
-                  ? p.primaryDoctorName!.trim()
-                  : 'None'));
-
-      final nurseName = (v?.primaryNurseName != null && v!.primaryNurseName!.trim().isNotEmpty)
-          ? NurseProfile.stripPrefixes(v.primaryNurseName!).trim()
-          : (v?.attendingNurseNames.any((n) => n.trim().isNotEmpty) == true
-              ? v!.attendingNurseNames
-                  .where((n) => n.trim().isNotEmpty)
-                  .map((n) => NurseProfile.stripPrefixes(n).trim())
-                  .where((n) => n.isNotEmpty)
-                  .join(', ')
-              : (p.primaryNurseName != null && p.primaryNurseName!.trim().isNotEmpty
-                  ? NurseProfile.stripPrefixes(p.primaryNurseName!).trim()
-                  : (p.attendingNurseNames.any((n) => n.trim().isNotEmpty) == true
-                      ? p.attendingNurseNames
-                          .where((n) => n.trim().isNotEmpty)
-                          .map((n) => NurseProfile.stripPrefixes(n).trim())
-                          .where((n) => n.isNotEmpty)
-                          .join(', ')
+      final docName = (v?.attendingDoctorNames.where((d) => d.trim().isNotEmpty).length ?? 0) > 1
+          ? v!.attendingDoctorNames.where((d) => d.trim().isNotEmpty).join(', ')
+          : ((v?.primaryDoctorName != null && v!.primaryDoctorName!.trim().isNotEmpty)
+              ? v.primaryDoctorName!.trim()
+              : (v?.attendingDoctorNames.any((d) => d.trim().isNotEmpty) == true
+                  ? v!.attendingDoctorNames.where((d) => d.trim().isNotEmpty).first
+                  : (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty
+                      ? p.primaryDoctorName!.trim()
                       : 'None')));
+
+      final nurseName = (v?.attendingNurseNames.where((n) => n.trim().isNotEmpty).length ?? 0) > 1
+          ? v!.attendingNurseNames
+              .where((n) => n.trim().isNotEmpty)
+              .map((n) => NurseProfile.stripPrefixes(n).trim())
+              .where((n) => n.isNotEmpty)
+              .join(', ')
+          : ((v?.primaryNurseName != null && v!.primaryNurseName!.trim().isNotEmpty)
+              ? NurseProfile.stripPrefixes(v.primaryNurseName!).trim()
+              : (v?.attendingNurseNames.any((n) => n.trim().isNotEmpty) == true
+                  ? NurseProfile.stripPrefixes(v!.attendingNurseNames.first).trim()
+                  : (p.primaryNurseName != null && p.primaryNurseName!.trim().isNotEmpty
+                      ? NurseProfile.stripPrefixes(p.primaryNurseName!).trim()
+                      : (p.attendingNurseNames.any((n) => n.trim().isNotEmpty) == true
+                          ? p.attendingNurseNames
+                              .where((n) => n.trim().isNotEmpty)
+                              .map((n) => NurseProfile.stripPrefixes(n).trim())
+                              .where((n) => n.isNotEmpty)
+                              .join(', ')
+                          : 'None'))));
       final finalNurseName = nurseName.isNotEmpty ? nurseName : 'None';
 
       final campCode = p.campCode.isNotEmpty
