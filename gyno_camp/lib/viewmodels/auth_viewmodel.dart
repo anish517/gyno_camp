@@ -1,6 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sqflite/sqflite.dart';
 import '../core/constants/app_constants.dart';
+import '../core/database/database_service.dart';
+import '../core/database/database_tables.dart';
+import '../core/services/http_central_api_service.dart';
 import '../core/services/session_service.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
@@ -126,8 +130,25 @@ class AuthViewModel extends StateNotifier<AuthState> {
         }
         // CAMP ASSIGNMENT GATE: Regular field staff must have at least one assigned camp that exists
         if (!user.isSuperAdmin && user.role != UserRole.superAdmin && user.role != UserRole.staff) {
-          final validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
+          var validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
           if (!mounted) return false;
+          if (validCamps.isEmpty && user.assignedCampIds.isNotEmpty) {
+            // Attempt to pull camps dynamically from Central Cloud before rejecting (fresh device install)
+            try {
+              final centralCamps = await HttpCentralApiService().fetchCentralCamps(bypassCooldown: true);
+              if (centralCamps.isNotEmpty) {
+                final db = await DatabaseService().database;
+                for (final c in centralCamps) {
+                  await db.insert(
+                    DatabaseTables.tableCamps,
+                    c.toMap(),
+                    conflictAlgorithm: ConflictAlgorithm.replace,
+                  );
+                }
+                validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
+              }
+            } catch (_) {}
+          }
           if (validCamps.isEmpty) {
             await _authRepository.logout(deviceId: deviceId);
             if (!mounted) return false;
@@ -174,8 +195,24 @@ class AuthViewModel extends StateNotifier<AuthState> {
       if (!mounted) return false;
       if (user != null) {
         if (!user.isSuperAdmin && user.role != UserRole.superAdmin) {
-          final validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
+          var validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
           if (!mounted) return false;
+          if (validCamps.isEmpty && user.assignedCampIds.isNotEmpty) {
+            try {
+              final centralCamps = await HttpCentralApiService().fetchCentralCamps(bypassCooldown: true);
+              if (centralCamps.isNotEmpty) {
+                final db = await DatabaseService().database;
+                for (final c in centralCamps) {
+                  await db.insert(
+                    DatabaseTables.tableCamps,
+                    c.toMap(),
+                    conflictAlgorithm: ConflictAlgorithm.replace,
+                  );
+                }
+                validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
+              }
+            } catch (_) {}
+          }
           if (validCamps.isEmpty) {
             await _authRepository.logout(deviceId: deviceId);
             if (!mounted) return false;

@@ -55,9 +55,9 @@ class DeviceSecurityRepository implements IDeviceSecurityRepository {
     DeviceModel? localDevice = maps.isNotEmpty ? DeviceModel.fromMap(maps.first) : null;
 
     // If local device is null or pending approval, check with Central Cloud Server for status updates
-    if (enableCentralSync && HttpCentralApiService.isServerConfigured && !HttpCentralApiService.isServerCooldownActive) {
+    if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
       try {
-        final centralDev = await _centralApiService.checkCentralDeviceStatus(fingerprint);
+        final centralDev = await _centralApiService.checkCentralDeviceStatus(fingerprint, bypassCooldown: true);
         if (centralDev != null) {
           if (localDevice == null) {
             await db.insert(

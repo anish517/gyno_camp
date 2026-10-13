@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/http_central_api_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../repositories/auth_repository.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/device_management_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
@@ -22,6 +24,25 @@ class _LoginViewState extends ConsumerState<LoginView> {
   final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrapCentralSync();
+  }
+
+  Future<void> _bootstrapCentralSync() async {
+    try {
+      await HttpCentralApiService().ensureServerConnected();
+      if (!mounted) return;
+      final authRepo = ref.read(authRepositoryProvider);
+      if (authRepo is AuthRepository) {
+        await authRepo.syncCredentialsFromCentral();
+      }
+      if (!mounted) return;
+      ref.read(deviceSecurityProvider.notifier).checkCurrentDevice(silent: true);
+    } catch (_) {}
+  }
 
   @override
   void dispose() {

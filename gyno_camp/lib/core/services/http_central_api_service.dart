@@ -138,37 +138,49 @@ class HttpCentralApiService implements ICentralApiService {
   @override
   void setMockServerLookupItems(List<LookupItemModel> items) {}
 
+  /// Ensures the service has discovered and verified a live connection to the Central Server.
+  Future<bool> ensureServerConnected() async {
+    if (_activeBaseUrl != null && _isServerReachable) return true;
+    return await pingServer();
+  }
+
   @override
   Future<bool> pingServer() async {
-    // 1. Check current baseUrl
-    if (await _testEndpoint(baseUrl)) {
-      markServerOnline(baseUrl);
-      try {
-        SessionService.current?.saveCentralServerUrl(baseUrl);
-      } catch (_) {}
+    // 1. Quick test on activeBaseUrl if already resolved
+    final active = _activeBaseUrl;
+    if (active != null && await _testEndpoint(active)) {
+      markServerOnline(active);
       return true;
     }
 
-    // 2. Probe Wi-Fi LAN host, localhost, USB bridge, and fallbacks (on both Web and native)
-    final candidates = <String>[
-      'http://192.168.16.113:8080', // Development machine Wi-Fi host IP (Home)
-      'http://localhost:8080', // Localhost alias (for Web / desktop)
-      'http://127.0.0.1:8080', // USB ADB Reverse / loopback
-      'http://192.168.1.4:8080', // Development machine Wi-Fi host IP (Office)
+    // 2. Parallel probe candidate endpoints for immediate LAN discovery (<1.5s)
+    final candidateSet = <String>{
+      baseUrl,
+      'http://192.168.1.13:8080', // Active Wi-Fi host IP
+      'http://192.168.16.113:8080', // Home Wi-Fi host IP
+      'http://localhost:8080', // Web / desktop localhost
+      'http://127.0.0.1:8080', // ADB reverse USB loopback
+      'http://192.168.1.4:8080', // Office Wi-Fi host IP
       'http://192.168.1.110:8080', // Alternative Wi-Fi host IP
-      'http://10.0.2.2:8080', // Android Emulator host bridge
-    ];
+      'http://10.0.2.2:8080', // Android emulator host bridge
+    };
 
     final saved = SessionService.current?.getCentralServerUrl();
-    if (saved != null && saved.isNotEmpty && !candidates.contains(saved)) {
-      candidates.insert(0, saved);
+    if (saved != null && saved.isNotEmpty) {
+      candidateSet.add(saved);
     }
 
-    for (final candidate in candidates) {
-      if (candidate != baseUrl && await _testEndpoint(candidate)) {
-        markServerOnline(candidate);
+    final probeFutures = candidateSet.map((candidate) async {
+      final ok = await _testEndpoint(candidate);
+      return (candidate: candidate, ok: ok);
+    });
+
+    final results = await Future.wait(probeFutures);
+    for (final res in results) {
+      if (res.ok) {
+        markServerOnline(res.candidate);
         try {
-          SessionService.current?.saveCentralServerUrl(candidate);
+          SessionService.current?.saveCentralServerUrl(res.candidate);
         } catch (_) {}
         return true;
       }
@@ -181,7 +193,7 @@ class HttpCentralApiService implements ICentralApiService {
   Future<bool> _testEndpoint(String targetUrl) async {
     try {
       final uri = Uri.parse('$targetUrl/health');
-      final res = await _client.get(uri).timeout(const Duration(seconds: 2));
+      final res = await _client.get(uri).timeout(const Duration(milliseconds: 1500));
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -356,13 +368,15 @@ class HttpCentralApiService implements ICentralApiService {
   }
 
   /// Fetches all active camps from the Central Cloud API
-  Future<List<CampModel>> fetchCentralCamps() async {
-    if (!isConfigured || isServerCooldownActive) return [];
+  Future<List<CampModel>> fetchCentralCamps({bool bypassCooldown = false}) async {
+    if (!isConfigured) return [];
+    if (!bypassCooldown && isServerCooldownActive) return [];
+    await ensureServerConnected();
     try {
       final uri = Uri.parse('$baseUrl/api/camps');
       final res = await _client
           .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         markServerOnline();
         final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
@@ -371,19 +385,21 @@ class HttpCentralApiService implements ICentralApiService {
             .toList();
       }
     } catch (e) {
-      markServerOffline();
+      if (!bypassCooldown) markServerOffline();
     }
     return [];
   }
 
   /// Fetches all staff users from the Central Cloud API
-  Future<List<UserModel>> fetchCentralUsers() async {
-    if (!isConfigured || isServerCooldownActive) return [];
+  Future<List<UserModel>> fetchCentralUsers({bool bypassCooldown = false}) async {
+    if (!isConfigured) return [];
+    if (!bypassCooldown && isServerCooldownActive) return [];
+    await ensureServerConnected();
     try {
       final uri = Uri.parse('$baseUrl/api/users');
       final res = await _client
           .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         markServerOnline();
         final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
@@ -392,7 +408,7 @@ class HttpCentralApiService implements ICentralApiService {
             .toList();
       }
     } catch (e) {
-      markServerOffline();
+      if (!bypassCooldown) markServerOffline();
     }
     return [];
   }
@@ -400,6 +416,7 @@ class HttpCentralApiService implements ICentralApiService {
   /// Broadcasts device registration/update to the Central Cloud Server
   Future<bool> broadcastDevice(DeviceModel device) async {
     if (!isConfigured || isServerCooldownActive) return false;
+    await ensureServerConnected();
     try {
       final uri = Uri.parse('$baseUrl/api/devices');
       final headers = <String, String>{
@@ -429,13 +446,15 @@ class HttpCentralApiService implements ICentralApiService {
   }
 
   /// Fetches all devices known to the Central Cloud Server
-  Future<List<DeviceModel>> fetchCentralDevices() async {
-    if (!isConfigured || isServerCooldownActive) return [];
+  Future<List<DeviceModel>> fetchCentralDevices({bool bypassCooldown = false}) async {
+    if (!isConfigured) return [];
+    if (!bypassCooldown && isServerCooldownActive) return [];
+    await ensureServerConnected();
     try {
       final uri = Uri.parse('$baseUrl/api/devices');
       final res = await _client
           .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         markServerOnline();
         final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
@@ -444,21 +463,23 @@ class HttpCentralApiService implements ICentralApiService {
             .toList();
       }
     } catch (e) {
-      markServerOffline();
+      if (!bypassCooldown) markServerOffline();
     }
     return [];
   }
 
   /// Checks device status by hardware fingerprint from Central Cloud Server
-  Future<DeviceModel?> checkCentralDeviceStatus(String fingerprint) async {
-    if (!isConfigured || isServerCooldownActive) return null;
+  Future<DeviceModel?> checkCentralDeviceStatus(String fingerprint, {bool bypassCooldown = false}) async {
+    if (!isConfigured) return null;
+    if (!bypassCooldown && isServerCooldownActive) return null;
+    await ensureServerConnected();
     try {
       final uri = Uri.parse(
         '$baseUrl/api/devices/check?fingerprint=${Uri.encodeComponent(fingerprint)}',
       );
       final res = await _client
           .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         markServerOnline();
         final map =
@@ -466,7 +487,7 @@ class HttpCentralApiService implements ICentralApiService {
         return DeviceModel.fromMap(map);
       }
     } catch (e) {
-      markServerOffline();
+      if (!bypassCooldown) markServerOffline();
     }
     return null;
   }

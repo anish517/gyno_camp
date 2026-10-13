@@ -107,5 +107,17 @@ void main() {
       expect(authVm.state.isAuthenticated, isFalse);
       expect(authVm.state.currentUser, isNull);
     });
+
+    test('staff with assigned camp can authenticate into station without premature logout', () async {
+      // Sita is assigned to camp-ktm-01
+      final success = await authVm.login(
+        email: 'sita@gynocamp.org',
+        password: 'nurse123',
+        deviceId: 'dev-test-workstation',
+      );
+      expect(success, isTrue);
+      expect(authVm.state.isAuthenticated, isTrue);
+      expect(authVm.state.currentUser?.assignedCampIds, contains('camp-ktm-01'));
+    });
   });
 }

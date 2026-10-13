@@ -75,6 +75,28 @@ class AuthRepository implements IAuthRepository {
     _currentUser = user;
   }
 
+  Future<void> syncCredentialsFromCentral() async {
+    if (!enableCentralSync) return;
+    try {
+      final db = await _databaseService.database;
+      final centralUsers = await HttpCentralApiService().fetchCentralUsers(bypassCooldown: true);
+      for (final u in centralUsers) {
+        await _upsertUserPreservingCredentials(db, u);
+      }
+      final campCount = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM ${DatabaseTables.tableCamps}')) ?? 0;
+      if (campCount <= 1) {
+        final centralCamps = await HttpCentralApiService().fetchCentralCamps(bypassCooldown: true);
+        for (final c in centralCamps) {
+          await db.insert(
+            DatabaseTables.tableCamps,
+            c.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _upsertUserPreservingCredentials(DatabaseExecutor db, UserModel u) async {
     final existing = await db.query(
       DatabaseTables.tableUsers,
@@ -344,15 +366,24 @@ class AuthRepository implements IAuthRepository {
     // Even if the user exists locally, their credentials or assignedCampIds may
     // be stale (e.g. admin changed password or assigned a new camp from another
     // device). We attempt a central upsert here so the freshest hash is in SQLite
-    // before credential verification. We intentionally do NOT gate this on
-    // isServerCooldownActive: a 30-second offline cooldown should not prevent
-    // staff from logging in with a password that was just changed by the admin.
+    // before credential verification. We pass bypassCooldown: true so login is
+    // never blocked by transient circuit-breaker states.
     if (maps.isNotEmpty && enableCentralSync) {
       try {
-        final centralUsers = await HttpCentralApiService().fetchCentralUsers();
+        final centralUsers = await HttpCentralApiService().fetchCentralUsers(bypassCooldown: true);
         for (final u in centralUsers) {
           await _upsertUserPreservingCredentials(db, u);
         }
+
+        // On fresh installs, also pull camps if SQLite has only default seed or no camps
+        final campCount = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM ${DatabaseTables.tableCamps}')) ?? 0;
+        if (campCount <= 1) {
+          final centralCamps = await HttpCentralApiService().fetchCentralCamps(bypassCooldown: true);
+          for (final c in centralCamps) {
+            await db.insert(DatabaseTables.tableCamps, c.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+        }
+
         // Re-read after potential update so we return the freshest record
         final refreshed = await db.query(
           DatabaseTables.tableUsers,
@@ -373,10 +404,19 @@ class AuthRepository implements IAuthRepository {
     // Try central cloud for newly registered staff from other devices
     if (enableCentralSync && HttpCentralApiService.isServerConfigured) {
       try {
-        final centralUsers = await HttpCentralApiService().fetchCentralUsers();
+        final centralUsers = await HttpCentralApiService().fetchCentralUsers(bypassCooldown: true);
         for (final u in centralUsers) {
           await _upsertUserPreservingCredentials(db, u);
         }
+
+        final campCount = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM ${DatabaseTables.tableCamps}')) ?? 0;
+        if (campCount <= 1) {
+          final centralCamps = await HttpCentralApiService().fetchCentralCamps(bypassCooldown: true);
+          for (final c in centralCamps) {
+            await db.insert(DatabaseTables.tableCamps, c.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+        }
+
         final refreshed = await db.query(
           DatabaseTables.tableUsers,
           where: 'LOWER(email) = ? OR phone = ?',
@@ -741,14 +781,15 @@ class AuthRepository implements IAuthRepository {
           user.passwordHash == inputHash;
 
       if (!isPasswordValid && !isPinValid) {
-        // getUserByEmail() above already synced the latest user data from the central server
-        // into local SQLite. Re-read the freshest local record to check if credentials were
-        // updated remotely (e.g. password reset from another browser).
-        // This avoids a redundant fetchCentralUsers() HTTP call that would cause excess
-        // widget rebuilds and contribute to TextField desync on Flutter Web.
+        // If local credential verification fails, attempt a live refresh directly from
+        // the Central Server to check if password was recently changed on another device (e.g. Chrome).
         if (enableCentralSync) {
           try {
+            final centralUsers = await HttpCentralApiService().fetchCentralUsers(bypassCooldown: true);
             final db = await _databaseService.database;
+            for (final u in centralUsers) {
+              await _upsertUserPreservingCredentials(db, u);
+            }
             final freshRows = await db.query(
               DatabaseTables.tableUsers,
               where: 'LOWER(email) = ? OR phone = ?',
