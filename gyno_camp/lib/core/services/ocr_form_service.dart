@@ -88,7 +88,11 @@ class OcrFormService {
           if (lowerLine.contains(labelLower)) {
             final labelIdx = lowerLine.indexOf(labelLower);
             final afterLabel = line.substring(labelIdx + label.length).trim();
-            final value = afterLabel.replaceFirst(RegExp(r'^[:\-=\s]+'), '').trim();
+            var afterVal = afterLabel;
+            if (afterVal.startsWith('/') && afterVal.contains(':')) {
+              afterVal = afterVal.substring(afterVal.indexOf(':') + 1).trim();
+            }
+            final value = afterVal.replaceFirst(RegExp(r'^[/:=\s\\-]+'), '').trim();
             if (value.isNotEmpty && !isNoiseOrSeparator(value)) return value;
 
             if (multiLine && i + 1 < lines.length) {
@@ -179,46 +183,47 @@ class OcrFormService {
     final demographics = <String, dynamic>{};
     final obstetrics = <String, dynamic>{};
 
-    if (!isPage2Only) {
-      // ── Patient Token ID / बिरामी टोकन नं ──
-      String? extractedTokenId;
+    // ── Patient Token ID / बिरामी टोकन नं (Page 1, Page 2 header, & Follow-Up Encounter Sheets) ──
+    String? extractedTokenId;
 
-      // 1. Regex check for full standard format: GC-[CODE]-[YEAR]-[SEQ]
-      final fullTokenMatch = RegExp(
-        r'\bGC-([A-Za-z0-9_-]+)-(\d{4})-(\d{1,6})\b',
-        caseSensitive: false,
-      ).firstMatch(text);
+    // 1. Regex check for full standard format: GC-[CODE]-[YEAR]-[SEQ]
+    final fullTokenMatch = RegExp(
+      r'\bGC-([A-Za-z0-9_-]+)-(\d{4})-(\d{1,6})\b',
+      caseSensitive: false,
+    ).firstMatch(text);
 
-      if (fullTokenMatch != null) {
-        final code = fullTokenMatch.group(1)!.toUpperCase();
-        final yr = fullTokenMatch.group(2)!;
-        final seq = fullTokenMatch.group(3)!.padLeft(5, '0');
-        extractedTokenId = 'GC-$code-$yr-$seq';
-      } else {
-        // 2. Search for Token ID label followed by sequence digits or code
-        final rawTokenVal = findValueForLabel([
-          'patient token id', 'patient token', 'token id', 'token no', 'token number',
-          'बिरामी टोकन नं', 'बिरामी टोकन', 'टोकन नं', 'टोकन', 'token',
-        ], multiLine: false);
+    if (fullTokenMatch != null) {
+      final code = fullTokenMatch.group(1)!.toUpperCase();
+      final yr = fullTokenMatch.group(2)!;
+      final seq = fullTokenMatch.group(3)!.padLeft(5, '0');
+      extractedTokenId = 'GC-$code-$yr-$seq';
+    } else {
+      // 2. Search for Token ID label followed by sequence digits or code
+      final rawTokenVal = findValueForLabel([
+        'encounter token id', 'patient token id', 'patient token', 'token id', 'token no', 'token number',
+        'बिरामी टोकन नं', 'बिरामी टोकन', 'टोकन नं', 'टोकन', 'token',
+      ], multiLine: false);
 
-        if (rawTokenVal != null && rawTokenVal.isNotEmpty) {
-          final digits = rawTokenVal.replaceAll(RegExp(r'[^0-9]'), '');
-          if (digits.isNotEmpty && digits.length <= 6) {
-            extractedTokenId = digits.padLeft(5, '0');
-          } else if (RegExp(r'GC-[A-Za-z0-9_-]+-\d{4}-\d{1,6}', caseSensitive: false).hasMatch(rawTokenVal)) {
-            final m = RegExp(r'GC-([A-Za-z0-9_-]+)-(\d{4})-(\d{1,6})', caseSensitive: false).firstMatch(rawTokenVal);
-            if (m != null) {
-              extractedTokenId = 'GC-${m.group(1)!.toUpperCase()}-${m.group(2)}-${m.group(3)!.padLeft(5, "0")}';
-            }
+      if (rawTokenVal != null && rawTokenVal.isNotEmpty) {
+        final digits = rawTokenVal.replaceAll(RegExp(r'[^0-9]'), '');
+        if (digits.isNotEmpty && digits.length <= 6) {
+          extractedTokenId = digits.padLeft(5, '0');
+        } else if (RegExp(r'GC-[A-Za-z0-9_-]+-\d{4}-\d{1,6}', caseSensitive: false).hasMatch(rawTokenVal)) {
+          final m = RegExp(r'GC-([A-Za-z0-9_-]+)-(\d{4})-(\d{1,6})', caseSensitive: false).firstMatch(rawTokenVal);
+          if (m != null) {
+            extractedTokenId = 'GC-${m.group(1)!.toUpperCase()}-${m.group(2)}-${m.group(3)!.padLeft(5, "0")}';
           }
         }
       }
+    }
 
-      if (extractedTokenId != null && extractedTokenId.isNotEmpty) {
-        demographics['patientId'] = extractedTokenId;
-        confidences['patientId'] = 0.95;
-      }
+    if (extractedTokenId != null && extractedTokenId.isNotEmpty) {
+      demographics['patientId'] = extractedTokenId;
+      demographics['patientTokenId'] = extractedTokenId;
+      confidences['patientId'] = 0.95;
+    }
 
+    if (!isPage2Only) {
       // ── First & Last Name ──
       // Check for distinct First Name / Surname fields first (from block-letter forms)
       final extractedFirstName = findValueForLabel(['first name', 'पहिलो नाम', 'given name']);
@@ -228,11 +233,15 @@ class OcrFormService {
           (extractedSurname != null && extractedSurname.isNotEmpty)) {
         if (extractedFirstName != null && extractedFirstName.isNotEmpty) {
           final cleanFirst = extractedFirstName.replaceAll(RegExp(r'\s*(surname|last name|थर|age|mobile).*$', caseSensitive: false), '').trim();
-          demographics['firstName'] = _capitalizeFirst(cleanFirst.split(RegExp(r'\s+')).first);
+          if (cleanFirst.isNotEmpty && !isNoiseOrSeparator(cleanFirst) && cleanFirst.replaceAll(RegExp(r'[_ \t-]'), '').isNotEmpty) {
+            demographics['firstName'] = _capitalizeFirst(cleanFirst.split(RegExp(r'\s+')).first);
+          }
         }
         if (extractedSurname != null && extractedSurname.isNotEmpty) {
           final cleanSurname = extractedSurname.replaceAll(RegExp(r'\s*(age|mobile|district|ward|उमेर).*$', caseSensitive: false), '').trim();
-          demographics['surname'] = _capitalizeFirst(cleanSurname.split(RegExp(r'\s+')).first);
+          if (cleanSurname.isNotEmpty && !isNoiseOrSeparator(cleanSurname) && cleanSurname.replaceAll(RegExp(r'[_ \t-]'), '').isNotEmpty) {
+            demographics['surname'] = _capitalizeFirst(cleanSurname.split(RegExp(r'\s+')).first);
+          }
         }
         confidences['name'] = (demographics['firstName'] != null && demographics['surname'] != null) ? 0.96 : 0.80;
       }
@@ -544,7 +553,7 @@ class OcrFormService {
         if (isOptionSelected(['problems passing stool', 'stool', 'दिसा समस्या'])) {
           reasons.add('problems passing stool');
         }
-        if (isOptionSelected(['back pain', 'abdominal / back pain', 'ढाड दुख्ने', 'pelvic pain', 'dhaad dukhne'])) {
+        if (isOptionSelected(['lower abdominal pain', 'abdominal pain', 'back pain', 'abdominal / back pain', 'ढाड दुख्ने', 'pelvic pain', 'dhaad dukhne'])) {
           reasons.add('pain');
         }
         if (isOptionSelected(['menstrual problem', 'mahina', 'महिनावारी'])) {
@@ -731,9 +740,9 @@ class OcrFormService {
         }
       }
 
-      vitals['systolicBp'] = (systolic != null && systolic >= 60 && systolic <= 260) ? systolic : 120;
-      vitals['diastolicBp'] = (diastolic != null && diastolic >= 40 && diastolic <= 160) ? diastolic : 80;
-      confidences['bp'] = (systolic != null) ? 0.95 : 0.60;
+      vitals['systolicBp'] = (systolic != null && systolic >= 60 && systolic <= 260) ? systolic : null;
+      vitals['diastolicBp'] = (diastolic != null && diastolic >= 40 && diastolic <= 160) ? diastolic : null;
+      confidences['bp'] = (systolic != null) ? 0.95 : 0.0;
 
       // ── Pulse Rate ──
       int? parsedPulse;
@@ -752,8 +761,8 @@ class OcrFormService {
           parsedPulse = int.tryParse(pulseMatch.group(1) ?? pulseMatch.group(2) ?? '');
         }
       }
-      vitals['pulseRate'] = (parsedPulse != null && parsedPulse >= 35 && parsedPulse <= 220) ? parsedPulse : 76;
-      confidences['pulse'] = (parsedPulse != null) ? 0.95 : 0.60;
+      vitals['pulseRate'] = (parsedPulse != null && parsedPulse >= 35 && parsedPulse <= 220) ? parsedPulse : null;
+      confidences['pulse'] = (parsedPulse != null) ? 0.95 : 0.0;
 
       // ── SpO2 ──
       int? parsedSpo2;
@@ -767,8 +776,8 @@ class OcrFormService {
           parsedSpo2 = int.tryParse(spo2Match.group(1) ?? spo2Match.group(2) ?? '');
         }
       }
-      vitals['spo2'] = (parsedSpo2 != null && parsedSpo2 >= 50 && parsedSpo2 <= 100) ? parsedSpo2 : 98;
-      confidences['spo2'] = (parsedSpo2 != null) ? 0.95 : 0.60;
+      vitals['spo2'] = (parsedSpo2 != null && parsedSpo2 >= 50 && parsedSpo2 <= 100) ? parsedSpo2 : null;
+      confidences['spo2'] = (parsedSpo2 != null) ? 0.95 : 0.0;
 
       // ── Blood Glucose ──
       int? parsedGlucose;
@@ -782,8 +791,8 @@ class OcrFormService {
           parsedGlucose = int.tryParse(glucoseMatch.group(1) ?? glucoseMatch.group(2) ?? '');
         }
       }
-      vitals['bloodGlucose'] = (parsedGlucose != null && parsedGlucose >= 30 && parsedGlucose <= 600) ? parsedGlucose : 110;
-      confidences['glucose'] = (parsedGlucose != null) ? 0.92 : 0.60;
+      vitals['bloodGlucose'] = (parsedGlucose != null && parsedGlucose >= 30 && parsedGlucose <= 600) ? parsedGlucose : null;
+      confidences['glucose'] = (parsedGlucose != null) ? 0.92 : 0.0;
 
       // ── Rapid Tests ──
       final rawUrine = findValueForLabel(['urine test', 'urine dipstick', 'urine', 'पिसाब जाँच']);
@@ -997,19 +1006,19 @@ class OcrFormService {
       confidences['diagnoses'] = diagnoses.isNotEmpty ? 0.92 : 0.40;
 
       // ── Prescriptions & Medications ──
-      if (isOptionSelected(['metronidazole']) || RegExp(r'met?ronida|me\+ronida', caseSensitive: false).hasMatch(text)) {
+      if (isOptionSelected(['metronidazole', 'metronidazol', 'me+ronida'])) {
         medications.add('Metronidazole');
       }
-      if (isOptionSelected(['fluconazole']) || RegExp(r'f?luconazole|f1uconazole', caseSensitive: false).hasMatch(text)) {
+      if (isOptionSelected(['fluconazole', 'fluconazol', 'f1uconazole'])) {
         medications.add('Fluconazole');
       }
-      if (isOptionSelected(['ciprofloxacin']) || RegExp(r'ciproflox', caseSensitive: false).hasMatch(text)) {
+      if (isOptionSelected(['ciprofloxacin', 'ciproflox', 'cipro'])) {
         medications.add('Ciprofloxacin');
       }
-      if (isOptionSelected(['clotrimazole']) || RegExp(r'clotrimaz', caseSensitive: false).hasMatch(text)) {
+      if (isOptionSelected(['clotrimazole', 'clotrimazol'])) {
         medications.add('Clotrimazole');
       }
-      if (highest >= 2 || isOptionSelected(['ring pessary', 'pessary']) || RegExp(r'pessary', caseSensitive: false).hasMatch(text)) {
+      if (highest >= 2 || isOptionSelected(['ring pessary', 'pessary'])) {
         medications.add('Ring Pessary');
       }
       confidences['medications'] = medications.isNotEmpty ? 0.85 : 0.40;
@@ -1023,36 +1032,138 @@ class OcrFormService {
 
     // Calculate overall confidence based on active fields
     // Examining Doctor (Station 6 / Footer)
+    final List<String> attendingDoctors = [];
     String? examiningDoctor;
-    final docMatch = RegExp(r'(?:dr\.?|doctor|clinician|gynecologist|examining doctor)[:\s]+([a-zA-Z\s\.]+)', caseSensitive: false).firstMatch(text);
-    if (docMatch != null) {
-      final name = docMatch.group(1)?.split(RegExp(r'[\r\n]')).first.trim();
-      if (name != null && name.length >= 3 && !_isLabel(name) && !name.toLowerCase().contains('certified') && !name.toLowerCase().contains('signature')) {
-        examiningDoctor = name.toLowerCase().startsWith('dr') ? name : 'Dr. $name';
+
+    // 1. Multi-Doctor Checklist: detect ticked/checked checkboxes
+    // e.g. "[x] Dr. Sagar Sharma (NMC: 333/333)", "☑ Dr. Anish Tiwari"
+    final checkedDoctorMatches = RegExp(
+      r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])[ \t]*(?:Dr\.?[ \t]*)?([a-zA-Z\s\.]+?)(?=\s*(?:\(NMC|\bNMC\b|[\r\n]|$))',
+      caseSensitive: false,
+    ).allMatches(text);
+
+    for (final m in checkedDoctorMatches) {
+      var candidate = m.group(1)?.split(RegExp(r'[\r\n]')).first.trim() ?? '';
+      candidate = candidate.replaceAll(RegExp(r'\s*(?:NMC|Date|Signature|Stamp).*$', caseSensitive: false), '').trim();
+      if (candidate.length >= 3 &&
+          !_isLabel(candidate) &&
+          !isNoiseOrSeparator(candidate) &&
+          !candidate.toLowerCase().contains('other') &&
+          !candidate.toLowerCase().contains('nurse') &&
+          !candidate.toLowerCase().contains('sister') &&
+          !candidate.toLowerCase().contains('certified') &&
+          !candidate.toLowerCase().contains('signature')) {
+        final formatted = candidate.toLowerCase().startsWith('dr') ? candidate : 'Dr. $candidate';
+        if (!attendingDoctors.contains(formatted)) {
+          attendingDoctors.add(formatted);
+        }
       }
+    }
+
+    // 2. If no checklist ticked, check for pre-printed / signature / handwritten doctor line-by-line
+    if (attendingDoctors.isEmpty) {
+      for (final line in lines) {
+        final lineLower = line.toLowerCase();
+        if (lineLower.contains('doctor') ||
+            lineLower.contains('signature') ||
+            lineLower.contains('clinician') ||
+            lineLower.contains('gynecologist') ||
+            lineLower.startsWith('dr.') ||
+            lineLower.startsWith('dr ')) {
+          final m = RegExp(
+            r'(?:(?:examining\s*doctor|doctor\s*signature(?:\s*&\s*nmc)?|doctor|clinician|gynecologist)[ \t]*[:\-]?[ \t]*)?(?:Dr\.?[ \t]+)?([A-Za-z][A-Za-z\s\.]+?)(?=\s*(?:\(NMC|\bNMC\b|[\r\n]|$))',
+            caseSensitive: false,
+          ).firstMatch(line);
+
+          if (m != null) {
+            var candidate = m.group(1)?.trim() ?? '';
+            candidate = candidate.replaceAll(RegExp(r'\s*(?:\(NMC|\bNMC\b|Date|Signature|Stamp).*$', caseSensitive: false), '').trim();
+            if (candidate.length >= 3 &&
+                !_isLabel(candidate) &&
+                !isNoiseOrSeparator(candidate) &&
+                !candidate.toLowerCase().contains('gynecologist') &&
+                !candidate.toLowerCase().contains('medical officer') &&
+                !candidate.toLowerCase().contains('certified') &&
+                !candidate.toLowerCase().contains('signature') &&
+                !candidate.toLowerCase().contains('summary') &&
+                !candidate.toLowerCase().contains('station')) {
+              final formatted = candidate.toLowerCase().startsWith('dr') ? candidate : 'Dr. $candidate';
+              attendingDoctors.add(formatted);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (attendingDoctors.isNotEmpty) {
+      examiningDoctor = attendingDoctors.first;
     }
 
     // Attending / Examining Nurse (Station 6 / Footer)
     String? examiningNurse;
     final List<String> attendingNurses = [];
-    final nurseMatch = RegExp(
-      r'(?:attending\s*nurse|staff\s*nurse|examining\s*nurse|sister|नर्स|nurse)[:\s]+([a-zA-Z\s\.]+)',
+
+    // 1. Multi-Nurse Checklist: detect ticked/checked checkboxes
+    final nurseSectionIdx = text.toLowerCase().indexOf('nurse');
+    final nurseSnippet = nurseSectionIdx != -1 ? text.substring(nurseSectionIdx) : text;
+    final checkedNurseMatches = RegExp(
+      r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])[ \t]*(?:Nurse|Sr\.?|Sister)?[ \t]*([a-zA-Z\s\.]+?)(?=\s*(?:\(NNC|\bNNC\b|[\r\n]|$))',
       caseSensitive: false,
-    ).firstMatch(text);
-    if (nurseMatch != null) {
-      final name = nurseMatch.group(1)?.split(RegExp(r'[\r\n]')).first.trim();
-      if (name != null &&
-          name.length >= 3 &&
-          !_isLabel(name) &&
-          !name.toLowerCase().contains('signature') &&
-          !name.toLowerCase().contains('certified') &&
-          !name.toLowerCase().contains('gynaesupport')) {
-        final cleanNurse = NurseProfile.stripPrefixes(name).trim();
-        if (cleanNurse.isNotEmpty && cleanNurse.length >= 3) {
-          examiningNurse = cleanNurse;
+    ).allMatches(nurseSnippet);
+
+    for (final m in checkedNurseMatches) {
+      var candidate = m.group(1)?.split(RegExp(r'[\r\n]')).first.trim() ?? '';
+      candidate = candidate.replaceAll(RegExp(r'\s*(?:NNC|Date|Signature|Stamp).*$', caseSensitive: false), '').trim();
+      final cleanNurse = NurseProfile.stripPrefixes(candidate).trim();
+      if (cleanNurse.length >= 3 &&
+          !_isLabel(cleanNurse) &&
+          !isNoiseOrSeparator(cleanNurse) &&
+          !cleanNurse.toLowerCase().contains('other') &&
+          !cleanNurse.toLowerCase().contains('doctor') &&
+          !cleanNurse.toLowerCase().contains('dr.') &&
+          !cleanNurse.toLowerCase().contains('certified') &&
+          !cleanNurse.toLowerCase().contains('signature')) {
+        if (!attendingNurses.contains(cleanNurse)) {
           attendingNurses.add(cleanNurse);
         }
       }
+    }
+
+    // 2. If no checklist ticked, check for pre-printed / signature / handwritten nurse line-by-line
+    if (attendingNurses.isEmpty) {
+      for (final line in lines) {
+        final lineLower = line.toLowerCase();
+        if (lineLower.contains('nurse') || lineLower.contains('sister') || lineLower.contains('नर्स')) {
+          final m = RegExp(
+            r'(?:(?:attending\s*nurse|staff\s*nurse|examining\s*nurse|nurse\s*signature(?:\s*&\s*nnc)?|sister|नर्स|nurse)[ \t]*[:\-]?[ \t]*)?(?:Nurse|Sr\.?|Sister)?[ \t]*([A-Za-z][A-Za-z\s\.]+?)(?=\s*(?:\(NNC|\bNNC\b|[\r\n]|$))',
+            caseSensitive: false,
+          ).firstMatch(line);
+
+          if (m != null) {
+            var candidate = m.group(1)?.trim() ?? '';
+            candidate = candidate.replaceAll(RegExp(r'\s*(?:\(NNC|\bNNC\b|Date|Signature|Stamp).*$', caseSensitive: false), '').trim();
+            final cleanNurse = NurseProfile.stripPrefixes(candidate).trim();
+            if (cleanNurse.length >= 3 &&
+                !_isLabel(cleanNurse) &&
+                !isNoiseOrSeparator(cleanNurse) &&
+                !cleanNurse.toLowerCase().contains('signature') &&
+                !cleanNurse.toLowerCase().contains('certified') &&
+                !cleanNurse.toLowerCase().contains('doctor') &&
+                !cleanNurse.toLowerCase().contains('dr.') &&
+                !cleanNurse.toLowerCase().contains('sister') &&
+                !cleanNurse.toLowerCase().contains('nurse') &&
+                !cleanNurse.toLowerCase().contains('gynaesupport')) {
+              attendingNurses.add(cleanNurse);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (attendingNurses.isNotEmpty) {
+      examiningNurse = attendingNurses.first;
     }
 
     // ── Level of Treatment (उपचारको तह) ──
@@ -1095,7 +1206,7 @@ class OcrFormService {
       surgicalReferral: surgicalReferral,
       followUpDestination: followUp,
       examiningDoctor: examiningDoctor,
-      attendingDoctors: examiningDoctor != null ? [examiningDoctor] : const [],
+      attendingDoctors: attendingDoctors,
       examiningNurse: examiningNurse,
       attendingNurses: attendingNurses,
       treatmentLevel: treatmentLevel,
@@ -1113,6 +1224,10 @@ class OcrFormService {
         lower.startsWith('station') ||
         lower.startsWith('camp') ||
         lower.startsWith('date') ||
+        lower == 'doctor' ||
+        lower == 'dr.' ||
+        lower == 'dr' ||
+        lower == 'nurse' ||
         lower.contains('form') ||
         lower.contains('gynocamp') ||
         lower.isEmpty;

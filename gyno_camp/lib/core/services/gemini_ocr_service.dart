@@ -205,6 +205,19 @@ class GeminiOcrService {
     final String? examiningDoctor = (rawExaminingDoctor != null && rawExaminingDoctor.isNotEmpty && rawExaminingDoctor.toLowerCase() != 'null')
         ? (rawExaminingDoctor.toLowerCase().startsWith('dr') ? rawExaminingDoctor : 'Dr. $rawExaminingDoctor')
         : null;
+    final List<String> rawAttendingDoctors = (parsedData['attendingDoctors'] as List?)
+            ?.map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty && e.toLowerCase() != 'null')
+            .map((e) => e.toLowerCase().startsWith('dr') ? e : 'Dr. $e')
+            .toSet()
+            .toList()
+            .cast<String>() ??
+        <String>[];
+    if (examiningDoctor != null &&
+        examiningDoctor.isNotEmpty &&
+        !rawAttendingDoctors.contains(examiningDoctor)) {
+      rawAttendingDoctors.insert(0, examiningDoctor);
+    }
     final rawExaminingNurse = parsedData['examiningNurse']?.toString().trim();
     final String? examiningNurse = (rawExaminingNurse != null &&
             rawExaminingNurse.isNotEmpty &&
@@ -500,7 +513,9 @@ class GeminiOcrService {
       ringPessary: ringPessary,
       ringPessarySize: ringPessarySize,
       examiningDoctor: examiningDoctor,
-      attendingDoctors: examiningDoctor != null ? [examiningDoctor] : const [],
+      attendingDoctors: rawAttendingDoctors.isNotEmpty
+          ? rawAttendingDoctors
+          : (examiningDoctor != null ? [examiningDoctor] : const []),
       examiningNurse: examiningNurse,
       attendingNurses: rawAttendingNurses,
       treatmentLevel: treatmentLevel,

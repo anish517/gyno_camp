@@ -63,6 +63,9 @@ class OcrScanResultModel {
     required this.scannedAt,
   });
 
+  String? get patientTokenId =>
+      (demographics['patientTokenId'] as String? ?? demographics['patientId'] as String?)?.trim();
+
   OcrScanResultModel copyWith({
     int? pageNumber,
     String? imagePath,

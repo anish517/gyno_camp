@@ -19,15 +19,17 @@ enum PrintableFormType {
 }
 
 enum DoctorSelectionMode {
-  specificDoctor,
-  allDoctorsBatch,
-  blankDoctorField,
+  allDoctorsChecklist, // every camp doctor as a tick-box (multi-select on paper)
+  specificDoctor, // one pre-printed doctor
+  allDoctorsBatch, // separate copies for each doctor
+  blankDoctorField, // blank doctor name / signature lines
 }
 
 /// How the attending nurse(s) appear on a printed blank form.
 enum NurseSelectionMode {
   allNursesChecklist, // every camp nurse as a tick-box (multi-select on paper)
   specificNurse, // one pre-printed nurse
+  allNursesBatch, // separate copies for each nurse
   blankNurseField, // blank nurse name / signature lines
 }
 
@@ -54,7 +56,7 @@ class BlankFormDownloadDialog extends ConsumerStatefulWidget {
 class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialog> {
   PrintableFormType _selectedFormType = PrintableFormType.yellowRegistrationForm;
   BlankFormPage1Layout _page1Layout = BlankFormPage1Layout.grid;
-  DoctorSelectionMode _doctorMode = DoctorSelectionMode.specificDoctor;
+  DoctorSelectionMode _doctorMode = DoctorSelectionMode.allDoctorsChecklist;
   DoctorProfile? _selectedDoctor;
   NurseSelectionMode _nurseMode = NurseSelectionMode.allNursesChecklist;
   NurseProfile? _selectedNurse;
@@ -80,14 +82,25 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   void initState() {
     super.initState();
     final doctors = widget.camp?.doctorProfiles ?? [];
-    if (doctors.isNotEmpty) {
+    if (doctors.length > 1) {
+      _doctorMode = DoctorSelectionMode.allDoctorsChecklist;
+      _selectedDoctor = doctors.first;
+    } else if (doctors.length == 1) {
+      _doctorMode = DoctorSelectionMode.specificDoctor;
       _selectedDoctor = doctors.first;
     } else {
       _doctorMode = DoctorSelectionMode.blankDoctorField;
     }
+
     final nurses = widget.camp?.nurseProfiles ?? [];
-    if (nurses.isNotEmpty) {
+    if (nurses.length > 1) {
+      _nurseMode = NurseSelectionMode.allNursesChecklist;
       _selectedNurse = nurses.first;
+    } else if (nurses.length == 1) {
+      _nurseMode = NurseSelectionMode.specificNurse;
+      _selectedNurse = nurses.first;
+    } else {
+      _nurseMode = NurseSelectionMode.blankNurseField;
     }
     _initStartingToken();
   }
@@ -156,6 +169,14 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           ? _nurseMode == NurseSelectionMode.blankNurseField
           : _includeBlankNurseLine;
 
+      final DoctorProfile? docToUse =
+          (doctors.isNotEmpty && _doctorMode == DoctorSelectionMode.specificDoctor)
+              ? _selectedDoctor
+              : null;
+      final bool blankDoctor = doctors.isNotEmpty
+          ? _doctorMode == DoctorSelectionMode.blankDoctorField
+          : true;
+
       Uint8List pdfBytes;
       String filename;
       final campCode = widget.camp?.campCode ?? 'CAMP';
@@ -168,8 +189,6 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
         final endPad = endSeq.toString().padLeft(5, '0');
 
         if (_selectedFormType == PrintableFormType.yellowRegistrationForm) {
-          final isBlank = _doctorMode == DoctorSelectionMode.blankDoctorField;
-          final docToUse = _doctorMode == DoctorSelectionMode.specificDoctor ? _selectedDoctor : null;
           messenger.showSnackBar(
             SnackBar(
               content: Text('Generating $count pre-numbered blank forms ($startPad to $endPad, ${count * 2} pages)...'),
@@ -183,7 +202,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             doctor: docToUse,
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
-            blankDoctorLines: isBlank,
+            blankDoctorLines: blankDoctor,
             page1Layout: _page1Layout,
             organizationName: orgName,
             diagnoses: diagnoses,
@@ -194,7 +213,6 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           );
           filename = 'Blank_YellowForms_${campCode}_${startPad}_to_$endPad.pdf';
         } else {
-          final docToUse = _doctorMode == DoctorSelectionMode.specificDoctor ? _selectedDoctor : null;
           messenger.showSnackBar(
             SnackBar(
               content: Text('Generating $count pre-numbered follow-up sheets ($startPad to $endPad, $count pages)...'),
@@ -206,6 +224,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             startSequence: startSeq,
             count: count,
             doctor: docToUse,
+            blankDoctorLines: blankDoctor,
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
             organizationName: orgName,
@@ -234,16 +253,20 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             visitReasons: visitReasons,
             chiefComplaints: chiefComplaints,
           );
-          filename = 'Blank_YellowForms_${campCode}_AllDoctors.pdf';
-        } else {
-          final isBlank = _doctorMode == DoctorSelectionMode.blankDoctorField;
-          final docToUse = _doctorMode == DoctorSelectionMode.specificDoctor ? _selectedDoctor : null;
-          pdfBytes = await pdfService.generatePatientRegistrationFormPdf(
+          filename = 'Blank_YellowForms_${campCode}_AllDoctorsBatch.pdf';
+        } else if (_nurseMode == NurseSelectionMode.allNursesBatch && nurses.isNotEmpty) {
+          // Batch download: generate combined multi-page PDF with 2 pages for each nurse
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Generating batch forms for ${nurses.length} nurses (${nurses.length * 2} pages)...'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          pdfBytes = await pdfService.generateBatchBlankYellowFormsByNursesPdf(
+            nurses: nurses,
             camp: widget.camp,
             doctor: docToUse,
-            nurse: nurseToUse,
-            blankNurseLines: blankNurse,
-            blankDoctorLines: isBlank,
+            blankDoctorLines: blankDoctor,
             page1Layout: _page1Layout,
             organizationName: orgName,
             diagnoses: diagnoses,
@@ -252,8 +275,45 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             visitReasons: visitReasons,
             chiefComplaints: chiefComplaints,
           );
-          final docSlug = docToUse != null ? '_${docToUse.name.replaceAll(' ', '_')}' : '_Blank';
-          filename = 'Blank_YellowForm_${campCode}_$docSlug.pdf';
+          filename = 'Blank_YellowForms_${campCode}_AllNursesBatch.pdf';
+        } else {
+          pdfBytes = await pdfService.generatePatientRegistrationFormPdf(
+            camp: widget.camp,
+            doctor: docToUse,
+            nurse: nurseToUse,
+            blankNurseLines: blankNurse,
+            blankDoctorLines: blankDoctor,
+            page1Layout: _page1Layout,
+            organizationName: orgName,
+            diagnoses: diagnoses,
+            medications: medications,
+            referralHospitals: referralHospitals,
+            visitReasons: visitReasons,
+            chiefComplaints: chiefComplaints,
+          );
+          final String docSlug;
+          if (_doctorMode == DoctorSelectionMode.allDoctorsChecklist) {
+            docSlug = '_DoctorsChecklist';
+          } else if (_doctorMode == DoctorSelectionMode.blankDoctorField) {
+            docSlug = '_BlankDoctor';
+          } else if (docToUse != null) {
+            docSlug = '_${docToUse.name.replaceAll(' ', '_')}';
+          } else {
+            docSlug = '';
+          }
+
+          final String nurseSlug;
+          if (_nurseMode == NurseSelectionMode.allNursesChecklist) {
+            nurseSlug = '_NursesChecklist';
+          } else if (_nurseMode == NurseSelectionMode.blankNurseField) {
+            nurseSlug = '_BlankNurse';
+          } else if (nurseToUse != null) {
+            nurseSlug = '_${nurseToUse.name.replaceAll(' ', '_')}';
+          } else {
+            nurseSlug = '';
+          }
+
+          filename = 'Blank_YellowForm_$campCode$docSlug$nurseSlug.pdf';
         }
       } else {
         // Follow-Up Form
@@ -272,18 +332,55 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             blankNurseLines: blankNurse,
             organizationName: orgName,
           );
-          filename = 'Blank_FollowUpSlips_${campCode}_AllDoctors.pdf';
+          filename = 'Blank_FollowUpSlips_${campCode}_AllDoctorsBatch.pdf';
+        } else if (_nurseMode == NurseSelectionMode.allNursesBatch && nurses.isNotEmpty) {
+          // Batch download: generate combined multi-page PDF with 1 page for each nurse
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Generating batch follow-up sheets for ${nurses.length} nurses (${nurses.length} pages)...'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          pdfBytes = await pdfService.generateBatchBlankFollowUpSlipsByNursesPdf(
+            nurses: nurses,
+            camp: widget.camp,
+            doctor: docToUse,
+            blankDoctorLines: blankDoctor,
+            organizationName: orgName,
+          );
+          filename = 'Blank_FollowUpSlips_${campCode}_AllNursesBatch.pdf';
         } else {
-          final docToUse = _doctorMode == DoctorSelectionMode.specificDoctor ? _selectedDoctor : null;
           pdfBytes = await pdfService.generateBlankFollowUpSlipPdf(
             camp: widget.camp,
             doctor: docToUse,
+            blankDoctorLines: blankDoctor,
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
             organizationName: orgName,
           );
-          final docSlug = docToUse != null ? '_${docToUse.name.replaceAll(' ', '_')}' : '_Blank';
-          filename = 'Blank_FollowUpSlip_${campCode}_$docSlug.pdf';
+          final String docSlug;
+          if (_doctorMode == DoctorSelectionMode.allDoctorsChecklist) {
+            docSlug = '_DoctorsChecklist';
+          } else if (_doctorMode == DoctorSelectionMode.blankDoctorField) {
+            docSlug = '_BlankDoctor';
+          } else if (docToUse != null) {
+            docSlug = '_${docToUse.name.replaceAll(' ', '_')}';
+          } else {
+            docSlug = '';
+          }
+
+          final String nurseSlug;
+          if (_nurseMode == NurseSelectionMode.allNursesChecklist) {
+            nurseSlug = '_NursesChecklist';
+          } else if (_nurseMode == NurseSelectionMode.blankNurseField) {
+            nurseSlug = '_BlankNurse';
+          } else if (nurseToUse != null) {
+            nurseSlug = '_${nurseToUse.name.replaceAll(' ', '_')}';
+          } else {
+            nurseSlug = '';
+          }
+
+          filename = 'Blank_FollowUpSlip_$campCode$docSlug$nurseSlug.pdf';
         }
       }
 
@@ -548,6 +645,18 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                           ),
                         ] else ...[
                           // Doctor Selection Options
+                          if (doctors.length > 1) ...[
+                            RadioListTile<DoctorSelectionMode>(
+                              dense: true,
+                              activeColor: AppTheme.brandPurple,
+                              contentPadding: EdgeInsets.zero,
+                              value: DoctorSelectionMode.allDoctorsChecklist,
+                              groupValue: _doctorMode,
+                              title: Text('All Camp Doctors Checklist (${doctors.length})', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              subtitle: const Text('Prints every assigned doctor as a tick-box; tick one or more on paper', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                              onChanged: (val) => setState(() => _doctorMode = val!),
+                            ),
+                          ],
                           RadioListTile<DoctorSelectionMode>(
                             dense: true,
                             activeColor: AppTheme.brandPurple,
@@ -838,6 +947,18 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                 onChanged: (val) => setState(() => _selectedNurse = val),
               ),
             ),
+          if (nurses.length > 1) ...[
+            RadioListTile<NurseSelectionMode>(
+              dense: true,
+              activeColor: AppTheme.brandPurple,
+              contentPadding: EdgeInsets.zero,
+              value: NurseSelectionMode.allNursesBatch,
+              groupValue: _nurseMode,
+              title: Text('All Assigned Nurses (${nurses.length} Nurses Batch)', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              subtitle: const Text('Generates separate nurse-wise copies for each nurse in the roster', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+              onChanged: (val) => setState(() => _nurseMode = val!),
+            ),
+          ],
           RadioListTile<NurseSelectionMode>(
             dense: true,
             activeColor: AppTheme.brandPurple,

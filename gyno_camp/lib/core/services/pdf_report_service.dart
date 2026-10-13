@@ -3048,6 +3048,7 @@ class PdfReportService {
     CampModel? camp,
     String? preprintedTokenId,
     DoctorProfile? doctor,
+    bool blankDoctorLines = false,
     NurseProfile? nurse,
     bool blankNurseLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
@@ -3064,6 +3065,31 @@ class PdfReportService {
 
     final bool showDoctor = camp?.showDoctorOnForms ?? true;
     final bool showNurse = camp?.showNurseOnForms ?? true;
+    final List<String> campDoctors = camp?.doctorNames.isNotEmpty == true
+        ? camp!.doctorNames
+              .map(
+                (d) => d
+                    .trim()
+                    .replaceAll(
+                      RegExp(r'^(Dr\.?\s*)+', caseSensitive: false),
+                      '',
+                    )
+                    .trim(),
+              )
+              .where((d) => d.isNotEmpty)
+              .toSet()
+              .toList()
+        : (camp?.doctorName.trim().isNotEmpty == true
+              ? [
+                  camp!.doctorName
+                      .trim()
+                      .replaceAll(
+                        RegExp(r'^(Dr\.?\s*)+', caseSensitive: false),
+                        '',
+                      )
+                      .trim(),
+                ]
+              : <String>[]);
     final List<NurseProfile> campNurses =
         camp?.nurseProfiles.toSet().toList() ?? <NurseProfile>[];
 
@@ -3454,13 +3480,14 @@ class PdfReportService {
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
-                      if (!showDoctor) ...[
+                      if (!showDoctor || blankDoctorLines) ...[
+                        pw.SizedBox(height: 12),
                         pw.Container(
                           width: 140,
                           height: 0.8,
                           color: PdfColors.black,
                         ),
-                        pw.SizedBox(height: 2),
+                        pw.SizedBox(height: 3),
                         pw.Text(
                           'Examining Doctor / Gynecologist',
                           style: pw.TextStyle(
@@ -3500,6 +3527,91 @@ class PdfReportService {
                         pw.Text(
                           doctor.hasNmc
                               ? 'NMC No: ${doctor.nmcNumber}'
+                              : 'NMC Certified',
+                          style: const pw.TextStyle(
+                            fontSize: 6,
+                            color: PdfColors.grey600,
+                          ),
+                        ),
+                      ] else if (campDoctors.length > 1) ...[
+                        pw.Row(
+                          mainAxisSize: pw.MainAxisSize.min,
+                          children: [
+                            pw.Text(
+                              'Examining Doctor (',
+                              style: pw.TextStyle(
+                                fontSize: 7.5,
+                                fontWeight: pw.FontWeight.bold,
+                                color: secondary,
+                              ),
+                            ),
+                            ne(
+                              'जाँच गर्ने चिकित्सक',
+                              size: 7.5,
+                              bold: true,
+                              color: 0xFF81005D,
+                            ),
+                            pw.Text(
+                              '):',
+                              style: pw.TextStyle(
+                                fontSize: 7.5,
+                                fontWeight: pw.FontWeight.bold,
+                                color: secondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Wrap(
+                          spacing: 4,
+                          runSpacing: 1.5,
+                          alignment: pw.WrapAlignment.end,
+                          children: [
+                            ...campDoctors.map(
+                              (doc) => cb(DoctorProfile.parse(doc).formattedLabel),
+                            ),
+                            cb('Other: _____'),
+                          ],
+                        ),
+                        pw.SizedBox(height: 14),
+                        pw.Container(
+                          width: 130,
+                          height: 0.8,
+                          color: PdfColors.black,
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          'Doctor Signature & NMC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6,
+                            color: PdfColors.grey600,
+                          ),
+                        ),
+                      ] else if (campDoctors.length == 1) ...[
+                        pw.Container(
+                          width: 130,
+                          height: 0.8,
+                          color: PdfColors.black,
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          DoctorProfile.parse(campDoctors.first).displayName,
+                          style: pw.TextStyle(
+                            fontSize: 7.5,
+                            fontWeight: pw.FontWeight.bold,
+                            color: dark,
+                          ),
+                        ),
+                        pw.Text(
+                          'Medical Officer / Gynecologist',
+                          style: const pw.TextStyle(
+                            fontSize: 6.2,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                        pw.Text(
+                          DoctorProfile.parse(campDoctors.first).hasNmc
+                              ? 'NMC No: ${DoctorProfile.parse(campDoctors.first).nmcNumber}'
                               : 'NMC Certified',
                           style: const pw.TextStyle(
                             fontSize: 6,
@@ -3587,8 +3699,9 @@ class PdfReportService {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
+              pw.SizedBox(height: 12),
               signLine(120),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 3),
               pw.Text(
                 'Attending Nurse',
                 style: pw.TextStyle(
@@ -3691,9 +3804,9 @@ class PdfReportService {
                   cb('Other: _____', false),
                 ],
               ),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 14),
               signLine(120),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 3),
               pw.Text(
                 'Nurse Signature & NNC No.: ______________',
                 style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey700),
@@ -3712,6 +3825,7 @@ class PdfReportService {
   Future<Uint8List> generateBlankFollowUpSlipPdf({
     CampModel? camp,
     DoctorProfile? doctor,
+    bool blankDoctorLines = false,
     NurseProfile? nurse,
     bool blankNurseLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
@@ -3724,6 +3838,7 @@ class PdfReportService {
         pdf,
         camp: camp,
         doctor: doctor,
+        blankDoctorLines: blankDoctorLines,
         nurse: nurse,
         blankNurseLines: blankNurseLines,
         organizationName: organizationName,
@@ -3751,6 +3866,33 @@ class PdfReportService {
           doctor: doc,
           nurse: nurse,
           blankNurseLines: blankNurseLines,
+          organizationName: organizationName,
+          logoImage: logoImage,
+        );
+      }
+      return pdf;
+    });
+  }
+
+  Future<Uint8List> generateBatchBlankFollowUpSlipsByNursesPdf({
+    required List<NurseProfile> nurses,
+    CampModel? camp,
+    DoctorProfile? doctor,
+    bool blankDoctorLines = false,
+    String organizationName = AppConstants.defaultOrganizationName,
+  }) async {
+    final theme = await getPdfTheme();
+    final logoImage = await loadLogoImage();
+    return _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme);
+      for (final n in nurses) {
+        _addBlankFollowUpSlipPage(
+          pdf,
+          camp: camp,
+          doctor: doctor,
+          blankDoctorLines: blankDoctorLines,
+          nurse: n,
+          blankNurseLines: false,
           organizationName: organizationName,
           logoImage: logoImage,
         );
@@ -6235,11 +6377,11 @@ class PdfReportService {
               ),
               pw.SizedBox(height: 2),
               pw.Text('Clinical Notes:', style: bold(size: fsSmall)),
-              line(h: 20, text: visit?.outtakeNotes),
-              pw.SizedBox(height: 3),
-              line(h: 20),
-              pw.SizedBox(height: 3),
-              line(h: 20),
+              line(h: 16, text: visit?.outtakeNotes),
+              pw.SizedBox(height: 2.5),
+              line(h: 16),
+              pw.SizedBox(height: 2.5),
+              line(h: 16),
             ],
           );
 
@@ -6286,12 +6428,13 @@ class PdfReportService {
                       crossAxisAlignment: pw.CrossAxisAlignment.center,
                       children: [
                         if (blankNurseLines || (!showNurse && hasAnyNurse)) ...[
+                          pw.SizedBox(height: 12),
                           pw.Container(
                             width: 120,
                             height: 0.8,
                             color: PdfColors.black,
                           ),
-                          pw.SizedBox(height: 2.5),
+                          pw.SizedBox(height: 3),
                           pw.Text(
                             'Attending Nurse',
                             style: pw.TextStyle(
@@ -6380,13 +6523,13 @@ class PdfReportService {
                               cb('Other: _____', false),
                             ],
                           ),
-                          pw.SizedBox(height: 2),
+                          pw.SizedBox(height: 14),
                           pw.Container(
-                            width: 120,
+                            width: 125,
                             height: 0.8,
                             color: PdfColors.black,
                           ),
-                          pw.SizedBox(height: 2),
+                          pw.SizedBox(height: 3),
                           pw.Text(
                             'Nurse Signature & NNC: ______________',
                             style: const pw.TextStyle(
@@ -6428,12 +6571,13 @@ class PdfReportService {
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
                         if (!showDoctor || blankDoctorLines) ...[
+                          pw.SizedBox(height: 12),
                           pw.Container(
                             width: 125,
                             height: 0.8,
                             color: PdfColors.black,
                           ),
-                          pw.SizedBox(height: 2.5),
+                          pw.SizedBox(height: 3),
                           pw.Text(
                             'Medical Officer / Gynecologist',
                             style: pw.TextStyle(
@@ -6554,13 +6698,13 @@ class PdfReportService {
                               cb('Other: _____', false),
                             ],
                           ),
-                          pw.SizedBox(height: 2),
+                          pw.SizedBox(height: 14),
                           pw.Container(
-                            width: 125,
+                            width: 130,
                             height: 0.8,
                             color: PdfColors.black,
                           ),
-                          pw.SizedBox(height: 2),
+                          pw.SizedBox(height: 3),
                           pw.Text(
                             'Doctor Signature & NMC: ______________',
                             style: const pw.TextStyle(
@@ -6892,6 +7036,45 @@ class PdfReportService {
     });
   }
 
+  Future<Uint8List> generateBatchBlankYellowFormsByNursesPdf({
+    required List<NurseProfile> nurses,
+    CampModel? camp,
+    DoctorProfile? doctor,
+    bool blankDoctorLines = false,
+    BlankFormPage1Layout page1Layout = BlankFormPage1Layout.grid,
+    String organizationName = AppConstants.defaultOrganizationName,
+    List<LookupItemModel>? diagnoses,
+    List<LookupItemModel>? medications,
+    List<LookupItemModel>? referralHospitals,
+    List<LookupItemModel>? visitReasons,
+    List<LookupItemModel>? chiefComplaints,
+  }) async {
+    final theme = await getPdfTheme();
+    final logoImage = await loadLogoImage();
+    return _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme);
+      for (final n in nurses) {
+        await _addPatientRegistrationFormPages(
+          pdf,
+          camp: camp,
+          doctor: doctor,
+          blankDoctorLines: blankDoctorLines,
+          nurse: n,
+          blankNurseLines: false,
+          page1Layout: page1Layout,
+          organizationName: organizationName,
+          diagnoses: diagnoses,
+          medications: medications,
+          referralHospitals: referralHospitals,
+          visitReasons: visitReasons,
+          chiefComplaints: chiefComplaints,
+          logoImage: logoImage,
+        );
+      }
+      return pdf;
+    });
+  }
+
   /// Generates a batch PDF containing blank Yellow registration forms (2 pages each)
   /// sequentially pre-printed with Patient Token IDs (e.g., GC-DHN-2026-00001 to GC-DHN-2026-00050)
   /// and matching QR codes in the header.
@@ -6955,6 +7138,7 @@ class PdfReportService {
     required int startSequence,
     required int count,
     DoctorProfile? doctor,
+    bool blankDoctorLines = false,
     NurseProfile? nurse,
     bool blankNurseLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
@@ -6979,6 +7163,7 @@ class PdfReportService {
           camp: camp,
           preprintedTokenId: tokenId,
           doctor: doctor,
+          blankDoctorLines: blankDoctorLines,
           nurse: nurse,
           blankNurseLines: blankNurseLines,
           organizationName: organizationName,
