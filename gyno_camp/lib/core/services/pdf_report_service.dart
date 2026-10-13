@@ -3452,34 +3452,39 @@ class PdfReportService {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: nurseWidgets.isNotEmpty ? nurseWidgets : [
-                      pw.Container(
-                        width: 120,
-                        height: 0.8,
-                        color: PdfColors.black,
-                      ),
-                      pw.SizedBox(height: 2),
-                      pw.Text(
-                        'Staff Nurse / Health Worker',
-                        style: pw.TextStyle(
-                          fontSize: 7,
-                          fontWeight: pw.FontWeight.bold,
+                  pw.SizedBox(
+                    width: 230,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: nurseWidgets.isNotEmpty ? nurseWidgets : [
+                        pw.Container(
+                          width: 120,
+                          height: 0.8,
+                          color: PdfColors.black,
                         ),
-                      ),
-                      pw.Text(
-                        'Signature & Date:',
-                        style: const pw.TextStyle(
-                          fontSize: 6,
-                          color: PdfColors.grey600,
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          'Staff Nurse / Health Worker',
+                          style: pw.TextStyle(
+                            fontSize: 7,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    ],
+                        pw.Text(
+                          'Signature & Date:',
+                          style: const pw.TextStyle(
+                            fontSize: 6,
+                            color: PdfColors.grey600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
+                  pw.SizedBox(
+                    width: 280,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
                       if (!showDoctor || blankDoctorLines) ...[
                         pw.SizedBox(height: 12),
                         pw.Container(
@@ -3642,8 +3647,9 @@ class PdfReportService {
                       ],
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
               pw.SizedBox(height: 6),
             ],
           );
