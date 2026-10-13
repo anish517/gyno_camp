@@ -69,6 +69,8 @@ class PdfReportService {
 
     const candidates = [
       'assets/wfwsn_logo_pdf.png',
+      'assets/WFWSNPrimaryCircle.png',
+      'assets/wfwsn_logo_small.png',
       'assets/wfwsn_logo_small.jpg',
       'assets/WFWSNPrimaryCircle.jpg',
     ];
