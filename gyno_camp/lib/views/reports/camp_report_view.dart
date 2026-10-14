@@ -4679,7 +4679,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
                               Expanded(child: _buildCompartmentStage('Posterior Wall', visit.popPosteriorStage)),
-                              Expanded(child: _buildCompartmentStage('Pelvic Floor Tone', visit.pelvicFloorTone)),
+                              Expanded(child: _buildCompartmentStage('Pelvic Floor Muscle', visit.pelvicFloorTone)),
                             ],
                           ),
                         ] else ...[
@@ -4689,7 +4689,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                               _buildCompartmentStage('Anterior Wall', visit.popAnteriorStage),
                               _buildCompartmentStage('Apical / Cervix', visit.popMiddleStage),
                               _buildCompartmentStage('Posterior Wall', visit.popPosteriorStage),
-                              _buildCompartmentStage('Pelvic Floor Tone', visit.pelvicFloorTone),
+                              _buildCompartmentStage('Pelvic Floor Muscle', visit.pelvicFloorTone),
                             ],
                           ),
                         ],

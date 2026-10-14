@@ -61,6 +61,9 @@ class _FakeLookupRepository implements ILookupRepository {
   Future<void> ensureDefaultsSeeded({String? tenantId}) async {}
 
   @override
+  Future<void> purgeNonStandardItems({String? tenantId}) async {}
+
+  @override
   Future<void> backfillSubCategories() async {}
 }
 

@@ -55,6 +55,9 @@ class FakeLookupRepository implements ILookupRepository {
   Future<void> ensureDefaultsSeeded({String? tenantId}) async {}
 
   @override
+  Future<void> purgeNonStandardItems({String? tenantId}) async {}
+
+  @override
   Future<void> backfillSubCategories() async {}
 }
 
@@ -432,11 +435,11 @@ void main() {
       expect(find.text('Pelvic & Abdominal'), findsWidgets);
 
       // Verify duration chips on Aaa
-      expect(find.text('< 3 months'), findsWidgets);
+      expect(find.text('< 1month'), findsWidgets);
 
-      // Tap '< 3 months' on Aaa
-      final threeMonthsChips = find.widgetWithText(ChoiceChip, '< 3 months');
-      await tester.tap(threeMonthsChips.first);
+      // Tap '< 1month' on Aaa
+      final oneMonthChips = find.widgetWithText(ChoiceChip, '< 1month');
+      await tester.tap(oneMonthChips.first);
       await tester.pumpAndSettle();
 
       await tester.binding.setSurfaceSize(null);

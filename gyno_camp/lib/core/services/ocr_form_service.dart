@@ -849,6 +849,66 @@ class OcrFormService {
       } else {
         vitals['pregnancyTest'] = 'neg';
       }
+
+      // ── ECG Examination (Station 3) ──
+      final rawEcg = findValueForLabel(['ecg', 'electrocardiogram', 'ईसीजी']);
+      final ecgLower = (rawEcg ?? '').toLowerCase();
+      final hasEcgBoxes = rawEcg != null && RegExp(r'\[|\]|\(|\)|[☐口Ü☑☒]').hasMatch(rawEcg);
+
+      bool isMarkedInLine(String line, List<String> terms) {
+        for (final t in terms) {
+          final esc = RegExp.escape(t);
+          if (RegExp(r'\[\s*[xX✓✔•*+\#1\-]\s*\]\s*' + esc, caseSensitive: false).hasMatch(line) ||
+              RegExp(esc + r'\s*\[\s*[xX✓✔•*+\#1\-]\s*\]', caseSensitive: false).hasMatch(line) ||
+              RegExp(r'[☒☑]\s*' + esc, caseSensitive: false).hasMatch(line)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      bool ecgNormal = false;
+      bool ecgAbnormal = false;
+      bool ecgNotDone = false;
+
+      if (rawEcg != null && hasEcgBoxes) {
+        ecgNormal = isMarkedInLine(rawEcg, ['normal sinus', 'normal', 'सामान्य']);
+        ecgAbnormal = isMarkedInLine(rawEcg, ['abnormal', 'असामान्य']);
+        ecgNotDone = isMarkedInLine(rawEcg, ['not done', 'जाँच नगरिएको']);
+      }
+
+      if (!ecgNormal && !ecgAbnormal && !ecgNotDone) {
+        if (rawEcg != null && !hasEcgBoxes && rawEcg.isNotEmpty) {
+          if (ecgLower.contains('abnormal')) {
+            ecgAbnormal = true;
+          } else if (ecgLower.contains('normal') || ecgLower.contains('sinus')) {
+            ecgNormal = true;
+          } else if (ecgLower.contains('not done') || ecgLower.contains('not_done')) {
+            ecgNotDone = true;
+          }
+        } else {
+          ecgAbnormal = isOptionSelected(['ecg: abnormal', 'ecg abnormal']);
+          ecgNormal = isOptionSelected(['ecg: normal', 'normal sinus', 'ecg: normal sinus']);
+          ecgNotDone = isOptionSelected(['ecg: not done', 'ecg not done']);
+        }
+      }
+
+      if (ecgAbnormal) {
+        vitals['ecg'] = 'Abnormal';
+      } else if (ecgNormal) {
+        vitals['ecg'] = 'Normal Sinus';
+      } else if (ecgNotDone) {
+        vitals['ecg'] = 'Not Done';
+      }
+
+      // ECG Notes
+      final rawEcgNotes = findValueForLabel(['ecg notes', 'ecg note', 'ईसीजी कैफियत']);
+      if (rawEcgNotes != null && rawEcgNotes.isNotEmpty && !isNoiseOrSeparator(rawEcgNotes)) {
+        vitals['ecgNotes'] = rawEcgNotes.trim();
+      } else if (vitals['ecg'] != null) {
+        vitals['ecgNotes'] = vitals['ecg'];
+      }
+
       confidences['labs'] = 0.88;
 
       // ── POP Examination & Staging (Station 3) ──
@@ -926,7 +986,8 @@ class OcrFormService {
       popStaging['posteriorStage'] = p;
       popStaging['highestPopStage'] = highest;
 
-      final uterusOutside = isOptionSelected(['no (prolapsed)', 'prolapsed outside', 'uterus inside: no']) || highest >= 2;
+      final uterusOutside = isOptionSelected(['no (prolapsed)', 'prolapsed outside', 'uterus inside: no', 'uterus inside no']) ||
+          (highest >= 2 && !isOptionSelected(['uterus inside: yes', 'uterus inside yes', 'uterus inside: 0 yes']));
       popStaging['uterusInside'] = !uterusOutside;
 
       // Cervix Appearance (Station 2)
@@ -964,9 +1025,9 @@ class OcrFormService {
           popStaging['pelvicFloorTone'] = 'normal';
         }
       } else {
-        if (isOptionSelected(['hypertonic', 'tone: hypertonic', 'torn', 'tone: torn', 'कडा'])) {
+        if (isOptionSelected(['hypertonic', 'pelvic floor muscle: hypertonic', 'pelvic floor hypertonic', 'tone: hypertonic', 'torn', 'tone: torn', 'कडा'])) {
           popStaging['pelvicFloorTone'] = 'hypertonic';
-        } else if (isOptionSelected(['tone: weak', 'weak tone', 'weak', 'कमजोर']) || highest >= 2) {
+        } else if (isOptionSelected(['weak', 'pelvic floor muscle: weak', 'pelvic floor weak', 'tone: weak', 'weak tone', 'कमजोर']) || highest >= 2) {
           popStaging['pelvicFloorTone'] = 'weak';
         } else {
           popStaging['pelvicFloorTone'] = 'normal';
@@ -1005,29 +1066,62 @@ class OcrFormService {
       }
       confidences['diagnoses'] = diagnoses.isNotEmpty ? 0.92 : 0.40;
 
-      // ── Prescriptions & Medications ──
-      if (isOptionSelected(['metronidazole', 'metronidazol', 'me+ronida'])) {
-        medications.add('Metronidazole');
+      // ── Prescriptions & Medications (All 10 Yellow Form Medications) ──
+      if (isOptionSelected(['clotrimazol', 'clotrimazole', 'canesten'])) {
+        medications.add('clotrimazol (canesten)');
       }
-      if (isOptionSelected(['fluconazole', 'fluconazol', 'f1uconazole'])) {
+      if (isOptionSelected(['estradiol', 'crème', 'creme'])) {
+        medications.add('estradiol crème');
+      }
+      if (isOptionSelected(['fluconazol', 'fluconazole', 'diflucan'])) {
         medications.add('Fluconazole');
       }
-      if (isOptionSelected(['ciprofloxacin', 'ciproflox', 'cipro'])) {
-        medications.add('Ciprofloxacin');
+      if (isOptionSelected(['metronidazol', 'metronidazole', 'me+ronida', 'flagyl'])) {
+        medications.add('Metronidazole');
       }
-      if (isOptionSelected(['clotrimazole', 'clotrimazol'])) {
-        medications.add('Clotrimazole');
+      if (isOptionSelected(['doxycycline', 'doxy'])) {
+        medications.add('doxycycline');
       }
-      if (highest >= 2 || isOptionSelected(['ring pessary', 'pessary'])) {
+      if (isOptionSelected(['azithromycin', 'azithro'])) {
+        medications.add('azithromycin');
+      }
+      if (isOptionSelected(['nitrofurantoine', 'nitrofurantoin'])) {
+        medications.add('nitrofurantoine');
+      }
+      if (isOptionSelected(['medroxyprogesterone', 'progesterone'])) {
+        medications.add('medroxyprogesterone');
+      }
+      if (isOptionSelected(['ciproflox', 'ciprofloxacin', 'cipro'])) {
+        medications.add('ciproflox');
+      }
+      if (isOptionSelected(['mirasin'])) {
+        medications.add('mirasin');
+      }
+      if (isOptionSelected(['clobetasol'])) {
+        medications.add('clobetasol');
+      }
+      if (highest >= 2 || isOptionSelected(['ring pessary', 'pessary', 'ring with support', 'ring with knob'])) {
         medications.add('Ring Pessary');
       }
       confidences['medications'] = medications.isNotEmpty ? 0.85 : 0.40;
 
-      // ── Referrals ──
-      if (highest >= 3 || lowerText.contains('scheer') || lowerText.contains('surgical referral')) {
+      // ── Referrals (Exact Yellow Form Referral Options) ──
+      if (isOptionSelected(['scheer memorial', 'scheer']) || highest >= 3) {
         surgicalReferral = 'Scheer Memorial Hospital';
+      } else if (isOptionSelected(['model hosp', 'model hospital'])) {
+        surgicalReferral = 'Model Hospital';
+      } else if (isOptionSelected(['loc government', 'local government'])) {
+        surgicalReferral = 'Local Government Hospital';
       }
-      followUp = surgicalReferral;
+
+      // ── Outtake Follow-up ──
+      if (isOptionSelected(['health post'])) {
+        followUp = 'Health Post';
+      } else if (isOptionSelected(['gynaesupport nurse', 'gynaesupport'])) {
+        followUp = 'GynaeSupport Nurse';
+      } else {
+        followUp = surgicalReferral;
+      }
     }
 
     // Calculate overall confidence based on active fields

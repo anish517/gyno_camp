@@ -137,10 +137,11 @@ void main() {
       expect(meds.any((m) => m.id == 'to-delete'), isFalse);
     });
 
-    test('ensureDefaultsSeeded is no-op by design so camps start with empty lists', () async {
+    test('ensureDefaultsSeeded populates standard formulary for all camps', () async {
       await lookupRepo.ensureDefaultsSeeded();
       final hospitals = await lookupRepo.getItemsByCategory('referral_hospital', campId: 'camp-new');
-      expect(hospitals, isEmpty);
+      expect(hospitals.length, greaterThanOrEqualTo(3));
+      expect(hospitals.any((h) => h.labelEn.contains('Scheer Memorial')), isTrue);
     });
 
     test('camp lookups are isolated: camp A items do not leak into new camp B', () async {
@@ -158,7 +159,8 @@ void main() {
       expect(campAMeds.any((m) => m.labelEn == 'Paracetamol 500mg'), isTrue);
 
       final campBMeds = await lookupRepo.getItemsByCategory('medicine', campId: 'camp-B');
-      expect(campBMeds, isEmpty, reason: 'New camp B must have empty medicines list');
+      expect(campBMeds.any((m) => m.labelEn == 'Paracetamol 500mg'), isFalse, reason: 'Camp A custom med must not leak into Camp B');
+      expect(campBMeds.length, greaterThanOrEqualTo(10), reason: 'Camp B inherits standard clinical formulary');
 
       // Verify allowedCampIds scoping
       final scopedMeds = await lookupRepo.getItemsByCategory('medicine', allowedCampIds: ['camp-A']);
@@ -224,6 +226,55 @@ void main() {
       // Another isolated tenant does not see the private custom hospital
       final otherTenantItems = await lookupRepo.getItemsByCategory('referral_hospital', tenantId: 'tenant_other_isolated');
       expect(otherTenantItems.any((h) => h.id == 'hosp-nrc-01'), isFalse);
+    });
+
+    test('purgeNonStandardItems purges test entries and preserves exact 51 canonical items', () async {
+      await lookupRepo.addItem(
+        const LookupItemModel(
+          id: 'dummy-complaint-1',
+          category: 'chief_complaint',
+          code: 'apple',
+          labelEn: 'Apple',
+          labelNe: '',
+        ),
+        userId: 'admin-01',
+        userName: 'Admin',
+        deviceId: 'dev-01',
+      );
+      await lookupRepo.addItem(
+        const LookupItemModel(
+          id: 'dummy-reason-1',
+          category: 'visit_reason',
+          code: 'abc',
+          labelEn: 'Abc',
+          labelNe: '',
+        ),
+        userId: 'admin-01',
+        userName: 'Admin',
+        deviceId: 'dev-01',
+      );
+
+      var complaints = await lookupRepo.getItemsByCategory('chief_complaint');
+      expect(complaints.any((c) => c.labelEn == 'Apple'), isTrue);
+
+      await lookupRepo.purgeNonStandardItems();
+
+      complaints = await lookupRepo.getItemsByCategory('chief_complaint');
+      expect(complaints.any((c) => c.labelEn == 'Apple'), isFalse);
+      expect(complaints.length, 9);
+
+      final reasons = await lookupRepo.getItemsByCategory('visit_reason');
+      expect(reasons.any((r) => r.labelEn == 'Abc'), isFalse);
+      expect(reasons.length, 8);
+
+      final diagnoses = await lookupRepo.getItemsByCategory('diagnosis');
+      expect(diagnoses.length, 21);
+
+      final medicines = await lookupRepo.getItemsByCategory('medicine');
+      expect(medicines.length, 10);
+
+      final hospitals = await lookupRepo.getItemsByCategory('referral_hospital');
+      expect(hospitals.length, 3);
     });
   });
 }

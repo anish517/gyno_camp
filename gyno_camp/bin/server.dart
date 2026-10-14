@@ -436,6 +436,7 @@ class GynoCampSyncServer {
       await _connection!.execute('DELETE FROM patients WHERE camp_id NOT IN (SELECT id FROM camps);');
       await _connection!.execute('DELETE FROM clinical_visits WHERE camp_id NOT IN (SELECT id FROM camps);');
       await _seedDefaultLookupsIfEmpty();
+      await _purgeNonStandardLookupsFromPostgres();
       print('✓ Verified and initialized all PostgreSQL schema tables.');
     } catch (e) {
       print('! Schema verification note: $e');
@@ -445,18 +446,132 @@ class GynoCampSyncServer {
   Future<void> _seedDefaultLookupsIfEmpty() async {
     if (!_isPgConnected || _connection == null) return;
     try {
+      // 1. Diagnoses (21 Standard Diagnoses from Yellow Form Page 2)
+      final diagRow = await _connection!.execute("SELECT COUNT(*) FROM lookup_items WHERE category = 'diagnosis';");
+      if ((diagRow.first[0] as int? ?? 0) == 0) {
+        final defaultDiagnoses = [
+          {'en': 'atrophy vagina', 'sub': 'Neoplasms & Structural'},
+          {'en': 'bacterial vaginosis', 'sub': 'Infections & STIs'},
+          {'en': 'candid infection', 'sub': 'Infections & STIs'},
+          {'en': 'trichomonas', 'sub': 'Infections & STIs'},
+          {'en': 'PID', 'sub': 'Infections & STIs'},
+          {'en': 'cervicitis', 'sub': 'Infections & STIs'},
+          {'en': 'cervical polyp', 'sub': 'Neoplasms & Structural'},
+          {'en': 'cervical carcinoma', 'sub': 'Neoplasms & Structural'},
+          {'en': 'condylomata', 'sub': 'Infections & STIs'},
+          {'en': 'fistula', 'sub': 'Pelvic Floor & Incontinence'},
+          {'en': 'infertility', 'sub': 'Endocrine & Reproductive'},
+          {'en': 'myoma', 'sub': 'Neoplasms & Structural'},
+          {'en': 'cystitis', 'sub': 'Infections & STIs'},
+          {'en': 'lichen sclerosis', 'sub': 'Neoplasms & Structural'},
+          {'en': 'stress incontinence', 'sub': 'Pelvic Floor & Incontinence'},
+          {'en': 'ovarian tumor', 'sub': 'Neoplasms & Structural'},
+          {'en': 'urge incontinence', 'sub': 'Pelvic Floor & Incontinence'},
+          {'en': 'menstrual disorder', 'sub': 'Endocrine & Reproductive'},
+          {'en': 'weak pelvic floor muscle', 'sub': 'Pelvic Floor & Incontinence'},
+          {'en': 'pregnancy', 'sub': 'Endocrine & Reproductive'},
+          {'en': 'hypertonic pelvic floor muscle', 'sub': 'Pelvic Floor & Incontinence'},
+        ];
+        int idx = 0;
+        for (final d in defaultDiagnoses) {
+          idx++;
+          final code = d['en']!.toLowerCase().replaceAll(' ', '_');
+          await _connection!.execute(
+            Sql.named('''
+              INSERT INTO lookup_items (id, category, sub_category, code, label_en, label_ne, is_active, sort_order, tenant_id, is_deleted)
+              VALUES (@id, 'diagnosis', @sub, @code, @en, @en, 1, @sort, 'tenant_default', 0)
+              ON CONFLICT (id) DO NOTHING;
+            '''),
+            parameters: {
+              'id': 'diag-default-$idx',
+              'sub': d['sub'],
+              'code': code,
+              'en': d['en'],
+              'sort': idx,
+            },
+          );
+        }
+        print('✓ Seeded 21 default diagnoses in PostgreSQL.');
+      }
+
+      // 2. Medications (10 Standard Medications from Yellow Form Page 2)
+      final medRow = await _connection!.execute("SELECT COUNT(*) FROM lookup_items WHERE category = 'medicine';");
+      if ((medRow.first[0] as int? ?? 0) == 0) {
+        final defaultMedications = [
+          {'en': 'clotrimazol (canesten)', 'sub': 'Antibiotics & Antifungals'},
+          {'en': 'estradiol crème', 'sub': 'Hormonal & Steroids'},
+          {'en': 'metronidazol', 'sub': 'Antibiotics & Antifungals'},
+          {'en': 'doxycycline', 'sub': 'Antibiotics & Antifungals'},
+          {'en': 'azithromycin', 'sub': 'Antibiotics & Antifungals'},
+          {'en': 'nitrofurantoine', 'sub': 'Antibiotics & Antifungals'},
+          {'en': 'medroxyprogesterone', 'sub': 'Hormonal & Steroids'},
+          {'en': 'ciproflox', 'sub': 'Antibiotics & Antifungals'},
+          {'en': 'mirasin', 'sub': 'Urinary & General'},
+          {'en': 'clobetasol', 'sub': 'Hormonal & Steroids'},
+        ];
+        int idx = 0;
+        for (final m in defaultMedications) {
+          idx++;
+          final code = m['en']!.toLowerCase().replaceAll(' ', '_');
+          await _connection!.execute(
+            Sql.named('''
+              INSERT INTO lookup_items (id, category, sub_category, code, label_en, label_ne, is_active, sort_order, tenant_id, is_deleted)
+              VALUES (@id, 'medicine', @sub, @code, @en, @en, 1, @sort, 'tenant_default', 0)
+              ON CONFLICT (id) DO NOTHING;
+            '''),
+            parameters: {
+              'id': 'med-default-$idx',
+              'sub': m['sub'],
+              'code': code,
+              'en': m['en'],
+              'sort': idx,
+            },
+          );
+        }
+        print('✓ Seeded 10 default medications in PostgreSQL.');
+      }
+
+      // 3. Referral Hospitals (3 Hospitals from Yellow Form Page 2)
+      final hospRow = await _connection!.execute("SELECT COUNT(*) FROM lookup_items WHERE category = 'referral_hospital';");
+      if ((hospRow.first[0] as int? ?? 0) == 0) {
+        final defaultHospitals = [
+          'Scheer Memorial',
+          'Model Hosp',
+          'loc government',
+        ];
+        int idx = 0;
+        for (final h in defaultHospitals) {
+          idx++;
+          final code = h.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+          await _connection!.execute(
+            Sql.named('''
+              INSERT INTO lookup_items (id, category, sub_category, code, label_en, label_ne, is_active, sort_order, tenant_id, is_deleted)
+              VALUES (@id, 'referral_hospital', 'Surgical Referral', @code, @en, @en, 1, @sort, 'tenant_default', 0)
+              ON CONFLICT (id) DO NOTHING;
+            '''),
+            parameters: {
+              'id': 'hosp-default-$idx',
+              'code': code,
+              'en': h,
+              'sort': idx,
+            },
+          );
+        }
+        print('✓ Seeded 3 default referral hospitals in PostgreSQL.');
+      }
+
       final complaintRow = await _connection!.execute("SELECT COUNT(*) FROM lookup_items WHERE category = 'chief_complaint';");
       if ((complaintRow.first[0] as int? ?? 0) == 0) {
         final defaultComplaints = [
-          {'en': 'Lower Abdominal Pain', 'ne': 'तल्लो पेट दुख्ने', 'sub': 'Pelvic & Abdominal'},
-          {'en': 'White / Foul Discharge', 'ne': 'सेतो वा गन्हाउने पानी बग्ने', 'sub': 'Infections & Discharge'},
-          {'en': 'Pelvic Heaviness', 'ne': 'तल्लो पेट भारी हुने', 'sub': 'Pelvic Floor & Prolapse'},
-          {'en': 'Burning Micturition', 'ne': 'पिसाब पोल्ने', 'sub': 'Urinary Symptoms'},
-          {'en': 'Urinary Incontinence', 'ne': 'पिसाब चुहिने', 'sub': 'Urinary Symptoms'},
-          {'en': 'Dyspareunia', 'ne': 'यौन सम्पर्कमा दुखाई', 'sub': 'Reproductive & Sexual'},
-          {'en': 'Coital Bleeding', 'ne': 'सम्पर्कपछि रगत बग्ने', 'sub': 'Bleeding & Neoplasms'},
-          {'en': 'Mass Per Vagina', 'ne': 'पाठेघर / मासु खस्ने', 'sub': 'Pelvic Floor & Prolapse'},
-          {'en': 'Severe Backache', 'ne': 'कम्मर दुख्ने', 'sub': 'Musculoskeletal & General'},
+          {'en': 'something hanging out', 'ne': 'पाठेघर खस्ने', 'sub': 'Pelvic Floor & Prolapse'},
+          {'en': 'discharge / itching', 'ne': 'सेतो वा गन्हाउने पानी बग्ने / चिलाउने', 'sub': 'Infections & Discharge'},
+          {'en': 'problems passing urine', 'ne': 'पिसाब फेर्न समस्या', 'sub': 'Urinary Symptoms'},
+          {'en': 'problems passing stool', 'ne': 'दिसा फेर्न समस्या', 'sub': 'Pelvic Floor & Prolapse'},
+          {'en': 'menstrual problem', 'ne': 'महिनावारी समस्या', 'sub': 'Reproductive & Sexual'},
+          {'en': 'infertility', 'ne': 'निःसन्तान समस्या', 'sub': 'Reproductive & Sexual'},
+          {'en': 'lower abdomen pain', 'ne': 'तल्लो पेट दुख्ने', 'sub': 'Pelvic & Abdominal'},
+          {'en': 'lower back pain', 'ne': 'कम्मर दुख्ने', 'sub': 'Musculoskeletal & General'},
+          {'en': 'checkup', 'ne': 'सामान्य जाँच', 'sub': 'General / Other'},
         ];
         int idx = 0;
         for (final c in defaultComplaints) {
@@ -484,12 +599,14 @@ class GynoCampSyncServer {
       final reasonCount = await _connection!.execute("SELECT COUNT(*) FROM lookup_items WHERE category = 'visit_reason';");
       if ((reasonCount.first[0] as int? ?? 0) == 0) {
         final defaultReasons = [
-          {'en': 'Routine Checkup', 'ne': 'नियमित जाँच'},
-          {'en': 'Pelvic Organ Prolapse', 'ne': 'पाठेघर खसेको'},
-          {'en': 'Menstrual Disorder', 'ne': 'महिनावारी गडबडी'},
-          {'en': 'Infertility Screening', 'ne': 'निःसन्तान जाँच'},
-          {'en': 'Gynaecological Oncology', 'ne': 'स्त्री क्यान्सर जाँच'},
-          {'en': 'Postnatal Follow-up', 'ne': 'सुत्केरीपछिको जाँच'},
+          {'en': 'something hanging out', 'ne': 'Something Hanging Out / Prolapse (पाठेघर खस्ने)'},
+          {'en': 'discharge and or itching', 'ne': 'Vaginal Discharge / Itching (योनी स्राव / चिलाउने)'},
+          {'en': 'problems passing urine', 'ne': 'Problems Passing Urine (पिसाब सम्बन्धी समस्या)'},
+          {'en': 'problems passing stool', 'ne': 'Problems Passing Stool (दिसा सम्बन्धी समस्या)'},
+          {'en': 'menstrual problem', 'ne': 'Menstrual Problem (महिनावारी सम्बन्धी समस्या)'},
+          {'en': 'infertility', 'ne': 'Infertility (बाँझोपन)'},
+          {'en': 'pain', 'ne': 'Pelvic / Abdominal Pain (तल्लो पेट / कम्मर दुखाई)'},
+          {'en': 'checkup', 'ne': 'General Gynaecological Checkup (सामान्य जाँच)'},
         ];
         int idx = 0;
         for (final r in defaultReasons) {
@@ -514,6 +631,58 @@ class GynoCampSyncServer {
       }
     } catch (e) {
       print('! Seeding lookups note: $e');
+    }
+  }
+
+  Future<void> _purgeNonStandardLookupsFromPostgres() async {
+    if (!_isPgConnected || _connection == null) return;
+    try {
+      await _connection!.execute('''
+        DELETE FROM lookup_items
+        WHERE NOT (
+          (category = 'diagnosis' AND LOWER(label_en) IN (
+            'atrophy vagina', 'bacterial vaginosis', 'candid infection', 'trichomonas', 'pid',
+            'cervicitis', 'cervical polyp', 'cervical carcinoma', 'condylomata', 'fistula',
+            'infertility', 'myoma', 'cystitis', 'lichen sclerosis', 'stress incontinence',
+            'ovarian tumor', 'urge incontinence', 'menstrual disorder', 'weak pelvic floor muscle',
+            'pregnancy', 'hypertonic pelvic floor muscle'
+          ))
+          OR
+          (category = 'medicine' AND LOWER(label_en) IN (
+            'clotrimazol (canesten)', 'estradiol crème', 'metronidazol', 'doxycycline',
+            'azithromycin', 'nitrofurantoine', 'medroxyprogesterone', 'ciproflox', 'mirasin', 'clobetasol'
+          ))
+          OR
+          (category = 'referral_hospital' AND LOWER(label_en) IN (
+            'scheer memorial', 'scheer memorial hospital', 'model hosp', 'model hospital', 'loc government', 'local government hospital'
+          ))
+          OR
+          (category = 'visit_reason' AND LOWER(label_en) IN (
+            'something hanging out', 'discharge and or itching', 'problems passing urine',
+            'problems passing stool', 'menstrual problem', 'infertility', 'pain', 'checkup'
+          ))
+          OR
+          (category = 'chief_complaint' AND LOWER(label_en) IN (
+            'something hanging out', 'discharge / itching', 'discharge and or itching',
+            'problems passing urine', 'problems passing stool', 'menstrual problem',
+            'infertility', 'lower abdomen pain', 'lower back pain', 'checkup'
+          ))
+        );
+      ''');
+
+      await _connection!.execute("UPDATE lookup_items SET label_en = 'Scheer Memorial' WHERE category = 'referral_hospital' AND LOWER(label_en) IN ('scheer memorial hospital');");
+      await _connection!.execute("UPDATE lookup_items SET label_en = 'Model Hosp' WHERE category = 'referral_hospital' AND LOWER(label_en) IN ('model hospital');");
+      await _connection!.execute("UPDATE lookup_items SET label_en = 'loc government' WHERE category = 'referral_hospital' AND LOWER(label_en) IN ('local government hospital');");
+
+      await _connection!.execute('''
+        DELETE FROM lookup_items a USING lookup_items b
+        WHERE a.id > b.id AND a.category = b.category AND LOWER(a.label_en) = LOWER(b.label_en);
+      ''');
+
+      _memLookups.clear();
+      print('✓ Purged all non-standard and test lookup items from PostgreSQL central database.');
+    } catch (e) {
+      print('! Lookup cleanup note: $e');
     }
   }
 

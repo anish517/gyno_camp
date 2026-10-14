@@ -556,7 +556,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                               _obsBadge('Living (L)', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A), tooltip: 'Living Children (जीवित सन्तान)'),
                               _obsBadge('Losses (A)', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C), tooltip: 'Abortions / Miscarriages (गर्भपतन)'),
                             ],
-                            _tb('Tone: ${v.pelvicFloorTone.toUpperCase()}', AppTheme.primaryTeal),
+                            _tb('Pelvic Floor: ${v.pelvicFloorTone.toUpperCase()}', AppTheme.primaryTeal),
                             _tb(
                               v.uterusInside ? 'Uterus: Inside' : 'Uterus: Prolapsed',
                               v.uterusInside ? AppTheme.successGreen : AppTheme.dangerRose,

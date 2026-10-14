@@ -235,6 +235,60 @@ class DatabaseService {
         );
       }
     } catch (_) {}
+
+    // One-time auto-purge of non-standard and test lookup entities
+    try {
+      final purgeMeta = await db.query(
+        DatabaseTables.tableMetadata,
+        where: 'key = ?',
+        whereArgs: ['lookup_standard_purged_v2'],
+      );
+      if (purgeMeta.isEmpty) {
+        final canonicalDiag = ClinicalConstants.defaultDiagnoses.map((d) => d.toLowerCase().trim()).toSet();
+        final canonicalMed = ClinicalConstants.defaultMedications.map((m) => m.toLowerCase().trim()).toSet();
+        final canonicalHosp = ClinicalConstants.referralHospitals.map((h) => h.toLowerCase().trim()).toSet();
+        final canonicalReasons = ClinicalConstants.visitReasonOptions.keys.map((r) => r.toLowerCase().trim()).toSet();
+        final canonicalComplaints = ClinicalConstants.defaultChiefComplaints.map((c) => c['en']!.toLowerCase().trim()).toSet();
+
+        final rows = await db.query(DatabaseTables.tableLookupItems);
+        for (final r in rows) {
+          final id = r['id'] as String;
+          final category = (r['category'] as String? ?? '').toLowerCase().trim();
+          final labelEn = (r['label_en'] as String? ?? '').toLowerCase().trim();
+
+          bool isStandard = false;
+          if (category == 'diagnosis' && canonicalDiag.contains(labelEn)) {
+            isStandard = true;
+          } else if (category == 'medicine' && canonicalMed.contains(labelEn)) {
+            isStandard = true;
+          } else if (category == 'referral_hospital' && canonicalHosp.contains(labelEn)) {
+            isStandard = true;
+          } else if (category == 'visit_reason' && canonicalReasons.contains(labelEn)) {
+            isStandard = true;
+          } else if (category == 'chief_complaint' && canonicalComplaints.contains(labelEn)) {
+            isStandard = true;
+          }
+
+          if (!isStandard) {
+            await db.delete(
+              DatabaseTables.tableLookupItems,
+              where: 'id = ?',
+              whereArgs: [id],
+            );
+          }
+        }
+
+        await db.insert(
+          DatabaseTables.tableMetadata,
+          {
+            'key': 'lookup_standard_purged_v2',
+            'value': 'true',
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    } catch (_) {}
   }
 
 
@@ -395,6 +449,53 @@ class DatabaseService {
         'code': hosp.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'),
         'label_en': hosp,
         'label_ne': hosp,
+        'is_active': 1,
+        'sort_order': sortIdx,
+        'tenant_id': 'tenant_default',
+        'is_deleted': 0,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+
+    // 6. Seed default visit reasons from Yellow Form Page 1
+    sortIdx = 0;
+    for (final entry in ClinicalConstants.visitReasonOptions.entries) {
+      sortIdx++;
+      await db.insert(DatabaseTables.tableLookupItems, {
+        'id': 'reason-$sortIdx',
+        'category': 'visit_reason',
+        'sub_category': 'Reason for Visit',
+        'code': entry.key.toLowerCase().replaceAll(' ', '_'),
+        'label_en': entry.key,
+        'label_ne': entry.value,
+        'is_active': 1,
+        'sort_order': sortIdx,
+        'tenant_id': 'tenant_default',
+        'is_deleted': 0,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+
+    // 7. Seed default chief complaints from Yellow Form Page 1
+    final defaultComplaints = [
+      {'en': 'something hanging out', 'ne': 'पाठेघर खस्ने', 'sub': 'Pelvic Floor & Prolapse'},
+      {'en': 'discharge / itching', 'ne': 'सेतो वा गन्हाउने पानी बग्ने / चिलाउने', 'sub': 'Infections & Discharge'},
+      {'en': 'problems passing urine', 'ne': 'पिसाब फेर्न समस्या', 'sub': 'Urinary Symptoms'},
+      {'en': 'problems passing stool', 'ne': 'दिसा फेर्न समस्या', 'sub': 'Pelvic Floor & Prolapse'},
+      {'en': 'menstrual problem', 'ne': 'महिनावारी समस्या', 'sub': 'Reproductive & Sexual'},
+      {'en': 'infertility', 'ne': 'निःसन्तान समस्या', 'sub': 'Reproductive & Sexual'},
+      {'en': 'lower abdomen pain', 'ne': 'तल्लो पेट दुख्ने', 'sub': 'Pelvic & Abdominal'},
+      {'en': 'lower back pain', 'ne': 'कम्मर दुख्ने', 'sub': 'Musculoskeletal & General'},
+      {'en': 'checkup', 'ne': 'सामान्य जाँच', 'sub': 'General / Other'},
+    ];
+    sortIdx = 0;
+    for (final c in defaultComplaints) {
+      sortIdx++;
+      await db.insert(DatabaseTables.tableLookupItems, {
+        'id': 'complaint-$sortIdx',
+        'category': 'chief_complaint',
+        'sub_category': c['sub'],
+        'code': c['en']!.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'),
+        'label_en': c['en']!,
+        'label_ne': c['ne']!,
         'is_active': 1,
         'sort_order': sortIdx,
         'tenant_id': 'tenant_default',

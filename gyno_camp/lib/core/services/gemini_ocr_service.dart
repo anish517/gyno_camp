@@ -188,7 +188,7 @@ class GeminiOcrService {
     final rawPop = (parsedData['popStaging'] as Map<String, dynamic>?) ?? {};
     final rawDiagnoses = (parsedData['diagnoses'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
     final rawMeds = (parsedData['medications'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
-    
+    final rawCounseling = (parsedData['counseling'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
     // Station 5 extra items (Ring Pessary & Surgery)
     final ringPessary = parsedData['ringPessary'] == true || rawPop['ringPessary'] == true;
     final ringPessarySize = (parsedData['ringPessarySize'] as num?)?.toInt() ?? (rawPop['ringPessarySize'] as num?)?.toInt();
@@ -383,6 +383,8 @@ class GeminiOcrService {
         if (raw.contains('not') || raw.contains('done')) return 'not_done';
         return 'neg';
       }(),
+      'ecg': rawVitals['ecg']?.toString().trim() ?? '',
+      'ecgNotes': rawVitals['ecgNotes']?.toString().trim() ?? rawVitals['ecg']?.toString().trim() ?? '',
     };
 
     // Normalize POP Staging (strictly Yellow Form Station 2 fields)
@@ -470,7 +472,7 @@ class GeminiOcrService {
     }
     if (popStaging['highestPopStage'] != null) {
       buffer.writeln('POP Staging: Highest Stage ${popStaging['highestPopStage']} (Anterior: ${popStaging['anteriorStage']}, Middle: ${popStaging['middleStage']}, Posterior: ${popStaging['posteriorStage']})');
-      buffer.writeln('POP Exam: Uterus Inside: ${popStaging['uterusInside'] == true ? "Yes" : "No (Prolapsed)"}, Tone: ${popStaging['pelvicFloorTone']}');
+      buffer.writeln('POP Exam: Uterus Inside: ${popStaging['uterusInside'] == true ? "Yes" : "No"}, Pelvic Floor Muscle: ${popStaging['pelvicFloorTone']}');
     }
     if (rawDiagnoses.isNotEmpty) {
       buffer.writeln('Diagnoses: ${rawDiagnoses.join(', ')}');
@@ -505,6 +507,7 @@ class GeminiOcrService {
       vitals: vitals,
       popStaging: popStaging,
       diagnoses: rawDiagnoses,
+      counseling: rawCounseling,
       medications: rawMeds,
       surgicalReferral: (surgicalRef?.isNotEmpty == true && surgicalRef != 'None') ? surgicalRef : null,
       followUpDestination: (followUp?.isNotEmpty == true) ? followUp : null,

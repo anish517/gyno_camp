@@ -81,11 +81,92 @@ class ClinicalConstants {
     'clobetasol',
   ];
 
-  // Referral Hospitals (Default / Fallback)
+  // Referral Hospitals (Exact from Yellow Form Page 2)
   static const List<String> referralHospitals = [
-    'Local Government Hospital',
-    'District Hospital',
-    'Provincial Hospital',
+    'Scheer Memorial',
+    'Model Hosp',
+    'loc government',
+  ];
+
+  // 9 Chief Complaints (Yellow Form Page 1 Anamnesis Stations)
+  static const List<Map<String, String>> defaultChiefComplaints = [
+    {'en': 'something hanging out', 'ne': 'पाठेघर खस्ने', 'sub': 'Pelvic Floor & Prolapse'},
+    {'en': 'discharge / itching', 'ne': 'सेतो वा गन्हाउने पानी बग्ने / चिलाउने', 'sub': 'Infections & Discharge'},
+    {'en': 'problems passing urine', 'ne': 'पिसाब फेर्न समस्या', 'sub': 'Urinary Symptoms'},
+    {'en': 'problems passing stool', 'ne': 'दिसा फेर्न समस्या', 'sub': 'Pelvic Floor & Prolapse'},
+    {'en': 'menstrual problem', 'ne': 'महिनावारी समस्या', 'sub': 'Reproductive & Sexual'},
+    {'en': 'infertility', 'ne': 'निःसन्तान समस्या', 'sub': 'Reproductive & Sexual'},
+    {'en': 'lower abdomen pain', 'ne': 'तल्लो पेट दुख्ने', 'sub': 'Pelvic & Abdominal'},
+    {'en': 'lower back pain', 'ne': 'कम्मर दुख्ने', 'sub': 'Musculoskeletal & General'},
+    {'en': 'checkup', 'ne': 'सामान्य जाँच', 'sub': 'General / Other'},
+  ];
+
+  // Specific Counseling Options (Yellow Form Page 2)
+  static const List<String> counselingOptions = [
+    'weak pelvic floor',
+    'POP',
+    'stress incontinence',
+    'urge incontinence',
+    'abdominal pain',
+  ];
+
+  // Pessary Types (Yellow Form Page 2)
+  static const List<String> pessaryTypes = [
+    'ring',
+    'ring with support',
+    'ring with knob',
+  ];
+
+  // Anamnesis Durations (Yellow Form Page 1)
+  static const List<String> anamnesisDurations = [
+    '< 1month',
+    '< 1 year',
+    '> 1 year',
+    '> 5 years',
+    '> 10 years',
+  ];
+
+  // Infertility Durations (Yellow Form Page 1 - Clinical threshold starts > 1 year)
+  static const List<String> infertilityDurations = [
+    '> 1 year',
+    '> 5 years',
+    '> 10 years',
+  ];
+
+  // Discharge Colors (Yellow Form Page 1)
+  static const List<String> dischargeColors = [
+    'white',
+    'yellow',
+    'green',
+    'grey',
+    'smelly',
+  ];
+
+  // Urinary Incontinence Types (Yellow Form Page 1)
+  static const List<String> urinaryIncontinenceTypes = [
+    'stress',
+    'urge',
+    'continuous flow',
+  ];
+
+  // Menstrual Problem Subtypes (Yellow Form Page 1)
+  static const List<String> menstrualProblemTypes = [
+    'dysmenorroea',
+    'metrorrhagia',
+    'menorrhagia',
+    'postmenopausal bleeding',
+  ];
+
+  // Previous POP Treatment Options (Yellow Form Page 1)
+  static const List<String> previousPopTreatments = [
+    'pessary',
+    'surgery',
+  ];
+
+  // Follow-up Destinations (Yellow Form Page 2)
+  static const List<String> followUpDestinations = [
+    'Health Post',
+    'GynaeSupport Nurse',
   ];
 
   // Nepal Administrative Divisions

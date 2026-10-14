@@ -84,6 +84,9 @@ class FakeLookupRepository implements ILookupRepository {
   Future<void> ensureDefaultsSeeded({String? tenantId}) async {}
 
   @override
+  Future<void> purgeNonStandardItems({String? tenantId}) async {}
+
+  @override
   Future<void> backfillSubCategories() async {}
 }
 
@@ -171,7 +174,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Scheer Memorial Hospital'), findsOneWidget);
-    expect(find.textContaining('Surgical Referral Centers: Configure tertiary surgical partner hospitals'), findsOneWidget);
+    expect(find.textContaining('Referral Centers: Configure tertiary surgical partner hospitals'), findsOneWidget);
     expect(find.text('CODE: SCHEER'), findsOneWidget);
     expect(find.text('Active Referral Hospitals'), findsOneWidget);
   });

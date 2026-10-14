@@ -351,8 +351,13 @@ class OcrRepository implements IOcrRepository {
       glucose: vitals['bloodGlucose'] as int? ?? 110,
       urineTest: vitals['urineTest'] as String? ?? 'normal',
       pregnancyTest: vitals['pregnancyTest'] as String? ?? 'neg',
+      ecgNotes: ((vitals['ecgNotes'] as String?)?.trim().isNotEmpty == true)
+          ? (vitals['ecgNotes'] as String).trim()
+          : ((vitals['ecg'] as String?)?.trim().isNotEmpty == true
+              ? (vitals['ecg'] as String).trim()
+              : null),
       diagnoses: verifiedScan.diagnoses,
-      counseling: const [],
+      counseling: verifiedScan.counseling,
       medications: verifiedScan.medications,
       pessaryType: (verifiedScan.ringPessary || pop['ringPessary'] == true) ? 'ring' : null,
       pessarySize: verifiedScan.ringPessarySize != null

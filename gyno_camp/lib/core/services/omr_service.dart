@@ -223,7 +223,7 @@ class OmrService {
     // Pelvic Floor Muscle Tone
     OmrBox(id: 'tone_normal', label: 'Normal Tone', normalizedRect: Rect.fromLTWH(0.60, 0.31, 0.045, 0.02)),
     OmrBox(id: 'tone_weak', label: 'Weak Tone', normalizedRect: Rect.fromLTWH(0.75, 0.31, 0.045, 0.02)),
-    OmrBox(id: 'tone_torn', label: 'Torn Tone', normalizedRect: Rect.fromLTWH(0.88, 0.31, 0.045, 0.02)),
+    OmrBox(id: 'tone_torn', label: 'Hypertonic Tone', normalizedRect: Rect.fromLTWH(0.88, 0.31, 0.045, 0.02)),
   ];
 
   /// Page 2: Clinical Diagnoses

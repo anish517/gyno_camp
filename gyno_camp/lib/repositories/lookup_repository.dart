@@ -20,6 +20,7 @@ abstract class ILookupRepository {
   Future<bool> deleteItem(String id, {required String userId, required String userName, required String deviceId, String? campId});
   Future<bool> restoreItemToCamp(String id, {required String campId, required String userId, required String userName, required String deviceId});
   Future<void> ensureDefaultsSeeded({String? tenantId});
+  Future<void> purgeNonStandardItems({String? tenantId});
   Future<void> backfillSubCategories();
 }
 
@@ -67,12 +68,12 @@ class LookupRepository implements ILookupRepository {
     final whereArgs = <dynamic>[];
 
     if (tenantId != null && tenantId.isNotEmpty) {
-      whereClauses.add("(tenant_id = ? OR tenant_id = 'global' OR tenant_id = 'tenant_default')");
+      whereClauses.add("(tenant_id = ? OR tenant_id = 'global' OR tenant_id = 'tenant_default' OR tenant_id IS NULL OR tenant_id = '')");
       whereArgs.add(tenantId);
     }
 
     if (campId != null && campId.isNotEmpty && campId != 'all') {
-      whereClauses.add("camp_id = ?");
+      whereClauses.add("(camp_id = ? OR camp_id IS NULL OR camp_id = '' OR camp_id = 'global')");
       whereArgs.add(campId);
     }
 
@@ -85,6 +86,7 @@ class LookupRepository implements ILookupRepository {
     var items = maps.map((m) => LookupItemModel.fromMap(m)).toList();
     if (campId != null && campId.isNotEmpty && campId != 'all') {
       items = items.where((i) => !i.excludedCampIds.contains(campId)).toList();
+      items = _deduplicateItems(items, campId);
     }
     return items;
   }
@@ -102,23 +104,23 @@ class LookupRepository implements ILookupRepository {
     final whereArgs = <dynamic>[category];
 
     if (tenantId != null && tenantId.isNotEmpty) {
-      whereClauses.add("(tenant_id = ? OR tenant_id = 'global' OR tenant_id = 'tenant_default')");
+      whereClauses.add("(tenant_id = ? OR tenant_id = 'global' OR tenant_id = 'tenant_default' OR tenant_id IS NULL OR tenant_id = '')");
       whereArgs.add(tenantId);
     }
 
     if (campId != null && campId.isNotEmpty && campId != 'all') {
-      whereClauses.add("camp_id = ?");
+      whereClauses.add("(camp_id = ? OR camp_id IS NULL OR camp_id = '' OR camp_id = 'global')");
       whereArgs.add(campId);
     } else if (allowedCampIds != null) {
       if (allowedCampIds.isEmpty) {
         return [];
       }
       final placeholders = List.filled(allowedCampIds.length, '?').join(', ');
-      whereClauses.add("(camp_id IS NULL OR camp_id = '' OR camp_id IN ($placeholders))");
+      whereClauses.add("(camp_id IS NULL OR camp_id = '' OR camp_id = 'global' OR camp_id IN ($placeholders))");
       whereArgs.addAll(allowedCampIds);
     } else {
       // Viewing all camps: only include global defaults and camps currently existing in tableCamps
-      whereClauses.add("(camp_id IS NULL OR camp_id = '' OR camp_id IN (SELECT id FROM ${DatabaseTables.tableCamps}))");
+      whereClauses.add("(camp_id IS NULL OR camp_id = '' OR camp_id = 'global' OR camp_id IN (SELECT id FROM ${DatabaseTables.tableCamps}))");
     }
 
     if (activeOnly) {
@@ -134,17 +136,45 @@ class LookupRepository implements ILookupRepository {
     var items = maps.map((m) => LookupItemModel.fromMap(m)).toList();
     if (campId != null && campId.isNotEmpty && campId != 'all') {
       items = items.where((i) => !i.excludedCampIds.contains(campId)).toList();
+      items = _deduplicateItems(items, campId);
     } else if (allowedCampIds != null) {
       // Exclude item if it is camp-specific and not in allowedCampIds
       // Or if it is a global default that has been excluded from ALL allowed camps
       items = items.where((i) {
-        if (i.campId != null && i.campId!.isNotEmpty) {
+        if (i.campId != null && i.campId!.isNotEmpty && i.campId != 'global') {
           return allowedCampIds.contains(i.campId);
         }
         return !allowedCampIds.every((cid) => i.excludedCampIds.contains(cid));
       }).toList();
     }
     return items;
+  }
+
+  /// Deduplicates items when querying for a specific camp:
+  /// Camp-specific custom items override global default items with the same name.
+  List<LookupItemModel> _deduplicateItems(List<LookupItemModel> items, String campId) {
+    final Map<String, LookupItemModel> resolved = {};
+    for (final item in items) {
+      final isCampSpecific = item.campId == campId;
+      if (!isCampSpecific) {
+        final key = '${item.category}__${item.labelEn.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}';
+        resolved[key] = item;
+      }
+    }
+    for (final item in items) {
+      final isCampSpecific = item.campId == campId;
+      if (isCampSpecific) {
+        final key = '${item.category}__${item.labelEn.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}';
+        resolved[key] = item;
+      }
+    }
+    final result = resolved.values.toList();
+    result.sort((a, b) {
+      final s = a.sortOrder.compareTo(b.sortOrder);
+      if (s != 0) return s;
+      return a.labelEn.toLowerCase().compareTo(b.labelEn.toLowerCase());
+    });
+    return result;
   }
 
   @override
@@ -474,12 +504,281 @@ class LookupRepository implements ILookupRepository {
   }
 
   @override
-  // Auto-seeding removed by design: each camp starts with empty lists.
-  // Admins manually add medicines/diagnoses/hospitals via Master Config per camp.
-  Future<void> ensureDefaultsSeeded({String? tenantId}) async {}
+  Future<void> ensureDefaultsSeeded({String? tenantId}) async {
+    final db = await _databaseService.database;
+    final effectiveTenant = tenantId ?? 'tenant_default';
+
+    final purgedMeta = await db.query(
+      DatabaseTables.tableMetadata,
+      where: 'key = ?',
+      whereArgs: ['lookup_standard_purged_v2_$effectiveTenant'],
+    );
+    if (purgedMeta.isEmpty) {
+      await purgeNonStandardItems(tenantId: effectiveTenant);
+      return;
+    }
+
+    final metaRows = await db.query(
+      DatabaseTables.tableMetadata,
+      where: 'key = ?',
+      whereArgs: ['lookup_defaults_seeded_$effectiveTenant'],
+    );
+    if (metaRows.isNotEmpty) {
+      return;
+    }
+
+    await _seedDefaultsInternal(db, effectiveTenant);
+
+    await db.insert(
+      DatabaseTables.tableMetadata,
+      {
+        'key': 'lookup_defaults_seeded_$effectiveTenant',
+        'value': 'true',
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  @override
+  Future<void> purgeNonStandardItems({String? tenantId}) async {
+    final db = await _databaseService.database;
+    final effectiveTenant = tenantId ?? 'tenant_default';
+
+    final canonicalDiag = ClinicalConstants.defaultDiagnoses.map((d) => d.toLowerCase().trim()).toSet();
+    final canonicalMed = ClinicalConstants.defaultMedications.map((m) => m.toLowerCase().trim()).toSet();
+    final canonicalHosp = ClinicalConstants.referralHospitals.map((h) => h.toLowerCase().trim()).toSet();
+    final canonicalReasons = ClinicalConstants.visitReasonOptions.keys.map((r) => r.toLowerCase().trim()).toSet();
+    final canonicalComplaints = ClinicalConstants.defaultChiefComplaints.map((c) => c['en']!.toLowerCase().trim()).toSet();
+
+    final rows = await db.query(DatabaseTables.tableLookupItems);
+    final idsToDelete = <String>[];
+    final seenKeys = <String>{};
+
+    for (final r in rows) {
+      final id = r['id'] as String;
+      final category = (r['category'] as String? ?? '').toLowerCase().trim();
+      final labelEn = (r['label_en'] as String? ?? '').toLowerCase().trim();
+      final key = '$category:$labelEn';
+
+      bool isStandard = false;
+      if (category == 'diagnosis' && canonicalDiag.contains(labelEn)) {
+        isStandard = true;
+      } else if (category == 'medicine' && canonicalMed.contains(labelEn)) {
+        isStandard = true;
+      } else if (category == 'referral_hospital' && canonicalHosp.contains(labelEn)) {
+        isStandard = true;
+      } else if (category == 'visit_reason' && canonicalReasons.contains(labelEn)) {
+        isStandard = true;
+      } else if (category == 'chief_complaint' && canonicalComplaints.contains(labelEn)) {
+        isStandard = true;
+      }
+
+      if (!isStandard) {
+        idsToDelete.add(id);
+      } else {
+        if (seenKeys.contains(key)) {
+          idsToDelete.add(id);
+        } else {
+          seenKeys.add(key);
+        }
+      }
+    }
+
+    for (final id in idsToDelete) {
+      await db.delete(
+        DatabaseTables.tableLookupItems,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+
+    await _seedDefaultsInternal(db, effectiveTenant);
+
+    await db.insert(
+      DatabaseTables.tableMetadata,
+      {
+        'key': 'lookup_standard_purged_v2_$effectiveTenant',
+        'value': 'true',
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> _seedDefaultsInternal(Database db, String effectiveTenant) async {
+    // 1. Diagnoses (21 Standard Diagnoses from Yellow Form Page 2)
+    int sortIdx = 0;
+    for (final diag in ClinicalConstants.defaultDiagnoses) {
+      sortIdx++;
+      await db.insert(
+        DatabaseTables.tableLookupItems,
+        {
+          'id': 'diag-$sortIdx',
+          'category': 'diagnosis',
+          'sub_category': ClinicalConstants.diagnosisCategoryMap[diag] ?? 'General / Other',
+          'code': diag.toLowerCase().replaceAll(' ', '_'),
+          'label_en': diag,
+          'label_ne': _getNepaliDiagnosisName(diag),
+          'is_active': 1,
+          'sort_order': sortIdx,
+          'tenant_id': effectiveTenant,
+          'camp_id': null,
+          'excluded_camp_ids': '[]',
+          'is_deleted': 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+
+    // 2. Medications (10 Standard Medications from Yellow Form Page 2)
+    sortIdx = 0;
+    for (final med in ClinicalConstants.defaultMedications) {
+      sortIdx++;
+      await db.insert(
+        DatabaseTables.tableLookupItems,
+        {
+          'id': 'med-$sortIdx',
+          'category': 'medicine',
+          'sub_category': ClinicalConstants.medicationCategoryMap[med] ?? 'Other / Custom',
+          'code': med.toLowerCase().replaceAll(' ', '_'),
+          'label_en': med,
+          'label_ne': med,
+          'is_active': 1,
+          'sort_order': sortIdx,
+          'tenant_id': effectiveTenant,
+          'camp_id': null,
+          'excluded_camp_ids': '[]',
+          'is_deleted': 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+
+    // 3. Referral Hospitals (3 Hospitals from Yellow Form Page 2)
+    sortIdx = 0;
+    for (final hosp in ClinicalConstants.referralHospitals) {
+      sortIdx++;
+      await db.insert(
+        DatabaseTables.tableLookupItems,
+        {
+          'id': 'hosp-$sortIdx',
+          'category': 'referral_hospital',
+          'sub_category': 'Surgical Referral',
+          'code': hosp.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'),
+          'label_en': hosp,
+          'label_ne': hosp,
+          'is_active': 1,
+          'sort_order': sortIdx,
+          'tenant_id': effectiveTenant,
+          'camp_id': null,
+          'excluded_camp_ids': '[]',
+          'is_deleted': 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+
+    // 4. Visit Reasons (8 Canonical Reasons from Yellow Form Page 1)
+    sortIdx = 0;
+    for (final entry in ClinicalConstants.visitReasonOptions.entries) {
+      sortIdx++;
+      await db.insert(
+        DatabaseTables.tableLookupItems,
+        {
+          'id': 'reason-$sortIdx',
+          'category': 'visit_reason',
+          'sub_category': 'Reason for Visit',
+          'code': entry.key.toLowerCase().replaceAll(' ', '_'),
+          'label_en': entry.key,
+          'label_ne': entry.value,
+          'is_active': 1,
+          'sort_order': sortIdx,
+          'tenant_id': effectiveTenant,
+          'camp_id': null,
+          'excluded_camp_ids': '[]',
+          'is_deleted': 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+
+    // 5. Chief Complaints (Yellow Form Page 1 Anamnesis Stations)
+    sortIdx = 0;
+    for (final c in ClinicalConstants.defaultChiefComplaints) {
+      sortIdx++;
+      await db.insert(
+        DatabaseTables.tableLookupItems,
+        {
+          'id': 'complaint-$sortIdx',
+          'category': 'chief_complaint',
+          'sub_category': c['sub'],
+          'code': c['en']!.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'),
+          'label_en': c['en']!,
+          'label_ne': c['ne']!,
+          'is_active': 1,
+          'sort_order': sortIdx,
+          'tenant_id': effectiveTenant,
+          'camp_id': null,
+          'excluded_camp_ids': '[]',
+          'is_deleted': 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  static String _getNepaliDiagnosisName(String en) {
+    switch (en.toLowerCase()) {
+      case 'bacterial vaginosis':
+        return 'ब्याक्टेरियल संक्रमण';
+      case 'candid infection':
+        return 'कन्डिडा (ढुसी) संक्रमण';
+      case 'trichomonas':
+        return 'ट्राइकोमोनियासिस';
+      case 'pid':
+        return 'तल्लो पेटको सुजन (PID)';
+      case 'cervicitis':
+        return 'पाठेघरको मुखको सुजन';
+      case 'stress incontinence':
+        return 'खोक्दा/हाँस्दा पिसाब चुहिने समस्या';
+      case 'urge incontinence':
+        return 'पिसाब थाम्न नसक्ने समस्या';
+      case 'weak pelvic floor muscle':
+        return 'पेल्भिक मांसपेशी कमजोर';
+      case 'hypertonic pelvic floor muscle':
+        return 'पेल्भिक मांसपेशी कडा/हाइपरटोनिक';
+      case 'atrophy vagina':
+        return 'योनी सुक्खापन (Atrophy)';
+      case 'cervical polyp':
+        return 'पाठेघरको मुखमा मासु पलाएको (Polyp)';
+      case 'cervical carcinoma':
+        return 'पाठेघरको मुखको क्यान्सर';
+      case 'condylomata':
+        return 'मुसा (Warts)';
+      case 'fistula':
+        return 'फिस्टुला (Fistula)';
+      case 'infertility':
+        return 'निःसन्तान (Infertility)';
+      case 'myoma':
+        return 'पाठेघरको ट्युमर (Fibroid/Myoma)';
+      case 'cystitis':
+        return 'पिसाबथैलीको सुजन (Cystitis)';
+      case 'lichen sclerosis':
+        return 'योनीको छाला पातलो हुने समस्या (Lichen)';
+      case 'ovarian tumor':
+        return 'डिम्बाशयको ट्युमर (Ovarian Tumor)';
+      case 'menstrual disorder':
+        return 'महिनावारी गडबडी';
+      case 'pregnancy':
+        return 'गर्भावस्था';
+      default:
+        return en;
+    }
+  }
 
   /// Backfill sub_category for any existing items that are missing it.
-  /// Safe to call at any time — only runs SQL UPDATEs, never inserts.
+  /// Safe to call at any time — only runs SQL UPDATEs, never deletes.
   @override
   Future<void> backfillSubCategories() async {
     final db = await _databaseService.database;
@@ -500,23 +799,13 @@ class LookupRepository implements ILookupRepository {
           whereArgs: ['medicine', entry.key],
         );
       }
-      await cleanupLegacyAutoSeededDefaults();
     } catch (e) {
       debugPrint('[LookupRepo] backfillSubCategories error: $e');
     }
   }
 
-  /// Cleans up any legacy auto-seeded defaults that have no camp assigned,
-  /// ensuring camps start with clean, empty lists.
+  /// Preserved for backwards compatibility: does not delete global defaults.
   Future<void> cleanupLegacyAutoSeededDefaults() async {
-    final db = await _databaseService.database;
-    try {
-      await db.delete(
-        DatabaseTables.tableLookupItems,
-        where: "(id LIKE 'diag-%' OR id LIKE 'med-%' OR id LIKE 'reason-%' OR id LIKE 'complaint-%' OR id LIKE 'hosp-%') AND (camp_id IS NULL OR camp_id = '')",
-      );
-    } catch (e) {
-      debugPrint('[LookupRepo] cleanupLegacyAutoSeededDefaults error: $e');
-    }
+    // Intentionally non-destructive to preserve standard clinical formulary.
   }
 }

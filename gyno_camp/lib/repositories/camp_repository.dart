@@ -8,6 +8,7 @@ import '../core/services/http_central_api_service.dart';
 import '../models/camp_model.dart';
 import '../models/user_model.dart';
 import 'audit_repository.dart';
+import 'lookup_repository.dart';
 
 abstract class ICampRepository {
   Future<List<CampModel>> getAllCamps({String? tenantId});
@@ -327,6 +328,17 @@ class CampRepository implements ICampRepository {
       try {
         await HttpCentralApiService().broadcastCamp(newCamp);
       } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
+    }
+
+    // Ensure standard clinical formulary is seeded so this new camp inherits all defaults
+    try {
+      await LookupRepository(
+        databaseService: _databaseService,
+        auditRepository: _auditRepository,
+        enableCentralSync: enableCentralSync,
+      ).ensureDefaultsSeeded(tenantId: newCamp.tenantId);
+    } catch (e) {
+      debugPrint('[CampRepo] Note: ensureDefaultsSeeded on camp create: $e');
     }
 
     return newCamp;

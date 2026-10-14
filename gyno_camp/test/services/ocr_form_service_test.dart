@@ -275,4 +275,49 @@ Patient Age: 35
       expect(res.demographics['patientId'], isNull);
     });
   });
+
+  // ──────────────────────────────────────────────────────────
+  // NEW FORM STRUCTURE (ECG, MULTI-REAGENT URINE, UPT NOT DONE)
+  // ──────────────────────────────────────────────────────────
+  group('New Blank Form Structure — ECG & Rapid Labs', () {
+    test('Parses multi-reagent urine dipstick (Protein+, Glucose+)', () {
+      const page2Text = '''
+Station 3: Point-of-Care Lab Tests & Vitals
+Blood Pressure: 120/80 mmHg
+Pulse Rate: 72 bpm
+SpO2: 99%
+Blood Glucose: 110 mg/dL
+Urine Dipstick: [x] Protein+ [x] Glucose+ [ ] Blood+
+Pregnancy Test (UPT): [x] Not Done
+ECG: [x] Normal Sinus [ ] Abnormal [ ] Not Done
+ECG Notes: Normal sinus rhythm 72 bpm
+''';
+      final res = service.parseFormText(page2Text, pageNumber: 2);
+      expect(res.vitals['urineTest'], contains('protein'));
+      expect(res.vitals['urineTest'], contains('glucose'));
+      expect(res.vitals['pregnancyTest'], equals('not_done'));
+      expect(res.vitals['ecg'], equals('Normal Sinus'));
+      expect(res.vitals['ecgNotes'], contains('Normal sinus rhythm'));
+    });
+
+    test('Parses abnormal ECG and positive pregnancy test', () {
+      const page2Text = '''
+Station 3: Point-of-Care Lab Tests & Vitals
+Blood Pressure: 145/95 mmHg
+Pulse Rate: 98 bpm
+SpO2: 96%
+Blood Glucose: 180 mg/dL
+Urine Dipstick: [ ] Protein+ [ ] Glucose+ [x] Blood+
+Pregnancy Test (UPT): [x] Positive
+ECG: [x] Abnormal
+ECG Notes: ST elevation in V1-V3, sinus tachycardia
+''';
+      final res = service.parseFormText(page2Text, pageNumber: 2);
+      expect(res.vitals['urineTest'], contains('blood'));
+      expect(res.vitals['pregnancyTest'], equals('pos'));
+      expect(res.vitals['ecg'], equals('Abnormal'));
+      expect(res.vitals['ecgNotes'], contains('ST elevation'));
+    });
+  });
 }
+

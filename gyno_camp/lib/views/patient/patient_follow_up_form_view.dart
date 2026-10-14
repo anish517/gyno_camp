@@ -821,7 +821,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                               _obsBadge('Living (L)', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
                               _obsBadge('Losses (A)', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
                             ],
-                            _tb('Tone: ${v.pelvicFloorTone.toUpperCase()}', AppTheme.primaryTeal),
+                            _tb('Pelvic Floor: ${v.pelvicFloorTone.toUpperCase()}', AppTheme.primaryTeal),
                             _tb(
                               v.uterusInside ? 'Uterus: Inside' : 'Uterus: Prolapsed',
                               v.uterusInside ? AppTheme.successGreen : AppTheme.dangerRose,
@@ -1444,9 +1444,9 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             ),
             const SizedBox(height: 8),
 
-            // Pelvic Floor Tone
+            // Pelvic Floor Muscle
             const Text(
-              'Pelvic Floor Muscle Tone (पेल्भिक मांसपेशीको अवस्था / तनाव):',
+              'Pelvic Floor Muscle (पेल्भिक मांसपेशी):',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
             ),
             const SizedBox(height: 6),
@@ -1455,8 +1455,8 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               runSpacing: 6,
               children: [
                 {'key': 'normal', 'label': 'Normal (सामान्य)'},
-                {'key': 'weak', 'label': 'Weak / Lax (कमजोर)'},
-                {'key': 'hypertonic', 'label': 'Torn / Hypertonic (च्यातिएको वा तनाव)'},
+                {'key': 'weak', 'label': 'Weak (कमजोर)'},
+                {'key': 'hypertonic', 'label': 'Hypertonic (कडा / तनावग्रस्त)'},
               ].map((t) {
                 final isSelected = _pelvicFloorTone.toLowerCase() == t['key'];
                 return ChoiceChip(

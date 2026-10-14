@@ -146,8 +146,7 @@ class MasterLookupViewModel extends StateNotifier<MasterLookupState> {
       state = state.copyWith(isLoading: true, clearError: true, clearSuccess: true);
     }
     try {
-      // NOTE: Auto-seeding removed by design — each camp starts empty.
-      // Backfill missing sub-categories & purge legacy unassigned auto-seed defaults
+      await _repository.ensureDefaultsSeeded(tenantId: _tenantId);
       await _repository.backfillSubCategories();
       final diag = await _repository.getItemsByCategory('diagnosis', tenantId: _tenantId, campId: _campId);
       final med = await _repository.getItemsByCategory('medicine', tenantId: _tenantId, campId: _campId);

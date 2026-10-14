@@ -366,6 +366,14 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     state = state.copyWith(complaints: map);
   }
 
+  void setComplaintRemarks(String complaintKey, String remarks) {
+    final map = Map<String, dynamic>.from(state.complaints);
+    final current = Map<String, dynamic>.from((map[complaintKey] as Map?) ?? {});
+    current['remarks'] = remarks;
+    map[complaintKey] = current;
+    state = state.copyWith(complaints: map);
+  }
+
   // --- Station 2: Exam & POP Staging ---
   void updateExam({
     bool? uterusInside,

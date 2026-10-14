@@ -377,7 +377,7 @@ void main() {
       for (final m in streams) {
         try {
           final decoded = String.fromCharCodes(zlib.decode(m.group(1)!.codeUnits));
-          if (decoded.contains('CLINICAL') && decoded.contains('STATION') && decoded.contains('ANAMNESIS')) {
+          if (decoded.contains('CLINICAL') && decoded.contains('STATION') && (decoded.contains('POP') || decoded.contains('EXAMINATION') || decoded.contains('ANAMNESIS'))) {
             foundStationOnPage2 = true;
           }
         } catch (_) {}

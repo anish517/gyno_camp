@@ -13,6 +13,7 @@ class OcrScanResultModel {
   final Map<String, dynamic> vitals;
   final Map<String, dynamic> popStaging;
   final List<String> diagnoses;
+  final List<String> counseling;
   final List<String> medications;
   final String? surgicalReferral;
   final String? followUpDestination;
@@ -45,6 +46,7 @@ class OcrScanResultModel {
     required this.vitals,
     required this.popStaging,
     required this.diagnoses,
+    this.counseling = const [],
     required this.medications,
     this.surgicalReferral,
     this.followUpDestination,
@@ -81,6 +83,7 @@ class OcrScanResultModel {
     Map<String, dynamic>? vitals,
     Map<String, dynamic>? popStaging,
     List<String>? diagnoses,
+    List<String>? counseling,
     List<String>? medications,
     String? surgicalReferral,
     bool clearSurgicalReferral = false,
@@ -120,6 +123,7 @@ class OcrScanResultModel {
       vitals: vitals ?? Map<String, dynamic>.from(this.vitals),
       popStaging: popStaging ?? Map<String, dynamic>.from(this.popStaging),
       diagnoses: diagnoses ?? List<String>.from(this.diagnoses),
+      counseling: counseling ?? List<String>.from(this.counseling),
       medications: medications ?? List<String>.from(this.medications),
       surgicalReferral: clearSurgicalReferral ? null : (surgicalReferral ?? this.surgicalReferral),
       followUpDestination: clearFollowUpDestination ? null : (followUpDestination ?? this.followUpDestination),
@@ -199,6 +203,7 @@ ${page2.rawText}
         ...page2.popStaging,
       },
       diagnoses: List<String>.from(page2.diagnoses.isNotEmpty ? page2.diagnoses : page1.diagnoses),
+      counseling: List<String>.from(page2.counseling.isNotEmpty ? page2.counseling : page1.counseling),
       medications: List<String>.from(page2.medications.isNotEmpty ? page2.medications : page1.medications),
       surgicalReferral: page2.surgicalReferral ?? page1.surgicalReferral,
       followUpDestination: page2.followUpDestination ?? page1.followUpDestination,

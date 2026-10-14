@@ -2185,7 +2185,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Uterus Position & Pelvic Tone (पाठेघरको अवस्था तथा मांसपेशी तनाव):',
+                    'Uterus Inside & Pelvic Floor Muscle (पाठेघरको अवस्था तथा पेल्भिक मांसपेशी):',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
                   ),
                   const SizedBox(height: 12),
@@ -2202,7 +2202,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         onSelected: (sel) => vm.updatePopStage('uterusInside', true),
                       ),
                       ChoiceChip(
-                        label: const Text('No / Prolapsed (बाहिर खसेको)'),
+                        label: const Text('No (बाहिर खसेको)'),
                         selected: pop['uterusInside'] == false,
                         selectedColor: Colors.orange.shade100,
                         onSelected: (sel) => vm.updatePopStage('uterusInside', false),
@@ -2210,7 +2210,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     ],
                   ),
                   const Divider(height: 24),
-                  const Text('Pelvic Floor Tone (पेल्भिक मांसपेशीको तनाव):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text('Pelvic Floor Muscle (पेल्भिक मांसपेशी):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -2844,10 +2844,15 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       final hasProtein = currentUrine.contains('protein');
                       final hasGlucose = currentUrine.contains('glucose');
                       final hasBlood = currentUrine.contains('blood');
+                      final hasOtherPos = !isNormal && !hasProtein && !hasGlucose && !hasBlood && (currentUrine.contains('pos') || currentUrine == '+');
 
                       void updateUrine(String type, bool selected) {
                         if (type == 'normal') {
                           vm.updateVital('urineTest', 'normal');
+                          return;
+                        }
+                        if (type == 'pos') {
+                          vm.updateVital('urineTest', selected ? 'pos' : 'normal');
                           return;
                         }
                         final parts = <String>[];
@@ -2913,6 +2918,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             ),
                             onSelected: (sel) => updateUrine('blood', sel),
                           ),
+                          if (hasOtherPos)
+                            FilterChip(
+                              label: const Text('Positive (पोजिटिभ)'),
+                              selected: true,
+                              selectedColor: Colors.purple.shade100,
+                              checkmarkColor: Colors.purple.shade900,
+                              labelStyle: TextStyle(
+                                color: Colors.purple.shade900,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11.5,
+                              ),
+                              onSelected: (sel) => updateUrine('pos', sel),
+                            ),
                         ],
                       );
                     },
@@ -2945,6 +2963,75 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         onSelected: (_) => vm.updateVital('pregnancyTest', item['val']),
                       );
                     }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── ECG Examination (ईसीजी परीक्षण) ─────────────────────────
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.monitor_heart, color: AppTheme.primaryTeal, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'ECG Examination (ईसीजी परीक्षण):',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      {'val': 'Normal Sinus', 'label': 'Normal Sinus (सामान्य)'},
+                      {'val': 'Abnormal', 'label': 'Abnormal (असामान्य)'},
+                      {'val': 'Not Done', 'label': 'Not Done (जाँच नगरिएको)'},
+                    ].map((item) {
+                      final rawEcg = (vitals['ecg'] as String? ?? '').trim();
+                      final isSelected = rawEcg.toLowerCase() == item['val']!.toLowerCase() ||
+                          (item['val'] == 'Normal Sinus' && (rawEcg.toLowerCase().contains('normal') || rawEcg.toLowerCase().contains('sinus'))) ||
+                          (item['val'] == 'Abnormal' && rawEcg.toLowerCase().contains('abnormal')) ||
+                          (item['val'] == 'Not Done' && (rawEcg.toLowerCase().contains('not') || rawEcg.toLowerCase().contains('done')));
+                      return ChoiceChip(
+                        label: Text(item['label']!),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 11.5,
+                        ),
+                        onSelected: (_) {
+                          vm.updateVital('ecg', item['val']);
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    key: ValueKey('vital_ecgNotes_${result.scannedAt.millisecondsSinceEpoch}'),
+                    initialValue: vitals['ecgNotes'] as String? ?? '',
+                    decoration: const InputDecoration(
+                      labelText: 'ECG Findings / Notes (ईसीजी कैफियत)',
+                      hintText: 'e.g. ST changes, Sinus rhythm, Arrhythmia...',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    ),
+                    onChanged: (val) {
+                      vm.updateVital('ecgNotes', val.trim());
+                    },
                   ),
                 ],
               ),
@@ -3845,8 +3932,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       {'key': 'anteriorStage',  'label': 'Anterior Stage',   'section': 'POP Staging',  'tabIndex': 2, 'value': pop['anteriorStage']?.toString() ?? '—',   'confKey': 'popStaging'},
       {'key': 'middleStage',    'label': 'Middle Stage',     'section': 'POP Staging',  'tabIndex': 2, 'value': pop['middleStage']?.toString() ?? '—',     'confKey': 'popStaging'},
       {'key': 'posteriorStage', 'label': 'Posterior Stage',  'section': 'POP Staging',  'tabIndex': 2, 'value': pop['posteriorStage']?.toString() ?? '—',  'confKey': 'popStaging'},
-      {'key': 'uterusInside',   'label': 'Uterus Inside',    'section': 'POP Staging',  'tabIndex': 2, 'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No (Prolapsed)', 'confKey': 'popStaging'},
-      {'key': 'pelvicTone',     'label': 'Pelvic Floor Tone','section': 'POP Staging',  'tabIndex': 2, 'value': pop['pelvicFloorTone']?.toString() ?? '—', 'confKey': 'popStaging'},
+      {'key': 'uterusInside',   'label': 'Uterus Inside',    'section': 'POP Staging',  'tabIndex': 2, 'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No', 'confKey': 'popStaging'},
+      {'key': 'pelvicTone',     'label': 'Pelvic Floor Muscle','section': 'POP Staging',  'tabIndex': 2, 'value': pop['pelvicFloorTone']?.toString() ?? '—', 'confKey': 'popStaging'},
       // ── Vitals ────────────────────────────────────────────
       {'key': 'bp',             'label': 'Blood Pressure',   'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['systolicBp'] ?? '—'}/${vitals['diastolicBp'] ?? '—'} mmHg', 'confKey': 'bp'},
       {'key': 'pulse',          'label': 'Pulse Rate',       'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['pulseRate'] ?? '—'} bpm', 'confKey': 'pulse'},

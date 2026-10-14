@@ -39,15 +39,25 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
   final _glucoseController = TextEditingController();
   final _ecgController = TextEditingController();
 
-  final _cervixRemarksController = TextEditingController();
+  final _vulvaRemarksController = TextEditingController();
   final _vaginaRemarksController = TextEditingController();
+  final _cervixRemarksController = TextEditingController();
+  final _uterusRemarksController = TextEditingController();
   final _pessarySizeController = TextEditingController();
   final _customMedController = TextEditingController();
   final _outtakeNotesController = TextEditingController();
   final _customFollowUpHospitalController = TextEditingController();
+  final Map<String, TextEditingController> _complaintRemarksControllers = {};
 
   bool _groupDiagnosesByCategory = true;
   bool _groupMedicationsByCategory = true;
+
+  TextEditingController _getRemarksController(String key, String initialText) {
+    if (!_complaintRemarksControllers.containsKey(key)) {
+      _complaintRemarksControllers[key] = TextEditingController(text: initialText);
+    }
+    return _complaintRemarksControllers[key]!;
+  }
 
   @override
   void initState() {
@@ -76,8 +86,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     if (visit.spo2 != null) _spo2Controller.text = visit.spo2.toString();
     if (visit.glucose != null) _glucoseController.text = visit.glucose.toString();
     if (visit.ecgNotes != null && visit.ecgNotes!.isNotEmpty) _ecgController.text = visit.ecgNotes!;
-    if (visit.cervixRemarks != null && visit.cervixRemarks!.isNotEmpty) _cervixRemarksController.text = visit.cervixRemarks!;
+    if (visit.vulvaRemarks != null && visit.vulvaRemarks!.isNotEmpty) _vulvaRemarksController.text = visit.vulvaRemarks!;
     if (visit.vaginaRemarks != null && visit.vaginaRemarks!.isNotEmpty) _vaginaRemarksController.text = visit.vaginaRemarks!;
+    if (visit.cervixRemarks != null && visit.cervixRemarks!.isNotEmpty) _cervixRemarksController.text = visit.cervixRemarks!;
+    if (visit.uterusRemarks != null && visit.uterusRemarks!.isNotEmpty) _uterusRemarksController.text = visit.uterusRemarks!;
     if (visit.pessarySize != null && visit.pessarySize!.isNotEmpty) _pessarySizeController.text = visit.pessarySize!;
     if (visit.customMedication != null && visit.customMedication!.isNotEmpty) _customMedController.text = visit.customMedication!;
     if (visit.outtakeNotes != null && visit.outtakeNotes!.isNotEmpty) _outtakeNotesController.text = visit.outtakeNotes!;
@@ -91,6 +103,15 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         visit.followUpDestination != 'GynaeSupport Nurse' &&
         !partnerHospitals.contains(visit.followUpDestination)) {
       _customFollowUpHospitalController.text = visit.followUpDestination!;
+    }
+    final existingComplaints = visit.anamnesisComplaints;
+    for (final entry in existingComplaints.entries) {
+      if (entry.value is Map) {
+        final rem = entry.value['remarks'] as String?;
+        if (rem != null && rem.isNotEmpty) {
+          _getRemarksController(entry.key, rem).text = rem;
+        }
+      }
     }
     setState(() {});
   }
@@ -106,12 +127,17 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     _spo2Controller.dispose();
     _glucoseController.dispose();
     _ecgController.dispose();
-    _cervixRemarksController.dispose();
+    _vulvaRemarksController.dispose();
     _vaginaRemarksController.dispose();
+    _cervixRemarksController.dispose();
+    _uterusRemarksController.dispose();
     _pessarySizeController.dispose();
     _customMedController.dispose();
     _outtakeNotesController.dispose();
     _customFollowUpHospitalController.dispose();
+    for (final c in _complaintRemarksControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -190,6 +216,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 vulvaRemarks: state.vulvaRemarks,
                 vaginaRemarks: state.vaginaRemarks,
                 cervixRemarks: state.cervixRemarks,
+                uterusRemarks: state.uterusRemarks,
                 pelvicFloorTone: state.pelvicFloorTone,
                 popAnteriorStage: state.popAnteriorStage,
                 popMiddleStage: state.popMiddleStage,
@@ -202,10 +229,13 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 pulse: state.pulse,
                 spo2: state.spo2,
                 glucose: state.glucose,
+                ecgNotes: state.ecgNotes,
                 diagnoses: state.selectedDiagnoses,
                 medications: state.selectedMedications,
+                customMedication: state.customMedication,
                 pessaryType: state.pessaryType,
                 pessarySize: state.pessarySize,
+                surgicalReferral: state.surgicalReferral,
                 treatmentLevel: state.treatmentLevel,
                 counseling: state.selectedCounseling,
                 followUpNeeded: state.followUpNeeded,
@@ -213,6 +243,8 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 outtakeNotes: state.outtakeNotes,
                 attendingDoctorNames: state.attendingDoctorNames,
                 primaryDoctorName: state.primaryDoctorName,
+                attendingNurseNames: state.attendingNurseNames,
+                primaryNurseName: state.primaryNurseName,
                 createdByUserId: user?.id ?? 'usr-doc',
                 tenantId: user?.tenantId ?? 'tenant_default',
                 isSynced: false,
@@ -626,14 +658,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
           final lookupState = ref.watch(masterLookupProvider);
           final activeMasterComplaints = lookupState.activeChiefComplaints;
 
-          // Standard baseline Yellow Form complaints
+          // Standard baseline Yellow Form complaints (9 Canonical Complaints)
           final standardComplaints = [
             {
               'key': 'prolapse',
               'title': 'Something hanging out (पाठेघर खस्ने समस्या)',
               'subCategory': 'Pelvic Floor & Prolapse',
               'hasDuration': true,
-              'options': ['previous pessary', 'previous surgery'],
+              'options': ['pessary', 'surgery'],
               'matches': (List<String> r) => r.any((x) => x.contains('hanging') || x.contains('prolapse') || x.contains('पाठेघर')),
             },
             {
@@ -649,40 +681,56 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
               'title': 'Problems passing urine (पिसाब सम्बन्धी समस्या)',
               'subCategory': 'Urinary Symptoms',
               'hasDuration': true,
-              'options': ['stress incontinence', 'urge incontinence', 'continuous flow'],
+              'options': ['stress', 'urge', 'continuous flow'],
               'matches': (List<String> r) => r.any((x) => x.contains('urine') || x.contains('पिसाब')),
             },
             {
               'key': 'stool',
               'title': 'Problems passing stool (दिसा सम्बन्धी समस्या)',
-              'subCategory': 'Gastrointestinal & Bowel',
+              'subCategory': 'Pelvic Floor & Prolapse',
               'hasDuration': true,
-              'options': ['problems passing stool', 'anal incontinence'],
+              'options': <String>[],
               'matches': (List<String> r) => r.any((x) => x.contains('stool') || x.contains('दिसा')),
             },
             {
               'key': 'menstrual',
               'title': 'Menstrual problem (महिनावारी समस्या)',
-              'subCategory': 'Menstrual & Hormonal',
+              'subCategory': 'Reproductive & Sexual',
               'hasDuration': false,
               'options': ['dysmenorrhoea', 'metrorrhagia', 'menorrhagia', 'postmenopausal bleeding'],
               'matches': (List<String> r) => r.any((x) => x.contains('menstrual') || x.contains('महिनावारी')),
             },
             {
               'key': 'infertility',
-              'title': 'Infertility / Conception Difficulty (बाँझोपन)',
-              'subCategory': 'Reproductive & Fertility',
+              'title': 'Infertility / Conception Difficulty (निःसन्तान समस्या)',
+              'subCategory': 'Reproductive & Sexual',
               'hasDuration': true,
-              'options': ['infertility'],
+              'options': <String>[],
               'matches': (List<String> r) => r.any((x) => x.contains('infertility') || x.contains('बाँझोपन')),
             },
             {
-              'key': 'pain',
-              'title': 'Pelvic / Back Pain (तल्लो पेट वा ढाड दुख्ने)',
+              'key': 'lower_abdomen_pain',
+              'title': 'Lower abdomen pain (तल्लो पेट दुख्ने)',
               'subCategory': 'Pelvic & Abdominal',
               'hasDuration': true,
-              'options': ['pain'],
-              'matches': (List<String> r) => r.any((x) => x.contains('pain') || x.contains('दुखाई')),
+              'options': <String>[],
+              'matches': (List<String> r) => r.any((x) => x == 'pain' || x.contains('दुख्ने') || ((x.contains('abdomen') || x.contains('तल्लो पेट')) && x.contains('pain'))),
+            },
+            {
+              'key': 'lower_back_pain',
+              'title': 'Lower back pain (कम्मर / ढाड दुख्ने)',
+              'subCategory': 'Musculoskeletal & General',
+              'hasDuration': true,
+              'options': <String>[],
+              'matches': (List<String> r) => r.any((x) => x == 'pain' || x.contains('दुख्ने') || ((x.contains('back') || x.contains('ढाड') || x.contains('कम्मर')) && x.contains('pain'))),
+            },
+            {
+              'key': 'checkup',
+              'title': 'Checkup (सामान्य जाँच)',
+              'subCategory': 'General / Other',
+              'hasDuration': false,
+              'options': ['routine wellness screening', 'follow-up checkup', 'general counseling'],
+              'matches': (List<String> r) => r.any((x) => x.contains('checkup') || x.contains('जाँच')),
             },
           ];
 
@@ -766,8 +814,24 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         (state.complaints['complaintsDuration'] as String?);
     final rawOptions = complaintData['options'];
     final List<String> selectedOptions = rawOptions is List ? List<String>.from(rawOptions) : [];
+    final currentRemarks = (complaintData['remarks'] as String?) ?? '';
+    final remarksController = _getRemarksController(complaintKey, currentRemarks);
 
-    final hasActiveSelections = (selectedDuration != null && selectedDuration.isNotEmpty) || selectedOptions.isNotEmpty;
+    final hasActiveSelections = (selectedDuration != null && selectedDuration.isNotEmpty) ||
+        selectedOptions.isNotEmpty ||
+        currentRemarks.isNotEmpty;
+
+    // Yellow Form canonical duration options
+    final durationOptions = complaintKey.toLowerCase().contains('infertility')
+        ? ClinicalConstants.infertilityDurations
+        : ClinicalConstants.anamnesisDurations;
+    final allDurations = [
+      ...durationOptions,
+      if (selectedDuration != null &&
+          selectedDuration.isNotEmpty &&
+          !durationOptions.contains(selectedDuration))
+        selectedDuration,
+    ];
 
     return Card(
       elevation: 0,
@@ -842,15 +906,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: [
-                  '< 3 months',
-                  '3-12 months',
-                  '> 1 year',
-                  if (selectedDuration != null &&
-                      selectedDuration.isNotEmpty &&
-                      !['< 3 months', '3-12 months', '> 1 year'].contains(selectedDuration))
-                    selectedDuration,
-                ].map((d) {
+                children: allDurations.map((d) {
                   final isSelected = selectedDuration == d;
                   return ChoiceChip(
                     visualDensity: VisualDensity.compact,
@@ -902,6 +958,24 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 }).toList(),
               ),
             ],
+            const SizedBox(height: 10),
+            TextField(
+              controller: remarksController,
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                labelText: 'Clinical Remarks / टिप्पणी ($title)',
+                hintText: 'Enter clinical remarks, details or severity...',
+                prefixIcon: const Icon(Icons.edit_note_rounded, size: 20),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                ),
+              ),
+              onChanged: (val) {
+                vm.setComplaintRemarks(complaintKey, val);
+              },
+            ),
           ],
         ),
       ),
@@ -913,35 +987,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SwitchListTile(
-          title: const Text('Uterus Inside (पाठेघर भित्रै छ?)', style: TextStyle(fontWeight: FontWeight.bold)),
-          value: state.uterusInside,
-          onChanged: (val) => vm.updateExam(uterusInside: val),
-        ),
-        const SizedBox(height: 12),
-
-        const Text('Pelvic Floor Muscle Tone (पेल्भिक मांसपेशीको अवस्था)', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: ['normal', 'weak', 'hypertonic'].map((tone) {
-            final isSelected = state.pelvicFloorTone == tone;
-            return ChoiceChip(
-              label: Text('${NepaliLocalizationService.translate(tone)} ($tone)', style: const TextStyle(fontSize: 12)),
-              selected: isSelected,
-              selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.18),
-              labelStyle: TextStyle(
-                color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-              onSelected: (_) => vm.updateExam(pelvicFloorTone: tone),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 16),
-
-        // Cervix Appearance & Vagina / Vulva Examination
+        // Top status card: Uterus Inside & Pelvic Floor Muscle Tone
         Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -955,17 +1001,171 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.visibility_outlined, color: AppTheme.primaryTeal, size: 18),
+                    Icon(Icons.health_and_safety_outlined, color: AppTheme.primaryTeal, size: 20),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Cervix Appearance (पाठेघरको मुखको अवस्था)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF1E293B)),
+                        'Uterus Position & Pelvic Muscle Tone (पाठेघरको स्थिति तथा मांसपेशी तनाव)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B)),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
+                const Text('Uterus Inside (पाठेघर भित्रै छ?):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 10,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Yes / भित्रै छ (Uterus Inside)'),
+                      selected: state.uterusInside == true,
+                      selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.18),
+                      labelStyle: TextStyle(
+                        color: state.uterusInside == true ? AppTheme.primaryTeal : const Color(0xFF334155),
+                        fontWeight: state.uterusInside == true ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      onSelected: (_) => vm.updateExam(uterusInside: true),
+                    ),
+                    ChoiceChip(
+                      label: const Text('No / बाहिर निस्किएको (Uterus Outside / Prolapsed)'),
+                      selected: state.uterusInside == false,
+                      selectedColor: Colors.red.shade100,
+                      labelStyle: TextStyle(
+                        color: state.uterusInside == false ? Colors.red.shade900 : const Color(0xFF334155),
+                        fontWeight: state.uterusInside == false ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      onSelected: (_) => vm.updateExam(uterusInside: false),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                const Text('Pelvic Floor Muscle (पेल्भिक मांसपेशी तनाव):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: ['normal', 'weak', 'hypertonic'].map((tone) {
+                    final isSelected = state.pelvicFloorTone == tone;
+                    return ChoiceChip(
+                      label: Text('${NepaliLocalizationService.translate(tone)} ($tone)', style: const TextStyle(fontSize: 12)),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.18),
+                      labelStyle: TextStyle(
+                        color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      onSelected: (_) => vm.updateExam(pelvicFloorTone: tone),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Anatomical Physical Examination: Vulva, Vagina, Cervix, Uterus
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.visibility_outlined, color: AppTheme.primaryTeal, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Physical Examination (अङ्गगत शारीरिक जाँच — Yellow Form Page 2)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Color(0xFF1E293B)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // 1. Vulva Examination
+                const Text('1. Vulva Examination (बाह्य अङ्ग / भल्भा):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    'Normal', 'Atrophic', 'Discharge', 'Condylomata', 'Ulcer', 'Lichen Sclerosus'
+                  ].map((chip) {
+                    final isSelected = _vulvaRemarksController.text.contains(chip);
+                    return ChoiceChip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(chip, style: const TextStyle(fontSize: 11)),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                      onSelected: (sel) {
+                        setState(() {
+                          _vulvaRemarksController.text = sel ? chip : '';
+                          vm.updateExam(vulvaRemarks: _vulvaRemarksController.text);
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _vulvaRemarksController,
+                  decoration: const InputDecoration(
+                    labelText: 'Vulva Remarks (भल्भा सम्बन्धी कैफियत)',
+                    hintText: 'e.g. Normal, healthy, or ulcer/lesion noted',
+                    prefixIcon: Icon(Icons.edit_note_rounded),
+                  ),
+                  onChanged: (val) => vm.updateExam(vulvaRemarks: val),
+                ),
+                const Divider(height: 24),
+
+                // 2. Vagina Examination
+                const Text('2. Vagina Examination (योनीको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    'Normal', 'Atrophic Mucosa', 'Discharge Present', 'Cystocele', 'Rectocele', 'Vault Prolapse'
+                  ].map((chip) {
+                    final isSelected = _vaginaRemarksController.text.contains(chip);
+                    return ChoiceChip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(chip, style: const TextStyle(fontSize: 11)),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                      onSelected: (sel) {
+                        setState(() {
+                          _vaginaRemarksController.text = sel ? chip : '';
+                          vm.updateExam(vaginaRemarks: _vaginaRemarksController.text);
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _vaginaRemarksController,
+                  decoration: const InputDecoration(
+                    labelText: 'Vagina Remarks (योनी सम्बन्धी कैफियत)',
+                    hintText: 'e.g. Healthy mucosa, mild discharge, or laxity',
+                    prefixIcon: Icon(Icons.edit_note_rounded),
+                  ),
+                  onChanged: (val) => vm.updateExam(vaginaRemarks: val),
+                ),
+                const Divider(height: 24),
+
+                // 3. Cervix Examination
+                const Text('3. Cervix Appearance (पाठेघरको मुखको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -987,37 +1187,28 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 TextField(
                   controller: _cervixRemarksController,
                   decoration: const InputDecoration(
-                    labelText: 'Cervix Clinical Remarks (पाठेघरको मुखको टिप्पणी)',
-                    hintText: 'e.g. Smooth, healthy, no discharge, or erosion present',
+                    labelText: 'Cervix Remarks (पाठेघरको मुख सम्बन्धी कैफियत)',
+                    hintText: 'e.g. Smooth, healthy, or erosion present',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
                   onChanged: (val) => vm.updateExam(cervixRemarks: val),
                 ),
-                const Divider(height: 28),
-                const Row(
-                  children: [
-                    Icon(Icons.medical_information_outlined, color: AppTheme.primaryTeal, size: 18),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Vagina / Vulva Examination (योनी तथा बाह्य अङ्गको अवस्था)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF1E293B)),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
+                const Divider(height: 24),
+
+                // 4. Uterus Examination
+                const Text('4. Uterus Examination (पाठेघरको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    'Normal', 'Atrophic', 'Discharge', 'Condyloma', 'Ulcer', 'Lichen Sclerosus'
+                    'Normal Size & Mobile', 'Enlarged / Bulky', 'Tender on Motion', 'Fibroid / Myoma', 'Retroverted'
                   ].map((chip) {
-                    final isSelected = _vaginaRemarksController.text.contains(chip);
+                    final isSelected = _uterusRemarksController.text.contains(chip);
                     return ChoiceChip(
                       visualDensity: VisualDensity.compact,
                       label: Text(chip, style: const TextStyle(fontSize: 11)),
@@ -1025,22 +1216,22 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                       onSelected: (sel) {
                         setState(() {
-                          _vaginaRemarksController.text = sel ? chip : '';
-                          vm.updateExam(vaginaRemarks: _vaginaRemarksController.text);
+                          _uterusRemarksController.text = sel ? chip : '';
+                          vm.updateExam(uterusRemarks: _uterusRemarksController.text);
                         });
                       },
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 TextField(
-                  controller: _vaginaRemarksController,
+                  controller: _uterusRemarksController,
                   decoration: const InputDecoration(
-                    labelText: 'Vagina / Vulva Remarks (योनी तथा बाह्य अङ्ग सम्बन्धी टिप्पणी)',
-                    hintText: 'e.g. Healthy mucosa, mild discharge, or atrophy',
+                    labelText: 'Uterus Remarks (पाठेघर सम्बन्धी कैफियत)',
+                    hintText: 'e.g. Normal size, non-tender, freely mobile, or bulky',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
-                  onChanged: (val) => vm.updateExam(vaginaRemarks: val),
+                  onChanged: (val) => vm.updateExam(uterusRemarks: val),
                 ),
               ],
             ),
@@ -1430,7 +1621,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             TextField(
               controller: _glucoseController,
               keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.done,
+              textInputAction: TextInputAction.next,
               decoration: InputDecoration(
                 labelText: 'Blood Glucose (रक्त ग्लुकोज)',
                 suffixText: 'mg/dL',
@@ -1439,6 +1630,84 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
               onChanged: (val) => vm.setVitals(glucose: int.tryParse(val)),
             ),
             _buildValidationMessage(state.glucoseValidation),
+            const SizedBox(height: 16),
+
+            // ECG Examination (Yellow Form Station 3)
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFCBD5E1)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.monitor_heart_outlined, color: AppTheme.primaryTeal, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'ECG Examination (ईसीजी जाँच)',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Record resting 12-lead ECG findings if indicated:',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        'Normal Sinus Rhythm',
+                        'Sinus Tachycardia',
+                        'Sinus Bradycardia',
+                        'Arrhythmia',
+                        'Ischemia / ST-T Change',
+                        'Not Done',
+                      ].map((tag) {
+                        final isSelected = _ecgController.text.contains(tag);
+                        return ChoiceChip(
+                          label: Text(tag, style: const TextStyle(fontSize: 11.5)),
+                          selected: isSelected,
+                          selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                          labelStyle: TextStyle(
+                            color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          onSelected: (sel) {
+                            setState(() {
+                              if (sel) {
+                                _ecgController.text = tag;
+                              } else {
+                                _ecgController.clear();
+                              }
+                              vm.setVitals(ecgNotes: _ecgController.text.trim().isNotEmpty ? _ecgController.text.trim() : null);
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _ecgController,
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        labelText: 'ECG Findings / Notes (ईसीजी विवरण / टिप्पणी)',
+                        hintText: 'e.g. Normal sinus rhythm, rate 76 bpm, or abnormal findings',
+                        prefixIcon: Icon(Icons.edit_note_rounded),
+                      ),
+                      onChanged: (val) => vm.setVitals(ecgNotes: val.trim().isNotEmpty ? val.trim() : null),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         );
       },
@@ -2129,6 +2398,48 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const Text(
+                          'Primary Follow-Up Care Destination (प्रमुख अनुगमन गन्तव्य — Yellow Form):',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            ChoiceChip(
+                              avatar: const Icon(Icons.local_hospital_rounded, size: 15),
+                              label: const Text('Health Post (स्वास्थ्य चौकी)'),
+                              selected: currentDest == 'Health Post',
+                              selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                              labelStyle: TextStyle(
+                                color: currentDest == 'Health Post' ? AppTheme.primaryTeal : const Color(0xFF334155),
+                                fontWeight: currentDest == 'Health Post' ? FontWeight.bold : FontWeight.normal,
+                              ),
+                              onSelected: (sel) {
+                                if (sel) vm.setOuttake(destination: 'Health Post');
+                              },
+                            ),
+                            ChoiceChip(
+                              avatar: const Icon(Icons.support_agent_rounded, size: 15),
+                              label: const Text('GynaeSupport Nurse (गाइने नर्स)'),
+                              selected: currentDest == 'GynaeSupport Nurse',
+                              selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                              labelStyle: TextStyle(
+                                color: currentDest == 'GynaeSupport Nurse' ? AppTheme.primaryTeal : const Color(0xFF334155),
+                                fontWeight: currentDest == 'GynaeSupport Nurse' ? FontWeight.bold : FontWeight.normal,
+                              ),
+                              onSelected: (sel) {
+                                if (sel) vm.setOuttake(destination: 'GynaeSupport Nurse');
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Or Select Referral Hospital / Center (वा रिफरल अस्पताल):',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                        ),
+                        const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
                           key: ValueKey('followup_dest_$dropdownValue'),
                           isExpanded: true,

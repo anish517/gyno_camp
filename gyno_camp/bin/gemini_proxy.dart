@@ -281,55 +281,60 @@ PAGE 1 (FRONT) — PATIENT REGISTRATION:
    - "I consent to storage of my medical information / स्वास्थ्य विवरण भण्डारण गर्न सहमत छु" (consentStoreMedicalInfo: bool)
 
 PAGE 2 (BACK) — CLINICAL ASSESSMENT (STATIONS 1-6):
-1. Header: "Patient ID: [ ][ ][ ][ ][ ][ ][ ][ ][ ]" and Patient Name
+1. Header: "Examination Date", "uterus inside" (2 checkboxes: "yes", "no" -> uterusInside: true/false)
 2. Station 1: Anamnesis & Obstetric History:
-   - "Deliveries (P): [ ]" (integer deliveries)
-   - "Living Children: [ ]" (integer livingChildren)
-   - "Abortions: [ ]" (integer abortions)
-   - "Complaints Duration:" (3 checkboxes: "< 3 months", "3-12 months", "> 1 year")
-   - "Clinical Complaints:" (9 exact checkboxes):
-     "Lower Abdominal Pain", "White / Foul Discharge", "Pelvic Heaviness",
-     "Burning Micturition", "Urinary Incontinence", "Dyspareunia",
-     "Coital Bleeding", "Mass Per Vagina", "Severe Backache"
-3. Station 2: POP Examination (Baden-Walker):
-   - "Uterus Inside:" (2 checkboxes: "Yes", "No (Prolapsed)" -> uterusInside: true/false)
-   - "Pelvic Tone:" (3 checkboxes: "Normal", "Weak", "Hypertonic" -> pelvicFloorTone: string)
-   - "Baden-Walker Staging:"
-     - "Anterior (Cystocele): [ ]" (0 to 4)
-     - "Middle (Uterine): [ ]" (0 to 4)
-     - "Posterior (Rectocele): [ ]" (0 to 4)
-     - "Highest Stage: [ ]" (0 to 4, or auto-derived from max of Anterior, Middle, Posterior)
-   - "Cervix Appearance:" (handwritten line text -> cervixRemarks)
-   - "Vagina / Vulva:" (handwritten line text -> vaginaRemarks)
+   - "Deliveries (NR): [ ]" (integer deliveries)
+   - "Living Children (NR): [ ]" (integer livingChildren)
+   - "Abortion (NR): [ ]" (integer abortions)
+   - "Complaints Duration:" (5 checkboxes: "< 1month", "< 1 year", "> 1 year", "> 5 years", "> 10 years")
+   - "Clinical Complaints & Sub-options:"
+     - "something hanging out": previous treatment: [ ] pessary [ ] surgery, remarks
+     - "discharge / itching": colour: [ ] white [ ] yellow [ ] green [ ] grey [ ] smelly, remarks
+     - "problems passing urine": type incontinence: [ ] stress [ ] urge [ ] continuous flow, remarks
+     - "problems passing stool": remarks
+     - "menstrual problem": [ ] dysmenorroea [ ] metrorrhagia [ ] menorrhagia [ ] postmenopausal bleeding, remarks
+     - "infertility": since when: [ ] > 1 year [ ] > 5 years [ ] > 10 years, remarks
+     - "lower abdomen pain": since when: [ ] < 1month [ ] < 1 year [ ] > 1 year [ ] > 5 years [ ] > 10 years, remarks
+     - "lower back pain": since when: [ ] < 1month [ ] < 1 year [ ] > 1 year [ ] > 5 years [ ] > 10 years, remarks
+     - "checkup": remarks
+3. Station 2: Physical Exam & POP Staging:
+   - "uterus inside:" (2 checkboxes: "yes", "no")
+   - "vulva": [ ] normal or [ handwritten text ]
+   - "vagina": [ ] normal or [ handwritten text ]
+   - "cervix": [ ] normal or [ handwritten text ]
+   - "uterus": [ ] normal or [ handwritten text ]
+   - "pelvic floor muscle:" (3 checkboxes: "normal", "weak", "hypertonic" -> pelvicFloorTone: string)
+   - "POP anterior wall:" (checkboxes: "stage 0", "stage 1", "stage 2", "stage 3" -> 0-3)
+   - "POP middle part:" (checkboxes: "stage 0", "stage 1", "stage 2", "stage 3", "stage 4" -> 0-4)
+   - "POP posterior wall:" (checkboxes: "stage 0", "stage 1", "stage 2", "stage 3" -> 0-3)
+   - "highest POP stage:" (checkboxes: "highest POP stage 0", "stage 1", "stage 2", "stage 3", "stage 4" -> 0-4)
 4. Station 3: Vitals & Point-of-Care Labs:
-   - "Blood Pressure: [ ][ ] / [ ][ ] mmHg" (systolicBp / diastolicBp)
-   - "Pulse: [ ][ ][ ] bpm" (pulseRate)
-   - "SpO2: [ ][ ] %" (spo2)
-   - "Blood Glucose: [ ][ ][ ] mg/dL" (bloodGlucose)
-   - "Urine Test:" (4 checkboxes: "Normal", "Protein+", "Glucose+", "Blood+")
-   - "Pregnancy Test (UPT):" (3 checkboxes: "Negative", "Positive", "Not Done")
-5. Station 4: Confirmed Diagnoses / निदान (21 checkboxes + Other):
+   - "urine dipstick / test:" (Checkboxes: "normal", "protein+", "glucose+", "blood+", or "pos")
+   - "pregnancy test (UPT):" (Checkboxes: "neg", "pos", "not done")
+   - "bloodpressure:" [ systolic ] / [ diastolic ] mmHg
+   - "pulse:" [ ] bpm, "saturation / SpO2:" [ ] %, "glucose:" [ ] mg/dL
+   - "ECG:" (Checkboxes: "Normal Sinus", "Abnormal", "Not Done", and handwritten "ECG Notes")
+5. Station 4: Confirmed Diagnoses (21 checkboxes + Other):
    - Checkboxes: "atrophy vagina", "bacterial vaginosis", "candid infection", "trichomonas",
      "PID", "cervicitis", "cervical polyp", "cervical carcinoma", "condylomata", "fistula",
      "infertility", "myoma", "cystitis", "lichen sclerosis", "stress incontinence", "ovarian tumor",
      "urge incontinence", "menstrual disorder", "weak pelvic floor muscle", "pregnancy",
      "hypertonic pelvic floor muscle", and handwritten text under "Other:"
-6. Station 5: Treatment & Prescriptions / उपचार:
-   - Medications Dispensed (10 checkboxes):
+6. Station 5: Treatment & Prescriptions:
+   - "spec counseling" (5 checkboxes): "weak pelvic floor", "POP", "stress incontinence", "urge incontinence", "abdominal pain"
+   - "pessary" (3 checkboxes): "ring", "ring with support", "ring with knob", "size: [   ]"
+   - "referral surgery" (3 checkboxes): "Scheer Memorial", "Model Hosp", "loc government"
+   - "medication" (10 checkboxes):
      "clotrimazol (canesten)", "estradiol crème", "metronidazol", "doxycycline",
-     "azithromycin", "nitrofurantoine", "medroxyprogesterone", "ciproflox", "mirasin", "clobetasol"
-   - "Ring Pessary:" [ ] Yes [ ] No, Size: [ ][ ][ ] mm
-   - "Surgery Done:" [ ] Yes [ ] No, Type: [ ] Open surgery [ ] Laparoscopy [ ] Vaginal route
-7. Station 6: Discharge & Continuity of Care / अनुगमन तथा निरन्तर हेरचाह:
-   - "Follow-up Required:" [ ] Yes (Follow-up Needed) [ ] No (Routine)
-   - "Follow-up Destination:" (handwritten line text)
-   - "Surgical Referral:" [ ] None [ ] Scheer Memorial Hospital [ ] Model Hospital [ ] Local Government Hospital
-   - "Clinical Notes:" (multi-line handwritten remarks)
+     "azithromycin", "nitrofurantoine", "medroxyprogesterone", "ciproflox", "mirasin", "clobetasol",
+     and handwritten text under "other:"
+7. Station 6: Outtake & Follow-up:
+   - "follow up needed:" (checkboxes: "Health Post", "GynaeSupport Nurse")
+   - "no follow up needed"
+   - Clinical notes / remarks
 8. Page 2 Footer / Examining Clinician Sign-off:
-   - Look for the Examining Doctor section / checkboxes: e.g. "[ ] Dr. Sita [ ] Dr. Gita" or signed doctor name under "Medical Officer / Gynecologist"
-   - Extract the identified/checked doctor name into "examiningDoctor" (e.g. "Dr. Sita Karki"). If multiple doctor checkboxes are checked, include all of them in "attendingDoctors" and the main one into "examiningDoctor".
-   - Look for the Attending Nurse section / checkboxes: e.g. "[x] Sita Sharma [ ] Gita Rai" or a signed/handwritten nurse name under "Attending Nurse / सेवा दिने नर्स".
-   - Put EVERY checked or written nurse name into "attendingNurses" (array, may contain several names) and the first/main one into "examiningNurse". Do NOT include the word "Nurse" or any registration number in the name.
+   - Look for examining doctor name or checked doctor box
+   - Look for attending nurse name or checked nurse box
    - IMPORTANT: The follow-up destination "GynaeSupport Nurse" is NOT an attending nurse. Never put it into examiningNurse or attendingNurses.
 
 Extract the information accurately into this EXACT JSON structure:
@@ -358,18 +363,20 @@ Extract the information accurately into this EXACT JSON structure:
     "deliveries": number or null,
     "livingChildren": number or null,
     "abortions": number or null,
-    "complaintsDuration": "< 3 months or 3-12 months or > 1 year",
+    "complaintsDuration": "< 1month or < 1 year or > 1 year or > 5 years or > 10 years",
     "clinicalComplaints": ["List of checked clinical complaints from Station 1"]
   },
   "popStaging": {
     "uterusInside": true or false,
     "pelvicFloorTone": "normal or weak or hypertonic",
-    "anteriorStage": number (0-4) or null,
+    "anteriorStage": number (0-3) or null,
     "middleStage": number (0-4) or null,
-    "posteriorStage": number (0-4) or null,
+    "posteriorStage": number (0-3) or null,
     "highestPopStage": number (0-4) or null,
-    "cervixRemarks": "Handwritten Cervix Appearance (e.g. Erosion, contact bleeding)",
-    "vaginaRemarks": "Handwritten Vagina / Vulva (e.g. Mild atrophic vaginitis, discharge)"
+    "vulvaRemarks": "Vulva appearance or Normal",
+    "cervixRemarks": "Cervix appearance or Normal",
+    "vaginaRemarks": "Vagina appearance or Normal",
+    "uterusRemarks": "Uterus remarks or Normal"
   },
   "vitals": {
     "systolicBp": number or null,
@@ -377,18 +384,20 @@ Extract the information accurately into this EXACT JSON structure:
     "pulseRate": number or null,
     "spo2": number or null,
     "bloodGlucose": number or null,
-    "urineTest": "Normal or Protein+ or Glucose+ or Blood+ or combined string",
-    "pregnancyTest": "neg or pos or not_done"
+    "urineTest": "normal, or comma-separated protein, glucose, blood, or pos, or null",
+    "pregnancyTest": "neg or pos or not_done or null",
+    "ecg": "Normal Sinus or Abnormal or Not Done or null",
+    "ecgNotes": "ECG remarks / handwritten notes or null"
   },
   "diagnoses": ["List of checked diagnoses from Station 4, plus Other if filled"],
-  "medications": ["List of checked medications from Station 5"],
+  "counseling": ["List of checked spec counseling options from Station 5"],
+  "medications": ["List of checked medications from Station 5, plus Other if filled"],
   "ringPessary": true or false,
+  "pessaryType": "ring or ring with support or ring with knob or null",
   "ringPessarySize": number or null,
-  "surgeryDone": true or false,
-  "surgeryType": "Open surgery or Laparoscopy or Vaginal route or null",
   "followUpNeeded": true or false,
-  "followUpDestination": "Follow-up destination clinic or nurse",
-  "surgicalReferral": "Scheer Memorial Hospital or Model Hospital or Local Government Hospital or None",
+  "followUpDestination": "Health Post or GynaeSupport Nurse or null",
+  "surgicalReferral": "Scheer Memorial or Model Hosp or loc government or None",
   "examiningDoctor": "Examining doctor name or checked doctor checkbox on Page 2 or null",
   "attendingDoctors": ["All checked or written doctor names on Page 2, empty list if none"],
   "examiningNurse": "Main attending nurse name (checked checkbox or handwritten) on Page 2 or null",
