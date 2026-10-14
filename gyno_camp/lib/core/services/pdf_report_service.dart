@@ -4804,13 +4804,14 @@ class PdfReportService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Expanded(
+                    flex: 14,
                     child: field(
                       'District',
                       'जिल्ला',
                       patient?.district ?? '',
-                      minBoxes: 10,
-                      maxBoxes: 10,
-                      boxSize: 11.8,
+                      minBoxes: 14,
+                      maxBoxes: 14,
+                      boxSize: 11.5,
                       boxHeight: 20.0,
                       boxMargin: 1.2,
                       bottomPadding: 16.0,
@@ -4818,13 +4819,14 @@ class PdfReportService {
                   ),
                   pw.SizedBox(width: 8),
                   pw.Expanded(
+                    flex: 8,
                     child: field(
                       'Province',
                       'प्रदेश',
                       patient?.province ?? '',
-                      minBoxes: 10,
-                      maxBoxes: 10,
-                      boxSize: 11.8,
+                      minBoxes: 8,
+                      maxBoxes: 8,
+                      boxSize: 11.5,
                       boxHeight: 20.0,
                       boxMargin: 1.2,
                       bottomPadding: 16.0,
@@ -5104,13 +5106,14 @@ class PdfReportService {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Expanded(
+                          flex: 14,
                           child: field(
                             'District',
                             'जिल्ला',
                             patient?.district ?? '',
-                            minBoxes: 8,
-                            maxBoxes: 8,
-                            boxSize: 12.5,
+                            minBoxes: 14,
+                            maxBoxes: 14,
+                            boxSize: 11.8,
                             boxHeight: 18.5,
                             boxMargin: 1.2,
                             bottomPadding: 6.0,
@@ -5118,13 +5121,14 @@ class PdfReportService {
                         ),
                         pw.SizedBox(width: 8),
                         pw.Expanded(
+                          flex: 8,
                           child: field(
                             'Province',
                             'प्रदेश',
                             patient?.province ?? '',
                             minBoxes: 8,
                             maxBoxes: 8,
-                            boxSize: 12.5,
+                            boxSize: 11.8,
                             boxHeight: 18.5,
                             boxMargin: 1.2,
                             bottomPadding: 6.0,
