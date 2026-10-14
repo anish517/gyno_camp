@@ -309,8 +309,8 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT (STATIONS 1-6):
    - "POP posterior wall:" (checkboxes: "stage 0", "stage 1", "stage 2", "stage 3" -> 0-3)
    - "highest POP stage:" (checkboxes: "highest POP stage 0", "stage 1", "stage 2", "stage 3", "stage 4" -> 0-4)
 4. Station 3: Vitals & Point-of-Care Labs:
-   - "urine dipstick / test:" (Checkboxes: "normal", "protein+", "glucose+", "blood+", or "pos")
-   - "pregnancy test (UPT):" (Checkboxes: "neg", "pos", "not done")
+   - "urine test:" (Checkboxes: "normal", "pos")
+   - "pregnancy test (UPT):" (Checkboxes: "neg", "pos")
    - "bloodpressure:" [ systolic ] / [ diastolic ] mmHg
    - "pulse:" [ ] bpm, "saturation / SpO2:" [ ] %, "glucose:" [ ] mg/dL
    - "ECG:" (Checkboxes: "Normal Sinus", "Abnormal", "Not Done", and handwritten "ECG Notes")
@@ -384,8 +384,8 @@ Extract the information accurately into this EXACT JSON structure:
     "pulseRate": number or null,
     "spo2": number or null,
     "bloodGlucose": number or null,
-    "urineTest": "normal, or comma-separated protein, glucose, blood, or pos, or null",
-    "pregnancyTest": "neg or pos or not_done or null",
+    "urineTest": "normal or pos or null",
+    "pregnancyTest": "neg or pos or null",
     "ecg": "Normal Sinus or Abnormal or Not Done or null",
     "ecgNotes": "ECG remarks / handwritten notes or null"
   },

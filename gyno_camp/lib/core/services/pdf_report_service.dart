@@ -4089,6 +4089,10 @@ class PdfReportService {
                 ]
               : <String>[]);
 
+    final List<DoctorProfile> effectiveDoctors = camp?.doctorProfiles.isNotEmpty == true
+        ? camp!.doctorProfiles.toSet().toList()
+        : campDoctors.map(DoctorProfile.parse).where((d) => d.isValid).toSet().toList();
+
     final String? assignedDoctor =
         (visit?.primaryDoctorName != null &&
             visit!.primaryDoctorName!.trim().isNotEmpty)
@@ -4123,12 +4127,12 @@ class PdfReportService {
           .replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '')
           .trim();
       doctorHeaderPart = "Dr. ${sanitizeText(clean)}";
-    } else if (campDoctors.length > 1) {
-      doctorHeaderPart = campDoctors
-          .map((d) => DoctorProfile.parse(d).formattedLabel)
+    } else if (effectiveDoctors.length > 1) {
+      doctorHeaderPart = effectiveDoctors
+          .map((d) => d.formattedLabel)
           .join(', ');
-    } else if (campDoctors.length == 1) {
-      doctorHeaderPart = DoctorProfile.parse(campDoctors.first).formattedLabel;
+    } else if (effectiveDoctors.length == 1) {
+      doctorHeaderPart = effectiveDoctors.first.formattedLabel;
     } else {
       doctorHeaderPart = "";
     }
@@ -4137,6 +4141,7 @@ class PdfReportService {
     final bool showNurse = camp?.showNurseOnForms ?? true;
     final List<NurseProfile> campNurses =
         camp?.nurseProfiles.toSet().toList() ?? <NurseProfile>[];
+    final List<NurseProfile> effectiveNurses = campNurses;
 
     // ── Resolve dynamic master items with graceful fallbacks ──
     // 1. Diagnoses
@@ -4671,8 +4676,8 @@ class PdfReportService {
                       'Age',
                       'उमेर (वर्ष)',
                       patient?.age != null ? '${patient!.age}' : '',
-                      minBoxes: 3,
-                      maxBoxes: 3,
+                      minBoxes: 2,
+                      maxBoxes: 2,
                     ),
                   ),
                 ],
@@ -4833,8 +4838,8 @@ class PdfReportService {
                       'Marital Age',
                       'विवाह उमेर',
                       patient?.maritalAge?.toString() ?? '',
-                      minBoxes: 3,
-                      maxBoxes: 3,
+                      minBoxes: 2,
+                      maxBoxes: 2,
                     ),
                   ),
                 ],
@@ -5993,61 +5998,36 @@ class PdfReportService {
                     style: normal(size: fsSmall),
                   ),
                   pw.SizedBox(width: 8),
-                  pw.Text('urine dipstick: ', style: bold(size: fsSmall)),
+                  pw.Text('urine test: ', style: bold(size: fsSmall)),
                   cb(
                     'normal',
-                    (visit?.urineTest ?? '').toLowerCase().contains('normal'),
-                    bottom: 0,
-                    boxSize: 10.5,
-                    fontSize: 8.0,
-                  ),
-                  cb(
-                    'protein+',
-                    (visit?.urineTest ?? '').toLowerCase().contains('protein'),
-                    bottom: 0,
-                    boxSize: 10.5,
-                    fontSize: 8.0,
-                  ),
-                  cb(
-                    'glucose+',
-                    (visit?.urineTest ?? '').toLowerCase().contains('glucose'),
-                    bottom: 0,
-                    boxSize: 10.5,
-                    fontSize: 8.0,
-                  ),
-                  cb(
-                    'blood+',
-                    (visit?.urineTest ?? '').toLowerCase().contains('blood'),
-                    bottom: 0,
-                    boxSize: 10.5,
-                    fontSize: 8.0,
-                  ),
-                  pw.SizedBox(width: 8),
-                  pw.Text('pregnancy test (UPT): ', style: bold(size: fsSmall)),
-                  cb(
-                    'neg',
-                    (visit?.pregnancyTest ?? '').toLowerCase().startsWith(
-                      'neg',
-                    ),
+                    (visit?.urineTest ?? '').toLowerCase().contains('normal') ||
+                        (visit != null && (visit.urineTest ?? '').isEmpty),
                     bottom: 0,
                     boxSize: 10.5,
                     fontSize: 8.0,
                   ),
                   cb(
                     'pos',
-                    (visit?.pregnancyTest ?? '').toLowerCase().startsWith(
-                      'pos',
-                    ),
+                    (visit?.urineTest ?? '').toLowerCase().contains('pos') ||
+                        (visit?.urineTest ?? '').toLowerCase().contains('+'),
+                    bottom: 0,
+                    boxSize: 10.5,
+                    fontSize: 8.0,
+                  ),
+                  pw.SizedBox(width: 12),
+                  pw.Text('pregnancy test: ', style: bold(size: fsSmall)),
+                  cb(
+                    'neg',
+                    (visit?.pregnancyTest ?? '').toLowerCase().startsWith('neg') ||
+                        (visit != null && (visit.pregnancyTest ?? '').isEmpty),
                     bottom: 0,
                     boxSize: 10.5,
                     fontSize: 8.0,
                   ),
                   cb(
-                    'not done',
-                    (visit?.pregnancyTest ?? '').toLowerCase().contains(
-                          'not',
-                        ) ||
-                        (visit != null && (visit.pregnancyTest ?? '').isEmpty),
+                    'pos',
+                    (visit?.pregnancyTest ?? '').toLowerCase().startsWith('pos'),
                     bottom: 0,
                     boxSize: 10.5,
                     fontSize: 8.0,
@@ -6817,7 +6797,7 @@ class PdfReportService {
                 ),
                 // 2. Attending Nurse
                 pw.SizedBox(
-                  width: 155,
+                  width: (allNursesChecklist || effectiveNurses.length > 1) ? 195 : 155,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.center,
                     children: [
@@ -6827,40 +6807,86 @@ class PdfReportService {
                         color: PdfColors.black,
                       ),
                       pw.SizedBox(height: 2.0),
-                      pw.Text(
-                        (!showNurse || blankNurseLines)
-                            ? 'Attending Nurse'
-                            : (nurse != null)
-                            ? sanitizeText(nurse.displayName)
-                            : (visit != null &&
-                                  visit.primaryNurseName != null &&
-                                  visit.primaryNurseName!.isNotEmpty)
-                            ? sanitizeText(visit.primaryNurseName!)
-                            : (campNurses.isNotEmpty)
-                            ? sanitizeText(campNurses.first.displayName)
-                            : 'Attending Nurse',
-                        style: bold(size: fsSmall),
-                      ),
-                      pw.Text(
-                        (!showNurse || blankNurseLines)
-                            ? 'Nurse Signature & NNC: ______________'
-                            : (nurse?.hasRegistration == true)
-                            ? 'NNC No: ${nurse!.registrationNumber}'
-                            : (campNurses.isNotEmpty &&
-                                  campNurses.first.hasRegistration)
-                            ? 'NNC No: ${campNurses.first.registrationNumber}'
-                            : 'Nurse Signature & NNC: ______________',
-                        style: const pw.TextStyle(
-                          fontSize: 6.8,
-                          color: PdfColors.grey700,
+                      if (!showNurse || blankNurseLines) ...[
+                        pw.Text('Attending Nurse', style: bold(size: fsSmall)),
+                        pw.Text(
+                          'Nurse Signature & NNC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
                         ),
-                      ),
+                      ] else if (allNursesChecklist || (effectiveNurses.length > 1 && nurse == null && visit == null)) ...[
+                        pw.Text('Attending Nurse (Tick on Paper):', style: bold(size: 7.0)),
+                        pw.SizedBox(height: 1.5),
+                        pw.Wrap(
+                          alignment: pw.WrapAlignment.center,
+                          spacing: 4,
+                          runSpacing: 2,
+                          children: effectiveNurses.map((n) {
+                            final label = n.hasRegistration
+                                ? '${n.displayName} (${n.registrationNumber})'
+                                : n.displayName;
+                            return cb(label, false, bottom: 0, boxSize: 8.5, fontSize: 6.8);
+                          }).toList(),
+                        ),
+                        pw.SizedBox(height: 1.5),
+                        pw.Text(
+                          'Nurse Signature: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else if (nurse != null) ...[
+                        pw.Text(sanitizeText(nurse.displayName), style: bold(size: fsSmall)),
+                        pw.Text(
+                          nurse.hasRegistration
+                              ? 'NNC No: ${nurse.registrationNumber}'
+                              : 'Nurse Signature & NNC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else if (visit != null &&
+                          visit.primaryNurseName != null &&
+                          visit.primaryNurseName!.isNotEmpty) ...[
+                        pw.Text(sanitizeText(visit.primaryNurseName!), style: bold(size: fsSmall)),
+                        pw.Text(
+                          'Nurse Signature & NNC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else if (effectiveNurses.isNotEmpty) ...[
+                        pw.Text(sanitizeText(effectiveNurses.first.displayName), style: bold(size: fsSmall)),
+                        pw.Text(
+                          effectiveNurses.first.hasRegistration
+                              ? 'NNC No: ${effectiveNurses.first.registrationNumber}'
+                              : 'Nurse Signature & NNC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else ...[
+                        pw.Text('Attending Nurse', style: bold(size: fsSmall)),
+                        pw.Text(
+                          'Nurse Signature & NNC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 // 3. Examining Doctor
                 pw.SizedBox(
-                  width: 170,
+                  width: (allDoctorsChecklist || effectiveDoctors.length > 1) ? 220 : 170,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
@@ -6870,31 +6896,78 @@ class PdfReportService {
                         color: PdfColors.black,
                       ),
                       pw.SizedBox(height: 2.0),
-                      pw.Text(
-                        (!showDoctor || blankDoctorLines)
-                            ? 'Examining Doctor'
-                            : (doctor != null)
-                            ? sanitizeText(doctor.displayName)
-                            : (visit != null &&
-                                  visit.primaryDoctorName != null &&
-                                  visit.primaryDoctorName!.isNotEmpty)
-                            ? sanitizeText(visit.primaryDoctorName!)
-                            : (campDoctors.isNotEmpty)
-                            ? sanitizeText(campDoctors.first)
-                            : 'Examining Doctor',
-                        style: bold(size: fsSmall),
-                      ),
-                      pw.Text(
-                        (!showDoctor || blankDoctorLines)
-                            ? 'Doctor Signature & NMC: ______________'
-                            : (doctor?.hasNmc == true)
-                            ? 'NMC No: ${doctor!.nmcNumber}'
-                            : 'Doctor Signature & NMC: ______________',
-                        style: const pw.TextStyle(
-                          fontSize: 6.8,
-                          color: PdfColors.grey700,
+                      if (!showDoctor || blankDoctorLines) ...[
+                        pw.Text('Examining Doctor', style: bold(size: fsSmall)),
+                        pw.Text(
+                          'Doctor Signature & NMC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
                         ),
-                      ),
+                      ] else if (allDoctorsChecklist || (effectiveDoctors.length > 1 && doctor == null && visit == null)) ...[
+                        pw.Text('Examining Doctor (Tick on Paper):', style: bold(size: 7.0)),
+                        pw.SizedBox(height: 1.5),
+                        pw.Wrap(
+                          alignment: pw.WrapAlignment.end,
+                          spacing: 4,
+                          runSpacing: 2,
+                          children: effectiveDoctors.map((p) {
+                            final label = p.hasNmc ? '${p.displayName} (${p.nmcNumber})' : p.displayName;
+                            return cb(label, false, bottom: 0, boxSize: 8.5, fontSize: 6.8);
+                          }).toList(),
+                        ),
+                        pw.SizedBox(height: 1.5),
+                        pw.Text(
+                          'Doctor Signature: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else if (doctor != null) ...[
+                        pw.Text(sanitizeText(doctor.displayName), style: bold(size: fsSmall)),
+                        pw.Text(
+                          doctor.hasNmc
+                              ? 'NMC No: ${doctor.nmcNumber}'
+                              : 'Doctor Signature & NMC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else if (visit != null &&
+                          visit.primaryDoctorName != null &&
+                          visit.primaryDoctorName!.isNotEmpty) ...[
+                        pw.Text(sanitizeText(visit.primaryDoctorName!), style: bold(size: fsSmall)),
+                        pw.Text(
+                          'Doctor Signature & NMC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else if (effectiveDoctors.isNotEmpty) ...[
+                        pw.Text(sanitizeText(effectiveDoctors.first.displayName), style: bold(size: fsSmall)),
+                        pw.Text(
+                          effectiveDoctors.first.hasNmc
+                              ? 'NMC No: ${effectiveDoctors.first.nmcNumber}'
+                              : 'Doctor Signature & NMC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else ...[
+                        pw.Text('Examining Doctor', style: bold(size: fsSmall)),
+                        pw.Text(
+                          'Doctor Signature & NMC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 6.8,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

@@ -2835,37 +2835,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   const Text('Point-of-Care Lab Tests (प्रयोगशाला जाँच):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark)),
                   const SizedBox(height: 10),
-                  const Text('Urine Dipstick (पिसाब जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text('Urine Test (पिसाब जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   Builder(
                     builder: (context) {
                       final currentUrine = (vitals['urineTest'] as String? ?? 'normal').toLowerCase();
                       final isNormal = currentUrine == 'normal' || currentUrine.isEmpty;
-                      final hasProtein = currentUrine.contains('protein');
-                      final hasGlucose = currentUrine.contains('glucose');
-                      final hasBlood = currentUrine.contains('blood');
-                      final hasOtherPos = !isNormal && !hasProtein && !hasGlucose && !hasBlood && (currentUrine.contains('pos') || currentUrine == '+');
-
-                      void updateUrine(String type, bool selected) {
-                        if (type == 'normal') {
-                          vm.updateVital('urineTest', 'normal');
-                          return;
-                        }
-                        if (type == 'pos') {
-                          vm.updateVital('urineTest', selected ? 'pos' : 'normal');
-                          return;
-                        }
-                        final parts = <String>[];
-                        if (type == 'protein' ? selected : hasProtein) parts.add('protein');
-                        if (type == 'glucose' ? selected : hasGlucose) parts.add('glucose');
-                        if (type == 'blood' ? selected : hasBlood) parts.add('blood');
-
-                        if (parts.isEmpty) {
-                          vm.updateVital('urineTest', 'normal');
-                        } else {
-                          vm.updateVital('urineTest', parts.join(', '));
-                        }
-                      }
+                      final isPos = !isNormal && (currentUrine.contains('pos') || currentUrine.contains('+') || currentUrine.contains('protein') || currentUrine.contains('glucose') || currentUrine.contains('blood'));
 
                       return Wrap(
                         spacing: 8,
@@ -2880,57 +2856,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                               fontWeight: isNormal ? FontWeight.bold : FontWeight.normal,
                               fontSize: 11.5,
                             ),
-                            onSelected: (sel) => updateUrine('normal', true),
+                            onSelected: (_) => vm.updateVital('urineTest', 'normal'),
                           ),
-                          FilterChip(
-                            label: const Text('Protein+ (प्रोटिन)'),
-                            selected: hasProtein,
-                            selectedColor: Colors.amber.shade100,
-                            checkmarkColor: Colors.amber.shade900,
+                          ChoiceChip(
+                            label: const Text('Positive (पोजिटिभ)'),
+                            selected: isPos,
+                            selectedColor: Colors.purple.shade100,
                             labelStyle: TextStyle(
-                              color: hasProtein ? Colors.amber.shade900 : const Color(0xFF334155),
-                              fontWeight: hasProtein ? FontWeight.bold : FontWeight.normal,
+                              color: isPos ? Colors.purple.shade900 : const Color(0xFF334155),
+                              fontWeight: isPos ? FontWeight.bold : FontWeight.normal,
                               fontSize: 11.5,
                             ),
-                            onSelected: (sel) => updateUrine('protein', sel),
+                            onSelected: (_) => vm.updateVital('urineTest', 'pos'),
                           ),
-                          FilterChip(
-                            label: const Text('Glucose+ (ग्लुकोज)'),
-                            selected: hasGlucose,
-                            selectedColor: Colors.orange.shade100,
-                            checkmarkColor: Colors.deepOrange,
-                            labelStyle: TextStyle(
-                              color: hasGlucose ? Colors.deepOrange : const Color(0xFF334155),
-                              fontWeight: hasGlucose ? FontWeight.bold : FontWeight.normal,
-                              fontSize: 11.5,
-                            ),
-                            onSelected: (sel) => updateUrine('glucose', sel),
-                          ),
-                          FilterChip(
-                            label: const Text('Blood+ (रगत)'),
-                            selected: hasBlood,
-                            selectedColor: Colors.red.shade100,
-                            checkmarkColor: Colors.red.shade900,
-                            labelStyle: TextStyle(
-                              color: hasBlood ? Colors.red.shade900 : const Color(0xFF334155),
-                              fontWeight: hasBlood ? FontWeight.bold : FontWeight.normal,
-                              fontSize: 11.5,
-                            ),
-                            onSelected: (sel) => updateUrine('blood', sel),
-                          ),
-                          if (hasOtherPos)
-                            FilterChip(
-                              label: const Text('Positive (पोजिटिभ)'),
-                              selected: true,
-                              selectedColor: Colors.purple.shade100,
-                              checkmarkColor: Colors.purple.shade900,
-                              labelStyle: TextStyle(
-                                color: Colors.purple.shade900,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11.5,
-                              ),
-                              onSelected: (sel) => updateUrine('pos', sel),
-                            ),
                         ],
                       );
                     },
@@ -2944,13 +2882,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     children: [
                       {'val': 'neg', 'label': 'Negative (नेगेटिभ)'},
                       {'val': 'pos', 'label': 'Positive (पोजिटिभ)'},
-                      {'val': 'not_done', 'label': 'Not Done (जाँच नगरिएको)'},
                     ].map((item) {
                       final rawPreg = (vitals['pregnancyTest'] as String? ?? 'neg').toLowerCase().trim();
                       final isSelected = rawPreg == item['val'] ||
                           (item['val'] == 'neg' && (rawPreg == 'negative' || rawPreg.startsWith('neg'))) ||
-                          (item['val'] == 'pos' && (rawPreg == 'positive' || rawPreg.startsWith('pos'))) ||
-                          (item['val'] == 'not_done' && (rawPreg.contains('not') || rawPreg.contains('done')));
+                          (item['val'] == 'pos' && (rawPreg == 'positive' || rawPreg.startsWith('pos')));
                       return ChoiceChip(
                         label: Text(item['label']!),
                         selected: isSelected,

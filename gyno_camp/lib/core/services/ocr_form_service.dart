@@ -798,53 +798,26 @@ class OcrFormService {
       final rawUrine = findValueForLabel(['urine test', 'urine dipstick', 'urine', 'पिसाब जाँच']);
       final urineLineText = (rawUrine ?? '').toLowerCase();
 
-      final urineRelatedLines = lines
-          .where((l) => l.toLowerCase().contains('urine') || l.toLowerCase().contains('dipstick') || l.toLowerCase().contains('पिसाब'))
-          .map((l) => l.toLowerCase())
-          .toList();
-      final urineContext = '$urineLineText ${urineRelatedLines.join(' ')}';
-
       final hasUrineBoxes = rawUrine != null && RegExp(r'\[|\]|\(|\)|[☐口Ü☑☒]').hasMatch(rawUrine);
 
-      final urineProtein = isOptionSelected(['protein+', 'urine protein', 'protein: +', 'प्रोटिन+']) ||
-          (!hasUrineBoxes && rawUrine != null && rawUrine.toLowerCase().contains('protein') && !rawUrine.toLowerCase().contains('no protein') && !rawUrine.toLowerCase().contains('nil'));
+      final urinePos = isOptionSelected(['pos', 'positive', 'urine: pos', 'urine test: pos', 'पोजिटिभ']) ||
+          isOptionSelected(['protein+', 'glucose+', 'blood+']) ||
+          (!hasUrineBoxes && rawUrine != null && (urineLineText.contains('pos') || urineLineText.contains('+') || urineLineText.contains('protein') || urineLineText.contains('glucose') || urineLineText.contains('blood')));
 
-      final urineGlucose = isOptionSelected(['glucose+', 'urine glucose', 'urine sugar', 'glucose: +', 'ग्लुकोज+']) ||
-          (!hasUrineBoxes && rawUrine != null && (rawUrine.toLowerCase().contains('glucose+') || rawUrine.toLowerCase().contains('sugar+')));
-
-      final urineBlood = isOptionSelected(['blood+', 'urine blood', 'dipstick blood', 'blood: +', 'रगत+']) ||
-          (!hasUrineBoxes && rawUrine != null && rawUrine.toLowerCase().contains('blood+'));
-
-      final urineNormal = (rawUrine != null && (urineLineText.contains('normal') || urineLineText.contains('nil') || urineLineText.contains('neg'))) ||
-          isOptionSelected(['urine: normal', 'urine test: normal', 'dipstick: normal']) ||
-          (!urineProtein && !urineGlucose && !urineBlood && urineContext.contains('normal'));
-
-      final urineParts = <String>[];
-      if (urineProtein) urineParts.add('protein');
-      if (urineGlucose) urineParts.add('glucose');
-      if (urineBlood) urineParts.add('blood');
-
-      if (urineParts.isNotEmpty) {
-        vitals['urineTest'] = urineParts.join(', ');
-      } else if (urineNormal || rawUrine == null || rawUrine.isEmpty) {
-        vitals['urineTest'] = 'normal';
+      if (urinePos) {
+        vitals['urineTest'] = 'pos';
       } else {
-        vitals['urineTest'] = urineLineText.contains('pos') ? 'pos' : 'normal';
+        vitals['urineTest'] = 'normal';
       }
 
       final rawPregnancy = findValueForLabel(['pregnancy test', 'pregnancy', 'upt', 'hcg', 'गर्भ जाँच']);
       final pregLower = (rawPregnancy ?? '').toLowerCase();
       final hasPregBoxes = rawPregnancy != null && RegExp(r'\[|\]|\(|\)|[☐口Ü☑☒]').hasMatch(rawPregnancy);
 
-      final pregNotDone = isOptionSelected(['not done', 'upt: not done', 'pregnancy: not done', 'pregnancy test: not done', 'जाँच नगरिएको']) ||
-          (!hasPregBoxes && pregLower.contains('not'));
+      final pregPos = isOptionSelected(['positive', 'pos', 'hcg: pos', 'pregnancy: pos', 'pregnancy test: pos', 'upt: pos', 'upt: positive', 'पोजिटिभ']) ||
+          (!hasPregBoxes && pregLower.contains('pos') && !pregLower.contains('neg'));
 
-      final pregPos = isOptionSelected(['positive', 'pos', 'hcg: pos', 'pregnancy: pos', 'pregnancy test: pos', 'upt: pos', 'upt: positive']) ||
-          (!hasPregBoxes && pregLower.contains('pos'));
-
-      if (pregNotDone) {
-        vitals['pregnancyTest'] = 'not_done';
-      } else if (pregPos) {
+      if (pregPos) {
         vitals['pregnancyTest'] = 'pos';
       } else {
         vitals['pregnancyTest'] = 'neg';

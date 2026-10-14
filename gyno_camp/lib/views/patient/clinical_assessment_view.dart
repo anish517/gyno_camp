@@ -1367,32 +1367,13 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                     ),
                     const SizedBox(height: 12),
-                    const Text('Urine Dipstick (पिसाब जाँच - Multi-reagent):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const Text('Urine Test (पिसाब जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 6),
                     Builder(
                       builder: (context) {
                         final currentUrine = (state.urineTest ?? 'normal').toLowerCase();
                         final isNormal = currentUrine == 'normal' || currentUrine.isEmpty;
-                        final hasProtein = currentUrine.contains('protein');
-                        final hasGlucose = currentUrine.contains('glucose');
-                        final hasBlood = currentUrine.contains('blood');
-
-                        void updateUrine(String type, bool selected) {
-                          if (type == 'normal') {
-                            vm.setVitals(urineTest: 'normal');
-                            return;
-                          }
-                          final parts = <String>[];
-                          if (type == 'protein' ? selected : hasProtein) parts.add('protein');
-                          if (type == 'glucose' ? selected : hasGlucose) parts.add('glucose');
-                          if (type == 'blood' ? selected : hasBlood) parts.add('blood');
-
-                          if (parts.isEmpty) {
-                            vm.setVitals(urineTest: 'normal');
-                          } else {
-                            vm.setVitals(urineTest: parts.join(', '));
-                          }
-                        }
+                        final isPos = !isNormal && (currentUrine.contains('pos') || currentUrine.contains('+') || currentUrine.contains('protein') || currentUrine.contains('glucose') || currentUrine.contains('blood'));
 
                         return Wrap(
                           spacing: 8,
@@ -1407,43 +1388,18 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                                 fontWeight: isNormal ? FontWeight.bold : FontWeight.normal,
                                 fontSize: 11.5,
                               ),
-                              onSelected: (sel) => updateUrine('normal', true),
+                              onSelected: (_) => vm.setVitals(urineTest: 'normal'),
                             ),
-                            FilterChip(
-                              label: const Text('Protein+ (प्रोटिन)'),
-                              selected: hasProtein,
-                              selectedColor: Colors.amber.shade100,
-                              checkmarkColor: Colors.amber.shade900,
+                            ChoiceChip(
+                              label: const Text('Positive (पोजिटिभ)'),
+                              selected: isPos,
+                              selectedColor: Colors.purple.shade100,
                               labelStyle: TextStyle(
-                                color: hasProtein ? Colors.amber.shade900 : const Color(0xFF334155),
-                                fontWeight: hasProtein ? FontWeight.bold : FontWeight.normal,
+                                color: isPos ? Colors.purple.shade900 : const Color(0xFF334155),
+                                fontWeight: isPos ? FontWeight.bold : FontWeight.normal,
                                 fontSize: 11.5,
                               ),
-                              onSelected: (sel) => updateUrine('protein', sel),
-                            ),
-                            FilterChip(
-                              label: const Text('Glucose+ (ग्लुकोज)'),
-                              selected: hasGlucose,
-                              selectedColor: Colors.orange.shade100,
-                              checkmarkColor: Colors.deepOrange,
-                              labelStyle: TextStyle(
-                                color: hasGlucose ? Colors.deepOrange : const Color(0xFF334155),
-                                fontWeight: hasGlucose ? FontWeight.bold : FontWeight.normal,
-                                fontSize: 11.5,
-                              ),
-                              onSelected: (sel) => updateUrine('glucose', sel),
-                            ),
-                            FilterChip(
-                              label: const Text('Blood+ (रगत)'),
-                              selected: hasBlood,
-                              selectedColor: Colors.red.shade100,
-                              checkmarkColor: Colors.red.shade900,
-                              labelStyle: TextStyle(
-                                color: hasBlood ? Colors.red.shade900 : const Color(0xFF334155),
-                                fontWeight: hasBlood ? FontWeight.bold : FontWeight.normal,
-                                fontSize: 11.5,
-                              ),
-                              onSelected: (sel) => updateUrine('blood', sel),
+                              onSelected: (_) => vm.setVitals(urineTest: 'pos'),
                             ),
                           ],
                         );
@@ -1458,13 +1414,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       children: [
                         {'val': 'neg', 'label': 'Negative (नेगेटिभ)'},
                         {'val': 'pos', 'label': 'Positive (पोजिटिभ)'},
-                        {'val': 'not_done', 'label': 'Not Done (जाँच नगरिएको)'},
                       ].map((item) {
                         final rawPreg = (state.pregnancyTest ?? 'neg').toLowerCase().trim();
                         final isSelected = rawPreg == item['val'] ||
                             (item['val'] == 'neg' && (rawPreg == 'negative' || rawPreg.startsWith('neg'))) ||
-                            (item['val'] == 'pos' && (rawPreg == 'positive' || rawPreg.startsWith('pos'))) ||
-                            (item['val'] == 'not_done' && (rawPreg.contains('not') || rawPreg.contains('done')));
+                            (item['val'] == 'pos' && (rawPreg == 'positive' || rawPreg.startsWith('pos')));
                         return ChoiceChip(
                           label: Text(item['label']!),
                           selected: isSelected,
