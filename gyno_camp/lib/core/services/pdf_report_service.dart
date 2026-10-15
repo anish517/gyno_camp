@@ -4987,13 +4987,11 @@ class PdfReportService {
                       children: [
                         pw.Row(
                           children: [
-                            pw.Text(
+                            ne(
                               'Consent for Treatment / उपचारको लागि सहमति: ',
-                              style: pw.TextStyle(
-                                fontSize: 7.8,
-                                fontWeight: pw.FontWeight.bold,
-                                color: dark,
-                              ),
+                              size: 7.8,
+                              bold: true,
+                              color: 0xFF0F172A,
                             ),
                             cb(
                               'YES',
@@ -5012,13 +5010,11 @@ class PdfReportService {
                         pw.SizedBox(height: 3.0),
                         pw.Row(
                           children: [
-                            pw.Text(
+                            ne(
                               'Consent for Storage / स्वास्थ्य विवरण भण्डारण सहमति: ',
-                              style: pw.TextStyle(
-                                fontSize: 7.8,
-                                fontWeight: pw.FontWeight.bold,
-                                color: dark,
-                              ),
+                              size: 7.8,
+                              bold: true,
+                              color: 0xFF0F172A,
                             ),
                             cb(
                               'YES',
@@ -5306,13 +5302,16 @@ class PdfReportService {
             bool checked, {
             double? textWidth,
             double bottom = 0.0,
+            bool isExpanded = false,
             double boxSize = 10.5,
             double fontSize = 8.0,
           }) => pw.Padding(
             padding: pw.EdgeInsets.only(right: 6, bottom: bottom),
             child: pw.Row(
-              mainAxisSize: pw.MainAxisSize.min,
               crossAxisAlignment: pw.CrossAxisAlignment.center,
+              mainAxisSize: isExpanded
+                  ? pw.MainAxisSize.max
+                  : pw.MainAxisSize.min,
               children: [
                 pw.Container(
                   width: boxSize,
@@ -5343,10 +5342,15 @@ class PdfReportService {
                         )
                       : pw.SizedBox(),
                 ),
-                pw.Text(
-                  sanitizeText(label),
-                  style: pw.TextStyle(fontSize: fontSize),
-                ),
+                if (textWidth != null)
+                  pw.SizedBox(
+                    width: textWidth,
+                    child: ne(label, size: fontSize, maxWidth: textWidth),
+                  )
+                else if (isExpanded)
+                  pw.Expanded(child: ne(label, size: fontSize))
+                else
+                  ne(label, size: fontSize),
               ],
             ),
           );

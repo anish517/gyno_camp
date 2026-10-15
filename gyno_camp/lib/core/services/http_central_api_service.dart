@@ -121,7 +121,7 @@ class HttpCentralApiService implements ICentralApiService {
       }
     } catch (_) {}
 
-    return 'http://192.168.1.13:8080';
+    return 'http://192.168.1.9:8080';
   }
 
   bool simulateNetworkFailure = false;
@@ -193,7 +193,9 @@ class HttpCentralApiService implements ICentralApiService {
   Future<bool> _testEndpoint(String targetUrl) async {
     try {
       final uri = Uri.parse('$targetUrl/health');
-      final res = await _client.get(uri).timeout(const Duration(milliseconds: 1500));
+      final res = await _client
+          .get(uri)
+          .timeout(const Duration(milliseconds: 1500));
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -368,7 +370,9 @@ class HttpCentralApiService implements ICentralApiService {
   }
 
   /// Fetches all active camps from the Central Cloud API
-  Future<List<CampModel>> fetchCentralCamps({bool bypassCooldown = false}) async {
+  Future<List<CampModel>> fetchCentralCamps({
+    bool bypassCooldown = false,
+  }) async {
     if (!isConfigured) return [];
     if (!bypassCooldown && isServerCooldownActive) return [];
     await ensureServerConnected();
@@ -391,7 +395,9 @@ class HttpCentralApiService implements ICentralApiService {
   }
 
   /// Fetches all staff users from the Central Cloud API
-  Future<List<UserModel>> fetchCentralUsers({bool bypassCooldown = false}) async {
+  Future<List<UserModel>> fetchCentralUsers({
+    bool bypassCooldown = false,
+  }) async {
     if (!isConfigured) return [];
     if (!bypassCooldown && isServerCooldownActive) return [];
     await ensureServerConnected();
@@ -446,7 +452,9 @@ class HttpCentralApiService implements ICentralApiService {
   }
 
   /// Fetches all devices known to the Central Cloud Server
-  Future<List<DeviceModel>> fetchCentralDevices({bool bypassCooldown = false}) async {
+  Future<List<DeviceModel>> fetchCentralDevices({
+    bool bypassCooldown = false,
+  }) async {
     if (!isConfigured) return [];
     if (!bypassCooldown && isServerCooldownActive) return [];
     await ensureServerConnected();
@@ -469,7 +477,10 @@ class HttpCentralApiService implements ICentralApiService {
   }
 
   /// Checks device status by hardware fingerprint from Central Cloud Server
-  Future<DeviceModel?> checkCentralDeviceStatus(String fingerprint, {bool bypassCooldown = false}) async {
+  Future<DeviceModel?> checkCentralDeviceStatus(
+    String fingerprint, {
+    bool bypassCooldown = false,
+  }) async {
     if (!isConfigured) return null;
     if (!bypassCooldown && isServerCooldownActive) return null;
     await ensureServerConnected();
