@@ -4713,13 +4713,44 @@ class PdfReportService {
                     ),
                     pw.SizedBox(width: 6),
                     pw.Expanded(
-                      flex: 22,
-                      child: field(
-                        'Relation',
-                        'नाता (M/SM/GP)',
-                        patient?.relationshipType ?? '',
-                        minBoxes: 4,
-                        maxBoxes: 4,
+                      flex: 26,
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Row(
+                            children: [
+                              pw.Text(
+                                'Relation: ',
+                                style: pw.TextStyle(
+                                  fontSize: 8.0,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: dark,
+                                ),
+                              ),
+                              ne('नाता', size: 7.2, color: 0xFF475569),
+                            ],
+                          ),
+                          pw.SizedBox(height: 2),
+                          pw.Row(
+                            children: [
+                              cb(
+                                'Husband / श्रीमान्',
+                                (patient?.relationshipType ?? '').toLowerCase().contains('husband'),
+                                bottom: 0,
+                                boxSize: 9.5,
+                                fontSize: 7.2,
+                              ),
+                              pw.SizedBox(width: 4),
+                              cb(
+                                'Father / बुबा',
+                                (patient?.relationshipType ?? '').toLowerCase().contains('father'),
+                                bottom: 0,
+                                boxSize: 9.5,
+                                fontSize: 7.2,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -4844,29 +4875,40 @@ class PdfReportService {
                   ),
                 ],
               ),
-              // Row 5: Dedicated Location Row with 14 Character Boxes for Palika and District
+              // Row 5: Dedicated Location Row with Character Boxes for Palika, District, and Province
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Expanded(
-                    flex: 50,
+                    flex: 40,
                     child: field(
                       'Palika',
                       'गाउँ / न.पा.',
                       palikaVal,
-                      minBoxes: 14,
-                      maxBoxes: 14,
+                      minBoxes: 12,
+                      maxBoxes: 12,
                     ),
                   ),
-                  pw.SizedBox(width: 8),
+                  pw.SizedBox(width: 6),
                   pw.Expanded(
-                    flex: 50,
+                    flex: 36,
                     child: field(
                       'District',
                       'जिल्ला',
                       patient?.district ?? '',
-                      minBoxes: 14,
-                      maxBoxes: 14,
+                      minBoxes: 11,
+                      maxBoxes: 11,
+                    ),
+                  ),
+                  pw.SizedBox(width: 6),
+                  pw.Expanded(
+                    flex: 24,
+                    child: field(
+                      'Province',
+                      'प्रदेश',
+                      camp?.province ?? '',
+                      minBoxes: 8,
+                      maxBoxes: 8,
                     ),
                   ),
                 ],
@@ -4946,7 +4988,7 @@ class PdfReportService {
                         pw.Row(
                           children: [
                             pw.Text(
-                              'Consent for Treatment / उपचार सहमति: ',
+                              'Consent for Treatment / उपचारको लागि सहमति: ',
                               style: pw.TextStyle(
                                 fontSize: 7.8,
                                 fontWeight: pw.FontWeight.bold,
@@ -4971,7 +5013,7 @@ class PdfReportService {
                         pw.Row(
                           children: [
                             pw.Text(
-                              'Consent for Storage / अभिलेख सहमति: ',
+                              'Consent for Storage / स्वास्थ्य विवरण भण्डारण सहमति: ',
                               style: pw.TextStyle(
                                 fontSize: 7.8,
                                 fontWeight: pw.FontWeight.bold,
@@ -5022,449 +5064,13 @@ class PdfReportService {
             ],
           );
 
-          // ── Helper to check complaint durations and options ──
-          final visitComplaints =
-              visit?.anamnesisComplaints ?? const <String, dynamic>{};
-          final complaintsList =
-              (visitComplaints['clinicalComplaints'] as List?)
-                  ?.map((e) => e.toString().toLowerCase())
-                  .toList() ??
-              [];
-
-          bool isDurationMatch(String d, String durationVal) {
-            if (durationVal.isEmpty) return false;
-            final dNorm = d.toLowerCase().replaceAll(' ', '');
-            final vNorm = durationVal.toLowerCase().replaceAll(' ', '');
-            if (dNorm == vNorm) return true;
-            if (d.contains('< 1month') &&
-                (durationVal.contains('< 1m') ||
-                    durationVal.contains('<1m') ||
-                    durationVal.contains('< 3m') ||
-                    durationVal.contains('1 month'))) {
-              return true;
-            }
-            if (d.contains('< 1 year') &&
-                (durationVal.contains('< 1 y') ||
-                    durationVal.contains('<1y') ||
-                    durationVal.contains('3-12') ||
-                    durationVal.contains('1 year'))) {
-              return true;
-            }
-            if (d.contains('> 1 year') &&
-                (durationVal.contains('> 1 y') ||
-                    durationVal.contains('>1y') ||
-                    durationVal == '> 1 year')) {
-              return true;
-            }
-            if (d.contains('> 5 years') &&
-                (durationVal.contains('> 5') ||
-                    durationVal.contains('>5') ||
-                    durationVal.contains('5 year'))) {
-              return true;
-            }
-            if (d.contains('> 10 years') &&
-                (durationVal.contains('> 10') ||
-                    durationVal.contains('>10') ||
-                    durationVal.contains('10 year'))) {
-              return true;
-            }
-            return false;
-          }
-
-          bool isOptionMatch(String opt, List<String> selectedOptions) {
-            final optLower = opt.toLowerCase().trim();
-            return selectedOptions.any(
-              (s) =>
-                  s == optLower || s.contains(optLower) || optLower.contains(s),
-            );
-          }
-
-          // ── Clean 2-Column Chief Complaint Row (Exact Scan Layout) ──
-          pw.Widget buildComplaintRow({
-            required String key,
-            required String nameEn,
-            required String nameNe,
-            required bool hasDuration,
-            bool isInfertilityDuration = false,
-            List<String> options = const [],
-            String? optionPrefix,
-          }) {
-            final cData = visitComplaints[key] as Map<String, dynamic>?;
-            final bool isTicked =
-                cData != null ||
-                (key == 'prolapse' &&
-                    complaintsList.any(
-                      (c) =>
-                          c.contains('prolapse') ||
-                          c.contains('hanging') ||
-                          c.contains('पाठेघर'),
-                    )) ||
-                (key == 'discharge' &&
-                    complaintsList.any(
-                      (c) =>
-                          c.contains('discharge') ||
-                          c.contains('itching') ||
-                          c.contains('स्राव'),
-                    )) ||
-                (key == 'urine' &&
-                    complaintsList.any(
-                      (c) =>
-                          c.contains('urine') ||
-                          c.contains('micturition') ||
-                          c.contains('पिसाब'),
-                    )) ||
-                (key == 'stool' &&
-                    complaintsList.any(
-                      (c) => c.contains('stool') || c.contains('दिसा'),
-                    )) ||
-                (key == 'menstrual' &&
-                    complaintsList.any(
-                      (c) => c.contains('menstrual') || c.contains('महिनावारी'),
-                    )) ||
-                (key == 'infertility' &&
-                    complaintsList.any(
-                      (c) => c.contains('infertility') || c.contains('बाँझोपन'),
-                    )) ||
-                (key == 'lower_abdomen_pain' &&
-                    complaintsList.any(
-                      (c) =>
-                          c.contains('abdomen') ||
-                          c.contains('तल्लो पेट') ||
-                          c == 'pain',
-                    )) ||
-                (key == 'lower_back_pain' &&
-                    complaintsList.any(
-                      (c) =>
-                          c.contains('back') ||
-                          c.contains('ढाड') ||
-                          c.contains('कम्मर') ||
-                          c == 'pain',
-                    )) ||
-                (key == 'checkup' &&
-                    complaintsList.any(
-                      (c) => c.contains('checkup') || c.contains('जाँच'),
-                    ));
-
-            final String durVal =
-                (cData?['duration']?.toString() ??
-                        (visitComplaints['complaintsDuration']?.toString() ??
-                            ''))
-                    .toLowerCase()
-                    .trim();
-            final List<String> selOpts = (cData?['options'] is List)
-                ? (cData!['options'] as List)
-                      .map((e) => e.toString().toLowerCase().trim())
-                      .toList()
-                : <String>[];
-            final String remVal = cData?['remarks']?.toString() ?? '';
-
-            final durationList = isInfertilityDuration
-                ? ClinicalConstants.infertilityDurations
-                : ClinicalConstants.anamnesisDurations;
-
-            return pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 4.0),
-              child: pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  // Left: Checkbox + Name
-                  pw.SizedBox(
-                    width: 140,
-                    child: pw.Padding(
-                      padding: const pw.EdgeInsets.only(top: 2.0),
-                      child: cb(
-                        '$nameEn\n($nameNe)',
-                        isTicked,
-                        fontSize: 7.8,
-                        boxSize: 10.5,
-                      ),
-                    ),
-                  ),
-                  pw.SizedBox(width: 5),
-                  // Right: Bordered Rectangle Box (Duration, Sub-options, Remarks)
-                  pw.Expanded(
-                    child: pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3.5,
-                      ),
-                      decoration: pw.BoxDecoration(
-                        color: isTicked
-                            ? PdfColor.fromHex('F8FAFC')
-                            : PdfColors.white,
-                        border: pw.Border.all(
-                          color: isTicked
-                              ? primary
-                              : PdfColor.fromHex('CBD5E1'),
-                          width: 0.6,
-                        ),
-                        borderRadius: const pw.BorderRadius.all(
-                          pw.Radius.circular(2.0),
-                        ),
-                      ),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          if (hasDuration) ...[
-                            pw.Row(
-                              crossAxisAlignment: pw.CrossAxisAlignment.center,
-                              children: [
-                                pw.Text(
-                                  'since when: ',
-                                  style: pw.TextStyle(
-                                    fontSize: 7.6,
-                                    fontWeight: pw.FontWeight.bold,
-                                    color: dark,
-                                  ),
-                                ),
-                                ...durationList.map((d) {
-                                  final checked =
-                                      isTicked && isDurationMatch(d, durVal);
-                                  return pw.Padding(
-                                    padding: const pw.EdgeInsets.only(left: 4),
-                                    child: cb(
-                                      d,
-                                      checked,
-                                      fontSize: 7.6,
-                                      boxSize: 9.5,
-                                    ),
-                                  );
-                                }),
-                              ],
-                            ),
-                            pw.SizedBox(height: 2.0),
-                          ],
-                          pw.Row(
-                            crossAxisAlignment: pw.CrossAxisAlignment.center,
-                            children: [
-                              if (options.isNotEmpty) ...[
-                                if (optionPrefix != null)
-                                  pw.Text(
-                                    '$optionPrefix: ',
-                                    style: pw.TextStyle(
-                                      fontSize: 7.6,
-                                      fontWeight: pw.FontWeight.bold,
-                                      color: dark,
-                                    ),
-                                  ),
-                                ...options.map((opt) {
-                                  final checked =
-                                      isTicked && isOptionMatch(opt, selOpts);
-                                  return pw.Padding(
-                                    padding: const pw.EdgeInsets.only(right: 5),
-                                    child: cb(
-                                      opt,
-                                      checked,
-                                      fontSize: 7.6,
-                                      boxSize: 9.5,
-                                    ),
-                                  );
-                                }),
-                                pw.SizedBox(width: 5),
-                              ],
-                              pw.Text(
-                                'remarks: ',
-                                style: pw.TextStyle(
-                                  fontSize: 7.6,
-                                  fontWeight: pw.FontWeight.bold,
-                                  color: dark,
-                                ),
-                              ),
-                              pw.Expanded(
-                                child: pw.Container(
-                                  height: 11,
-                                  decoration: const pw.BoxDecoration(
-                                    border: pw.Border(
-                                      bottom: pw.BorderSide(
-                                        color: PdfColors.grey400,
-                                        width: 0.5,
-                                      ),
-                                    ),
-                                  ),
-                                  alignment: pw.Alignment.bottomLeft,
-                                  padding: const pw.EdgeInsets.only(
-                                    bottom: 0.5,
-                                  ),
-                                  child: pw.Text(
-                                    remVal,
-                                    style: pw.TextStyle(
-                                      fontSize: 7.2,
-                                      color: primary,
-                                    ),
-                                    maxLines: 1,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          // ── Section C: Station 1: Anamnesis & Obstetric History ──
-          final sectionC = pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              secHdr(
-                'STATION 1: ANAMNESIS & OBSTETRIC HISTORY / पहिलो स्टेशन: विगत तथा प्रसूति विवरण',
-                topMargin: 3.0,
-                bottomMargin: 4.0,
-              ),
-              // Deliveries row
-              pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 3.5),
-                child: pw.Row(
-                  children: [
-                    pw.Text(
-                      'Anamnesis Date: ',
-                      style: pw.TextStyle(
-                        fontSize: 8.0,
-                        fontWeight: pw.FontWeight.bold,
-                        color: dark,
-                      ),
-                    ),
-                    pw.Text(
-                      dateFormatter.format(intakeDate),
-                      style: pw.TextStyle(fontSize: 8.0, color: primary),
-                    ),
-                    pw.SizedBox(width: 14),
-                    pw.Text(
-                      'NR deliveries: ',
-                      style: pw.TextStyle(
-                        fontSize: 8.0,
-                        fontWeight: pw.FontWeight.bold,
-                        color: dark,
-                      ),
-                    ),
-                    buildCharBoxes(
-                      visit?.deliveries?.toString() ?? '',
-                      minBoxes: 2,
-                      maxBoxes: 2,
-                      boxSize: 12.0,
-                      boxHeight: 15.0,
-                      boxMargin: 1.0,
-                    ),
-                    pw.SizedBox(width: 10),
-                    pw.Text(
-                      'NR living children: ',
-                      style: pw.TextStyle(
-                        fontSize: 8.0,
-                        fontWeight: pw.FontWeight.bold,
-                        color: dark,
-                      ),
-                    ),
-                    buildCharBoxes(
-                      visit?.livingChildren?.toString() ?? '',
-                      minBoxes: 2,
-                      maxBoxes: 2,
-                      boxSize: 12.0,
-                      boxHeight: 15.0,
-                      boxMargin: 1.0,
-                    ),
-                    pw.SizedBox(width: 10),
-                    pw.Text(
-                      'NR abortion: ',
-                      style: pw.TextStyle(
-                        fontSize: 8.0,
-                        fontWeight: pw.FontWeight.bold,
-                        color: dark,
-                      ),
-                    ),
-                    buildCharBoxes(
-                      visit?.abortions?.toString() ?? '',
-                      minBoxes: 2,
-                      maxBoxes: 2,
-                      boxSize: 12.0,
-                      boxHeight: 15.0,
-                      boxMargin: 1.0,
-                    ),
-                  ],
-                ),
-              ),
-              // All 9 Canonical Complaints with Individual Durations, Sub-options, and Remarks
-              buildComplaintRow(
-                key: 'prolapse',
-                nameEn: 'something hanging out',
-                nameNe: 'पाठेघर खस्ने',
-                hasDuration: true,
-                options: ['pessary', 'surgery'],
-                optionPrefix: 'previous treatment',
-              ),
-              buildComplaintRow(
-                key: 'discharge',
-                nameEn: 'discharge / itching',
-                nameNe: 'पानी बग्ने / चिलाउने',
-                hasDuration: true,
-                options: ['white', 'yellow', 'green', 'grey', 'smelly'],
-                optionPrefix: 'colour',
-              ),
-              buildComplaintRow(
-                key: 'urine',
-                nameEn: 'problems passing urine',
-                nameNe: 'पिसाब समस्या',
-                hasDuration: true,
-                options: ['stress', 'urge', 'continuous flow'],
-                optionPrefix: 'type incontinence',
-              ),
-              buildComplaintRow(
-                key: 'stool',
-                nameEn: 'problems passing stool',
-                nameNe: 'दिसा समस्या',
-                hasDuration: true,
-              ),
-              buildComplaintRow(
-                key: 'menstrual',
-                nameEn: 'menstrual problem',
-                nameNe: 'महिनावारी समस्या',
-                hasDuration: false,
-                options: [
-                  'dysmenorrhoea',
-                  'metrorrhagia',
-                  'menorrhagia',
-                  'postmenopausal bleeding',
-                ],
-              ),
-              buildComplaintRow(
-                key: 'infertility',
-                nameEn: 'infertility',
-                nameNe: 'निःसन्तान समस्या',
-                hasDuration: true,
-                isInfertilityDuration: true,
-              ),
-              buildComplaintRow(
-                key: 'lower_abdomen_pain',
-                nameEn: 'lower abdomen pain',
-                nameNe: 'तल्लो पेट दुख्ने',
-                hasDuration: true,
-              ),
-              buildComplaintRow(
-                key: 'lower_back_pain',
-                nameEn: 'lower back pain',
-                nameNe: 'कम्मर / ढाड दुख्ने',
-                hasDuration: true,
-              ),
-              buildComplaintRow(
-                key: 'checkup',
-                nameEn: 'checkup',
-                nameNe: 'सामान्य जाँच',
-                hasDuration: false,
-                options: ['routine screening'],
-              ),
-            ],
-          );
-
           // ── Bottom Administrative Footer ──
           final bottomFooter = pw.Container(
             width: double.infinity,
-            margin: const pw.EdgeInsets.only(top: 4),
+            margin: const pw.EdgeInsets.only(top: 8),
             padding: const pw.EdgeInsets.symmetric(
               horizontal: 8,
-              vertical: 3.5,
+              vertical: 4.5,
             ),
             decoration: pw.BoxDecoration(
               color: PdfColor.fromHex('F8FAFC'),
@@ -5490,7 +5096,7 @@ class PdfReportService {
                   ),
                 ),
                 pw.Text(
-                  'Date: ${dateFormatter.format(intakeDate)}',
+                  'Date: ${hasPatient ? dateFormatter.format(intakeDate) : "__________________"}',
                   style: const pw.TextStyle(
                     fontSize: 7.0,
                     color: PdfColors.grey700,
@@ -5547,7 +5153,7 @@ class PdfReportService {
                               ),
                             ),
                             pw.Text(
-                              'Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? ""}) | Date: ${dateFormatter.format(intakeDate)}${doctorHeaderPart.isNotEmpty ? " | $doctorHeaderPart" : ""}',
+                              'Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? ""}) | Date: ${hasPatient ? dateFormatter.format(intakeDate) : "__________________"}${doctorHeaderPart.isNotEmpty ? " | $doctorHeaderPart" : ""}',
                               style: const pw.TextStyle(
                                 fontSize: 6.8,
                                 color: PdfColors.grey700,
@@ -5627,13 +5233,11 @@ class PdfReportService {
                     ],
                   ),
                   triageStrip,
-                  pw.SizedBox(height: 1),
+                  pw.SizedBox(height: 4),
                   sectionA,
-                  pw.SizedBox(height: 1),
+                  pw.SizedBox(height: 4),
                   sectionB,
-                  pw.SizedBox(height: 1),
-                  sectionC,
-                  pw.SizedBox(height: 2),
+                  pw.SizedBox(height: 6),
                   bottomFooter,
                 ],
               ),
@@ -5818,6 +5422,427 @@ class PdfReportService {
                   !isEcgNormal &&
                   !isEcgAbnormal);
 
+          // ── Helper to check complaint durations and options ──
+          final visitComplaints =
+              visit?.anamnesisComplaints ?? const <String, dynamic>{};
+          final complaintsList =
+              (visitComplaints['clinicalComplaints'] as List?)
+                  ?.map((e) => e.toString().toLowerCase())
+                  .toList() ??
+              [];
+
+          bool isDurationMatch(String d, String durationVal) {
+            if (durationVal.isEmpty) return false;
+            final dNorm = d.toLowerCase().replaceAll(' ', '');
+            final vNorm = durationVal.toLowerCase().replaceAll(' ', '');
+            if (dNorm == vNorm) return true;
+            if (d.contains('< 1month') &&
+                (durationVal.contains('< 1m') ||
+                    durationVal.contains('<1m') ||
+                    durationVal.contains('< 3m') ||
+                    durationVal.contains('1 month'))) {
+              return true;
+            }
+            if (d.contains('< 1 year') &&
+                (durationVal.contains('< 1 y') ||
+                    durationVal.contains('<1y') ||
+                    durationVal.contains('3-12') ||
+                    durationVal.contains('1 year'))) {
+              return true;
+            }
+            if (d.contains('> 1 year') &&
+                (durationVal.contains('> 1 y') ||
+                    durationVal.contains('>1y') ||
+                    durationVal == '> 1 year')) {
+              return true;
+            }
+            if (d.contains('> 5 years') &&
+                (durationVal.contains('> 5') ||
+                    durationVal.contains('>5') ||
+                    durationVal.contains('5 year'))) {
+              return true;
+            }
+            if (d.contains('> 10 years') &&
+                (durationVal.contains('> 10') ||
+                    durationVal.contains('>10') ||
+                    durationVal.contains('10 year'))) {
+              return true;
+            }
+            return false;
+          }
+
+          bool isOptionMatch(String opt, List<String> selectedOptions) {
+            final optLower = opt.toLowerCase().trim();
+            return selectedOptions.any(
+              (s) =>
+                  s == optLower || s.contains(optLower) || optLower.contains(s),
+            );
+          }
+
+          // ── Clean 2-Column Chief Complaint Row (Exact Scan Layout) ──
+          pw.Widget buildComplaintRow({
+            required String key,
+            required String nameEn,
+            required String nameNe,
+            required bool hasDuration,
+            bool isInfertilityDuration = false,
+            List<String> options = const [],
+            String? optionPrefix,
+          }) {
+            final cData = visitComplaints[key] as Map<String, dynamic>?;
+            final bool isTicked =
+                cData != null ||
+                (key == 'prolapse' &&
+                    complaintsList.any(
+                      (c) =>
+                          c.contains('prolapse') ||
+                          c.contains('hanging') ||
+                          c.contains('पाठेघर'),
+                    )) ||
+                (key == 'discharge' &&
+                    complaintsList.any(
+                      (c) =>
+                          c.contains('discharge') ||
+                          c.contains('itching') ||
+                          c.contains('स्राव'),
+                    )) ||
+                (key == 'urine' &&
+                    complaintsList.any(
+                      (c) =>
+                          c.contains('urine') ||
+                          c.contains('micturition') ||
+                          c.contains('पिसाब'),
+                    )) ||
+                (key == 'stool' &&
+                    complaintsList.any(
+                      (c) => c.contains('stool') || c.contains('दिसा'),
+                    )) ||
+                (key == 'menstrual' &&
+                    complaintsList.any(
+                      (c) => c.contains('menstrual') || c.contains('महिनावारी'),
+                    )) ||
+                (key == 'infertility' &&
+                    complaintsList.any(
+                      (c) => c.contains('infertility') || c.contains('बाँझोपन'),
+                    )) ||
+                (key == 'lower_abdomen_pain' &&
+                    complaintsList.any(
+                      (c) =>
+                          c.contains('abdomen') ||
+                          c.contains('तल्लो पेट') ||
+                          c == 'pain',
+                    )) ||
+                (key == 'lower_back_pain' &&
+                    complaintsList.any(
+                      (c) =>
+                          c.contains('back') ||
+                          c.contains('ढाड') ||
+                          c.contains('कम्मर') ||
+                          c == 'pain',
+                    )) ||
+                (key == 'checkup' &&
+                    complaintsList.any(
+                      (c) => c.contains('checkup') || c.contains('जाँच'),
+                    ));
+
+            final String durVal =
+                (cData?['duration']?.toString() ??
+                        (visitComplaints['complaintsDuration']?.toString() ??
+                            ''))
+                    .toLowerCase()
+                    .trim();
+            final List<String> selOpts = (cData?['options'] is List)
+                ? (cData!['options'] as List)
+                      .map((e) => e.toString().toLowerCase().trim())
+                      .toList()
+                : <String>[];
+            final String remVal = cData?['remarks']?.toString() ?? '';
+
+            final durationList = isInfertilityDuration
+                ? ClinicalConstants.infertilityDurations
+                : ClinicalConstants.anamnesisDurations;
+
+            return pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 2.2),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Left: Checkbox + Name
+                  pw.SizedBox(
+                    width: 135,
+                    child: pw.Padding(
+                      padding: const pw.EdgeInsets.only(top: 1.0),
+                      child: cb(
+                        '$nameEn\n($nameNe)',
+                        isTicked,
+                        fontSize: 7.2,
+                        boxSize: 9.5,
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(width: 4),
+                  // Right: Bordered Rectangle Box (Duration, Sub-options, Remarks)
+                  pw.Expanded(
+                    child: pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1.8,
+                      ),
+                      decoration: pw.BoxDecoration(
+                        color: isTicked
+                            ? PdfColor.fromHex('F8FAFC')
+                            : PdfColors.white,
+                        border: pw.Border.all(
+                          color: isTicked
+                              ? primary
+                              : PdfColor.fromHex('CBD5E1'),
+                          width: 0.6,
+                        ),
+                        borderRadius: const pw.BorderRadius.all(
+                          pw.Radius.circular(2.0),
+                        ),
+                      ),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          if (hasDuration) ...[
+                            pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.center,
+                              children: [
+                                pw.Text(
+                                  'since when: ',
+                                  style: pw.TextStyle(
+                                    fontSize: 7.2,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: dark,
+                                  ),
+                                ),
+                                ...durationList.map((d) {
+                                  final checked =
+                                      isTicked && isDurationMatch(d, durVal);
+                                  return pw.Padding(
+                                    padding: const pw.EdgeInsets.only(left: 3),
+                                    child: cb(
+                                      d,
+                                      checked,
+                                      fontSize: 7.0,
+                                      boxSize: 8.5,
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                            pw.SizedBox(height: 1.5),
+                          ],
+                          pw.Row(
+                            crossAxisAlignment: pw.CrossAxisAlignment.center,
+                            children: [
+                              if (options.isNotEmpty) ...[
+                                if (optionPrefix != null)
+                                  pw.Text(
+                                    '$optionPrefix: ',
+                                    style: pw.TextStyle(
+                                      fontSize: 7.0,
+                                      fontWeight: pw.FontWeight.bold,
+                                      color: dark,
+                                    ),
+                                  ),
+                                ...options.map((opt) {
+                                  final checked =
+                                      isTicked && isOptionMatch(opt, selOpts);
+                                  return pw.Padding(
+                                    padding: const pw.EdgeInsets.only(right: 4),
+                                    child: cb(
+                                      opt,
+                                      checked,
+                                      fontSize: 7.0,
+                                      boxSize: 8.5,
+                                    ),
+                                  );
+                                }),
+                                pw.SizedBox(width: 4),
+                              ],
+                              pw.Text(
+                                'remarks: ',
+                                style: pw.TextStyle(
+                                  fontSize: 7.0,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: dark,
+                                ),
+                              ),
+                              pw.Expanded(
+                                child: pw.Container(
+                                  height: 10,
+                                  decoration: const pw.BoxDecoration(
+                                    border: pw.Border(
+                                      bottom: pw.BorderSide(
+                                        color: PdfColors.grey400,
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                  alignment: pw.Alignment.bottomLeft,
+                                  padding: const pw.EdgeInsets.only(
+                                    bottom: 0.5,
+                                  ),
+                                  child: pw.Text(
+                                    remVal,
+                                    style: pw.TextStyle(
+                                      fontSize: 7.0,
+                                      color: primary,
+                                    ),
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // ── STATION 1: ANAMNESIS & OBSTETRIC HISTORY ──
+          final station1 = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              secHdr(
+                'STATION 1: ANAMNESIS & OBSTETRIC HISTORY / पहिलो स्टेशन: विगत तथा प्रसूति विवरण',
+              ),
+              // Deliveries row (Anamnesis Date removed as per instructions)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 2.5),
+                child: pw.Row(
+                  children: [
+                    pw.Text(
+                      'NR deliveries: ',
+                      style: pw.TextStyle(
+                        fontSize: 7.8,
+                        fontWeight: pw.FontWeight.bold,
+                        color: dark,
+                      ),
+                    ),
+                    buildCharBoxes(
+                      visit?.deliveries?.toString() ?? '',
+                      minBoxes: 2,
+                      maxBoxes: 2,
+                      boxSize: 11.0,
+                      boxHeight: 14.0,
+                      boxMargin: 1.0,
+                    ),
+                    pw.SizedBox(width: 14),
+                    pw.Text(
+                      'NR living children: ',
+                      style: pw.TextStyle(
+                        fontSize: 7.8,
+                        fontWeight: pw.FontWeight.bold,
+                        color: dark,
+                      ),
+                    ),
+                    buildCharBoxes(
+                      visit?.livingChildren?.toString() ?? '',
+                      minBoxes: 2,
+                      maxBoxes: 2,
+                      boxSize: 11.0,
+                      boxHeight: 14.0,
+                      boxMargin: 1.0,
+                    ),
+                    pw.SizedBox(width: 14),
+                    pw.Text(
+                      'NR abortion: ',
+                      style: pw.TextStyle(
+                        fontSize: 7.8,
+                        fontWeight: pw.FontWeight.bold,
+                        color: dark,
+                      ),
+                    ),
+                    buildCharBoxes(
+                      visit?.abortions?.toString() ?? '',
+                      minBoxes: 2,
+                      maxBoxes: 2,
+                      boxSize: 11.0,
+                      boxHeight: 14.0,
+                      boxMargin: 1.0,
+                    ),
+                  ],
+                ),
+              ),
+              // All 9 Canonical Complaints with Individual Durations, Sub-options, and Remarks
+              buildComplaintRow(
+                key: 'prolapse',
+                nameEn: 'something hanging out',
+                nameNe: 'पाठेघर खस्ने',
+                hasDuration: true,
+                options: ['pessary', 'surgery'],
+                optionPrefix: 'previous treatment',
+              ),
+              buildComplaintRow(
+                key: 'discharge',
+                nameEn: 'discharge / itching',
+                nameNe: 'पानी बग्ने / चिलाउने',
+                hasDuration: true,
+                options: ['white', 'yellow', 'green', 'grey', 'smelly'],
+                optionPrefix: 'colour',
+              ),
+              buildComplaintRow(
+                key: 'urine',
+                nameEn: 'problems passing urine',
+                nameNe: 'पिसाब समस्या',
+                hasDuration: true,
+                options: ['stress', 'urge', 'continuous flow'],
+                optionPrefix: 'type incontinence',
+              ),
+              buildComplaintRow(
+                key: 'stool',
+                nameEn: 'problems passing stool',
+                nameNe: 'दिसा समस्या',
+                hasDuration: true,
+              ),
+              buildComplaintRow(
+                key: 'menstrual',
+                nameEn: 'menstrual problem',
+                nameNe: 'महिनावारी समस्या',
+                hasDuration: false,
+                options: [
+                  'dysmenorrhoea',
+                  'metrorrhagia',
+                  'menorrhagia',
+                  'postmenopausal bleeding',
+                ],
+              ),
+              buildComplaintRow(
+                key: 'infertility',
+                nameEn: 'infertility',
+                nameNe: 'निःसन्तान समस्या',
+                hasDuration: true,
+                isInfertilityDuration: true,
+              ),
+              buildComplaintRow(
+                key: 'lower_abdomen_pain',
+                nameEn: 'lower abdomen pain',
+                nameNe: 'तल्लो पेट दुख्ने',
+                hasDuration: true,
+              ),
+              buildComplaintRow(
+                key: 'lower_back_pain',
+                nameEn: 'lower back pain',
+                nameNe: 'कम्मर / ढाड दुख्ने',
+                hasDuration: true,
+              ),
+              buildComplaintRow(
+                key: 'checkup',
+                nameEn: 'checkup',
+                nameNe: 'सामान्य जाँच',
+                hasDuration: false,
+                options: ['routine screening'],
+              ),
+            ],
+          );
+
           // ── STATION 2: POP & PHYSICAL EXAMINATION ──
           final station2 = pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -5830,7 +5855,7 @@ class PdfReportService {
                 children: [
                   pw.Text('Examination Date: ', style: bold(size: fsSmall)),
                   pw.Text(
-                    dateFormatter.format(intakeDate),
+                    hasPatient ? dateFormatter.format(intakeDate) : '__________________',
                     style: normal(size: fsSmall),
                   ),
                   pw.SizedBox(width: 14),
@@ -5994,7 +6019,7 @@ class PdfReportService {
                   pw.Text(
                     hasPatient
                         ? dateFormatter.format(visit?.visitDate ?? intakeDate)
-                        : '__________',
+                        : '__________________',
                     style: normal(size: fsSmall),
                   ),
                   pw.SizedBox(width: 8),
@@ -6180,7 +6205,7 @@ class PdfReportService {
                 children: [
                   pw.Text('Conclusion Date: ', style: bold(size: fsSmall)),
                   pw.Text(
-                    dateFormatter.format(intakeDate),
+                    hasPatient ? dateFormatter.format(intakeDate) : '__________________',
                     style: normal(size: fsSmall),
                   ),
                   pw.SizedBox(width: 14),
@@ -6384,7 +6409,7 @@ class PdfReportService {
                 children: [
                   pw.Text('Treatment Date: ', style: bold(size: fsSmall)),
                   pw.Text(
-                    dateFormatter.format(intakeDate),
+                    hasPatient ? dateFormatter.format(intakeDate) : '__________________',
                     style: normal(size: fsSmall),
                   ),
                   pw.SizedBox(width: 10),
@@ -6641,7 +6666,7 @@ class PdfReportService {
                 children: [
                   pw.Text('Outtake Date: ', style: bold(size: fsSmall)),
                   pw.Text(
-                    dateFormatter.format(intakeDate),
+                    hasPatient ? dateFormatter.format(intakeDate) : '__________________',
                     style: normal(size: fsSmall),
                   ),
                 ],
@@ -6771,16 +6796,17 @@ class PdfReportService {
               children: [
                 // 1. Data Entry Operator
                 pw.SizedBox(
-                  width: 140,
+                  width: 135,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
+                      pw.SizedBox(height: 22.0), // Clear pen signing zone
                       pw.Container(
                         width: 110,
-                        height: 0.6,
+                        height: 0.7,
                         color: PdfColors.black,
                       ),
-                      pw.SizedBox(height: 2.0),
+                      pw.SizedBox(height: 4.0),
                       pw.Text(
                         'Data Entry Operator',
                         style: bold(size: fsSmall),
@@ -6795,18 +6821,20 @@ class PdfReportService {
                     ],
                   ),
                 ),
+                pw.SizedBox(width: 14),
                 // 2. Attending Nurse
                 pw.SizedBox(
-                  width: (allNursesChecklist || effectiveNurses.length > 1) ? 195 : 155,
+                  width: (allNursesChecklist || effectiveNurses.length > 1) ? 190 : 150,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.center,
                     children: [
+                      pw.SizedBox(height: 22.0), // Clear pen signing zone
                       pw.Container(
                         width: 120,
-                        height: 0.6,
+                        height: 0.7,
                         color: PdfColors.black,
                       ),
-                      pw.SizedBox(height: 2.0),
+                      pw.SizedBox(height: 4.0),
                       if (!showNurse || blankNurseLines) ...[
                         pw.Text('Attending Nurse', style: bold(size: fsSmall)),
                         pw.Text(
@@ -6884,18 +6912,20 @@ class PdfReportService {
                     ],
                   ),
                 ),
+                pw.SizedBox(width: 14),
                 // 3. Examining Doctor
                 pw.SizedBox(
-                  width: (allDoctorsChecklist || effectiveDoctors.length > 1) ? 220 : 170,
+                  width: (allDoctorsChecklist || effectiveDoctors.length > 1) ? 210 : 165,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
+                      pw.SizedBox(height: 22.0), // Clear pen signing zone
                       pw.Container(
                         width: 120,
-                        height: 0.6,
+                        height: 0.7,
                         color: PdfColors.black,
                       ),
-                      pw.SizedBox(height: 2.0),
+                      pw.SizedBox(height: 4.0),
                       if (!showDoctor || blankDoctorLines) ...[
                         pw.Text('Examining Doctor', style: bold(size: fsSmall)),
                         pw.Text(
@@ -7014,7 +7044,7 @@ class PdfReportService {
                               ),
                             ),
                             pw.Text(
-                              'Stations 2 - 6 | Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? ""}) | Date: ${dateFormatter.format(intakeDate)}',
+                              'Stations 1 - 6 | Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? ""}) | Date: ${hasPatient ? dateFormatter.format(intakeDate) : "__________________"}',
                               style: const pw.TextStyle(
                                 fontSize: 6.8,
                                 color: PdfColors.grey700,
@@ -7092,6 +7122,8 @@ class PdfReportService {
                         ),
                     ],
                   ),
+                  pw.SizedBox(height: 2),
+                  station1,
                   pw.SizedBox(height: 2),
                   station2,
                   pw.SizedBox(height: 2),

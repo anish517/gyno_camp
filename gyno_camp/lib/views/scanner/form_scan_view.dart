@@ -2002,14 +2002,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: [
-                      {'label': '< 3 months (< ३ महिना)', 'val': '< 3 months'},
-                      {'label': '3-12 months (३-१२ महिना)', 'val': '3-12 months'},
-                      {'label': '> 1 year (> १ वर्ष)', 'val': '> 1 year'},
-                    ].map((item) {
-                      final isSelected = (obs['complaintsDuration'] as String?) == item['val'];
+                    children: ClinicalConstants.anamnesisDurations.map((dur) {
+                      final isSelected = (obs['complaintsDuration'] as String?) == dur;
                       return ChoiceChip(
-                        label: Text(item['label']!),
+                        label: Text(dur),
                         selected: isSelected,
                         selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                         labelStyle: TextStyle(
@@ -2018,7 +2014,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           fontSize: 12,
                         ),
                         onSelected: (sel) {
-                          vm.updateObstetric('complaintsDuration', sel ? item['val'] : null);
+                          vm.updateObstetric('complaintsDuration', sel ? dur : null);
                         },
                       );
                     }).toList(),
@@ -2067,38 +2063,121 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      {'key': 'Lower Abdominal Pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुख्ने)'},
-                      {'key': 'White / Foul Discharge', 'label': 'White / Foul Discharge (सेतो / गन्हाउने पानी)'},
-                      {'key': 'Pelvic Heaviness', 'label': 'Pelvic Heaviness (तल्लो पेट भारी हुने)'},
-                      {'key': 'Burning Micturition', 'label': 'Burning Micturition (पिसाब पोल्ने)'},
-                      {'key': 'Urinary Incontinence', 'label': 'Urinary Incontinence (पिसाब चुहिने)'},
-                      {'key': 'Dyspareunia', 'label': 'Dyspareunia (सम्पर्कमा दुखाई)'},
-                      {'key': 'Coital Bleeding', 'label': 'Coital Bleeding (सम्पर्कपछि रक्तस्राव)'},
-                      {'key': 'Mass Per Vagina', 'label': 'Mass Per Vagina (केही बाहिर निस्कने)'},
-                      {'key': 'Severe Backache', 'label': 'Severe Backache (अत्यधिक ढाड दुख्ने)'},
-                    ].map((comp) {
-                      final selectedComplaints = (obs['clinicalComplaints'] as List?)?.cast<String>() ?? [];
-                      final isSelected = selectedComplaints.contains(comp['key']);
-                      return FilterChip(
-                        label: Text(comp['label']!),
-                        selected: isSelected,
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                        checkmarkColor: AppTheme.primaryTeal,
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 11.5,
+                  // 9 canonical Yellow Form complaints with per-complaint duration & details
+                  ...[
+                    {'key': 'prolapse',            'label': 'Something hanging out / Prolapse (पाठेघर खस्ने समस्या)', 'subType': 'treatment'},
+                    {'key': 'discharge',           'label': 'Discharge and/or Itching (पानी बग्ने / चिलाउने)', 'subType': 'discharge'},
+                    {'key': 'urine',               'label': 'Problems passing urine (पिसाब सम्बन्धी समस्या)', 'subType': 'none'},
+                    {'key': 'stool',               'label': 'Problems passing stool (दिसा सम्बन्धी समस्या)', 'subType': 'none'},
+                    {'key': 'menstrual',           'label': 'Menstrual problem (महिनावारी समस्या)', 'subType': 'none'},
+                    {'key': 'infertility',         'label': 'Infertility (निःसन्तान समस्या)', 'subType': 'none'},
+                    {'key': 'lower_abdomen_pain',  'label': 'Lower abdomen pain (तल्लो पेट दुख्ने)', 'subType': 'none'},
+                    {'key': 'lower_back_pain',     'label': 'Lower back pain (कम्मर / ढाड दुख्ने)', 'subType': 'none'},
+                    {'key': 'checkup',             'label': 'General checkup (सामान्य स्वास्थ्य जाँच)', 'subType': 'none'},
+                  ].map((comp) {
+                    final cKey = comp['key'] as String;
+                    final selectedComplaints = (obs['clinicalComplaints'] as List?)?.cast<String>() ?? [];
+                    final isSelected = selectedComplaints.contains(cKey) ||
+                        selectedComplaints.any((c) => c.toLowerCase().contains(cKey.toLowerCase()));
+                    final details = Map<String, dynamic>.from(obs['complaintDetails'] as Map? ?? {});
+                    final item = Map<String, dynamic>.from(details[cKey] as Map? ?? {});
+                    final currentDuration = (item['duration'] as String?) ?? (obs['complaintsDuration'] as String? ?? '< 1 year');
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.primaryLight.withValues(alpha: 0.15) : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected ? AppTheme.primaryTeal.withValues(alpha: 0.5) : Colors.grey.shade300,
+                          width: isSelected ? 1.5 : 1.0,
                         ),
-                        onSelected: (_) {
-                          vm.toggleClinicalComplaint(comp['key']!);
-                        },
-                      );
-                    }).toList(),
-                  ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CheckboxListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                            title: Text(
+                              comp['label'] as String,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                color: isSelected ? AppTheme.primaryDark : const Color(0xFF334155),
+                              ),
+                            ),
+                            value: isSelected,
+                            activeColor: AppTheme.primaryTeal,
+                            onChanged: (_) {
+                              vm.toggleClinicalComplaint(cKey);
+                            },
+                          ),
+                          if (isSelected) ...[
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Divider(height: 10),
+                                  const Text(
+                                    'Duration since onset (सुरु भएको अवधि):',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: ClinicalConstants.anamnesisDurations.map((dur) {
+                                      final isDurSelected = currentDuration == dur;
+                                      return ChoiceChip(
+                                        visualDensity: VisualDensity.compact,
+                                        label: Text(dur, style: const TextStyle(fontSize: 11)),
+                                        selected: isDurSelected,
+                                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                                        labelStyle: TextStyle(
+                                          color: isDurSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                                          fontWeight: isDurSelected ? FontWeight.bold : FontWeight.normal,
+                                        ),
+                                        onSelected: (sel) {
+                                          if (sel) {
+                                            vm.updateComplaintDetail(cKey, duration: dur);
+                                          }
+                                        },
+                                      );
+                                    }).toList(),
+                                  ),
+                                  if (comp['subType'] == 'treatment') ...[
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: 8,
+                                      children: [
+                                        const Text('Previous treatment:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                        ...['pessary', 'surgery'].map((trt) {
+                                          final curTrt = item['subOption']?.toString().toLowerCase() ?? '';
+                                          final isTrt = curTrt.contains(trt);
+                                          return FilterChip(
+                                            visualDensity: VisualDensity.compact,
+                                            label: Text(trt, style: const TextStyle(fontSize: 10.5)),
+                                            selected: isTrt,
+                                            selectedColor: AppTheme.primaryLight,
+                                            onSelected: (sel) {
+                                              vm.updateComplaintDetail(cKey, subOption: sel ? trt : '');
+                                            },
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -2240,7 +2319,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ),
           const SizedBox(height: 16),
 
-          // Station 2: Cervix Appearance & Vagina / Vulva
+          // Station 2: 4 Anatomical Examinations (Vulva, Vagina, Cervix, Uterus)
+          // 1. Vulva Examination
           Card(
             elevation: 1.5,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -2250,7 +2330,105 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Cervix Appearance (पाठेघरको मुखको अवस्था):',
+                    '1. Vulva Examination (बाह्य अङ्ग / भल्भा):',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      'Normal', 'Ulcer', 'Condyloma', 'Lichen Sclerosus', 'Rash'
+                    ].map((chip) {
+                      final current = (pop['vulvaRemarks'] as String? ?? '').toLowerCase();
+                      final isSelected = current.contains(chip.toLowerCase());
+                      return ChoiceChip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(chip, style: const TextStyle(fontSize: 11)),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        onSelected: (sel) {
+                          vm.updatePopStage('vulvaRemarks', sel ? chip : '');
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue: pop['vulvaRemarks'] as String? ?? '',
+                    decoration: const InputDecoration(
+                      hintText: 'Vulva clinical remarks or notes',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) => vm.updatePopStage('vulvaRemarks', val),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 2. Vagina Examination
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '2. Vagina Examination (योनीको अवस्था):',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      'Normal', 'Atrophic', 'Mild discharge', 'Foul discharge', 'Candidiasis'
+                    ].map((chip) {
+                      final current = (pop['vaginaRemarks'] as String? ?? '').toLowerCase();
+                      final isSelected = current.contains(chip.toLowerCase());
+                      return ChoiceChip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(chip, style: const TextStyle(fontSize: 11)),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        onSelected: (sel) {
+                          vm.updatePopStage('vaginaRemarks', sel ? chip : '');
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue: pop['vaginaRemarks'] as String? ?? '',
+                    decoration: const InputDecoration(
+                      hintText: 'Vagina clinical remarks or notes',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) => vm.updatePopStage('vaginaRemarks', val),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 3. Cervix Appearance
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '3. Cervix Appearance (पाठेघरको मुखको अवस्था):',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
                   ),
                   const SizedBox(height: 8),
@@ -2283,9 +2461,23 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     ),
                     onChanged: (val) => vm.updatePopStage('cervixRemarks', val),
                   ),
-                  const Divider(height: 28),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 4. Uterus Examination
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   const Text(
-                    'Vagina / Vulva (योनी तथा बाह्य अङ्गको अवस्था):',
+                    '4. Uterus Examination (पाठेघर सम्बन्धी कैफियत):',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
                   ),
                   const SizedBox(height: 8),
@@ -2293,9 +2485,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     spacing: 6,
                     runSpacing: 6,
                     children: [
-                      'Normal', 'Atrophic', 'Mild discharge', 'Condyloma', 'Ulcer', 'Lichen Sclerosus'
+                      'Normal size', 'Bulky', 'Tender', 'Fibroid', 'Mobile', 'Restricted'
                     ].map((chip) {
-                      final current = (pop['vaginaRemarks'] as String? ?? '').toLowerCase();
+                      final current = (pop['uterusRemarks'] as String? ?? '').toLowerCase();
                       final isSelected = current.contains(chip.toLowerCase());
                       return ChoiceChip(
                         visualDensity: VisualDensity.compact,
@@ -2303,20 +2495,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         selected: isSelected,
                         selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                         onSelected: (sel) {
-                          vm.updatePopStage('vaginaRemarks', sel ? chip : '');
+                          vm.updatePopStage('uterusRemarks', sel ? chip : '');
                         },
                       );
                     }).toList(),
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
-                    initialValue: pop['vaginaRemarks'] as String? ?? '',
+                    initialValue: pop['uterusRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
-                      hintText: 'Vagina / Vulva clinical remarks or notes',
+                      hintText: 'Uterus clinical remarks or notes',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (val) => vm.updatePopStage('vaginaRemarks', val),
+                    onChanged: (val) => vm.updatePopStage('uterusRemarks', val),
                   ),
                 ],
               ),
@@ -3300,82 +3492,70 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ),
           const SizedBox(height: 16),
 
-          // ── 6. SURGERY DONE & SURGICAL ROUTE (शल्यक्रिया) ───────────
+          // ── 6. SPECIALIZED COUNSELING (Station 5: spec counseling) ──
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: result.surgeryDone ? AppTheme.primaryTeal : Colors.grey.shade300,
-                width: result.surgeryDone ? 1.5 : 1.0,
-              ),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.all(14.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  const Row(
                     children: [
-                      const Icon(Icons.medical_services_outlined, color: AppTheme.primaryTeal, size: 20),
-                      const SizedBox(width: 8),
-                      const Expanded(
+                      Icon(Icons.record_voice_over, color: AppTheme.primaryTeal, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
                         child: Text(
-                          'Surgery Done & Route (शल्यक्रिया भएको र विधि)',
+                          'Specialized Counseling (स्टेशन ५: विशेष परामर्श)',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
                         ),
-                      ),
-                      Switch(
-                        value: result.surgeryDone,
-                        activeThumbColor: AppTheme.primaryTeal,
-                        onChanged: (val) {
-                          vm.updateSurgery(
-                            done: val,
-                            type: val ? (result.surgeryType ?? 'Vaginal route') : null,
-                          );
-                        },
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Did the patient undergo surgical procedure at camp / hospital?',
+                    'Cross-check with physical Yellow Form Station 5 (spec counseling) checkboxes:',
                     style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
                   ),
-                  if (result.surgeryDone) ...[
-                    const SizedBox(height: 12),
-                    const Text('Surgical Route / Method (शल्यक्रियाको विधि):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: ClinicalConstants.surgeryTypes.map((sType) {
-                        final isSelected = result.surgeryType == sType;
-                        return ChoiceChip(
-                          label: Text(sType),
-                          selected: isSelected,
-                          selectedColor: AppTheme.primaryLight,
-                          labelStyle: TextStyle(
-                            color: isSelected ? AppTheme.primaryDark : const Color(0xFF334155),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 12,
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              vm.updateSurgery(done: true, type: sType);
-                            }
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ],
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      {'key': 'Weak pelvic floor', 'label': 'Weak pelvic floor (कमजोर पेल्भिक मांसपेशी)'},
+                      {'key': 'POP',               'label': 'POP (पाठेघर खसेको समस्या)'},
+                      {'key': 'Stress incontinence','label': 'Stress incontinence (खोक्दा पिसाब चुहिने)'},
+                      {'key': 'Urge incontinence',  'label': 'Urge incontinence (हतारिने पिसाब)'},
+                      {'key': 'Abdominal pain',    'label': 'Abdominal pain (तल्लो पेट दुख्ने)'},
+                    ].map((topic) {
+                      final isSelected = result.counseling.any(
+                        (c) => c.toLowerCase().contains(topic['key']!.toLowerCase()) ||
+                               topic['key']!.toLowerCase().contains(c.toLowerCase()),
+                      );
+                      return FilterChip(
+                        label: Text(topic['label']!),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        checkmarkColor: AppTheme.primaryTeal,
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 11.5,
+                        ),
+                        onSelected: (_) {
+                          vm.toggleCounseling(topic['key']!);
+                        },
+                      );
+                    }).toList(),
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
 
-          // ── 7. RING PESSARY INSERTION (रिङ्ग पेसरी) ────────────────
+          // ── 7. PESSARY FITTING & INSERTION (स्टेशन ५: पेसरी) ───────────
           Card(
             elevation: 1.5,
             shape: RoundedRectangleBorder(
@@ -3393,10 +3573,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   Row(
                     children: [
                       const Icon(Icons.radio_button_unchecked, color: AppTheme.primaryTeal, size: 20),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       const Expanded(
                         child: Text(
-                          'Ring Pessary Insertion (रिङ्ग पेसरी राखिएको)',
+                          'Pessary Fitting & Insertion (पेसरी राखिएको)',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
                         ),
                       ),
@@ -3404,8 +3584,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         value: result.ringPessary,
                         activeThumbColor: AppTheme.primaryTeal,
                         onChanged: (val) {
-                          vm.updateRingPessary(
+                          vm.updatePessary(
                             ringPessary: val,
+                            pessaryType: val ? (result.pessaryType ?? 'ring') : null,
                             size: val ? (result.ringPessarySize ?? 70) : null,
                           );
                         },
@@ -3414,10 +3595,44 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Was a ring pessary fitted and retained successfully during exam?',
+                    'Cross-check with Yellow Form Station 5 (pessary) options and size:',
                     style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
                   ),
                   if (result.ringPessary) ...[
+                    const SizedBox(height: 12),
+                    const Text('Pessary Type (पेसरीको प्रकार):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        {'key': 'ring',              'label': 'Ring (सामान्य रिङ्ग)'},
+                        {'key': 'ring with support',  'label': 'Ring with support (सपोर्ट सहित)'},
+                        {'key': 'ring with knob',     'label': 'Ring with knob (नब सहित)'},
+                      ].map((t) {
+                        final currentType = (result.pessaryType ?? 'ring').toLowerCase();
+                        final isSelected = currentType == t['key']!.toLowerCase();
+                        return ChoiceChip(
+                          label: Text(t['label']!),
+                          selected: isSelected,
+                          selectedColor: AppTheme.primaryLight,
+                          labelStyle: TextStyle(
+                            color: isSelected ? AppTheme.primaryDark : const Color(0xFF334155),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 11.5,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              vm.updatePessary(
+                                ringPessary: true,
+                                pessaryType: t['key']!,
+                                size: result.ringPessarySize ?? 70,
+                              );
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
                     const SizedBox(height: 12),
                     const Text('Pessary Size (साइज mm):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
@@ -3429,15 +3644,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         return ChoiceChip(
                           label: Text('${sz}mm'),
                           selected: isSelected,
-                          selectedColor: AppTheme.primaryLight,
+                          selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                           labelStyle: TextStyle(
-                            color: isSelected ? AppTheme.primaryDark : const Color(0xFF334155),
+                            color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             fontSize: 12,
                           ),
                           onSelected: (selected) {
                             if (selected) {
-                              vm.updateRingPessary(ringPessary: true, size: sz);
+                              vm.updatePessary(
+                                ringPessary: true,
+                                pessaryType: result.pessaryType ?? 'ring',
+                                size: sz,
+                              );
                             }
                           },
                         );
@@ -3864,12 +4083,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       {'key': 'abortions',      'label': 'Abortions',        'section': 'Obstetrics',   'tabIndex': 1, 'value': obs['abortions']?.toString() ?? '—',      'confKey': 'obstetrics'},
       // ── Visit Reasons ─────────────────────────────────────
       {'key': 'reasonsForVisit','label': 'Reasons for Visit','section': 'Visit Reasons','tabIndex': 1, 'value': (demo['reasonsForVisit'] as List?)?.join(', ') ?? '—', 'confKey': 'reasonsForVisit'},
-      // ── POP Staging ───────────────────────────────────────
-      {'key': 'anteriorStage',  'label': 'Anterior Stage',   'section': 'POP Staging',  'tabIndex': 2, 'value': pop['anteriorStage']?.toString() ?? '—',   'confKey': 'popStaging'},
-      {'key': 'middleStage',    'label': 'Middle Stage',     'section': 'POP Staging',  'tabIndex': 2, 'value': pop['middleStage']?.toString() ?? '—',     'confKey': 'popStaging'},
-      {'key': 'posteriorStage', 'label': 'Posterior Stage',  'section': 'POP Staging',  'tabIndex': 2, 'value': pop['posteriorStage']?.toString() ?? '—',  'confKey': 'popStaging'},
-      {'key': 'uterusInside',   'label': 'Uterus Inside',    'section': 'POP Staging',  'tabIndex': 2, 'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No', 'confKey': 'popStaging'},
-      {'key': 'pelvicTone',     'label': 'Pelvic Floor Muscle','section': 'POP Staging',  'tabIndex': 2, 'value': pop['pelvicFloorTone']?.toString() ?? '—', 'confKey': 'popStaging'},
+      // ── POP & Physical Examination ────────────────────────
+      {'key': 'anteriorStage',  'label': 'Anterior Stage',   'section': 'POP Exam',     'tabIndex': 2, 'value': pop['anteriorStage']?.toString() ?? '—',   'confKey': 'popStaging'},
+      {'key': 'middleStage',    'label': 'Middle Stage',     'section': 'POP Exam',     'tabIndex': 2, 'value': pop['middleStage']?.toString() ?? '—',     'confKey': 'popStaging'},
+      {'key': 'posteriorStage', 'label': 'Posterior Stage',  'section': 'POP Exam',     'tabIndex': 2, 'value': pop['posteriorStage']?.toString() ?? '—',  'confKey': 'popStaging'},
+      {'key': 'uterusInside',   'label': 'Uterus Inside',    'section': 'POP Exam',     'tabIndex': 2, 'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No', 'confKey': 'popStaging'},
+      {'key': 'pelvicTone',     'label': 'Pelvic Floor Muscle','section': 'POP Exam',   'tabIndex': 2, 'value': pop['pelvicFloorTone']?.toString() ?? '—', 'confKey': 'popStaging'},
+      {'key': 'vulvaRemarks',   'label': 'Vulva Appearance', 'section': 'POP Exam',     'tabIndex': 2, 'value': pop['vulvaRemarks']?.toString() ?? 'Normal', 'confKey': 'popStaging'},
+      {'key': 'vaginaRemarks',  'label': 'Vagina Exam',      'section': 'POP Exam',     'tabIndex': 2, 'value': pop['vaginaRemarks']?.toString() ?? 'Normal', 'confKey': 'popStaging'},
+      {'key': 'cervixRemarks',  'label': 'Cervix Appearance','section': 'POP Exam',     'tabIndex': 2, 'value': pop['cervixRemarks']?.toString() ?? 'Normal / Smooth', 'confKey': 'popStaging'},
+      {'key': 'uterusRemarks',  'label': 'Uterus Exam',      'section': 'POP Exam',     'tabIndex': 2, 'value': pop['uterusRemarks']?.toString() ?? 'Normal size', 'confKey': 'popStaging'},
       // ── Vitals ────────────────────────────────────────────
       {'key': 'bp',             'label': 'Blood Pressure',   'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['systolicBp'] ?? '—'}/${vitals['diastolicBp'] ?? '—'} mmHg', 'confKey': 'bp'},
       {'key': 'pulse',          'label': 'Pulse Rate',       'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['pulseRate'] ?? '—'} bpm', 'confKey': 'pulse'},
@@ -3877,16 +4100,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       {'key': 'glucose',        'label': 'Blood Glucose',    'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['bloodGlucose'] ?? '—'} mg/dL', 'confKey': 'glucose'},
       {'key': 'urineTest',      'label': 'Urine Test',       'section': 'Vitals',       'tabIndex': 3, 'value': vitals['urineTest']?.toString() ?? '—',   'confKey': 'labs'},
       {'key': 'pregnancyTest',  'label': 'Pregnancy Test',   'section': 'Vitals',       'tabIndex': 3, 'value': vitals['pregnancyTest']?.toString() ?? '—','confKey': 'labs'},
-      // ── Diagnoses & Medications ───────────────────────────
-      {'key': 'diagnoses',      'label': 'Diagnoses',        'section': 'Clinical',     'tabIndex': 3, 'value': result.diagnoses.isEmpty ? '—' : result.diagnoses.join(', '), 'confKey': 'diagnoses'},
-      {'key': 'medications',    'label': 'Medications',      'section': 'Clinical',     'tabIndex': 3, 'value': result.medications.isEmpty ? '—' : result.medications.join(', '), 'confKey': 'medications'},
-      {'key': 'surgeryDone',    'label': 'Surgery Done & Route', 'section': 'Clinical', 'tabIndex': 3, 'value': result.surgeryDone ? (result.surgeryType ?? 'Done') : 'No Surgery', 'confKey': 'diagnoses'},
-      {'key': 'ringPessary',    'label': 'Ring Pessary',     'section': 'Clinical',     'tabIndex': 3, 'value': result.ringPessary ? (result.ringPessarySize != null ? 'Inserted (${result.ringPessarySize}mm)' : 'Inserted') : 'None', 'confKey': 'diagnoses'},
-      {'key': 'referral',       'label': 'Surgical Referral','section': 'Clinical',     'tabIndex': 3, 'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
-      {'key': 'followUp',       'label': 'Follow-up',        'section': 'Clinical',     'tabIndex': 3, 'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
-      {'key': 'treatmentLevel', 'label': 'Level of Treatment','section': 'Clinical',    'tabIndex': 3, 'value': result.treatmentLevel == 'council_level' ? 'Council level (काउन्सिलिङ तह)' : (result.treatmentLevel == 'full_check_up' ? 'Full check up (पूर्ण जाँच)' : 'Unassigned'), 'confKey': 'treatmentLevel'},
-      {'key': 'examiningDoctor','label': 'Examining Doctor', 'section': 'Clinical',     'tabIndex': 3, 'value': result.examiningDoctor ?? 'Unassigned', 'confKey': 'diagnoses'},
-      {'key': 'attendingNurse', 'label': 'Attending Nurse',  'section': 'Clinical',     'tabIndex': 3, 'value': result.attendingNurses.isNotEmpty ? result.attendingNurses.join(', ') : (result.examiningNurse ?? 'Unassigned'), 'confKey': 'diagnoses'},
+      // ── Diagnoses & Treatment ─────────────────────────────
+      {'key': 'diagnoses',      'label': 'Diagnoses',        'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.diagnoses.isEmpty ? '—' : result.diagnoses.join(', '), 'confKey': 'diagnoses'},
+      {'key': 'counseling',     'label': 'Spec Counseling',  'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.counseling.isEmpty ? 'None' : result.counseling.join(', '), 'confKey': 'diagnoses'},
+      {'key': 'ringPessary',    'label': 'Pessary Fitting',  'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.ringPessary ? '${result.pessaryType ?? "Ring"} (${result.ringPessarySize != null ? "${result.ringPessarySize}mm" : "Fitted"})' : 'None', 'confKey': 'diagnoses'},
+      {'key': 'medications',    'label': 'Medications',      'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.medications.isEmpty ? '—' : result.medications.join(', '), 'confKey': 'medications'},
+      {'key': 'referral',       'label': 'Surgical Referral','section': 'Treatment Plan', 'tabIndex': 3, 'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
+      {'key': 'followUp',       'label': 'Follow-up',        'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
+      {'key': 'treatmentLevel', 'label': 'Level of Treatment','section': 'Treatment Plan', 'tabIndex': 3, 'value': result.treatmentLevel == 'council_level' ? 'Council level (काउन्सिलिङ तह)' : (result.treatmentLevel == 'full_check_up' ? 'Full check up (पूर्ण जाँच)' : 'Unassigned'), 'confKey': 'treatmentLevel'},
+      {'key': 'examiningDoctor','label': 'Examining Doctor', 'section': 'Signatures',     'tabIndex': 3, 'value': result.examiningDoctor ?? 'Unassigned', 'confKey': 'diagnoses'},
+      {'key': 'attendingNurse', 'label': 'Attending Nurse',  'section': 'Signatures',     'tabIndex': 3, 'value': result.attendingNurses.isNotEmpty ? result.attendingNurses.join(', ') : (result.examiningNurse ?? 'Unassigned'), 'confKey': 'diagnoses'},
     ];
 
     final total = fields.length;

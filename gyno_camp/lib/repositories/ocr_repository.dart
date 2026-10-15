@@ -268,30 +268,37 @@ class OcrRepository implements IOcrRepository {
       'clinicalComplaints': complaintsList,
       'complaintsDuration': duration,
     };
+    final complaintDetails = Map<String, dynamic>.from(obs['complaintDetails'] as Map? ?? {});
     for (final c in complaintsList) {
+      final itemDetails = Map<String, dynamic>.from(complaintDetails[c] as Map? ?? {});
+      final itemDur = (itemDetails['duration'] as String?)?.isNotEmpty == true
+          ? itemDetails['duration'] as String
+          : duration;
       anamnesisMap[c] = {
         'present': true,
-        'duration': duration,
+        'duration': itemDur,
+        'remarks': itemDetails['remarks'] ?? '',
+        'subOption': itemDetails['subOption'] ?? '',
       };
       final lowerC = c.toLowerCase();
       if (lowerC.contains('mass') || lowerC.contains('vagina') || lowerC.contains('prolapse') || lowerC.contains('hanging')) {
-        anamnesisMap['prolapse'] = {'present': true, 'duration': duration};
-        anamnesisMap['something hanging out'] = {'present': true, 'duration': duration};
+        anamnesisMap['prolapse'] = {'present': true, 'duration': itemDur};
+        anamnesisMap['something hanging out'] = {'present': true, 'duration': itemDur};
       }
       if (lowerC.contains('discharge') || lowerC.contains('foul') || lowerC.contains('white') || lowerC.contains('itching')) {
-        anamnesisMap['discharge'] = {'present': true, 'duration': duration};
-        anamnesisMap['discharge and or itching'] = {'present': true, 'duration': duration};
+        anamnesisMap['discharge'] = {'present': true, 'duration': itemDur};
+        anamnesisMap['discharge and or itching'] = {'present': true, 'duration': itemDur};
       }
       if (lowerC.contains('micturition') || lowerC.contains('incontinence') || lowerC.contains('urine')) {
-        anamnesisMap['urine'] = {'present': true, 'duration': duration};
-        anamnesisMap['problems passing urine'] = {'present': true, 'duration': duration};
+        anamnesisMap['urine'] = {'present': true, 'duration': itemDur};
+        anamnesisMap['problems passing urine'] = {'present': true, 'duration': itemDur};
       }
       if (lowerC.contains('pain') || lowerC.contains('backache') || lowerC.contains('heaviness')) {
-        anamnesisMap['pain'] = {'present': true, 'duration': duration};
+        anamnesisMap['pain'] = {'present': true, 'duration': itemDur};
       }
       if (lowerC.contains('stool') || lowerC.contains('bowel')) {
-        anamnesisMap['stool'] = {'present': true, 'duration': duration};
-        anamnesisMap['problems passing stool'] = {'present': true, 'duration': duration};
+        anamnesisMap['stool'] = {'present': true, 'duration': itemDur};
+        anamnesisMap['problems passing stool'] = {'present': true, 'duration': itemDur};
       }
     }
 
@@ -339,6 +346,7 @@ class OcrRepository implements IOcrRepository {
       cervixRemarks: pop['cervixRemarks'] as String?,
       vaginaRemarks: pop['vaginaRemarks'] as String?,
       vulvaRemarks: pop['vulvaRemarks'] as String?,
+      uterusRemarks: pop['uterusRemarks'] as String?,
       pelvicFloorTone: pop['pelvicFloorTone'] as String? ?? 'weak',
       popAnteriorStage: pop['anteriorStage'] as int? ?? 2,
       popMiddleStage: pop['middleStage'] as int? ?? 3,
@@ -359,7 +367,10 @@ class OcrRepository implements IOcrRepository {
       diagnoses: verifiedScan.diagnoses,
       counseling: verifiedScan.counseling,
       medications: verifiedScan.medications,
-      pessaryType: (verifiedScan.ringPessary || pop['ringPessary'] == true) ? 'ring' : null,
+      pessaryType: verifiedScan.pessaryType ??
+          ((verifiedScan.ringPessary || pop['ringPessary'] == true)
+              ? (pop['pessaryType'] as String? ?? 'ring')
+              : null),
       pessarySize: verifiedScan.ringPessarySize != null
           ? '${verifiedScan.ringPessarySize}mm'
           : (pop['ringPessarySize'] != null ? '${pop['ringPessarySize']}mm' : null),

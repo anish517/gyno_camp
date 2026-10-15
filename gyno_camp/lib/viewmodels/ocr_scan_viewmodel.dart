@@ -616,15 +616,55 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     );
   }
 
-  /// Updates ring pessary status and size during human verification
-  void updateRingPessary({required bool ringPessary, int? size}) {
+  /// Updates per-complaint duration or details in obstetrics
+  void updateComplaintDetail(String complaint, {String? duration, String? remarks, dynamic subOption}) {
+    if (state.scanResult == null) return;
+    final updatedObs = Map<String, dynamic>.from(state.scanResult!.obstetrics);
+    final details = Map<String, dynamic>.from(updatedObs['complaintDetails'] as Map? ?? {});
+    final item = Map<String, dynamic>.from(details[complaint] as Map? ?? {});
+    if (duration != null) item['duration'] = duration;
+    if (remarks != null) item['remarks'] = remarks;
+    if (subOption != null) item['subOption'] = subOption;
+    details[complaint] = item;
+    updatedObs['complaintDetails'] = details;
+
+    state = state.copyWith(
+      scanResult: state.scanResult!.copyWith(obstetrics: updatedObs),
+    );
+  }
+
+  /// Toggles specialized counseling topics (weak pelvic floor, POP, stress incontinence, urge incontinence, abdominal pain)
+  void toggleCounseling(String topic) {
+    if (state.scanResult == null) return;
+    final current = List<String>.from(state.scanResult!.counseling);
+    final exists = current.any((c) => c.toLowerCase() == topic.toLowerCase());
+    if (exists) {
+      current.removeWhere((c) => c.toLowerCase() == topic.toLowerCase());
+    } else {
+      current.add(topic);
+    }
+
+    final updatedScan = state.scanResult!.copyWith(counseling: current);
+    final updatedPage2 = state.page2Scan?.copyWith(counseling: current);
+
+    state = state.copyWith(
+      scanResult: updatedScan,
+      page2Scan: updatedPage2,
+    );
+  }
+
+  /// Updates pessary insertion status, pessary type (ring, ring with support, ring with knob), and size (mm)
+  void updatePessary({required bool ringPessary, String? pessaryType, int? size}) {
     if (state.scanResult == null) return;
     final updatedPop = Map<String, dynamic>.from(state.scanResult!.popStaging);
     updatedPop['ringPessary'] = ringPessary;
+    updatedPop['pessaryType'] = ringPessary ? pessaryType : null;
     updatedPop['ringPessarySize'] = ringPessary ? size : null;
 
     final updatedScan = state.scanResult!.copyWith(
       ringPessary: ringPessary,
+      pessaryType: ringPessary ? pessaryType : null,
+      clearPessaryType: !ringPessary,
       ringPessarySize: ringPessary ? size : null,
       clearRingPessarySize: !ringPessary,
       popStaging: updatedPop,
@@ -632,6 +672,8 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
     final updatedPage2 = state.page2Scan?.copyWith(
       ringPessary: ringPessary,
+      pessaryType: ringPessary ? pessaryType : null,
+      clearPessaryType: !ringPessary,
       ringPessarySize: ringPessary ? size : null,
       clearRingPessarySize: !ringPessary,
       popStaging: updatedPop,
@@ -641,6 +683,11 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       scanResult: updatedScan,
       page2Scan: updatedPage2,
     );
+  }
+
+  /// Updates ring pessary status and size during human verification
+  void updateRingPessary({required bool ringPessary, int? size}) {
+    updatePessary(ringPessary: ringPessary, pessaryType: ringPessary ? 'ring' : null, size: size);
   }
 
   /// Sets examining doctor on scan result during human verification

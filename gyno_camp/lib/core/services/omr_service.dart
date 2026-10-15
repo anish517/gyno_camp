@@ -181,8 +181,9 @@ class OmrService {
   /// Page 1: Marital Status Options
   static List<OmrBox> get page1MaritalStatusBoxes => const [
     OmrBox(id: 'married', label: 'Married', normalizedRect: Rect.fromLTWH(0.24, 0.22, 0.05, 0.025)),
-    OmrBox(id: 'unmarried', label: 'Unmarried', normalizedRect: Rect.fromLTWH(0.52, 0.22, 0.05, 0.025)),
-    OmrBox(id: 'widow', label: 'Widow', normalizedRect: Rect.fromLTWH(0.80, 0.22, 0.05, 0.025)),
+    OmrBox(id: 'unmarried', label: 'Unmarried', normalizedRect: Rect.fromLTWH(0.48, 0.22, 0.05, 0.025)),
+    OmrBox(id: 'widow', label: 'Widow', normalizedRect: Rect.fromLTWH(0.70, 0.22, 0.05, 0.025)),
+    OmrBox(id: 'divorced', label: 'Divorced', normalizedRect: Rect.fromLTWH(0.88, 0.22, 0.05, 0.025)),
   ];
 
   /// Page 1: 8 Chief Complaints / Reasons for Visit

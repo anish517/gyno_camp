@@ -516,6 +516,8 @@ class OcrFormService {
             demographics['maritalStatus'] = 'unmarried';
           } else if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*widow|widow\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*widow').hasMatch(lowerM)) {
             demographics['maritalStatus'] = 'widow';
+          } else if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*divorced|divorced\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*divorced|पारपाचुके').hasMatch(lowerM)) {
+            demographics['maritalStatus'] = 'divorced';
           } else if (RegExp(r'\[\s*[xX✓✔•*+\#1]\s*\]\s*married|married\s*\[\s*[xX✓✔•*+\#1]\s*\]|☒\s*married').hasMatch(lowerM)) {
             demographics['maritalStatus'] = 'married';
           } else if (demographics['relativeType'] == 'Husband') {
@@ -632,77 +634,104 @@ class OcrFormService {
     obstetrics['livingChildren'] = min(rawLiving, rawDeliveries);
     obstetrics['abortions'] = rawAbortions;
 
-    // ── Complaints Duration ──
+    // ── Complaints Duration (blank form: < 1month, < 1 year, > 1 year, > 5 years, > 10 years) ──
     String? duration;
     final rawDuration = findValueForLabel(['complaints duration', 'complaint duration', 'duration', 'अवधि']);
     if (rawDuration != null) {
       final low = rawDuration.toLowerCase();
-      if (low.contains('< 3') || low.contains('<3') || low.contains('less than 3')) {
-        duration = '< 3 months';
-      } else if (low.contains('3-12') || low.contains('3 to 12') || low.contains('3 - 12') || low.contains('3–12')) {
-        duration = '3-12 months';
+      if (low.contains('10') || low.contains('10 year')) {
+        duration = '> 10 years';
+      } else if (low.contains('5') || low.contains('5 year')) {
+        duration = '> 5 years';
       } else if (low.contains('> 1') || low.contains('>1') || low.contains('greater than 1') || low.contains('1 year') || low.contains('1year')) {
         duration = '> 1 year';
+      } else if (low.contains('< 1') || low.contains('<1') || low.contains('less than 1') || low.contains('month')) {
+        duration = '< 1 year';
+      } else if (low.contains('< 1month') || low.contains('<1month') || low.contains('1 month') || low.contains('few week')) {
+        duration = '< 1month';
       } else {
         duration = rawDuration.trim();
       }
     }
     if (duration == null) {
-      if (isOptionSelected(['< 3 months', '<3 months', '< 3m'])) {
-        duration = '< 3 months';
-      } else if (isOptionSelected(['3-12 months', '3 - 12 months', '3 to 12 months'])) {
-        duration = '3-12 months';
-      } else if (isOptionSelected(['> 1 year', '>1 year', '> 1 yr', '>1 yr', '>1 Year'])) {
+      if (isOptionSelected(['> 10 years', '>10 years', '> 10 yr'])) {
+        duration = '> 10 years';
+      } else if (isOptionSelected(['> 5 years', '>5 years', '> 5 yr'])) {
+        duration = '> 5 years';
+      } else if (isOptionSelected(['> 1 year', '>1 year', '> 1 yr', '>1 yr'])) {
         duration = '> 1 year';
+      } else if (isOptionSelected(['< 1 year', '<1 year', '< 1 yr', '<1 yr'])) {
+        duration = '< 1 year';
+      } else if (isOptionSelected(['< 1month', '<1month', '< 1 month', 'few weeks'])) {
+        duration = '< 1month';
       } else {
-        duration = '3-12 months';
+        duration = '< 1 year';
       }
     }
     obstetrics['complaintsDuration'] = duration;
 
-    // ── 9 Chief Clinical Complaints (Page 2 Station 1 Checkboxes) ──
+    // ── 9 Canonical Blank Form Complaints (Yellow Form Station 1 keys) ──
     final clinicalComplaints = <String>[];
-    if (isOptionSelected(['lower abdominal pain', 'abdominal pain', 'तल्लो पेट दुख्ने'])) {
-      clinicalComplaints.add('Lower Abdominal Pain');
+
+    // 1. Something hanging out (prolapse)
+    if (isOptionSelected(['something hanging out', 'something hanging', 'hanging out', 'prolapse', 'पाठेघर खस्ने', 'mass per vagina', 'mass per vaginam'])) {
+      clinicalComplaints.add('prolapse');
     }
-    if (isOptionSelected(['white / foul discharge', 'white discharge', 'foul discharge', 'discharge and or itching', 'सेतो पानी', 'चिलाउने'])) {
-      clinicalComplaints.add('White / Foul Discharge');
+    // 2. Discharge / Itching
+    if (isOptionSelected(['discharge and or itching', 'discharge', 'itching', 'white discharge', 'foul discharge', 'पानी बग्ने', 'चिलाउने', 'सेतो पानी', 'स्राव'])) {
+      clinicalComplaints.add('discharge');
     }
-    if (isOptionSelected(['pelvic heaviness', 'heaviness', 'पेल्भिक भारी'])) {
-      clinicalComplaints.add('Pelvic Heaviness');
+    // 3. Problems passing urine
+    if (isOptionSelected(['problems passing urine', 'urinary incontinence', 'incontinence', 'burning micturition', 'burning urine', 'urine problem', 'पिसाब सम्बन्धी', 'पिसाब पोल्ने', 'पिसाब चुहिने'])) {
+      clinicalComplaints.add('urine');
     }
-    if (isOptionSelected(['burning micturition', 'burning urine', 'पिसाब पोल्ने'])) {
-      clinicalComplaints.add('Burning Micturition');
+    // 4. Problems passing stool
+    if (isOptionSelected(['problems passing stool', 'stool problem', 'दिसा सम्बन्धी', 'दिसा समस्या'])) {
+      clinicalComplaints.add('stool');
     }
-    if (isOptionSelected(['urinary incontinence', 'incontinence', 'problems passing urine', 'पिसाब चुहिने'])) {
-      clinicalComplaints.add('Urinary Incontinence');
+    // 5. Menstrual problem
+    if (isOptionSelected(['menstrual problem', 'dysmenorrhoea', 'menorrhagia', 'metrorrhagia', 'महिनावारी'])) {
+      clinicalComplaints.add('menstrual');
     }
-    if (isOptionSelected(['dyspareunia', 'pain during intercourse', 'सम्पर्कमा दुखाई'])) {
-      clinicalComplaints.add('Dyspareunia');
+    // 6. Infertility
+    if (isOptionSelected(['infertility', 'infertile', 'conception difficulty', 'बाँझोपन', 'निःसन्तान'])) {
+      clinicalComplaints.add('infertility');
     }
-    if (isOptionSelected(['coital bleeding', 'bleeding after intercourse', 'सम्पर्कपछि रक्तस्राव'])) {
-      clinicalComplaints.add('Coital Bleeding');
+    // 7. Lower abdomen pain
+    if (isOptionSelected(['lower abdominal pain', 'abdominal pain', 'lower abdomen pain', 'pelvic pain', 'पेल्भिक भारी', 'तल्लो पेट दुख्ने', 'dyspareunia'])) {
+      clinicalComplaints.add('lower_abdomen_pain');
     }
-    if (isOptionSelected(['mass per vagina', 'mass per vaginam', 'something hanging out', 'something hanging', 'योनीबाट केही बाहिर'])) {
-      clinicalComplaints.add('Mass Per Vagina');
+    // 8. Lower back pain
+    if (isOptionSelected(['lower back pain', 'back pain', 'backache', 'severe backache', 'ढाड दुख्ने', 'कम्मर दुख्ने', 'coital bleeding'])) {
+      clinicalComplaints.add('lower_back_pain');
     }
-    if (isOptionSelected(['severe backache', 'backache', 'ढाड दुख्ने', 'back pain'])) {
-      clinicalComplaints.add('Severe Backache');
+    // 9. Checkup
+    if (isOptionSelected(['checkup', 'general checkup', 'routine checkup', 'सामान्य जाँच', 'जाँच'])) {
+      clinicalComplaints.add('checkup');
     }
 
-    // Correlate with Page 1 intake reasons if scanning combined form and complaints list is sparse
+    // Correlate with Page 1 intake reasons if complaints list is sparse
     final reasons = (demographics['reasonsForVisit'] as List?)?.cast<String>() ?? [];
-    if (reasons.any((r) => r.contains('hanging') || r.contains('prolapse')) && !clinicalComplaints.contains('Mass Per Vagina')) {
-      clinicalComplaints.add('Mass Per Vagina');
+    if (reasons.any((r) => r.contains('hanging') || r.contains('prolapse')) && !clinicalComplaints.contains('prolapse')) {
+      clinicalComplaints.add('prolapse');
     }
-    if (reasons.any((r) => r.contains('discharge') || r.contains('itching')) && !clinicalComplaints.contains('White / Foul Discharge')) {
-      clinicalComplaints.add('White / Foul Discharge');
+    if (reasons.any((r) => r.contains('discharge') || r.contains('itching')) && !clinicalComplaints.contains('discharge')) {
+      clinicalComplaints.add('discharge');
     }
-    if (reasons.any((r) => r.contains('urine')) && !clinicalComplaints.contains('Urinary Incontinence') && !clinicalComplaints.contains('Burning Micturition')) {
-      clinicalComplaints.add('Urinary Incontinence');
+    if (reasons.any((r) => r.contains('urine')) && !clinicalComplaints.contains('urine')) {
+      clinicalComplaints.add('urine');
     }
-    if (reasons.any((r) => r.contains('pain')) && !clinicalComplaints.contains('Lower Abdominal Pain')) {
-      clinicalComplaints.add('Lower Abdominal Pain');
+    if (reasons.any((r) => r.contains('stool')) && !clinicalComplaints.contains('stool')) {
+      clinicalComplaints.add('stool');
+    }
+    if (reasons.any((r) => r.contains('menstrual') || r.contains('महिनावारी')) && !clinicalComplaints.contains('menstrual')) {
+      clinicalComplaints.add('menstrual');
+    }
+    if (reasons.any((r) => r.contains('pain') || r.contains('दुख्ने')) && !clinicalComplaints.contains('lower_abdomen_pain')) {
+      clinicalComplaints.add('lower_abdomen_pain');
+    }
+    if (reasons.any((r) => r.contains('checkup')) && !clinicalComplaints.contains('checkup')) {
+      clinicalComplaints.add('checkup');
     }
 
     obstetrics['clinicalComplaints'] = clinicalComplaints;
@@ -714,7 +743,11 @@ class OcrFormService {
     final vitals = <String, dynamic>{};
     final popStaging = <String, dynamic>{};
     final diagnoses = <String>[];
+    final counseling = <String>[];
     final medications = <String>[];
+    bool ringPessary = false;
+    String? pessaryType;
+    int? ringPessarySize;
     String? surgicalReferral;
     String? followUp;
 
@@ -963,22 +996,24 @@ class OcrFormService {
           (highest >= 2 && !isOptionSelected(['uterus inside: yes', 'uterus inside yes', 'uterus inside: 0 yes']));
       popStaging['uterusInside'] = !uterusOutside;
 
-      // Cervix Appearance (Station 2)
-      final cervixVal = findValueForLabel(['cervix appearance', 'cervix:', 'cervix', 'पाठेघरको मुख']);
-      if (cervixVal != null && cervixVal.isNotEmpty) {
-        popStaging['cervixRemarks'] = cervixVal.trim();
-      } else if (isOptionSelected(['erosion', 'इरोज़न'])) {
-        popStaging['cervixRemarks'] = 'Erosion';
-      } else if (isOptionSelected(['polyp', 'पोलिप'])) {
-        popStaging['cervixRemarks'] = 'Polyp';
-      } else if (isOptionSelected(['hypertrophy', 'hypertrophied'])) {
-        popStaging['cervixRemarks'] = 'Hypertrophied';
-      } else if (lowerText.contains('cervix') && lowerText.contains('normal')) {
-        popStaging['cervixRemarks'] = 'Normal / Smooth';
+      // 1. Vulva Examination (Station 2)
+      final vulvaVal = findValueForLabel(['vulva appearance', 'vulva:', 'vulva', 'भल्भा']);
+      if (vulvaVal != null && vulvaVal.isNotEmpty) {
+        popStaging['vulvaRemarks'] = vulvaVal.trim();
+      } else if (isOptionSelected(['condyloma', 'कन्डाइलोमा'])) {
+        popStaging['vulvaRemarks'] = 'Condyloma';
+      } else if (isOptionSelected(['ulcer', 'घाउ'])) {
+        popStaging['vulvaRemarks'] = 'Ulcer';
+      } else if (isOptionSelected(['lichen sclerosus'])) {
+        popStaging['vulvaRemarks'] = 'Lichen Sclerosus';
+      } else if (lowerText.contains('vulva') && lowerText.contains('normal')) {
+        popStaging['vulvaRemarks'] = 'Normal';
+      } else {
+        popStaging['vulvaRemarks'] = 'Normal';
       }
 
-      // Vagina / Vulva (Station 2)
-      final vaginaVal = findValueForLabel(['vagina / vulva', 'vagina/vulva', 'vagina:', 'vulva:', 'योनी']);
+      // 2. Vagina Examination (Station 2)
+      final vaginaVal = findValueForLabel(['vagina appearance', 'vagina:', 'vagina', 'योनी']);
       if (vaginaVal != null && vaginaVal.isNotEmpty) {
         popStaging['vaginaRemarks'] = vaginaVal.trim();
       } else if (isOptionSelected(['atrophy', 'atrophic', 'सुकेको'])) {
@@ -987,6 +1022,40 @@ class OcrFormService {
         popStaging['vaginaRemarks'] = 'Mild discharge';
       } else if (lowerText.contains('vagina') && lowerText.contains('normal')) {
         popStaging['vaginaRemarks'] = 'Normal';
+      } else {
+        popStaging['vaginaRemarks'] = 'Normal';
+      }
+
+      // 3. Cervix Appearance (Station 2)
+      final cervixVal = findValueForLabel(['cervix appearance', 'cervix:', 'cervix', 'पाठेघरको मुख']);
+      if (cervixVal != null && cervixVal.isNotEmpty) {
+        popStaging['cervixRemarks'] = cervixVal.trim();
+      } else if (isOptionSelected(['erosion', 'इरोज़न'])) {
+        popStaging['cervixRemarks'] = 'Erosion';
+      } else if (isOptionSelected(['polyp', 'पोलिप'])) {
+        popStaging['cervixRemarks'] = 'Polyp';
+      } else if (isOptionSelected(['hypertrophy', 'hypertrophied'])) {
+        popStaging['cervixRemarks'] = 'Hypertrophy';
+      } else if (lowerText.contains('cervix') && lowerText.contains('normal')) {
+        popStaging['cervixRemarks'] = 'Normal / Smooth';
+      } else {
+        popStaging['cervixRemarks'] = 'Normal / Smooth';
+      }
+
+      // 4. Uterus Examination (Station 2)
+      final uterusVal = findValueForLabel(['uterus examination', 'uterus remarks', 'uterus:', 'पाठेघर सम्बन्धी']);
+      if (uterusVal != null && uterusVal.isNotEmpty) {
+        popStaging['uterusRemarks'] = uterusVal.trim();
+      } else if (isOptionSelected(['bulky', 'ठूलो'])) {
+        popStaging['uterusRemarks'] = 'Bulky';
+      } else if (isOptionSelected(['tender', 'दुख्ने'])) {
+        popStaging['uterusRemarks'] = 'Tender';
+      } else if (isOptionSelected(['fibroid'])) {
+        popStaging['uterusRemarks'] = 'Fibroid';
+      } else if (lowerText.contains('uterus') && lowerText.contains('normal')) {
+        popStaging['uterusRemarks'] = 'Normal size';
+      } else {
+        popStaging['uterusRemarks'] = 'Normal size';
       }
 
       if (page2OmrPop != null && (page2OmrPop['tone_weak']?.isMarked == true || page2OmrPop['tone_torn']?.isMarked == true || page2OmrPop['tone_normal']?.isMarked == true)) {
@@ -1073,8 +1142,51 @@ class OcrFormService {
       if (isOptionSelected(['clobetasol'])) {
         medications.add('clobetasol');
       }
-      if (highest >= 2 || isOptionSelected(['ring pessary', 'pessary', 'ring with support', 'ring with knob'])) {
-        medications.add('Ring Pessary');
+      // ── Specialized Counseling (Station 5: spec counseling) ──
+      if (isOptionSelected(['weak pelvic floor', 'pelvic floor', 'pfmt', 'केगेल'])) {
+        counseling.add('Weak pelvic floor');
+      }
+      if (isOptionSelected(['pop counseling', 'pop', 'prolapse', 'पाठेघर खसेको'])) {
+        counseling.add('POP (Pelvic organ prolapse)');
+      }
+      if (isOptionSelected(['stress incontinence', 'stress incont', 'खोक्दा पिसाब'])) {
+        counseling.add('Stress incontinence');
+      }
+      if (isOptionSelected(['urge incontinence', 'urge incont', 'हतारिने पिसाब'])) {
+        counseling.add('Urge incontinence');
+      }
+      if (isOptionSelected(['abdominal pain', 'abdom pain', 'पेट दुख्ने'])) {
+        counseling.add('Abdominal pain');
+      }
+
+      // ── Pessary Fitting (Station 5: pessary) ──
+      if (isOptionSelected(['pessary', 'ring pessary', 'पेसरी', 'ring with support', 'ring with knob'])) {
+        ringPessary = true;
+        if (isOptionSelected(['ring with support', 'with support'])) {
+          pessaryType = 'ring with support';
+        } else if (isOptionSelected(['ring with knob', 'with knob'])) {
+          pessaryType = 'ring with knob';
+        } else {
+          pessaryType = 'ring';
+        }
+
+        final sizeMatch = RegExp(r'(?:size|साइज)[:\s]*(\d{2})', caseSensitive: false).firstMatch(text);
+        if (sizeMatch != null) {
+          ringPessarySize = int.tryParse(sizeMatch.group(1)!);
+        } else {
+          for (final sz in [55, 60, 65, 70, 75, 80, 85]) {
+            if (lowerText.contains('${sz}mm') || lowerText.contains('$sz mm')) {
+              ringPessarySize = sz;
+              break;
+            }
+          }
+        }
+      }
+
+      if (highest >= 2 || ringPessary) {
+        if (!medications.contains('Ring Pessary')) {
+          medications.add('Ring Pessary');
+        }
       }
       confidences['medications'] = medications.isNotEmpty ? 0.85 : 0.40;
 
@@ -1269,9 +1381,13 @@ class OcrFormService {
       vitals: vitals,
       popStaging: popStaging,
       diagnoses: diagnoses,
+      counseling: counseling,
       medications: medications,
       surgicalReferral: surgicalReferral,
       followUpDestination: followUp,
+      ringPessary: ringPessary,
+      pessaryType: pessaryType,
+      ringPessarySize: ringPessarySize,
       examiningDoctor: examiningDoctor,
       attendingDoctors: attendingDoctors,
       examiningNurse: examiningNurse,

@@ -20,6 +20,7 @@ class OcrScanResultModel {
   final bool surgeryDone;
   final String? surgeryType; // 'Open surgery', 'Laparoscopy', 'Vaginal route'
   final bool ringPessary;
+  final String? pessaryType; // 'ring', 'ring with support', 'ring with knob'
   final int? ringPessarySize; // in mm, e.g. 65, 70
   final String? examiningDoctor; // Lead/attending doctor identified on Page 2
   final List<String> attendingDoctors; // Multi-doctor list if multiple attended
@@ -53,6 +54,7 @@ class OcrScanResultModel {
     this.surgeryDone = false,
     this.surgeryType,
     this.ringPessary = false,
+    this.pessaryType,
     this.ringPessarySize,
     this.examiningDoctor,
     this.attendingDoctors = const [],
@@ -93,6 +95,8 @@ class OcrScanResultModel {
     String? surgeryType,
     bool clearSurgeryType = false,
     bool? ringPessary,
+    String? pessaryType,
+    bool clearPessaryType = false,
     int? ringPessarySize,
     bool clearRingPessarySize = false,
     String? examiningDoctor,
@@ -130,6 +134,7 @@ class OcrScanResultModel {
       surgeryDone: surgeryDone ?? this.surgeryDone,
       surgeryType: clearSurgeryType ? null : (surgeryType ?? this.surgeryType),
       ringPessary: ringPessary ?? this.ringPessary,
+      pessaryType: clearPessaryType ? null : (pessaryType ?? this.pessaryType),
       ringPessarySize: clearRingPessarySize ? null : (ringPessarySize ?? this.ringPessarySize),
       examiningDoctor: clearExaminingDoctor ? null : (examiningDoctor ?? this.examiningDoctor),
       attendingDoctors: attendingDoctors ?? List<String>.from(this.attendingDoctors),
@@ -210,6 +215,7 @@ ${page2.rawText}
       surgeryDone: page2.surgeryDone || page1.surgeryDone,
       surgeryType: page2.surgeryType ?? page1.surgeryType,
       ringPessary: page2.ringPessary || page1.ringPessary,
+      pessaryType: page2.pessaryType ?? page1.pessaryType,
       ringPessarySize: page2.ringPessarySize ?? page1.ringPessarySize,
       examiningDoctor: mergedDoctor,
       attendingDoctors: mergedDoctors,
@@ -247,12 +253,14 @@ ${page2.rawText}
       'vitals': vitals,
       'popStaging': popStaging,
       'diagnoses': diagnoses,
+      'counseling': counseling,
       'medications': medications,
       'surgicalReferral': surgicalReferral,
       'followUpDestination': followUpDestination,
       'surgeryDone': surgeryDone ? 1 : 0,
       'surgeryType': surgeryType,
       'ringPessary': ringPessary ? 1 : 0,
+      'pessaryType': pessaryType,
       'ringPessarySize': ringPessarySize,
       'examiningDoctor': examiningDoctor,
       'attendingDoctors': attendingDoctors.join(','),

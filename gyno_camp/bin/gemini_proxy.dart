@@ -364,7 +364,7 @@ Extract the information accurately into this EXACT JSON structure:
     "livingChildren": number or null,
     "abortions": number or null,
     "complaintsDuration": "< 1month or < 1 year or > 1 year or > 5 years or > 10 years",
-    "clinicalComplaints": ["List of checked clinical complaints from Station 1"]
+    "clinicalComplaints": ["Checked complaints from Station 1 using EXACT keys: prolapse, discharge, urine, stool, menstrual, infertility, lower_abdomen_pain, lower_back_pain, checkup"]
   },
   "popStaging": {
     "uterusInside": true or false,
