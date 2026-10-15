@@ -4531,7 +4531,7 @@ class PdfReportService {
             double boxSize = 11.8,
             double boxHeight = 15.2,
             double boxMargin = 1.0,
-            double bottomPadding = 3.5,
+            double bottomPadding = 5.5,
           }) => pw.Padding(
             padding: pw.EdgeInsets.only(bottom: bottomPadding),
             child: pw.Column(
@@ -5203,7 +5203,7 @@ class PdfReportService {
                 : ClinicalConstants.anamnesisDurations;
 
             return pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 2.2),
+              padding: const pw.EdgeInsets.only(bottom: 11.0),
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
@@ -5226,7 +5226,7 @@ class PdfReportService {
                     child: pw.Container(
                       padding: const pw.EdgeInsets.symmetric(
                         horizontal: 5,
-                        vertical: 1.8,
+                        vertical: 5.0,
                       ),
                       decoration: pw.BoxDecoration(
                         color: isTicked
@@ -5355,7 +5355,7 @@ class PdfReportService {
               ),
               // Deliveries row (Anamnesis Date removed as per instructions)
               pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 2.5),
+                padding: const pw.EdgeInsets.only(bottom: 7.0),
                 child: pw.Row(
                   children: [
                     pw.Text(
@@ -5486,7 +5486,7 @@ class PdfReportService {
           // ── Bottom Administrative Footer ──
           final bottomFooter = pw.Container(
             width: double.infinity,
-            margin: const pw.EdgeInsets.only(top: 8),
+            margin: const pw.EdgeInsets.only(top: 16),
             padding: const pw.EdgeInsets.symmetric(
               horizontal: 8,
               vertical: 4.5,
@@ -5652,13 +5652,13 @@ class PdfReportService {
                     ],
                   ),
                   triageStrip,
-                  pw.SizedBox(height: 3),
+                  pw.SizedBox(height: 7),
                   sectionA,
-                  pw.SizedBox(height: 3),
+                  pw.SizedBox(height: 7),
                   sectionB,
-                  pw.SizedBox(height: 3),
+                  pw.SizedBox(height: 7),
                   station1,
-                  pw.SizedBox(height: 4),
+                  pw.SizedBox(height: 10),
                   bottomFooter,
                 ],
               ),
