@@ -4989,9 +4989,10 @@ class PdfReportService {
                           children: [
                             ne(
                               'Consent for Treatment / उपचारको लागि सहमति: ',
-                              size: 8.0,
+                              size: 7.8,
                               bold: true,
                               color: 0xFF0F172A,
+                              maxWidth: 148,
                             ),
                             cb(
                               'YES',
@@ -5011,10 +5012,11 @@ class PdfReportService {
                         pw.Row(
                           children: [
                             ne(
-                              'Consent for Storage / स्वास्थ्य विवरण भण्डारण सहमति: ',
-                              size: 8.0,
+                              'Consent for Storage / स्वास्थ्य विवरण सहमति: ',
+                              size: 7.8,
                               bold: true,
                               color: 0xFF0F172A,
+                              maxWidth: 148,
                             ),
                             cb(
                               'YES',
@@ -6411,7 +6413,7 @@ class PdfReportService {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               secHdr('STATION 5: TREATMENT & PRESCRIPTIONS / उपचार तथा औषधि'),
-              // Row 1: Treatment Date & Specialized Counseling
+              // Row 1a: Treatment Date + spec counseling (line 1: weak pelvic floor, POP, stress incont, urge incont)
               pw.Row(
                 children: [
                   pw.Text('Treatment Date: ', style: bold(size: fsSmall)),
@@ -6419,7 +6421,7 @@ class PdfReportService {
                     hasPatient ? dateFormatter.format(intakeDate) : '__________________',
                     style: normal(size: fsSmall),
                   ),
-                  pw.SizedBox(width: 10),
+                  pw.SizedBox(width: 8),
                   pw.Text('spec counseling: ', style: bold(size: fsSmall)),
                   cb(
                     'weak pelvic floor',
@@ -6430,8 +6432,8 @@ class PdfReportService {
                         ) ??
                         false,
                     bottom: 0,
-                    fontSize: 7.8,
-                    boxSize: 10.5,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
                   ),
                   cb(
                     'POP',
@@ -6442,8 +6444,8 @@ class PdfReportService {
                         ) ??
                         false,
                     bottom: 0,
-                    fontSize: 7.8,
-                    boxSize: 10.5,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
                   ),
                   cb(
                     'stress incontinence',
@@ -6452,8 +6454,8 @@ class PdfReportService {
                         ) ??
                         false,
                     bottom: 0,
-                    fontSize: 7.8,
-                    boxSize: 10.5,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
                   ),
                   cb(
                     'urge incontinence',
@@ -6462,8 +6464,8 @@ class PdfReportService {
                         ) ??
                         false,
                     bottom: 0,
-                    fontSize: 7.8,
-                    boxSize: 10.5,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
                   ),
                   cb(
                     'abdominal pain',
@@ -6472,13 +6474,12 @@ class PdfReportService {
                         ) ??
                         false,
                     bottom: 0,
-                    fontSize: 7.8,
-                    boxSize: 10.5,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
                   ),
                 ],
               ),
-              pw.SizedBox(height: 2.5),
-              // Row 2: Pessary & Surgical Referral
+              // Row 2: Pessary type + size
               pw.Row(
                 children: [
                   pw.Text('pessary: ', style: bold(size: fsSmall)),
@@ -6486,8 +6487,8 @@ class PdfReportService {
                     'ring',
                     (visit?.pessaryType ?? '').toLowerCase() == 'ring',
                     bottom: 0,
-                    fontSize: 7.8,
-                    boxSize: 10.5,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
                   ),
                   cb(
                     'ring with support',
@@ -6495,15 +6496,15 @@ class PdfReportService {
                       'support',
                     ),
                     bottom: 0,
-                    fontSize: 7.8,
-                    boxSize: 10.5,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
                   ),
                   cb(
                     'ring with knob',
                     (visit?.pessaryType ?? '').toLowerCase().contains('knob'),
                     bottom: 0,
-                    fontSize: 7.8,
-                    boxSize: 10.5,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
                   ),
                   pw.SizedBox(width: 4),
                   pw.Text('size: ', style: bold(size: fsSmall)),
@@ -6525,7 +6526,12 @@ class PdfReportService {
                     ),
                   ),
                   pw.Text(' mm', style: normal(size: fsSmall)),
-                  pw.SizedBox(width: 12),
+                ],
+              ),
+              pw.SizedBox(height: 2.0),
+              // Row 3: Referral Surgery
+              pw.Row(
+                children: [
                   pw.Text('referral surgery: ', style: bold(size: fsSmall)),
                   cb(
                     'Scheer Memorial',
@@ -6533,8 +6539,8 @@ class PdfReportService {
                       'scheer',
                     ),
                     bottom: 0,
-                    fontSize: 7.8,
-                    boxSize: 10.5,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
                   ),
                   cb(
                     'Model Hosp',
@@ -6542,8 +6548,8 @@ class PdfReportService {
                       'model',
                     ),
                     bottom: 0,
-                    fontSize: 7.8,
-                    boxSize: 10.5,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
                   ),
                   cb(
                     'loc government',
@@ -6554,8 +6560,8 @@ class PdfReportService {
                           'local',
                         ),
                     bottom: 0,
-                    fontSize: 7.8,
-                    boxSize: 10.5,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
                   ),
                 ],
               ),
@@ -6922,7 +6928,7 @@ class PdfReportService {
                 pw.SizedBox(width: 14),
                 // 3. Examining Doctor
                 pw.SizedBox(
-                  width: (allDoctorsChecklist || effectiveDoctors.length > 1) ? 210 : 165,
+                  width: 185,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
