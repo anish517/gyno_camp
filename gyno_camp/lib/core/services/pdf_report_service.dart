@@ -5692,10 +5692,10 @@ class PdfReportService {
           pw.Widget secHdr(String title) {
             return pw.Container(
               width: double.infinity,
-              margin: const pw.EdgeInsets.only(top: 3.5, bottom: 3.0),
+              margin: const pw.EdgeInsets.only(top: 5.5, bottom: 4.5),
               padding: const pw.EdgeInsets.symmetric(
                 horizontal: 7,
-                vertical: 2.8,
+                vertical: 3.5,
               ),
               decoration: pw.BoxDecoration(
                 color: PdfColor.fromHex('F1F5F9'),
@@ -6569,7 +6569,7 @@ class PdfReportService {
               // 2-Column Medication Grid (All 10 formulary medications)
               pw.Container(
                 width: double.infinity,
-                padding: const pw.EdgeInsets.all(5),
+                padding: const pw.EdgeInsets.all(8),
                 decoration: pw.BoxDecoration(
                   border: pw.Border.all(
                     color: PdfColor.fromHex('CBD5E1'),
@@ -6598,7 +6598,7 @@ class PdfReportService {
                               return cb(
                                 m,
                                 isChecked,
-                                bottom: 2.0,
+                                bottom: 5.0,
                                 fontSize: 7.8,
                                 boxSize: 10.5,
                               );
@@ -6624,7 +6624,7 @@ class PdfReportService {
                               return cb(
                                 m,
                                 isChecked,
-                                bottom: 2.0,
+                                bottom: 5.0,
                                 fontSize: 7.8,
                                 boxSize: 10.5,
                               );
@@ -6684,7 +6684,7 @@ class PdfReportService {
                   ),
                 ],
               ),
-              pw.SizedBox(height: 2.5),
+              pw.SizedBox(height: 5.0),
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
@@ -6695,13 +6695,13 @@ class PdfReportService {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text('follow up: ', style: bold(size: fsSmall)),
-                        pw.SizedBox(height: 2),
+                        pw.SizedBox(height: 4),
                         cb(
                           'Health Post (स्वास्थ्य चौकी)',
                           (followUpDest ?? '').toLowerCase().contains(
                             'health post',
                           ),
-                          bottom: 2.5,
+                          bottom: 5.0,
                           fontSize: 8.0,
                           boxSize: 10.5,
                         ),
@@ -6713,7 +6713,7 @@ class PdfReportService {
                               (followUpDest ?? '').toLowerCase().contains(
                                 'nurse',
                               ),
-                          bottom: 2.5,
+                          bottom: 5.0,
                           fontSize: 8.0,
                           boxSize: 10.5,
                         ),
@@ -6767,7 +6767,7 @@ class PdfReportService {
                   pw.Expanded(
                     flex: 50,
                     child: pw.Container(
-                      height: 52,
+                      height: 72,
                       padding: const pw.EdgeInsets.all(4.0),
                       decoration: pw.BoxDecoration(
                         border: pw.Border.all(
@@ -7135,16 +7135,17 @@ class PdfReportService {
                         ),
                     ],
                   ),
-                  pw.SizedBox(height: 2),
+                  pw.SizedBox(height: 5),
                   station2,
-                  pw.SizedBox(height: 2),
+                  pw.SizedBox(height: 5),
                   station3,
-                  pw.SizedBox(height: 2),
+                  pw.SizedBox(height: 5),
                   station4,
-                  pw.SizedBox(height: 2),
+                  pw.SizedBox(height: 5),
                   station5,
-                  pw.SizedBox(height: 2),
+                  pw.SizedBox(height: 5),
                   station6,
+                  pw.SizedBox(height: 5),
                   signaturesBlock,
                 ],
               ),
