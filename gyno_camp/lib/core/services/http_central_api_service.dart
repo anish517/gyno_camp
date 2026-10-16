@@ -146,29 +146,43 @@ class HttpCentralApiService implements ICentralApiService {
 
   @override
   Future<bool> pingServer() async {
-    // 1. Quick test on activeBaseUrl if already resolved
-    final active = _activeBaseUrl;
-    if (active != null && await _testEndpoint(active)) {
-      markServerOnline(active);
+    // 1. Fast path: test activeBaseUrl or preferred configured baseUrl first.
+    // If the configured endpoint (e.g., from --dart-define or SessionService) is reachable,
+    // return immediately to avoid probing dead LAN IPs which trigger noisy
+    // net::ERR_CONNECTION_TIMED_OUT errors in the browser console.
+    final preferred = _activeBaseUrl ?? baseUrl;
+    if (preferred.isNotEmpty && await _testEndpoint(preferred)) {
+      markServerOnline(preferred);
       return true;
     }
 
-    // 2. Parallel probe candidate endpoints for immediate LAN discovery (<1.5s)
+    // 2. Also check saved URL from session if different from preferred
+    final saved = SessionService.current?.getCentralServerUrl();
+    if (saved != null &&
+        saved.isNotEmpty &&
+        saved != preferred &&
+        await _testEndpoint(saved)) {
+      markServerOnline(saved);
+      return true;
+    }
+
+    // 3. Only if configured server is unreachable, probe candidate endpoints for LAN auto-discovery
     final candidateSet = <String>{
-      baseUrl,
-      'http://192.168.1.13:8080', // Active Wi-Fi host IP
-      'http://192.168.16.113:8080', // Home Wi-Fi host IP
+      'http://192.168.1.110:8080', // Active Wi-Fi host IP
       'http://localhost:8080', // Web / desktop localhost
       'http://127.0.0.1:8080', // ADB reverse USB loopback
-      'http://192.168.1.4:8080', // Office Wi-Fi host IP
-      'http://192.168.1.110:8080', // Alternative Wi-Fi host IP
-      'http://10.0.2.2:8080', // Android emulator host bridge
+      'http://192.168.1.13:8080',
+      'http://192.168.1.4:8080',
+      'http://192.168.16.113:8080',
     };
 
-    final saved = SessionService.current?.getCentralServerUrl();
-    if (saved != null && saved.isNotEmpty) {
-      candidateSet.add(saved);
+    // 10.0.2.2 is exclusively for Android emulator host bridge - never probe on Web or desktop
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      candidateSet.add('http://10.0.2.2:8080');
     }
+
+    candidateSet.remove(preferred);
+    if (saved != null) candidateSet.remove(saved);
 
     final probeFutures = candidateSet.map((candidate) async {
       final ok = await _testEndpoint(candidate);

@@ -5638,8 +5638,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                       // REAL-TIME KPI METRICS (4 TELEMETRY CARDS)
                       _buildKpiMetricsRow(
                         summary: summary,
-                        allPatientsCount: allPatients.length,
-                        filteredPatientsCount: filteredPatients.length,
+                        allPatients: allPatients,
+                        filteredPatients: filteredPatients,
                       ),
 
                       const SizedBox(height: 18),
@@ -6069,26 +6069,50 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   // ==========================================
   Widget _buildKpiMetricsRow({
     required CampReportSummaryModel? summary,
-    required int allPatientsCount,
-    required int filteredPatientsCount,
+    required List<PatientModel> allPatients,
+    required List<PatientModel> filteredPatients,
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 720;
-        final totalReg = allPatientsCount;
+        final isFiltered = filteredPatients.length < allPatients.length;
+        final cohortPatients = isFiltered ? filteredPatients : allPatients;
+
+        final totalReg = isFiltered ? filteredPatients.length : allPatients.length;
+        final cohortExams = cohortPatients.where((p) => p.hasClinicalVisit || _patientVisits.containsKey(p.patientId)).length;
         final totalExam = _patientVisits.length;
-        final popSignificant = summary?.significantPopCount ??
-            _patientVisits.values.where((v) => v.highestPopStage >= 2).length;
-        final popPct = totalExam > 0 ? (popSignificant / totalExam * 100).toStringAsFixed(1) : '0.0';
-        final referrals = summary?.totalSurgicalReferrals ??
-            _patientVisits.values.where((v) => v.surgicalReferral != null && v.surgicalReferral!.isNotEmpty).length;
-        final prescriptions = summary?.totalPrescriptionsCount ?? 0;
+
+        final popSignificant = cohortPatients.where((p) {
+          final v = _patientVisits[p.patientId];
+          return (v?.highestPopStage ?? p.highestPopStage ?? 0) >= 2;
+        }).length;
+        final popPct = cohortExams > 0 ? (popSignificant / cohortExams * 100).toStringAsFixed(1) : '0.0';
+
+        final referrals = cohortPatients.where((p) {
+          final v = _patientVisits[p.patientId];
+          return (v?.surgicalReferral != null && v!.surgicalReferral!.trim().isNotEmpty) ||
+                 (p.surgicalReferral != null && p.surgicalReferral!.trim().isNotEmpty);
+        }).length;
+
+        final pessaries = cohortPatients.where((p) {
+          final v = _patientVisits[p.patientId];
+          return (v?.pessaryType != null && v!.pessaryType!.trim().isNotEmpty) ||
+                 (p.pessaryType != null && p.pessaryType!.trim().isNotEmpty);
+        }).length;
+
+        final prescriptions = cohortPatients.where((p) {
+          final v = _patientVisits[p.patientId];
+          return (v != null && (v.medications.isNotEmpty || (v.customMedication?.trim().isNotEmpty ?? false))) ||
+                 (p.medications.isNotEmpty || (p.customMedication?.trim().isNotEmpty ?? false));
+        }).length;
 
         final cards = [
           _buildTelemetryCard(
-            title: 'Registered Cohort',
+            title: isFiltered ? 'Filtered Cohort' : 'Registered Cohort',
             value: '$totalReg',
-            subtitle: 'Exams Completed: $totalExam',
+            subtitle: isFiltered
+                ? 'Exams: $cohortExams • of ${allPatients.length} Total'
+                : 'Exams Completed: $totalExam',
             icon: Icons.people_alt_rounded,
             color: AppTheme.brandPurple,
           ),
@@ -6109,7 +6133,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
           _buildTelemetryCard(
             title: 'Prescriptions',
             value: '$prescriptions',
-            subtitle: 'Pessaries Fitted: ${summary?.totalPessariesInserted ?? 0}',
+            subtitle: 'Pessaries Fitted: $pessaries',
             icon: Icons.medication_rounded,
             color: const Color(0xFF3B82F6),
           ),
