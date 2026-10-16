@@ -5710,24 +5710,37 @@ class PdfReportService {
                         )
                       else if (preprintedPatientId != null &&
                           preprintedPatientId.isNotEmpty)
-                        pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        pw.Row(
+                          mainAxisSize: pw.MainAxisSize.min,
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
                           children: [
-                            pw.Text(
-                              'PATIENT ID: $preprintedPatientId',
-                              style: pw.TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: pw.FontWeight.bold,
-                                color: primary,
-                              ),
-                            ),
-                            pw.SizedBox(height: 2),
                             pw.BarcodeWidget(
-                              barcode: pw.Barcode.code128(),
+                              barcode: pw.Barcode.qrCode(),
                               data: preprintedPatientId,
-                              width: 60,
-                              height: 16,
-                              drawText: false,
+                              width: 24,
+                              height: 24,
+                            ),
+                            pw.SizedBox(width: 6),
+                            pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.end,
+                              children: [
+                                pw.Text(
+                                  'PATIENT ID: $preprintedPatientId',
+                                  style: pw.TextStyle(
+                                    fontSize: 8.5,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: primary,
+                                  ),
+                                ),
+                                pw.SizedBox(height: 2),
+                                pw.BarcodeWidget(
+                                  barcode: pw.Barcode.code128(),
+                                  data: preprintedPatientId,
+                                  width: 60,
+                                  height: 16,
+                                  drawText: false,
+                                ),
+                              ],
                             ),
                           ],
                         )
@@ -6320,11 +6333,15 @@ class PdfReportService {
               secHdr('STATION 4: CONFIRMED DIAGNOSES / निदान'),
               // POP Highest Stage
               pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   pw.Text('Conclusion Date: ', style: bold(size: fsSmall)),
-                  pw.Text(
-                    hasPatient ? dateFormatter.format(intakeDate) : '__________________',
-                    style: normal(size: fsSmall),
+                  buildDateBsBoxes(
+                    intakeDate,
+                    hasData: hasPatient,
+                    boxSize: 8.5,
+                    boxHeight: 11.5,
+                    fontSize: 7.0,
                   ),
                   pw.SizedBox(width: 14),
                   pw.Text('highest POP stage: ', style: bold(size: fsSmall)),
@@ -7177,7 +7194,7 @@ class PdfReportService {
                               ),
                             ),
                             pw.Text(
-                              'Stations 2 - 6 | Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? ""}) | Date: ${hasPatient ? dateFormatter.format(intakeDate) : "__________________"}',
+                              'Stations 2 - 6 | Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? ""})',
                               style: const pw.TextStyle(
                                 fontSize: 6.8,
                                 color: PdfColors.grey700,
@@ -7187,24 +7204,37 @@ class PdfReportService {
                         ),
                       ),
                       if (hasPatient)
-                        pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        pw.Row(
+                          mainAxisSize: pw.MainAxisSize.min,
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
                           children: [
-                            pw.Text(
-                              'PATIENT ID: ${patient.patientId}',
-                              style: pw.TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: pw.FontWeight.bold,
-                                color: primary,
-                              ),
-                            ),
-                            pw.SizedBox(height: 2),
                             pw.BarcodeWidget(
-                              barcode: pw.Barcode.code128(),
+                              barcode: pw.Barcode.qrCode(),
                               data: patient.patientId,
-                              width: 55,
-                              height: 14,
-                              drawText: false,
+                              width: 24,
+                              height: 24,
+                            ),
+                            pw.SizedBox(width: 6),
+                            pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.end,
+                              children: [
+                                pw.Text(
+                                  'PATIENT ID: ${patient.patientId}',
+                                  style: pw.TextStyle(
+                                    fontSize: 8.5,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: primary,
+                                  ),
+                                ),
+                                pw.SizedBox(height: 2),
+                                pw.BarcodeWidget(
+                                  barcode: pw.Barcode.code128(),
+                                  data: patient.patientId,
+                                  width: 55,
+                                  height: 14,
+                                  drawText: false,
+                                ),
+                              ],
                             ),
                           ],
                         )
@@ -7212,22 +7242,35 @@ class PdfReportService {
                           preprintedPatientId.isNotEmpty)
                         pw.Row(
                           mainAxisSize: pw.MainAxisSize.min,
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
                           children: [
-                            pw.Text(
-                              'Token: ',
-                              style: pw.TextStyle(
-                                fontSize: 7.5,
-                                fontWeight: pw.FontWeight.bold,
-                                color: primary,
-                              ),
+                            pw.BarcodeWidget(
+                              barcode: pw.Barcode.qrCode(),
+                              data: preprintedPatientId,
+                              width: 24,
+                              height: 24,
                             ),
-                            buildCharBoxes(
-                              preprintedPatientId,
-                              minBoxes: 16,
-                              maxBoxes: 16,
-                              boxSize: 11.5,
-                              boxHeight: 14.5,
-                              boxMargin: 1.0,
+                            pw.SizedBox(width: 6),
+                            pw.Row(
+                              mainAxisSize: pw.MainAxisSize.min,
+                              children: [
+                                pw.Text(
+                                  'Token: ',
+                                  style: pw.TextStyle(
+                                    fontSize: 7.5,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: primary,
+                                  ),
+                                ),
+                                buildCharBoxes(
+                                  preprintedPatientId,
+                                  minBoxes: 16,
+                                  maxBoxes: 16,
+                                  boxSize: 11.0,
+                                  boxHeight: 14.0,
+                                  boxMargin: 1.0,
+                                ),
+                              ],
                             ),
                           ],
                         )
