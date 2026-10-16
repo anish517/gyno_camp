@@ -681,7 +681,7 @@ class LookupRepository implements ILookupRepository {
 
     // 4. Visit Reasons (8 Canonical Reasons from Yellow Form Page 1)
     sortIdx = 0;
-    for (final entry in ClinicalConstants.visitReasonOptions.entries) {
+    for (final entry in ClinicalConstants.visitReasonNepali.entries) {
       sortIdx++;
       await db.insert(
         DatabaseTables.tableLookupItems,

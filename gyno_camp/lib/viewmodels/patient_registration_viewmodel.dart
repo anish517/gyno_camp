@@ -29,9 +29,11 @@ class PatientRegistrationState {
   final bool isSubmitting;
   final String? errorMessage;
   final PatientModel? registeredPatient;
+  final DateTime? intakeDate;
 
   const PatientRegistrationState({
     this.patientId,
+    this.intakeDate,
     this.firstName = '',
     this.surname = '',
     this.age,
@@ -85,6 +87,8 @@ class PatientRegistrationState {
   PatientRegistrationState copyWith({
     String? patientId,
     bool clearPatientId = false,
+    DateTime? intakeDate,
+    bool clearIntakeDate = false,
     String? firstName,
     String? surname,
     int? age,
@@ -114,6 +118,7 @@ class PatientRegistrationState {
   }) {
     return PatientRegistrationState(
       patientId: clearPatientId ? null : (patientId ?? this.patientId),
+      intakeDate: clearIntakeDate ? null : (intakeDate ?? this.intakeDate),
       firstName: firstName ?? this.firstName,
       surname: surname ?? this.surname,
       age: clearAge ? null : (age ?? this.age),
@@ -165,6 +170,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     String? maritalStatus,
     int? maritalAge,
     bool clearMaritalAge = false,
+    DateTime? intakeDate,
     bool? consentTreatment,
     bool? consentStoreMedicalInfo,
   }) {
@@ -182,6 +188,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     state = state.copyWith(
       patientId: patientId,
       clearPatientId: clearPatientId,
+      intakeDate: intakeDate,
       firstName: firstName,
       surname: surname,
       age: clearAge ? null : (age ?? state.age),
@@ -201,6 +208,10 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
       consentTreatment: consentTreatment,
       consentStoreMedicalInfo: consentStoreMedicalInfo,
     );
+  }
+
+  void setIntakeDate(DateTime? date) {
+    state = state.copyWith(intakeDate: date);
   }
 
   void setPatientId(String? id) {
@@ -281,7 +292,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         campId: campId,
         campCode: campCode,
         tenantId: tenantId,
-        intakeDate: DateTime.now(),
+        intakeDate: state.intakeDate ?? DateTime.now(),
         firstName: state.firstName.trim(),
         surname: state.surname.trim(),
         age: state.age!,
@@ -337,6 +348,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
   void loadPatientForEditing(PatientModel patient) {
     state = PatientRegistrationState(
       patientId: patient.patientId,
+      intakeDate: patient.intakeDate,
       firstName: patient.firstName,
       surname: patient.surname,
       age: patient.age,
@@ -375,6 +387,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
 
     try {
       final updatedPatient = originalPatient.copyWith(
+        intakeDate: state.intakeDate ?? originalPatient.intakeDate,
         firstName: state.firstName.trim().toUpperCase(),
         surname: state.surname.trim().toUpperCase(),
         age: state.age,
@@ -421,12 +434,13 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     }
   }
 
-  void reset({String province = 'Bagmati', String district = '', String municipality = '', String ward = ''}) {
+  void reset({String province = 'Bagmati', String district = '', String municipality = '', String ward = '', DateTime? intakeDate}) {
     state = PatientRegistrationState(
       province: province,
       district: district,
       municipality: municipality,
       ward: ward,
+      intakeDate: intakeDate,
     );
   }
 }

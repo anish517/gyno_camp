@@ -178,6 +178,12 @@ class OmrService {
   // Calibrated against the MoHP Nepal Gynaecological Camp Standard Yellow Form.
   // ===========================================================================
 
+  /// Page 1: Consultation (Triage Strip)
+  static List<OmrBox> get page1TreatmentLevelBoxes => const [
+    OmrBox(id: 'counseling', label: 'Counseling', normalizedRect: Rect.fromLTWH(0.24, 0.14, 0.048, 0.024)),
+    OmrBox(id: 'gyno_checkup', label: 'Gynocheckup', normalizedRect: Rect.fromLTWH(0.56, 0.14, 0.048, 0.024)),
+  ];
+
   /// Page 1: Marital Status Options
   static List<OmrBox> get page1MaritalStatusBoxes => const [
     OmrBox(id: 'married', label: 'Married', normalizedRect: Rect.fromLTWH(0.24, 0.22, 0.05, 0.025)),
@@ -201,40 +207,70 @@ class OmrService {
   /// Page 2: Pelvic Organ Prolapse Compartment Staging
   static List<OmrBox> get page2PopStagingBoxes => const [
     // Anterior Compartment
-    OmrBox(id: 'anterior_0', label: 'Anterior Stage 0', normalizedRect: Rect.fromLTWH(0.60, 0.18, 0.04, 0.02)),
-    OmrBox(id: 'anterior_1', label: 'Anterior Stage 1', normalizedRect: Rect.fromLTWH(0.68, 0.18, 0.04, 0.02)),
-    OmrBox(id: 'anterior_2', label: 'Anterior Stage 2', normalizedRect: Rect.fromLTWH(0.76, 0.18, 0.04, 0.02)),
-    OmrBox(id: 'anterior_3', label: 'Anterior Stage 3', normalizedRect: Rect.fromLTWH(0.84, 0.18, 0.04, 0.02)),
-    OmrBox(id: 'anterior_4', label: 'Anterior Stage 4', normalizedRect: Rect.fromLTWH(0.92, 0.18, 0.04, 0.02)),
+    OmrBox(id: 'anterior_0', label: 'Anterior Stage 0', normalizedRect: Rect.fromLTWH(0.59, 0.175, 0.048, 0.024)),
+    OmrBox(id: 'anterior_1', label: 'Anterior Stage 1', normalizedRect: Rect.fromLTWH(0.67, 0.175, 0.048, 0.024)),
+    OmrBox(id: 'anterior_2', label: 'Anterior Stage 2', normalizedRect: Rect.fromLTWH(0.75, 0.175, 0.048, 0.024)),
+    OmrBox(id: 'anterior_3', label: 'Anterior Stage 3', normalizedRect: Rect.fromLTWH(0.83, 0.175, 0.048, 0.024)),
+    OmrBox(id: 'anterior_4', label: 'Anterior Stage 4', normalizedRect: Rect.fromLTWH(0.91, 0.175, 0.048, 0.024)),
 
     // Middle / Apical Compartment
-    OmrBox(id: 'middle_0', label: 'Middle Stage 0', normalizedRect: Rect.fromLTWH(0.60, 0.22, 0.04, 0.02)),
-    OmrBox(id: 'middle_1', label: 'Middle Stage 1', normalizedRect: Rect.fromLTWH(0.68, 0.22, 0.04, 0.02)),
-    OmrBox(id: 'middle_2', label: 'Middle Stage 2', normalizedRect: Rect.fromLTWH(0.76, 0.22, 0.04, 0.02)),
-    OmrBox(id: 'middle_3', label: 'Middle Stage 3', normalizedRect: Rect.fromLTWH(0.84, 0.22, 0.04, 0.02)),
-    OmrBox(id: 'middle_4', label: 'Middle Stage 4', normalizedRect: Rect.fromLTWH(0.92, 0.22, 0.04, 0.02)),
+    OmrBox(id: 'middle_0', label: 'Middle Stage 0', normalizedRect: Rect.fromLTWH(0.59, 0.215, 0.048, 0.024)),
+    OmrBox(id: 'middle_1', label: 'Middle Stage 1', normalizedRect: Rect.fromLTWH(0.67, 0.215, 0.048, 0.024)),
+    OmrBox(id: 'middle_2', label: 'Middle Stage 2', normalizedRect: Rect.fromLTWH(0.75, 0.215, 0.048, 0.024)),
+    OmrBox(id: 'middle_3', label: 'Middle Stage 3', normalizedRect: Rect.fromLTWH(0.83, 0.215, 0.048, 0.024)),
+    OmrBox(id: 'middle_4', label: 'Middle Stage 4', normalizedRect: Rect.fromLTWH(0.91, 0.215, 0.048, 0.024)),
 
     // Posterior Compartment
-    OmrBox(id: 'posterior_0', label: 'Posterior Stage 0', normalizedRect: Rect.fromLTWH(0.60, 0.26, 0.04, 0.02)),
-    OmrBox(id: 'posterior_1', label: 'Posterior Stage 1', normalizedRect: Rect.fromLTWH(0.68, 0.26, 0.04, 0.02)),
-    OmrBox(id: 'posterior_2', label: 'Posterior Stage 2', normalizedRect: Rect.fromLTWH(0.76, 0.26, 0.04, 0.02)),
-    OmrBox(id: 'posterior_3', label: 'Posterior Stage 3', normalizedRect: Rect.fromLTWH(0.84, 0.26, 0.04, 0.02)),
-    OmrBox(id: 'posterior_4', label: 'Posterior Stage 4', normalizedRect: Rect.fromLTWH(0.92, 0.26, 0.04, 0.02)),
+    OmrBox(id: 'posterior_0', label: 'Posterior Stage 0', normalizedRect: Rect.fromLTWH(0.59, 0.255, 0.048, 0.024)),
+    OmrBox(id: 'posterior_1', label: 'Posterior Stage 1', normalizedRect: Rect.fromLTWH(0.67, 0.255, 0.048, 0.024)),
+    OmrBox(id: 'posterior_2', label: 'Posterior Stage 2', normalizedRect: Rect.fromLTWH(0.75, 0.255, 0.048, 0.024)),
+    OmrBox(id: 'posterior_3', label: 'Posterior Stage 3', normalizedRect: Rect.fromLTWH(0.83, 0.255, 0.048, 0.024)),
+    OmrBox(id: 'posterior_4', label: 'Posterior Stage 4', normalizedRect: Rect.fromLTWH(0.91, 0.255, 0.048, 0.024)),
 
     // Pelvic Floor Muscle Tone
-    OmrBox(id: 'tone_normal', label: 'Normal Tone', normalizedRect: Rect.fromLTWH(0.60, 0.31, 0.045, 0.02)),
-    OmrBox(id: 'tone_weak', label: 'Weak Tone', normalizedRect: Rect.fromLTWH(0.75, 0.31, 0.045, 0.02)),
-    OmrBox(id: 'tone_torn', label: 'Hypertonic Tone', normalizedRect: Rect.fromLTWH(0.88, 0.31, 0.045, 0.02)),
+    OmrBox(id: 'tone_normal', label: 'Normal Tone', normalizedRect: Rect.fromLTWH(0.59, 0.305, 0.048, 0.024)),
+    OmrBox(id: 'tone_weak', label: 'Weak Tone', normalizedRect: Rect.fromLTWH(0.74, 0.305, 0.048, 0.024)),
+    OmrBox(id: 'tone_torn', label: 'Hypertonic Tone', normalizedRect: Rect.fromLTWH(0.87, 0.305, 0.048, 0.024)),
   ];
 
-  /// Page 2: Clinical Diagnoses
+  /// Page 2: Station 4 Highest POP Stage Checkboxes
+  static List<OmrBox> get page2PopHighestBoxes => const [
+    OmrBox(id: 'highest_pop_0', label: 'Highest Stage 0', normalizedRect: Rect.fromLTWH(0.48, 0.585, 0.045, 0.022)),
+    OmrBox(id: 'highest_pop_1', label: 'Highest Stage 1', normalizedRect: Rect.fromLTWH(0.58, 0.585, 0.045, 0.022)),
+    OmrBox(id: 'highest_pop_2', label: 'Highest Stage 2', normalizedRect: Rect.fromLTWH(0.68, 0.585, 0.045, 0.022)),
+    OmrBox(id: 'highest_pop_3', label: 'Highest Stage 3', normalizedRect: Rect.fromLTWH(0.78, 0.585, 0.045, 0.022)),
+    OmrBox(id: 'highest_pop_4', label: 'Highest Stage 4', normalizedRect: Rect.fromLTWH(0.88, 0.585, 0.045, 0.022)),
+  ];
+
+  /// Page 2: Clinical Diagnoses (All 21 Diagnoses across 4 Columns)
   static List<OmrBox> get page2DiagnosesBoxes => const [
-    OmrBox(id: 'Pelvic Organ Prolapse (POP)', label: 'POP', normalizedRect: Rect.fromLTWH(0.06, 0.65, 0.045, 0.02)),
-    OmrBox(id: 'Cervicitis', label: 'Cervicitis', normalizedRect: Rect.fromLTWH(0.53, 0.65, 0.045, 0.02)),
-    OmrBox(id: 'Vaginitis', label: 'Vaginitis', normalizedRect: Rect.fromLTWH(0.06, 0.68, 0.045, 0.02)),
-    OmrBox(id: 'Pelvic Inflammatory Disease (PID)', label: 'PID', normalizedRect: Rect.fromLTWH(0.53, 0.68, 0.045, 0.02)),
-    OmrBox(id: 'Urinary Tract Infection (UTI)', label: 'UTI', normalizedRect: Rect.fromLTWH(0.06, 0.71, 0.045, 0.02)),
-    OmrBox(id: 'Hypertension', label: 'Hypertension', normalizedRect: Rect.fromLTWH(0.53, 0.71, 0.045, 0.02)),
-    OmrBox(id: 'Diabetes Mellitus', label: 'Diabetes', normalizedRect: Rect.fromLTWH(0.06, 0.74, 0.045, 0.02)),
+    // Column 1 (6 diagnoses)
+    OmrBox(id: 'atrophy vagina', label: 'Atrophy Vagina', normalizedRect: Rect.fromLTWH(0.06, 0.615, 0.045, 0.018)),
+    OmrBox(id: 'bacterial vaginosis', label: 'Bacterial Vaginosis', normalizedRect: Rect.fromLTWH(0.06, 0.633, 0.045, 0.018)),
+    OmrBox(id: 'candid infection', label: 'Candid Infection', normalizedRect: Rect.fromLTWH(0.06, 0.651, 0.045, 0.018)),
+    OmrBox(id: 'trichomonas', label: 'Trichomonas', normalizedRect: Rect.fromLTWH(0.06, 0.669, 0.045, 0.018)),
+    OmrBox(id: 'PID', label: 'PID', normalizedRect: Rect.fromLTWH(0.06, 0.687, 0.045, 0.018)),
+    OmrBox(id: 'cervicitis', label: 'Cervicitis', normalizedRect: Rect.fromLTWH(0.06, 0.705, 0.045, 0.018)),
+
+    // Column 2 (6 diagnoses)
+    OmrBox(id: 'cervical polyp', label: 'Cervical Polyp', normalizedRect: Rect.fromLTWH(0.30, 0.615, 0.045, 0.018)),
+    OmrBox(id: 'cervical carcinoma', label: 'Cervical Carcinoma', normalizedRect: Rect.fromLTWH(0.30, 0.633, 0.045, 0.018)),
+    OmrBox(id: 'condylomata', label: 'Condylomata', normalizedRect: Rect.fromLTWH(0.30, 0.651, 0.045, 0.018)),
+    OmrBox(id: 'fistula', label: 'Fistula', normalizedRect: Rect.fromLTWH(0.30, 0.669, 0.045, 0.018)),
+    OmrBox(id: 'infertility', label: 'Infertility', normalizedRect: Rect.fromLTWH(0.30, 0.687, 0.045, 0.018)),
+    OmrBox(id: 'myoma', label: 'Myoma', normalizedRect: Rect.fromLTWH(0.30, 0.705, 0.045, 0.018)),
+
+    // Column 3 (5 diagnoses)
+    OmrBox(id: 'cystitis', label: 'Cystitis', normalizedRect: Rect.fromLTWH(0.53, 0.615, 0.045, 0.018)),
+    OmrBox(id: 'stress incontinence', label: 'Stress Incontinence', normalizedRect: Rect.fromLTWH(0.53, 0.633, 0.045, 0.018)),
+    OmrBox(id: 'urge incontinence', label: 'Urge Incontinence', normalizedRect: Rect.fromLTWH(0.53, 0.651, 0.045, 0.018)),
+    OmrBox(id: 'weak pelvic floor muscle', label: 'Weak Pelvic Floor', normalizedRect: Rect.fromLTWH(0.53, 0.669, 0.045, 0.018)),
+    OmrBox(id: 'hypertonic pelvic floor muscle', label: 'Hypertonic Pelvic Floor', normalizedRect: Rect.fromLTWH(0.53, 0.687, 0.045, 0.018)),
+
+    // Column 4 (4 diagnoses)
+    OmrBox(id: 'lichen sclerosis', label: 'Lichen Sclerosis', normalizedRect: Rect.fromLTWH(0.76, 0.615, 0.045, 0.018)),
+    OmrBox(id: 'ovarian tumor', label: 'Ovarian Tumor', normalizedRect: Rect.fromLTWH(0.76, 0.633, 0.045, 0.018)),
+    OmrBox(id: 'menstrual disorder', label: 'Menstrual Disorder', normalizedRect: Rect.fromLTWH(0.76, 0.651, 0.045, 0.018)),
+    OmrBox(id: 'pregnancy', label: 'Pregnancy', normalizedRect: Rect.fromLTWH(0.76, 0.669, 0.045, 0.018)),
   ];
 }

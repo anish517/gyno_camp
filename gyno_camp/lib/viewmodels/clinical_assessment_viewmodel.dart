@@ -74,9 +74,11 @@ class ClinicalAssessmentState {
   final String? errorMessage;
   final ClinicalVisitModel? savedVisit;
   final String? existingVisitId;
+  final DateTime? visitDate;
 
   const ClinicalAssessmentState({
     this.currentStationIndex = 0,
+    this.visitDate,
     this.deliveries,
     this.livingChildren,
     this.abortions,
@@ -195,9 +197,12 @@ class ClinicalAssessmentState {
     bool clearSaved = false,
     String? existingVisitId,
     bool clearExistingVisitId = false,
+    DateTime? visitDate,
+    bool clearVisitDate = false,
   }) {
     return ClinicalAssessmentState(
       currentStationIndex: currentStationIndex ?? this.currentStationIndex,
+      visitDate: clearVisitDate ? null : (visitDate ?? this.visitDate),
       deliveries: deliveries ?? this.deliveries,
       livingChildren: livingChildren ?? this.livingChildren,
       abortions: abortions ?? this.abortions,
@@ -258,6 +263,10 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
 
   ClinicalAssessmentViewModel(this._patientRepository)
       : super(const ClinicalAssessmentState());
+
+  void setVisitDate(DateTime date) {
+    state = state.copyWith(visitDate: date);
+  }
 
   void setAttendingDoctors(List<String> doctors) {
     state = state.copyWith(
@@ -564,6 +573,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
       if (visit != null) {
         state = state.copyWith(
           existingVisitId: visit.id,
+          visitDate: visit.visitDate,
           deliveries: visit.deliveries,
           livingChildren: visit.livingChildren,
           abortions: visit.abortions,
@@ -665,7 +675,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         id: state.existingVisitId ?? '',
         patientId: patientId,
         campId: campId,
-        visitDate: DateTime.now(),
+        visitDate: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
         deliveries: state.deliveries,
         livingChildren: state.livingChildren,
         abortions: state.abortions,

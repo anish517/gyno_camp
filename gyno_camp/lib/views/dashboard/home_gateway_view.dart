@@ -5414,9 +5414,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       final tLevel = (v?.treatmentLevel?.trim().isNotEmpty == true)
           ? v!.treatmentLevel!.trim().toLowerCase()
           : (p.treatmentLevel?.trim().toLowerCase() ?? '');
-      if (tLevel == 'council_level') {
+      if (tLevel == 'counseling' || tLevel == 'council_level') {
         councilLevelCount++;
-      } else if (tLevel == 'full_check_up') {
+      } else if (tLevel == 'gyno_checkup' || tLevel == 'full_check_up') {
         fullCheckUpCount++;
       }
 
@@ -5579,13 +5579,19 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         if (!_matchesTreatment(p, visit, _selectedTreatment)) return false;
       }
 
-      // 12. Level of Treatment filter (उपचारको तह)
+      // 12. Consultation filter (परामर्श)
       if (_selectedTreatmentLevel != 'all') {
         final currentTLevel = (visit?.treatmentLevel?.trim().isNotEmpty == true)
             ? visit!.treatmentLevel!.trim().toLowerCase()
             : (p.treatmentLevel?.trim().toLowerCase() ?? '');
-        if (_selectedTreatmentLevel == 'council_level' && currentTLevel != 'council_level') return false;
-        if (_selectedTreatmentLevel == 'full_check_up' && currentTLevel != 'full_check_up') return false;
+        if ((_selectedTreatmentLevel == 'counseling' || _selectedTreatmentLevel == 'council_level') &&
+            !(currentTLevel == 'counseling' || currentTLevel == 'council_level')) {
+          return false;
+        }
+        if ((_selectedTreatmentLevel == 'gyno_checkup' || _selectedTreatmentLevel == 'full_check_up') &&
+            !(currentTLevel == 'gyno_checkup' || currentTLevel == 'full_check_up')) {
+          return false;
+        }
         if (_selectedTreatmentLevel == 'none' && currentTLevel.isNotEmpty) return false;
       }
 
@@ -6489,24 +6495,28 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
     final treatmentLevelDropdown = DropdownButtonFormField<String>(
       key: ValueKey('treatment_level_filter_$_selectedTreatmentLevel'),
-      initialValue: _selectedTreatmentLevel,
+      initialValue: (_selectedTreatmentLevel == 'council_level' || _selectedTreatmentLevel == 'counseling')
+          ? 'counseling'
+          : ((_selectedTreatmentLevel == 'full_check_up' || _selectedTreatmentLevel == 'gyno_checkup')
+              ? 'gyno_checkup'
+              : _selectedTreatmentLevel),
       isExpanded: true,
       decoration: filterInputDecoration(
-        labelText: 'Treatment Level (उपचारको तह)',
-        prefixIcon: Icons.layers_outlined,
+        labelText: 'Consultation (परामर्श)',
+        prefixIcon: Icons.medical_information_outlined,
       ),
       items: [
         DropdownMenuItem(
           value: 'all',
-          child: buildOptionRow('All Levels (सबै तह)', campScopedPatientsCount, isBold: true),
+          child: buildOptionRow('All Consultations (सबै परामर्श)', campScopedPatientsCount, isBold: true),
         ),
         DropdownMenuItem(
-          value: 'council_level',
-          child: buildOptionRow('Council level (काउन्सिलिङ तह)', councilLevelCount),
+          value: 'counseling',
+          child: buildOptionRow('Counseling (काउन्सिलिङ)', councilLevelCount),
         ),
         DropdownMenuItem(
-          value: 'full_check_up',
-          child: buildOptionRow('Full check up (पूर्ण जाँच)', fullCheckUpCount),
+          value: 'gyno_checkup',
+          child: buildOptionRow('Gynocheckup (गाइनो जाँच)', fullCheckUpCount),
         ),
       ],
       onChanged: (v) {

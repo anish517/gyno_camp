@@ -30,7 +30,9 @@ class OcrFormService {
     // Optical Mark Recognition (OMR) on image file if available
     Map<String, OmrResult>? page1OmrReasons;
     Map<String, OmrResult>? page1OmrMarital;
+    Map<String, OmrResult>? page1OmrTreatmentLevel;
     Map<String, OmrResult>? page2OmrPop;
+    Map<String, OmrResult>? page2OmrPopHighest;
     Map<String, OmrResult>? page2OmrDiagnoses;
 
     if (imagePath != null) {
@@ -42,9 +44,11 @@ class OcrFormService {
           if (!isPage2Only) {
             page1OmrReasons = omr.evaluateImageBytes(bytes, OmrService.page1VisitReasonsBoxes);
             page1OmrMarital = omr.evaluateImageBytes(bytes, OmrService.page1MaritalStatusBoxes);
+            page1OmrTreatmentLevel = omr.evaluateImageBytes(bytes, OmrService.page1TreatmentLevelBoxes);
           }
           if (!isPage1Only) {
             page2OmrPop = omr.evaluateImageBytes(bytes, OmrService.page2PopStagingBoxes);
+            page2OmrPopHighest = omr.evaluateImageBytes(bytes, OmrService.page2PopHighestBoxes);
             page2OmrDiagnoses = omr.evaluateImageBytes(bytes, OmrService.page2DiagnosesBoxes);
           }
         }
@@ -111,7 +115,8 @@ class OcrFormService {
     /// Distinguishes between marked boxes ([x], [X], ☒, ☑, ✓, ✔, •, X)
     /// and unchecked boxes ([ ], ☐, 口, Ü, ( )).
     bool isOptionSelected(List<String> keywords) {
-      for (final line in lines) {
+      for (int lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        final line = lines[lineIdx];
         final lower = line.toLowerCase();
         for (final k in keywords) {
           final kw = k.toLowerCase();
@@ -121,29 +126,29 @@ class OcrFormService {
           // Check if there are multiple checkboxes on this line (e.g. "[ ] A  [x] B")
           final checkCount = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔]?\s*\)|[☐口Ü☑☒]|\b[xX✓✔]\b').allMatches(line).length;
           if (checkCount > 1) {
-            final start = max(0, idx - 25);
-            final end = min(line.length, idx + kw.length + 25);
+            final start = max(0, idx - 70);
+            final end = min(line.length, idx + kw.length + 70);
             final snippet = line.substring(start, end);
 
             final checkedNear = RegExp(
-              r'\[\s*[xX✓✔•*+\#1\-]\s*\]\s*' + RegExp.escape(kw) +
-              r'|\(\s*[xX✓✔•*+\#1\-]\s*\)\s*' + RegExp.escape(kw) +
-              r'|[☑☒✓✔•]\s*' + RegExp.escape(kw) +
-              r'|(?:\b|[^\w])[xX✓✔]\s*' + RegExp.escape(kw) +
-              r'|' + RegExp.escape(kw) + r'\s*\[\s*[xX✓✔•*+\#1\-]\s*\]' +
-              r'|' + RegExp.escape(kw) + r'\s*\(\s*[xX✓✔•*+\#1\-]\s*\)' +
-              r'|' + RegExp.escape(kw) + r'\s*[☑☒✓✔•]' +
-              r'|' + RegExp.escape(kw) + r'\s*(?:\b|[^\w])[xX✓✔]',
+              r'\[\s*[xX✓✔•*+\#1\-]\s*\][^\r\n\[\]()]{0,35}?' + RegExp.escape(kw) +
+              r'|\(\s*[xX✓✔•*+\#1\-]\s*\)[^\r\n\[\]()]{0,35}?' + RegExp.escape(kw) +
+              r'|[☑☒✓✔•][^\r\n\[\]()]{0,35}?' + RegExp.escape(kw) +
+              r'|(?:\b|[^\w])[xX✓✔][^\r\n\[\]()]{0,35}?' + RegExp.escape(kw) +
+              r'|' + RegExp.escape(kw) + r'[^\r\n\[\]()]{0,35}?\[\s*[xX✓✔•*+\#1\-]\s*\]' +
+              r'|' + RegExp.escape(kw) + r'[^\r\n\[\]()]{0,35}?\(\s*[xX✓✔•*+\#1\-]\s*\)' +
+              r'|' + RegExp.escape(kw) + r'[^\r\n\[\]()]{0,35}?[☑☒✓✔•]' +
+              r'|' + RegExp.escape(kw) + r'[^\r\n\[\]()]{0,35}?(?:\b|[^\w])[xX✓✔]',
               caseSensitive: false,
             ).hasMatch(snippet);
 
             final uncheckedNear = RegExp(
-              r'\[\s*\]\s*' + RegExp.escape(kw) +
-              r'|\(\s*\)\s*' + RegExp.escape(kw) +
-              r'|[☐口Ü]\s*' + RegExp.escape(kw) +
-              r'|' + RegExp.escape(kw) + r'\s*\[\s*\]' +
-              r'|' + RegExp.escape(kw) + r'\s*\(\s*\)' +
-              r'|' + RegExp.escape(kw) + r'\s*[☐口Ü]',
+              r'\[\s*\][^\r\n\[\]()]{0,35}?' + RegExp.escape(kw) +
+              r'|\(\s*\)[^\r\n\[\]()]{0,35}?' + RegExp.escape(kw) +
+              r'|[☐口Ü][^\r\n\[\]()]{0,35}?' + RegExp.escape(kw) +
+              r'|' + RegExp.escape(kw) + r'[^\r\n\[\]()]{0,35}?\[\s*\]' +
+              r'|' + RegExp.escape(kw) + r'[^\r\n\[\]()]{0,35}?\(\s*\)' +
+              r'|' + RegExp.escape(kw) + r'[^\r\n\[\]()]{0,35}?[☐口Ü]',
               caseSensitive: false,
             ).hasMatch(snippet);
 
@@ -162,11 +167,16 @@ class OcrFormService {
             if (line.trim().endsWith('(x)') || line.trim().endsWith('[x]') || line.trim().endsWith('✓')) {
               return true;
             }
+
+            // Check previous or next line if OCR separated the checkbox from the label
+            if (lineIdx > 0 && RegExp(r'\[\s*[xX✓✔•*+\#1\-]\s*\]|☒|☑|[✓✔√]').hasMatch(lines[lineIdx - 1])) {
+              return true;
+            }
           }
         }
       }
 
-      // If document has checkmarks/checkboxes elsewhere in the document, any option without one is unchecked
+      // If document has checkmarks/checkboxes elsewhere in the document, check if keyword appears in text without any explicit checkbox
       final allText = lines.join('\n');
       final hasAnyCheckmarks = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔]?\s*\)|☒|☑|[✓✔√]|•|[☐口Ü]').hasMatch(allText);
       if (hasAnyCheckmarks) {
@@ -339,33 +349,44 @@ class OcrFormService {
         "spouse name", "spouse:",
         "father's name", "father name", "father:",
         "relative name", "relative:", "guardian name", "guardian:",
-        "श्रीमानको नाम", "श्रीमान", "बुबाको नाम", "बुबा", "पति",
+        "आफन्तको नाम", "श्रीमानको नाम", "श्रीमान", "बुबाको नाम", "बुबा", "पति",
       ];
       final relValue = findValueForLabel(relLabels);
       if (relValue != null && relValue.isNotEmpty) {
         var relName = relValue.replaceAll(RegExp(r'\s*\(.*?\)\s*$'), '').trim();
-        relName = relName.replaceAll(RegExp(r'\s*(mobile|district|ward|age|उमेर).*$', caseSensitive: false), '').trim();
+        relName = relName.replaceAll(RegExp(r'\s*(mobile|district|ward|age|उमेर|surname|थर).*$', caseSensitive: false), '').trim();
         demographics['relativeName'] = relName;
-
-        final matchedLabel = relLabels.firstWhere(
-          (l) => text.toLowerCase().contains(l.toLowerCase()),
-          orElse: () => '',
-        ).toLowerCase();
-        if (relValue.toLowerCase().contains('husband') || matchedLabel.contains('husband') || matchedLabel.contains('श्रीमान') || matchedLabel.contains('पति')) {
-          demographics['relativeType'] = 'Husband';
-        } else if (relValue.toLowerCase().contains('father') || matchedLabel.contains('father') || matchedLabel.contains('बुबा')) {
-          demographics['relativeType'] = 'Father';
-        } else if (matchedLabel.contains('guardian')) {
-          demographics['relativeType'] = 'Guardian';
-        } else {
-          demographics['relativeType'] = (demographics['age'] as int? ?? 30) < 20 ? 'Father' : 'Husband';
-        }
-        confidences['relative'] = 0.90;
-      } else {
-        demographics['relativeName'] = null;
-        demographics['relativeType'] = 'Husband';
-        confidences['relative'] = 0.50;
       }
+
+      // Check Relative Surname box (Yellow Form Row 2)
+      final relSurnameVal = findValueForLabel(['relative surname', 'आफन्तको थर', 'थर']);
+      if (relSurnameVal != null && relSurnameVal.isNotEmpty) {
+        final surname = relSurnameVal.replaceAll(RegExp(r'\s*(mobile|district|ward|age|उमेर|relation|नाता).*$', caseSensitive: false), '').trim();
+        if (surname.isNotEmpty && !_isLabel(surname) && !isNoiseOrSeparator(surname)) {
+          if (demographics['relativeName'] != null) {
+            final cur = demographics['relativeName'].toString();
+            if (!cur.toLowerCase().contains(surname.toLowerCase())) {
+              demographics['relativeName'] = '$cur $surname'.trim();
+            }
+          } else {
+            demographics['relativeName'] = surname;
+          }
+        }
+      }
+
+      // Detect Relation checkbox (Husband / Father)
+      if (isOptionSelected(['husband / श्रीमान्', 'husband', 'श्रीमान्', 'श्रीमान', 'पति'])) {
+        demographics['relativeType'] = 'Husband';
+      } else if (isOptionSelected(['father / बुबा', 'father', 'बुबा', 'बुवा'])) {
+        demographics['relativeType'] = 'Father';
+      } else if (isOptionSelected(['guardian', 'संरक्षक'])) {
+        demographics['relativeType'] = 'Guardian';
+      } else if (relValue != null && (relValue.toLowerCase().contains('father') || relValue.contains('बुबा'))) {
+        demographics['relativeType'] = 'Father';
+      } else {
+        demographics['relativeType'] = (demographics['age'] as int? ?? 30) < 20 ? 'Father' : 'Husband';
+      }
+      confidences['relative'] = demographics['relativeName'] != null ? 0.90 : 0.50;
 
       // ── Mobile Number (Nepali standard 10 digits: 98... or 97...) ──
       String? extractedMobile;
@@ -532,6 +553,16 @@ class OcrFormService {
         }
       }
 
+      // Reconcile relation with marital status
+      if (demographics['maritalStatus'] == 'married') {
+        demographics['relativeType'] ??= 'Husband';
+      } else {
+        // For unmarried, widow, divorced, default relation to Father unless explicitly set
+        if (demographics['relativeType'] == null || demographics['relativeType'] == 'Husband') {
+          demographics['relativeType'] = 'Father';
+        }
+      }
+
       // ── Reasons for visit — exact keys for PatientModel.reasonsForVisit ──
       final reasons = <String>[];
       if (page1OmrReasons != null && page1OmrReasons.values.any((r) => r.isMarked)) {
@@ -636,36 +667,54 @@ class OcrFormService {
 
     // ── Complaints Duration (blank form: < 1month, < 1 year, > 1 year, > 5 years, > 10 years) ──
     String? duration;
-    final rawDuration = findValueForLabel(['complaints duration', 'complaint duration', 'duration', 'अवधि']);
+    final rawDuration = findValueForLabel([
+      'complaints duration', 'complaint duration', 'duration', 'अवधि', 'since when', 'since', 'कहिलेदेखि',
+    ]);
     if (rawDuration != null) {
       final low = rawDuration.toLowerCase();
-      if (low.contains('10') || low.contains('10 year')) {
+      if (low.contains('10') || low.contains('10 year') || low.contains('10 yr')) {
         duration = '> 10 years';
-      } else if (low.contains('5') || low.contains('5 year')) {
+      } else if (low.contains('5') || low.contains('5 year') || low.contains('5 yr')) {
         duration = '> 5 years';
       } else if (low.contains('> 1') || low.contains('>1') || low.contains('greater than 1') || low.contains('1 year') || low.contains('1year')) {
         duration = '> 1 year';
-      } else if (low.contains('< 1') || low.contains('<1') || low.contains('less than 1') || low.contains('month')) {
-        duration = '< 1 year';
       } else if (low.contains('< 1month') || low.contains('<1month') || low.contains('1 month') || low.contains('few week')) {
         duration = '< 1month';
+      } else if (low.contains('< 1') || low.contains('<1') || low.contains('less than 1') || low.contains('month')) {
+        duration = '< 1 year';
       } else {
         duration = rawDuration.trim();
       }
     }
     if (duration == null) {
-      if (isOptionSelected(['> 10 years', '>10 years', '> 10 yr'])) {
+      if (isOptionSelected(['> 10 years', '>10 years', '> 10 yr', '>10 yr', '>10'])) {
         duration = '> 10 years';
-      } else if (isOptionSelected(['> 5 years', '>5 years', '> 5 yr'])) {
+      } else if (isOptionSelected(['> 5 years', '>5 years', '> 5 yr', '>5 yr', '>5'])) {
         duration = '> 5 years';
-      } else if (isOptionSelected(['> 1 year', '>1 year', '> 1 yr', '>1 yr'])) {
+      } else if (isOptionSelected(['> 1 year', '>1 year', '> 1 yr', '>1 yr', '>1'])) {
         duration = '> 1 year';
-      } else if (isOptionSelected(['< 1 year', '<1 year', '< 1 yr', '<1 yr'])) {
+      } else if (isOptionSelected(['< 1 year', '<1 year', '< 1 yr', '<1 yr', '<1'])) {
         duration = '< 1 year';
-      } else if (isOptionSelected(['< 1month', '<1month', '< 1 month', 'few weeks'])) {
+      } else if (isOptionSelected(['< 1month', '<1month', '< 1 month', 'few weeks', '<1m'])) {
         duration = '< 1month';
       } else {
-        duration = '< 1 year';
+        final durMatch = RegExp(r'(?:since(?:\s*when)?|duration|अवधि)[:\s]*([^\r\n,]+)', caseSensitive: false).firstMatch(text);
+        if (durMatch != null && !isNoiseOrSeparator(durMatch.group(1)!)) {
+          final matched = durMatch.group(1)!.trim();
+          if (matched.contains('10')) {
+            duration = '> 10 years';
+          } else if (matched.contains('5')) {
+            duration = '> 5 years';
+          } else if (matched.contains('>')) {
+            duration = '> 1 year';
+          } else if (matched.contains('month')) {
+            duration = '< 1month';
+          } else {
+            duration = '< 1 year';
+          }
+        } else {
+          duration = '< 1 year';
+        }
       }
     }
     obstetrics['complaintsDuration'] = duration;
@@ -674,23 +723,23 @@ class OcrFormService {
     final clinicalComplaints = <String>[];
 
     // 1. Something hanging out (prolapse)
-    if (isOptionSelected(['something hanging out', 'something hanging', 'hanging out', 'prolapse', 'पाठेघर खस्ने', 'mass per vagina', 'mass per vaginam'])) {
+    if (isOptionSelected(['something hanging out', 'something hanging', 'hanging out', 'prolapse', 'पाठेघर खस्ने', 'mass per vagina', 'mass per vaginam', 'खस्ने', 'mpv'])) {
       clinicalComplaints.add('prolapse');
     }
     // 2. Discharge / Itching
-    if (isOptionSelected(['discharge and or itching', 'discharge', 'itching', 'white discharge', 'foul discharge', 'पानी बग्ने', 'चिलाउने', 'सेतो पानी', 'स्राव'])) {
+    if (isOptionSelected(['discharge and or itching', 'discharge / itching', 'discharge', 'itching', 'white discharge', 'foul discharge', 'पानी बग्ने', 'चिलाउने', 'सेतो पानी', 'स्राव'])) {
       clinicalComplaints.add('discharge');
     }
     // 3. Problems passing urine
-    if (isOptionSelected(['problems passing urine', 'urinary incontinence', 'incontinence', 'burning micturition', 'burning urine', 'urine problem', 'पिसाब सम्बन्धी', 'पिसाब पोल्ने', 'पिसाब चुहिने'])) {
+    if (isOptionSelected(['problems passing urine', 'urinary incontinence', 'incontinence', 'burning micturition', 'burning urine', 'urine problem', 'पिसाब सम्बन्धी', 'पिसाब पोल्ने', 'पिसाब चुहिने', 'पिसाब समस्या'])) {
       clinicalComplaints.add('urine');
     }
     // 4. Problems passing stool
-    if (isOptionSelected(['problems passing stool', 'stool problem', 'दिसा सम्बन्धी', 'दिसा समस्या'])) {
+    if (isOptionSelected(['problems passing stool', 'stool problem', 'दिसा सम्बन्धी', 'दिसा समस्या', 'दिसा'])) {
       clinicalComplaints.add('stool');
     }
     // 5. Menstrual problem
-    if (isOptionSelected(['menstrual problem', 'dysmenorrhoea', 'menorrhagia', 'metrorrhagia', 'महिनावारी'])) {
+    if (isOptionSelected(['menstrual problem', 'dysmenorrhoea', 'menorrhagia', 'metrorrhagia', 'postmenopausal bleeding', 'महिनावारी', 'महिनावारी समस्या'])) {
       clinicalComplaints.add('menstrual');
     }
     // 6. Infertility
@@ -698,11 +747,11 @@ class OcrFormService {
       clinicalComplaints.add('infertility');
     }
     // 7. Lower abdomen pain
-    if (isOptionSelected(['lower abdominal pain', 'abdominal pain', 'lower abdomen pain', 'pelvic pain', 'पेल्भिक भारी', 'तल्लो पेट दुख्ने', 'dyspareunia'])) {
+    if (isOptionSelected(['lower abdominal pain', 'abdominal pain', 'lower abdomen pain', 'pelvic pain', 'पेल्भिक भारी', 'तल्लो पेट दुख्ने', 'तल्लो पेट', 'dyspareunia'])) {
       clinicalComplaints.add('lower_abdomen_pain');
     }
     // 8. Lower back pain
-    if (isOptionSelected(['lower back pain', 'back pain', 'backache', 'severe backache', 'ढाड दुख्ने', 'कम्मर दुख्ने', 'coital bleeding'])) {
+    if (isOptionSelected(['lower back pain', 'back pain', 'backache', 'severe backache', 'ढाड दुख्ने', 'कम्मर दुख्ने', 'ढाड', 'कम्मर', 'coital bleeding'])) {
       clinicalComplaints.add('lower_back_pain');
     }
     // 9. Checkup
@@ -917,7 +966,7 @@ class OcrFormService {
 
       confidences['labs'] = 0.88;
 
-      // ── POP Examination & Staging (Station 3) ──
+      // ── POP Examination & Staging (Station 2 & Station 4) ──
       int? ant, mid, post;
 
       int? parsePopStage(String? val) {
@@ -934,18 +983,18 @@ class OcrFormService {
         return null;
       }
 
-      final antValue = findValueForLabel(['anterior compartment', 'anterior', 'cystocele']);
+      final antValue = findValueForLabel(['anterior compartment', 'anterior', 'cystocele', 'ant wall', 'anterior wall']);
       ant = parsePopStage(antValue);
 
-      final midValue = findValueForLabel(['middle compartment', 'middle', 'uterine', 'cervical']);
+      final midValue = findValueForLabel(['middle compartment', 'middle', 'uterine', 'cervical', 'mid part', 'middle part']);
       mid = parsePopStage(midValue);
 
-      final postValue = findValueForLabel(['posterior compartment', 'posterior', 'rectocele']);
+      final postValue = findValueForLabel(['posterior compartment', 'posterior', 'rectocele', 'post wall', 'posterior wall']);
       post = parsePopStage(postValue);
 
-      ant ??= parseStageInt(RegExp(r'anterior(?: compartment)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
-      mid ??= parseStageInt(RegExp(r'middle(?: compartment)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
-      post ??= parseStageInt(RegExp(r'posterior(?: compartment)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
+      ant ??= parseStageInt(RegExp(r'anterior(?: compartment| wall)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
+      mid ??= parseStageInt(RegExp(r'middle(?: compartment| part)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
+      post ??= parseStageInt(RegExp(r'posterior(?: compartment| wall)?(?:\s*\([^)]*\))?(?: stage)?[:\s_]*([0-4IlL|])', caseSensitive: false).firstMatch(text)?.group(1));
 
       // Multi-column Baden-Walker table fallback: when numbers appear on lines below headers
       if (ant == null || mid == null || post == null) {
@@ -982,10 +1031,43 @@ class OcrFormService {
         }
       }
 
+      // Station 4: Highest POP Stage Checkbox & Text Detection
+      int? station4HighestPop;
+      if (page2OmrPopHighest != null && page2OmrPopHighest.values.any((r) => r.isMarked)) {
+        final marked = page2OmrPopHighest.values.firstWhere((r) => r.isMarked);
+        station4HighestPop = int.tryParse(marked.id.split('_').last);
+      }
+      if (station4HighestPop == null) {
+        final highestPopMatch = RegExp(
+          r'(?:highest\s*pop\s*stage|highest\s*pop)[:\s_]*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])?\s*(?:stage\s*)?([0-4])',
+          caseSensitive: false,
+        ).firstMatch(text);
+        if (highestPopMatch != null) {
+          station4HighestPop = int.tryParse(highestPopMatch.group(1)!);
+        } else {
+          final highestLine = lines.firstWhere(
+            (l) => l.toLowerCase().contains('highest pop'),
+            orElse: () => '',
+          );
+          if (highestLine.isNotEmpty) {
+            final m = RegExp(
+              r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])\s*stage\s*([0-4])|stage\s*([0-4])\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])',
+              caseSensitive: false,
+            ).firstMatch(highestLine);
+            if (m != null) {
+              station4HighestPop = int.tryParse(m.group(1) ?? m.group(2) ?? '');
+            }
+          }
+        }
+      }
+
       final a = ant ?? 0;
-      final m = mid ?? 0;
+      final m = mid ?? (station4HighestPop != null && station4HighestPop > 0 ? station4HighestPop : 0);
       final p = post ?? 0;
-      final highest = [a, m, p].reduce(max);
+      var highest = [a, m, p].reduce(max);
+      if (station4HighestPop != null && station4HighestPop > highest) {
+        highest = station4HighestPop;
+      }
 
       popStaging['anteriorStage'] = a;
       popStaging['middleStage'] = m;
@@ -997,20 +1079,41 @@ class OcrFormService {
       popStaging['uterusInside'] = !uterusOutside;
 
       // 1. Vulva Examination (Station 2)
-      final vulvaVal = findValueForLabel(['vulva appearance', 'vulva:', 'vulva', 'भल्भा']);
-      if (vulvaVal != null && vulvaVal.isNotEmpty) {
-        popStaging['vulvaRemarks'] = vulvaVal.trim();
-      } else if (isOptionSelected(['condyloma', 'कन्डाइलोमा'])) {
-        popStaging['vulvaRemarks'] = 'Condyloma';
-      } else if (isOptionSelected(['ulcer', 'घाउ'])) {
-        popStaging['vulvaRemarks'] = 'Ulcer';
-      } else if (isOptionSelected(['lichen sclerosus'])) {
-        popStaging['vulvaRemarks'] = 'Lichen Sclerosus';
-      } else if (lowerText.contains('vulva') && lowerText.contains('normal')) {
-        popStaging['vulvaRemarks'] = 'Normal';
-      } else {
-        popStaging['vulvaRemarks'] = 'Normal';
+      String? detectedVulva;
+      for (final line in lines) {
+        final low = line.toLowerCase();
+        if (low.startsWith('vulva') || (low.contains('vulva') && !low.contains('vagina'))) {
+          final isNormalChecked = RegExp(
+            r'vulva[^\r\n]*?(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])\s*normal|vulva[^\r\n]*?normal\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])',
+            caseSensitive: false,
+          ).hasMatch(line);
+          final afterOr = RegExp(r'\bor\b[:\s_]*(.+)$', caseSensitive: false).firstMatch(line);
+          final remarkText = afterOr?.group(1)?.replaceAll(RegExp(r'[/\\|:_]'), '').trim() ?? '';
+          if (remarkText.isNotEmpty && !remarkText.toLowerCase().contains('normal') && !isNoiseOrSeparator(remarkText)) {
+            detectedVulva = remarkText;
+          } else if (isNormalChecked || low.contains('normal')) {
+            detectedVulva = 'Normal';
+          }
+          break;
+        }
       }
+      if (detectedVulva == null) {
+        final vulvaVal = findValueForLabel(['vulva appearance', 'vulva:', 'vulva', 'भल्भा']);
+        if (vulvaVal != null && vulvaVal.isNotEmpty && !vulvaVal.toLowerCase().contains('normal') && !isNoiseOrSeparator(vulvaVal)) {
+          detectedVulva = vulvaVal.trim();
+        } else if (isOptionSelected(['condyloma', 'कन्डाइलोमा', 'wart', 'warts'])) {
+          detectedVulva = 'Condyloma';
+        } else if (isOptionSelected(['ulcer', 'घाउ'])) {
+          detectedVulva = 'Ulcer';
+        } else if (isOptionSelected(['lichen sclerosus', 'lichen sclerosis', 'lichen'])) {
+          detectedVulva = 'Lichen Sclerosus';
+        } else if (isOptionSelected(['erythema', 'redness'])) {
+          detectedVulva = 'Erythema';
+        } else {
+          detectedVulva = 'Normal';
+        }
+      }
+      popStaging['vulvaRemarks'] = detectedVulva;
 
       // 2. Vagina Examination (Station 2)
       final vaginaVal = findValueForLabel(['vagina appearance', 'vagina:', 'vagina', 'योनी']);
@@ -1043,20 +1146,41 @@ class OcrFormService {
       }
 
       // 4. Uterus Examination (Station 2)
-      final uterusVal = findValueForLabel(['uterus examination', 'uterus remarks', 'uterus:', 'पाठेघर सम्बन्धी']);
-      if (uterusVal != null && uterusVal.isNotEmpty) {
-        popStaging['uterusRemarks'] = uterusVal.trim();
-      } else if (isOptionSelected(['bulky', 'ठूलो'])) {
-        popStaging['uterusRemarks'] = 'Bulky';
-      } else if (isOptionSelected(['tender', 'दुख्ने'])) {
-        popStaging['uterusRemarks'] = 'Tender';
-      } else if (isOptionSelected(['fibroid'])) {
-        popStaging['uterusRemarks'] = 'Fibroid';
-      } else if (lowerText.contains('uterus') && lowerText.contains('normal')) {
-        popStaging['uterusRemarks'] = 'Normal size';
-      } else {
-        popStaging['uterusRemarks'] = 'Normal size';
+      String? detectedUterus;
+      for (final line in lines) {
+        final low = line.toLowerCase();
+        if (low.startsWith('uterus') || (low.contains('uterus') && !low.contains('cervix') && !low.contains('vulva') && !low.contains('inside'))) {
+          final isNormalChecked = RegExp(
+            r'uterus[^\r\n]*?(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])\s*normal|uterus[^\r\n]*?normal\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])',
+            caseSensitive: false,
+          ).hasMatch(line);
+          final afterOr = RegExp(r'\bor\b[:\s_]*(.+)$', caseSensitive: false).firstMatch(line);
+          final remarkText = afterOr?.group(1)?.replaceAll(RegExp(r'[/\\|:_]'), '').trim() ?? '';
+          if (remarkText.isNotEmpty && !remarkText.toLowerCase().contains('normal') && !isNoiseOrSeparator(remarkText)) {
+            detectedUterus = remarkText;
+          } else if (isNormalChecked || low.contains('normal')) {
+            detectedUterus = 'Normal size';
+          }
+          break;
+        }
       }
+      if (detectedUterus == null) {
+        final uterusVal = findValueForLabel(['uterus examination', 'uterus remarks', 'uterus:', 'पाठेघर सम्बन्धी']);
+        if (uterusVal != null && uterusVal.isNotEmpty && !uterusVal.toLowerCase().contains('normal') && !isNoiseOrSeparator(uterusVal)) {
+          detectedUterus = uterusVal.trim();
+        } else if (isOptionSelected(['bulky', 'ठूलो', 'enlarged'])) {
+          detectedUterus = 'Bulky';
+        } else if (isOptionSelected(['tender', 'दुख्ने', 'tenderness'])) {
+          detectedUterus = 'Tender';
+        } else if (isOptionSelected(['fibroid', 'myoma'])) {
+          detectedUterus = 'Fibroid';
+        } else if (isOptionSelected(['atrophic uterus', 'atrophic'])) {
+          detectedUterus = 'Atrophic';
+        } else {
+          detectedUterus = 'Normal size';
+        }
+      }
+      popStaging['uterusRemarks'] = detectedUterus;
 
       if (page2OmrPop != null && (page2OmrPop['tone_weak']?.isMarked == true || page2OmrPop['tone_torn']?.isMarked == true || page2OmrPop['tone_normal']?.isMarked == true)) {
         if (page2OmrPop['tone_torn']?.isMarked == true) {
@@ -1077,34 +1201,91 @@ class OcrFormService {
       }
       confidences['popStaging'] = 0.94;
 
-      // ── Diagnoses (Station 5) ──
+      // ── Diagnoses (Station 4) ──
+      void addDiag(String name) {
+        if (!diagnoses.contains(name)) diagnoses.add(name);
+      }
+
       if (page2OmrDiagnoses != null && page2OmrDiagnoses.values.any((r) => r.isMarked)) {
         for (final entry in page2OmrDiagnoses.entries) {
-          if (entry.value.isMarked && !diagnoses.contains(entry.key)) {
-            diagnoses.add(entry.key);
+          if (entry.value.isMarked) {
+            addDiag(entry.key);
           }
         }
       }
-      if (highest >= 2 || isOptionSelected(['pop (pelvic', 'pelvic organ prolapse'])) {
-        if (!diagnoses.contains('POP')) diagnoses.add('POP');
+
+      // 21 Canonical Yellow Form Diagnoses Text Checking
+      if (highest >= 2 || isOptionSelected(['pop', 'pelvic organ prolapse', 'पाठेघर खसेको', 'prolapse'])) {
+        addDiag('POP');
       }
-      if (isOptionSelected(['candidal infection', 'candidiasis', 'candid infection'])) {
-        if (!diagnoses.contains('candid infection')) diagnoses.add('candid infection');
+      if (isOptionSelected(['atrophy vagina', 'atrophic vagina', 'vaginal atrophy', 'atrophy', 'सुकेको'])) {
+        addDiag('atrophy vagina');
       }
-      if (isOptionSelected(['bacterial vaginosis'])) {
-        if (!diagnoses.contains('bacterial vaginosis')) diagnoses.add('bacterial vaginosis');
+      if (isOptionSelected(['bacterial vaginosis', 'bv'])) {
+        addDiag('bacterial vaginosis');
+      }
+      if (isOptionSelected(['candid infection', 'candidiasis', 'candidal infection', 'candida'])) {
+        addDiag('candid infection');
+      }
+      if (isOptionSelected(['trichomonas', 'trichomoniasis', 'trich'])) {
+        addDiag('trichomonas');
+      }
+      if (isOptionSelected(['pid', 'pelvic inflammatory disease', 'pelvic inflammatory'])) {
+        addDiag('PID');
       }
       if (isOptionSelected(['cervicitis'])) {
-        if (!diagnoses.contains('cervicitis')) diagnoses.add('cervicitis');
+        addDiag('cervicitis');
       }
-      if (isOptionSelected(['cystitis', 'uti'])) {
-        if (!diagnoses.contains('cystitis')) diagnoses.add('cystitis');
+      if (isOptionSelected(['cervical polyp', 'polyp', 'पोलिप'])) {
+        addDiag('cervical polyp');
+      }
+      if (isOptionSelected(['cervical carcinoma', 'cervical cancer', 'carcinoma'])) {
+        addDiag('cervical carcinoma');
+      }
+      if (isOptionSelected(['condylomata', 'condyloma', 'warts', 'wart'])) {
+        addDiag('condylomata');
+      }
+      if (isOptionSelected(['fistula', 'vvf', 'rvf'])) {
+        addDiag('fistula');
+      }
+      if (isOptionSelected(['infertility', 'infertile', 'बाँझोपन', 'निःसन्तान'])) {
+        addDiag('infertility');
+      }
+      if (isOptionSelected(['myoma', 'fibroid', 'uterine fibroid'])) {
+        addDiag('myoma');
+      }
+      if (isOptionSelected(['cystitis', 'uti', 'urinary tract infection'])) {
+        addDiag('cystitis');
+      }
+      if (isOptionSelected(['lichen sclerosis', 'lichen sclerosus', 'lichen'])) {
+        addDiag('lichen sclerosis');
+      }
+      if (isOptionSelected(['stress incontinence', 'sui'])) {
+        addDiag('stress incontinence');
+      }
+      if (isOptionSelected(['ovarian tumor', 'ovarian mass', 'ovarian cyst'])) {
+        addDiag('ovarian tumor');
+      }
+      if (isOptionSelected(['urge incontinence', 'uui'])) {
+        addDiag('urge incontinence');
+      }
+      if (isOptionSelected(['menstrual disorder', 'abnormal uterine bleeding', 'aub', 'dysmenorrhea'])) {
+        addDiag('menstrual disorder');
+      }
+      if (isOptionSelected(['weak pelvic floor muscle', 'weak pelvic floor'])) {
+        addDiag('weak pelvic floor muscle');
+      }
+      if (isOptionSelected(['pregnancy', 'pregnant', 'गर्भ'])) {
+        addDiag('pregnancy');
+      }
+      if (isOptionSelected(['hypertonic pelvic floor muscle', 'hypertonic pelvic floor'])) {
+        addDiag('hypertonic pelvic floor muscle');
       }
       if (isOptionSelected(['hypertension']) || (vitals['systolicBp'] as int? ?? 0) >= 140) {
-        if (!diagnoses.contains('hypertension')) diagnoses.add('hypertension');
+        addDiag('hypertension');
       }
       if (isOptionSelected(['diabetes mellitus', 'diabetes']) || (vitals['bloodGlucose'] as int? ?? 0) >= 180) {
-        if (!diagnoses.contains('diabetes mellitus')) diagnoses.add('diabetes mellitus');
+        addDiag('diabetes mellitus');
       }
       confidences['diagnoses'] = diagnoses.isNotEmpty ? 0.92 : 0.40;
 
@@ -1170,9 +1351,12 @@ class OcrFormService {
           pessaryType = 'ring';
         }
 
-        final sizeMatch = RegExp(r'(?:size|साइज)[:\s]*(\d{2})', caseSensitive: false).firstMatch(text);
+        final sizeMatch = RegExp(r'(?:size|साइज|sz)[:\s]*(\d{1,3})', caseSensitive: false).firstMatch(text);
+        final mmMatch = RegExp(r'(\d{1,3})\s*(?:mm|मिमी)', caseSensitive: false).firstMatch(text);
         if (sizeMatch != null) {
           ringPessarySize = int.tryParse(sizeMatch.group(1)!);
+        } else if (mmMatch != null) {
+          ringPessarySize = int.tryParse(mmMatch.group(1)!);
         } else {
           for (final sz in [55, 60, 65, 70, 75, 80, 85]) {
             if (lowerText.contains('${sz}mm') || lowerText.contains('$sz mm')) {
@@ -1190,22 +1374,27 @@ class OcrFormService {
       }
       confidences['medications'] = medications.isNotEmpty ? 0.85 : 0.40;
 
-      // ── Referrals (Exact Yellow Form Referral Options) ──
-      if (isOptionSelected(['scheer memorial', 'scheer']) || highest >= 3) {
+      // ── Referrals (Exact Yellow Form Station 5 Referral Options) ──
+      if (isOptionSelected(['scheer memorial', 'scheer'])) {
         surgicalReferral = 'Scheer Memorial Hospital';
-      } else if (isOptionSelected(['model hosp', 'model hospital'])) {
+      } else if (isOptionSelected(['model hosp', 'model hospital', 'model'])) {
         surgicalReferral = 'Model Hospital';
-      } else if (isOptionSelected(['loc government', 'local government'])) {
+      } else if (isOptionSelected(['loc government', 'local government', 'loc gov', 'local gov', 'सरकारी'])) {
         surgicalReferral = 'Local Government Hospital';
       }
 
-      // ── Outtake Follow-up ──
-      if (isOptionSelected(['health post'])) {
+      // ── Outtake Follow-up (Station 6: Discharge & Continuity) ──
+      if (isOptionSelected(['health post', 'स्वास्थ्य चौकी'])) {
         followUp = 'Health Post';
-      } else if (isOptionSelected(['gynaesupport nurse', 'gynaesupport'])) {
+      } else if (isOptionSelected(['gynaesupport nurse', 'gynaesupport', 'गाइने नर्स'])) {
         followUp = 'GynaeSupport Nurse';
+      } else if (isOptionSelected(['no follow up needed', 'no follow up', 'no followup', 'अनुगमन नचाहिने'])) {
+        followUp = 'No follow up needed';
       } else {
-        followUp = surgicalReferral;
+        final hospFollowUp = RegExp(r'hospital[:\s]+([^\r\n,]+)', caseSensitive: false).firstMatch(text);
+        if (hospFollowUp != null && !isNoiseOrSeparator(hospFollowUp.group(1)!)) {
+          followUp = hospFollowUp.group(1)!.trim();
+        }
       }
     }
 
@@ -1214,17 +1403,43 @@ class OcrFormService {
     final List<String> attendingDoctors = [];
     String? examiningDoctor;
 
-    // 1. Multi-Doctor Checklist: detect ticked/checked checkboxes
+    bool isValidStaffName(String name) {
+      final low = name.toLowerCase().trim();
+      if (low.length < 3 || low.length > 40) return false;
+      const nonStaffWords = {
+        'married', 'unmarried', 'divorced', 'widow', 'widowed',
+        'something hanging out', 'discharge and or itching', 'discharge', 'itching',
+        'problems passing urine', 'menstrual problem', 'lower abdominal pain',
+        'burning urination', 'something coming down', 'foul smelling discharge',
+        'dyspareunia', 'postcoital bleeding', 'mass per vagina', 'white discharge',
+        'cystocele', 'rectocele', 'uterine prolapse', 'cervical erosion',
+        'pelvic inflammatory disease', 'pid', 'bacterial vaginosis', 'bv',
+        'trichomoniasis', 'vulvovaginal candidiasis', 'uti', 'infertility',
+        'myoma', 'cystitis', 'lichen', 'sui', 'uui', 'hypertension', 'diabetes',
+        'normal', 'abnormal', 'stage 0', 'stage 1', 'stage 2', 'stage 3', 'stage 4',
+        'yes', 'no', 'male', 'female', 'other', 'none', 'husband', 'father', 'guardian',
+        'health post', 'hospital', 'camp', 'date', 'signature', 'stamp', 'ward',
+        'deliveries', 'living children', 'abortions', 'obstetric', 'history',
+      };
+      if (nonStaffWords.contains(low)) return false;
+      for (final bad in nonStaffWords) {
+        if (bad.length > 5 && low == bad) return false;
+      }
+      return true;
+    }
+
+    // 1. Multi-Doctor Checklist: detect ticked/checked checkboxes with explicit Dr. / Doctor or NMC
     // e.g. "[x] Dr. Sagar Sharma (NMC: 333/333)", "☑ Dr. Anish Tiwari"
     final checkedDoctorMatches = RegExp(
-      r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])[ \t]*(?:Dr\.?[ \t]*)?([a-zA-Z\s\.]+?)(?=\s*(?:\(NMC|\bNMC\b|[\r\n]|$))',
+      r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])[ \t]*(?:Dr\.?|Doctor)[ \t]+([a-zA-Z\s\.]+?)(?=\s*(?:\(NMC|\bNMC\b|[\r\n]|$))'
+      r'|(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])[ \t]*([a-zA-Z\s\.]+?)\s*\(\s*NMC',
       caseSensitive: false,
     ).allMatches(text);
 
     for (final m in checkedDoctorMatches) {
-      var candidate = m.group(1)?.split(RegExp(r'[\r\n]')).first.trim() ?? '';
+      var candidate = (m.group(1) ?? m.group(2) ?? '').split(RegExp(r'[\r\n]')).first.trim();
       candidate = candidate.replaceAll(RegExp(r'\s*(?:NMC|Date|Signature|Stamp).*$', caseSensitive: false), '').trim();
-      if (candidate.length >= 3 &&
+      if (isValidStaffName(candidate) &&
           !_isLabel(candidate) &&
           !isNoiseOrSeparator(candidate) &&
           !candidate.toLowerCase().contains('other') &&
@@ -1250,14 +1465,14 @@ class OcrFormService {
             lineLower.startsWith('dr.') ||
             lineLower.startsWith('dr ')) {
           final m = RegExp(
-            r'(?:(?:examining\s*doctor|doctor\s*signature(?:\s*&\s*nmc)?|doctor|clinician|gynecologist)[ \t]*[:\-]?[ \t]*)?(?:Dr\.?[ \t]+)?([A-Za-z][A-Za-z\s\.]+?)(?=\s*(?:\(NMC|\bNMC\b|[\r\n]|$))',
+            r'(?:(?:examining\s*doctor|doctor\s*signature(?:\s*&\s*nmc)?|doctor|clinician|gynecologist)[ \t]*[:\-]?[ \t]*)?(?:Dr\.?[ \t]+)([A-Za-z][A-Za-z\s\.]+?)(?=\s*(?:\(NMC|\bNMC\b|[\r\n]|$))',
             caseSensitive: false,
           ).firstMatch(line);
 
           if (m != null) {
             var candidate = m.group(1)?.trim() ?? '';
             candidate = candidate.replaceAll(RegExp(r'\s*(?:\(NMC|\bNMC\b|Date|Signature|Stamp).*$', caseSensitive: false), '').trim();
-            if (candidate.length >= 3 &&
+            if (isValidStaffName(candidate) &&
                 !_isLabel(candidate) &&
                 !isNoiseOrSeparator(candidate) &&
                 !candidate.toLowerCase().contains('gynecologist') &&
@@ -1287,15 +1502,16 @@ class OcrFormService {
     final nurseSectionIdx = text.toLowerCase().indexOf('nurse');
     final nurseSnippet = nurseSectionIdx != -1 ? text.substring(nurseSectionIdx) : text;
     final checkedNurseMatches = RegExp(
-      r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])[ \t]*(?:Nurse|Sr\.?|Sister)?[ \t]*([a-zA-Z\s\.]+?)(?=\s*(?:\(NNC|\bNNC\b|[\r\n]|$))',
+      r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])[ \t]*(?:Nurse|Sr\.?|Sister)[ \t]+([a-zA-Z\s\.]+?)(?=\s*(?:\(NNC|\bNNC\b|[\r\n]|$))'
+      r'|(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])[ \t]*([a-zA-Z\s\.]+?)\s*\(\s*NNC',
       caseSensitive: false,
     ).allMatches(nurseSnippet);
 
     for (final m in checkedNurseMatches) {
-      var candidate = m.group(1)?.split(RegExp(r'[\r\n]')).first.trim() ?? '';
+      var candidate = (m.group(1) ?? m.group(2) ?? '').split(RegExp(r'[\r\n]')).first.trim();
       candidate = candidate.replaceAll(RegExp(r'\s*(?:NNC|Date|Signature|Stamp).*$', caseSensitive: false), '').trim();
       final cleanNurse = NurseProfile.stripPrefixes(candidate).trim();
-      if (cleanNurse.length >= 3 &&
+      if (isValidStaffName(cleanNurse) &&
           !_isLabel(cleanNurse) &&
           !isNoiseOrSeparator(cleanNurse) &&
           !cleanNurse.toLowerCase().contains('other') &&
@@ -1315,7 +1531,7 @@ class OcrFormService {
         final lineLower = line.toLowerCase();
         if (lineLower.contains('nurse') || lineLower.contains('sister') || lineLower.contains('नर्स')) {
           final m = RegExp(
-            r'(?:(?:attending\s*nurse|staff\s*nurse|examining\s*nurse|nurse\s*signature(?:\s*&\s*nnc)?|sister|नर्स|nurse)[ \t]*[:\-]?[ \t]*)?(?:Nurse|Sr\.?|Sister)?[ \t]*([A-Za-z][A-Za-z\s\.]+?)(?=\s*(?:\(NNC|\bNNC\b|[\r\n]|$))',
+            r'(?:(?:attending\s*nurse|staff\s*nurse|examining\s*nurse|nurse\s*signature(?:\s*&\s*nnc)?|sister|नर्स|nurse)[ \t]*[:\-]?[ \t]*)?(?:Nurse|Sr\.?|Sister)[ \t]+([A-Za-z][A-Za-z\s\.]+?)(?=\s*(?:\(NNC|\bNNC\b|[\r\n]|$))',
             caseSensitive: false,
           ).firstMatch(line);
 
@@ -1323,16 +1539,11 @@ class OcrFormService {
             var candidate = m.group(1)?.trim() ?? '';
             candidate = candidate.replaceAll(RegExp(r'\s*(?:\(NNC|\bNNC\b|Date|Signature|Stamp).*$', caseSensitive: false), '').trim();
             final cleanNurse = NurseProfile.stripPrefixes(candidate).trim();
-            if (cleanNurse.length >= 3 &&
+            if (isValidStaffName(cleanNurse) &&
                 !_isLabel(cleanNurse) &&
                 !isNoiseOrSeparator(cleanNurse) &&
-                !cleanNurse.toLowerCase().contains('signature') &&
                 !cleanNurse.toLowerCase().contains('certified') &&
-                !cleanNurse.toLowerCase().contains('doctor') &&
-                !cleanNurse.toLowerCase().contains('dr.') &&
-                !cleanNurse.toLowerCase().contains('sister') &&
-                !cleanNurse.toLowerCase().contains('nurse') &&
-                !cleanNurse.toLowerCase().contains('gynaesupport')) {
+                !cleanNurse.toLowerCase().contains('signature')) {
               attendingNurses.add(cleanNurse);
               break;
             }
@@ -1345,30 +1556,50 @@ class OcrFormService {
       examiningNurse = attendingNurses.first;
     }
 
-    // ── Level of Treatment (उपचारको तह) ──
+    // ── Consultation (परामर्श) ──
     String? treatmentLevel;
-    if (isOptionSelected(['council level', 'काउन्सिलिङ', 'counseling level', 'council'])) {
-      treatmentLevel = 'council_level';
+    if (page1OmrTreatmentLevel != null && page1OmrTreatmentLevel.values.any((r) => r.isMarked)) {
+      final marked = page1OmrTreatmentLevel.values.firstWhere((r) => r.isMarked);
+      treatmentLevel = (marked.id == 'council_level' || marked.id == 'counseling') ? 'counseling' : 'gyno_checkup';
+      confidences['treatmentLevel'] = marked.confidence;
+    } else if (isOptionSelected(['counseling', 'council level', 'काउन्सिलिङ तह', 'काउन्सिलिङ', 'counseling level', 'counsel level', 'council'])) {
+      treatmentLevel = 'counseling';
       confidences['treatmentLevel'] = 0.90;
-    } else if (isOptionSelected(['full check up', 'full checkup', 'पूर्ण जाँच', 'full check'])) {
-      treatmentLevel = 'full_check_up';
+    } else if (isOptionSelected(['gynocheckup', 'gyno checkup', 'गाइनो जाँच', 'full check up', 'full checkup', 'पूर्ण जाँच', 'full check', 'पूर्ण'])) {
+      treatmentLevel = 'gyno_checkup';
       confidences['treatmentLevel'] = 0.90;
     } else {
       final treatmentMatch = RegExp(
-        r'(?:level\s*of\s*treatment|treatment\s*level|उपचारको\s*तह)[:\s]+(council[^\r\n]*|full[^\r\n]*|पूर्ण[^\r\n]*|काउन्सिलिङ[^\r\n]*)',
+        r'(?:consultation|level\s*of\s*treatment|treatment\s*level|परामर्श|उपचारको\s*तह)[:\s]+(counsel[^\r\n]*|council[^\r\n]*|gyno[^\r\n]*|full[^\r\n]*|पूर्ण[^\r\n]*|काउन्सिलिङ[^\r\n]*|गाइनो[^\r\n]*)',
         caseSensitive: false,
       ).firstMatch(text);
       if (treatmentMatch != null) {
         final val = treatmentMatch.group(1)?.toLowerCase() ?? '';
-        if (val.contains('council') || val.contains('काउन्सिलिङ')) {
-          treatmentLevel = 'council_level';
+        if (val.contains('counsel') || val.contains('council') || val.contains('काउन्सिलिङ')) {
+          treatmentLevel = 'counseling';
           confidences['treatmentLevel'] = 0.85;
-        } else if (val.contains('full') || val.contains('पूर्ण')) {
-          treatmentLevel = 'full_check_up';
+        } else if (val.contains('gyno') || val.contains('full') || val.contains('गाइनो') || val.contains('पूर्ण')) {
+          treatmentLevel = 'gyno_checkup';
           confidences['treatmentLevel'] = 0.85;
         }
       }
     }
+
+    // ── Station 6: Clinical Notes / Outtake Remarks ──
+    String? clinicalNotes;
+    final notesVal = findValueForLabel([
+      'clinical notes', 'clinical note', 'outtake remarks', 'outtake remark',
+      'discharge notes', 'remarks:', 'कैफियत:', 'कैफियत',
+    ]);
+    if (notesVal != null && notesVal.isNotEmpty && !isNoiseOrSeparator(notesVal)) {
+      clinicalNotes = notesVal.trim();
+    }
+
+    // ── Station Dates (Station 3 Labs, Station 4 Conclusion, Station 5 Treatment, Station 6 Outtake) ──
+    final labTestDate = findValueForLabel(['lab test date:', 'lab test date', 'प्रयोगशाला मिति']);
+    final conclusionDate = findValueForLabel(['conclusion date:', 'conclusion date', 'निष्कर्ष मिति', 'निदान मिति']);
+    final treatmentDate = findValueForLabel(['treatment date:', 'treatment date', 'उपचार मिति']);
+    final outtakeDate = findValueForLabel(['outtake date:', 'outtake date', 'डिस्चार्ज मिति']);
 
     final totalConf = confidences.values.fold<double>(0.0, (sum, val) => sum + val);
     final avgConf = confidences.isNotEmpty ? totalConf / confidences.length : 0.80;
@@ -1393,6 +1624,11 @@ class OcrFormService {
       examiningNurse: examiningNurse,
       attendingNurses: attendingNurses,
       treatmentLevel: treatmentLevel,
+      clinicalNotes: clinicalNotes,
+      treatmentDate: treatmentDate,
+      conclusionDate: conclusionDate,
+      labTestDate: labTestDate,
+      outtakeDate: outtakeDate,
       fieldConfidences: confidences,
       overallConfidence: double.parse(avgConf.toStringAsFixed(2)),
       rawText: text,

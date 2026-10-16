@@ -377,7 +377,7 @@ void main() {
       for (final m in streams) {
         try {
           final decoded = String.fromCharCodes(zlib.decode(m.group(1)!.codeUnits));
-          if (decoded.contains('CLINICAL') && decoded.contains('STATION') && (decoded.contains('POP') || decoded.contains('EXAMINATION') || decoded.contains('ANAMNESIS'))) {
+          if (decoded.contains('CLINICAL') && decoded.toLowerCase().contains('station') && (decoded.contains('POP') || decoded.contains('EXAMINATION') || decoded.contains('ANAMNESIS'))) {
             foundStationOnPage2 = true;
           }
         } catch (_) {}
@@ -501,6 +501,42 @@ void main() {
       expect(utf8.decode(bytes3rd.sublist(0, 5)), equals('%PDF-'));
       expect(bytes11, isNotEmpty);
       expect(utf8.decode(bytes11.sublist(0, 5)), equals('%PDF-'));
+    });
+
+    test('generatePatientRegistrationFormPdf does not pre-fill camp province into blank form demographics', () async {
+      final camp = CampModel(
+        id: 'c-gandaki',
+        campCode: 'GAN01',
+        name: 'Gandaki Rural Health Camp',
+        district: 'Kaski',
+        province: 'Gandaki',
+        municipality: 'Pokhara',
+        ward: '01',
+        venue: 'Camp Center',
+        startDate: DateTime.now(),
+        endDate: DateTime.now(),
+        status: CampStatus.open,
+        createdAt: DateTime.now(),
+      );
+
+      final blankBytes = await pdfService.generatePatientRegistrationFormPdf(
+        camp: camp,
+        organizationName: 'Women for Society',
+      );
+
+      final pdfText = String.fromCharCodes(blankBytes);
+      final streamRegex = RegExp(r'stream[\r\n]+(.*?)[\r\n]+endstream', dotAll: true);
+      final streams = streamRegex.allMatches(pdfText).toList();
+      var hasGandaki = false;
+      for (final m in streams) {
+        try {
+          final decoded = String.fromCharCodes(zlib.decode(m.group(1)!.codeUnits));
+          if (decoded.contains('GANDAKI')) {
+            hasGandaki = true;
+          }
+        } catch (_) {}
+      }
+      expect(hasGandaki, isFalse);
     });
 
     test('generateFollowUpEncounterSlipPdf generates valid PDF with Level of Treatment', () async {

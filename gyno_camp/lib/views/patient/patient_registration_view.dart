@@ -46,6 +46,8 @@ class _PatientRegistrationViewState
   final _districtController = TextEditingController();
   final _municipalityController = TextEditingController();
   final _spouseOrFatherController = TextEditingController();
+  final _relativeNameController = TextEditingController();
+  final _relativeSurnameController = TextEditingController();
   final _maritalAgeController = TextEditingController();
   final _contactPersonController = TextEditingController();
   final _contactMobileController = TextEditingController();
@@ -58,6 +60,8 @@ class _PatientRegistrationViewState
   final _municipalityFocus = FocusNode();
   final _mobileFocus = FocusNode();
   final _spouseFocus = FocusNode();
+  final _relativeNameFocus = FocusNode();
+  final _relativeSurnameFocus = FocusNode();
   final _contactPersonFocus = FocusNode();
   final _contactMobileFocus = FocusNode();
 
@@ -94,7 +98,15 @@ class _PatientRegistrationViewState
     _wardController.text = patient.ward;
     _districtController.text = patient.district.toUpperCase();
     _municipalityController.text = patient.municipality.toUpperCase();
-    _spouseOrFatherController.text = (patient.spouseOrFatherName ?? '').toUpperCase();
+    final rel = (patient.spouseOrFatherName ?? '').trim();
+    if (rel.contains(' ')) {
+      _relativeNameController.text = rel.split(' ').first.toUpperCase();
+      _relativeSurnameController.text = rel.split(' ').skip(1).join(' ').toUpperCase();
+    } else {
+      _relativeNameController.text = rel.toUpperCase();
+      _relativeSurnameController.text = '';
+    }
+    _spouseOrFatherController.text = rel.toUpperCase();
     _maritalAgeController.text = patient.maritalAge?.toString() ?? '';
     _mobileController.text = patient.mobile;
     _contactPersonController.text = (patient.contactPerson ?? '').toUpperCase();
@@ -109,6 +121,8 @@ class _PatientRegistrationViewState
     _ageController.clear();
     _mobileController.clear();
     _spouseOrFatherController.clear();
+    _relativeNameController.clear();
+    _relativeSurnameController.clear();
     _maritalAgeController.clear();
     _contactPersonController.clear();
     _contactMobileController.clear();
@@ -128,6 +142,7 @@ class _PatientRegistrationViewState
       ward: ward,
       district: district,
       municipality: municipality,
+      intakeDate: camp?.startDate ?? DateTime.now(),
     );
     setState(() {});
   }
@@ -139,6 +154,13 @@ class _PatientRegistrationViewState
     final maritalAgeText = _maritalAgeController.text.trim();
     final maritalAgeInt = int.tryParse(maritalAgeText);
 
+    final relName = _relativeNameController.text.trim().toUpperCase();
+    final relSur = _relativeSurnameController.text.trim().toUpperCase();
+    final combinedSpouse = (relName.isNotEmpty || relSur.isNotEmpty)
+        ? '$relName $relSur'.trim()
+        : _spouseOrFatherController.text.trim().toUpperCase();
+    _spouseOrFatherController.text = combinedSpouse;
+
     vm.updateField(
       patientId: _patientIdController.text.trim(),
       clearPatientId: _patientIdController.text.trim().isEmpty,
@@ -149,13 +171,37 @@ class _PatientRegistrationViewState
       ward: _wardController.text.trim(),
       district: _districtController.text.trim().toUpperCase(),
       municipality: _municipalityController.text.trim().toUpperCase(),
-      spouseOrFatherName: _spouseOrFatherController.text.trim().toUpperCase(),
+      spouseOrFatherName: combinedSpouse,
       maritalAge: maritalAgeInt,
       clearMaritalAge: maritalAgeInt == null,
       mobile: _mobileController.text.trim(),
       contactPerson: _contactPersonController.text.trim().toUpperCase(),
       contactMobile: _contactMobileController.text.trim(),
     );
+  }
+
+  void _updateCombinedRelativeName(PatientRegistrationViewModel vm) {
+    final name = _relativeNameController.text.trim().toUpperCase();
+    final surname = _relativeSurnameController.text.trim().toUpperCase();
+    final combined = '$name $surname'.trim();
+    _spouseOrFatherController.text = combined;
+    vm.updateField(spouseOrFatherName: combined);
+    _triggerLiveDuplicateCheck();
+  }
+
+  Future<void> _pickIntakeDate() async {
+    final current = ref.read(patientRegistrationProvider).intakeDate ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Select Intake / Registration Date (दर्ता मिति छान्नुहोस्)',
+    );
+    if (picked != null && mounted) {
+      ref.read(patientRegistrationProvider.notifier).setIntakeDate(picked);
+      setState(() {});
+    }
   }
 
   @override
@@ -169,6 +215,8 @@ class _PatientRegistrationViewState
     _districtController.dispose();
     _municipalityController.dispose();
     _spouseOrFatherController.dispose();
+    _relativeNameController.dispose();
+    _relativeSurnameController.dispose();
     _maritalAgeController.dispose();
     _contactPersonController.dispose();
     _contactMobileController.dispose();
@@ -179,6 +227,8 @@ class _PatientRegistrationViewState
     _municipalityFocus.dispose();
     _mobileFocus.dispose();
     _spouseFocus.dispose();
+    _relativeNameFocus.dispose();
+    _relativeSurnameFocus.dispose();
     _contactPersonFocus.dispose();
     _contactMobileFocus.dispose();
     super.dispose();
@@ -738,41 +788,70 @@ class _PatientRegistrationViewState
                   ),
                   child: Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.calendar_today_rounded,
-                          size: 20,
-                          color: AppTheme.primaryTeal,
+                      InkWell(
+                        onTap: _pickIntakeDate,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 20,
+                            color: AppTheme.primaryTeal,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Intake Date (दर्ता मिति):',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.primaryDark,
+                        child: InkWell(
+                          onTap: _pickIntakeDate,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Intake Date (दर्ता मिति):',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.primaryDark,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.5), width: 0.7),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.edit_calendar_outlined, size: 11, color: AppTheme.primaryTeal),
+                                        SizedBox(width: 3),
+                                        Text('Change', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            Text(
-                              NepaliLocalizationService.formatDualCalendarDate(
-                                DateTime.now(),
+                              const SizedBox(height: 2),
+                              Text(
+                                NepaliLocalizationService.formatDualCalendarDate(
+                                  state.intakeDate ?? (camp?.startDate ?? DateTime.now()),
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryLight,
+                                ),
                               ),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimaryLight,
-                              ),
-                            ),
                             if (camp != null) ...[
                               const SizedBox(height: 2),
                               Text(
@@ -788,7 +867,8 @@ class _PatientRegistrationViewState
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                    ),
+                    const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -1507,6 +1587,13 @@ class _PatientRegistrationViewState
                                   ),
                                 ),
                                 DropdownMenuItem(
+                                  value: 'Mother',
+                                  child: Text(
+                                    'Mother (आमा)',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                DropdownMenuItem(
                                   value: 'Guardian',
                                   child: Text(
                                     'Guardian (संरक्षक)',
@@ -1514,9 +1601,9 @@ class _PatientRegistrationViewState
                                   ),
                                 ),
                                 DropdownMenuItem(
-                                  value: 'M/SM/GP',
+                                  value: 'Other',
                                   child: Text(
-                                    'M/SM/GP',
+                                    'Other (अन्य)',
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -1536,17 +1623,48 @@ class _PatientRegistrationViewState
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Full-width block grid with generous 24 boxes for complete name entry
-                                _buildBlockGrid(
-                                  _spouseOrFatherController.text, 24,
-                                  label: '$relativeLabel [BLOCK LETTERS]',
-                                  controller: _spouseOrFatherController,
-                                  focusNode: _spouseFocus,
-                                  onChanged: (val) {
-                                    vm.updateField(spouseOrFatherName: val.toUpperCase());
-                                    _triggerLiveDuplicateCheck();
-                                  },
-                                ),
+                                // Relative Name & Surname 14-box grids matching Blank Yellow Form Row 2
+                                if (isMobile) ...[
+                                  _buildBlockGrid(
+                                    _relativeNameController.text, 14,
+                                    label: '$relativeLabel (आफन्तको पहिलो नाम) [14 BOXES]',
+                                    controller: _relativeNameController,
+                                    focusNode: _relativeNameFocus,
+                                    onChanged: (val) => _updateCombinedRelativeName(vm),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildBlockGrid(
+                                    _relativeSurnameController.text, 14,
+                                    label: 'Relative Surname (आफन्तको थर) [14 BOXES]',
+                                    controller: _relativeSurnameController,
+                                    focusNode: _relativeSurnameFocus,
+                                    onChanged: (val) => _updateCombinedRelativeName(vm),
+                                  ),
+                                ] else ...[
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildBlockGrid(
+                                          _relativeNameController.text, 14,
+                                          label: '$relativeLabel (आफन्तको पहिलो नाम) [14 BOXES]',
+                                          controller: _relativeNameController,
+                                          focusNode: _relativeNameFocus,
+                                          onChanged: (val) => _updateCombinedRelativeName(vm),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _buildBlockGrid(
+                                          _relativeSurnameController.text, 14,
+                                          label: 'Relative Surname (आफन्तको थर) [14 BOXES]',
+                                          controller: _relativeSurnameController,
+                                          focusNode: _relativeSurnameFocus,
+                                          onChanged: (val) => _updateCombinedRelativeName(vm),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                                 const SizedBox(height: 12),
 
                                 // Relation & Marriage Age
@@ -1749,7 +1867,7 @@ class _PatientRegistrationViewState
                         if (isMobile) ...[
                           _buildBlockGrid(
                             _contactPersonController.text, 14,
-                            label: 'Secondary Contact (सम्पर्क व्यक्ति) [BLOCK LETTERS]',
+                            label: 'Contact Person (सम्पर्क व्यक्ति) [BLOCK LETTERS]',
                             controller: _contactPersonController,
                             focusNode: _contactPersonFocus,
                             onChanged: (val) => vm.updateField(contactPerson: val.toUpperCase()),
@@ -1770,7 +1888,7 @@ class _PatientRegistrationViewState
                               Expanded(
                                 child: _buildBlockGrid(
                                   _contactPersonController.text, 14,
-                                  label: 'Secondary Contact (सम्पर्क व्यक्ति) [BLOCK LETTERS]',
+                                  label: 'Contact Person (सम्पर्क व्यक्ति) [BLOCK LETTERS]',
                                   controller: _contactPersonController,
                                   focusNode: _contactPersonFocus,
                                   onChanged: (val) => vm.updateField(contactPerson: val.toUpperCase()),
@@ -1903,7 +2021,7 @@ class _PatientRegistrationViewState
                 ),
                 const SizedBox(height: 16),
 
-                // Section: Level of Treatment (उपचारको तह)
+                // Section: Consultation (परामर्श)
                 Card(
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -1928,7 +2046,7 @@ class _PatientRegistrationViewState
                                 color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.layers_rounded, color: Color(0xFF7C3AED), size: 20),
+                              child: const Icon(Icons.medical_information_rounded, color: Color(0xFF7C3AED), size: 20),
                             ),
                             const SizedBox(width: 10),
                             const Expanded(
@@ -1936,7 +2054,7 @@ class _PatientRegistrationViewState
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Level of Treatment (उपचारको तह)',
+                                    'Consultation (परामर्श)',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
@@ -1944,7 +2062,7 @@ class _PatientRegistrationViewState
                                     ),
                                   ),
                                   Text(
-                                    'Triage assessment level — Council level or Full check up (Optional)',
+                                    'Triage assessment level — Counseling or Gynocheckup (Optional)',
                                     style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                                   ),
                                 ],
@@ -1956,7 +2074,7 @@ class _PatientRegistrationViewState
                                 backgroundColor: const Color(0xFFEDE9FE),
                                 avatar: const Icon(Icons.check, size: 14, color: Color(0xFF7C3AED)),
                                 label: Text(
-                                  state.treatmentLevel == 'council_level' ? 'Council level' : 'Full check up',
+                                  (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level') ? 'Counseling' : 'Gynocheckup',
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF7C3AED)),
                                 ),
                               ),
@@ -1977,21 +2095,21 @@ class _PatientRegistrationViewState
                               },
                             ),
                             ChoiceChip(
-                              avatar: Icon(Icons.record_voice_over_rounded, size: 14, color: state.treatmentLevel == 'council_level' ? const Color(0xFF7C3AED) : Colors.grey),
-                              label: const Text('Council level (काउन्सिलिङ तह)', style: TextStyle(fontSize: 12)),
-                              selected: state.treatmentLevel == 'council_level',
+                              avatar: Icon(Icons.record_voice_over_rounded, size: 14, color: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level') ? const Color(0xFF7C3AED) : Colors.grey),
+                              label: const Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12)),
+                              selected: state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level',
                               selectedColor: const Color(0xFFEDE9FE),
                               onSelected: (selected) {
-                                vm.setTreatmentLevel(selected ? 'council_level' : null);
+                                vm.setTreatmentLevel(selected ? 'counseling' : null);
                               },
                             ),
                             ChoiceChip(
-                              avatar: Icon(Icons.health_and_safety_rounded, size: 14, color: state.treatmentLevel == 'full_check_up' ? const Color(0xFF0D9488) : Colors.grey),
-                              label: const Text('Full check up (पूर्ण जाँच)', style: TextStyle(fontSize: 12)),
-                              selected: state.treatmentLevel == 'full_check_up',
+                              avatar: Icon(Icons.health_and_safety_rounded, size: 14, color: (state.treatmentLevel == 'gyno_checkup' || state.treatmentLevel == 'full_check_up') ? const Color(0xFF0D9488) : Colors.grey),
+                              label: const Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12)),
+                              selected: state.treatmentLevel == 'gyno_checkup' || state.treatmentLevel == 'full_check_up',
                               selectedColor: const Color(0xFFCCFBF1),
                               onSelected: (selected) {
-                                vm.setTreatmentLevel(selected ? 'full_check_up' : null);
+                                vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);
                               },
                             ),
                           ],

@@ -177,10 +177,10 @@ class ExcelReportService {
     }
     summarySheet.appendRow([TextCellValue('')]);
 
-    // Treatment Level Distribution
-    summarySheet.appendRow([TextCellValue('LEVEL OF TREATMENT DISTRIBUTION (उपचारको तह)')]);
+    // Consultation Distribution
+    summarySheet.appendRow([TextCellValue('CONSULTATION DISTRIBUTION (परामर्श)')]);
     summarySheet.appendRow([
-      TextCellValue('Treatment Level'),
+      TextCellValue('Consultation'),
       TextCellValue('Patient Count'),
       TextCellValue('Percentage'),
     ]);
@@ -194,17 +194,17 @@ class ExcelReportService {
         ? double.parse(((summary.unassignedTreatmentLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1))
         : 0.0;
     summarySheet.appendRow([
-      TextCellValue('Full Check Up (पूर्ण जाँच)'),
+      TextCellValue('Gynocheckup (गाइनो जाँच)'),
       IntCellValue(summary.fullCheckUpCount),
       DoubleCellValue(fullCheckPct),
     ]);
     summarySheet.appendRow([
-      TextCellValue('Council Level (काउन्सिलिङ तह)'),
+      TextCellValue('Counseling (काउन्सिलिङ)'),
       IntCellValue(summary.councilLevelCount),
       DoubleCellValue(councilPct),
     ]);
     summarySheet.appendRow([
-      TextCellValue('Unassigned (तह नतोकिएको)'),
+      TextCellValue('Unassigned (नतोकिएको)'),
       IntCellValue(summary.unassignedTreatmentLevelCount),
       DoubleCellValue(unassignedPct),
     ]);
@@ -223,7 +223,7 @@ class ExcelReportService {
       TextCellValue('Marital Status'),
       TextCellValue('Relative / Guardian'),
       TextCellValue('Complaints / Reasons for Visit'),
-      TextCellValue('Level of Treatment (उपचारको तह)'),
+      TextCellValue('Consultation (परामर्श)'),
       TextCellValue('Highest POP Stage'),
       TextCellValue('Diagnoses List'),
       TextCellValue('Prescribed Medications'),
@@ -295,10 +295,10 @@ class ExcelReportService {
       final rawTLevel = (v?.treatmentLevel?.trim().isNotEmpty == true)
           ? v!.treatmentLevel!.trim()
           : (p.treatmentLevel?.trim() ?? '');
-      final treatmentLevelLabel = rawTLevel == 'full_check_up'
-          ? 'Full Check Up (पूर्ण जाँच)'
-          : (rawTLevel == 'council_level'
-              ? 'Council Level (काउन्सिलिङ)'
+      final treatmentLevelLabel = (rawTLevel == 'gyno_checkup' || rawTLevel == 'full_check_up')
+          ? 'Gynocheckup (गाइनो जाँच)'
+          : ((rawTLevel == 'counseling' || rawTLevel == 'council_level')
+              ? 'Counseling (काउन्सिलिङ)'
               : (rawTLevel.isNotEmpty ? rawTLevel : 'Unassigned'));
 
       registerSheet.appendRow([

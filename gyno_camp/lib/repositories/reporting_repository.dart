@@ -386,10 +386,10 @@ class ReportingRepository implements IReportingRepository {
         final level = (v?.treatmentLevel?.trim().isNotEmpty == true)
             ? v!.treatmentLevel!.trim().toLowerCase()
             : (p.treatmentLevel?.trim().toLowerCase() ?? '');
-        if (target == 'council_level') {
-          return level == 'council_level';
-        } else if (target == 'full_check_up') {
-          return level == 'full_check_up';
+        if (target == 'counseling' || target == 'council_level') {
+          return level == 'counseling' || level == 'council_level';
+        } else if (target == 'gyno_checkup' || target == 'full_check_up') {
+          return level == 'gyno_checkup' || level == 'full_check_up';
         } else if (target == 'none' || target == 'unassigned') {
           return level.isEmpty;
         }

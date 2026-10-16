@@ -136,8 +136,12 @@ class ClinicalVisitModel {
     return highest.clamp(0, 4);
   }
 
-  bool get isCouncilLevel => treatmentLevel == 'council_level';
-  bool get isFullCheckUp => treatmentLevel == 'full_check_up';
+  bool get isCounseling => treatmentLevel == 'counseling' || treatmentLevel == 'council_level';
+  bool get isGynocheckup => treatmentLevel == 'gyno_checkup' || treatmentLevel == 'full_check_up';
+  bool get isCouncilLevel => isCounseling;
+  bool get isFullCheckUp => isGynocheckup;
+  String get consultationLabel => isCounseling ? 'Counseling' : (isGynocheckup ? 'Gynocheckup' : 'Unassigned');
+  String get treatmentLabel => consultationLabel;
 
   Map<String, dynamic> toMap() {
     return {

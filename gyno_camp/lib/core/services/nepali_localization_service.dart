@@ -47,6 +47,11 @@ class NepaliLocalizationService {
     'uti': 'पिसाब संक्रमण (UTI)',
     'hypertension': 'उच्च रक्तचाप (High BP)',
     'ring pessary': 'रिङ पेसरी',
+
+    // Consultation Triage
+    'consultation': 'परामर्श',
+    'counseling': 'काउन्सिलिङ',
+    'gynocheckup': 'गाइनो जाँच',
   };
 
   /// Translates clinical terminology from English to Nepali

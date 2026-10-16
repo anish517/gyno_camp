@@ -386,11 +386,18 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         if (filters.clinicalIntake == 'followup' && !p.isFollowUp) return false;
       }
 
-      // Treatment Level
+      // Consultation / Treatment Level
       if (filters.treatmentLevel != null &&
           filters.treatmentLevel != 'all' &&
           filters.treatmentLevel!.trim().isNotEmpty) {
-        if (p.treatmentLevel != filters.treatmentLevel) return false;
+        final fLevel = filters.treatmentLevel!.trim();
+        if (fLevel == 'counseling' || fLevel == 'council_level') {
+          if (!p.isCounseling) return false;
+        } else if (fLevel == 'gyno_checkup' || fLevel == 'full_check_up') {
+          if (!p.isGynocheckup) return false;
+        } else if (p.treatmentLevel != fLevel) {
+          return false;
+        }
       }
 
       // 4. Doctor Filter — match strictly by attending/primary doctor when visit exists

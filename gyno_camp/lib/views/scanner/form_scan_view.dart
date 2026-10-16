@@ -1272,6 +1272,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                               (activeCamp.doctorNames.length == 1
                                   ? activeCamp.doctorNames.first
                                   : (activeCamp.doctorName.trim().isNotEmpty ? activeCamp.doctorName.trim() : null));
+                          final List<String> resultAttendingDoctors = ocrState.scanResult?.attendingDoctors.isNotEmpty == true
+                              ? ocrState.scanResult!.attendingDoctors
+                              : (resultDoc != null ? [resultDoc] : const <String>[]);
 
                           final resultNurse = ocrState.scanResult?.examiningNurse ??
                               (activeCamp.nurseProfiles.length == 1
@@ -1289,7 +1292,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             userRole: authState.currentUser?.role.toString() ?? 'DataTaker',
                             deviceId: deviceState.device?.deviceId ?? 'dev-local',
                             primaryDoctorName: resultDoc,
-                            attendingDoctorNames: resultDoc != null ? [resultDoc] : const [],
+                            attendingDoctorNames: resultAttendingDoctors,
                             primaryNurseName: resultNurse,
                             attendingNurseNames: resultAttendingNurses,
                           );
@@ -1742,6 +1745,58 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             fieldKey: 'relative',
             result: result,
             onChanged: (val) => vm.updateDemographic('relativeName', val, campId: campId),
+          ),
+          const SizedBox(height: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Relation / नाता:',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  for (final rel in ['Husband', 'Father', 'Mother', 'Guardian', 'Other'])
+                    ChoiceChip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(
+                        rel == 'Husband'
+                            ? 'Husband (श्रीमान्)'
+                            : rel == 'Father'
+                                ? 'Father (बुबा)'
+                                : rel == 'Mother'
+                                    ? 'Mother (आमा)'
+                                    : rel == 'Guardian'
+                                        ? 'Guardian (अभिभावक)'
+                                        : 'Other (अन्य)',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: (demo['relativeType']?.toString().toLowerCase() == rel.toLowerCase())
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: (demo['relativeType']?.toString().toLowerCase() == rel.toLowerCase())
+                              ? Colors.white
+                              : const Color(0xFF334155),
+                        ),
+                      ),
+                      selected: demo['relativeType']?.toString().toLowerCase() == rel.toLowerCase(),
+                      selectedColor: const Color(0xFF1B5E20),
+                      onSelected: (selected) {
+                        if (selected) {
+                          vm.updateRelativeType(rel);
+                        }
+                      },
+                    ),
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           LayoutBuilder(
@@ -2247,6 +2302,67 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     value: pop['posteriorStage'] as int? ?? 1,
                     maxStage: 4,
                     onChanged: (v) => vm.updatePopStage('posteriorStage', v),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Station 4 Highest POP Stage on Yellow Form
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Highest POP Stage (अधिकतम स्टेज):',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      ),
+                      if (pop['highestStage'] != null)
+                        Chip(
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: AppTheme.primaryTeal,
+                          label: Text(
+                            'Stage ${pop['highestStage']}',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Directly detected from Station 4 summary on Yellow Form:',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: List.generate(5, (stage) {
+                      final isSelected = pop['highestStage'] == stage;
+                      return ChoiceChip(
+                        label: Text('Stage $stage'),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 11.5,
+                        ),
+                        onSelected: (selected) {
+                          if (selected) {
+                            vm.updatePopStage('highestStage', stage);
+                          }
+                        },
+                      );
+                    }),
                   ),
                 ],
               ),
@@ -3025,7 +3141,23 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Point-of-Care Lab Tests (प्रयोगशाला जाँच):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Point-of-Care Lab Tests (प्रयोगशाला जाँच):',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        ),
+                      ),
+                      _buildStationDateChip(
+                        context: context,
+                        label: 'Lab Date',
+                        dateStr: result.labTestDate,
+                        onDateSelected: (d) => vm.updateStationDate('labTestDate', d),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 10),
                   const Text('Urine Test (पिसाब जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
@@ -3186,6 +3318,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
                         ),
                       ),
+                      _buildStationDateChip(
+                        context: context,
+                        label: 'Conclusion Date',
+                        dateStr: result.conclusionDate,
+                        onDateSelected: (d) => vm.updateStationDate('conclusionDate', d),
+                      ),
+                      const SizedBox(width: 6),
                       Chip(
                         visualDensity: VisualDensity.compact,
                         backgroundColor: AppTheme.primaryLight,
@@ -3335,6 +3474,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
                         ),
                       ),
+                      _buildStationDateChip(
+                        context: context,
+                        label: 'Treatment Date',
+                        dateStr: result.treatmentDate,
+                        onDateSelected: (d) => vm.updateStationDate('treatmentDate', d),
+                      ),
+                      const SizedBox(width: 6),
                       Chip(
                         visualDensity: VisualDensity.compact,
                         backgroundColor: Colors.indigo.shade50,
@@ -3662,6 +3808,38 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         );
                       }).toList(),
                     ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 140,
+                          child: TextFormField(
+                            key: ValueKey('custom_pessary_size_${result.ringPessarySize}'),
+                            initialValue: result.ringPessarySize != null && ![55, 60, 65, 70, 75, 80, 85].contains(result.ringPessarySize)
+                                ? '${result.ringPessarySize}'
+                                : '',
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Custom mm',
+                              hintText: 'e.g. 62',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            ),
+                            onChanged: (val) {
+                              final sz = int.tryParse(val.trim());
+                              if (sz != null && sz > 0) {
+                                vm.updatePessary(
+                                  ringPessary: true,
+                                  pessaryType: result.pessaryType ?? 'ring',
+                                  size: sz,
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ],
               ),
@@ -3750,6 +3928,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           .toList();
 
                       final destItems = [
+                        {'val': 'No follow up needed', 'label': 'No follow up needed (फलो-अप आवश्यक छैन)'},
+                        {'val': 'Health Post', 'label': 'Health Post (स्वास्थ्य चौकी)'},
+                        {'val': 'GynaeSupport Nurse', 'label': 'GynaeSupport Nurse (गाइने सपोर्ट नर्स)'},
+                        {'val': 'Hospital', 'label': 'Hospital (अस्पताल)'},
                         {'val': 'Camp Follow-up Day', 'label': 'Camp Follow-up Day (पुनः शिविर)'},
                         ...referralHosps.map((h) => {'val': h, 'label': '$h (अस्पताल)'}),
                       ];
@@ -3759,7 +3941,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         runSpacing: 8,
                         children: destItems.map((item) {
                           final val = item['val']!;
-                          final isSelected = (result.followUpDestination ?? '').toLowerCase().contains(val.toLowerCase().split(' ').first);
+                          final isSelected = (result.followUpDestination ?? '').trim().toLowerCase() == val.toLowerCase() ||
+                              (result.followUpDestination != null && result.followUpDestination!.toLowerCase().contains(val.toLowerCase().split(' ').first));
                           return ChoiceChip(
                             label: Text(item['label']!),
                             selected: isSelected,
@@ -3809,17 +3992,42 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         ),
                       ),
                       if (result.attendingDoctors.isNotEmpty || (result.examiningDoctor != null && result.examiningDoctor!.isNotEmpty))
-                        Chip(
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: AppTheme.primaryLight,
-                          avatar: const Icon(Icons.check, size: 14, color: AppTheme.primaryDark),
-                          label: Text(
-                            result.attendingDoctors.isNotEmpty ? result.attendingDoctors.join(', ') : result.examiningDoctor!,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryDark),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryLight,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.check, size: 13, color: AppTheme.primaryDark),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${result.attendingDoctors.isNotEmpty ? result.attendingDoctors.length : 1} Selected',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryDark),
+                              ),
+                            ],
                           ),
                         ),
                     ],
                   ),
+                  if (result.attendingDoctors.isNotEmpty || (result.examiningDoctor != null && result.examiningDoctor!.isNotEmpty)) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: (result.attendingDoctors.isNotEmpty ? result.attendingDoctors : [result.examiningDoctor!]).map((doc) => Chip(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: AppTheme.primaryLight,
+                        avatar: const Icon(Icons.check, size: 13, color: AppTheme.primaryDark),
+                        label: Text(
+                          doc,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryDark),
+                        ),
+                      )).toList(),
+                    ),
+                  ],
                   const SizedBox(height: 6),
                   const Text(
                     'Select clinician(s) who performed Station 2 POP exam & treatment for this patient (multi-select):',
@@ -3848,8 +4056,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         children: campDoctors.map((doc) {
                           final cleanDoc = doc.toLowerCase().startsWith('dr') ? doc : 'Dr. $doc';
                           final isSelected = result.examiningDoctor == cleanDoc ||
+                              result.examiningDoctor == doc ||
                               result.attendingDoctors.contains(cleanDoc) ||
-                              (result.examiningDoctor?.toLowerCase().contains(doc.toLowerCase()) ?? false);
+                              result.attendingDoctors.contains(doc) ||
+                              _isNameFuzzyMatch(doc, result.attendingDoctors, result.examiningDoctor);
                           return FilterChip(
                             avatar: CircleAvatar(
                               radius: 12,
@@ -3902,17 +4112,42 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         ),
                       ),
                       if (result.attendingNurses.isNotEmpty || (result.examiningNurse != null && result.examiningNurse!.isNotEmpty))
-                        Chip(
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: const Color(0xFFFCE7F3),
-                          avatar: const Icon(Icons.check, size: 14, color: Color(0xFF81005D)),
-                          label: Text(
-                            result.attendingNurses.isNotEmpty ? result.attendingNurses.join(', ') : result.examiningNurse!,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF81005D)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFCE7F3),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.check, size: 13, color: Color(0xFF81005D)),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${result.attendingNurses.isNotEmpty ? result.attendingNurses.length : 1} Selected',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF81005D)),
+                              ),
+                            ],
                           ),
                         ),
                     ],
                   ),
+                  if (result.attendingNurses.isNotEmpty || (result.examiningNurse != null && result.examiningNurse!.isNotEmpty)) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: (result.attendingNurses.isNotEmpty ? result.attendingNurses : [result.examiningNurse!]).map((nurse) => Chip(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFFFCE7F3),
+                        avatar: const Icon(Icons.check, size: 13, color: Color(0xFF81005D)),
+                        label: Text(
+                          nurse,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF81005D)),
+                        ),
+                      )).toList(),
+                    ),
+                  ],
                   const SizedBox(height: 6),
                   const Text(
                     'Select nurse(s) who assisted Station 2 examination or provided care (multi-select):',
@@ -3937,8 +4172,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         children: campNurses.map((nurse) {
                           final cleanNurse = nurse.displayName;
                           final isSelected = result.attendingNurses.contains(cleanNurse) ||
-                              result.attendingNurses.any((n) => n.toLowerCase().contains(nurse.name.toLowerCase())) ||
-                              (result.examiningNurse?.toLowerCase().contains(nurse.name.toLowerCase()) ?? false);
+                              result.attendingNurses.contains(nurse.name) ||
+                              _isNameFuzzyMatch(nurse.name, result.attendingNurses, result.examiningNurse);
                           return FilterChip(
                             avatar: CircleAvatar(
                               radius: 12,
@@ -3961,7 +4196,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               ),
             ),
           ),
-          // ── 11. LEVEL OF TREATMENT (उपचारको तह) ───
+          // ── 11. CONSULTATION (परामर्श) ───
           Card(
             elevation: 1.5,
             shape: RoundedRectangleBorder(
@@ -3980,11 +4215,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.layers_rounded, color: Color(0xFF7C3AED), size: 20),
+                      const Icon(Icons.medical_information_rounded, color: Color(0xFF7C3AED), size: 20),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
-                          'Level of Treatment (उपचारको तह)',
+                          'Consultation (परामर्श)',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF5B21B6)),
                         ),
                       ),
@@ -3994,7 +4229,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           backgroundColor: const Color(0xFFEDE9FE),
                           avatar: const Icon(Icons.check, size: 14, color: Color(0xFF7C3AED)),
                           label: Text(
-                            result.treatmentLevel == 'council_level' ? 'Council level' : 'Full check up',
+                            (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? 'Counseling' : 'Gynocheckup',
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF7C3AED)),
                           ),
                         ),
@@ -4002,7 +4237,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Select triage level of care identified on form (Council level / Full check up):',
+                    'Select consultation triage identified on form (Counseling / Gynocheckup):',
                     style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
                   ),
                   const SizedBox(height: 10),
@@ -4020,24 +4255,72 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         },
                       ),
                       ChoiceChip(
-                        avatar: Icon(Icons.record_voice_over_rounded, size: 14, color: result.treatmentLevel == 'council_level' ? const Color(0xFF7C3AED) : Colors.grey),
-                        label: const Text('Council level (काउन्सिलिङ तह)', style: TextStyle(fontSize: 12)),
-                        selected: result.treatmentLevel == 'council_level',
+                        avatar: Icon(Icons.record_voice_over_rounded, size: 14, color: (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? const Color(0xFF7C3AED) : Colors.grey),
+                        label: const Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12)),
+                        selected: result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level',
                         selectedColor: const Color(0xFFEDE9FE),
                         onSelected: (selected) {
-                          vm.setTreatmentLevel(selected ? 'council_level' : null);
+                          vm.setTreatmentLevel(selected ? 'counseling' : null);
                         },
                       ),
                       ChoiceChip(
-                        avatar: Icon(Icons.health_and_safety_rounded, size: 14, color: result.treatmentLevel == 'full_check_up' ? const Color(0xFF0D9488) : Colors.grey),
-                        label: const Text('Full check up (पूर्ण जाँच)', style: TextStyle(fontSize: 12)),
-                        selected: result.treatmentLevel == 'full_check_up',
+                        avatar: Icon(Icons.health_and_safety_rounded, size: 14, color: (result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up') ? const Color(0xFF0D9488) : Colors.grey),
+                        label: const Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12)),
+                        selected: result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up',
                         selectedColor: const Color(0xFFCCFBF1),
                         onSelected: (selected) {
-                          vm.setTreatmentLevel(selected ? 'full_check_up' : null);
+                          vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);
                         },
                       ),
                     ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // ── 12. CLINICAL NOTES & OUTTAKE REMARKS ───
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.note_alt_outlined, color: AppTheme.primaryTeal, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Clinical Notes & Outtake Remarks (क्लिनिकल कैफियत / टिप्पणी)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                        ),
+                      ),
+                      _buildStationDateChip(
+                        context: context,
+                        label: 'Outtake Date',
+                        dateStr: result.outtakeDate,
+                        onDateSelected: (d) => vm.updateStationDate('outtakeDate', d),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Handwritten clinical advice, counseling, or remarks from Station 6:',
+                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    key: ValueKey('clinical_notes_${result.scannedAt.millisecondsSinceEpoch}'),
+                    initialValue: result.clinicalNotes ?? '',
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: 'Enter clinical advice, counselling notes, or outtake remarks written on form...',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (val) => vm.updateClinicalNotes(val),
                   ),
                 ],
               ),
@@ -4107,7 +4390,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       {'key': 'medications',    'label': 'Medications',      'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.medications.isEmpty ? '—' : result.medications.join(', '), 'confKey': 'medications'},
       {'key': 'referral',       'label': 'Surgical Referral','section': 'Treatment Plan', 'tabIndex': 3, 'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
       {'key': 'followUp',       'label': 'Follow-up',        'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
-      {'key': 'treatmentLevel', 'label': 'Level of Treatment','section': 'Treatment Plan', 'tabIndex': 3, 'value': result.treatmentLevel == 'council_level' ? 'Council level (काउन्सिलिङ तह)' : (result.treatmentLevel == 'full_check_up' ? 'Full check up (पूर्ण जाँच)' : 'Unassigned'), 'confKey': 'treatmentLevel'},
+      {'key': 'treatmentLevel', 'label': 'Consultation',      'section': 'Treatment Plan', 'tabIndex': 3, 'value': (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? 'Counseling (काउन्सिलिङ तह)' : ((result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up') ? 'Gynocheckup (गाइनो जाँच)' : 'Unassigned'), 'confKey': 'treatmentLevel'},
       {'key': 'examiningDoctor','label': 'Examining Doctor', 'section': 'Signatures',     'tabIndex': 3, 'value': result.examiningDoctor ?? 'Unassigned', 'confKey': 'diagnoses'},
       {'key': 'attendingNurse', 'label': 'Attending Nurse',  'section': 'Signatures',     'tabIndex': 3, 'value': result.attendingNurses.isNotEmpty ? result.attendingNurses.join(', ') : (result.examiningNurse ?? 'Unassigned'), 'confKey': 'diagnoses'},
     ];
@@ -4478,6 +4761,95 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     );
   }
 
+  bool _isNameFuzzyMatch(String campStaffName, List<String> detectedStaffList, String? primaryDetected) {
+    final targets = <String>[
+      ...detectedStaffList,
+      if (primaryDetected != null && primaryDetected.trim().isNotEmpty) primaryDetected,
+    ];
+    if (targets.isEmpty) return false;
+
+    String clean(String s) {
+      return s
+          .toLowerCase()
+          .replaceAll(RegExp(r'\b(dr|dr\.|doctor|sister|sr|sr\.|nurse|staff\s*nurse)\b', caseSensitive: false), '')
+          .replaceAll(RegExp(r'[^a-z0-9]'), '')
+          .trim();
+    }
+
+    final staffClean = clean(campStaffName);
+    if (staffClean.isEmpty) return false;
+
+    for (final rawTarget in targets) {
+      final targetClean = clean(rawTarget);
+      if (targetClean.isEmpty) continue;
+      if (staffClean == targetClean) return true;
+      if (staffClean.contains(targetClean) || targetClean.contains(staffClean)) {
+        if (targetClean.length >= 3 && staffClean.length >= 3) return true;
+      }
+      final staffTokens = campStaffName.toLowerCase().split(RegExp(r'\s+')).map(clean).where((t) => t.length >= 3).toList();
+      final targetTokens = rawTarget.toLowerCase().split(RegExp(r'\s+')).map(clean).where((t) => t.length >= 3).toList();
+      for (final st in staffTokens) {
+        for (final tt in targetTokens) {
+          if (st == tt || (st.length >= 4 && (st.contains(tt) || tt.contains(st)))) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  Widget _buildStationDateChip({
+    required BuildContext context,
+    required String label,
+    required String? dateStr,
+    required ValueChanged<String?> onDateSelected,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () async {
+        DateTime initial = DateTime.now();
+        if (dateStr != null && dateStr.trim().isNotEmpty) {
+          final parts = dateStr.split('-');
+          if (parts.length == 3) {
+            final y = int.tryParse(parts[0]);
+            final m = int.tryParse(parts[1]);
+            final d = int.tryParse(parts[2]);
+            if (y != null && m != null && d != null) {
+              initial = DateTime(y, m, d);
+            }
+          }
+        }
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: initial,
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2035),
+        );
+        if (picked != null) {
+          final formatted = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+          onDateSelected(formatted);
+        }
+      },
+      child: Chip(
+        visualDensity: VisualDensity.compact,
+        backgroundColor: (dateStr != null && dateStr.isNotEmpty) ? AppTheme.primaryLight : Colors.grey.shade100,
+        avatar: Icon(
+          Icons.event_note,
+          size: 14,
+          color: (dateStr != null && dateStr.isNotEmpty) ? AppTheme.primaryTeal : Colors.blueGrey,
+        ),
+        label: Text(
+          dateStr != null && dateStr.isNotEmpty ? '$label: $dateStr' : '$label: Set Date',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: (dateStr != null && dateStr.isNotEmpty) ? FontWeight.bold : FontWeight.normal,
+            color: (dateStr != null && dateStr.isNotEmpty) ? AppTheme.primaryTeal : Colors.blueGrey,
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showSuccessDialog(BuildContext context, PatientModel patient) {
     showDialog(

@@ -484,12 +484,12 @@ class PdfReportService {
               ],
             ),
             pw.SizedBox(height: 8),
-            // Level of Treatment KPI Cards
+            // Consultation KPI Cards
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 _buildKpiBox(
-                  title: 'Full Check Up',
+                  title: 'Gynocheckup',
                   value: '${summary.fullCheckUpCount}',
                   subtitle: summary.totalPatientsRegistered > 0
                       ? '(${((summary.fullCheckUpCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1)}%)'
@@ -497,7 +497,7 @@ class PdfReportService {
                   color: PdfColor.fromHex('2563EB'),
                 ),
                 _buildKpiBox(
-                  title: 'Council Level',
+                  title: 'Counseling',
                   value: '${summary.councilLevelCount}',
                   subtitle: summary.totalPatientsRegistered > 0
                       ? '(${((summary.councilLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1)}%)'
@@ -505,7 +505,7 @@ class PdfReportService {
                   color: PdfColor.fromHex('0D9488'),
                 ),
                 _buildKpiBox(
-                  title: 'Unassigned Level',
+                  title: 'Unassigned',
                   value: '${summary.unassignedTreatmentLevelCount}',
                   subtitle: summary.totalPatientsRegistered > 0
                       ? '(${((summary.unassignedTreatmentLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1)}%)'
@@ -666,7 +666,7 @@ class PdfReportService {
                   decoration: const pw.BoxDecoration(color: PdfColors.grey200),
                   children: [
                     _buildTableHeader(
-                      'Level of Treatment Distribution (उपचारको तह)',
+                      'Consultation Distribution (परामर्श विवरण)',
                     ),
                     _buildTableHeader('Patient Count'),
                     _buildTableHeader('% of Registered'),
@@ -674,7 +674,7 @@ class PdfReportService {
                 ),
                 pw.TableRow(
                   children: [
-                    _buildTableCell('Full Check Up (पूर्ण जाँच)', isBold: true),
+                    _buildTableCell('Gynocheckup (गाइनो जाँच)', isBold: true),
                     _buildTableCell(
                       '${summary.fullCheckUpCount}',
                       align: pw.TextAlign.center,
@@ -688,7 +688,7 @@ class PdfReportService {
                 pw.TableRow(
                   children: [
                     _buildTableCell(
-                      'Council Level (काउन्सिलिङ तह)',
+                      'Counseling (काउन्सिलिङ)',
                       isBold: true,
                     ),
                     _buildTableCell(
@@ -1202,9 +1202,9 @@ class PdfReportService {
                   final pTLevel = (v?.treatmentLevel?.trim().isNotEmpty == true)
                       ? v!.treatmentLevel!.trim()
                       : (p.treatmentLevel?.trim() ?? '');
-                  final tLevelShort = pTLevel == 'full_check_up'
-                      ? 'Full Check'
-                      : (pTLevel == 'council_level' ? 'Council' : '-');
+                  final tLevelShort = (pTLevel == 'gyno_checkup' || pTLevel == 'full_check_up')
+                      ? 'Gynocheck'
+                      : ((pTLevel == 'counseling' || pTLevel == 'council_level') ? 'Counseling' : '-');
 
                   return [
                     PdfReportService.sanitizeText(p.patientId),
@@ -1410,13 +1410,13 @@ class PdfReportService {
           (visit?.treatmentLevel?.trim().isNotEmpty == true)
           ? visit!.treatmentLevel!.trim()
           : (patient.treatmentLevel?.trim() ?? '');
-      final treatmentLevelLabel = effectiveTreatmentLevel == 'full_check_up'
-          ? 'Full check up (पूर्ण जाँच)'
-          : (effectiveTreatmentLevel == 'council_level'
-                ? 'Council level (काउन्सिलिङ)'
+      final treatmentLevelLabel = (effectiveTreatmentLevel == 'gyno_checkup' || effectiveTreatmentLevel == 'full_check_up')
+          ? 'Gynocheckup (गाइनो जाँच)'
+          : ((effectiveTreatmentLevel == 'counseling' || effectiveTreatmentLevel == 'council_level')
+                ? 'Counseling (काउन्सिलिङ)'
                 : (effectiveTreatmentLevel.isNotEmpty
                       ? effectiveTreatmentLevel
-                      : 'Not Specified (तह नतोकिएको)'));
+                      : 'Not Specified (नतोकिएको)'));
 
       final effectiveDiagnoses = (visit != null && visit.diagnoses.isNotEmpty)
           ? visit.diagnoses
@@ -1620,7 +1620,7 @@ class PdfReportService {
                   ),
                   pw.SizedBox(height: 3),
                   _buildPdfField(
-                    'Level of Treatment (उपचारको तह)',
+                    'Consultation (परामर्श)',
                     treatmentLevelLabel,
                     isBold: true,
                   ),
@@ -2356,13 +2356,13 @@ class PdfReportService {
           (visit.treatmentLevel?.trim().isNotEmpty == true)
           ? visit.treatmentLevel!.trim()
           : (patient.treatmentLevel?.trim() ?? '');
-      final treatmentLevelLabel = effectiveTreatmentLevel == 'full_check_up'
-          ? 'Full check up (पूर्ण जाँच)'
-          : (effectiveTreatmentLevel == 'council_level'
-                ? 'Council level (काउन्सिलिङ)'
+      final treatmentLevelLabel = (effectiveTreatmentLevel == 'gyno_checkup' || effectiveTreatmentLevel == 'full_check_up')
+          ? 'Gynocheckup (गाइनो जाँच)'
+          : ((effectiveTreatmentLevel == 'counseling' || effectiveTreatmentLevel == 'council_level')
+                ? 'Counseling (काउन्सिलिङ)'
                 : (effectiveTreatmentLevel.isNotEmpty
                       ? effectiveTreatmentLevel
-                      : 'Not Specified (तह नतोकिएको)'));
+                      : 'Not Specified (नतोकिएको)'));
 
       // BP classification
       String bpStatus = 'N/A';
@@ -2543,7 +2543,7 @@ class PdfReportService {
                     children: [
                       pw.Expanded(
                         child: _buildPdfField(
-                          'Level of Treatment (उपचारको तह)',
+                          'Consultation (परामर्श)',
                           treatmentLevelLabel,
                           isBold: true,
                         ),
@@ -4275,11 +4275,25 @@ class PdfReportService {
     }
 
     // 4. Visit Reasons (Map of code/key -> bilingual label)
+    String cleanReasonNepali(String neText) {
+      final trimmed = neText.trim();
+      final parenMatch = RegExp(r'\(([\u0900-\u097F\s/]+)\)').firstMatch(trimmed);
+      if (parenMatch != null) {
+        return parenMatch.group(1)!.trim();
+      }
+      if (trimmed.contains('(') && trimmed.endsWith(')')) {
+        final idx = trimmed.lastIndexOf('(');
+        return trimmed.substring(idx + 1, trimmed.length - 1).trim();
+      }
+      return trimmed;
+    }
+
     Map<String, String> effectiveVisitReasons = {};
     if (visitReasons != null && visitReasons.isNotEmpty) {
       for (final vr in visitReasons.where((v) => v.isActive)) {
-        final label = (vr.labelNe.isNotEmpty && vr.labelNe != vr.labelEn)
-            ? '${vr.labelEn} (${vr.labelNe})'
+        final cleanNe = cleanReasonNepali(vr.labelNe);
+        final label = (cleanNe.isNotEmpty && cleanNe != vr.labelEn)
+            ? '${vr.labelEn} ($cleanNe)'
             : vr.labelEn;
         effectiveVisitReasons[vr.code] = label;
       }
@@ -4292,8 +4306,9 @@ class PdfReportService {
         );
         if (repoItems.isNotEmpty) {
           for (final vr in repoItems.where((v) => v.isActive)) {
-            final label = (vr.labelNe.isNotEmpty && vr.labelNe != vr.labelEn)
-                ? '${vr.labelEn} (${vr.labelNe})'
+            final cleanNe = cleanReasonNepali(vr.labelNe);
+            final label = (cleanNe.isNotEmpty && cleanNe != vr.labelEn)
+                ? '${vr.labelEn} ($cleanNe)'
                 : vr.labelEn;
             effectiveVisitReasons[vr.code] = label;
           }
@@ -4411,6 +4426,60 @@ class PdfReportService {
             ),
           );
         }),
+      );
+    }
+
+    // ── Standard Bikram Sambat (BS) Date Character Boxes Helper ──
+    pw.Widget buildDateBsBoxes(
+      DateTime? date, {
+      bool hasData = false,
+      double boxSize = 8.5,
+      double boxHeight = 11.5,
+      double fontSize = 7.0,
+    }) {
+      final d = date ?? DateTime.now();
+      final bsYear = (d.year + 57).toString();
+      final bsMonth = (((d.month + 8) % 12) + 1).toString().padLeft(2, '0');
+      final bsDay = d.day.toString().padLeft(2, '0');
+      return pw.Row(
+        mainAxisSize: pw.MainAxisSize.min,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          buildCharBoxes(
+            hasData ? bsYear : '',
+            minBoxes: 4,
+            maxBoxes: 4,
+            boxSize: boxSize,
+            boxHeight: boxHeight,
+            boxMargin: 1.0,
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 1.5),
+            child: pw.Text('-', style: pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold, color: dark)),
+          ),
+          buildCharBoxes(
+            hasData ? bsMonth : '',
+            minBoxes: 2,
+            maxBoxes: 2,
+            boxSize: boxSize,
+            boxHeight: boxHeight,
+            boxMargin: 1.0,
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 1.5),
+            child: pw.Text('-', style: pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold, color: dark)),
+          ),
+          buildCharBoxes(
+            hasData ? bsDay : '',
+            minBoxes: 2,
+            maxBoxes: 2,
+            boxSize: boxSize,
+            boxHeight: boxHeight,
+            boxMargin: 1.0,
+          ),
+          pw.SizedBox(width: 2.5),
+          pw.Text('BS', style: pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold, color: primary)),
+        ],
       );
     }
 
@@ -4576,7 +4645,7 @@ class PdfReportService {
               )
               .trim();
 
-          // ── Level of Treatment Triage Status ──
+          // ── Consultation Triage Status ──
           final String currentTreatmentLevel =
               (visit?.treatmentLevel?.trim().isNotEmpty == true)
               ? visit!.treatmentLevel!.trim()
@@ -4585,12 +4654,14 @@ class PdfReportService {
                     : '');
           final bool isCouncilLevel = currentTreatmentLevel
               .toLowerCase()
-              .contains('council');
+              .contains('counsel') ||
+              currentTreatmentLevel.toLowerCase().contains('council');
           final bool isFullCheckUp =
+              currentTreatmentLevel.toLowerCase().contains('gyno') ||
               currentTreatmentLevel.toLowerCase().contains('full') ||
               (!isCouncilLevel && currentTreatmentLevel.isNotEmpty);
 
-          // ── Triage Strip (Level of Treatment) ──
+          // ── Triage Strip (Consultation & Date in BS boxes) ──
           final triageStrip = pw.Container(
             width: double.infinity,
             margin: const pw.EdgeInsets.only(top: 2, bottom: 3),
@@ -4607,29 +4678,49 @@ class PdfReportService {
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
             ),
             child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                pw.Text(
-                  'LEVEL OF TREATMENT: ',
-                  style: pw.TextStyle(
-                    fontSize: 8.0,
-                    fontWeight: pw.FontWeight.bold,
-                    color: primary,
-                  ),
+                ne(
+                  'CONSULTATION: परामर्श:',
+                  size: 8.0,
+                  bold: true,
+                  color: 0xFF30026E,
                 ),
-                ne('उपचारको तह:', size: 7.6, bold: true, color: 0xFF1E293B),
-                pw.SizedBox(width: 14),
+                pw.SizedBox(width: 10),
                 cb(
-                  'Council level / काउन्सिलिङ तह',
+                  'Counseling / काउन्सिलिङ',
                   isCouncilLevel,
-                  fontSize: 8.0,
-                  boxSize: 10.5,
+                  fontSize: 7.8,
+                  boxSize: 10.0,
                 ),
-                pw.SizedBox(width: 16),
+                pw.SizedBox(width: 12),
                 cb(
-                  'Full check up / पूर्ण जाँच',
+                  'Gynocheckup / गाइनो जाँच',
                   isFullCheckUp,
-                  fontSize: 8.0,
-                  boxSize: 10.5,
+                  fontSize: 7.8,
+                  boxSize: 10.0,
+                ),
+                pw.Spacer(),
+                // ── Date in character boxes ending with BS ──
+                pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    ne(
+                      'Date / मिति:',
+                      size: 8.0,
+                      bold: true,
+                      color: 0xFF1E293B,
+                    ),
+                    pw.SizedBox(width: 4),
+                    buildDateBsBoxes(
+                      intakeDate,
+                      hasData: hasPatient,
+                      boxSize: 9.5,
+                      boxHeight: 12.5,
+                      fontSize: 7.5,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -4906,7 +4997,7 @@ class PdfReportService {
                     child: field(
                       'Province',
                       'प्रदेश',
-                      camp?.province ?? '',
+                      patient?.province ?? '',
                       minBoxes: 8,
                       maxBoxes: 8,
                     ),
@@ -5514,12 +5605,25 @@ class PdfReportService {
                     color: PdfColors.grey700,
                   ),
                 ),
-                pw.Text(
-                  'Date: ${hasPatient ? dateFormatter.format(intakeDate) : "__________________"}',
-                  style: const pw.TextStyle(
-                    fontSize: 7.0,
-                    color: PdfColors.grey700,
-                  ),
+                pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    ne(
+                      'Date / मिति:',
+                      size: 7.0,
+                      bold: false,
+                      color: 0xFF616161,
+                    ),
+                    pw.SizedBox(width: 4),
+                    buildDateBsBoxes(
+                      intakeDate,
+                      hasData: hasPatient,
+                      boxSize: 8.0,
+                      boxHeight: 11.0,
+                      fontSize: 6.8,
+                    ),
+                  ],
                 ),
                 pw.Text(
                   'Camp: ${camp?.campCode ?? "___"}',
@@ -5572,7 +5676,7 @@ class PdfReportService {
                               ),
                             ),
                             pw.Text(
-                              'Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? ""}) | Date: ${hasPatient ? dateFormatter.format(intakeDate) : "__________________"}${doctorHeaderPart.isNotEmpty ? " | $doctorHeaderPart" : ""}',
+                              'Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? ""})${doctorHeaderPart.isNotEmpty ? " | $doctorHeaderPart" : ""}',
                               style: const pw.TextStyle(
                                 fontSize: 6.8,
                                 color: PdfColors.grey700,
@@ -5861,11 +5965,15 @@ class PdfReportService {
               ),
               // Row 1: Exam Date, Uterus Inside, Pelvic Floor Tone
               pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   pw.Text('Examination Date: ', style: bold(size: fsSmall)),
-                  pw.Text(
-                    hasPatient ? dateFormatter.format(intakeDate) : '__________________',
-                    style: normal(size: fsSmall),
+                  buildDateBsBoxes(
+                    intakeDate,
+                    hasData: hasPatient,
+                    boxSize: 8.5,
+                    boxHeight: 11.5,
+                    fontSize: 7.0,
                   ),
                   pw.SizedBox(width: 14),
                   pw.Text('uterus inside: ', style: bold(size: fsSmall)),
@@ -6025,11 +6133,12 @@ class PdfReportService {
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   pw.Text('Lab test Date: ', style: bold(size: fsSmall)),
-                  pw.Text(
-                    hasPatient
-                        ? dateFormatter.format(visit?.visitDate ?? intakeDate)
-                        : '__________________',
-                    style: normal(size: fsSmall),
+                  buildDateBsBoxes(
+                    visit?.visitDate ?? intakeDate,
+                    hasData: hasPatient,
+                    boxSize: 8.5,
+                    boxHeight: 11.5,
+                    fontSize: 7.0,
                   ),
                   pw.SizedBox(width: 8),
                   pw.Text('urine test: ', style: bold(size: fsSmall)),
@@ -6413,15 +6522,70 @@ class PdfReportService {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               secHdr('STATION 5: TREATMENT & PRESCRIPTIONS / उपचार तथा औषधि'),
-              // Row 1a: Treatment Date + spec counseling (line 1: weak pelvic floor, POP, stress incont, urge incont)
+              // Row 1: Treatment Date + Pessary options
               pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   pw.Text('Treatment Date: ', style: bold(size: fsSmall)),
-                  pw.Text(
-                    hasPatient ? dateFormatter.format(intakeDate) : '__________________',
-                    style: normal(size: fsSmall),
+                  buildDateBsBoxes(
+                    intakeDate,
+                    hasData: hasPatient,
+                    boxSize: 8.5,
+                    boxHeight: 11.5,
+                    fontSize: 7.0,
                   ),
-                  pw.SizedBox(width: 8),
+                  pw.SizedBox(width: 14),
+                  pw.Text('pessary: ', style: bold(size: fsSmall)),
+                  cb(
+                    'ring',
+                    (visit?.pessaryType ?? '').toLowerCase() == 'ring',
+                    bottom: 0,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
+                  ),
+                  cb(
+                    'ring with support',
+                    (visit?.pessaryType ?? '').toLowerCase().contains(
+                      'support',
+                    ),
+                    bottom: 0,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
+                  ),
+                  cb(
+                    'ring with knob',
+                    (visit?.pessaryType ?? '').toLowerCase().contains('knob'),
+                    bottom: 0,
+                    fontSize: 7.6,
+                    boxSize: 10.0,
+                  ),
+                  pw.SizedBox(width: 4),
+                  pw.Text('size: ', style: bold(size: fsSmall)),
+                  pw.Container(
+                    width: 28,
+                    height: 12,
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(
+                        bottom: pw.BorderSide(
+                          color: PdfColors.grey400,
+                          width: 0.5,
+                        ),
+                      ),
+                    ),
+                    alignment: pw.Alignment.bottomCenter,
+                    child: pw.Text(
+                      visit?.pessarySize ?? '',
+                      style: pw.TextStyle(fontSize: 7.6, color: primary),
+                    ),
+                  ),
+                  pw.Text(' mm', style: normal(size: fsSmall)),
+                ],
+              ),
+              pw.SizedBox(height: 3.0),
+              // Row 2: Dedicated row for spec counseling
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
                   pw.Text('spec counseling: ', style: bold(size: fsSmall)),
                   cb(
                     'weak pelvic floor',
@@ -6479,58 +6643,10 @@ class PdfReportService {
                   ),
                 ],
               ),
-              // Row 2: Pessary type + size
-              pw.Row(
-                children: [
-                  pw.Text('pessary: ', style: bold(size: fsSmall)),
-                  cb(
-                    'ring',
-                    (visit?.pessaryType ?? '').toLowerCase() == 'ring',
-                    bottom: 0,
-                    fontSize: 7.6,
-                    boxSize: 10.0,
-                  ),
-                  cb(
-                    'ring with support',
-                    (visit?.pessaryType ?? '').toLowerCase().contains(
-                      'support',
-                    ),
-                    bottom: 0,
-                    fontSize: 7.6,
-                    boxSize: 10.0,
-                  ),
-                  cb(
-                    'ring with knob',
-                    (visit?.pessaryType ?? '').toLowerCase().contains('knob'),
-                    bottom: 0,
-                    fontSize: 7.6,
-                    boxSize: 10.0,
-                  ),
-                  pw.SizedBox(width: 4),
-                  pw.Text('size: ', style: bold(size: fsSmall)),
-                  pw.Container(
-                    width: 28,
-                    height: 12,
-                    decoration: const pw.BoxDecoration(
-                      border: pw.Border(
-                        bottom: pw.BorderSide(
-                          color: PdfColors.grey400,
-                          width: 0.5,
-                        ),
-                      ),
-                    ),
-                    alignment: pw.Alignment.bottomCenter,
-                    child: pw.Text(
-                      visit?.pessarySize ?? '',
-                      style: pw.TextStyle(fontSize: 7.6, color: primary),
-                    ),
-                  ),
-                  pw.Text(' mm', style: normal(size: fsSmall)),
-                ],
-              ),
-              pw.SizedBox(height: 2.0),
+              pw.SizedBox(height: 3.0),
               // Row 3: Referral Surgery
               pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   pw.Text('referral surgery: ', style: bold(size: fsSmall)),
                   cb(
@@ -6565,11 +6681,11 @@ class PdfReportService {
                   ),
                 ],
               ),
-              pw.SizedBox(height: 3.0),
+              pw.SizedBox(height: 4.0),
               // 2-Column Medication Grid (All 10 formulary medications)
               pw.Container(
                 width: double.infinity,
-                padding: const pw.EdgeInsets.all(8),
+                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: pw.BoxDecoration(
                   border: pw.Border.all(
                     color: PdfColor.fromHex('CBD5E1'),
@@ -6598,7 +6714,7 @@ class PdfReportService {
                               return cb(
                                 m,
                                 isChecked,
-                                bottom: 5.0,
+                                bottom: 6.0,
                                 fontSize: 7.8,
                                 boxSize: 10.5,
                               );
@@ -6624,7 +6740,7 @@ class PdfReportService {
                               return cb(
                                 m,
                                 isChecked,
-                                bottom: 5.0,
+                                bottom: 6.0,
                                 fontSize: 7.8,
                                 boxSize: 10.5,
                               );
@@ -6635,13 +6751,13 @@ class PdfReportService {
                   ],
                 ),
               ),
-              pw.SizedBox(height: 2.0),
+              pw.SizedBox(height: 3.0),
               pw.Row(
                 children: [
                   pw.Text('other medication: ', style: bold(size: fsSmall)),
                   pw.Expanded(
                     child: pw.Container(
-                      height: 12,
+                      height: 14,
                       decoration: const pw.BoxDecoration(
                         border: pw.Border(
                           bottom: pw.BorderSide(
@@ -6676,11 +6792,15 @@ class PdfReportService {
                 'STATION 6: DISCHARGE & CONTINUITY OF CARE / अनुगमन तथा डिस्चार्ज',
               ),
               pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   pw.Text('Outtake Date: ', style: bold(size: fsSmall)),
-                  pw.Text(
-                    hasPatient ? dateFormatter.format(intakeDate) : '__________________',
-                    style: normal(size: fsSmall),
+                  buildDateBsBoxes(
+                    intakeDate,
+                    hasData: hasPatient,
+                    boxSize: 8.5,
+                    boxHeight: 11.5,
+                    fontSize: 7.0,
                   ),
                 ],
               ),
@@ -6701,7 +6821,7 @@ class PdfReportService {
                           (followUpDest ?? '').toLowerCase().contains(
                             'health post',
                           ),
-                          bottom: 5.0,
+                          bottom: 7.0,
                           fontSize: 8.0,
                           boxSize: 10.5,
                         ),
@@ -6713,7 +6833,7 @@ class PdfReportService {
                               (followUpDest ?? '').toLowerCase().contains(
                                 'nurse',
                               ),
-                          bottom: 5.0,
+                          bottom: 7.0,
                           fontSize: 8.0,
                           boxSize: 10.5,
                         ),
@@ -6728,7 +6848,7 @@ class PdfReportService {
                             ),
                             pw.Expanded(
                               child: pw.Container(
-                                height: 12,
+                                height: 13,
                                 decoration: const pw.BoxDecoration(
                                   border: pw.Border(
                                     bottom: pw.BorderSide(
@@ -6751,7 +6871,7 @@ class PdfReportService {
                             ),
                           ],
                         ),
-                        pw.SizedBox(height: 2.5),
+                        pw.SizedBox(height: 4.0),
                         cb(
                           'no follow up needed',
                           visit?.followUpNeeded == false,
@@ -6767,8 +6887,8 @@ class PdfReportService {
                   pw.Expanded(
                     flex: 50,
                     child: pw.Container(
-                      height: 72,
-                      padding: const pw.EdgeInsets.all(4.0),
+                      height: 108,
+                      padding: const pw.EdgeInsets.all(5.0),
                       decoration: pw.BoxDecoration(
                         border: pw.Border.all(
                           color: PdfColor.fromHex('CBD5E1'),
@@ -6783,13 +6903,13 @@ class PdfReportService {
                         children: [
                           pw.Text(
                             'Clinical Notes / Outtake Remarks:',
-                            style: bold(size: 7.2),
+                            style: bold(size: 7.4),
                           ),
-                          pw.SizedBox(height: 2),
+                          pw.SizedBox(height: 3),
                           pw.Text(
                             visit?.outtakeNotes ?? '',
                             style: pw.TextStyle(fontSize: 7.2, color: primary),
-                            maxLines: 3,
+                            maxLines: 5,
                           ),
                         ],
                       ),
@@ -6802,7 +6922,7 @@ class PdfReportService {
 
           // ── Signatures Block (Outreach Team Signatures) ──
           final signaturesBlock = pw.Padding(
-            padding: const pw.EdgeInsets.only(top: 14.0, bottom: 2.0),
+            padding: const pw.EdgeInsets.only(top: 18.0, bottom: 2.0),
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -6813,7 +6933,7 @@ class PdfReportService {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.SizedBox(height: 22.0), // Clear pen signing zone
+                      pw.SizedBox(height: 26.0), // Clear pen signing zone
                       pw.Container(
                         width: 110,
                         height: 0.7,
@@ -6841,7 +6961,7 @@ class PdfReportService {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.center,
                     children: [
-                      pw.SizedBox(height: 22.0), // Clear pen signing zone
+                      pw.SizedBox(height: 26.0), // Clear pen signing zone
                       pw.Container(
                         width: 120,
                         height: 0.7,
@@ -6932,7 +7052,7 @@ class PdfReportService {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
-                      pw.SizedBox(height: 22.0), // Clear pen signing zone
+                      pw.SizedBox(height: 26.0), // Clear pen signing zone
                       pw.Container(
                         width: 120,
                         height: 0.7,
@@ -7135,17 +7255,17 @@ class PdfReportService {
                         ),
                     ],
                   ),
-                  pw.SizedBox(height: 5),
+                  pw.SizedBox(height: 7),
                   station2,
-                  pw.SizedBox(height: 5),
+                  pw.SizedBox(height: 7),
                   station3,
-                  pw.SizedBox(height: 5),
+                  pw.SizedBox(height: 7),
                   station4,
-                  pw.SizedBox(height: 5),
+                  pw.SizedBox(height: 7),
                   station5,
-                  pw.SizedBox(height: 5),
+                  pw.SizedBox(height: 7),
                   station6,
-                  pw.SizedBox(height: 5),
+                  pw.SizedBox(height: 7),
                   signaturesBlock,
                 ],
               ),

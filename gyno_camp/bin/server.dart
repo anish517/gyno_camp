@@ -596,18 +596,19 @@ class GynoCampSyncServer {
         print('✓ Seeded default chief complaints in PostgreSQL.');
       }
 
+      final defaultReasons = [
+        {'en': 'something hanging out', 'ne': 'पाठेघर खस्ने'},
+        {'en': 'discharge and or itching', 'ne': 'योनी स्राव / चिलाउने'},
+        {'en': 'problems passing urine', 'ne': 'पिसाब सम्बन्धी समस्या'},
+        {'en': 'problems passing stool', 'ne': 'दिसा सम्बन्धी समस्या'},
+        {'en': 'menstrual problem', 'ne': 'महिनावारी सम्बन्धी समस्या'},
+        {'en': 'infertility', 'ne': 'बाँझोपन'},
+        {'en': 'pain', 'ne': 'तल्लो पेट / कम्मर दुखाई'},
+        {'en': 'checkup', 'ne': 'सामान्य जाँच'},
+      ];
+
       final reasonCount = await _connection!.execute("SELECT COUNT(*) FROM lookup_items WHERE category = 'visit_reason';");
       if ((reasonCount.first[0] as int? ?? 0) == 0) {
-        final defaultReasons = [
-          {'en': 'something hanging out', 'ne': 'Something Hanging Out / Prolapse (पाठेघर खस्ने)'},
-          {'en': 'discharge and or itching', 'ne': 'Vaginal Discharge / Itching (योनी स्राव / चिलाउने)'},
-          {'en': 'problems passing urine', 'ne': 'Problems Passing Urine (पिसाब सम्बन्धी समस्या)'},
-          {'en': 'problems passing stool', 'ne': 'Problems Passing Stool (दिसा सम्बन्धी समस्या)'},
-          {'en': 'menstrual problem', 'ne': 'Menstrual Problem (महिनावारी सम्बन्धी समस्या)'},
-          {'en': 'infertility', 'ne': 'Infertility (बाँझोपन)'},
-          {'en': 'pain', 'ne': 'Pelvic / Abdominal Pain (तल्लो पेट / कम्मर दुखाई)'},
-          {'en': 'checkup', 'ne': 'General Gynaecological Checkup (सामान्य जाँच)'},
-        ];
         int idx = 0;
         for (final r in defaultReasons) {
           idx++;
@@ -628,6 +629,21 @@ class GynoCampSyncServer {
           );
         }
         print('✓ Seeded default visit reasons in PostgreSQL.');
+      }
+
+      // Backfill and clean any existing visit_reason label_ne records in PostgreSQL
+      for (final r in defaultReasons) {
+        await _connection!.execute(
+          Sql.named('''
+            UPDATE lookup_items
+            SET label_ne = @ne
+            WHERE category = 'visit_reason' AND LOWER(label_en) = LOWER(@en);
+          '''),
+          parameters: {
+            'en': r['en'],
+            'ne': r['ne'],
+          },
+        );
       }
     } catch (e) {
       print('! Seeding lookups note: $e');

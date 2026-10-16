@@ -765,6 +765,41 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     state = state.copyWith(scanResult: updated);
   }
 
+  /// Updates clinical notes (Station 6) on scan result
+  void updateClinicalNotes(String? notes) {
+    if (state.scanResult == null) return;
+    final clean = (notes == null || notes.trim().isEmpty) ? null : notes.trim();
+    final updated = state.scanResult!.copyWith(
+      clinicalNotes: clean,
+      clearClinicalNotes: clean == null,
+    );
+    state = state.copyWith(scanResult: updated);
+  }
+
+  /// Updates relative type ('Husband', 'Father', 'Mother', 'Guardian', 'Other')
+  void updateRelativeType(String type) {
+    if (state.scanResult == null) return;
+    final updatedDemo = Map<String, dynamic>.from(state.scanResult!.demographics);
+    updatedDemo['relativeType'] = type;
+    state = state.copyWith(
+      scanResult: state.scanResult!.copyWith(demographics: updatedDemo),
+    );
+  }
+
+  /// Updates station dates on scan result
+  void updateStationDate(String field, String? dateStr) {
+    if (state.scanResult == null) return;
+    final clean = (dateStr == null || dateStr.trim().isEmpty) ? null : dateStr.trim();
+    final updated = switch (field) {
+      'treatmentDate' => state.scanResult!.copyWith(treatmentDate: clean, clearTreatmentDate: clean == null),
+      'conclusionDate' => state.scanResult!.copyWith(conclusionDate: clean, clearConclusionDate: clean == null),
+      'labTestDate' => state.scanResult!.copyWith(labTestDate: clean, clearLabTestDate: clean == null),
+      'outtakeDate' => state.scanResult!.copyWith(outtakeDate: clean, clearOuttakeDate: clean == null),
+      _ => state.scanResult!,
+    };
+    state = state.copyWith(scanResult: updated);
+  }
+
   /// Commits verified scanned patient and clinical record to SQLite
   Future<PatientModel?> confirmAndCommit({
     required String campId,

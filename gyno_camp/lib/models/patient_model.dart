@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'nurse_profile.dart';
-import '../core/constants/clinical_constants.dart';
 
 class PatientModel {
   final String id; // UUID
@@ -14,7 +13,7 @@ class PatientModel {
   final String surname;
   final int age;
   final String? spouseOrFatherName; // Father if age < 20, Husband if age >= 20
-  final String? relationshipType; // 'Father', 'Husband', 'Guardian', 'M/SM/GP'
+  final String? relationshipType; // 'Father', 'Husband', 'Mother', 'Guardian', 'Other'
   final String mobile;
   final String province;
   final String district;
@@ -110,9 +109,12 @@ class PatientModel {
   });
 
   String get fullName => '$firstName $surname'.trim();
-  bool get isBelowAdultAge => age < ClinicalConstants.adultAgeThreshold;
-  bool get isCouncilLevel => treatmentLevel == 'council_level';
-  bool get isFullCheckUp => treatmentLevel == 'full_check_up';
+  bool get isCounseling => treatmentLevel == 'counseling' || treatmentLevel == 'council_level';
+  bool get isGynocheckup => treatmentLevel == 'gyno_checkup' || treatmentLevel == 'full_check_up';
+  bool get isCouncilLevel => isCounseling;
+  bool get isFullCheckUp => isGynocheckup;
+  String get consultationLabel => isCounseling ? 'Counseling' : (isGynocheckup ? 'Gynocheckup' : 'Unassigned');
+  String get treatmentLabel => consultationLabel;
 
   /// Aggregated list of treatments, medications, pessary fittings, and counseling
   List<String> get treatments {

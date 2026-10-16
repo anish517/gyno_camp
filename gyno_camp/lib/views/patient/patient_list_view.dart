@@ -942,9 +942,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     if (filters.treatmentLevel != null &&
         filters.treatmentLevel!.isNotEmpty &&
         filters.treatmentLevel != 'all') {
-      final label = filters.treatmentLevel == 'council_level'
-          ? 'Level: Council'
-          : (filters.treatmentLevel == 'full_check_up' ? 'Level: Full Check' : 'Level: ${filters.treatmentLevel}');
+      final label = (filters.treatmentLevel == 'counseling' || filters.treatmentLevel == 'council_level')
+          ? 'Consult: Counseling'
+          : ((filters.treatmentLevel == 'gyno_checkup' || filters.treatmentLevel == 'full_check_up')
+              ? 'Consult: Gynocheck'
+              : 'Consult: ${filters.treatmentLevel}');
       pills.add(_buildFilterPill(label, () {
         vm.setTreatmentLevelFilter(null);
       }));
@@ -2422,14 +2424,18 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       ),
                     ],
 
-                    // Row 4: Level of Treatment Filter
+                    // Row 4: Consultation Filter
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       key: ValueKey('treatment_level_dropdown_${filters.treatmentLevel}'),
-                      initialValue: filters.treatmentLevel ?? 'all',
+                      initialValue: (filters.treatmentLevel == 'council_level' || filters.treatmentLevel == 'counseling')
+                          ? 'counseling'
+                          : ((filters.treatmentLevel == 'full_check_up' || filters.treatmentLevel == 'gyno_checkup')
+                              ? 'gyno_checkup'
+                              : (filters.treatmentLevel ?? 'all')),
                       decoration: const InputDecoration(
-                        labelText: 'Level of Treatment (उपचारको तह)',
-                        prefixIcon: Icon(Icons.layers_outlined, size: 18),
+                        labelText: 'Consultation (परामर्श)',
+                        prefixIcon: Icon(Icons.medical_information_outlined, size: 18),
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         isDense: true,
@@ -2438,15 +2444,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       items: const [
                         DropdownMenuItem(
                           value: 'all',
-                          child: Text('All Treatment Levels (सबै तह)', style: TextStyle(fontSize: 13)),
+                          child: Text('All Consultations (सबै परामर्श)', style: TextStyle(fontSize: 13)),
                         ),
                         DropdownMenuItem(
-                          value: 'council_level',
-                          child: Text('Council level (काउन्सिलिङ तह)', style: TextStyle(fontSize: 13)),
+                          value: 'counseling',
+                          child: Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 13)),
                         ),
                         DropdownMenuItem(
-                          value: 'full_check_up',
-                          child: Text('Full check up (पूर्ण जाँच)', style: TextStyle(fontSize: 13)),
+                          value: 'gyno_checkup',
+                          child: Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 13)),
                         ),
                       ],
                       onChanged: (val) => vm.setTreatmentLevelFilter(val),

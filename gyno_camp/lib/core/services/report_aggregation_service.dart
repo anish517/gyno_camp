@@ -184,9 +184,9 @@ class ReportAggregationService {
       final level = (v?.treatmentLevel?.trim().isNotEmpty == true)
           ? v!.treatmentLevel!.trim()
           : (p.treatmentLevel?.trim() ?? '');
-      if (level == 'council_level') {
+      if (level == 'counseling' || level == 'council_level') {
         councilLevelCount++;
-      } else if (level == 'full_check_up') {
+      } else if (level == 'gyno_checkup' || level == 'full_check_up') {
         fullCheckUpCount++;
       } else {
         unassignedTreatmentLevelCount++;

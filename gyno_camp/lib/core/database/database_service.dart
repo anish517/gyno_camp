@@ -234,6 +234,12 @@ class DatabaseService {
           [entry.value, entry.key],
         );
       }
+      for (final entry in ClinicalConstants.visitReasonNepali.entries) {
+        await db.rawUpdate(
+          "UPDATE ${DatabaseTables.tableLookupItems} SET label_ne = ? WHERE category = 'visit_reason' AND (LOWER(label_en) = LOWER(?) OR code = ?)",
+          [entry.value, entry.key, entry.key.toLowerCase().replaceAll(' ', '_')],
+        );
+      }
     } catch (_) {}
 
     // One-time auto-purge of non-standard and test lookup entities
@@ -458,7 +464,7 @@ class DatabaseService {
 
     // 6. Seed default visit reasons from Yellow Form Page 1
     sortIdx = 0;
-    for (final entry in ClinicalConstants.visitReasonOptions.entries) {
+    for (final entry in ClinicalConstants.visitReasonNepali.entries) {
       sortIdx++;
       await db.insert(DatabaseTables.tableLookupItems, {
         'id': 'reason-$sortIdx',
@@ -471,7 +477,7 @@ class DatabaseService {
         'sort_order': sortIdx,
         'tenant_id': 'tenant_default',
         'is_deleted': 0,
-      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     // 7. Seed default chief complaints from Yellow Form Page 1

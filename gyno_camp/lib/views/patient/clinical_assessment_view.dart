@@ -449,6 +449,59 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     );
   }
 
+  Future<void> _pickStationDate({required String title}) async {
+    final current = ref.read(clinicalAssessmentProvider).visitDate ??
+        ref.read(clinicalAssessmentProvider).savedVisit?.visitDate ??
+        DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: title,
+    );
+    if (picked != null && mounted) {
+      ref.read(clinicalAssessmentProvider.notifier).setVisitDate(picked);
+      setState(() {});
+    }
+  }
+
+  Widget _buildStationDateChip({
+    required String label,
+    required DateTime date,
+  }) {
+    final formattedAd = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+    final dual = NepaliLocalizationService.formatDualCalendarDate(date);
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => _pickStationDate(title: 'Select $label (मिति परिवर्तन)'),
+      child: Tooltip(
+        message: 'Tap to change date: $dual',
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFCBD5E1), width: 0.8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.calendar_month_rounded, size: 13, color: AppTheme.primaryTeal),
+              const SizedBox(width: 5),
+              Text(
+                '$label: $formattedAd',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.edit_outlined, size: 12, color: AppTheme.primaryTeal),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStepTab(int index, String label, IconData icon, int currentIndex) {
     final isSelected = index == currentIndex;
     return InkWell(
@@ -999,15 +1052,27 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.health_and_safety_outlined, color: AppTheme.primaryTeal, size: 20),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Uterus Position & Pelvic Muscle Tone (पाठेघरको स्थिति तथा मांसपेशी तनाव)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B)),
+                    const Expanded(
+                      child: Row(
+                        children: [
+                          Icon(Icons.health_and_safety_outlined, color: AppTheme.primaryTeal, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Uterus Position & Pelvic Muscle Tone (पाठेघरको स्थिति तथा मांसपेशी तनाव)',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B)),
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildStationDateChip(
+                      label: 'Exam Date',
+                      date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
                     ),
                   ],
                 ),
@@ -1362,9 +1427,18 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Rapid Point-of-Care Tests (प्रयोगशाला जाँच)',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Rapid Point-of-Care Tests (प्रयोगशाला जाँच)',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                        ),
+                        _buildStationDateChip(
+                          label: 'Lab Test Date',
+                          date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     const Text('Urine Test (पिसाब जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -1742,9 +1816,20 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
-              child: Text(
-                'Clinical Diagnoses (${state.selectedDiagnoses.length} selected)',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    'Clinical Diagnoses (${state.selectedDiagnoses.length} selected)',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  _buildStationDateChip(
+                    label: 'Conclusion Date',
+                    date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+                  ),
+                ],
               ),
             ),
             OutlinedButton.icon(
@@ -1925,11 +2010,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.layers_rounded, color: AppTheme.primaryTeal, size: 20),
+                    const Icon(Icons.medical_information_rounded, color: AppTheme.primaryTeal, size: 20),
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
-                        'Level of Treatment (उपचारको तह)',
+                        'Consultation (परामर्श)',
                         style: TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w700,
@@ -1937,28 +2022,33 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                         ),
                       ),
                     ),
+                    _buildStationDateChip(
+                      label: 'Treatment Date',
+                      date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+                    ),
+                    const SizedBox(width: 6),
                     if (state.treatmentLevel != null && state.treatmentLevel!.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: state.treatmentLevel == 'council_level'
+                          color: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level')
                               ? const Color(0xFF7C3AED).withValues(alpha: 0.12)
                               : const Color(0xFF0D9488).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: state.treatmentLevel == 'council_level'
+                            color: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level')
                                 ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
                                 : const Color(0xFF0D9488).withValues(alpha: 0.35),
                           ),
                         ),
                         child: Text(
-                          state.treatmentLevel == 'council_level'
-                              ? 'Council Level'
-                              : 'Full Check Up',
+                          (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level')
+                              ? 'Counseling'
+                              : 'Gynocheckup',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: state.treatmentLevel == 'council_level'
+                            color: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level')
                                 ? const Color(0xFF7C3AED)
                                 : const Color(0xFF0D9488),
                           ),
@@ -1968,7 +2058,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Select the tier of treatment planned or provided at this camp encounter:',
+                  'Select the consultation triage planned or provided at this camp encounter:',
                   style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                 ),
                 const SizedBox(height: 10),
@@ -1986,28 +2076,28 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     ),
                     ChoiceChip(
                       avatar: const Icon(Icons.record_voice_over_rounded, size: 16),
-                      label: const Text('Council level (काउन्सिलिङ तह)'),
-                      selected: state.treatmentLevel == 'council_level',
+                      label: const Text('Counseling (काउन्सिलिङ)'),
+                      selected: state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level',
                       selectedColor: const Color(0xFFEDE9FE),
                       labelStyle: TextStyle(
-                        fontWeight: state.treatmentLevel == 'council_level' ? FontWeight.bold : FontWeight.normal,
-                        color: state.treatmentLevel == 'council_level' ? const Color(0xFF7C3AED) : null,
+                        fontWeight: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level') ? FontWeight.bold : FontWeight.normal,
+                        color: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level') ? const Color(0xFF7C3AED) : null,
                       ),
                       onSelected: (selected) {
-                        vm.setTreatmentLevel(selected ? 'council_level' : null);
+                        vm.setTreatmentLevel(selected ? 'counseling' : null);
                       },
                     ),
                     ChoiceChip(
                       avatar: const Icon(Icons.medical_services_rounded, size: 16),
-                      label: const Text('Full check up (पूर्ण जाँच)'),
-                      selected: state.treatmentLevel == 'full_check_up',
+                      label: const Text('Gynocheckup (गाइनो जाँच)'),
+                      selected: state.treatmentLevel == 'gyno_checkup' || state.treatmentLevel == 'full_check_up',
                       selectedColor: const Color(0xFFCCFBF1),
                       labelStyle: TextStyle(
-                        fontWeight: state.treatmentLevel == 'full_check_up' ? FontWeight.bold : FontWeight.normal,
-                        color: state.treatmentLevel == 'full_check_up' ? const Color(0xFF0F766E) : null,
+                        fontWeight: (state.treatmentLevel == 'gyno_checkup' || state.treatmentLevel == 'full_check_up') ? FontWeight.bold : FontWeight.normal,
+                        color: (state.treatmentLevel == 'gyno_checkup' || state.treatmentLevel == 'full_check_up') ? const Color(0xFF0F766E) : null,
                       ),
                       onSelected: (selected) {
-                        vm.setTreatmentLevel(selected ? 'full_check_up' : null);
+                        vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);
                       },
                     ),
                   ],
@@ -2324,7 +2414,16 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Follow-Up Plan (पुनः जाँच योजना)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Follow-Up Plan (पुनः जाँच योजना)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            _buildStationDateChip(
+              label: 'Outtake Date',
+              date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         Card(
           child: RadioGroup<bool>(
@@ -2447,64 +2546,6 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   title: Text('No Follow-up Needed (थप जाँच आवश्यक छैन)'),
                   value: false,
                 ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        const Text('Surgical Intervention (शल्यक्रिया सम्पन्न विवरण)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Surgery Done? (शल्यक्रिया सम्पन्न भयो?)',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Switch(
-                      value: state.surgeryDone,
-                      activeThumbColor: AppTheme.primaryTeal,
-                      onChanged: (val) {
-                        vm.setSurgery(surgeryDone: val, surgeryType: val ? (state.surgeryType ?? 'Open surgery') : null);
-                      },
-                    ),
-                  ],
-                ),
-                if (state.surgeryDone) ...[
-                  const SizedBox(height: 10),
-                  const Text('Select Surgery Route / Type (शल्यक्रियाको प्रकार):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: ClinicalConstants.surgeryTypes.map((sType) {
-                      final isSelected = state.surgeryType == sType;
-                      return ChoiceChip(
-                        label: Text(sType),
-                        selected: isSelected,
-                        selectedColor: AppTheme.primaryLight,
-                        onSelected: (_) {
-                          vm.setSurgery(surgeryDone: true, surgeryType: sType);
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ],
               ],
             ),
           ),

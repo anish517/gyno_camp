@@ -27,6 +27,11 @@ class OcrScanResultModel {
   final String? examiningNurse; // Lead nurse identified on Page 2
   final List<String> attendingNurses; // Multi-nurse list if multiple nurses attended
   final String? treatmentLevel; // 'council_level', 'full_check_up', or null
+  final String? clinicalNotes; // Station 6 Clinical Notes / Outtake Remarks
+  final String? treatmentDate; // Station 5 Treatment Date
+  final String? conclusionDate; // Station 4 Conclusion Date
+  final String? labTestDate; // Station 3 Lab Test Date
+  final String? outtakeDate; // Station 6 Outtake Date
   final Map<String, double> fieldConfidences;
   final double overallConfidence;
   final String rawText;
@@ -61,6 +66,11 @@ class OcrScanResultModel {
     this.examiningNurse,
     this.attendingNurses = const [],
     this.treatmentLevel,
+    this.clinicalNotes,
+    this.treatmentDate,
+    this.conclusionDate,
+    this.labTestDate,
+    this.outtakeDate,
     required this.fieldConfidences,
     required this.overallConfidence,
     required this.rawText,
@@ -107,6 +117,16 @@ class OcrScanResultModel {
     List<String>? attendingNurses,
     String? treatmentLevel,
     bool clearTreatmentLevel = false,
+    String? clinicalNotes,
+    bool clearClinicalNotes = false,
+    String? treatmentDate,
+    bool clearTreatmentDate = false,
+    String? conclusionDate,
+    bool clearConclusionDate = false,
+    String? labTestDate,
+    bool clearLabTestDate = false,
+    String? outtakeDate,
+    bool clearOuttakeDate = false,
     Map<String, double>? fieldConfidences,
     double? overallConfidence,
     String? rawText,
@@ -141,6 +161,11 @@ class OcrScanResultModel {
       examiningNurse: clearExaminingNurse ? null : (examiningNurse ?? this.examiningNurse),
       attendingNurses: attendingNurses ?? List<String>.from(this.attendingNurses),
       treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
+      clinicalNotes: clearClinicalNotes ? null : (clinicalNotes ?? this.clinicalNotes),
+      treatmentDate: clearTreatmentDate ? null : (treatmentDate ?? this.treatmentDate),
+      conclusionDate: clearConclusionDate ? null : (conclusionDate ?? this.conclusionDate),
+      labTestDate: clearLabTestDate ? null : (labTestDate ?? this.labTestDate),
+      outtakeDate: clearOuttakeDate ? null : (outtakeDate ?? this.outtakeDate),
       fieldConfidences: fieldConfidences ?? Map<String, double>.from(this.fieldConfidences),
       overallConfidence: overallConfidence ?? this.overallConfidence,
       rawText: rawText ?? this.rawText,
@@ -222,6 +247,11 @@ ${page2.rawText}
       examiningNurse: mergedNurse,
       attendingNurses: mergedNurses,
       treatmentLevel: page2.treatmentLevel ?? page1.treatmentLevel,
+      clinicalNotes: page2.clinicalNotes ?? page1.clinicalNotes,
+      treatmentDate: page2.treatmentDate ?? page1.treatmentDate,
+      conclusionDate: page2.conclusionDate ?? page1.conclusionDate,
+      labTestDate: page2.labTestDate ?? page1.labTestDate,
+      outtakeDate: page2.outtakeDate ?? page1.outtakeDate,
       fieldConfidences: mergedConfidences,
       overallConfidence: double.parse(avgConf.toStringAsFixed(2)),
       rawText: combinedText,
@@ -267,6 +297,11 @@ ${page2.rawText}
       'examiningNurse': examiningNurse,
       'attendingNurses': attendingNurses.join(','),
       'treatmentLevel': treatmentLevel,
+      'clinicalNotes': clinicalNotes,
+      'treatmentDate': treatmentDate,
+      'conclusionDate': conclusionDate,
+      'labTestDate': labTestDate,
+      'outtakeDate': outtakeDate,
       'fieldConfidences': fieldConfidences,
       'overallConfidence': overallConfidence,
       'rawText': rawText,
@@ -289,10 +324,22 @@ ${page2.rawText}
       examiningNurse: null,
       attendingNurses: const [],
       treatmentLevel: null,
+      clinicalNotes: null,
+      treatmentDate: null,
+      conclusionDate: null,
+      labTestDate: null,
+      outtakeDate: null,
       fieldConfidences: {},
       overallConfidence: 0.0,
       rawText: '',
       scannedAt: DateTime.now(),
     );
   }
+
+  bool get isCounseling => treatmentLevel == 'counseling' || treatmentLevel == 'council_level';
+  bool get isGynocheckup => treatmentLevel == 'gyno_checkup' || treatmentLevel == 'full_check_up';
+  bool get isCouncilLevel => isCounseling;
+  bool get isFullCheckUp => isGynocheckup;
+  String get consultationLabel => isCounseling ? 'Counseling' : (isGynocheckup ? 'Gynocheckup' : 'Unassigned');
+  String get treatmentLabel => consultationLabel;
 }

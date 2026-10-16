@@ -238,13 +238,14 @@ class GeminiOcrService {
     }
     final rawSummary = parsedData['rawSummary']?.toString().trim() ?? '';
     final rawTreatmentLevel = parsedData['treatmentLevel']?.toString().toLowerCase().trim() ??
-        parsedData['levelOfTreatment']?.toString().toLowerCase().trim();
+        parsedData['levelOfTreatment']?.toString().toLowerCase().trim() ??
+        parsedData['consultation']?.toString().toLowerCase().trim();
     String? treatmentLevel;
     if (rawTreatmentLevel != null && rawTreatmentLevel.isNotEmpty) {
-      if (rawTreatmentLevel.contains('council') || rawTreatmentLevel.contains('काउन्सिलिङ')) {
-        treatmentLevel = 'council_level';
-      } else if (rawTreatmentLevel.contains('full') || rawTreatmentLevel.contains('पूर्ण')) {
-        treatmentLevel = 'full_check_up';
+      if (rawTreatmentLevel.contains('counsel') || rawTreatmentLevel.contains('council') || rawTreatmentLevel.contains('काउन्सिलिङ')) {
+        treatmentLevel = 'counseling';
+      } else if (rawTreatmentLevel.contains('gyno') || rawTreatmentLevel.contains('full') || rawTreatmentLevel.contains('गाइनो') || rawTreatmentLevel.contains('पूर्ण')) {
+        treatmentLevel = 'gyno_checkup';
       }
     }
 
@@ -444,7 +445,7 @@ class GeminiOcrService {
     buffer.writeln('[GEMINI FLASH CLOUD OCR]');
     buffer.writeln('Page: $detectedPage');
     if (treatmentLevel != null) {
-      buffer.writeln('Level of Treatment: ${treatmentLevel == "council_level" ? "Council level" : "Full check up"}');
+      buffer.writeln('Consultation: ${(treatmentLevel == "counseling" || treatmentLevel == "council_level") ? "Counseling" : "Gynocheckup"}');
     }
     if (demographics['firstName'] != '' || demographics['surname'] != '') {
       buffer.writeln('Patient Name: ${demographics['firstName']} ${demographics['surname']}');

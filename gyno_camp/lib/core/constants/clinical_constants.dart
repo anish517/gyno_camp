@@ -242,21 +242,30 @@ class ClinicalConstants {
   ];
 
   // ── Visit Reason Options (Yellow Form Page 1 Checkboxes) ──────────────────
+  // Pure Nepali translation for each canonical visit reason:
+  static const Map<String, String> visitReasonNepali = {
+    'something hanging out':    'पाठेघर खस्ने',
+    'discharge and or itching': 'योनी स्राव / चिलाउने',
+    'problems passing urine':   'पिसाब सम्बन्धी समस्या',
+    'problems passing stool':   'दिसा सम्बन्धी समस्या',
+    'menstrual problem':        'महिनावारी सम्बन्धी समस्या',
+    'infertility':              'बाँझोपन',
+    'pain':                     'तल्लो पेट / कम्मर दुखाई',
+    'checkup':                  'सामान्य जाँच',
+  };
+
   // KEY   = stored value in PatientModel.reasonsForVisit (exact match)
   // VALUE = bilingual display label shown in UI, PDF, and OCR output
-  // This is the single source of truth shared by:
-  //   • PatientRegistrationView (UI checkboxes)
-  //   • PdfReportService.generatePatientRegistrationFormPdf (Section B)
-  //   • OcrFormService (reason key resolution)
+  // Format: English (नेपाली)
   static const Map<String, String> visitReasonOptions = {
-    'something hanging out':    'Something Hanging Out / Prolapse (पाठेघर खस्ने)',
-    'discharge and or itching': 'Vaginal Discharge / Itching (योनी स्राव / चिलाउने)',
-    'problems passing urine':   'Problems Passing Urine (पिसाब सम्बन्धी समस्या)',
-    'problems passing stool':   'Problems Passing Stool (दिसा सम्बन्धी समस्या)',
-    'menstrual problem':        'Menstrual Problem (महिनावारी सम्बन्धी समस्या)',
-    'infertility':              'Infertility (बाँझोपन)',
-    'pain':                     'Pelvic / Abdominal Pain (तल्लो पेट / कम्मर दुखाई)',
-    'checkup':                  'General Gynaecological Checkup (सामान्य जाँच)',
+    'something hanging out':    'something hanging out (पाठेघर खस्ने)',
+    'discharge and or itching': 'discharge and or itching (योनी स्राव / चिलाउने)',
+    'problems passing urine':   'problems passing urine (पिसाब सम्बन्धी समस्या)',
+    'problems passing stool':   'problems passing stool (दिसा सम्बन्धी समस्या)',
+    'menstrual problem':        'menstrual problem (महिनावारी सम्बन्धी समस्या)',
+    'infertility':              'infertility (बाँझोपन)',
+    'pain':                     'pain (तल्लो पेट / कम्मर दुखाई)',
+    'checkup':                  'checkup (सामान्य जाँच)',
   };
 }
 

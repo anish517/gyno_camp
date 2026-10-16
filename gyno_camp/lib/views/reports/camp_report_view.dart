@@ -1266,11 +1266,11 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     }
 
     if (_selectedTreatmentLevel != null) {
-      final tLabel = _selectedTreatmentLevel == 'council_level'
-          ? 'Level: Council level (काउन्सिलिङ तह)'
-          : (_selectedTreatmentLevel == 'full_check_up'
-              ? 'Level: Full check up (पूर्ण जाँच)'
-              : 'Level: Unassigned');
+      final tLabel = (_selectedTreatmentLevel == 'counseling' || _selectedTreatmentLevel == 'council_level')
+          ? 'Consultation: Counseling (काउन्सिलिङ)'
+          : ((_selectedTreatmentLevel == 'gyno_checkup' || _selectedTreatmentLevel == 'full_check_up')
+              ? 'Consultation: Gynocheckup (गाइनो जाँच)'
+              : 'Consultation: Unassigned');
       activeFilters.add(_buildFilterChip(
         label: tLabel,
         icon: Icons.layers_outlined,
@@ -2148,13 +2148,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             ),
             const SizedBox(height: 14),
 
-            // 7b. Level of Treatment Filter (उपचारको तह)
+            // 7b. Consultation Filter (परामर्श)
             const Row(
               children: [
-                Icon(Icons.layers_outlined, color: AppTheme.primaryTeal, size: 16),
+                Icon(Icons.medical_information_outlined, color: AppTheme.primaryTeal, size: 16),
                 SizedBox(width: 6),
                 Expanded(
-                  child: Text('Level of Treatment (उपचारको तह):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+                  child: Text('Consultation (परामर्श):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
                 ),
               ],
             ),
@@ -2168,16 +2168,20 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
-                  value: _selectedTreatmentLevel,
+                  value: (_selectedTreatmentLevel == 'council_level' || _selectedTreatmentLevel == 'counseling')
+                      ? 'counseling'
+                      : ((_selectedTreatmentLevel == 'full_check_up' || _selectedTreatmentLevel == 'gyno_checkup')
+                          ? 'gyno_checkup'
+                          : _selectedTreatmentLevel),
                   isDense: true,
                   isExpanded: true,
-                  hint: const Text('All Treatment Levels', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  hint: const Text('All Consultations', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
                     DropdownMenuItem<String?>(
                       value: null,
                       child: Row(
                         children: [
-                          const Expanded(child: Text('All Levels (सबै तह)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          const Expanded(child: Text('All Consultations (सबै परामर्श)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
@@ -2187,10 +2191,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       ),
                     ),
                     DropdownMenuItem<String?>(
-                      value: 'council_level',
+                      value: 'counseling',
                       child: Row(
                         children: [
-                          const Expanded(child: Text('Council level (काउन्सिलिङ तह)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          const Expanded(child: Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
@@ -2206,10 +2210,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       ),
                     ),
                     DropdownMenuItem<String?>(
-                      value: 'full_check_up',
+                      value: 'gyno_checkup',
                       child: Row(
                         children: [
-                          const Expanded(child: Text('Full check up (पूर्ण जाँच)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          const Expanded(child: Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
@@ -2702,31 +2706,35 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
-                  value: _selectedTreatmentLevel,
+                  value: (_selectedTreatmentLevel == 'council_level' || _selectedTreatmentLevel == 'counseling')
+                      ? 'counseling'
+                      : ((_selectedTreatmentLevel == 'full_check_up' || _selectedTreatmentLevel == 'gyno_checkup')
+                          ? 'gyno_checkup'
+                          : _selectedTreatmentLevel),
                   isDense: true,
                   isExpanded: true,
-                  hint: const Text('All Levels (तह)', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  hint: const Text('All Consultations', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
                     DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        'All Levels ($totalPatients)',
+                        'All Consultations ($totalPatients)',
                         style: const TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     DropdownMenuItem<String?>(
-                      value: 'council_level',
+                      value: 'counseling',
                       child: Text(
-                        'Council (${baseSummary?.councilLevelCount ?? 0})',
+                        'Counseling (${baseSummary?.councilLevelCount ?? 0})',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     DropdownMenuItem<String?>(
-                      value: 'full_check_up',
+                      value: 'gyno_checkup',
                       child: Text(
-                        'Full Check (${baseSummary?.fullCheckUpCount ?? 0})',
+                        'Gynocheckup (${baseSummary?.fullCheckUpCount ?? 0})',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -3344,7 +3352,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
           children: [
             const Expanded(
               child: Text(
-                'Level of Treatment Breakdown (उपचारको तह विवरण)',
+                'Consultation Breakdown (परामर्श विवरण)',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -3369,12 +3377,12 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         const SizedBox(height: 8),
         ...[
           {
-            'label': 'Council level (काउन्सिलिङ तह)',
+            'label': 'Counseling (काउन्सिलिङ)',
             'count': summary.councilLevelCount,
             'color': const Color(0xFF7C3AED),
           },
           {
-            'label': 'Full check up (पूर्ण जाँच)',
+            'label': 'Gynocheckup (गाइनो जाँच)',
             'count': summary.fullCheckUpCount,
             'color': AppTheme.primaryTeal,
           },
