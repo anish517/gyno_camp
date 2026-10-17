@@ -276,22 +276,8 @@ class _PatientRegistrationViewState
   }
 
   Future<void> _printBlankRegistrationForm(CampModel? camp) async {
-    if (camp == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No active camp selected. Please activate a camp from the dashboard first.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
     if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => BlankFormDownloadDialog(camp: camp),
-    );
+    await BlankFormDownloadDialog.show(context, camp: camp);
   }
 
 

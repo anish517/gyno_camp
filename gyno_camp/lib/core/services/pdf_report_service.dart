@@ -3275,7 +3275,8 @@ class PdfReportService {
             return pw.Row(
               mainAxisSize: pw.MainAxisSize.min,
               children: List.generate(maxBoxes, (i) {
-                final char = i < chars.length ? chars[i] : '';
+                final rawChar = i < chars.length ? chars[i] : '';
+                final char = rawChar == '□' ? '' : rawChar;
                 return pw.Container(
                   width: boxSize,
                   height: boxSize,
@@ -3366,7 +3367,9 @@ class PdfReportService {
                                 ),
                                 pw.SizedBox(height: 2),
                                 pw.Text(
-                                  'Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? "CAMP"}) | Venue: ${sanitizeText(camp?.venue ?? "Field Station")}',
+                                  camp != null
+                                      ? 'Camp: ${sanitizeText(camp.name)} (${camp.campCode}) | Venue: ${sanitizeText(camp.venue)}'
+                                      : 'Camp / शिविर: _____________________ | Venue / ठाउँ: _____________________',
                                   style: pw.TextStyle(
                                     fontSize: 8.5,
                                     fontWeight: pw.FontWeight.bold,
@@ -3416,10 +3419,10 @@ class PdfReportService {
                             : buildCharBoxes(
                                 camp?.campCode != null
                                     ? '${camp!.campCode}-'
-                                    : '',
-                                minBoxes: 10,
-                                maxBoxes: 10,
-                                boxSize: 13,
+                                    : 'GC-□□□□-',
+                                minBoxes: 14,
+                                maxBoxes: 14,
+                                boxSize: camp?.campCode != null ? 13 : 11,
                               ),
                         pw.SizedBox(height: 2),
                         pw.Text(
@@ -4059,7 +4062,7 @@ class PdfReportService {
         (patient?.intakeDate ?? camp?.startDate ?? DateTime.now()).year;
     final String dynamicTokenPrefix = dynamicCampCode.isNotEmpty
         ? 'GC-$dynamicCampCode-$dynamicYear-'
-        : 'GC-____-$dynamicYear-';
+        : 'GC-□□□□-$dynamicYear-';
 
     // ── Resolve Doctor Information ──
     final bool showDoctor = camp?.showDoctorOnForms ?? true;
@@ -4384,11 +4387,11 @@ class PdfReportService {
       return pw.Row(
         mainAxisSize: pw.MainAxisSize.min,
         children: List.generate(total, (i) {
-          final char = i < chars.length ? chars[i] : '';
-          if (char == ' ') {
+          final rawChar = i < chars.length ? chars[i] : '';
+          if (rawChar == ' ') {
             return pw.SizedBox(width: 5);
           }
-          if (char.isNotEmpty) {
+          if (rawChar.isNotEmpty && rawChar != '□') {
             return pw.Container(
               width: boxSize,
               height: h,
@@ -4403,7 +4406,7 @@ class PdfReportService {
               ),
               alignment: pw.Alignment.center,
               child: pw.Text(
-                char,
+                rawChar,
                 style: pw.TextStyle(
                   fontSize: boxSize * 0.68,
                   fontWeight: pw.FontWeight.bold,
@@ -5626,7 +5629,9 @@ class PdfReportService {
                   ],
                 ),
                 pw.Text(
-                  'Camp: ${camp?.campCode ?? "___"}',
+                  camp != null
+                      ? 'Camp: ${camp.campCode}'
+                      : 'Camp / कोड: [    ]',
                   style: pw.TextStyle(
                     fontSize: 7.2,
                     fontWeight: pw.FontWeight.bold,
@@ -5676,7 +5681,9 @@ class PdfReportService {
                               ),
                             ),
                             pw.Text(
-                              'Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? ""})${doctorHeaderPart.isNotEmpty ? " | $doctorHeaderPart" : ""}',
+                              camp != null
+                                  ? 'Camp: ${sanitizeText(camp.name)} (${camp.campCode})${doctorHeaderPart.isNotEmpty ? " | $doctorHeaderPart" : ""}'
+                                  : 'Camp / शिविर: ___________________________ | Venue / ठाउँ: ___________________________${doctorHeaderPart.isNotEmpty ? " | $doctorHeaderPart" : ""}',
                               style: const pw.TextStyle(
                                 fontSize: 6.8,
                                 color: PdfColors.grey700,
@@ -5758,8 +5765,8 @@ class PdfReportService {
                             ),
                             buildCharBoxes(
                               dynamicTokenPrefix,
-                              minBoxes: 16,
-                              maxBoxes: 16,
+                              minBoxes: 18,
+                              maxBoxes: 18,
                               boxSize: 11.5,
                               boxHeight: 14.5,
                               boxMargin: 1.0,
@@ -7194,7 +7201,9 @@ class PdfReportService {
                               ),
                             ),
                             pw.Text(
-                              'Stations 2 - 6 | Camp: ${sanitizeText(camp?.name ?? "Outreach Camp")} (${camp?.campCode ?? ""})',
+                              camp != null
+                                  ? 'Stations 2 - 6 | Camp: ${sanitizeText(camp.name)} (${camp.campCode})'
+                                  : 'Stations 2 - 6 | Universal Clinical Intake & Examination Form (सार्वभौमिक फाराम)',
                               style: const pw.TextStyle(
                                 fontSize: 6.8,
                                 color: PdfColors.grey700,
@@ -7288,8 +7297,8 @@ class PdfReportService {
                             ),
                             buildCharBoxes(
                               dynamicTokenPrefix,
-                              minBoxes: 16,
-                              maxBoxes: 16,
+                              minBoxes: 18,
+                              maxBoxes: 18,
                               boxSize: 11.5,
                               boxHeight: 14.5,
                               boxMargin: 1.0,

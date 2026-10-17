@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/patient_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
 
@@ -54,6 +55,7 @@ class BlankFormDownloadDialog extends ConsumerStatefulWidget {
 }
 
 class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialog> {
+  CampModel? _selectedCamp;
   PrintableFormType _selectedFormType = PrintableFormType.yellowRegistrationForm;
   BlankFormPage1Layout _page1Layout = BlankFormPage1Layout.grid;
   DoctorSelectionMode _doctorMode = DoctorSelectionMode.allDoctorsChecklist;
@@ -81,28 +83,47 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   @override
   void initState() {
     super.initState();
-    final doctors = widget.camp?.doctorProfiles ?? [];
-    if (doctors.length > 1) {
-      _doctorMode = DoctorSelectionMode.allDoctorsChecklist;
-      _selectedDoctor = doctors.first;
-    } else if (doctors.length == 1) {
-      _doctorMode = DoctorSelectionMode.specificDoctor;
-      _selectedDoctor = doctors.first;
-    } else {
-      _doctorMode = DoctorSelectionMode.blankDoctorField;
-    }
+    _selectedCamp = widget.camp;
+    _resetCliniciansForCamp(widget.camp, shouldInitToken: true);
+  }
 
-    final nurses = widget.camp?.nurseProfiles ?? [];
-    if (nurses.length > 1) {
-      _nurseMode = NurseSelectionMode.allNursesChecklist;
-      _selectedNurse = nurses.first;
-    } else if (nurses.length == 1) {
-      _nurseMode = NurseSelectionMode.specificNurse;
-      _selectedNurse = nurses.first;
-    } else {
+  void _resetCliniciansForCamp(CampModel? camp, {bool shouldInitToken = true}) {
+    _selectedCamp = camp;
+    if (camp == null) {
+      _doctorMode = DoctorSelectionMode.blankDoctorField;
+      _selectedDoctor = null;
       _nurseMode = NurseSelectionMode.blankNurseField;
+      _selectedNurse = null;
+      _includeBlankNurseLine = true;
+      _enablePreNumberedTokens = false;
+    } else {
+      final doctors = camp.doctorProfiles;
+      if (doctors.length > 1) {
+        _doctorMode = DoctorSelectionMode.allDoctorsChecklist;
+        _selectedDoctor = doctors.first;
+      } else if (doctors.length == 1) {
+        _doctorMode = DoctorSelectionMode.specificDoctor;
+        _selectedDoctor = doctors.first;
+      } else {
+        _doctorMode = DoctorSelectionMode.blankDoctorField;
+        _selectedDoctor = null;
+      }
+
+      final nurses = camp.nurseProfiles;
+      if (nurses.length > 1) {
+        _nurseMode = NurseSelectionMode.allNursesChecklist;
+        _selectedNurse = nurses.first;
+      } else if (nurses.length == 1) {
+        _nurseMode = NurseSelectionMode.specificNurse;
+        _selectedNurse = nurses.first;
+      } else {
+        _nurseMode = NurseSelectionMode.blankNurseField;
+        _selectedNurse = null;
+      }
+      if (shouldInitToken) {
+        _initStartingToken(camp);
+      }
     }
-    _initStartingToken();
   }
 
   @override
@@ -112,10 +133,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
     super.dispose();
   }
 
-  Future<void> _initStartingToken() async {
-    if (widget.camp == null) return;
+  Future<void> _initStartingToken([CampModel? targetCamp]) async {
+    final camp = targetCamp ?? _selectedCamp;
+    if (camp == null) return;
     try {
-      final patients = await ref.read(patientRepositoryProvider).getPatientsByCamp(widget.camp!.id);
+      final patients = await ref.read(patientRepositoryProvider).getPatientsByCamp(camp.id);
       int highestSeq = 0;
       for (final p in patients) {
         final pid = p.patientId.toUpperCase();
@@ -142,15 +164,15 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
 
     try {
       final effectiveOrg = ref.read(effectiveOrganizationProvider);
-      final orgName = (widget.camp?.organizationName.isNotEmpty == true &&
-              !AppConstants.isLegacyDefaultOrganization(widget.camp!.organizationName))
-          ? widget.camp!.organizationName
+      final orgName = (_selectedCamp?.organizationName.isNotEmpty == true &&
+              !AppConstants.isLegacyDefaultOrganization(_selectedCamp!.organizationName))
+          ? _selectedCamp!.organizationName
           : effectiveOrg;
 
       final repo = ref.read(lookupRepositoryProvider);
       final user = ref.read(authStateProvider).currentUser;
       final tenantId = user?.tenantId;
-      final campId = widget.camp?.id;
+      final campId = _selectedCamp?.id;
 
       final diagnoses = await repo.getItemsByCategory('diagnosis', tenantId: tenantId, campId: campId, activeOnly: true);
       final medications = await repo.getItemsByCategory('medicine', tenantId: tenantId, campId: campId, activeOnly: true);
@@ -159,29 +181,33 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
       final chiefComplaints = await repo.getItemsByCategory('chief_complaint', tenantId: tenantId, campId: campId, activeOnly: true);
 
       final pdfService = PdfReportService();
-      final doctors = widget.camp?.doctorProfiles ?? [];
-      final nurses = widget.camp?.nurseProfiles ?? [];
+      final doctors = _selectedCamp?.doctorProfiles ?? [];
+      final nurses = _selectedCamp?.nurseProfiles ?? [];
       final NurseProfile? nurseToUse =
           (nurses.isNotEmpty && _nurseMode == NurseSelectionMode.specificNurse)
               ? _selectedNurse
               : null;
-      final bool blankNurse = nurses.isNotEmpty
-          ? _nurseMode == NurseSelectionMode.blankNurseField
-          : _includeBlankNurseLine;
+      final bool blankNurse = _selectedCamp == null
+          ? true
+          : (nurses.isNotEmpty
+              ? _nurseMode == NurseSelectionMode.blankNurseField
+              : _includeBlankNurseLine);
 
       final DoctorProfile? docToUse =
           (doctors.isNotEmpty && _doctorMode == DoctorSelectionMode.specificDoctor)
               ? _selectedDoctor
               : null;
-      final bool blankDoctor = doctors.isNotEmpty
-          ? _doctorMode == DoctorSelectionMode.blankDoctorField
-          : true;
+      final bool blankDoctor = _selectedCamp == null
+          ? true
+          : (doctors.isNotEmpty
+              ? _doctorMode == DoctorSelectionMode.blankDoctorField
+              : true);
 
       Uint8List pdfBytes;
       String filename;
-      final campCode = widget.camp?.campCode ?? 'CAMP';
+      final campCode = _selectedCamp?.campCode ?? 'CAMP';
 
-      if (_enablePreNumberedTokens && widget.camp != null) {
+      if (_enablePreNumberedTokens && _selectedCamp != null) {
         final startSeq = safeStartToken;
         final count = safeTokenCount;
         final endSeq = startSeq + count - 1;
@@ -196,7 +222,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             ),
           );
           pdfBytes = await pdfService.generatePreNumberedBlankFormsPdf(
-            camp: widget.camp!,
+            camp: _selectedCamp!,
             startSequence: startSeq,
             count: count,
             doctor: docToUse,
@@ -222,7 +248,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             ),
           );
           pdfBytes = await pdfService.generatePreNumberedBlankFollowUpSlipsPdf(
-            camp: widget.camp!,
+            camp: _selectedCamp!,
             startSequence: startSeq,
             count: count,
             doctor: docToUse,
@@ -234,7 +260,27 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           filename = 'Blank_FollowUpSlips_${campCode}_${startPad}_to_$endPad.pdf';
         }
       } else if (_selectedFormType == PrintableFormType.yellowRegistrationForm) {
-        if (_doctorMode == DoctorSelectionMode.allDoctorsBatch && doctors.isNotEmpty) {
+        if (_selectedCamp == null) {
+          // Universal Mode: Clean open boxes and blank signatures
+          pdfBytes = await pdfService.generatePatientRegistrationFormPdf(
+            camp: null,
+            doctor: null,
+            nurse: null,
+            blankNurseLines: true,
+            blankDoctorLines: true,
+            allDoctorsChecklist: false,
+            allNursesChecklist: false,
+            page1Layout: _page1Layout,
+            organizationName: orgName,
+            diagnoses: diagnoses,
+            medications: medications,
+            referralHospitals: referralHospitals,
+            visitReasons: visitReasons,
+            chiefComplaints: chiefComplaints,
+          );
+          final layoutSlug = _page1Layout == BlankFormPage1Layout.grid ? 'TwoColumnGrid' : 'Classic';
+          filename = 'Blank_Universal_YellowForm_$layoutSlug.pdf';
+        } else if (_doctorMode == DoctorSelectionMode.allDoctorsBatch && doctors.isNotEmpty) {
           // Batch download: generate combined multi-page PDF with 2 pages for each doctor
           messenger.showSnackBar(
             SnackBar(
@@ -244,7 +290,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           );
           pdfBytes = await pdfService.generateBatchBlankYellowFormsPdf(
             doctors: doctors,
-            camp: widget.camp,
+            camp: _selectedCamp,
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
             page1Layout: _page1Layout,
@@ -266,7 +312,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           );
           pdfBytes = await pdfService.generateBatchBlankYellowFormsByNursesPdf(
             nurses: nurses,
-            camp: widget.camp,
+            camp: _selectedCamp,
             doctor: docToUse,
             blankDoctorLines: blankDoctor,
             page1Layout: _page1Layout,
@@ -280,7 +326,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           filename = 'Blank_YellowForms_${campCode}_AllNursesBatch.pdf';
         } else {
           pdfBytes = await pdfService.generatePatientRegistrationFormPdf(
-            camp: widget.camp,
+            camp: _selectedCamp,
             doctor: docToUse,
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
@@ -321,7 +367,18 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
         }
       } else {
         // Follow-Up Form
-        if (_doctorMode == DoctorSelectionMode.allDoctorsBatch && doctors.isNotEmpty) {
+        if (_selectedCamp == null) {
+          // Universal Mode: Clean open boxes and blank signatures
+          pdfBytes = await pdfService.generateBlankFollowUpSlipPdf(
+            camp: null,
+            doctor: null,
+            blankDoctorLines: true,
+            nurse: null,
+            blankNurseLines: true,
+            organizationName: orgName,
+          );
+          filename = 'Blank_Universal_FollowUpSlip.pdf';
+        } else if (_doctorMode == DoctorSelectionMode.allDoctorsBatch && doctors.isNotEmpty) {
           // Batch download: generate combined multi-page PDF with 1 page for each doctor
           messenger.showSnackBar(
             SnackBar(
@@ -331,7 +388,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           );
           pdfBytes = await pdfService.generateBatchBlankFollowUpSlipsPdf(
             doctors: doctors,
-            camp: widget.camp,
+            camp: _selectedCamp,
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
             organizationName: orgName,
@@ -347,7 +404,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           );
           pdfBytes = await pdfService.generateBatchBlankFollowUpSlipsByNursesPdf(
             nurses: nurses,
-            camp: widget.camp,
+            camp: _selectedCamp,
             doctor: docToUse,
             blankDoctorLines: blankDoctor,
             organizationName: orgName,
@@ -355,7 +412,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           filename = 'Blank_FollowUpSlips_${campCode}_AllNursesBatch.pdf';
         } else {
           pdfBytes = await pdfService.generateBlankFollowUpSlipPdf(
-            camp: widget.camp,
+            camp: _selectedCamp,
             doctor: docToUse,
             blankDoctorLines: blankDoctor,
             nurse: nurseToUse,
@@ -416,9 +473,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
 
   @override
   Widget build(BuildContext context) {
-    final doctors = widget.camp?.doctorProfiles ?? [];
+    final campState = ref.watch(campStateProvider);
+    final allCamps = campState.camps;
+    final doctors = _selectedCamp?.doctorProfiles ?? [];
     final hasDoctors = doctors.isNotEmpty;
-    final showDoctorSetting = widget.camp?.showDoctorOnForms ?? true;
+    final showDoctorSetting = _selectedCamp?.showDoctorOnForms ?? true;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isCompactScreen = screenWidth < 500;
 
@@ -474,9 +533,9 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              widget.camp != null
-                                  ? '${widget.camp!.name} (${widget.camp!.campCode})'
-                                  : 'Outreach Camp Master Forms',
+                              _selectedCamp != null
+                                  ? '${_selectedCamp!.name} (${_selectedCamp!.campCode})'
+                                  : 'Universal Master Blank Form (सार्वभौमिक फाराम)',
                               style: const TextStyle(fontSize: 12, color: Colors.white70),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -499,6 +558,9 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Camp Scope Selector (Universal vs Specific Camp)
+                        _buildCampScopeSelector(allCamps, campState.activeCamp, isNarrow),
+
                         // Form Type Selection
                         const Text(
                           '1. SELECT CLINICAL FORM TYPE (फारामको प्रकार)',
@@ -605,7 +667,28 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                         ),
                         const SizedBox(height: 10),
 
-                        if (!showDoctorSetting) ...[
+                        if (_selectedCamp == null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.assignment_ind_outlined, color: Color(0xFF2563EB), size: 20),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Universal Mode: Leaves Doctor Name, NMC Number, and Signature box blank with clean write-in lines for manual signing on-site.',
+                                    style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else if (!showDoctorSetting) ...[
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -763,9 +846,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                               label: Text(
                                 _isGenerating
                                     ? 'Generating PDF...'
-                                    : (_enablePreNumberedTokens
-                                        ? 'Download $safeTokenCount Pre-Numbered Forms'
-                                        : 'Download Printable PDF'),
+                                    : (_selectedCamp == null
+                                        ? 'Download Universal Blank Form (PDF)'
+                                        : (_enablePreNumberedTokens
+                                            ? 'Download $safeTokenCount Pre-Numbered Forms'
+                                            : 'Download Printable PDF')),
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -815,9 +900,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                               label: Text(
                                 _isGenerating
                                     ? 'Generating PDF...'
-                                    : (_enablePreNumberedTokens
-                                        ? 'Download $safeTokenCount Pre-Numbered Forms'
-                                        : 'Download Printable PDF'),
+                                    : (_selectedCamp == null
+                                        ? 'Download Universal Blank Form (PDF)'
+                                        : (_enablePreNumberedTokens
+                                            ? 'Download $safeTokenCount Pre-Numbered Forms'
+                                            : 'Download Printable PDF')),
                                 style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -841,9 +928,9 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
 
   /// Attending nurse selection (camp-level roster; not login based).
   Widget _buildNurseSection(bool isNarrow) {
-    final nurses = widget.camp?.nurseProfiles ?? [];
+    final nurses = _selectedCamp?.nurseProfiles ?? [];
     final hasNurses = nurses.isNotEmpty;
-    final showNurseSetting = widget.camp?.showNurseOnForms ?? true;
+    final showNurseSetting = _selectedCamp?.showNurseOnForms ?? true;
 
     Widget infoBox(IconData icon, Color iconColor, Color bg, Color border, Color textColor, String text) {
       return Container(
@@ -876,7 +963,16 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           ),
         ),
         const SizedBox(height: 10),
-        if (!hasNurses) ...[
+        if (_selectedCamp == null) ...[
+          infoBox(
+            Icons.badge_outlined,
+            const Color(0xFF2563EB),
+            const Color(0xFFEFF6FF),
+            const Color(0xFFBFDBFE),
+            const Color(0xFF1E40AF),
+            'Universal Mode: Renders standard blank signature lines for Attending Nurse Name, NNC Number, and Signature box.',
+          ),
+        ] else if (!hasNurses) ...[
           infoBox(
             Icons.info_outline_rounded,
             const Color(0xFF64748B),
@@ -1167,8 +1263,42 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   }
 
   Widget _buildTokenRangeSection(bool isNarrow) {
-    final campCode = widget.camp?.campCode ?? 'CAMP';
-    final year = widget.camp?.startDate.year ?? DateTime.now().year;
+    if (_selectedCamp == null) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.pin_outlined, size: 20, color: Color(0xFF64748B)),
+            SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '4. PATIENT TOKEN IDs (टोकन नं.)',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Universal forms feature fillable open character boxes: GC-[ ][ ][ ][ ]-2026-[ ][ ][ ][ ][ ] for on-site token assignment. To generate pre-numbered sequential token barcodes, switch to a specific camp above.',
+                    style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B), height: 1.3),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final campCode = _selectedCamp!.campCode;
+    final year = _selectedCamp!.startDate.year;
     final startSeq = safeStartToken;
     final count = safeTokenCount;
     final endSeq = startSeq + count - 1;
@@ -1359,6 +1489,162 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildCampScopeSelector(List<CampModel> camps, CampModel? activeCamp, bool isNarrow) {
+    final isUniversal = _selectedCamp == null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isUniversal ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isUniversal ? const Color(0xFF93C5FD) : const Color(0xFFE2E8F0),
+          width: isUniversal ? 1.5 : 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isUniversal ? Icons.public_rounded : Icons.location_on_rounded,
+                size: 18,
+                color: isUniversal ? const Color(0xFF1D4ED8) : AppTheme.brandPurple,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'CAMP SCOPE / शिविर छनोट',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                    color: isUniversal ? const Color(0xFF1D4ED8) : AppTheme.brandPurple,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: isUniversal ? const Color(0xFFDBEAFE) : const Color(0xFFEDE9FE),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isUniversal ? 'Universal Mode (सार्वभौमिक)' : 'Camp-Specific',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: isUniversal ? const Color(0xFF1E40AF) : AppTheme.brandPurple,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Option 1: Universal Form
+          RadioListTile<String?>(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            activeColor: const Color(0xFF2563EB),
+            value: null,
+            groupValue: _selectedCamp?.id,
+            title: const Text(
+              'Universal Blank Form (सार्वभौमिक फाराम — No Camp Required)',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+            ),
+            subtitle: const Text(
+              'Printable blank forms with fillable Camp, Venue, and Token boxes. Perfect for advance printing & any health camp station.',
+              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+            ),
+            onChanged: (_) {
+              setState(() {
+                _resetCliniciansForCamp(null);
+              });
+            },
+          ),
+          // Option 2: Camp-Specific Form (if camps exist)
+          if (camps.isNotEmpty) ...[
+            RadioListTile<String?>(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              activeColor: AppTheme.brandPurple,
+              value: _selectedCamp?.id ?? 'SPECIFIC_CAMP_PLACEHOLDER',
+              groupValue: _selectedCamp?.id,
+              title: const Text(
+                'Camp-Specific Form (तोकिएको स्वास्थ्य शिविर)',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              ),
+              subtitle: const Text(
+                'Pre-prints camp name, venue, clinician rosters, and allows sequential token numbering.',
+                style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+              ),
+              onChanged: (_) {
+                final targetCamp = widget.camp ?? activeCamp ?? camps.first;
+                setState(() {
+                  _resetCliniciansForCamp(targetCamp);
+                });
+              },
+            ),
+            if (_selectedCamp != null)
+              Padding(
+                padding: EdgeInsets.only(left: isNarrow ? 12 : 32, top: 4, bottom: 4),
+                child: DropdownButtonFormField<CampModel>(
+                  value: camps.any((c) => c.id == _selectedCamp!.id)
+                      ? camps.firstWhere((c) => c.id == _selectedCamp!.id)
+                      : camps.first,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Select Registered Camp (शिविर छान्नुहोस्)',
+                    isDense: true,
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  items: camps.map((c) {
+                    final isActive = activeCamp?.id == c.id;
+                    return DropdownMenuItem(
+                      value: c,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${c.name} (${c.campCode})',
+                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isActive)
+                            Container(
+                              margin: const EdgeInsets.only(left: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('ACTIVE', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                            ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (camp) {
+                    if (camp != null) {
+                      setState(() {
+                        _resetCliniciansForCamp(camp);
+                      });
+                    }
+                  },
+                ),
+              ),
+          ],
+        ],
+      ),
     );
   }
 }

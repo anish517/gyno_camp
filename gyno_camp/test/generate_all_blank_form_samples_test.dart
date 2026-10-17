@@ -345,4 +345,63 @@ void main() {
       expect(file.lengthSync(), greaterThan(100000));
     });
   });
+
+  group('Section C: Universal Blank Forms (No Active Camp Required)', () {
+    test('17. Universal Yellow Form (Two-Column Grid Layout) with camp: null', () async {
+      final bytes = await pdfService.generatePatientRegistrationFormPdf(
+        camp: null,
+        doctor: null,
+        nurse: null,
+        blankNurseLines: true,
+        blankDoctorLines: true,
+        allDoctorsChecklist: false,
+        allNursesChecklist: false,
+        page1Layout: BlankFormPage1Layout.grid,
+        organizationName: 'Women For Society (SoDeSI Nepal)',
+      );
+
+      expect(bytes.isNotEmpty, true);
+      final file = File('test_samples/17_Blank_Universal_YellowForm_TwoColumnGrid.pdf');
+      file.writeAsBytesSync(bytes);
+      expect(file.existsSync(), true);
+      expect(file.lengthSync(), greaterThan(50000));
+    });
+
+    test('18. Universal Yellow Form (Classic Layout) with camp: null', () async {
+      final bytes = await pdfService.generatePatientRegistrationFormPdf(
+        camp: null,
+        doctor: null,
+        nurse: null,
+        blankNurseLines: true,
+        blankDoctorLines: true,
+        allDoctorsChecklist: false,
+        allNursesChecklist: false,
+        page1Layout: BlankFormPage1Layout.classic,
+        organizationName: 'Women For Society (SoDeSI Nepal)',
+      );
+
+      expect(bytes.isNotEmpty, true);
+      final file = File('test_samples/18_Blank_Universal_YellowForm_Classic.pdf');
+      file.writeAsBytesSync(bytes);
+      expect(file.existsSync(), true);
+      expect(file.lengthSync(), greaterThan(50000));
+    });
+
+    test('19. Universal Follow-Up Encounter Slip with camp: null', () async {
+      final bytes = await pdfService.generateBlankFollowUpSlipPdf(
+        camp: null,
+        doctor: null,
+        blankDoctorLines: true,
+        nurse: null,
+        blankNurseLines: true,
+        organizationName: 'Women For Society (SoDeSI Nepal)',
+      );
+
+      expect(bytes.isNotEmpty, true);
+      final file = File('test_samples/19_Blank_Universal_FollowUpSlip.pdf');
+      file.writeAsBytesSync(bytes);
+      expect(file.existsSync(), true);
+      expect(file.lengthSync(), greaterThan(50000));
+    });
+  });
 }

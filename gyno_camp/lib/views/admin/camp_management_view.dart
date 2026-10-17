@@ -144,6 +144,28 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
         ),
         actions: [
           Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.print_outlined, size: 16),
+              label: const Text('Blank Forms'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.brandPurple,
+                backgroundColor: AppTheme.brandPurpleLight,
+                side: const BorderSide(color: AppTheme.brandPurpleBorder),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              onPressed: () => BlankFormDownloadDialog.show(context, camp: null),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: ElevatedButton.icon(
               icon: const Icon(Icons.add_location_alt, size: 16),

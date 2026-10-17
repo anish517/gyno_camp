@@ -22,6 +22,7 @@ import '../admin/user_management_view.dart';
 import '../patient/clinical_assessment_view.dart';
 import '../patient/patient_list_view.dart';
 import '../patient/patient_registration_view.dart';
+import '../shared/blank_form_download_dialog.dart';
 import '../../models/camp_model.dart';
 import '../../models/camp_report_summary_model.dart';
 import '../../models/clinical_visit_model.dart';
@@ -1246,6 +1247,21 @@ class HomeGatewayView extends ConsumerWidget {
                                       icon: const Icon(Icons.swap_horiz_rounded, size: 17, color: AppTheme.brandPurple),
                                       label: const Text('Switch Camp', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                                       onPressed: () => _showQuickCampSwitchDialog(context, ref),
+                                    ),
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xFF1E293B),
+                                        backgroundColor: const Color(0xFFF8FAFC),
+                                        side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      icon: const Icon(Icons.print_outlined, size: 17, color: Color(0xFFD97706)),
+                                      label: const Text('Blank Forms', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                      onPressed: () {
+                                        final campState = ref.read(campStateProvider);
+                                        BlankFormDownloadDialog.show(context, camp: campState.activeCamp);
+                                      },
                                     ),
                                   ],
                                 );
