@@ -3867,32 +3867,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   ),
                   const SizedBox(height: 12),
 
-                  // Quick Suggestion Chips for Ring Pessaries & Common Camp Meds
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      'Ring Pessary 65mm',
-                      'Ring Pessary 70mm',
-                      'Paracetamol 500mg',
-                      'Iron + Folic Acid',
-                    ].map((quick) {
-                      final hasQuick = result.medications.contains(quick);
-                      return ActionChip(
-                        visualDensity: VisualDensity.compact,
-                        avatar: Icon(hasQuick ? Icons.check : Icons.add, size: 14, color: AppTheme.primaryTeal),
-                        label: Text(quick, style: const TextStyle(fontSize: 10.5)),
-                        onPressed: () {
-                          if (hasQuick) {
-                            vm.removeMedication(quick);
-                          } else {
-                            vm.addMedication(quick);
-                          }
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 10),
+
 
                   // Custom prescription text field
                   Row(

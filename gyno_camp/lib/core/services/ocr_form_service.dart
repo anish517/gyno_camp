@@ -1300,7 +1300,7 @@ class OcrFormService {
         medications.add('Fluconazole');
       }
       if (isOptionSelected(['metronidazol', 'metronidazole', 'me+ronida', 'flagyl'])) {
-        medications.add('Metronidazole');
+        medications.add('metronidazol');
       }
       if (isOptionSelected(['doxycycline', 'doxy'])) {
         medications.add('doxycycline');
@@ -1367,11 +1367,6 @@ class OcrFormService {
         }
       }
 
-      if (highest >= 2 || ringPessary) {
-        if (!medications.contains('Ring Pessary')) {
-          medications.add('Ring Pessary');
-        }
-      }
       confidences['medications'] = medications.isNotEmpty ? 0.85 : 0.40;
 
       // ── Referrals (Exact Yellow Form Station 5 Referral Options) ──
@@ -1836,10 +1831,10 @@ Diagnoses:
 [x] hypertension (Pre-hypertension monitor)
 
 Station 5: Treatments & Prescriptions
-Treatments & Prescriptions:
-[x] Ring Pessary (Size 65mm fitted)
-[x] Metronidazole 400mg PO BD x 7d
-[x] Fluconazole 150mg stat
+Pessary: [x] Ring Pessary: ring (Size 65mm fitted)
+Medications:
+[x] clotrimazol (canesten)
+[x] metronidazol
 
 Station 6: Outtake & Referral
 Surgical Referral: Scheer Memorial Hospital (Vaginal Hysterectomy evaluation)
