@@ -49,8 +49,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
   final _customFollowUpHospitalController = TextEditingController();
   final Map<String, TextEditingController> _complaintRemarksControllers = {};
 
-  bool _groupDiagnosesByCategory = true;
-  bool _groupMedicationsByCategory = true;
+
 
   TextEditingController _getRemarksController(String key, String initialText) {
     if (!_complaintRemarksControllers.containsKey(key)) {
@@ -840,7 +839,6 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 title: comp['title'] as String,
                 hasDuration: comp['hasDuration'] as bool,
                 options: comp['options'] as List<String>,
-                subCategory: comp['subCategory'] as String?,
                 isIntakeReason: comp['isIntakeReason'] as bool,
               ),
             );
@@ -857,7 +855,6 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     required String title,
     required bool hasDuration,
     required List<String> options,
-    String? subCategory,
     bool isIntakeReason = false,
   }) {
     final complaintData = (state.complaints[complaintKey] as Map?) ??
@@ -912,39 +909,19 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     color: hasActiveSelections ? AppTheme.primaryTeal : const Color(0xFF1E293B),
                   ),
                 ),
-                if ((subCategory != null && subCategory.isNotEmpty) || isIntakeReason) ...[
+                if (isIntakeReason) ...[
                   const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      if (subCategory != null && subCategory.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFCBD5E1)),
-                          ),
-                          child: Text(
-                            subCategory,
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
-                          ),
-                        ),
-                      if (isIntakeReason)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
-                          ),
-                          child: const Text(
-                            'Reported in Intake',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
-                          ),
-                        ),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                    ),
+                    child: const Text(
+                      'Reported in Intake',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                    ),
                   ),
                 ],
               ],
@@ -1083,7 +1060,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   spacing: 10,
                   children: [
                     ChoiceChip(
-                      label: const Text('Yes / भित्रै छ (Uterus Inside)'),
+                      label: const Text('Yes'),
                       selected: state.uterusInside == true,
                       selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.18),
                       labelStyle: TextStyle(
@@ -1093,7 +1070,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       onSelected: (_) => vm.updateExam(uterusInside: true),
                     ),
                     ChoiceChip(
-                      label: const Text('No / बाहिर निस्किएको (Uterus Outside / Prolapsed)'),
+                      label: const Text('No'),
                       selected: state.uterusInside == false,
                       selectedColor: Colors.red.shade100,
                       labelStyle: TextStyle(
@@ -1770,31 +1747,6 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         ? lookupState.activeDiagnoses.map((d) => d.labelEn).toList()
         : ClinicalConstants.defaultDiagnoses;
 
-    final Map<String, String> itemToCategory = {};
-    final List<String> dynamicCategories = [];
-    if (lookupState.activeDiagnoses.isNotEmpty) {
-      for (final d in lookupState.activeDiagnoses) {
-        final cat = (d.subCategory != null && d.subCategory!.trim().isNotEmpty)
-            ? d.subCategory!.trim()
-            : (ClinicalConstants.diagnosisCategoryMap[d.labelEn.toLowerCase()] ?? 'General / Other');
-        itemToCategory[d.labelEn] = cat;
-        if (!dynamicCategories.contains(cat)) {
-          dynamicCategories.add(cat);
-        }
-      }
-    } else {
-      for (final d in diagnosesList) {
-        final cat = ClinicalConstants.diagnosisCategoryMap[d.toLowerCase()] ?? 'General / Other';
-        itemToCategory[d] = cat;
-        if (!dynamicCategories.contains(cat)) {
-          dynamicCategories.add(cat);
-        }
-      }
-    }
-
-    final categoriesToDisplay = dynamicCategories.isNotEmpty
-        ? dynamicCategories
-        : ClinicalConstants.diagnosisCategories;
 
     String getDiagnosisDisplayLabel(String diag) {
       final masterItem = lookupState.activeDiagnoses.cast<LookupItemModel?>().firstWhere(
@@ -1832,141 +1784,32 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 ],
               ),
             ),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                side: BorderSide(color: AppTheme.primaryTeal.withValues(alpha: 0.5)),
-              ),
-              icon: Icon(
-                _groupDiagnosesByCategory ? Icons.category_rounded : Icons.view_list_rounded,
-                size: 15,
-                color: AppTheme.primaryTeal,
-              ),
-              label: Text(
-                _groupDiagnosesByCategory ? 'Grouped by Category' : 'Flat List',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
-              ),
-              onPressed: () => setState(() => _groupDiagnosesByCategory = !_groupDiagnosesByCategory),
-            ),
           ],
         ),
         const SizedBox(height: 4),
         const Text('Select all confirmed conditions from the Yellow Form standard list:', style: TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 12),
 
-        if (!_groupDiagnosesByCategory)
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: diagnosesList.map((diag) {
-              final isSelected = state.selectedDiagnoses.any((d) => d.toLowerCase().trim() == diag.toLowerCase().trim());
-              return FilterChip(
-                label: Text(
-                  getDiagnosisDisplayLabel(diag),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: diagnosesList.map((diag) {
+            final isSelected = state.selectedDiagnoses.any((d) => d.toLowerCase().trim() == diag.toLowerCase().trim());
+            return FilterChip(
+              label: Text(
+                getDiagnosisDisplayLabel(diag),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
-                selected: isSelected,
-                selectedColor: AppTheme.primaryLight,
-                checkmarkColor: AppTheme.primaryTeal,
-                onSelected: (_) => vm.toggleDiagnosis(diag),
-              );
-            }).toList(),
-          )
-        else
-          Column(
-            children: categoriesToDisplay.map((category) {
-              final itemsInCategory = diagnosesList.where((d) {
-                final cat = itemToCategory[d] ?? ClinicalConstants.diagnosisCategoryMap[d] ?? 'General / Other';
-                return cat == category;
-              }).toList();
-
-              if (itemsInCategory.isEmpty) return const SizedBox.shrink();
-              final selectedCount = itemsInCategory.where((d) => state.selectedDiagnoses.any((x) => x.toLowerCase().trim() == d.toLowerCase().trim())).length;
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(
-                    color: selectedCount > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.5) : const Color(0xFFE2E8F0),
-                    width: selectedCount > 0 ? 1.5 : 1,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Icon(Icons.folder_open_rounded, size: 16, color: selectedCount > 0 ? AppTheme.primaryTeal : Colors.blueGrey),
-                                SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    category,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: selectedCount > 0 ? AppTheme.primaryTeal : const Color(0xFF1E293B),
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (selectedCount > 0) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryTeal,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$selectedCount selected',
-                                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: itemsInCategory.map((diag) {
-                          final isSelected = state.selectedDiagnoses.any((d) => d.toLowerCase().trim() == diag.toLowerCase().trim());
-                          return FilterChip(
-                            label: Text(
-                              getDiagnosisDisplayLabel(diag),
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                            selected: isSelected,
-                            selectedColor: AppTheme.primaryLight,
-                            checkmarkColor: AppTheme.primaryTeal,
-                            onSelected: (_) => vm.toggleDiagnosis(diag),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
+              ),
+              selected: isSelected,
+              selectedColor: AppTheme.primaryLight,
+              checkmarkColor: AppTheme.primaryTeal,
+              onSelected: (_) => vm.toggleDiagnosis(diag),
+            );
+          }).toList(),
+        ),
       ],
     );
   }
@@ -1995,120 +1838,19 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Level of Treatment Selector
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
-          ),
-          color: const Color(0xFFF8FAFC),
-          child: Padding(
-            padding: const EdgeInsets.all(14.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.medical_information_rounded, color: AppTheme.primaryTeal, size: 20),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Consultation (परामर्श)',
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                    ),
-                    _buildStationDateChip(
-                      label: 'Treatment Date',
-                      date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
-                    ),
-                    const SizedBox(width: 6),
-                    if (state.treatmentLevel != null && state.treatmentLevel!.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level')
-                              ? const Color(0xFF7C3AED).withValues(alpha: 0.12)
-                              : const Color(0xFF0D9488).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level')
-                                ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
-                                : const Color(0xFF0D9488).withValues(alpha: 0.35),
-                          ),
-                        ),
-                        child: Text(
-                          (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level')
-                              ? 'Counseling'
-                              : 'Gynocheckup',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level')
-                                ? const Color(0xFF7C3AED)
-                                : const Color(0xFF0D9488),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Select the consultation triage planned or provided at this camp encounter:',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: const Text('None / Unassigned (तोकिएको छैन)'),
-                      selected: state.treatmentLevel == null || state.treatmentLevel!.isEmpty,
-                      onSelected: (selected) {
-                        if (selected) vm.setTreatmentLevel(null);
-                      },
-                      selectedColor: const Color(0xFFE2E8F0),
-                    ),
-                    ChoiceChip(
-                      avatar: const Icon(Icons.record_voice_over_rounded, size: 16),
-                      label: const Text('Counseling (काउन्सिलिङ)'),
-                      selected: state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level',
-                      selectedColor: const Color(0xFFEDE9FE),
-                      labelStyle: TextStyle(
-                        fontWeight: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level') ? FontWeight.bold : FontWeight.normal,
-                        color: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level') ? const Color(0xFF7C3AED) : null,
-                      ),
-                      onSelected: (selected) {
-                        vm.setTreatmentLevel(selected ? 'counseling' : null);
-                      },
-                    ),
-                    ChoiceChip(
-                      avatar: const Icon(Icons.medical_services_rounded, size: 16),
-                      label: const Text('Gynocheckup (गाइनो जाँच)'),
-                      selected: state.treatmentLevel == 'gyno_checkup' || state.treatmentLevel == 'full_check_up',
-                      selectedColor: const Color(0xFFCCFBF1),
-                      labelStyle: TextStyle(
-                        fontWeight: (state.treatmentLevel == 'gyno_checkup' || state.treatmentLevel == 'full_check_up') ? FontWeight.bold : FontWeight.normal,
-                        color: (state.treatmentLevel == 'gyno_checkup' || state.treatmentLevel == 'full_check_up') ? const Color(0xFF0F766E) : null,
-                      ),
-                      onSelected: (selected) {
-                        vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);
-                      },
-                    ),
-                  ],
-                ),
-              ],
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Specialized Counseling (परामर्श)',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
-          ),
+            _buildStationDateChip(
+              label: 'Treatment Date',
+              date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-
-        const Text('Specialized Counseling (परामर्श)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 6,
@@ -2196,39 +1938,21 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         ),
         const SizedBox(height: 18),
 
-        Row(
+        const Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
                 'Medications Prescribed (औषधि वितरण)',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                side: BorderSide(color: AppTheme.primaryTeal.withValues(alpha: 0.5)),
-              ),
-              icon: Icon(
-                _groupMedicationsByCategory ? Icons.category_rounded : Icons.view_list_rounded,
-                size: 15,
-                color: AppTheme.primaryTeal,
-              ),
-              label: Text(
-                _groupMedicationsByCategory ? 'Grouped by Category' : 'Flat List',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
-              ),
-              onPressed: () => setState(() => _groupMedicationsByCategory = !_groupMedicationsByCategory),
-            ),
           ],
         ),
         const SizedBox(height: 8),
 
-        ...() {
+        () {
           String getMedicationDisplayLabel(String med) {
             final masterItem = lookupState.activeMedicines.cast<LookupItemModel?>().firstWhere(
               (m) => m != null && m.labelEn.toLowerCase() == med.toLowerCase(),
@@ -2240,133 +1964,19 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             return labelNe.isNotEmpty ? '$med ($labelNe)' : med;
           }
 
-          if (!_groupMedicationsByCategory) {
-            return [
-              Wrap(
-                spacing: 6,
-                children: medicinesList.map((m) {
-                  final isSelected = state.selectedMedications.any((x) => x.toLowerCase().trim() == m.toLowerCase().trim());
-                  return FilterChip(
-                    visualDensity: VisualDensity.compact,
-                    label: Text(getMedicationDisplayLabel(m), style: const TextStyle(fontSize: 11)),
-                    selected: isSelected,
-                    onSelected: (_) => vm.toggleMedication(m),
-                  );
-                }).toList(),
-              ),
-            ];
-          }
-
-          final Map<String, String> medToCategory = {};
-          final List<String> dynamicMedCategories = [];
-          if (lookupState.activeMedicines.isNotEmpty) {
-            for (final m in lookupState.activeMedicines) {
-              final cat = (m.subCategory != null && m.subCategory!.trim().isNotEmpty)
-                  ? m.subCategory!.trim()
-                  : (ClinicalConstants.medicationCategoryMap[m.labelEn.toLowerCase()] ?? 'Other / Custom');
-              medToCategory[m.labelEn] = cat;
-              if (!dynamicMedCategories.contains(cat)) {
-                dynamicMedCategories.add(cat);
-              }
-            }
-          } else {
-            for (final m in medicinesList) {
-              final cat = ClinicalConstants.medicationCategoryMap[m.toLowerCase()] ?? 'Other / Custom';
-              medToCategory[m] = cat;
-              if (!dynamicMedCategories.contains(cat)) {
-                dynamicMedCategories.add(cat);
-              }
-            }
-          }
-
-          final medCategoriesToDisplay = dynamicMedCategories.isNotEmpty
-              ? dynamicMedCategories
-              : ClinicalConstants.medicationCategories;
-
-          return [
-            Column(
-              children: medCategoriesToDisplay.map((category) {
-                final itemsInCategory = medicinesList.where((m) {
-                  final cat = medToCategory[m] ?? ClinicalConstants.medicationCategoryMap[m] ?? 'Other / Custom';
-                  return cat == category;
-                }).toList();
-
-                if (itemsInCategory.isEmpty) return const SizedBox.shrink();
-                final selectedCount = itemsInCategory.where((m) => state.selectedMedications.any((x) => x.toLowerCase().trim() == m.toLowerCase().trim())).length;
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(
-                      color: selectedCount > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.5) : const Color(0xFFE2E8F0),
-                      width: selectedCount > 0 ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Icon(Icons.medication_outlined, size: 16, color: selectedCount > 0 ? AppTheme.primaryTeal : Colors.blueGrey),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      category,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: selectedCount > 0 ? AppTheme.primaryTeal : const Color(0xFF1E293B),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (selectedCount > 0) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryTeal,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '$selectedCount selected',
-                                  style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          children: itemsInCategory.map((m) {
-                            final isSelected = state.selectedMedications.any((x) => x.toLowerCase().trim() == m.toLowerCase().trim());
-                            return FilterChip(
-                              visualDensity: VisualDensity.compact,
-                              label: Text(getMedicationDisplayLabel(m), style: const TextStyle(fontSize: 11)),
-                              selected: isSelected,
-                              onSelected: (_) => vm.toggleMedication(m),
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ];
+          return Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: medicinesList.map((m) {
+              final isSelected = state.selectedMedications.any((x) => x.toLowerCase().trim() == m.toLowerCase().trim());
+              return FilterChip(
+                visualDensity: VisualDensity.compact,
+                label: Text(getMedicationDisplayLabel(m), style: const TextStyle(fontSize: 11)),
+                selected: isSelected,
+                onSelected: (_) => vm.toggleMedication(m),
+              );
+            }).toList(),
+          );
         }(),
         const SizedBox(height: 8),
         TextField(

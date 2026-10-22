@@ -2391,13 +2391,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     children: [
                       const Text('Uterus Inside:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                       ChoiceChip(
-                        label: const Text('Yes (भित्रै छ)'),
+                        label: const Text('Yes'),
                         selected: pop['uterusInside'] == true,
                         selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                         onSelected: (sel) => vm.updatePopStage('uterusInside', true),
                       ),
                       ChoiceChip(
-                        label: const Text('No (बाहिर खसेको)'),
+                        label: const Text('No'),
                         selected: pop['uterusInside'] == false,
                         selectedColor: Colors.orange.shade100,
                         onSelected: (sel) => vm.updatePopStage('uterusInside', false),

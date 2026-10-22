@@ -57,7 +57,6 @@ class BlankFormDownloadDialog extends ConsumerStatefulWidget {
 class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialog> {
   CampModel? _selectedCamp;
   PrintableFormType _selectedFormType = PrintableFormType.yellowRegistrationForm;
-  BlankFormPage1Layout _page1Layout = BlankFormPage1Layout.grid;
   DoctorSelectionMode _doctorMode = DoctorSelectionMode.allDoctorsChecklist;
   DoctorProfile? _selectedDoctor;
   NurseSelectionMode _nurseMode = NurseSelectionMode.allNursesChecklist;
@@ -231,7 +230,6 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             blankDoctorLines: blankDoctor,
             allDoctorsChecklist: _doctorMode == DoctorSelectionMode.allDoctorsChecklist,
             allNursesChecklist: _nurseMode == NurseSelectionMode.allNursesChecklist,
-            page1Layout: _page1Layout,
             organizationName: orgName,
             diagnoses: diagnoses,
             medications: medications,
@@ -270,7 +268,6 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             blankDoctorLines: true,
             allDoctorsChecklist: false,
             allNursesChecklist: false,
-            page1Layout: _page1Layout,
             organizationName: orgName,
             diagnoses: diagnoses,
             medications: medications,
@@ -278,8 +275,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             visitReasons: visitReasons,
             chiefComplaints: chiefComplaints,
           );
-          final layoutSlug = _page1Layout == BlankFormPage1Layout.grid ? 'TwoColumnGrid' : 'Classic';
-          filename = 'Blank_Universal_YellowForm_$layoutSlug.pdf';
+          filename = 'Blank_Universal_YellowForm.pdf';
         } else if (_doctorMode == DoctorSelectionMode.allDoctorsBatch && doctors.isNotEmpty) {
           // Batch download: generate combined multi-page PDF with 2 pages for each doctor
           messenger.showSnackBar(
@@ -293,7 +289,6 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             camp: _selectedCamp,
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
-            page1Layout: _page1Layout,
             organizationName: orgName,
             diagnoses: diagnoses,
             medications: medications,
@@ -315,7 +310,6 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             camp: _selectedCamp,
             doctor: docToUse,
             blankDoctorLines: blankDoctor,
-            page1Layout: _page1Layout,
             organizationName: orgName,
             diagnoses: diagnoses,
             medications: medications,
@@ -333,7 +327,6 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             blankDoctorLines: blankDoctor,
             allDoctorsChecklist: _doctorMode == DoctorSelectionMode.allDoctorsChecklist,
             allNursesChecklist: _nurseMode == NurseSelectionMode.allNursesChecklist,
-            page1Layout: _page1Layout,
             organizationName: orgName,
             diagnoses: diagnoses,
             medications: medications,
@@ -594,62 +587,6 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                           isNarrow: isNarrow,
                         ),
 
-                        if (_selectedFormType == PrintableFormType.yellowRegistrationForm) ...[
-                          const SizedBox(height: 14),
-                          const Text(
-                            'PAGE 1 DEMOGRAPHICS LAYOUT (पृष्ठ १ ढाँचा)',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                              color: AppTheme.brandPurple,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          isNarrow
-                              ? Column(
-                                  children: [
-                                    _buildLayoutOption(
-                                      title: 'Two-Column Field Grid (विस्तृत ग्रिड)',
-                                      subtitle: 'Side-by-side First/Surname, Age & Marital status, full-width Sections B & C',
-                                      badge: 'Recommended',
-                                      isSelected: _page1Layout == BlankFormPage1Layout.grid,
-                                      onTap: () => setState(() => _page1Layout = BlankFormPage1Layout.grid),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _buildLayoutOption(
-                                      title: 'Classic Single Column (एकल स्तम्भ)',
-                                      subtitle: 'Vertical demographics column with separate right panel for visit reasons',
-                                      badge: 'Classic',
-                                      isSelected: _page1Layout == BlankFormPage1Layout.classic,
-                                      onTap: () => setState(() => _page1Layout = BlankFormPage1Layout.classic),
-                                    ),
-                                  ],
-                                )
-                              : Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildLayoutOption(
-                                        title: 'Two-Column Field Grid (विस्तृत ग्रिड)',
-                                        subtitle: 'Side-by-side First/Surname, Age & Marital status, full-width B & C',
-                                        badge: 'Recommended',
-                                        isSelected: _page1Layout == BlankFormPage1Layout.grid,
-                                        onTap: () => setState(() => _page1Layout = BlankFormPage1Layout.grid),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: _buildLayoutOption(
-                                        title: 'Classic Single Column (एकल स्तम्भ)',
-                                        subtitle: 'Vertical demographics column with separate right panel',
-                                        badge: 'Classic',
-                                        isSelected: _page1Layout == BlankFormPage1Layout.classic,
-                                        onTap: () => setState(() => _page1Layout = BlankFormPage1Layout.classic),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                        ],
 
                         const SizedBox(height: 22),
                         const Divider(height: 1, color: Color(0xFFE2E8F0)),
@@ -1196,71 +1133,6 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
     );
   }
 
-  Widget _buildLayoutOption({
-    required String title,
-    required String subtitle,
-    required String badge,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF5F3FF) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? AppTheme.brandPurple : const Color(0xFFE2E8F0),
-            width: isSelected ? 1.8 : 1.0,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? AppTheme.brandPurple : const Color(0xFF1E293B),
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppTheme.brandPurple.withValues(alpha: 0.12)
-                        : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    badge,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? AppTheme.brandPurple : const Color(0xFF64748B),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.25),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildTokenRangeSection(bool isNarrow) {
     if (_selectedCamp == null) {
