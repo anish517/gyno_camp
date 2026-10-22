@@ -28,6 +28,8 @@ class OcrScanResultModel {
   final List<String> attendingNurses; // Multi-nurse list if multiple nurses attended
   final String? treatmentLevel; // 'council_level', 'full_check_up', or null
   final String? clinicalNotes; // Station 6 Clinical Notes / Outtake Remarks
+  final String? intakeDate; // Page 1 Registration / Intake Date
+  final String? examDate; // Station 2 Exam Date
   final String? treatmentDate; // Station 5 Treatment Date
   final String? conclusionDate; // Station 4 Conclusion Date
   final String? labTestDate; // Station 3 Lab Test Date
@@ -67,6 +69,8 @@ class OcrScanResultModel {
     this.attendingNurses = const [],
     this.treatmentLevel,
     this.clinicalNotes,
+    this.intakeDate,
+    this.examDate,
     this.treatmentDate,
     this.conclusionDate,
     this.labTestDate,
@@ -119,6 +123,10 @@ class OcrScanResultModel {
     bool clearTreatmentLevel = false,
     String? clinicalNotes,
     bool clearClinicalNotes = false,
+    String? intakeDate,
+    bool clearIntakeDate = false,
+    String? examDate,
+    bool clearExamDate = false,
     String? treatmentDate,
     bool clearTreatmentDate = false,
     String? conclusionDate,
@@ -162,6 +170,8 @@ class OcrScanResultModel {
       attendingNurses: attendingNurses ?? List<String>.from(this.attendingNurses),
       treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
       clinicalNotes: clearClinicalNotes ? null : (clinicalNotes ?? this.clinicalNotes),
+      intakeDate: clearIntakeDate ? null : (intakeDate ?? this.intakeDate),
+      examDate: clearExamDate ? null : (examDate ?? this.examDate),
       treatmentDate: clearTreatmentDate ? null : (treatmentDate ?? this.treatmentDate),
       conclusionDate: clearConclusionDate ? null : (conclusionDate ?? this.conclusionDate),
       labTestDate: clearLabTestDate ? null : (labTestDate ?? this.labTestDate),
@@ -248,6 +258,8 @@ ${page2.rawText}
       attendingNurses: mergedNurses,
       treatmentLevel: page2.treatmentLevel ?? page1.treatmentLevel,
       clinicalNotes: page2.clinicalNotes ?? page1.clinicalNotes,
+      intakeDate: page1.intakeDate ?? page2.intakeDate,
+      examDate: page2.examDate ?? page1.examDate,
       treatmentDate: page2.treatmentDate ?? page1.treatmentDate,
       conclusionDate: page2.conclusionDate ?? page1.conclusionDate,
       labTestDate: page2.labTestDate ?? page1.labTestDate,

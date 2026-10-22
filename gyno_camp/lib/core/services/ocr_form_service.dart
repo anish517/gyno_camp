@@ -1595,7 +1595,14 @@ class OcrFormService {
       clinicalNotes = notesVal.trim();
     }
 
-    // ── Station Dates (Station 3 Labs, Station 4 Conclusion, Station 5 Treatment, Station 6 Outtake) ──
+    // ── Station Dates (Page 1 Intake, Station 2 Exam, Station 3 Labs, Station 4 Conclusion, Station 5 Treatment, Station 6 Outtake) ──
+    final parsedIntakeDate = findValueForLabel(['date:', 'date', 'मिति:', 'मिति', 'intake date', 'registration date', 'दर्ता मिति']) ??
+        RegExp(r'(?:date|मिति)[:\s]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2})', caseSensitive: false).firstMatch(text)?.group(1);
+    if (parsedIntakeDate != null && parsedIntakeDate.isNotEmpty) {
+      demographics['intakeDate'] = parsedIntakeDate.trim();
+      demographics['date'] = parsedIntakeDate.trim();
+    }
+    final examDate = findValueForLabel(['examination date:', 'exam date:', 'examination date', 'exam date', 'जाँच मिति']);
     final labTestDate = findValueForLabel(['lab test date:', 'lab test date', 'प्रयोगशाला मिति']);
     final conclusionDate = findValueForLabel(['conclusion date:', 'conclusion date', 'निष्कर्ष मिति', 'निदान मिति']);
     final treatmentDate = findValueForLabel(['treatment date:', 'treatment date', 'उपचार मिति']);
@@ -1625,6 +1632,8 @@ class OcrFormService {
       attendingNurses: attendingNurses,
       treatmentLevel: treatmentLevel,
       clinicalNotes: clinicalNotes,
+      intakeDate: parsedIntakeDate?.trim(),
+      examDate: examDate?.trim(),
       treatmentDate: treatmentDate,
       conclusionDate: conclusionDate,
       labTestDate: labTestDate,

@@ -791,6 +791,16 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     if (state.scanResult == null) return;
     final clean = (dateStr == null || dateStr.trim().isEmpty) ? null : dateStr.trim();
     final updated = switch (field) {
+      'intakeDate' => state.scanResult!.copyWith(
+          intakeDate: clean,
+          clearIntakeDate: clean == null,
+          demographics: {
+            ...state.scanResult!.demographics,
+            'intakeDate': clean,
+            'date': clean,
+          },
+        ),
+      'examDate' => state.scanResult!.copyWith(examDate: clean, clearExamDate: clean == null),
       'treatmentDate' => state.scanResult!.copyWith(treatmentDate: clean, clearTreatmentDate: clean == null),
       'conclusionDate' => state.scanResult!.copyWith(conclusionDate: clean, clearConclusionDate: clean == null),
       'labTestDate' => state.scanResult!.copyWith(labTestDate: clean, clearLabTestDate: clean == null),

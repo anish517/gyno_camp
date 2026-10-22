@@ -220,12 +220,24 @@ class OcrRepository implements IOcrRepository {
       campCode: campCode,
     );
 
+    DateTime parseDateSafe(String? raw) {
+      if (raw == null || raw.trim().isEmpty) return DateTime.now();
+      try {
+        return DateTime.parse(raw.trim());
+      } catch (_) {
+        return DateTime.now();
+      }
+    }
+
+    final parsedIntake = parseDateSafe(verifiedScan.intakeDate ?? demo['intakeDate'] as String? ?? demo['date'] as String?);
+    final parsedVisit = parseDateSafe(verifiedScan.treatmentDate ?? verifiedScan.conclusionDate ?? verifiedScan.examDate ?? verifiedScan.intakeDate);
+
     final patient = PatientModel(
       id: 'pat-${_uuid.v4()}',
       patientId: normalizedPatientId, // Pre-assigned token or auto-generated sequentially by repository if empty
       campId: campId,
       campCode: campCode,
-      intakeDate: DateTime.now(),
+      intakeDate: parsedIntake,
       firstName: (demo['firstName'] as String? ?? 'Sita').trim(),
       surname: (demo['surname'] as String? ?? 'Sharma').trim(),
       age: (demo['age'] as int? ?? 35),
@@ -274,31 +286,33 @@ class OcrRepository implements IOcrRepository {
       final itemDur = (itemDetails['duration'] as String?)?.isNotEmpty == true
           ? itemDetails['duration'] as String
           : duration;
+      final itemRemarks = itemDetails['remarks'] ?? '';
+      final itemSubOption = itemDetails['subOption'] ?? '';
       anamnesisMap[c] = {
         'present': true,
         'duration': itemDur,
-        'remarks': itemDetails['remarks'] ?? '',
-        'subOption': itemDetails['subOption'] ?? '',
+        'remarks': itemRemarks,
+        'subOption': itemSubOption,
       };
       final lowerC = c.toLowerCase();
       if (lowerC.contains('mass') || lowerC.contains('vagina') || lowerC.contains('prolapse') || lowerC.contains('hanging')) {
-        anamnesisMap['prolapse'] = {'present': true, 'duration': itemDur};
-        anamnesisMap['something hanging out'] = {'present': true, 'duration': itemDur};
+        anamnesisMap['prolapse'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
+        anamnesisMap['something hanging out'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
       }
       if (lowerC.contains('discharge') || lowerC.contains('foul') || lowerC.contains('white') || lowerC.contains('itching')) {
-        anamnesisMap['discharge'] = {'present': true, 'duration': itemDur};
-        anamnesisMap['discharge and or itching'] = {'present': true, 'duration': itemDur};
+        anamnesisMap['discharge'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
+        anamnesisMap['discharge and or itching'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
       }
       if (lowerC.contains('micturition') || lowerC.contains('incontinence') || lowerC.contains('urine')) {
-        anamnesisMap['urine'] = {'present': true, 'duration': itemDur};
-        anamnesisMap['problems passing urine'] = {'present': true, 'duration': itemDur};
+        anamnesisMap['urine'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
+        anamnesisMap['problems passing urine'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
       }
       if (lowerC.contains('pain') || lowerC.contains('backache') || lowerC.contains('heaviness')) {
-        anamnesisMap['pain'] = {'present': true, 'duration': itemDur};
+        anamnesisMap['pain'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
       }
       if (lowerC.contains('stool') || lowerC.contains('bowel')) {
-        anamnesisMap['stool'] = {'present': true, 'duration': itemDur};
-        anamnesisMap['problems passing stool'] = {'present': true, 'duration': itemDur};
+        anamnesisMap['stool'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
+        anamnesisMap['problems passing stool'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
       }
     }
 
@@ -337,7 +351,7 @@ class OcrRepository implements IOcrRepository {
       patientId: registeredPatient.patientId,
       campId: campId,
       tenantId: registeredPatient.tenantId,
-      visitDate: DateTime.now(),
+      visitDate: parsedVisit,
       deliveries: obs['deliveries'] as int?,
       livingChildren: obs['livingChildren'] as int?,
       abortions: obs['abortions'] as int?,

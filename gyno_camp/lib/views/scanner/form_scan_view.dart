@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/clinical_constants.dart';
 import '../../core/constants/nepal_geodata.dart';
 import '../../core/services/clinical_validation_service.dart';
+import '../../core/services/nepali_localization_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
@@ -1474,6 +1475,109 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ),
           ],
 
+          // ── Page 1 Header: Consultation Triage & Registration Date (परामर्श तथा दर्ता मिति) ──
+          Card(
+            elevation: 1.5,
+            margin: const EdgeInsets.only(bottom: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: (result.treatmentLevel != null && result.treatmentLevel!.isNotEmpty)
+                    ? const Color(0xFF7C3AED)
+                    : Colors.purple.shade200,
+                width: 1.5,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.medical_information_rounded, color: Color(0xFF7C3AED), size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Consultation Triage & Date (परामर्श तथा दर्ता मिति)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF5B21B6)),
+                        ),
+                      ),
+                      _buildStationDateChip(
+                        context: context,
+                        label: 'Intake Date',
+                        dateStr: result.intakeDate ?? demo['intakeDate'] as String? ?? demo['date'] as String?,
+                        onDateSelected: (d) => vm.updateStationDate('intakeDate', d),
+                      ),
+                      const SizedBox(width: 6),
+                      if (result.treatmentLevel != null && result.treatmentLevel!.isNotEmpty)
+                        Chip(
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: const Color(0xFFEDE9FE),
+                          avatar: const Icon(Icons.check, size: 14, color: Color(0xFF7C3AED)),
+                          label: Text(
+                            (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? 'Counseling' : 'Gynocheckup',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF7C3AED)),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Page 1 Header Triage — Cross-check with physical Yellow Form top checkboxes:',
+                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        avatar: Icon(
+                          Icons.do_not_disturb_alt_rounded,
+                          size: 14,
+                          color: (result.treatmentLevel == null || result.treatmentLevel!.isEmpty) ? const Color(0xFF64748B) : Colors.grey,
+                        ),
+                        label: const Text('None / Unassigned (तोकिएको छैन)', style: TextStyle(fontSize: 12)),
+                        selected: result.treatmentLevel == null || result.treatmentLevel!.isEmpty,
+                        selectedColor: const Color(0xFFF1F5F9),
+                        onSelected: (selected) {
+                          if (selected) vm.setTreatmentLevel(null);
+                        },
+                      ),
+                      ChoiceChip(
+                        avatar: Icon(
+                          Icons.record_voice_over_rounded,
+                          size: 14,
+                          color: (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? const Color(0xFF7C3AED) : Colors.grey,
+                        ),
+                        label: const Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12)),
+                        selected: result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level',
+                        selectedColor: const Color(0xFFEDE9FE),
+                        onSelected: (selected) {
+                          vm.setTreatmentLevel(selected ? 'counseling' : null);
+                        },
+                      ),
+                      ChoiceChip(
+                        avatar: Icon(
+                          Icons.health_and_safety_rounded,
+                          size: 14,
+                          color: (result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up') ? const Color(0xFF0D9488) : Colors.grey,
+                        ),
+                        label: const Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12)),
+                        selected: result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up',
+                        selectedColor: const Color(0xFFCCFBF1),
+                        onSelected: (selected) {
+                          vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           // ── Patient Token ID Section ──
           Builder(
             builder: (context) {
@@ -1971,15 +2075,21 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.child_friendly, color: AppTheme.primaryTeal, size: 20),
-                SizedBox(width: 8),
-                Expanded(
+                const Icon(Icons.child_friendly, color: AppTheme.primaryTeal, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
                   child: Text(
                     'Obstetric History & Parity (प्रसूति इतिहास) — Cross-check with Yellow Form Box 2',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
                   ),
+                ),
+                _buildStationDateChip(
+                  context: context,
+                  label: 'Intake Date',
+                  dateStr: result.intakeDate ?? result.demographics['intakeDate'] as String? ?? result.demographics['date'] as String?,
+                  onDateSelected: (d) => vm.updateStationDate('intakeDate', d),
                 ),
               ],
             ),
@@ -2067,121 +2177,335 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
                   ),
                   const SizedBox(height: 12),
-                  // 9 canonical Yellow Form complaints with per-complaint duration & details
-                  ...[
-                    {'key': 'prolapse',            'label': 'Something hanging out / Prolapse (पाठेघर खस्ने समस्या)', 'subType': 'treatment'},
-                    {'key': 'discharge',           'label': 'Discharge and/or Itching (पानी बग्ने / चिलाउने)', 'subType': 'discharge'},
-                    {'key': 'urine',               'label': 'Problems passing urine (पिसाब सम्बन्धी समस्या)', 'subType': 'none'},
-                    {'key': 'stool',               'label': 'Problems passing stool (दिसा सम्बन्धी समस्या)', 'subType': 'none'},
-                    {'key': 'menstrual',           'label': 'Menstrual problem (महिनावारी समस्या)', 'subType': 'none'},
-                    {'key': 'infertility',         'label': 'Infertility (निःसन्तान समस्या)', 'subType': 'none'},
-                    {'key': 'lower_abdomen_pain',  'label': 'Lower abdomen pain (तल्लो पेट दुख्ने)', 'subType': 'none'},
-                    {'key': 'lower_back_pain',     'label': 'Lower back pain (कम्मर / ढाड दुख्ने)', 'subType': 'none'},
-                    {'key': 'checkup',             'label': 'General checkup (सामान्य स्वास्थ्य जाँच)', 'subType': 'none'},
-                  ].map((comp) {
-                    final cKey = comp['key'] as String;
-                    final selectedComplaints = (obs['clinicalComplaints'] as List?)?.cast<String>() ?? [];
-                    final isSelected = selectedComplaints.contains(cKey) ||
-                        selectedComplaints.any((c) => c.toLowerCase().contains(cKey.toLowerCase()));
-                    final details = Map<String, dynamic>.from(obs['complaintDetails'] as Map? ?? {});
-                    final item = Map<String, dynamic>.from(details[cKey] as Map? ?? {});
-                    final currentDuration = (item['duration'] as String?) ?? (obs['complaintsDuration'] as String? ?? '< 1 year');
+                  // 9 canonical Yellow Form complaints with per-complaint duration, options & remarks
+                  ...() {
+                    final patientReasons = ((result.demographics['reasonsForVisit'] as List?) ?? [])
+                        .map((r) => r.toString().toLowerCase().trim())
+                        .toList();
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppTheme.primaryLight.withValues(alpha: 0.15) : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected ? AppTheme.primaryTeal.withValues(alpha: 0.5) : Colors.grey.shade300,
-                          width: isSelected ? 1.5 : 1.0,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CheckboxListTile(
-                            dense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                            title: Text(
-                              comp['label'] as String,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                color: isSelected ? AppTheme.primaryDark : const Color(0xFF334155),
-                              ),
-                            ),
-                            value: isSelected,
-                            activeColor: AppTheme.primaryTeal,
-                            onChanged: (_) {
-                              vm.toggleClinicalComplaint(cKey);
-                            },
+                    final standardComplaints = [
+                      {
+                        'key': 'prolapse',
+                        'label': 'Something hanging out / Prolapse (पाठेघर खस्ने समस्या)',
+                        'subCategory': 'Pelvic Floor & Prolapse',
+                        'hasDuration': true,
+                        'options': ['pessary', 'surgery'],
+                        'optionPrefix': 'Previous treatment',
+                        'matches': (List<String> r) => r.any((x) => x.contains('hanging') || x.contains('prolapse') || x.contains('पाठेघर')),
+                      },
+                      {
+                        'key': 'discharge',
+                        'label': 'Discharge and/or Itching (पानी बग्ने / चिलाउने)',
+                        'subCategory': 'Infections & Discharge',
+                        'hasDuration': true,
+                        'options': ['white', 'yellow', 'green', 'grey', 'smelly'],
+                        'optionPrefix': 'Discharge colour',
+                        'matches': (List<String> r) => r.any((x) => x.contains('discharge') || x.contains('itching') || x.contains('स्राव') || x.contains('चिलाउने')),
+                      },
+                      {
+                        'key': 'urine',
+                        'label': 'Problems passing urine (पिसाब सम्बन्धी समस्या)',
+                        'subCategory': 'Urinary Symptoms',
+                        'hasDuration': true,
+                        'options': ['stress', 'urge', 'continuous flow'],
+                        'optionPrefix': 'Incontinence type',
+                        'matches': (List<String> r) => r.any((x) => x.contains('urine') || x.contains('पिसाब')),
+                      },
+                      {
+                        'key': 'stool',
+                        'label': 'Problems passing stool (दिसा सम्बन्धी समस्या)',
+                        'subCategory': 'Pelvic Floor & Prolapse',
+                        'hasDuration': true,
+                        'options': <String>[],
+                        'optionPrefix': null,
+                        'matches': (List<String> r) => r.any((x) => x.contains('stool') || x.contains('दिसा')),
+                      },
+                      {
+                        'key': 'menstrual',
+                        'label': 'Menstrual problem (महिनावारी समस्या)',
+                        'subCategory': 'Reproductive & Sexual',
+                        'hasDuration': false,
+                        'options': ['dysmenorrhoea', 'metrorrhagia', 'menorrhagia', 'postmenopausal bleeding'],
+                        'optionPrefix': 'Symptom type',
+                        'matches': (List<String> r) => r.any((x) => x.contains('menstrual') || x.contains('महिनावारी')),
+                      },
+                      {
+                        'key': 'infertility',
+                        'label': 'Infertility (निःसन्तान समस्या)',
+                        'subCategory': 'Reproductive & Sexual',
+                        'hasDuration': true,
+                        'isInfertilityDuration': true,
+                        'options': <String>[],
+                        'optionPrefix': null,
+                        'matches': (List<String> r) => r.any((x) => x.contains('infertility') || x.contains('बाँझोपन')),
+                      },
+                      {
+                        'key': 'lower_abdomen_pain',
+                        'label': 'Lower abdomen pain (तल्लो पेट दुख्ने)',
+                        'subCategory': 'Pelvic & Abdominal',
+                        'hasDuration': true,
+                        'options': <String>[],
+                        'optionPrefix': null,
+                        'matches': (List<String> r) => r.any((x) => x == 'pain' || x.contains('दुख्ने') || ((x.contains('abdomen') || x.contains('तल्लो पेट')) && x.contains('pain'))),
+                      },
+                      {
+                        'key': 'lower_back_pain',
+                        'label': 'Lower back pain (कम्मर / ढाड दुख्ने)',
+                        'subCategory': 'Musculoskeletal & General',
+                        'hasDuration': true,
+                        'options': <String>[],
+                        'optionPrefix': null,
+                        'matches': (List<String> r) => r.any((x) => x == 'pain' || x.contains('दुख्ने') || ((x.contains('back') || x.contains('ढाड') || x.contains('कम्मर')) && x.contains('pain'))),
+                      },
+                      {
+                        'key': 'checkup',
+                        'label': 'General checkup (सामान्य स्वास्थ्य जाँच)',
+                        'subCategory': 'General / Other',
+                        'hasDuration': false,
+                        'options': ['routine wellness screening', 'follow-up checkup', 'general counseling'],
+                        'optionPrefix': 'Checkup type',
+                        'matches': (List<String> r) => r.any((x) => x.contains('checkup') || x.contains('जाँच')),
+                      },
+                    ];
+
+                    final List<Map<String, dynamic>> resolvedComplaints = [];
+                    final lookupState = ref.watch(masterLookupProvider);
+                    final activeMasterComplaints = lookupState.activeChiefComplaints;
+
+                    if (activeMasterComplaints.isNotEmpty) {
+                      for (final masterItem in activeMasterComplaints) {
+                        final code = masterItem.code.toLowerCase().trim();
+                        final stdMatch = standardComplaints.cast<Map<String, dynamic>?>().firstWhere(
+                          (s) => s != null && (s['key'] == code ||
+                                 masterItem.labelEn.toLowerCase().contains(s['key'] as String) ||
+                                 (s['label'] as String).toLowerCase().contains(masterItem.labelEn.toLowerCase())),
+                          orElse: () => null,
+                        );
+
+                        final title = masterItem.labelNe.isNotEmpty
+                            ? '${masterItem.labelEn} (${masterItem.labelNe})'
+                            : masterItem.labelEn;
+
+                        resolvedComplaints.add({
+                          'key': code,
+                          'label': title,
+                          'hasDuration': stdMatch?['hasDuration'] ?? true,
+                          'isInfertilityDuration': stdMatch?['isInfertilityDuration'] == true || code.contains('infertility'),
+                          'options': (stdMatch?['options'] as List<String>?) ?? <String>[],
+                          'optionPrefix': stdMatch?['optionPrefix'] as String?,
+                          'isIntakeReason': patientReasons.any((r) =>
+                              r.contains(code) ||
+                              r.contains(masterItem.labelEn.toLowerCase()) ||
+                              (masterItem.labelNe.isNotEmpty && r.contains(masterItem.labelNe.toLowerCase()))),
+                        });
+                      }
+                    } else {
+                      for (final std in standardComplaints) {
+                        final matchesFn = std['matches'] as bool Function(List<String>);
+                        resolvedComplaints.add({
+                          'key': std['key'] as String,
+                          'label': std['label'] as String,
+                          'hasDuration': std['hasDuration'] as bool,
+                          'isInfertilityDuration': std['isInfertilityDuration'] == true,
+                          'options': std['options'] as List<String>,
+                          'optionPrefix': std['optionPrefix'] as String?,
+                          'isIntakeReason': matchesFn(patientReasons),
+                        });
+                      }
+                    }
+
+                    return resolvedComplaints.map((comp) {
+                      final cKey = comp['key'] as String;
+                      final label = comp['label'] as String;
+                      final hasDuration = comp['hasDuration'] as bool;
+                      final isInfertilityDuration = comp['isInfertilityDuration'] == true;
+                      final options = (comp['options'] as List<String>?) ?? [];
+                      final optionPrefix = comp['optionPrefix'] as String?;
+                      final isIntakeReason = comp['isIntakeReason'] == true;
+
+                      final selectedComplaints = (obs['clinicalComplaints'] as List?)?.cast<String>() ?? [];
+                      final isSelected = selectedComplaints.contains(cKey) ||
+                          selectedComplaints.any((c) => c.toLowerCase().contains(cKey.toLowerCase()));
+
+                      final details = Map<String, dynamic>.from(obs['complaintDetails'] as Map? ?? {});
+                      final item = Map<String, dynamic>.from(details[cKey] as Map? ?? {});
+
+                      final currentDuration = (item['duration'] as String?) ?? (obs['complaintsDuration'] as String? ?? '< 1 year');
+                      final currentRemarks = (item['remarks'] as String?) ?? '';
+
+                      // Extract selected sub-options
+                      final rawSub = item['subOption'] ?? item['options'];
+                      List<String> selectedSubOptions = [];
+                      if (rawSub is List) {
+                        selectedSubOptions = rawSub.map((e) => e.toString().toLowerCase().trim()).toList();
+                      } else if (rawSub is String && rawSub.isNotEmpty) {
+                        selectedSubOptions = rawSub.split(',').map((e) => e.toLowerCase().trim()).toList();
+                      }
+
+                      final durationsList = isInfertilityDuration
+                          ? ClinicalConstants.infertilityDurations
+                          : ClinicalConstants.anamnesisDurations;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primaryLight.withValues(alpha: 0.15) : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSelected ? AppTheme.primaryTeal.withValues(alpha: 0.5) : Colors.grey.shade300,
+                            width: isSelected ? 1.5 : 1.0,
                           ),
-                          if (isSelected) ...[
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CheckboxListTile(
+                              dense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                              title: Row(
                                 children: [
-                                  const Divider(height: 10),
-                                  const Text(
-                                    'Duration since onset (सुरु भएको अवधि):',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                                  Expanded(
+                                    child: Text(
+                                      label,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                        color: isSelected ? AppTheme.primaryDark : const Color(0xFF334155),
+                                      ),
+                                    ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 6,
-                                    children: ClinicalConstants.anamnesisDurations.map((dur) {
-                                      final isDurSelected = currentDuration == dur;
-                                      return ChoiceChip(
-                                        visualDensity: VisualDensity.compact,
-                                        label: Text(dur, style: const TextStyle(fontSize: 11)),
-                                        selected: isDurSelected,
-                                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                                        labelStyle: TextStyle(
-                                          color: isDurSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                                          fontWeight: isDurSelected ? FontWeight.bold : FontWeight.normal,
-                                        ),
-                                        onSelected: (sel) {
-                                          if (sel) {
-                                            vm.updateComplaintDetail(cKey, duration: dur);
-                                          }
-                                        },
-                                      );
-                                    }).toList(),
-                                  ),
-                                  if (comp['subType'] == 'treatment') ...[
-                                    const SizedBox(height: 8),
-                                    Wrap(
-                                      crossAxisAlignment: WrapCrossAlignment.center,
-                                      spacing: 8,
-                                      children: [
-                                        const Text('Previous treatment:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                                        ...['pessary', 'surgery'].map((trt) {
-                                          final curTrt = item['subOption']?.toString().toLowerCase() ?? '';
-                                          final isTrt = curTrt.contains(trt);
-                                          return FilterChip(
-                                            visualDensity: VisualDensity.compact,
-                                            label: Text(trt, style: const TextStyle(fontSize: 10.5)),
-                                            selected: isTrt,
-                                            selectedColor: AppTheme.primaryLight,
-                                            onSelected: (sel) {
-                                              vm.updateComplaintDetail(cKey, subOption: sel ? trt : '');
-                                            },
-                                          );
-                                        }),
-                                      ],
+                                  if (isIntakeReason) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                                      ),
+                                      child: const Text(
+                                        'Reported in Intake',
+                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                                      ),
                                     ),
                                   ],
                                 ],
                               ),
+                              value: isSelected,
+                              activeColor: AppTheme.primaryTeal,
+                              onChanged: (_) {
+                                vm.toggleClinicalComplaint(cKey);
+                              },
                             ),
+                            if (isSelected) ...[
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Divider(height: 10),
+                                    if (hasDuration) ...[
+                                      const Text(
+                                        'Duration since onset (सुरु भएको अवधि):',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: durationsList.map((dur) {
+                                          final isDurSelected = currentDuration == dur;
+                                          return ChoiceChip(
+                                            visualDensity: VisualDensity.compact,
+                                            label: Text(dur, style: const TextStyle(fontSize: 11)),
+                                            selected: isDurSelected,
+                                            selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                                            labelStyle: TextStyle(
+                                              color: isDurSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                                              fontWeight: isDurSelected ? FontWeight.bold : FontWeight.normal,
+                                            ),
+                                            onSelected: (sel) {
+                                              if (sel) {
+                                                vm.updateComplaintDetail(cKey, duration: dur);
+                                              }
+                                            },
+                                          );
+                                        }).toList(),
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
+                                    if (options.isNotEmpty) ...[
+                                      Text(
+                                        optionPrefix != null
+                                            ? '$optionPrefix (प्रकार / विवरण):'
+                                            : 'Clinical Presentation / Subtypes:',
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: options.map((opt) {
+                                          final isOptChecked = selectedSubOptions.contains(opt.toLowerCase());
+                                          return FilterChip(
+                                            visualDensity: VisualDensity.compact,
+                                            label: Text(
+                                              '${NepaliLocalizationService.translate(opt)} ($opt)',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: isOptChecked ? FontWeight.bold : FontWeight.normal,
+                                              ),
+                                            ),
+                                            selected: isOptChecked,
+                                            selectedColor: AppTheme.primaryLight,
+                                            checkmarkColor: AppTheme.primaryTeal,
+                                            labelStyle: TextStyle(
+                                              color: isOptChecked ? AppTheme.primaryTeal : const Color(0xFF334155),
+                                            ),
+                                            onSelected: (sel) {
+                                              final updatedList = List<String>.from(selectedSubOptions);
+                                              if (sel) {
+                                                if (!updatedList.contains(opt.toLowerCase())) {
+                                                  updatedList.add(opt.toLowerCase());
+                                                }
+                                              } else {
+                                                updatedList.remove(opt.toLowerCase());
+                                              }
+                                              vm.updateComplaintDetail(cKey, subOption: updatedList);
+                                            },
+                                          );
+                                        }).toList(),
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
+                                    const SizedBox(height: 4),
+                                    TextFormField(
+                                      key: ValueKey('complaint_remarks_${cKey}_$currentRemarks'),
+                                      initialValue: currentRemarks,
+                                      decoration: InputDecoration(
+                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        labelText: 'Clinical Remarks / टिप्पणी ($cKey)',
+                                        hintText: 'Enter clinical remarks, details or severity...',
+                                        prefixIcon: const Icon(Icons.edit_note_rounded, size: 20),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                        ),
+                                      ),
+                                      onChanged: (val) {
+                                        vm.updateComplaintDetail(cKey, remarks: val);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                    );
-                  }),
+                        ),
+                      );
+                    });
+                  }(),
                 ],
               ),
             ),
@@ -2225,6 +2549,34 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ],
 
 
+
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryLight.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.medical_services_outlined, color: AppTheme.primaryTeal, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Station 2: POP Staging & Clinical Examination (पाठेघर खस्ने जाँच)',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                  ),
+                ),
+                _buildStationDateChip(
+                  context: context,
+                  label: 'Exam Date',
+                  dateStr: result.examDate,
+                  onDateSelected: (d) => vm.updateStationDate('examDate', d),
+                ),
+              ],
+            ),
+          ),
 
           // Compartments
           Card(
@@ -4145,89 +4497,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               ),
             ),
           ),
-          // ── 11. CONSULTATION (परामर्श) ───
-          Card(
-            elevation: 1.5,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: (result.treatmentLevel != null && result.treatmentLevel!.isNotEmpty)
-                    ? const Color(0xFF7C3AED)
-                    : Colors.purple.shade200,
-                width: 1.5,
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(14.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.medical_information_rounded, color: Color(0xFF7C3AED), size: 20),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Consultation (परामर्श)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF5B21B6)),
-                        ),
-                      ),
-                      if (result.treatmentLevel != null && result.treatmentLevel!.isNotEmpty)
-                        Chip(
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: const Color(0xFFEDE9FE),
-                          avatar: const Icon(Icons.check, size: 14, color: Color(0xFF7C3AED)),
-                          label: Text(
-                            (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? 'Counseling' : 'Gynocheckup',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF7C3AED)),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Select consultation triage identified on form (Counseling / Gynocheckup):',
-                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ChoiceChip(
-                        avatar: Icon(Icons.do_not_disturb_alt_rounded, size: 14, color: (result.treatmentLevel == null || result.treatmentLevel!.isEmpty) ? const Color(0xFF64748B) : Colors.grey),
-                        label: const Text('None / Unassigned (तोकिएको छैन)', style: TextStyle(fontSize: 12)),
-                        selected: result.treatmentLevel == null || result.treatmentLevel!.isEmpty,
-                        selectedColor: const Color(0xFFF1F5F9),
-                        onSelected: (selected) {
-                          if (selected) vm.setTreatmentLevel(null);
-                        },
-                      ),
-                      ChoiceChip(
-                        avatar: Icon(Icons.record_voice_over_rounded, size: 14, color: (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? const Color(0xFF7C3AED) : Colors.grey),
-                        label: const Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12)),
-                        selected: result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level',
-                        selectedColor: const Color(0xFFEDE9FE),
-                        onSelected: (selected) {
-                          vm.setTreatmentLevel(selected ? 'counseling' : null);
-                        },
-                      ),
-                      ChoiceChip(
-                        avatar: Icon(Icons.health_and_safety_rounded, size: 14, color: (result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up') ? const Color(0xFF0D9488) : Colors.grey),
-                        label: const Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12)),
-                        selected: result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up',
-                        selectedColor: const Color(0xFFCCFBF1),
-                        onSelected: (selected) {
-                          vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // ── 12. CLINICAL NOTES & OUTTAKE REMARKS ───
+          // ── 11. CLINICAL NOTES & OUTTAKE REMARKS ───
           Card(
             elevation: 1.5,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -4325,6 +4595,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       {'key': 'vaginaRemarks',  'label': 'Vagina Exam',      'section': 'POP Exam',     'tabIndex': 2, 'value': pop['vaginaRemarks']?.toString() ?? 'Normal', 'confKey': 'popStaging'},
       {'key': 'cervixRemarks',  'label': 'Cervix Appearance','section': 'POP Exam',     'tabIndex': 2, 'value': pop['cervixRemarks']?.toString() ?? 'Normal / Smooth', 'confKey': 'popStaging'},
       {'key': 'uterusRemarks',  'label': 'Uterus Exam',      'section': 'POP Exam',     'tabIndex': 2, 'value': pop['uterusRemarks']?.toString() ?? 'Normal size', 'confKey': 'popStaging'},
+      {'key': 'examDate',       'label': 'Examination Date',  'section': 'POP Exam',     'tabIndex': 2, 'value': result.examDate ?? '—', 'confKey': 'date'},
       // ── Vitals ────────────────────────────────────────────
       {'key': 'bp',             'label': 'Blood Pressure',   'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['systolicBp'] ?? '—'}/${vitals['diastolicBp'] ?? '—'} mmHg', 'confKey': 'bp'},
       {'key': 'pulse',          'label': 'Pulse Rate',       'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['pulseRate'] ?? '—'} bpm', 'confKey': 'pulse'},
@@ -4339,7 +4610,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       {'key': 'medications',    'label': 'Medications',      'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.medications.isEmpty ? '—' : result.medications.join(', '), 'confKey': 'medications'},
       {'key': 'referral',       'label': 'Surgical Referral','section': 'Treatment Plan', 'tabIndex': 3, 'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
       {'key': 'followUp',       'label': 'Follow-up',        'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
-      {'key': 'treatmentLevel', 'label': 'Consultation',      'section': 'Treatment Plan', 'tabIndex': 3, 'value': (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? 'Counseling (काउन्सिलिङ तह)' : ((result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up') ? 'Gynocheckup (गाइनो जाँच)' : 'Unassigned'), 'confKey': 'treatmentLevel'},
+      {'key': 'intakeDate',     'label': 'Registration Date', 'section': 'Demographics', 'tabIndex': 0, 'value': result.intakeDate ?? demo['intakeDate']?.toString() ?? demo['date']?.toString() ?? '—', 'confKey': 'date'},
+      {'key': 'treatmentLevel', 'label': 'Consultation',      'section': 'Demographics', 'tabIndex': 0, 'value': (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? 'Counseling (काउन्सिलिङ तह)' : ((result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up') ? 'Gynocheckup (गाइनो जाँच)' : 'Unassigned'), 'confKey': 'treatmentLevel'},
       {'key': 'examiningDoctor','label': 'Examining Doctor', 'section': 'Signatures',     'tabIndex': 3, 'value': result.examiningDoctor ?? 'Unassigned', 'confKey': 'diagnoses'},
       {'key': 'attendingNurse', 'label': 'Attending Nurse',  'section': 'Signatures',     'tabIndex': 3, 'value': result.attendingNurses.isNotEmpty ? result.attendingNurses.join(', ') : (result.examiningNurse ?? 'Unassigned'), 'confKey': 'diagnoses'},
     ];
