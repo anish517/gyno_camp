@@ -2027,58 +2027,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ),
           const SizedBox(height: 16),
 
-          // Station 1: Complaints Duration
-          Card(
-            elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.schedule, color: AppTheme.primaryTeal, size: 18),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Complaints Duration (समस्या सुरु भएको अवधि)',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Cross-check with Yellow Form Station 1 duration checkboxes:',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ClinicalConstants.anamnesisDurations.map((dur) {
-                      final isSelected = (obs['complaintsDuration'] as String?) == dur;
-                      return ChoiceChip(
-                        label: Text(dur),
-                        selected: isSelected,
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 12,
-                        ),
-                        onSelected: (sel) {
-                          vm.updateObstetric('complaintsDuration', sel ? dur : null);
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
+
 
           // Station 1: 9 Chief Clinical Complaints Checkboxes
           Card(

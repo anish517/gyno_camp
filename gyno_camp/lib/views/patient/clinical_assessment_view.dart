@@ -48,9 +48,8 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
   final _outtakeNotesController = TextEditingController();
   final _customFollowUpHospitalController = TextEditingController();
   final Map<String, TextEditingController> _complaintRemarksControllers = {};
-
-
-
+  final Set<String> _expandedComplaints = {};
+  final Set<String> _collapsedComplaints = {};
   TextEditingController _getRemarksController(String key, String initialText) {
     if (!_complaintRemarksControllers.containsKey(key)) {
       _complaintRemarksControllers[key] = TextEditingController(text: initialText);
@@ -569,15 +568,27 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.child_care_rounded, color: AppTheme.primaryTeal, size: 20),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Obstetric History (सुत्केरी तथा गर्भ विवरण)',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                    const Expanded(
+                      child: Row(
+                        children: [
+                          Icon(Icons.child_care_rounded, color: AppTheme.primaryTeal, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Obstetric History (सुत्केरी तथा गर्भ विवरण)',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildStationDateChip(
+                      label: 'Intake Date',
+                      date: widget.patient.intakeDate,
                     ),
                   ],
                 ),
@@ -830,17 +841,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
           }
 
           return resolvedComplaints.map((comp) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10.0),
-              child: _buildComplaintCard(
-                state: state,
-                vm: vm,
-                complaintKey: comp['key'] as String,
-                title: comp['title'] as String,
-                hasDuration: comp['hasDuration'] as bool,
-                options: comp['options'] as List<String>,
-                isIntakeReason: comp['isIntakeReason'] as bool,
-              ),
+            return _buildComplaintCard(
+              state: state,
+              vm: vm,
+              complaintKey: comp['key'] as String,
+              title: comp['title'] as String,
+              hasDuration: comp['hasDuration'] as bool,
+              options: comp['options'] as List<String>,
+              isIntakeReason: comp['isIntakeReason'] as bool,
             );
           }).toList();
         }(),
@@ -867,9 +875,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     final currentRemarks = (complaintData['remarks'] as String?) ?? '';
     final remarksController = _getRemarksController(complaintKey, currentRemarks);
 
-    final hasActiveSelections = (selectedDuration != null && selectedDuration.isNotEmpty) ||
+    final hasActiveSelections = (complaintData['active'] == true) ||
+        (selectedDuration != null && selectedDuration.isNotEmpty) ||
         selectedOptions.isNotEmpty ||
         currentRemarks.isNotEmpty;
+
+    final isSelected = _collapsedComplaints.contains(complaintKey)
+        ? false
+        : (hasActiveSelections || isIntakeReason || _expandedComplaints.contains(complaintKey));
 
     // Yellow Form canonical duration options
     final durationOptions = complaintKey.toLowerCase().contains('infertility')
@@ -883,36 +896,38 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         selectedDuration,
     ];
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: hasActiveSelections ? AppTheme.primaryTeal : const Color(0xFFE2E8F0),
-          width: hasActiveSelections ? 1.5 : 1.0,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isSelected ? AppTheme.primaryLight.withValues(alpha: 0.15) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isSelected ? AppTheme.primaryTeal.withValues(alpha: 0.5) : Colors.grey.shade300,
+          width: isSelected ? 1.5 : 1.0,
         ),
       ),
-      color: hasActiveSelections ? AppTheme.primaryLight.withValues(alpha: 0.15) : Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CheckboxListTile(
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+            title: Row(
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13.5,
-                    color: hasActiveSelections ? AppTheme.primaryTeal : const Color(0xFF1E293B),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected ? AppTheme.primaryDark : const Color(0xFF334155),
+                    ),
                   ),
                 ),
                 if (isIntakeReason) ...[
-                  const SizedBox(height: 6),
+                  const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryTeal.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
@@ -926,88 +941,130 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 ],
               ],
             ),
-            if (hasDuration) ...[
-              const SizedBox(height: 8),
-              const Text(
-                'Since when (कहिलेदेखि):',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
-              ),
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: allDurations.map((d) {
-                  final isSelected = selectedDuration == d;
-                  return ChoiceChip(
-                    visualDensity: VisualDensity.compact,
-                    label: Text(
-                      d,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            value: isSelected,
+            activeColor: AppTheme.primaryTeal,
+            onChanged: (val) {
+              setState(() {
+                if (val == true) {
+                  _collapsedComplaints.remove(complaintKey);
+                  _expandedComplaints.add(complaintKey);
+                  final defDuration = (selectedDuration != null && selectedDuration.isNotEmpty)
+                      ? selectedDuration
+                      : '< 1 year';
+                  if (hasDuration && (selectedDuration == null || selectedDuration.isEmpty)) {
+                    vm.setComplaintDuration(complaintKey, defDuration);
+                  }
+                  vm.updateComplaint(complaintKey, {
+                    ...complaintData,
+                    'active': true,
+                    if (hasDuration) 'duration': defDuration,
+                  });
+                } else {
+                  _expandedComplaints.remove(complaintKey);
+                  _collapsedComplaints.add(complaintKey);
+                  vm.updateComplaint(complaintKey, {});
+                  remarksController.clear();
+                }
+              });
+            },
+          ),
+          if (isSelected) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 10),
+                  if (hasDuration) ...[
+                    const Text(
+                      'Duration since onset (सुरु भएको अवधि):',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: allDurations.map((d) {
+                        final isDurSelected = selectedDuration == d;
+                        return ChoiceChip(
+                          visualDensity: VisualDensity.compact,
+                          label: Text(
+                            d,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: isDurSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          selected: isDurSelected,
+                          selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                          labelStyle: TextStyle(
+                            color: isDurSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                          ),
+                          onSelected: (val) {
+                            vm.setComplaintDuration(complaintKey, isDurSelected ? '' : d);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (options.isNotEmpty) ...[
+                    const Text(
+                      'Clinical Presentation / Subtypes:',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: options.map((opt) {
+                        final isChecked = selectedOptions.contains(opt);
+                        return FilterChip(
+                          visualDensity: VisualDensity.compact,
+                          label: Text(
+                            '${NepaliLocalizationService.translate(opt)} ($opt)',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          selected: isChecked,
+                          selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                          checkmarkColor: AppTheme.primaryTeal,
+                          labelStyle: TextStyle(
+                            color: isChecked ? AppTheme.primaryTeal : const Color(0xFF334155),
+                          ),
+                          onSelected: (val) {
+                            vm.toggleComplaintOption(complaintKey, opt);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: remarksController,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      labelText: 'Clinical Remarks / टिप्पणी ($title)',
+                      hintText: 'Enter clinical remarks, details or severity...',
+                      prefixIcon: const Icon(Icons.edit_note_rounded, size: 20),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
                       ),
                     ),
-                    selected: isSelected,
-                    selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                    labelStyle: TextStyle(
-                      color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                    ),
-                    onSelected: (val) {
-                      vm.setComplaintDuration(complaintKey, isSelected ? '' : d);
+                    onChanged: (val) {
+                      vm.setComplaintRemarks(complaintKey, val);
                     },
-                  );
-                }).toList(),
+                  ),
+                ],
               ),
-            ],
-            if (options.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: options.map((opt) {
-                  final isChecked = selectedOptions.contains(opt);
-                  return FilterChip(
-                    visualDensity: VisualDensity.compact,
-                    label: Text(
-                      '${NepaliLocalizationService.translate(opt)} ($opt)',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                    selected: isChecked,
-                    selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                    checkmarkColor: AppTheme.primaryTeal,
-                    labelStyle: TextStyle(
-                      color: isChecked ? AppTheme.primaryTeal : const Color(0xFF334155),
-                    ),
-                    onSelected: (val) {
-                      vm.toggleComplaintOption(complaintKey, opt);
-                    },
-                  );
-                }).toList(),
-              ),
-            ],
-            const SizedBox(height: 10),
-            TextField(
-              controller: remarksController,
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                labelText: 'Clinical Remarks / टिप्पणी ($title)',
-                hintText: 'Enter clinical remarks, details or severity...',
-                prefixIcon: const Icon(Icons.edit_note_rounded, size: 20),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                ),
-              ),
-              onChanged: (val) {
-                vm.setComplaintRemarks(complaintKey, val);
-              },
             ),
           ],
-        ),
+        ],
       ),
     );
   }
