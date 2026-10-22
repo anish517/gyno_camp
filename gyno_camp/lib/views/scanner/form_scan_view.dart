@@ -2578,30 +2578,38 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ),
           ),
 
-          // Compartments
+          // POP Staging (POP anterior wall, POP middle part, POP posterior wall)
           Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text(
+                    'POP Staging (Yellow Form Page 2):',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                  ),
+                  const SizedBox(height: 12),
                   _buildStageDropdown(
-                    label: 'Anterior Compartment (Cystocele)',
+                    label: 'POP anterior wall (अगाडिको भित्ता):',
                     value: pop['anteriorStage'] as int? ?? 2,
-                    maxStage: 4,
+                    maxStage: 3,
                     onChanged: (v) => vm.updatePopStage('anteriorStage', v),
                   ),
                   const Divider(height: 24),
                   _buildStageDropdown(
-                    label: 'Middle Compartment (Uterocervical)',
+                    label: 'POP middle part (बीचको भाग - Uterine):',
                     value: pop['middleStage'] as int? ?? 3,
                     maxStage: 4,
                     onChanged: (v) => vm.updatePopStage('middleStage', v),
                   ),
                   const Divider(height: 24),
                   _buildStageDropdown(
-                    label: 'Posterior Compartment (Rectocele)',
+                    label: 'POP posterior wall (पछाडिको भित्ता):',
                     value: pop['posteriorStage'] as int? ?? 1,
-                    maxStage: 4,
+                    maxStage: 3,
                     onChanged: (v) => vm.updatePopStage('posteriorStage', v),
                   ),
                 ],
@@ -4561,9 +4569,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       // ── Visit Reasons ─────────────────────────────────────
       {'key': 'reasonsForVisit','label': 'Reasons for Visit','section': 'Visit Reasons','tabIndex': 1, 'value': (demo['reasonsForVisit'] as List?)?.join(', ') ?? '—', 'confKey': 'reasonsForVisit'},
       // ── POP & Physical Examination ────────────────────────
-      {'key': 'anteriorStage',  'label': 'Anterior Stage',   'section': 'POP Exam',     'tabIndex': 2, 'value': pop['anteriorStage']?.toString() ?? '—',   'confKey': 'popStaging'},
-      {'key': 'middleStage',    'label': 'Middle Stage',     'section': 'POP Exam',     'tabIndex': 2, 'value': pop['middleStage']?.toString() ?? '—',     'confKey': 'popStaging'},
-      {'key': 'posteriorStage', 'label': 'Posterior Stage',  'section': 'POP Exam',     'tabIndex': 2, 'value': pop['posteriorStage']?.toString() ?? '—',  'confKey': 'popStaging'},
+      {'key': 'anteriorStage',  'label': 'POP anterior wall',   'section': 'POP Exam',     'tabIndex': 2, 'value': pop['anteriorStage']?.toString() ?? '—',   'confKey': 'popStaging'},
+      {'key': 'middleStage',    'label': 'POP middle part',     'section': 'POP Exam',     'tabIndex': 2, 'value': pop['middleStage']?.toString() ?? '—',     'confKey': 'popStaging'},
+      {'key': 'posteriorStage', 'label': 'POP posterior wall',  'section': 'POP Exam',     'tabIndex': 2, 'value': pop['posteriorStage']?.toString() ?? '—',  'confKey': 'popStaging'},
       {'key': 'uterusInside',   'label': 'Uterus Inside',    'section': 'POP Exam',     'tabIndex': 2, 'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No', 'confKey': 'popStaging'},
       {'key': 'pelvicTone',     'label': 'Pelvic Floor Muscle','section': 'POP Exam',   'tabIndex': 2, 'value': pop['pelvicFloorTone']?.toString() ?? '—', 'confKey': 'popStaging'},
       {'key': 'vulvaRemarks',   'label': 'Vulva Appearance', 'section': 'POP Exam',     'tabIndex': 2, 'value': pop['vulvaRemarks']?.toString() ?? 'Normal', 'confKey': 'popStaging'},
@@ -4939,7 +4947,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     required int maxStage,
     required ValueChanged<int> onChanged,
   }) {
-    final int effectiveMax = maxStage < 4 ? 4 : (value > maxStage ? value : maxStage);
+    final int effectiveMax = value > maxStage ? value : maxStage;
     final int safeValue = value < 0 ? 0 : (value > effectiveMax ? effectiveMax : value);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
