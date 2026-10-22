@@ -4580,15 +4580,44 @@ class PdfReportService {
                         )
                       : pw.SizedBox(),
                 ),
-                if (textWidth != null)
-                  pw.SizedBox(
-                    width: textWidth,
-                    child: ne(label, size: fontSize, maxWidth: textWidth),
-                  )
-                else if (isExpanded)
-                  pw.Expanded(child: ne(label, size: fontSize))
-                else
-                  ne(label, size: fontSize),
+                () {
+                  final slashIdx = label.indexOf('/');
+                  if (slashIdx != -1) {
+                    final enText = label.substring(0, slashIdx).trim();
+                    final neText = label.substring(slashIdx).trim();
+                    final content = pw.Row(
+                      mainAxisSize: pw.MainAxisSize.min,
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Text(
+                          enText,
+                          style: pw.TextStyle(
+                            fontSize: fontSize,
+                            fontWeight: checked ? pw.FontWeight.bold : pw.FontWeight.normal,
+                            color: dark,
+                          ),
+                        ),
+                        pw.SizedBox(width: 2),
+                        ne(neText, size: fontSize * 0.95, color: 0xFF475569),
+                      ],
+                    );
+                    if (textWidth != null) {
+                      return pw.SizedBox(width: textWidth, child: content);
+                    } else if (isExpanded) {
+                      return pw.Expanded(child: content);
+                    }
+                    return content;
+                  }
+                  if (textWidth != null) {
+                    return pw.SizedBox(
+                      width: textWidth,
+                      child: ne(label, size: fontSize, maxWidth: textWidth),
+                    );
+                  } else if (isExpanded) {
+                    return pw.Expanded(child: ne(label, size: fontSize));
+                  }
+                  return ne(label, size: fontSize);
+                }(),
               ],
             ),
           );

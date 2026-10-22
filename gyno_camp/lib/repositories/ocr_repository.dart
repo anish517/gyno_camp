@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
+import 'package:nepali_utils/nepali_utils.dart';
 import '../core/constants/app_constants.dart';
+import '../core/utils/nepali_date_helper.dart';
 import '../core/services/gemini_ocr_service.dart';
 import '../core/services/mlkit_ocr_service.dart';
 import '../core/services/ocr_form_service.dart';
@@ -223,7 +225,21 @@ class OcrRepository implements IOcrRepository {
     DateTime parseDateSafe(String? raw) {
       if (raw == null || raw.trim().isEmpty) return DateTime.now();
       try {
-        return DateTime.parse(raw.trim());
+        final clean = raw.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
+        final parts = clean.split(RegExp(r'[-/]'));
+        if (parts.length == 3) {
+          final y = int.tryParse(parts[0]);
+          final m = int.tryParse(parts[1]);
+          final d = int.tryParse(parts[2]);
+          if (y != null && m != null && d != null) {
+            if (y >= 2070 && y <= 2120) {
+              return NepaliDateHelper.toEnglish(NepaliDateTime(y, m, d));
+            } else {
+              return DateTime(y, m, d);
+            }
+          }
+        }
+        return DateTime.parse(clean);
       } catch (_) {
         return DateTime.now();
       }
