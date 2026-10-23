@@ -81,9 +81,14 @@ class _PatientRegistrationViewState
   void initState() {
     super.initState();
     if (widget.patientToEdit != null) {
-      _applyPatientToEdit(widget.patientToEdit!);
+      _populateControllers(widget.patientToEdit!);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(patientRegistrationProvider.notifier).loadPatientForEditing(widget.patientToEdit!);
+      });
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         _resetToFreshRegistration();
       });
     }
@@ -93,12 +98,15 @@ class _PatientRegistrationViewState
   void didUpdateWidget(covariant PatientRegistrationView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.patientToEdit != null && widget.patientToEdit != oldWidget.patientToEdit) {
-      _applyPatientToEdit(widget.patientToEdit!);
+      _populateControllers(widget.patientToEdit!);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(patientRegistrationProvider.notifier).loadPatientForEditing(widget.patientToEdit!);
+      });
     }
   }
 
-  void _applyPatientToEdit(PatientModel patient) {
-    ref.read(patientRegistrationProvider.notifier).loadPatientForEditing(patient);
+  void _populateControllers(PatientModel patient) {
     _patientIdController.text = patient.patientId;
     _firstNameController.text = patient.firstName.toUpperCase();
     _surnameController.text = patient.surname.toUpperCase();
@@ -119,7 +127,12 @@ class _PatientRegistrationViewState
     _mobileController.text = patient.mobile;
     _contactPersonController.text = (patient.contactPerson ?? '').toUpperCase();
     _contactMobileController.text = patient.contactMobile ?? '';
-    setState(() {});
+  }
+
+  void _applyPatientToEdit(PatientModel patient) {
+    _populateControllers(patient);
+    ref.read(patientRegistrationProvider.notifier).loadPatientForEditing(patient);
+    if (mounted) setState(() {});
   }
 
   void _resetToFreshRegistration() {
@@ -2027,105 +2040,112 @@ class _PatientRegistrationViewState
                       width: state.treatmentLevel != null && state.treatmentLevel!.isNotEmpty ? 1.5 : 1.0,
                     ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  child: Builder(
+                    builder: (context) {
+                      final isCounsel = state.isCounseling || (state.treatmentLevel == null && widget.patientToEdit?.isCounseling == true);
+                      final isGyno = state.isGynocheckup || (state.treatmentLevel == null && widget.patientToEdit?.isGynocheckup == true);
+                      final isNone = !isCounsel && !isGyno;
+                      return Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.medical_information_rounded, color: Color(0xFF7C3AED), size: 20),
-                            ),
-                            const SizedBox(width: 10),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Consultation (परामर्श)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: Color(0xFF1E293B),
-                                    ),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  Text(
-                                    'Triage assessment level — Counseling or Gynocheckup (Optional)',
-                                    style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (!state.isUnassigned)
-                              Chip(
-                                visualDensity: VisualDensity.compact,
-                                backgroundColor: state.isCounseling ? const Color(0xFFEDE9FE) : const Color(0xFFCCFBF1),
-                                avatar: Icon(Icons.check, size: 14, color: state.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488)),
-                                label: Text(
-                                  state.isCounseling ? 'Counseling' : 'Gynocheckup',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11,
-                                    color: state.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488),
+                                  child: const Icon(Icons.medical_information_rounded, color: Color(0xFF7C3AED), size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Consultation (परामर्श)',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: Color(0xFF1E293B),
+                                        ),
+                                      ),
+                                      Text(
+                                        'Triage assessment level — Counseling or Gynocheckup (Optional)',
+                                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
+                                if (!isNone)
+                                  Chip(
+                                    visualDensity: VisualDensity.compact,
+                                    backgroundColor: isCounsel ? const Color(0xFFEDE9FE) : const Color(0xFFCCFBF1),
+                                    avatar: Icon(Icons.check, size: 14, color: isCounsel ? const Color(0xFF7C3AED) : const Color(0xFF0D9488)),
+                                    label: Text(
+                                      isCounsel ? 'Counseling' : 'Gynocheckup',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                        color: isCounsel ? const Color(0xFF7C3AED) : const Color(0xFF0D9488),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                ChoiceChip(
+                                  avatar: Icon(
+                                    Icons.do_not_disturb_alt_rounded,
+                                    size: 14,
+                                    color: isNone ? const Color(0xFF64748B) : Colors.grey,
+                                  ),
+                                  label: const Text('None / Unassigned (तोकिएको छैन)', style: TextStyle(fontSize: 12)),
+                                  selected: isNone,
+                                  selectedColor: const Color(0xFFF1F5F9),
+                                  onSelected: (selected) {
+                                    if (selected) vm.setTreatmentLevel(null);
+                                  },
+                                ),
+                                ChoiceChip(
+                                  avatar: Icon(
+                                    Icons.record_voice_over_rounded,
+                                    size: 14,
+                                    color: isCounsel ? const Color(0xFF7C3AED) : Colors.grey,
+                                  ),
+                                  label: const Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12)),
+                                  selected: isCounsel,
+                                  selectedColor: const Color(0xFFEDE9FE),
+                                  onSelected: (selected) {
+                                    vm.setTreatmentLevel(selected ? 'counseling' : null);
+                                  },
+                                ),
+                                ChoiceChip(
+                                  avatar: Icon(
+                                    Icons.health_and_safety_rounded,
+                                    size: 14,
+                                    color: isGyno ? const Color(0xFF0D9488) : Colors.grey,
+                                  ),
+                                  label: const Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12)),
+                                  selected: isGyno,
+                                  selectedColor: const Color(0xFFCCFBF1),
+                                  onSelected: (selected) {
+                                    vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);
+                                  },
+                                ),
+                              ],
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 14),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 8,
-                          children: [
-                            ChoiceChip(
-                              avatar: Icon(
-                                Icons.do_not_disturb_alt_rounded,
-                                size: 14,
-                                color: state.isUnassigned ? const Color(0xFF64748B) : Colors.grey,
-                              ),
-                              label: const Text('None / Unassigned (तोकिएको छैन)', style: TextStyle(fontSize: 12)),
-                              selected: state.isUnassigned,
-                              selectedColor: const Color(0xFFF1F5F9),
-                              onSelected: (selected) {
-                                if (selected) vm.setTreatmentLevel(null);
-                              },
-                            ),
-                            ChoiceChip(
-                              avatar: Icon(
-                                Icons.record_voice_over_rounded,
-                                size: 14,
-                                color: state.isCounseling ? const Color(0xFF7C3AED) : Colors.grey,
-                              ),
-                              label: const Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12)),
-                              selected: state.isCounseling,
-                              selectedColor: const Color(0xFFEDE9FE),
-                              onSelected: (selected) {
-                                vm.setTreatmentLevel(selected ? 'counseling' : null);
-                              },
-                            ),
-                            ChoiceChip(
-                              avatar: Icon(
-                                Icons.health_and_safety_rounded,
-                                size: 14,
-                                color: state.isGynocheckup ? const Color(0xFF0D9488) : Colors.grey,
-                              ),
-                              label: const Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12)),
-                              selected: state.isGynocheckup,
-                              selectedColor: const Color(0xFFCCFBF1),
-                              onSelected: (selected) {
-                                vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 16),
