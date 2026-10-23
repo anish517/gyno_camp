@@ -379,10 +379,31 @@ class GeminiOcrService {
       'abortions': (rawObs['abortions'] as num?)?.toInt(),
       'complaintsDuration': rawObs['complaintsDuration']?.toString().trim() ?? '',
       'clinicalComplaints': (rawObs['clinicalComplaints'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[],
-      'complaintDetails': (rawObs['complaintDetails'] as List<dynamic>?)?.map((e) {
-        if (e is Map<String, dynamic>) return e;
-        return <String, dynamic>{};
-      }).where((e) => e.isNotEmpty).toList() ?? <Map<String, dynamic>>[],
+      'complaintDetails': () {
+        // Gemini returns complaintDetails as a List of {complaint, subOptions, duration, remarks}.
+        // The UI/viewmodel/repository expects a Map keyed by complaint name.
+        final rawDetails = rawObs['complaintDetails'];
+        final result = <String, dynamic>{};
+        if (rawDetails is List) {
+          for (final item in rawDetails) {
+            if (item is Map<String, dynamic>) {
+              final key = item['complaint']?.toString().trim();
+              if (key != null && key.isNotEmpty) {
+                final subOptions = item['subOptions'];
+                result[key] = <String, dynamic>{
+                  'duration': item['duration']?.toString() ?? '',
+                  'remarks': item['remarks']?.toString() ?? '',
+                  'subOption': subOptions is List ? subOptions.join(', ') : (subOptions?.toString() ?? ''),
+                };
+              }
+            }
+          }
+        } else if (rawDetails is Map) {
+          // Already in the expected format
+          result.addAll(Map<String, dynamic>.from(rawDetails));
+        }
+        return result;
+      }(),
     };
 
     // Normalize vitals (strictly Yellow Form Station 3 fields — NO respiratory rate/temp/weight/height)
