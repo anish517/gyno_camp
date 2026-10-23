@@ -2415,14 +2415,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
 
                       final details = _safeComplaintDetailsMap(obs['complaintDetails']);
                       final item = Map<String, dynamic>.from(
-                        (details[cKey] ?? details[canonicalKey] ?? details[rawCode]) as Map? ?? {},
+                        (details[cKey] ??
+                         details[canonicalKey] ??
+                         details[rawCode] ??
+                         details[cKey.replaceAll('_', ' ')] ??
+                         details[canonicalKey.replaceAll('_', ' ')]) as Map? ?? {},
                       );
 
                       final currentDuration = (item['duration'] as String?) ?? (obs['complaintsDuration'] as String? ?? '< 1 year');
                       final currentRemarks = (item['remarks'] as String?) ?? '';
 
                       // Extract selected sub-options
-                      final rawSub = item['subOption'] ?? item['options'];
+                      final rawSub = item['subOption'] ?? item['options'] ?? item['subOptions'];
                       List<String> selectedSubOptions = [];
                       if (rawSub is List) {
                         selectedSubOptions = rawSub.map((e) => e.toString().toLowerCase().trim()).toList();
@@ -2502,7 +2506,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                                         spacing: 6,
                                         runSpacing: 6,
                                         children: durationsList.map((dur) {
-                                          final isDurSelected = currentDuration == dur;
+                                          final isDurSelected = currentDuration == dur ||
+                                              dur.toLowerCase().replaceAll(' ', '') == currentDuration.toLowerCase().replaceAll(' ', '') ||
+                                              (dur.contains('> 1 year') && currentDuration.contains('>1y')) ||
+                                              (dur.contains('< 1 year') && currentDuration.contains('<1y')) ||
+                                              (dur.contains('< 1month') && currentDuration.contains('1m'));
                                           return ChoiceChip(
                                             visualDensity: VisualDensity.compact,
                                             label: Text(dur, style: const TextStyle(fontSize: 11)),
@@ -2534,7 +2542,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                                         spacing: 6,
                                         runSpacing: 6,
                                         children: options.map((opt) {
-                                          final isOptChecked = selectedSubOptions.contains(opt.toLowerCase());
+                                          final isOptChecked = selectedSubOptions.any((s) =>
+                                              s == opt.toLowerCase().trim() ||
+                                              opt.toLowerCase().trim().contains(s) ||
+                                              s.contains(opt.toLowerCase().trim()));
                                           return FilterChip(
                                             visualDensity: VisualDensity.compact,
                                             label: Text(

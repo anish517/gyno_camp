@@ -50,11 +50,86 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
   final Map<String, TextEditingController> _complaintRemarksControllers = {};
   final Set<String> _expandedComplaints = {};
   final Set<String> _collapsedComplaints = {};
+
   TextEditingController _getRemarksController(String key, String initialText) {
     if (!_complaintRemarksControllers.containsKey(key)) {
       _complaintRemarksControllers[key] = TextEditingController(text: initialText);
+    } else if (initialText.isNotEmpty && _complaintRemarksControllers[key]!.text.isEmpty) {
+      _complaintRemarksControllers[key]!.text = initialText;
     }
     return _complaintRemarksControllers[key]!;
+  }
+
+  bool _isDurationMatch(String d, String? sel) {
+    if (sel == null || sel.trim().isEmpty) return false;
+    final dNorm = d.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+    final sNorm = sel.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+    if (dNorm == sNorm) return true;
+    if (dNorm.contains('1month') && (sNorm.contains('1m') || sNorm.contains('1month'))) return true;
+    if (dNorm.contains('<1year') && (sNorm.contains('<1y') || sNorm.contains('<1year'))) return true;
+    if (dNorm.contains('>1year') && (sNorm.contains('>1y') || sNorm.contains('>1year'))) return true;
+    if (dNorm.contains('>5year') && (sNorm.contains('>5y') || sNorm.contains('>5year'))) return true;
+    if (dNorm.contains('>10year') && (sNorm.contains('>10y') || sNorm.contains('>10year'))) return true;
+    return false;
+  }
+
+  Map<String, dynamic> _resolveComplaintData(Map<String, dynamic> complaints, String complaintKey) {
+    if (complaints.isEmpty) return const {};
+    if (complaints[complaintKey] is Map && (complaints[complaintKey] as Map).isNotEmpty) {
+      return Map<String, dynamic>.from(complaints[complaintKey] as Map);
+    }
+    final lowerKey = complaintKey.toLowerCase().trim();
+    if (complaints[lowerKey] is Map && (complaints[lowerKey] as Map).isNotEmpty) {
+      return Map<String, dynamic>.from(complaints[lowerKey] as Map);
+    }
+    final withSpaces = lowerKey.replaceAll(RegExp(r'[_\-]+'), ' ').trim();
+    final withUnderscores = lowerKey.replaceAll(RegExp(r'[\s\-]+'), '_').trim();
+    if (complaints[withSpaces] is Map && (complaints[withSpaces] as Map).isNotEmpty) {
+      return Map<String, dynamic>.from(complaints[withSpaces] as Map);
+    }
+    if (complaints[withUnderscores] is Map && (complaints[withUnderscores] as Map).isNotEmpty) {
+      return Map<String, dynamic>.from(complaints[withUnderscores] as Map);
+    }
+
+    final List<String> aliases = [];
+    if (lowerKey.contains('prolapse') || lowerKey.contains('hanging') || lowerKey.contains('पाठेघर') || lowerKey.contains('mass')) {
+      aliases.addAll(['prolapse', 'something hanging out', 'something_hanging_out']);
+    } else if (lowerKey.contains('discharge') || lowerKey.contains('itching') || lowerKey.contains('स्राव') || lowerKey.contains('चिलाउने')) {
+      aliases.addAll(['discharge', 'discharge and or itching', 'discharge_and_or_itching', 'discharge / itching', 'discharge___itching', 'discharge_itching']);
+    } else if (lowerKey.contains('urine') || lowerKey.contains('पिसाब') || lowerKey.contains('micturition')) {
+      aliases.addAll(['urine', 'problems passing urine', 'problems_passing_urine']);
+    } else if (lowerKey.contains('stool') || lowerKey.contains('दिसा') || lowerKey.contains('bowel')) {
+      aliases.addAll(['stool', 'problems passing stool', 'problems_passing_stool']);
+    } else if (lowerKey.contains('menstrual') || lowerKey.contains('महिनावारी')) {
+      aliases.addAll(['menstrual', 'menstrual problem', 'menstrual_problem']);
+    } else if (lowerKey.contains('infertility') || lowerKey.contains('बाँझोपन') || lowerKey.contains('निःसन्तान')) {
+      aliases.addAll(['infertility']);
+    } else if (lowerKey.contains('abdomen') || lowerKey.contains('तल्लो पेट')) {
+      aliases.addAll(['lower_abdomen_pain', 'lower abdomen pain', 'pain']);
+    } else if (lowerKey.contains('back') || lowerKey.contains('ढाड') || lowerKey.contains('कम्मर')) {
+      aliases.addAll(['lower_back_pain', 'lower back pain', 'pain']);
+    } else if (lowerKey == 'pain' || lowerKey.contains('दुख्ने')) {
+      aliases.addAll(['pain', 'lower_abdomen_pain', 'lower_back_pain']);
+    } else if (lowerKey.contains('checkup') || lowerKey.contains('जाँच')) {
+      aliases.addAll(['checkup']);
+    }
+
+    for (final a in aliases) {
+      if (complaints[a] is Map && (complaints[a] as Map).isNotEmpty) {
+        return Map<String, dynamic>.from(complaints[a] as Map);
+      }
+    }
+
+    for (final entry in complaints.entries) {
+      if (entry.value is! Map || (entry.value as Map).isEmpty) continue;
+      final k = entry.key.toLowerCase().trim();
+      final kClean = k.replaceAll(RegExp(r'[^a-z0-9]'), '');
+      final keyClean = lowerKey.replaceAll(RegExp(r'[^a-z0-9]'), '');
+      if (kClean.isNotEmpty && keyClean.isNotEmpty && (kClean.contains(keyClean) || keyClean.contains(kClean))) {
+        return Map<String, dynamic>.from(entry.value as Map);
+      }
+    }
+    return const {};
   }
 
   @override
@@ -108,6 +183,12 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         final rem = entry.value['remarks'] as String?;
         if (rem != null && rem.isNotEmpty) {
           _getRemarksController(entry.key, rem).text = rem;
+          final lk = entry.key.toLowerCase().trim();
+          final withSpaces = lk.replaceAll(RegExp(r'[_\-]+'), ' ').trim();
+          final withUnderscores = lk.replaceAll(RegExp(r'[\s\-]+'), '_').trim();
+          _getRemarksController(lk, rem).text = rem;
+          _getRemarksController(withSpaces, rem).text = rem;
+          _getRemarksController(withUnderscores, rem).text = rem;
         }
       }
     }
@@ -814,16 +895,24 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   ? '${masterItem.labelEn} (${masterItem.labelNe})'
                   : masterItem.labelEn;
 
+              final matchesFn = stdMatch?['matches'] as bool Function(List<String>)?;
+              final bool isIntakeReason = (matchesFn != null && matchesFn(patientReasons)) ||
+                  patientReasons.any((r) {
+                    final rClean = r.replaceAll(RegExp(r'[^a-z0-9]'), '');
+                    final codeClean = code.replaceAll(RegExp(r'[^a-z0-9]'), '');
+                    final labelClean = masterItem.labelEn.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                    return (codeClean.isNotEmpty && rClean.contains(codeClean)) ||
+                           (labelClean.isNotEmpty && (rClean.contains(labelClean) || labelClean.contains(rClean))) ||
+                           (masterItem.labelNe.isNotEmpty && r.contains(masterItem.labelNe.toLowerCase()));
+                  });
+
               resolvedComplaints.add({
                 'key': code,
                 'title': title,
                 'subCategory': masterItem.subCategory ?? stdMatch?['subCategory'],
                 'hasDuration': stdMatch?['hasDuration'] ?? true,
                 'options': stdMatch?['options'] ?? <String>[],
-                'isIntakeReason': patientReasons.any((r) =>
-                    r.contains(code) ||
-                    r.contains(masterItem.labelEn.toLowerCase()) ||
-                    (masterItem.labelNe.isNotEmpty && r.contains(masterItem.labelNe.toLowerCase()))),
+                'isIntakeReason': isIntakeReason,
               });
             }
           } else {
@@ -865,17 +954,29 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     required List<String> options,
     bool isIntakeReason = false,
   }) {
-    final complaintData = (state.complaints[complaintKey] as Map?) ??
-        (state.complaints[complaintKey.toLowerCase()] as Map?) ??
-        {};
-    final selectedDuration = (complaintData['duration'] as String?) ??
-        (state.complaints['complaintsDuration'] as String?);
-    final rawOptions = complaintData['options'];
-    final List<String> selectedOptions = rawOptions is List ? List<String>.from(rawOptions) : [];
-    final currentRemarks = (complaintData['remarks'] as String?) ?? '';
+    final complaintData = _resolveComplaintData(state.complaints, complaintKey);
+    final selectedDuration = (complaintData['duration'] as String?)?.trim() ??
+        (state.complaints['complaintsDuration'] as String?)?.trim();
+    final rawOptions = complaintData['options'] ??
+        complaintData['subOptions'] ??
+        complaintData['subOption'];
+    final List<String> selectedOptions = [];
+    if (rawOptions is List) {
+      for (final o in rawOptions) {
+        final s = o?.toString().trim().toLowerCase();
+        if (s != null && s.isNotEmpty && !selectedOptions.contains(s)) selectedOptions.add(s);
+      }
+    } else if (rawOptions is String && rawOptions.trim().isNotEmpty) {
+      for (final p in rawOptions.split(',')) {
+        final s = p.trim().toLowerCase();
+        if (s.isNotEmpty && !selectedOptions.contains(s)) selectedOptions.add(s);
+      }
+    }
+    final currentRemarks = (complaintData['remarks'] as String?)?.trim() ?? '';
     final remarksController = _getRemarksController(complaintKey, currentRemarks);
 
     final hasActiveSelections = (complaintData['active'] == true) ||
+        (complaintData['present'] == true) ||
         (selectedDuration != null && selectedDuration.isNotEmpty) ||
         selectedOptions.isNotEmpty ||
         currentRemarks.isNotEmpty;
@@ -892,7 +993,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
       ...durationOptions,
       if (selectedDuration != null &&
           selectedDuration.isNotEmpty &&
-          !durationOptions.contains(selectedDuration))
+          !durationOptions.any((d) => _isDurationMatch(d, selectedDuration)))
         selectedDuration,
     ];
 
@@ -957,6 +1058,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   vm.updateComplaint(complaintKey, {
                     ...complaintData,
                     'active': true,
+                    'present': true,
                     if (hasDuration) 'duration': defDuration,
                   });
                 } else {
@@ -985,7 +1087,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       spacing: 6,
                       runSpacing: 6,
                       children: allDurations.map((d) {
-                        final isDurSelected = selectedDuration == d;
+                        final isDurSelected = _isDurationMatch(d, selectedDuration);
                         return ChoiceChip(
                           visualDensity: VisualDensity.compact,
                           label: Text(
@@ -1018,7 +1120,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       spacing: 6,
                       runSpacing: 6,
                       children: options.map((opt) {
-                        final isChecked = selectedOptions.contains(opt);
+                        final isChecked = selectedOptions.any((s) =>
+                            s == opt.toLowerCase().trim() ||
+                            opt.toLowerCase().trim().contains(s) ||
+                            s.contains(opt.toLowerCase().trim()));
                         return FilterChip(
                           visualDensity: VisualDensity.compact,
                           label: Text(

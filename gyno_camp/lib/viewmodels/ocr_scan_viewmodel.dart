@@ -674,11 +674,76 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     if (state.scanResult == null) return;
     final updatedObs = Map<String, dynamic>.from(state.scanResult!.obstetrics);
     final details = _safeComplaintDetailsMap(updatedObs['complaintDetails']);
-    final item = Map<String, dynamic>.from(details[complaint] as Map? ?? {});
+
+    // Find existing item from complaint or any alias
+    Map<String, dynamic> findExisting() {
+      if (details.containsKey(complaint)) return Map<String, dynamic>.from(details[complaint] as Map? ?? {});
+      final lk = complaint.toLowerCase().trim();
+      if (details.containsKey(lk)) return Map<String, dynamic>.from(details[lk] as Map? ?? {});
+      final sp = lk.replaceAll(RegExp(r'[_\-]+'), ' ').trim();
+      if (details.containsKey(sp)) return Map<String, dynamic>.from(details[sp] as Map? ?? {});
+      final us = lk.replaceAll(RegExp(r'[\s\-]+'), '_').trim();
+      if (details.containsKey(us)) return Map<String, dynamic>.from(details[us] as Map? ?? {});
+      for (final entry in details.entries) {
+        final ek = entry.key.toLowerCase().trim();
+        if ((ek.contains('prolapse') || ek.contains('hanging')) && (lk.contains('prolapse') || lk.contains('hanging'))) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+        if ((ek.contains('urine') || ek.contains('micturition')) && (lk.contains('urine') || lk.contains('micturition'))) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+        if ((ek.contains('discharge') || ek.contains('itching')) && (lk.contains('discharge') || lk.contains('itching'))) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+      }
+      return {};
+    }
+
+    final item = findExisting();
     if (duration != null) item['duration'] = duration;
     if (remarks != null) item['remarks'] = remarks;
-    if (subOption != null) item['subOption'] = subOption;
-    details[complaint] = item;
+    if (subOption != null) {
+      if (subOption is List) {
+        item['subOption'] = subOption.join(', ');
+        item['subOptions'] = subOption;
+        item['options'] = subOption;
+      } else {
+        item['subOption'] = subOption.toString();
+        item['subOptions'] = subOption.toString().split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        item['options'] = item['subOptions'];
+      }
+    }
+
+    // Mirror to all aliases
+    final lowerC = complaint.toLowerCase().trim();
+    final withSpaces = lowerC.replaceAll(RegExp(r'[_\-]+'), ' ').trim();
+    final withUnderscores = lowerC.replaceAll(RegExp(r'[\s\-]+'), '_').trim();
+    final aliases = <String>{complaint, lowerC, withSpaces, withUnderscores};
+    if (lowerC.contains('hanging') || lowerC.contains('prolapse')) {
+      aliases.addAll(['prolapse', 'something hanging out', 'something_hanging_out']);
+    } else if (lowerC.contains('discharge') || lowerC.contains('itching')) {
+      aliases.addAll(['discharge', 'discharge and or itching', 'discharge_and_or_itching', 'discharge / itching', 'discharge___itching', 'discharge_itching']);
+    } else if (lowerC.contains('urine') || lowerC.contains('micturition')) {
+      aliases.addAll(['urine', 'problems passing urine', 'problems_passing_urine']);
+    } else if (lowerC.contains('stool') || lowerC.contains('bowel')) {
+      aliases.addAll(['stool', 'problems passing stool', 'problems_passing_stool']);
+    } else if (lowerC.contains('menstrual')) {
+      aliases.addAll(['menstrual', 'menstrual problem', 'menstrual_problem']);
+    } else if (lowerC.contains('infertility')) {
+      aliases.addAll(['infertility']);
+    } else if (lowerC.contains('abdomen')) {
+      aliases.addAll(['lower_abdomen_pain', 'lower abdomen pain', 'pain']);
+    } else if (lowerC.contains('back')) {
+      aliases.addAll(['lower_back_pain', 'lower back pain', 'pain']);
+    } else if (lowerC == 'pain') {
+      aliases.addAll(['pain', 'lower_abdomen_pain', 'lower_back_pain']);
+    } else if (lowerC.contains('checkup')) {
+      aliases.addAll(['checkup']);
+    }
+
+    for (final a in aliases) {
+      details[a] = Map<String, dynamic>.from(item);
+    }
     updatedObs['complaintDetails'] = details;
 
     state = state.copyWith(

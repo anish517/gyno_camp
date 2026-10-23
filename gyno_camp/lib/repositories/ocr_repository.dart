@@ -322,68 +322,197 @@ class OcrRepository implements IOcrRepository {
       'complaintsDuration': duration,
     };
     final complaintDetails = _safeComplaintDetailsMap(obs['complaintDetails']);
-    for (final c in complaintsList) {
-      final itemDetails = Map<String, dynamic>.from(complaintDetails[c] as Map? ?? {});
+
+    // Helper to find complaint details across all alias formats
+    Map<String, dynamic> findDetails(String key) {
+      if (complaintDetails.containsKey(key)) {
+        return Map<String, dynamic>.from(complaintDetails[key] as Map? ?? {});
+      }
+      final lk = key.toLowerCase().trim();
+      if (complaintDetails.containsKey(lk)) {
+        return Map<String, dynamic>.from(complaintDetails[lk] as Map? ?? {});
+      }
+      final withSpaces = lk.replaceAll(RegExp(r'[_\-]+'), ' ').trim();
+      if (complaintDetails.containsKey(withSpaces)) {
+        return Map<String, dynamic>.from(complaintDetails[withSpaces] as Map? ?? {});
+      }
+      final withUnderscores = lk.replaceAll(RegExp(r'[\s\-]+'), '_').trim();
+      if (complaintDetails.containsKey(withUnderscores)) {
+        return Map<String, dynamic>.from(complaintDetails[withUnderscores] as Map? ?? {});
+      }
+      for (final entry in complaintDetails.entries) {
+        final ek = entry.key.toLowerCase().trim();
+        if ((ek.contains('prolapse') || ek.contains('hanging')) && (lk.contains('prolapse') || lk.contains('hanging'))) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+        if ((ek.contains('urine') || ek.contains('micturition')) && (lk.contains('urine') || lk.contains('micturition'))) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+        if ((ek.contains('discharge') || ek.contains('itching')) && (lk.contains('discharge') || lk.contains('itching'))) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+        if (ek.contains('stool') && lk.contains('stool')) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+        if (ek.contains('menstrual') && lk.contains('menstrual')) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+        if (ek.contains('infertility') && lk.contains('infertility')) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+        if (ek.contains('abdomen') && lk.contains('abdomen')) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+        if (ek.contains('back') && lk.contains('back')) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+        if (ek.contains('checkup') && lk.contains('checkup')) {
+          return Map<String, dynamic>.from(entry.value as Map? ?? {});
+        }
+      }
+      return const {};
+    }
+
+    void storeAnamnesisItem(String primaryKey, Map<String, dynamic> itemDetails) {
       final itemDur = (itemDetails['duration'] as String?)?.isNotEmpty == true
           ? itemDetails['duration'] as String
           : duration;
-      final itemRemarks = itemDetails['remarks'] ?? '';
-      final itemSubOption = itemDetails['subOption'] ?? '';
-      anamnesisMap[c] = {
+      final itemRemarks = (itemDetails['remarks'] as String?) ?? '';
+      final rawSub = itemDetails['subOption'] ?? itemDetails['subOptions'] ?? itemDetails['options'];
+      final List<String> optionsList = [];
+      if (rawSub is List) {
+        for (final o in rawSub) {
+          final s = o?.toString().trim();
+          if (s != null && s.isNotEmpty && !optionsList.contains(s)) optionsList.add(s);
+        }
+      } else if (rawSub is String && rawSub.trim().isNotEmpty) {
+        for (final o in rawSub.split(',')) {
+          final s = o.trim();
+          if (s.isNotEmpty && !optionsList.contains(s)) optionsList.add(s);
+        }
+      }
+      final subOptionStr = optionsList.join(', ');
+
+      final entryData = {
         'present': true,
+        'active': true,
         'duration': itemDur,
         'remarks': itemRemarks,
-        'subOption': itemSubOption,
+        'subOption': subOptionStr,
+        'subOptions': optionsList,
+        'options': optionsList,
       };
-      final lowerC = c.toLowerCase();
+
+      anamnesisMap[primaryKey] = entryData;
+      final lowerC = primaryKey.toLowerCase().trim();
+      final withSpaces = lowerC.replaceAll(RegExp(r'[_\-]+'), ' ').trim();
+      final withUnderscores = lowerC.replaceAll(RegExp(r'[\s\-]+'), '_').trim();
+      anamnesisMap[lowerC] = entryData;
+      anamnesisMap[withSpaces] = entryData;
+      anamnesisMap[withUnderscores] = entryData;
+
       if (lowerC.contains('mass') || lowerC.contains('vagina') || lowerC.contains('prolapse') || lowerC.contains('hanging')) {
-        anamnesisMap['prolapse'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
-        anamnesisMap['something hanging out'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
+        anamnesisMap['prolapse'] = entryData;
+        anamnesisMap['something hanging out'] = entryData;
+        anamnesisMap['something_hanging_out'] = entryData;
       }
       if (lowerC.contains('discharge') || lowerC.contains('foul') || lowerC.contains('white') || lowerC.contains('itching')) {
-        anamnesisMap['discharge'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
-        anamnesisMap['discharge and or itching'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
+        anamnesisMap['discharge'] = entryData;
+        anamnesisMap['discharge and or itching'] = entryData;
+        anamnesisMap['discharge_and_or_itching'] = entryData;
+        anamnesisMap['discharge / itching'] = entryData;
+        anamnesisMap['discharge___itching'] = entryData;
+        anamnesisMap['discharge_itching'] = entryData;
       }
       if (lowerC.contains('micturition') || lowerC.contains('incontinence') || lowerC.contains('urine')) {
-        anamnesisMap['urine'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
-        anamnesisMap['problems passing urine'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
+        anamnesisMap['urine'] = entryData;
+        anamnesisMap['problems passing urine'] = entryData;
+        anamnesisMap['problems_passing_urine'] = entryData;
       }
       if (lowerC.contains('pain') || lowerC.contains('backache') || lowerC.contains('heaviness')) {
-        anamnesisMap['pain'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
+        anamnesisMap['pain'] = entryData;
       }
       if (lowerC.contains('stool') || lowerC.contains('bowel')) {
-        anamnesisMap['stool'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
-        anamnesisMap['problems passing stool'] = {'present': true, 'duration': itemDur, 'remarks': itemRemarks, 'subOption': itemSubOption};
+        anamnesisMap['stool'] = entryData;
+        anamnesisMap['problems passing stool'] = entryData;
+        anamnesisMap['problems_passing_stool'] = entryData;
+      }
+      if (lowerC.contains('menstrual')) {
+        anamnesisMap['menstrual'] = entryData;
+        anamnesisMap['menstrual problem'] = entryData;
+        anamnesisMap['menstrual_problem'] = entryData;
+      }
+      if (lowerC.contains('infertility')) {
+        anamnesisMap['infertility'] = entryData;
+      }
+      if (lowerC.contains('abdomen')) {
+        anamnesisMap['lower_abdomen_pain'] = entryData;
+        anamnesisMap['lower abdomen pain'] = entryData;
+      }
+      if (lowerC.contains('back')) {
+        anamnesisMap['lower_back_pain'] = entryData;
+        anamnesisMap['lower back pain'] = entryData;
+      }
+      if (lowerC.contains('checkup')) {
+        anamnesisMap['checkup'] = entryData;
       }
     }
 
+    // Process all complaints in complaintsList
+    final processedComplaintKeys = <String>{};
+    for (final c in complaintsList) {
+      final details = findDetails(c);
+      storeAnamnesisItem(c, details);
+      processedComplaintKeys.add(c.toLowerCase().trim());
+    }
+
+    // Also include any complaint in complaintDetails that may have been missed
+    for (final entry in complaintDetails.entries) {
+      final k = entry.key.toLowerCase().trim();
+      if (!processedComplaintKeys.contains(k) && entry.value is Map) {
+        final val = Map<String, dynamic>.from(entry.value as Map);
+        storeAnamnesisItem(entry.key, val);
+      }
+    }
+
+    // Populate from intake reasons (Section B)
     final intakeReasons = List<String>.from(demo['reasonsForVisit'] as List? ?? const <String>[]);
     for (final r in intakeReasons) {
       final lowerR = r.toLowerCase();
+      final defaultEntry = {'present': true, 'active': true, 'duration': duration, 'options': <String>[], 'subOptions': <String>[], 'subOption': '', 'remarks': ''};
       if (lowerR.contains('hanging') || lowerR.contains('prolapse')) {
-        anamnesisMap.putIfAbsent('prolapse', () => {'present': true, 'duration': duration});
-        anamnesisMap.putIfAbsent('something hanging out', () => {'present': true, 'duration': duration});
+        anamnesisMap.putIfAbsent('prolapse', () => defaultEntry);
+        anamnesisMap.putIfAbsent('something hanging out', () => defaultEntry);
+        anamnesisMap.putIfAbsent('something_hanging_out', () => defaultEntry);
       }
       if (lowerR.contains('discharge') || lowerR.contains('itching')) {
-        anamnesisMap.putIfAbsent('discharge', () => {'present': true, 'duration': duration});
-        anamnesisMap.putIfAbsent('discharge and or itching', () => {'present': true, 'duration': duration});
+        anamnesisMap.putIfAbsent('discharge', () => defaultEntry);
+        anamnesisMap.putIfAbsent('discharge and or itching', () => defaultEntry);
+        anamnesisMap.putIfAbsent('discharge_and_or_itching', () => defaultEntry);
+        anamnesisMap.putIfAbsent('discharge / itching', () => defaultEntry);
+        anamnesisMap.putIfAbsent('discharge___itching', () => defaultEntry);
+        anamnesisMap.putIfAbsent('discharge_itching', () => defaultEntry);
       }
       if (lowerR.contains('urine')) {
-        anamnesisMap.putIfAbsent('urine', () => {'present': true, 'duration': duration});
-        anamnesisMap.putIfAbsent('problems passing urine', () => {'present': true, 'duration': duration});
+        anamnesisMap.putIfAbsent('urine', () => defaultEntry);
+        anamnesisMap.putIfAbsent('problems passing urine', () => defaultEntry);
+        anamnesisMap.putIfAbsent('problems_passing_urine', () => defaultEntry);
       }
       if (lowerR.contains('pain')) {
-        anamnesisMap.putIfAbsent('pain', () => {'present': true, 'duration': duration});
+        anamnesisMap.putIfAbsent('pain', () => defaultEntry);
       }
       if (lowerR.contains('stool')) {
-        anamnesisMap.putIfAbsent('stool', () => {'present': true, 'duration': duration});
-        anamnesisMap.putIfAbsent('problems passing stool', () => {'present': true, 'duration': duration});
+        anamnesisMap.putIfAbsent('stool', () => defaultEntry);
+        anamnesisMap.putIfAbsent('problems passing stool', () => defaultEntry);
+        anamnesisMap.putIfAbsent('problems_passing_stool', () => defaultEntry);
       }
       if (lowerR.contains('menstrual')) {
-        anamnesisMap.putIfAbsent('menstrual', () => {'present': true, 'duration': duration});
+        anamnesisMap.putIfAbsent('menstrual', () => defaultEntry);
+        anamnesisMap.putIfAbsent('menstrual problem', () => defaultEntry);
+        anamnesisMap.putIfAbsent('menstrual_problem', () => defaultEntry);
       }
       if (lowerR.contains('infertility')) {
-        anamnesisMap.putIfAbsent('infertility', () => {'present': true, 'duration': duration});
+        anamnesisMap.putIfAbsent('infertility', () => defaultEntry);
       }
     }
 

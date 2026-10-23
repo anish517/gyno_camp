@@ -346,40 +346,155 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     );
   }
 
+  Map<String, dynamic> _resolveComplaintData(String complaintKey) {
+    if (state.complaints.isEmpty) return const {};
+    if (state.complaints[complaintKey] is Map && (state.complaints[complaintKey] as Map).isNotEmpty) {
+      return Map<String, dynamic>.from(state.complaints[complaintKey] as Map);
+    }
+    final lowerKey = complaintKey.toLowerCase().trim();
+    if (state.complaints[lowerKey] is Map && (state.complaints[lowerKey] as Map).isNotEmpty) {
+      return Map<String, dynamic>.from(state.complaints[lowerKey] as Map);
+    }
+    final withSpaces = lowerKey.replaceAll(RegExp(r'[_\-]+'), ' ').trim();
+    final withUnderscores = lowerKey.replaceAll(RegExp(r'[\s\-]+'), '_').trim();
+    if (state.complaints[withSpaces] is Map && (state.complaints[withSpaces] as Map).isNotEmpty) {
+      return Map<String, dynamic>.from(state.complaints[withSpaces] as Map);
+    }
+    if (state.complaints[withUnderscores] is Map && (state.complaints[withUnderscores] as Map).isNotEmpty) {
+      return Map<String, dynamic>.from(state.complaints[withUnderscores] as Map);
+    }
+
+    final List<String> aliases = [];
+    if (lowerKey.contains('prolapse') || lowerKey.contains('hanging') || lowerKey.contains('mass')) {
+      aliases.addAll(['prolapse', 'something hanging out', 'something_hanging_out']);
+    } else if (lowerKey.contains('discharge') || lowerKey.contains('itching')) {
+      aliases.addAll(['discharge', 'discharge and or itching', 'discharge_and_or_itching', 'discharge / itching', 'discharge___itching', 'discharge_itching']);
+    } else if (lowerKey.contains('urine') || lowerKey.contains('micturition')) {
+      aliases.addAll(['urine', 'problems passing urine', 'problems_passing_urine']);
+    } else if (lowerKey.contains('stool') || lowerKey.contains('bowel')) {
+      aliases.addAll(['stool', 'problems passing stool', 'problems_passing_stool']);
+    } else if (lowerKey.contains('menstrual')) {
+      aliases.addAll(['menstrual', 'menstrual problem', 'menstrual_problem']);
+    } else if (lowerKey.contains('infertility')) {
+      aliases.addAll(['infertility']);
+    } else if (lowerKey.contains('abdomen')) {
+      aliases.addAll(['lower_abdomen_pain', 'lower abdomen pain', 'pain']);
+    } else if (lowerKey.contains('back')) {
+      aliases.addAll(['lower_back_pain', 'lower back pain', 'pain']);
+    } else if (lowerKey == 'pain') {
+      aliases.addAll(['pain', 'lower_abdomen_pain', 'lower_back_pain']);
+    } else if (lowerKey.contains('checkup')) {
+      aliases.addAll(['checkup']);
+    }
+
+    for (final a in aliases) {
+      if (state.complaints[a] is Map && (state.complaints[a] as Map).isNotEmpty) {
+        return Map<String, dynamic>.from(state.complaints[a] as Map);
+      }
+    }
+    return const {};
+  }
+
+  List<String> _getComplaintAliases(String complaintKey) {
+    final lowerKey = complaintKey.toLowerCase().trim();
+    final withSpaces = lowerKey.replaceAll(RegExp(r'[_\-]+'), ' ').trim();
+    final withUnderscores = lowerKey.replaceAll(RegExp(r'[\s\-]+'), '_').trim();
+    final set = <String>{complaintKey, lowerKey, withSpaces, withUnderscores};
+    if (lowerKey.contains('hanging') || lowerKey.contains('prolapse') || lowerKey.contains('mass')) {
+      set.addAll(['prolapse', 'something hanging out', 'something_hanging_out']);
+    } else if (lowerKey.contains('discharge') || lowerKey.contains('itching')) {
+      set.addAll(['discharge', 'discharge and or itching', 'discharge_and_or_itching', 'discharge / itching', 'discharge___itching', 'discharge_itching']);
+    } else if (lowerKey.contains('urine') || lowerKey.contains('micturition')) {
+      set.addAll(['urine', 'problems passing urine', 'problems_passing_urine']);
+    } else if (lowerKey.contains('stool') || lowerKey.contains('bowel')) {
+      set.addAll(['stool', 'problems passing stool', 'problems_passing_stool']);
+    } else if (lowerKey.contains('menstrual')) {
+      set.addAll(['menstrual', 'menstrual problem', 'menstrual_problem']);
+    } else if (lowerKey.contains('infertility')) {
+      set.addAll(['infertility']);
+    } else if (lowerKey.contains('abdomen')) {
+      set.addAll(['lower_abdomen_pain', 'lower abdomen pain', 'pain']);
+    } else if (lowerKey.contains('back')) {
+      set.addAll(['lower_back_pain', 'lower back pain', 'pain']);
+    } else if (lowerKey == 'pain') {
+      set.addAll(['pain', 'lower_abdomen_pain', 'lower_back_pain']);
+    } else if (lowerKey.contains('checkup')) {
+      set.addAll(['checkup']);
+    }
+    return set.toList();
+  }
+
   void updateComplaint(String complaintKey, Map<String, dynamic> data) {
     final map = Map<String, dynamic>.from(state.complaints);
-    map[complaintKey] = data;
+    for (final k in _getComplaintAliases(complaintKey)) {
+      if (data.isEmpty) {
+        map.remove(k);
+      } else {
+        map[k] = Map<String, dynamic>.from(data);
+      }
+    }
     state = state.copyWith(complaints: map);
   }
 
   void setComplaintDuration(String complaintKey, String duration) {
     final map = Map<String, dynamic>.from(state.complaints);
-    final current = Map<String, dynamic>.from((map[complaintKey] as Map?) ?? {});
+    final current = Map<String, dynamic>.from(_resolveComplaintData(complaintKey));
     current['duration'] = duration;
-    map[complaintKey] = current;
+    current['active'] = true;
+    current['present'] = true;
+    for (final k in _getComplaintAliases(complaintKey)) {
+      map[k] = Map<String, dynamic>.from(current);
+    }
     state = state.copyWith(complaints: map);
   }
 
   void toggleComplaintOption(String complaintKey, String option) {
     final map = Map<String, dynamic>.from(state.complaints);
-    final current = Map<String, dynamic>.from((map[complaintKey] as Map?) ?? {});
-    final rawOptions = current['options'];
-    final List<String> optionsList = rawOptions is List ? List<String>.from(rawOptions) : [];
-    if (optionsList.contains(option)) {
-      optionsList.remove(option);
+    final current = Map<String, dynamic>.from(_resolveComplaintData(complaintKey));
+    final rawOptions = current['options'] ?? current['subOptions'] ?? current['subOption'];
+    final List<String> optionsList = [];
+    if (rawOptions is List) {
+      for (final item in rawOptions) {
+        final s = item?.toString().trim();
+        if (s != null && s.isNotEmpty && !optionsList.contains(s)) {
+          optionsList.add(s);
+        }
+      }
+    } else if (rawOptions is String && rawOptions.trim().isNotEmpty) {
+      for (final item in rawOptions.split(',')) {
+        final s = item.trim();
+        if (s.isNotEmpty && !optionsList.contains(s)) {
+          optionsList.add(s);
+        }
+      }
+    }
+
+    final matchIdx = optionsList.indexWhere((e) => e.toLowerCase() == option.toLowerCase());
+    if (matchIdx >= 0) {
+      optionsList.removeAt(matchIdx);
     } else {
       optionsList.add(option);
     }
     current['options'] = optionsList;
-    map[complaintKey] = current;
+    current['subOptions'] = optionsList;
+    current['subOption'] = optionsList.join(', ');
+    current['active'] = true;
+    current['present'] = true;
+    for (final k in _getComplaintAliases(complaintKey)) {
+      map[k] = Map<String, dynamic>.from(current);
+    }
     state = state.copyWith(complaints: map);
   }
 
   void setComplaintRemarks(String complaintKey, String remarks) {
     final map = Map<String, dynamic>.from(state.complaints);
-    final current = Map<String, dynamic>.from((map[complaintKey] as Map?) ?? {});
+    final current = Map<String, dynamic>.from(_resolveComplaintData(complaintKey));
     current['remarks'] = remarks;
-    map[complaintKey] = current;
+    current['active'] = true;
+    current['present'] = true;
+    for (final k in _getComplaintAliases(complaintKey)) {
+      map[k] = Map<String, dynamic>.from(current);
+    }
     state = state.copyWith(complaints: map);
   }
 
