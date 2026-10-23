@@ -230,18 +230,9 @@ ${page2.rawText}
       page1RawText: page1.rawText,
       page2RawText: page2.rawText,
       demographics: Map<String, dynamic>.from(page1.demographics.isNotEmpty ? page1.demographics : page2.demographics),
-      obstetrics: <String, dynamic>{
-        ...page1.obstetrics,
-        ...page2.obstetrics,
-      },
-      vitals: <String, dynamic>{
-        ...page1.vitals,
-        ...page2.vitals,
-      },
-      popStaging: <String, dynamic>{
-        ...page1.popStaging,
-        ...page2.popStaging,
-      },
+      obstetrics: _mergeMapNullAware(page1.obstetrics, page2.obstetrics),
+      vitals: _mergeMapNullAware(page1.vitals, page2.vitals),
+      popStaging: _mergeMapNullAware(page1.popStaging, page2.popStaging),
       diagnoses: List<String>.from(page2.diagnoses.isNotEmpty ? page2.diagnoses : page1.diagnoses),
       counseling: List<String>.from(page2.counseling.isNotEmpty ? page2.counseling : page1.counseling),
       medications: List<String>.from(page2.medications.isNotEmpty ? page2.medications : page1.medications),
@@ -310,6 +301,8 @@ ${page2.rawText}
       'attendingNurses': attendingNurses.join(','),
       'treatmentLevel': treatmentLevel,
       'clinicalNotes': clinicalNotes,
+      'intakeDate': intakeDate,
+      'examDate': examDate,
       'treatmentDate': treatmentDate,
       'conclusionDate': conclusionDate,
       'labTestDate': labTestDate,
@@ -354,4 +347,29 @@ ${page2.rawText}
   bool get isFullCheckUp => isGynocheckup;
   String get consultationLabel => isCounseling ? 'Counseling' : (isGynocheckup ? 'Gynocheckup' : 'Unassigned');
   String get treatmentLabel => consultationLabel;
+
+  /// Null/empty-aware map merge for dual-page OCR results.
+  /// Later page values only override earlier page values when they are
+  /// non-null and non-empty. This prevents Page 2's default empty lists /
+  /// null fields from wiping Page 1's real extracted data.
+  static Map<String, dynamic> _mergeMapNullAware(
+    Map<String, dynamic> base,
+    Map<String, dynamic> overlay,
+  ) {
+    final result = Map<String, dynamic>.from(base);
+    for (final entry in overlay.entries) {
+      final value = entry.value;
+      // Skip null values — keep base
+      if (value == null) continue;
+      // Skip empty strings
+      if (value is String && value.isEmpty) continue;
+      // Skip empty lists
+      if (value is List && value.isEmpty) continue;
+      // Skip empty maps
+      if (value is Map && value.isEmpty) continue;
+      // Non-null, non-empty: override
+      result[entry.key] = value;
+    }
+    return result;
+  }
 }

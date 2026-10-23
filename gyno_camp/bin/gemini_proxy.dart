@@ -91,9 +91,9 @@ class GeminiProxy {
   static const int maxImageBase64Chars = 8 * 1024 * 1024;
 
   static const List<String> defaultModels = [
-    'gemini-flash-lite-latest',
-    'gemini-3-flash-preview',
+    'gemini-2.5-flash-preview-05-20',
     'gemini-flash-latest',
+    'gemini-flash-lite-latest',
   ];
 
   GeminiProxy({
@@ -154,7 +154,7 @@ class GeminiProxy {
         },
       ],
       'generationConfig': {
-        'temperature': 0.1,
+        'temperature': 0.0,
         'response_mime_type': 'application/json',
       },
     });
@@ -243,22 +243,30 @@ class GeminiProxy {
 You are an expert clinical digitization assistant for the official Nepal Ministry of Health and Population (MoHP) Gynecological Camp Yellow Form (गाइनो शिविर फाराम).
 Analyze the provided medical intake form image carefully (Target Page: ${pageNumber == 0 ? 'Auto-detect' : 'Page $pageNumber'}).
 
-CRITICAL FORM INSTRUCTIONS:
+CRITICAL RULES:
 - The Yellow Form is a standardized 2-page intake instrument. Do NOT invent, assume, or hallucinate fields that are not printed on the physical form.
 - Specifically: There is NO caste, NO education, NO occupation, NO gravida, NO respiratory rate, NO temperature, NO weight, and NO height on this form.
 - Extract ONLY the actual printed fields, checkboxes, letter boxes, and handwritten entries.
+- If a tick-box or value is blank, unreadable, or not filled in, return null for that field. NEVER guess or invent values.
+- For integer fields: return null (NOT 0) if the field is blank or unreadable.
+- For string fields: return null (NOT empty string) if the field is blank or unreadable.
+- For boolean fields: return null if the checkbox area is blank or ambiguous.
 
 FORM STRUCTURE BY PAGE:
 
 PAGE 1 (FRONT) — PATIENT REGISTRATION:
 1. Header:
    - "PATIENT TOKEN ID / बिरामी टोकन नं." (or अस्पताल दर्ता नं.) format: e.g. "KTM01-0001" or QR code string
+   - "Date / मिति" -> intakeDate (the date written on Page 1 header, format YYYY-MM-DD if possible)
+   - "Level of Treatment / उपचारको तह" (2 checkboxes: "Counseling / काउन्सिलिङ" or "Gynocheckup / Full Check Up / गाइनो जाँच") -> treatmentLevel
 2. Section A: Patient Demographics / बिरामी विवरण:
    - "First Name: पहिलो नाम" (letter boxes)
    - "Surname: थर" (letter boxes)
    - "Patient Age: उमेर" (numeric digit boxes)
    - "Marital Status / वैवाहिक स्थिति" (4 checkboxes: Married, Widow, Unmarried, Divorced)
    - "Husband's / Father's Name: श्रीमान् / बुबाको नाम" (letter boxes -> relativeName)
+   - IMPORTANT: Check which label is ticked/circled: "Husband / श्रीमान्" or "Father / बुबा" -> relationType: "Husband" or "Father"
+   - "Relative Surname: थर" (letter boxes -> relativeSurname, surname of the husband/father)
    - "Mobile No.: मोबाइल नम्बर" (10 digit boxes)
    - "Age at Marriage: विवाह भएको उमेर" (numeric digit boxes -> maritalAge)
    - "Contact Person (Secondary): सम्पर्क व्यक्ति" (letter boxes -> contactPerson)
@@ -281,13 +289,13 @@ PAGE 1 (FRONT) — PATIENT REGISTRATION:
    - "I consent to storage of my medical information / स्वास्थ्य विवरण भण्डारण गर्न सहमत छु" (consentStoreMedicalInfo: bool)
 
 PAGE 2 (BACK) — CLINICAL ASSESSMENT (STATIONS 1-6):
-1. Header: "Examination Date", "uterus inside" (2 checkboxes: "yes", "no" -> uterusInside: true/false)
+1. Header: "Examination Date" -> examDate, "uterus inside" (2 checkboxes: "yes", "no" -> uterusInside: true/false)
 2. Station 1: Anamnesis & Obstetric History:
    - "Deliveries (NR): [ ]" (integer deliveries)
    - "Living Children (NR): [ ]" (integer livingChildren)
    - "Abortion (NR): [ ]" (integer abortions)
    - "Complaints Duration:" (5 checkboxes: "< 1month", "< 1 year", "> 1 year", "> 5 years", "> 10 years")
-   - "Clinical Complaints & Sub-options:"
+   - "Clinical Complaints & Sub-options:" — for each complaint that is ticked, also capture its sub-options:
      - "something hanging out": previous treatment: [ ] pessary [ ] surgery, remarks
      - "discharge / itching": colour: [ ] white [ ] yellow [ ] green [ ] grey [ ] smelly, remarks
      - "problems passing urine": type incontinence: [ ] stress [ ] urge [ ] continuous flow, remarks
@@ -299,39 +307,40 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT (STATIONS 1-6):
      - "checkup": remarks
 3. Station 2: Physical Exam & POP Staging:
    - "uterus inside:" (2 checkboxes: "yes", "no")
-   - "vulva": [ ] normal or [ handwritten text ]
-   - "vagina": [ ] normal or [ handwritten text ]
-   - "cervix": [ ] normal or [ handwritten text ]
-   - "uterus": [ ] normal or [ handwritten text ]
+   - "vulva": [ ] normal checkbox OR [ handwritten text ] — report "normal" if checkbox is ticked, otherwise the handwritten text
+   - "vagina": [ ] normal checkbox OR [ handwritten text ]
+   - "cervix": [ ] normal checkbox OR [ handwritten text ]
+   - "uterus": [ ] normal checkbox OR [ handwritten text ]
    - "pelvic floor muscle:" (3 checkboxes: "normal", "weak", "hypertonic" -> pelvicFloorTone: string)
    - "POP anterior wall:" (checkboxes: "stage 0", "stage 1", "stage 2", "stage 3" -> 0-3)
    - "POP middle part:" (checkboxes: "stage 0", "stage 1", "stage 2", "stage 3", "stage 4" -> 0-4)
    - "POP posterior wall:" (checkboxes: "stage 0", "stage 1", "stage 2", "stage 3" -> 0-3)
    - "highest POP stage:" (checkboxes: "highest POP stage 0", "stage 1", "stage 2", "stage 3", "stage 4" -> 0-4)
-4. Station 3: Vitals & Point-of-Care Labs:
+4. Station 3: Vitals & Point-of-Care Labs (look for "Lab Date" or "Station 3 Date" -> labTestDate):
    - "urine test:" (Checkboxes: "normal", "pos")
    - "pregnancy test (UPT):" (Checkboxes: "neg", "pos")
    - "bloodpressure:" [ systolic ] / [ diastolic ] mmHg
    - "pulse:" [ ] bpm, "saturation / SpO2:" [ ] %, "glucose:" [ ] mg/dL
    - "ECG:" (Checkboxes: "Normal Sinus", "Abnormal", "Not Done", and handwritten "ECG Notes")
-5. Station 4: Confirmed Diagnoses (21 checkboxes + Other):
+5. Station 4: Confirmed Diagnoses (look for "Conclusion Date" -> conclusionDate) (21 checkboxes + Other):
    - Checkboxes: "atrophy vagina", "bacterial vaginosis", "candid infection", "trichomonas",
      "PID", "cervicitis", "cervical polyp", "cervical carcinoma", "condylomata", "fistula",
      "infertility", "myoma", "cystitis", "lichen sclerosis", "stress incontinence", "ovarian tumor",
      "urge incontinence", "menstrual disorder", "weak pelvic floor muscle", "pregnancy",
      "hypertonic pelvic floor muscle", and handwritten text under "Other:"
-6. Station 5: Treatment & Prescriptions:
+6. Station 5: Treatment & Prescriptions (look for "Treatment Date" -> treatmentDate):
    - "spec counseling" (5 checkboxes): "weak pelvic floor", "POP", "stress incontinence", "urge incontinence", "abdominal pain"
    - "pessary" (3 checkboxes): "ring", "ring with support", "ring with knob", "size: [   ]"
+   - IMPORTANT: Pessary is a DEVICE fitting, NOT a dispensed medication. Do NOT include pessary in the medications list.
    - "referral surgery" (3 checkboxes): "Scheer Memorial", "Model Hosp", "loc government"
-   - "medication" (10 checkboxes):
+   - "medication" (10 checkboxes) — these are the ONLY dispensed drugs:
      "clotrimazol (canesten)", "estradiol crème", "metronidazol", "doxycycline",
      "azithromycin", "nitrofurantoine", "medroxyprogesterone", "ciproflox", "mirasin", "clobetasol",
      and handwritten text under "other:"
-7. Station 6: Outtake & Follow-up:
+7. Station 6: Outtake & Follow-up (look for "Outtake Date" -> outtakeDate):
    - "follow up needed:" (checkboxes: "Health Post", "GynaeSupport Nurse")
    - "no follow up needed"
-   - Clinical notes / remarks
+   - Clinical notes / remarks / outtake observations -> clinicalNotes
 8. Page 2 Footer / Examining Clinician Sign-off:
    - Look for examining doctor name or checked doctor box
    - Look for attending nurse name or checked nurse box
@@ -340,43 +349,60 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT (STATIONS 1-6):
 Extract the information accurately into this EXACT JSON structure:
 {
   "pageNumber": ${pageNumber == 0 ? '1 or 2' : pageNumber},
+  "treatmentLevel": "counseling or gyno_checkup or null (from Level of Treatment checkbox on Page 1)",
+  "intakeDate": "Date from Page 1 header in YYYY-MM-DD format or null",
+  "examDate": "Examination Date from Page 2 header in YYYY-MM-DD format or null",
+  "labTestDate": "Lab/Station 3 date in YYYY-MM-DD format or null",
+  "conclusionDate": "Conclusion/Station 4 date in YYYY-MM-DD format or null",
+  "treatmentDate": "Treatment/Station 5 date in YYYY-MM-DD format or null",
+  "outtakeDate": "Outtake/Station 6 date in YYYY-MM-DD format or null",
   "demographics": {
-    "patientTokenId": "Token or registration ID (e.g. GC-KTM01-2026-001 or KTM01-0001)",
-    "firstName": "First name of patient (e.g. MAYA)",
-    "surname": "Surname (e.g. TAMANG)",
+    "patientTokenId": "Token or registration ID (e.g. GC-KTM01-2026-001 or KTM01-0001) or null",
+    "firstName": "First name of patient (e.g. MAYA) or null",
+    "surname": "Surname (e.g. TAMANG) or null",
     "age": number or null,
-    "maritalStatus": "married or widow or unmarried or divorced",
-    "relativeName": "Husband or father name (e.g. SOM BAHADUR TAMANG)",
-    "mobile": "10-digit phone number or empty",
+    "maritalStatus": "married or widow or unmarried or divorced or null",
+    "relativeName": "Husband or father first name (e.g. SOM BAHADUR) or null",
+    "relationType": "Husband or Father or null (from the ticked/circled label)",
+    "relativeSurname": "Surname of husband/father (e.g. TAMANG) or null",
+    "mobile": "10-digit phone number or null",
     "maritalAge": number or null,
-    "contactPerson": "Secondary contact person name (e.g. BISHAL TAMANG)",
-    "contactMobile": "10-digit contact phone number or empty",
-    "province": "Province name (e.g. BAGMATI)",
-    "district": "District name (e.g. KATHMANDU)",
-    "municipality": "Palika or municipality name (e.g. BUDHANILKANTHA)",
-    "ward": "Ward number (e.g. 04)",
-    "reasonsForVisit": ["List of checked visit reasons from Section B"],
-    "consentTreatment": true or false,
-    "consentStoreMedicalInfo": true or false
+    "contactPerson": "Secondary contact person name or null",
+    "contactMobile": "10-digit contact phone number or null",
+    "province": "Province name (e.g. BAGMATI) or null",
+    "district": "District name (e.g. KATHMANDU) or null",
+    "municipality": "Palika or municipality name (e.g. BUDHANILKANTHA) or null",
+    "ward": "Ward number (e.g. 04) or null",
+    "reasonsForVisit": ["List of checked visit reasons from Section B, use EXACT keys: something hanging out, discharge and or itching, problems passing urine, problems passing stool, menstrual problem, infertility, pain, checkup"],
+    "consentTreatment": true or false or null,
+    "consentStoreMedicalInfo": true or false or null
   },
   "obstetrics": {
     "deliveries": number or null,
     "livingChildren": number or null,
     "abortions": number or null,
-    "complaintsDuration": "< 1month or < 1 year or > 1 year or > 5 years or > 10 years",
-    "clinicalComplaints": ["Checked complaints from Station 1 using EXACT keys: prolapse, discharge, urine, stool, menstrual, infertility, lower_abdomen_pain, lower_back_pain, checkup"]
+    "complaintsDuration": "< 1month or < 1 year or > 1 year or > 5 years or > 10 years or null",
+    "clinicalComplaints": ["Checked complaints from Station 1 using EXACT keys: prolapse, discharge, urine, stool, menstrual, infertility, lower_abdomen_pain, lower_back_pain, checkup"],
+    "complaintDetails": [
+      {
+        "complaint": "EXACT key from clinicalComplaints (e.g. prolapse, discharge, etc.)",
+        "subOptions": ["checked sub-option values for this complaint"],
+        "duration": "duration if applicable (e.g. > 1 year) or null",
+        "remarks": "handwritten remarks for this complaint or null"
+      }
+    ]
   },
   "popStaging": {
-    "uterusInside": true or false,
-    "pelvicFloorTone": "normal or weak or hypertonic",
+    "uterusInside": true or false or null,
+    "pelvicFloorTone": "normal or weak or hypertonic or null",
     "anteriorStage": number (0-3) or null,
     "middleStage": number (0-4) or null,
     "posteriorStage": number (0-3) or null,
     "highestPopStage": number (0-4) or null,
-    "vulvaRemarks": "Vulva appearance or Normal",
-    "cervixRemarks": "Cervix appearance or Normal",
-    "vaginaRemarks": "Vagina appearance or Normal",
-    "uterusRemarks": "Uterus remarks or Normal"
+    "vulvaRemarks": "normal (if checkbox ticked) or handwritten text or null",
+    "cervixRemarks": "normal (if checkbox ticked) or handwritten text or null",
+    "vaginaRemarks": "normal (if checkbox ticked) or handwritten text or null",
+    "uterusRemarks": "normal (if checkbox ticked) or handwritten text or null"
   },
   "vitals": {
     "systolicBp": number or null,
@@ -389,20 +415,20 @@ Extract the information accurately into this EXACT JSON structure:
     "ecg": "Normal Sinus or Abnormal or Not Done or null",
     "ecgNotes": "ECG remarks / handwritten notes or null"
   },
-  "diagnoses": ["List of checked diagnoses from Station 4, plus Other if filled"],
-  "counseling": ["List of checked spec counseling options from Station 5"],
-  "medications": ["List of checked medications from Station 5, plus Other if filled"],
+  "diagnoses": ["List of checked diagnoses from Station 4, plus Other text if filled. Empty list if none checked."],
+  "counseling": ["List of checked spec counseling options from Station 5. Empty list if none checked."],
+  "medications": ["List of checked medications ONLY from Station 5 medication section, plus Other text if filled. Do NOT include pessary here. Empty list if none checked."],
   "ringPessary": true or false,
   "pessaryType": "ring or ring with support or ring with knob or null",
   "ringPessarySize": number or null,
-  "followUpNeeded": true or false,
+  "followUpNeeded": true or false or null,
   "followUpDestination": "Health Post or GynaeSupport Nurse or null",
-  "surgicalReferral": "Scheer Memorial or Model Hosp or loc government or None",
+  "surgicalReferral": "Scheer Memorial or Model Hosp or loc government or null",
   "examiningDoctor": "Examining doctor name or checked doctor checkbox on Page 2 or null",
   "attendingDoctors": ["All checked or written doctor names on Page 2, empty list if none"],
   "examiningNurse": "Main attending nurse name (checked checkbox or handwritten) on Page 2 or null",
   "attendingNurses": ["All checked or written attending nurse names on Page 2, empty list if none"],
-  "clinicalNotes": "Clinical notes written in Station 6",
+  "clinicalNotes": "Clinical notes / remarks written in Station 6 outtake section or null",
   "rawSummary": "A concise summary of all visible handwriting and marked fields on the page."
 }
 

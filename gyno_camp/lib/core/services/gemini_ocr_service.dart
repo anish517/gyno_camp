@@ -190,14 +190,15 @@ class GeminiOcrService {
     final rawMeds = (parsedData['medications'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
     final rawCounseling = (parsedData['counseling'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
     // Station 5 extra items (Ring Pessary & Surgery)
+    // NOTE: Pessary is a device fitting, NOT a dispensed medication.
+    // We do NOT inject it into rawMeds. It stays in ringPessary/pessaryType/ringPessarySize.
     final ringPessary = parsedData['ringPessary'] == true || rawPop['ringPessary'] == true;
     final ringPessarySize = (parsedData['ringPessarySize'] as num?)?.toInt() ?? (rawPop['ringPessarySize'] as num?)?.toInt();
-    if (ringPessary && ringPessarySize != null && ringPessarySize > 0) {
-      final pessaryEntry = 'Ring Pessary ${ringPessarySize}mm';
-      if (!rawMeds.any((m) => m.toLowerCase().contains('pessary'))) {
-        rawMeds.add(pessaryEntry);
-      }
-    }
+    // Read pessaryType from Gemini (ring / ring with support / ring with knob)
+    final rawPessaryType = parsedData['pessaryType']?.toString().trim();
+    final String? pessaryType = (rawPessaryType != null && rawPessaryType.isNotEmpty && rawPessaryType.toLowerCase() != 'null')
+        ? rawPessaryType.toLowerCase()
+        : null;
 
     final surgicalRef = parsedData['surgicalReferral']?.toString().trim();
     final followUp = parsedData['followUpDestination']?.toString().trim();
@@ -343,7 +344,19 @@ class GeminiOcrService {
       'age': (rawDemo['age'] as num?)?.toInt(),
       'maritalStatus': rawDemo['maritalStatus']?.toString().toLowerCase().trim() ?? 'married',
       'relativeName': rawDemo['relativeName']?.toString().trim() ?? (rawDemo['spouseOrFatherName']?.toString().trim() ?? ''),
-      'relativeType': (rawDemo['age'] as num?)?.toInt() != null && ((rawDemo['age'] as num?)!.toInt() < 20) ? 'Father' : 'Husband',
+      'relativeType': () {
+        // Read from Gemini data first (ticked/circled label on form)
+        final raw = rawDemo['relationType']?.toString().trim();
+        if (raw != null && raw.isNotEmpty && raw.toLowerCase() != 'null') {
+          if (raw.toLowerCase().contains('father') || raw.contains('बुबा')) return 'Father';
+          if (raw.toLowerCase().contains('husband') || raw.contains('श्रीमान्')) return 'Husband';
+          return raw;
+        }
+        // Fallback: guess from age only if no Gemini data
+        final age = (rawDemo['age'] as num?)?.toInt();
+        return (age != null && age < 20) ? 'Father' : 'Husband';
+      }(),
+      'relativeSurname': rawDemo['relativeSurname']?.toString().trim() ?? '',
       'mobile': rawDemo['mobile']?.toString().trim() ?? '',
       'maritalAge': (rawDemo['maritalAge'] as num?)?.toInt() ?? (rawObs['ageAtMarriage'] as num?)?.toInt(),
       'contactPerson': rawDemo['contactPerson']?.toString().trim() ?? '',
@@ -366,6 +379,10 @@ class GeminiOcrService {
       'abortions': (rawObs['abortions'] as num?)?.toInt(),
       'complaintsDuration': rawObs['complaintsDuration']?.toString().trim() ?? '',
       'clinicalComplaints': (rawObs['clinicalComplaints'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[],
+      'complaintDetails': (rawObs['complaintDetails'] as List<dynamic>?)?.map((e) {
+        if (e is Map<String, dynamic>) return e;
+        return <String, dynamic>{};
+      }).where((e) => e.isNotEmpty).toList() ?? <Map<String, dynamic>>[],
     };
 
     // Normalize vitals (strictly Yellow Form Station 3 fields — NO respiratory rate/temp/weight/height)
@@ -389,12 +406,15 @@ class GeminiOcrService {
     };
 
     // Normalize POP Staging (strictly Yellow Form Station 2 fields)
-    final ant = (rawPop['anteriorStage'] as num?)?.toInt() ?? 0;
-    final mid = (rawPop['middleStage'] as num?)?.toInt() ?? 0;
-    final post = (rawPop['posteriorStage'] as num?)?.toInt() ?? 0;
-    final popStageNum = (rawPop['highestPopStage'] as num?)?.toInt() ??
+    // Preserve null for undetected stages — do NOT default to 0
+    final int? ant = (rawPop['anteriorStage'] as num?)?.toInt();
+    final int? mid = (rawPop['middleStage'] as num?)?.toInt();
+    final int? post = (rawPop['posteriorStage'] as num?)?.toInt();
+    final int? popStageNum = (rawPop['highestPopStage'] as num?)?.toInt() ??
         (rawPop['stage'] as num?)?.toInt() ??
-        [ant, mid, post].reduce((a, b) => a > b ? a : b);
+        (ant != null || mid != null || post != null
+            ? [ant ?? 0, mid ?? 0, post ?? 0].reduce((a, b) => a > b ? a : b)
+            : null);
 
     final popStaging = <String, dynamic>{
       'anteriorStage': ant,
@@ -402,10 +422,12 @@ class GeminiOcrService {
       'posteriorStage': post,
       'highestPopStage': popStageNum,
       'stage': popStageNum,
-      'uterusInside': rawPop['uterusInside'] ?? (rawPop['uterusPosition']?.toString().toLowerCase().contains('inside') == true),
-      'pelvicFloorTone': rawPop['pelvicFloorTone']?.toString().toLowerCase().trim() ?? 'normal',
-      'cervixRemarks': rawPop['cervixRemarks']?.toString().trim() ?? (rawPop['cervixDescription']?.toString().trim() ?? ''),
-      'vaginaRemarks': rawPop['vaginaRemarks']?.toString().trim() ?? '',
+      'uterusInside': rawPop['uterusInside'],  // preserve null if undetected
+      'pelvicFloorTone': rawPop['pelvicFloorTone']?.toString().toLowerCase().trim(),  // null if undetected
+      'vulvaRemarks': rawPop['vulvaRemarks']?.toString().trim(),
+      'cervixRemarks': rawPop['cervixRemarks']?.toString().trim() ?? (rawPop['cervixDescription']?.toString().trim()),
+      'vaginaRemarks': rawPop['vaginaRemarks']?.toString().trim(),
+      'uterusRemarks': rawPop['uterusRemarks']?.toString().trim(),
       'ringPessary': ringPessary,
       'ringPessarySize': ringPessarySize,
       'surgeryDone': rawSurgeryDone,
@@ -497,6 +519,20 @@ class GeminiOcrService {
       buffer.writeln('\n--- DETECTED TEXT SUMMARY ---\n$rawSummary');
     }
 
+    // Extract station dates from Gemini response
+    final String? intakeDate = _extractDate(parsedData['intakeDate']);
+    final String? examDate = _extractDate(parsedData['examDate']);
+    final String? labTestDate = _extractDate(parsedData['labTestDate']);
+    final String? conclusionDate = _extractDate(parsedData['conclusionDate']);
+    final String? treatmentDate = _extractDate(parsedData['treatmentDate']);
+    final String? outtakeDate = _extractDate(parsedData['outtakeDate']);
+
+    // Extract clinical notes from Station 6
+    final rawClinicalNotes = parsedData['clinicalNotes']?.toString().trim();
+    final String? clinicalNotes = (rawClinicalNotes != null && rawClinicalNotes.isNotEmpty && rawClinicalNotes.toLowerCase() != 'null')
+        ? rawClinicalNotes
+        : null;
+
     return OcrScanResultModel(
       pageNumber: detectedPage,
       imagePath: imagePath,
@@ -515,6 +551,7 @@ class GeminiOcrService {
       surgeryDone: rawSurgeryDone,
       surgeryType: normSurgeryType,
       ringPessary: ringPessary,
+      pessaryType: pessaryType,
       ringPessarySize: ringPessarySize,
       examiningDoctor: examiningDoctor,
       attendingDoctors: rawAttendingDoctors.isNotEmpty
@@ -523,11 +560,35 @@ class GeminiOcrService {
       examiningNurse: examiningNurse,
       attendingNurses: rawAttendingNurses,
       treatmentLevel: treatmentLevel,
+      clinicalNotes: clinicalNotes,
+      intakeDate: intakeDate,
+      examDate: examDate,
+      labTestDate: labTestDate,
+      conclusionDate: conclusionDate,
+      treatmentDate: treatmentDate,
+      outtakeDate: outtakeDate,
       fieldConfidences: confidences,
       overallConfidence: overallConf,
       rawText: buffer.toString(),
       scannedAt: DateTime.now(),
     );
+  }
+
+  /// Extract and validate a date string from Gemini JSON.
+  /// Returns YYYY-MM-DD format or null.
+  static String? _extractDate(dynamic raw) {
+    if (raw == null) return null;
+    final str = raw.toString().trim();
+    if (str.isEmpty || str.toLowerCase() == 'null') return null;
+    // Accept YYYY-MM-DD format
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(str)) return str;
+    // Try to parse other formats
+    try {
+      final dt = DateTime.parse(str);
+      return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return str; // Return raw if we can't parse, let the UI handle it
+    }
   }
 
   void dispose() {
