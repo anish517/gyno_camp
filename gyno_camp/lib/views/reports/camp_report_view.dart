@@ -4208,10 +4208,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                 spacing: 4,
                 runSpacing: 3,
                 children: [
-                  if (effectiveLevel == 'council_level')
-                    _buildSmallStatusChip('Council Level (काउन्सिलिङ)', const Color(0xFF7C3AED), const Color(0xFFF5F3FF)),
-                  if (effectiveLevel == 'full_check_up')
-                    _buildSmallStatusChip('Full Check (पूर्ण जाँच)', AppTheme.primaryTeal, const Color(0xFFE6FFFA)),
+                  if (effectiveLevel == 'council_level' || effectiveLevel == 'counseling')
+                    _buildSmallStatusChip('Counseling (काउन्सिलिङ)', const Color(0xFF7C3AED), const Color(0xFFF5F3FF)),
+                  if (effectiveLevel == 'full_check_up' || effectiveLevel == 'gyno_checkup')
+                    _buildSmallStatusChip('Gynocheckup (गाइनो जाँच)', AppTheme.primaryTeal, const Color(0xFFE6FFFA)),
                   if (visit != null) ...[
                     _buildPopStageChip(visit.highestPopStage),
                     if (visit.pessaryType != null && visit.pessaryType!.isNotEmpty)

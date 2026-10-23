@@ -77,12 +77,12 @@ class ExcelReportService {
       TextCellValue('Patients instructed'),
     ]);
     summarySheet.appendRow([
-      TextCellValue('Treatment Level: Full Check Up (पूर्ण जाँच)'),
+      TextCellValue('Consultation Level: Gynocheckup (गाइनो जाँच)'),
       IntCellValue(summary.fullCheckUpCount),
       TextCellValue('${summary.totalPatientsRegistered > 0 ? ((summary.fullCheckUpCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1) : "0.0"}% of registered'),
     ]);
     summarySheet.appendRow([
-      TextCellValue('Treatment Level: Council Level (काउन्सिलिङ)'),
+      TextCellValue('Consultation Level: Counseling (काउन्सिलिङ)'),
       IntCellValue(summary.councilLevelCount),
       TextCellValue('${summary.totalPatientsRegistered > 0 ? ((summary.councilLevelCount / summary.totalPatientsRegistered) * 100).toStringAsFixed(1) : "0.0"}% of registered'),
     ]);

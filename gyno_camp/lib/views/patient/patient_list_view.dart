@@ -945,7 +945,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       final label = (filters.treatmentLevel == 'counseling' || filters.treatmentLevel == 'council_level')
           ? 'Consult: Counseling'
           : ((filters.treatmentLevel == 'gyno_checkup' || filters.treatmentLevel == 'full_check_up')
-              ? 'Consult: Gynocheck'
+              ? 'Consult: Gynocheckup'
               : 'Consult: ${filters.treatmentLevel}');
       pills.add(_buildFilterPill(label, () {
         vm.setTreatmentLevelFilter(null);
@@ -3310,7 +3310,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
                             ),
                           ),
-                        if (patient.isCouncilLevel)
+                        if (patient.isCounseling)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                             decoration: BoxDecoration(
@@ -3324,7 +3324,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                 Icon(Icons.record_voice_over_rounded, size: 10, color: Color(0xFF7C3AED)),
                                 SizedBox(width: 3),
                                 Text(
-                                  'Council Level (काउन्सिलिङ)',
+                                  'Counseling (काउन्सिलिङ)',
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
@@ -3334,7 +3334,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               ],
                             ),
                           ),
-                        if (patient.isFullCheckUp)
+                        if (patient.isGynocheckup)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                             decoration: BoxDecoration(
@@ -3348,7 +3348,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                 Icon(Icons.medical_services_rounded, size: 10, color: Color(0xFF0D9488)),
                                 SizedBox(width: 3),
                                 Text(
-                                  'Full Check Up (पूर्ण जाँच)',
+                                  'Gynocheckup (गाइनो जाँच)',
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
