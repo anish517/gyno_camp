@@ -582,12 +582,38 @@ class GeminiOcrService {
     }
 
     // Extract station dates from Gemini response
-    final String? intakeDate = _extractDate(parsedData['intakeDate']);
-    final String? examDate = _extractDate(parsedData['examDate']);
-    final String? labTestDate = _extractDate(parsedData['labTestDate']);
-    final String? conclusionDate = _extractDate(parsedData['conclusionDate']);
-    final String? treatmentDate = _extractDate(parsedData['treatmentDate']);
-    final String? outtakeDate = _extractDate(parsedData['outtakeDate']);
+    String? intakeDate = _extractDate(parsedData['intakeDate']);
+    String? examDate = _extractDate(parsedData['examDate']);
+    String? labTestDate = _extractDate(parsedData['labTestDate']);
+    String? conclusionDate = _extractDate(parsedData['conclusionDate']);
+    String? treatmentDate = _extractDate(parsedData['treatmentDate']);
+    String? outtakeDate = _extractDate(parsedData['outtakeDate']);
+
+    // Single-page station date consensus check
+    final stationDates = [examDate, labTestDate, conclusionDate, treatmentDate, outtakeDate]
+        .where((d) => d != null && d.isNotEmpty)
+        .map((d) => d!)
+        .toList();
+    if (stationDates.length >= 2) {
+      final counts = <String, int>{};
+      for (final d in stationDates) {
+        counts[d] = (counts[d] ?? 0) + 1;
+      }
+      final dominant = counts.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+      if ((counts[dominant] ?? 0) >= 2) {
+        examDate = (examDate == null || _differsOnlyByMonth01vs07(examDate, dominant)) ? dominant : examDate;
+        labTestDate = (labTestDate == null || _differsOnlyByMonth01vs07(labTestDate, dominant)) ? dominant : labTestDate;
+        conclusionDate = (conclusionDate == null || _differsOnlyByMonth01vs07(conclusionDate, dominant)) ? dominant : conclusionDate;
+        treatmentDate = (treatmentDate == null || _differsOnlyByMonth01vs07(treatmentDate, dominant)) ? dominant : treatmentDate;
+        outtakeDate = (outtakeDate == null || _differsOnlyByMonth01vs07(outtakeDate, dominant)) ? dominant : outtakeDate;
+      }
+    }
+
+    if (intakeDate != null && intakeDate.isNotEmpty) {
+      demographics['intakeDate'] = intakeDate;
+      demographics['date'] = intakeDate;
+      buffer.writeln('Date: $intakeDate BS');
+    }
 
     // Extract clinical notes from Station 6
     final rawClinicalNotes = parsedData['clinicalNotes']?.toString().trim();
@@ -651,6 +677,24 @@ class GeminiOcrService {
     } catch (_) {
       return str; // Return raw if we can't parse, let the UI handle it
     }
+  }
+
+  static bool _differsOnlyByMonth01vs07(String a, String b) {
+    if (a == b) return false;
+    final aClean = a.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
+    final bClean = b.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
+    final ap = aClean.split(RegExp(r'[-/]'));
+    final bp = bClean.split(RegExp(r'[-/]'));
+    if (ap.length == 3 && bp.length == 3) {
+      if (ap[0] == bp[0] && ap[2] == bp[2]) {
+        final am = int.tryParse(ap[1]);
+        final bm = int.tryParse(bp[1]);
+        if ((am == 1 && bm == 7) || (am == 7 && bm == 1)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   void dispose() {

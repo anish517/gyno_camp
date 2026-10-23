@@ -928,6 +928,32 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     state = state.copyWith(scanResult: updated);
   }
 
+  /// Synchronizes all 6 station dates simultaneously
+  void syncAllStationDates(String? dateStr) {
+    if (state.scanResult == null) return;
+    final clean = (dateStr == null || dateStr.trim().isEmpty) ? null : dateStr.trim();
+    final updated = state.scanResult!.copyWith(
+      intakeDate: clean,
+      clearIntakeDate: clean == null,
+      examDate: clean,
+      clearExamDate: clean == null,
+      treatmentDate: clean,
+      clearTreatmentDate: clean == null,
+      conclusionDate: clean,
+      clearConclusionDate: clean == null,
+      labTestDate: clean,
+      clearLabTestDate: clean == null,
+      outtakeDate: clean,
+      clearOuttakeDate: clean == null,
+      demographics: {
+        ...state.scanResult!.demographics,
+        'intakeDate': clean,
+        'date': clean,
+      },
+    );
+    state = state.copyWith(scanResult: updated);
+  }
+
   /// Commits verified scanned patient and clinical record to SQLite
   Future<PatientModel?> confirmAndCommit({
     required String campId,

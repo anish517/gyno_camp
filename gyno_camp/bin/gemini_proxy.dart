@@ -253,13 +253,25 @@ CRITICAL RULES:
 - For integer fields: return null (NOT 0) if the field is blank or unreadable.
 - For string fields: return null (NOT empty string) if the field is blank or unreadable.
 - For boolean fields: return null if the checkbox area is blank or ambiguous.
+- DATE RECOGNITION RULES (NEPALI BIKRAM SAMBAT BS):
+  * Date fields across both pages have segmented digit boxes: "Date / मिति: [YYYY] - [MM] - [DD] BS".
+  * The 4-digit Year is in Bikram Sambat (typically 2083, or between 2080-2085 BS).
+  * The 2-digit Month ranges from 01 (Baisakh) to 12 (Chaitra).
+  * CRITICAL: Distinguishing digit 7 vs digit 1 in month boxes:
+    - Look carefully at the second box in the month pair [0][X].
+    - In handwritten Nepali dates, digit '7' has a distinct horizontal top bar extending across to the right before descending down at an angle. If there is a horizontal top stroke spanning across the box, it is digit '7' (Month 07 = Kartik / कार्तिक, the primary autumn camp season), NEVER '1'!
+    - Digit '1' is a single vertical or slightly slanted stroke without a horizontal top bar.
+  * CROSS-STATION ENCOUNTER CONSISTENCY:
+    - On a single patient Yellow Form encounter, all stations occur on the SAME camp date!
+    - Page 1 "Date / मिति" (intakeDate) and Page 2 dates ("Examination Date", "Lab test Date", "Conclusion Date", "Treatment Date", "Outtake Date") share the exact same date (e.g. 2083-07-06).
+    - If multiple station dates agree on a month (e.g., month 07), ensure all station dates reflect this confirmed month.
 
 FORM STRUCTURE BY PAGE:
 
 PAGE 1 (FRONT) — PATIENT REGISTRATION & ANAMNESIS:
 1. Header:
    - "PATIENT TOKEN ID / बिरामी टोकन नं." (or Token: G C - 1 1 - 2 0 2 6 - 0 0 0 1 7) -> patientTokenId
-   - "Date / मिति" -> intakeDate (format YYYY-MM-DD if possible)
+   - "Date / मिति" -> intakeDate (format YYYY-MM-DD, e.g. 2083-07-06; inspect individual boxes [YYYY] - [MM] - [DD] BS carefully)
    - "Level of Treatment / उपचारको तह" (2 checkboxes: [ ] Council level / काउन्सिलिङ तह, [ ] Full check up / पूर्ण जाँच) -> treatmentLevel: "counseling" or "gyno_checkup"
 2. Section A: Patient Demographics / बिरामी विवरण:
    - "First Name: पहिलो नाम" (letter boxes)
@@ -307,7 +319,7 @@ PAGE 1 (FRONT) — PATIENT REGISTRATION & ANAMNESIS:
 
 PAGE 2 (BACK) — CLINICAL ASSESSMENT & EXAMINATION (STATIONS 2-6):
 1. Station 2: POP & Physical Examination / शारीरिक जाँच तथा पाठेघर खस्ने अवस्था:
-   - "Examination Date:" -> examDate (e.g. 2026-10-16)
+   - "Examination Date:" -> examDate (format YYYY-MM-DD from boxes [YYYY]-[MM]-[DD] BS, e.g. 2083-07-06)
    - "uterus inside:" (2 checkboxes: [ ] yes  [ ] no -> uterusInside: true if yes is ticked, false if no)
    - "pelvic floor muscle:" (3 checkboxes: [ ] normal  [ ] weak  [ ] hypertonic -> pelvicFloorTone: string)
    - "vulva": [ ] normal checkbox OR handwritten text — report "normal" if normal checkbox is ticked, otherwise handwritten text
@@ -325,14 +337,14 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT & EXAMINATION (STATIONS 2-6):
      - Notice if "POP posterior wall" is checked in the "stage 1" column (shifted to the left under stage 1), report 1 for posterior wall (posteriorStage: 1), NOT 2!
      - Report each wall's stage strictly according to its own row's checked box.
 2. Station 3: Point-of-Care Labs, Vitals & ECG / प्रयोगशाला, सूचक तथा ईसीजी:
-   - "Lab test Date:" -> labTestDate
+   - "Lab test Date:" -> labTestDate (format YYYY-MM-DD from boxes [YYYY]-[MM]-[DD] BS, e.g. 2083-07-06)
    - "urine test:" (Checkboxes: [ ] normal  [ ] pos)
    - "pregnancy test:" (Checkboxes: [ ] neg  [ ] pos)
    - "blood pressure:" [ systolic ] / [ diastolic ] mmHg
    - "pulse:" [ ] bpm, "SpO2:" [ ] %, "blood glucose:" [ ] mg/dL
    - "ECG:" (Checkboxes: [ ] Normal Sinus  [ ] Abnormal  [ ] Not Done, and handwritten "ECG Notes")
 3. Station 4: Confirmed Diagnoses / निदान:
-   - "Conclusion Date:" -> conclusionDate
+   - "Conclusion Date:" -> conclusionDate (format YYYY-MM-DD from boxes [YYYY]-[MM]-[DD] BS, e.g. 2083-07-06)
    - "highest POP stage:" in Station 4: [ ] stage 0  [ ] stage 1  [ ] stage 2  [ ] stage 3  [ ] stage 4 -> report which stage number (0-4) has the checkmark (e.g. 2).
    - Checkboxes: "atrophy vagina", "bacterial vaginosis", "candid infection", "trichomonas",
      "PID", "cervicitis", "cervical polyp", "cervical carcinoma", "condylomata", "fistula",
@@ -340,14 +352,14 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT & EXAMINATION (STATIONS 2-6):
      "urge incontinence", "menstrual disorder", "weak pelvic floor muscle", "pregnancy",
      "hypertonic pelvic floor muscle", and handwritten text under "Other:"
 4. Station 5: Treatment & Prescriptions / उपचार तथा औषधि:
-   - "Treatment Date:" -> treatmentDate
+   - "Treatment Date:" -> treatmentDate (format YYYY-MM-DD from boxes [YYYY]-[MM]-[DD] BS, e.g. 2083-07-06)
    - "spec counseling" (5 checkboxes): "weak pelvic floor", "POP", "stress incontinence", "urge incontinence", "abdominal pain"
    - "pessary" (3 checkboxes): "ring", "ring with support", "ring with knob", "size: [   ]" mm
    - IMPORTANT: Pessary is a DEVICE fitting, NOT a dispensed medication. Do NOT include pessary in the medications list.
    - "referral surgery" (3 checkboxes): "Scheer Memorial", "Model Hosp", "loc government"
    - "medication" (10 checkboxes): "clotrimazol (canesten)", "estradiol crème", "metronidazol", "doxycycline", "azithromycin", "nitrofurantoine", "medroxyprogesterone", "ciproflox", "mirasin", "clobetasol", and handwritten text under "other medication:"
 5. Station 6: Discharge & Continuity of Care / अनुगमन तथा डिस्चार्ज:
-   - "Outtake Date:" -> outtakeDate
+   - "Outtake Date:" -> outtakeDate (format YYYY-MM-DD from boxes [YYYY]-[MM]-[DD] BS, e.g. 2083-07-06)
    - "follow up:" (checkboxes: "Health Post", "GynaeSupport Nurse", "Hospital", "no follow up needed")
    - Clinical Notes / Outtake Remarks -> clinicalNotes
 6. Page 2 Footer / Examining Clinician Sign-off:

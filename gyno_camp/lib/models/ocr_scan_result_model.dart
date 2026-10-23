@@ -219,6 +219,46 @@ ${page2.rawText}
       if (mergedNurse != null && mergedNurse.isNotEmpty) mergedNurse,
     }.toList();
 
+    // Harmonize station dates across dual pages
+    // All stations on a patient's Yellow Form encounter share the same camp date.
+    // If Page 2 stations have consensus (e.g. 2083-07-06), and Page 1's intakeDate
+    // was misread with month 01 vs 07, harmonize intakeDate to the confirmed camp date.
+    final p2Dates = [
+      page2.examDate,
+      page2.labTestDate,
+      page2.conclusionDate,
+      page2.treatmentDate,
+      page2.outtakeDate,
+    ].where((d) => d != null && d.trim().isNotEmpty).map((d) => d!.trim()).toList();
+
+    String? harmonizedIntake = page1.intakeDate ?? page2.intakeDate;
+    if (harmonizedIntake != null && p2Dates.isNotEmpty) {
+      final dateCounts = <String, int>{};
+      for (final d in p2Dates) {
+        dateCounts[d] = (dateCounts[d] ?? 0) + 1;
+      }
+      final dominantP2Date = dateCounts.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+      if ((dateCounts[dominantP2Date] ?? 0) >= 2) {
+        final p1Clean = harmonizedIntake.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
+        final p2Clean = dominantP2Date.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
+        final p1Parts = p1Clean.split(RegExp(r'[-/]'));
+        final p2Parts = p2Clean.split(RegExp(r'[-/]'));
+        if (p1Parts.length == 3 && p2Parts.length == 3) {
+          if (p1Parts[0] == p2Parts[0] && p1Parts[2] == p2Parts[2]) {
+            harmonizedIntake = dominantP2Date;
+          }
+        }
+      }
+    }
+
+    final effectiveCampDate = harmonizedIntake ?? (p2Dates.isNotEmpty ? p2Dates.first : null);
+
+    final mergedDemographics = Map<String, dynamic>.from(page1.demographics.isNotEmpty ? page1.demographics : page2.demographics);
+    if (harmonizedIntake != null) {
+      mergedDemographics['intakeDate'] = harmonizedIntake;
+      mergedDemographics['date'] = harmonizedIntake;
+    }
+
     return OcrScanResultModel(
       pageNumber: 0, // 0 = Full Combined Intake
       isDualPage: true,
@@ -229,7 +269,7 @@ ${page2.rawText}
       page2ImagePath: page2.imagePath,
       page1RawText: page1.rawText,
       page2RawText: page2.rawText,
-      demographics: Map<String, dynamic>.from(page1.demographics.isNotEmpty ? page1.demographics : page2.demographics),
+      demographics: mergedDemographics,
       obstetrics: () {
         final mergedObs = _mergeMapNullAware(page1.obstetrics, page2.obstetrics);
         final c1 = (page1.obstetrics['clinicalComplaints'] as List?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? [];
@@ -275,12 +315,12 @@ ${page2.rawText}
           ? page1.treatmentLevel
           : (page2.treatmentLevel ?? page1.treatmentLevel),
       clinicalNotes: page2.clinicalNotes ?? page1.clinicalNotes,
-      intakeDate: page1.intakeDate ?? page2.intakeDate,
-      examDate: page2.examDate ?? page1.examDate,
-      treatmentDate: page2.treatmentDate ?? page1.treatmentDate,
-      conclusionDate: page2.conclusionDate ?? page1.conclusionDate,
-      labTestDate: page2.labTestDate ?? page1.labTestDate,
-      outtakeDate: page2.outtakeDate ?? page1.outtakeDate,
+      intakeDate: harmonizedIntake,
+      examDate: page2.examDate ?? page1.examDate ?? effectiveCampDate,
+      treatmentDate: page2.treatmentDate ?? page1.treatmentDate ?? effectiveCampDate,
+      conclusionDate: page2.conclusionDate ?? page1.conclusionDate ?? effectiveCampDate,
+      labTestDate: page2.labTestDate ?? page1.labTestDate ?? effectiveCampDate,
+      outtakeDate: page2.outtakeDate ?? page1.outtakeDate ?? effectiveCampDate,
       fieldConfidences: mergedConfidences,
       overallConfidence: double.parse(avgConf.toStringAsFixed(2)),
       rawText: combinedText,

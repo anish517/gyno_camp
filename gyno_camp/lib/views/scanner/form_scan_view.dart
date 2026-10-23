@@ -2,11 +2,13 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nepali_utils/nepali_utils.dart';
 import '../../core/constants/clinical_constants.dart';
 import '../../core/constants/nepal_geodata.dart';
 import '../../core/services/clinical_validation_service.dart';
 import '../../core/services/nepali_localization_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/nepali_date_helper.dart';
 import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
 import '../../models/patient_model.dart';
@@ -1530,6 +1532,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       _buildStationDateChip(
                         context: context,
+                        field: 'intakeDate',
                         label: 'Intake Date',
                         dateStr: result.intakeDate ?? demo['intakeDate'] as String? ?? demo['date'] as String?,
                         onDateSelected: (d) => vm.updateStationDate('intakeDate', d),
@@ -2112,6 +2115,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 ),
                 _buildStationDateChip(
                   context: context,
+                  field: 'intakeDate',
                   label: 'Intake Date',
                   dateStr: result.intakeDate ?? result.demographics['intakeDate'] as String? ?? result.demographics['date'] as String?,
                   onDateSelected: (d) => vm.updateStationDate('intakeDate', d),
@@ -2669,6 +2673,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 ),
                 _buildStationDateChip(
                   context: context,
+                  field: 'examDate',
                   label: 'Exam Date',
                   dateStr: result.examDate,
                   onDateSelected: (d) => vm.updateStationDate('examDate', d),
@@ -3568,6 +3573,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       _buildStationDateChip(
                         context: context,
+                        field: 'labTestDate',
                         label: 'Lab Date',
                         dateStr: result.labTestDate,
                         onDateSelected: (d) => vm.updateStationDate('labTestDate', d),
@@ -3736,6 +3742,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       _buildStationDateChip(
                         context: context,
+                        field: 'conclusionDate',
                         label: 'Conclusion Date',
                         dateStr: result.conclusionDate,
                         onDateSelected: (d) => vm.updateStationDate('conclusionDate', d),
@@ -3892,6 +3899,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       _buildStationDateChip(
                         context: context,
+                        field: 'treatmentDate',
                         label: 'Treatment Date',
                         dateStr: result.treatmentDate,
                         onDateSelected: (d) => vm.updateStationDate('treatmentDate', d),
@@ -4611,6 +4619,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       _buildStationDateChip(
                         context: context,
+                        field: 'outtakeDate',
                         label: 'Outtake Date',
                         dateStr: result.outtakeDate,
                         onDateSelected: (d) => vm.updateStationDate('outtakeDate', d),
@@ -5118,32 +5127,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     required String label,
     required String? dateStr,
     required ValueChanged<String?> onDateSelected,
+    String? field,
   }) {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: () async {
-        DateTime initial = DateTime.now();
-        if (dateStr != null && dateStr.trim().isNotEmpty) {
-          final parts = dateStr.split('-');
-          if (parts.length == 3) {
-            final y = int.tryParse(parts[0]);
-            final m = int.tryParse(parts[1]);
-            final d = int.tryParse(parts[2]);
-            if (y != null && m != null && d != null) {
-              initial = DateTime(y, m, d);
-            }
-          }
-        }
-        final picked = await showDatePicker(
+      onTap: () {
+        _showStationDateEditorDialog(
           context: context,
-          initialDate: initial,
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2035),
+          label: label,
+          dateStr: dateStr,
+          field: field,
+          onDateSelected: onDateSelected,
         );
-        if (picked != null) {
-          final formatted = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-          onDateSelected(formatted);
-        }
       },
       child: Chip(
         visualDensity: VisualDensity.compact,
@@ -5162,6 +5157,335 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ),
         ),
       ),
+    );
+  }
+
+  void _showStationDateEditorDialog({
+    required BuildContext context,
+    required String label,
+    required String? dateStr,
+    required ValueChanged<String?> onDateSelected,
+    String? field,
+  }) {
+    // Parse initial date components
+    int selectedYear = 2083;
+    int selectedMonth = 7;
+    int selectedDay = 6;
+
+    final cleanStr = (dateStr ?? '').replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
+    if (cleanStr.isNotEmpty) {
+      final parts = cleanStr.split(RegExp(r'[-/]'));
+      if (parts.length == 3) {
+        final y = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        final d = int.tryParse(parts[2]);
+        if (y != null && m != null && d != null) {
+          selectedYear = y;
+          selectedMonth = m.clamp(1, 12);
+          selectedDay = d.clamp(1, 32);
+        }
+      }
+    }
+
+    final textController = TextEditingController(
+      text: '${selectedYear.toString().padLeft(4, '0')}-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')}',
+    );
+
+    bool applyToAll = true;
+
+    showDialog(
+      context: context,
+      builder: (dlgContext) {
+        return StatefulBuilder(
+          builder: (context, setDlgState) {
+            void updateFromComponents(int y, int m, int d) {
+              setDlgState(() {
+                selectedYear = y;
+                selectedMonth = m;
+                selectedDay = d;
+                textController.text = '${y.toString().padLeft(4, '0')}-${m.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}';
+              });
+            }
+
+            void updateFromText(String val) {
+              final clean = val.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
+              final parts = clean.split(RegExp(r'[-/]'));
+              if (parts.length == 3) {
+                final y = int.tryParse(parts[0]);
+                final m = int.tryParse(parts[1]);
+                final d = int.tryParse(parts[2]);
+                if (y != null && m != null && d != null && m >= 1 && m <= 12 && d >= 1 && d <= 32) {
+                  setDlgState(() {
+                    selectedYear = y;
+                    selectedMonth = m;
+                    selectedDay = d;
+                  });
+                }
+              }
+            }
+
+            // Calculate dual calendar representation
+            String dualPreview = '';
+            if (selectedYear >= 2070 && selectedYear <= 2120) {
+              try {
+                final safeDay = selectedDay > 30 ? 30 : selectedDay;
+                final nepaliDt = NepaliDateTime(selectedYear, selectedMonth, safeDay);
+                final engDt = NepaliDateHelper.toEnglish(nepaliDt);
+                final nepMonthName = (selectedMonth >= 1 && selectedMonth <= 12)
+                    ? NepaliDateHelper.nepaliMonthPureNp[selectedMonth - 1]
+                    : '';
+                dualPreview = '🇳🇵 वि.सं. $selectedYear $nepMonthName ${selectedDay.toString().padLeft(2, '0')}  •  🌍 ${engDt.year}-${engDt.month.toString().padLeft(2, '0')}-${engDt.day.toString().padLeft(2, '0')} AD';
+              } catch (_) {
+                dualPreview = '🇳🇵 Bikram Sambat: $selectedYear-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')} BS';
+              }
+            } else {
+              try {
+                final safeDay = selectedDay > 28 ? 28 : selectedDay;
+                final engDt = DateTime(selectedYear, selectedMonth, safeDay);
+                final nepDt = NepaliDateHelper.toNepali(engDt);
+                dualPreview = '🌍 $selectedYear-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')} AD  •  🇳🇵 वि.सं. ${nepDt.year}-${nepDt.month.toString().padLeft(2, '0')}-${nepDt.day.toString().padLeft(2, '0')} BS';
+              } catch (_) {
+                dualPreview = '$selectedYear-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')}';
+              }
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryLight,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.edit_calendar_rounded, color: AppTheme.primaryTeal, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Edit $label',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        ),
+                        const Text(
+                          'फाराम मिति संशोधन (Bikram Sambat BS / AD)',
+                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Dual Preview Card
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'CURRENT CALENDAR EQUIVALENT / मिति मिलान:',
+                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            dualPreview,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Manual Text Field
+                    const Text('Direct Date Entry (मिति सिधै प्रविष्ट गर्नुहोस्):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: textController,
+                      decoration: InputDecoration(
+                        hintText: 'YYYY-MM-DD (e.g. 2083-07-06)',
+                        prefixIcon: const Icon(Icons.event, size: 20),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.check_circle_outline, color: AppTheme.primaryTeal),
+                          tooltip: 'Apply typed date',
+                          onPressed: () => updateFromText(textController.text),
+                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      onChanged: updateFromText,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Dropdown Selectors
+                    const Text('Quick Bikram Sambat (BS) Selectors (वि.सं. छनौट):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        // Year
+                        Expanded(
+                          flex: 3,
+                          child: DropdownButtonFormField<int>(
+                            initialValue: (selectedYear >= 2075 && selectedYear <= 2090) ? selectedYear : 2083,
+                            decoration: InputDecoration(
+                              labelText: 'Year / वर्ष',
+                              labelStyle: const TextStyle(fontSize: 11),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            items: [
+                              for (int y = 2078; y <= 2090; y++)
+                                DropdownMenuItem(value: y, child: Text('$y', style: const TextStyle(fontSize: 12.5))),
+                            ],
+                            onChanged: (y) {
+                              if (y != null) updateFromComponents(y, selectedMonth, selectedDay);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // Month
+                        Expanded(
+                          flex: 4,
+                          child: DropdownButtonFormField<int>(
+                            initialValue: (selectedMonth >= 1 && selectedMonth <= 12) ? selectedMonth : 7,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: 'Month / महिना',
+                              labelStyle: const TextStyle(fontSize: 11),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 1, child: Text('01 - बैशाख (Baisakh)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 2, child: Text('02 - जेठ (Jestha)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 3, child: Text('03 - असार (Ashadh)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 4, child: Text('04 - श्रावण (Shrawan)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 5, child: Text('05 - भाद्र (Bhadra)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 6, child: Text('06 - असोज (Ashwin)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 7, child: Text('07 - कार्तिक (Kartik)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 8, child: Text('08 - मंसिर (Mangsir)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 9, child: Text('09 - पौष (Poush)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 10, child: Text('10 - माघ (Magh)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 11, child: Text('11 - फाल्गुन (Falgun)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 12, child: Text('12 - चैत्र (Chaitra)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
+                            ],
+                            onChanged: (m) {
+                              if (m != null) updateFromComponents(selectedYear, m, selectedDay);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // Day
+                        Expanded(
+                          flex: 2,
+                          child: DropdownButtonFormField<int>(
+                            initialValue: (selectedDay >= 1 && selectedDay <= 32) ? selectedDay : 6,
+                            decoration: InputDecoration(
+                              labelText: 'Day / गते',
+                              labelStyle: const TextStyle(fontSize: 11),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            items: [
+                              for (int d = 1; d <= 32; d++)
+                                DropdownMenuItem(value: d, child: Text(d.toString().padLeft(2, '0'), style: const TextStyle(fontSize: 12))),
+                            ],
+                            onChanged: (d) {
+                              if (d != null) updateFromComponents(selectedYear, selectedMonth, d);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Apply to all stations checkbox
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        value: applyToAll,
+                        activeColor: AppTheme.primaryTeal,
+                        title: const Text(
+                          'Apply to all 6 stations (सबै ६ वटै स्टेशनहरूमा यो मिति मिलाउनुहोस्)',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        ),
+                        subtitle: const Text(
+                          'Syncs Intake, Exam, Lab, Conclusion, Treatment, & Outtake dates',
+                          style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryLight),
+                        ),
+                        onChanged: (val) {
+                          setDlgState(() => applyToAll = val ?? true);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dlgContext),
+                  child: const Text('Cancel (रद्द)'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    if (applyToAll) {
+                      ref.read(ocrScanProvider.notifier).syncAllStationDates(null);
+                    } else {
+                      onDateSelected(null);
+                    }
+                    Navigator.pop(dlgContext);
+                  },
+                  child: const Text('Clear Date (हटाउनुहोस्)', style: TextStyle(color: Colors.red)),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.check, size: 16),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryTeal,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () {
+                    final finalFormatted = textController.text.trim();
+                    if (applyToAll) {
+                      ref.read(ocrScanProvider.notifier).syncAllStationDates(finalFormatted);
+                    } else {
+                      onDateSelected(finalFormatted);
+                    }
+                    Navigator.pop(dlgContext);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Date updated to $finalFormatted (${applyToAll ? "Synchronized to all 6 stations" : label})'),
+                        backgroundColor: AppTheme.successGreen,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  label: const Text('Save Date (सुरक्षित गर्नुहोस्)'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
