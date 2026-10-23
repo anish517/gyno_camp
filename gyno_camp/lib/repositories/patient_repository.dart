@@ -193,9 +193,18 @@ class PatientRepository implements IPatientRepository {
     await db.update(
       DatabaseTables.tablePatients,
       updatedPatient.toMap(),
-      where: 'id = ? OR patient_id = ?',
+      where: 'id = ? OR patient_id = ? COLLATE NOCASE',
       whereArgs: [updatedPatient.id, updatedPatient.patientId],
     );
+
+    // Synchronize normalized treatment_level to clinical_visits as well if present
+    final normTreatment = PatientModel.normalizeTreatmentLevel(updatedPatient.treatmentLevel);
+    if (normTreatment != null) {
+      await db.rawUpdate(
+        'UPDATE ${DatabaseTables.tableClinicalVisits} SET treatment_level = ? WHERE patient_id = ? COLLATE NOCASE OR patient_id = ?',
+        [normTreatment, updatedPatient.patientId, updatedPatient.id],
+      );
+    }
 
     // Auto-push updated patient to central server immediately (fire-and-forget)
     if (_enableCentralSync) unawaited(_pushPatientToServer(updatedPatient));
@@ -318,7 +327,13 @@ class PatientRepository implements IPatientRepository {
              cv.pessary_type,
              cv.pessary_size,
              cv.surgical_referral,
-             COALESCE(NULLIF(cv.treatment_level, ''), p.treatment_level) AS treatment_level
+             CASE 
+               WHEN p.treatment_level IS NOT NULL AND TRIM(p.treatment_level) != '' AND LOWER(TRIM(p.treatment_level)) NOT IN ('none', 'unassigned', 'null')
+                 THEN p.treatment_level
+               WHEN cv.treatment_level IS NOT NULL AND TRIM(cv.treatment_level) != '' AND LOWER(TRIM(cv.treatment_level)) NOT IN ('none', 'unassigned', 'null')
+                 THEN cv.treatment_level
+               ELSE NULL
+             END AS treatment_level
       FROM ${DatabaseTables.tablePatients} p
       LEFT JOIN (
         SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
@@ -343,12 +358,48 @@ class PatientRepository implements IPatientRepository {
   @override
   Future<PatientModel?> getPatientByPatientId(String patientId) async {
     final db = await _databaseService.database;
-    final maps = await db.query(
-      DatabaseTables.tablePatients,
-      where: 'patient_id = ?',
-      whereArgs: [patientId],
-      limit: 1,
-    );
+    final maps = await db.rawQuery('''
+      SELECT p.*,
+             CASE WHEN cv.patient_id IS NOT NULL THEN 1 ELSE 0 END AS has_clinical_visit,
+             cv.highest_pop_stage,
+             cv.diagnoses,
+             cv.surgery_done,
+             cv.surgery_type,
+             cv.is_follow_up,
+             cv.primary_doctor_name,
+             cv.attending_doctor_names,
+             cv.primary_nurse_name,
+             cv.attending_nurse_names,
+             cv.medications,
+             cv.custom_medication,
+             cv.counseling,
+             cv.pessary_type,
+             cv.pessary_size,
+             cv.surgical_referral,
+             CASE 
+               WHEN p.treatment_level IS NOT NULL AND TRIM(p.treatment_level) != '' AND LOWER(TRIM(p.treatment_level)) NOT IN ('none', 'unassigned', 'null')
+                 THEN p.treatment_level
+               WHEN cv.treatment_level IS NOT NULL AND TRIM(cv.treatment_level) != '' AND LOWER(TRIM(cv.treatment_level)) NOT IN ('none', 'unassigned', 'null')
+                 THEN cv.treatment_level
+               ELSE NULL
+             END AS treatment_level
+      FROM ${DatabaseTables.tablePatients} p
+      LEFT JOIN (
+        SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
+               cv1.primary_doctor_name, cv1.attending_doctor_names,
+               cv1.primary_nurse_name, cv1.attending_nurse_names,
+               cv1.medications, cv1.custom_medication, cv1.counseling,
+               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level
+        FROM ${DatabaseTables.tableClinicalVisits} cv1
+        WHERE cv1.visit_date = (
+          SELECT MAX(cv2.visit_date)
+          FROM ${DatabaseTables.tableClinicalVisits} cv2
+          WHERE cv2.patient_id = cv1.patient_id
+        )
+      ) cv ON cv.patient_id = p.patient_id OR cv.patient_id = p.id
+      WHERE p.patient_id = ? COLLATE NOCASE OR p.id = ?
+      LIMIT 1
+    ''', [patientId, patientId]);
     if (maps.isEmpty) return null;
     return PatientModel.fromMap(maps.first);
   }
@@ -376,7 +427,13 @@ class PatientRepository implements IPatientRepository {
              cv.pessary_type,
              cv.pessary_size,
              cv.surgical_referral,
-             COALESCE(NULLIF(cv.treatment_level, ''), p.treatment_level) AS treatment_level
+             CASE 
+               WHEN p.treatment_level IS NOT NULL AND TRIM(p.treatment_level) != '' AND LOWER(TRIM(p.treatment_level)) NOT IN ('none', 'unassigned', 'null')
+                 THEN p.treatment_level
+               WHEN cv.treatment_level IS NOT NULL AND TRIM(cv.treatment_level) != '' AND LOWER(TRIM(cv.treatment_level)) NOT IN ('none', 'unassigned', 'null')
+                 THEN cv.treatment_level
+               ELSE NULL
+             END AS treatment_level
       FROM ${DatabaseTables.tablePatients} p
       LEFT JOIN (
         SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
@@ -459,9 +516,10 @@ class PatientRepository implements IPatientRepository {
     );
 
     if (newVisit.treatmentLevel != null && newVisit.treatmentLevel!.trim().isNotEmpty) {
+      final normTreatment = PatientModel.normalizeTreatmentLevel(newVisit.treatmentLevel) ?? newVisit.treatmentLevel!.trim();
       await db.rawUpdate(
-        'UPDATE ${DatabaseTables.tablePatients} SET treatment_level = ? WHERE patient_id = ? OR id = ?',
-        [newVisit.treatmentLevel!.trim(), newVisit.patientId, newVisit.patientId],
+        'UPDATE ${DatabaseTables.tablePatients} SET treatment_level = ? WHERE patient_id = ? COLLATE NOCASE OR id = ?',
+        [normTreatment, newVisit.patientId, newVisit.patientId],
       );
     }
 

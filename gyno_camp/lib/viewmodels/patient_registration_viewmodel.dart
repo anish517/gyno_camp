@@ -84,6 +84,19 @@ class PatientRegistrationState {
 
   bool get isValid => validationError == null;
 
+  bool get isCounseling {
+    final norm = PatientModel.normalizeTreatmentLevel(treatmentLevel);
+    return norm == 'counseling' || norm == 'council_level';
+  }
+  bool get isGynocheckup {
+    final norm = PatientModel.normalizeTreatmentLevel(treatmentLevel);
+    return norm == 'gyno_checkup' || norm == 'full_check_up';
+  }
+  bool get isCouncilLevel => isCounseling;
+  bool get isFullCheckUp => isGynocheckup;
+  bool get isUnassigned => !isCounseling && !isGynocheckup;
+  String get consultationLabel => isCounseling ? 'Counseling' : (isGynocheckup ? 'Gynocheckup' : 'Unassigned');
+
   PatientRegistrationState copyWith({
     String? patientId,
     bool clearPatientId = false,
@@ -134,7 +147,7 @@ class PatientRegistrationState {
       maritalStatus: maritalStatus ?? this.maritalStatus,
       maritalAge: clearMaritalAge ? null : (maritalAge ?? this.maritalAge),
       selectedReasons: selectedReasons ?? this.selectedReasons,
-      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
+      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel != null ? PatientModel.normalizeTreatmentLevel(treatmentLevel) : this.treatmentLevel),
       consentTreatment: consentTreatment ?? this.consentTreatment,
       consentStoreMedicalInfo: consentStoreMedicalInfo ?? this.consentStoreMedicalInfo,
       duplicateResult: duplicateResult ?? this.duplicateResult,
@@ -235,8 +248,8 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
   }
 
   void setTreatmentLevel(String? level) {
-    final clean = (level == null || level.trim().isEmpty || level.trim() == 'none') ? null : level.trim();
-    state = state.copyWith(treatmentLevel: clean, clearTreatmentLevel: clean == null);
+    final norm = PatientModel.normalizeTreatmentLevel(level);
+    state = state.copyWith(treatmentLevel: norm, clearTreatmentLevel: norm == null);
   }
 
   Future<void> runLiveDuplicateCheck(String campId) async {
@@ -364,7 +377,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
       maritalStatus: patient.maritalStatus,
       maritalAge: patient.maritalAge,
       selectedReasons: List<String>.from(patient.reasonsForVisit),
-      treatmentLevel: patient.treatmentLevel,
+      treatmentLevel: PatientModel.normalizeTreatmentLevel(patient.treatmentLevel),
       consentTreatment: patient.consentTreatment,
       consentStoreMedicalInfo: patient.consentStoreMedicalInfo,
       registeredPatient: patient,

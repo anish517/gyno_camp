@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../core/constants/clinical_constants.dart';
 import 'nurse_profile.dart';
+import 'patient_model.dart';
 
 class ClinicalVisitModel {
   final String id;
@@ -136,10 +137,17 @@ class ClinicalVisitModel {
     return highest.clamp(0, 4);
   }
 
-  bool get isCounseling => treatmentLevel == 'counseling' || treatmentLevel == 'council_level';
-  bool get isGynocheckup => treatmentLevel == 'gyno_checkup' || treatmentLevel == 'full_check_up';
+  bool get isCounseling {
+    final norm = PatientModel.normalizeTreatmentLevel(treatmentLevel);
+    return norm == 'counseling' || norm == 'council_level';
+  }
+  bool get isGynocheckup {
+    final norm = PatientModel.normalizeTreatmentLevel(treatmentLevel);
+    return norm == 'gyno_checkup' || norm == 'full_check_up';
+  }
   bool get isCouncilLevel => isCounseling;
   bool get isFullCheckUp => isGynocheckup;
+  bool get isUnassigned => !isCounseling && !isGynocheckup;
   String get consultationLabel => isCounseling ? 'Counseling' : (isGynocheckup ? 'Gynocheckup' : 'Unassigned');
   String get treatmentLabel => consultationLabel;
 
@@ -178,7 +186,7 @@ class ClinicalVisitModel {
       'surgical_referral': surgicalReferral,
       'medications': medications.join(','),
       'custom_medication': customMedication,
-      'treatment_level': treatmentLevel,
+      'treatment_level': PatientModel.normalizeTreatmentLevel(treatmentLevel),
       'follow_up_needed': followUpNeeded ? 1 : 0,
       'follow_up_destination': followUpDestination,
       'outtake_notes': outtakeNotes,
@@ -248,7 +256,7 @@ class ClinicalVisitModel {
           ? (map['medications'] as String).split(',')
           : [],
       customMedication: map['custom_medication'] as String?,
-      treatmentLevel: map['treatment_level'] as String?,
+      treatmentLevel: PatientModel.normalizeTreatmentLevel(map['treatment_level'] as String?),
       followUpNeeded: (map['follow_up_needed'] is int)
           ? (map['follow_up_needed'] as int) == 1
           : (map['follow_up_needed'] as bool? ?? false),
@@ -367,7 +375,7 @@ class ClinicalVisitModel {
       surgicalReferral: surgicalReferral ?? this.surgicalReferral,
       medications: medications ?? this.medications,
       customMedication: customMedication ?? this.customMedication,
-      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
+      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel != null ? PatientModel.normalizeTreatmentLevel(treatmentLevel) : this.treatmentLevel),
       followUpNeeded: followUpNeeded ?? this.followUpNeeded,
       followUpDestination: followUpDestination ?? this.followUpDestination,
       outtakeNotes: outtakeNotes ?? this.outtakeNotes,

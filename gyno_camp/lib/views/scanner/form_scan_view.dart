@@ -1509,7 +1509,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: (result.treatmentLevel != null && result.treatmentLevel!.isNotEmpty)
+                color: !result.isUnassigned
                     ? const Color(0xFF7C3AED)
                     : Colors.purple.shade200,
                 width: 1.5,
@@ -1538,14 +1538,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         onDateSelected: (d) => vm.updateStationDate('intakeDate', d),
                       ),
                       const SizedBox(width: 6),
-                      if (result.treatmentLevel != null && result.treatmentLevel!.isNotEmpty)
+                      if (!result.isUnassigned)
                         Chip(
                           visualDensity: VisualDensity.compact,
-                          backgroundColor: const Color(0xFFEDE9FE),
-                          avatar: const Icon(Icons.check, size: 14, color: Color(0xFF7C3AED)),
+                          backgroundColor: result.isCounseling ? const Color(0xFFEDE9FE) : const Color(0xFFCCFBF1),
+                          avatar: Icon(Icons.check, size: 14, color: result.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488)),
                           label: Text(
-                            (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? 'Counseling' : 'Gynocheckup',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF7C3AED)),
+                            result.isCounseling ? 'Counseling' : 'Gynocheckup',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                              color: result.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488),
+                            ),
                           ),
                         ),
                     ],
@@ -1564,10 +1568,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         avatar: Icon(
                           Icons.do_not_disturb_alt_rounded,
                           size: 14,
-                          color: (result.treatmentLevel == null || result.treatmentLevel!.isEmpty) ? const Color(0xFF64748B) : Colors.grey,
+                          color: result.isUnassigned ? const Color(0xFF64748B) : Colors.grey,
                         ),
                         label: const Text('None / Unassigned (तोकिएको छैन)', style: TextStyle(fontSize: 12)),
-                        selected: result.treatmentLevel == null || result.treatmentLevel!.isEmpty,
+                        selected: result.isUnassigned,
                         selectedColor: const Color(0xFFF1F5F9),
                         onSelected: (selected) {
                           if (selected) vm.setTreatmentLevel(null);
@@ -1577,10 +1581,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         avatar: Icon(
                           Icons.record_voice_over_rounded,
                           size: 14,
-                          color: (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? const Color(0xFF7C3AED) : Colors.grey,
+                          color: result.isCounseling ? const Color(0xFF7C3AED) : Colors.grey,
                         ),
                         label: const Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12)),
-                        selected: result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level',
+                        selected: result.isCounseling,
                         selectedColor: const Color(0xFFEDE9FE),
                         onSelected: (selected) {
                           vm.setTreatmentLevel(selected ? 'counseling' : null);
@@ -1590,10 +1594,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         avatar: Icon(
                           Icons.health_and_safety_rounded,
                           size: 14,
-                          color: (result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up') ? const Color(0xFF0D9488) : Colors.grey,
+                          color: result.isGynocheckup ? const Color(0xFF0D9488) : Colors.grey,
                         ),
                         label: const Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12)),
-                        selected: result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up',
+                        selected: result.isGynocheckup,
                         selectedColor: const Color(0xFFCCFBF1),
                         onSelected: (selected) {
                           vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);

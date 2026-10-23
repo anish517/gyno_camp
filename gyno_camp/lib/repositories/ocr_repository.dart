@@ -306,7 +306,9 @@ class OcrRepository implements IOcrRepository {
       reasonsForVisit: List<String>.from(demo['reasonsForVisit'] as List? ?? const <String>[]),
       consentTreatment: demo['consentTreatment'] as bool? ?? true,
       consentStoreMedicalInfo: demo['consentStoreMedicalInfo'] as bool? ?? true,
-      treatmentLevel: verifiedScan.treatmentLevel,
+      treatmentLevel: PatientModel.normalizeTreatmentLevel(
+        verifiedScan.treatmentLevel ?? demo['treatmentLevel'] as String? ?? demo['levelOfTreatment'] as String?,
+      ),
       createdAt: DateTime.now(),
       createdByUserId: userId,
       createdByDeviceId: deviceId,
@@ -596,7 +598,9 @@ class OcrRepository implements IOcrRepository {
               : ((primaryNurseName ?? verifiedScan.examiningNurse) != null
                   ? [(primaryNurseName ?? verifiedScan.examiningNurse)!]
                   : const [])),
-      treatmentLevel: verifiedScan.treatmentLevel,
+      treatmentLevel: PatientModel.normalizeTreatmentLevel(
+        verifiedScan.treatmentLevel ?? demo['treatmentLevel'] as String? ?? demo['levelOfTreatment'] as String?,
+      ),
       createdAt: DateTime.now(),
       createdByUserId: userId,
     );

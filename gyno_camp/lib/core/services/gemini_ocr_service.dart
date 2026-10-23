@@ -9,6 +9,7 @@ import '../constants/clinical_constants.dart';
 import '../constants/nepal_geodata.dart';
 import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
+import '../../models/patient_model.dart';
 import '../security/security_service.dart';
 import 'http_central_api_service.dart';
 import 'session_service.dart';
@@ -238,17 +239,10 @@ class GeminiOcrService {
       rawAttendingNurses.insert(0, examiningNurse);
     }
     final rawSummary = parsedData['rawSummary']?.toString().trim() ?? '';
-    final rawTreatmentLevel = parsedData['treatmentLevel']?.toString().toLowerCase().trim() ??
-        parsedData['levelOfTreatment']?.toString().toLowerCase().trim() ??
-        parsedData['consultation']?.toString().toLowerCase().trim();
-    String? treatmentLevel;
-    if (rawTreatmentLevel != null && rawTreatmentLevel.isNotEmpty) {
-      if (rawTreatmentLevel.contains('counsel') || rawTreatmentLevel.contains('council') || rawTreatmentLevel.contains('काउन्सिलिङ')) {
-        treatmentLevel = 'counseling';
-      } else if (rawTreatmentLevel.contains('gyno') || rawTreatmentLevel.contains('full') || rawTreatmentLevel.contains('गाइनो') || rawTreatmentLevel.contains('पूर्ण')) {
-        treatmentLevel = 'gyno_checkup';
-      }
-    }
+    final rawTreatmentLevel = parsedData['treatmentLevel']?.toString().trim() ??
+        parsedData['levelOfTreatment']?.toString().trim() ??
+        parsedData['consultation']?.toString().trim();
+    final String? treatmentLevel = PatientModel.normalizeTreatmentLevel(rawTreatmentLevel);
 
     // Normalize Province (case-insensitive)
     String normProvince(String? raw) {

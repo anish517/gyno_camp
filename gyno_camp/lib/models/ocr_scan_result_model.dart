@@ -1,3 +1,5 @@
+import 'patient_model.dart';
+
 class OcrScanResultModel {
   final int pageNumber; // 1 = Front Page, 2 = Back Page, 0 = Full Intake
   final String? imagePath;
@@ -168,7 +170,7 @@ class OcrScanResultModel {
       attendingDoctors: attendingDoctors ?? List<String>.from(this.attendingDoctors),
       examiningNurse: clearExaminingNurse ? null : (examiningNurse ?? this.examiningNurse),
       attendingNurses: attendingNurses ?? List<String>.from(this.attendingNurses),
-      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
+      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel != null ? PatientModel.normalizeTreatmentLevel(treatmentLevel) : this.treatmentLevel),
       clinicalNotes: clearClinicalNotes ? null : (clinicalNotes ?? this.clinicalNotes),
       intakeDate: clearIntakeDate ? null : (intakeDate ?? this.intakeDate),
       examDate: clearExamDate ? null : (examDate ?? this.examDate),
@@ -311,9 +313,9 @@ ${page2.rawText}
       attendingDoctors: mergedDoctors,
       examiningNurse: mergedNurse,
       attendingNurses: mergedNurses,
-      treatmentLevel: (page1.treatmentLevel != null && page1.treatmentLevel!.isNotEmpty)
+      treatmentLevel: PatientModel.normalizeTreatmentLevel((page1.treatmentLevel != null && page1.treatmentLevel!.isNotEmpty)
           ? page1.treatmentLevel
-          : (page2.treatmentLevel ?? page1.treatmentLevel),
+          : (page2.treatmentLevel ?? page1.treatmentLevel)),
       clinicalNotes: page2.clinicalNotes ?? page1.clinicalNotes,
       intakeDate: harmonizedIntake,
       examDate: page2.examDate ?? page1.examDate ?? effectiveCampDate,
@@ -418,7 +420,7 @@ ${page2.rawText}
       'attendingDoctors': attendingDoctors.join(','),
       'examiningNurse': examiningNurse,
       'attendingNurses': attendingNurses.join(','),
-      'treatmentLevel': treatmentLevel,
+      'treatmentLevel': PatientModel.normalizeTreatmentLevel(treatmentLevel),
       'clinicalNotes': clinicalNotes,
       'intakeDate': intakeDate,
       'examDate': examDate,
@@ -460,10 +462,17 @@ ${page2.rawText}
     );
   }
 
-  bool get isCounseling => treatmentLevel == 'counseling' || treatmentLevel == 'council_level';
-  bool get isGynocheckup => treatmentLevel == 'gyno_checkup' || treatmentLevel == 'full_check_up';
+  bool get isCounseling {
+    final norm = PatientModel.normalizeTreatmentLevel(treatmentLevel);
+    return norm == 'counseling' || norm == 'council_level';
+  }
+  bool get isGynocheckup {
+    final norm = PatientModel.normalizeTreatmentLevel(treatmentLevel);
+    return norm == 'gyno_checkup' || norm == 'full_check_up';
+  }
   bool get isCouncilLevel => isCounseling;
   bool get isFullCheckUp => isGynocheckup;
+  bool get isUnassigned => !isCounseling && !isGynocheckup;
   String get consultationLabel => isCounseling ? 'Counseling' : (isGynocheckup ? 'Gynocheckup' : 'Unassigned');
   String get treatmentLabel => consultationLabel;
 

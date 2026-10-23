@@ -74,12 +74,20 @@ void main() {
       expect(v2.isFullCheckUp, isTrue);
     });
 
-    test('OcrScanResultModel preserves treatmentLevel across copyWith', () {
+    test('OcrScanResultModel preserves and normalizes treatmentLevel across copyWith', () {
       final scan1 = OcrScanResultModel.empty().copyWith(treatmentLevel: 'council_level');
-      expect(scan1.treatmentLevel, equals('council_level'));
+      expect(scan1.treatmentLevel, equals('counseling'));
+      expect(scan1.isCounseling, isTrue);
+      expect(scan1.isCouncilLevel, isTrue);
 
       final scan2 = scan1.copyWith(treatmentLevel: 'full_check_up');
-      expect(scan2.treatmentLevel, equals('full_check_up'));
+      expect(scan2.treatmentLevel, equals('gyno_checkup'));
+      expect(scan2.isGynocheckup, isTrue);
+      expect(scan2.isFullCheckUp, isTrue);
+
+      final scan3 = scan2.copyWith(treatmentLevel: 'Gynocheckup');
+      expect(scan3.treatmentLevel, equals('gyno_checkup'));
+      expect(scan3.isGynocheckup, isTrue);
     });
   });
 

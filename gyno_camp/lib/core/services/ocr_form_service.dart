@@ -3,6 +3,7 @@ import 'dart:math';
 import '../constants/nepal_geodata.dart';
 import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
+import '../../models/patient_model.dart';
 import 'omr_service.dart';
 
 class OcrFormService {
@@ -1748,7 +1749,7 @@ class OcrFormService {
       attendingDoctors: attendingDoctors,
       examiningNurse: examiningNurse,
       attendingNurses: attendingNurses,
-      treatmentLevel: treatmentLevel,
+      treatmentLevel: PatientModel.normalizeTreatmentLevel(treatmentLevel),
       clinicalNotes: clinicalNotes,
       intakeDate: parsedIntakeDate?.trim(),
       examDate: examDate?.trim(),

@@ -108,11 +108,32 @@ class PatientModel {
     this.treatmentLevel,
   });
 
+  /// Normalizes consultation / treatment level to canonical keys ('counseling' or 'gyno_checkup')
+  static String? normalizeTreatmentLevel(String? raw) {
+    if (raw == null) return null;
+    final clean = raw.trim().toLowerCase().replaceAll(RegExp(r'[\s\-]+'), '_');
+    if (clean.isEmpty || clean == 'none' || clean == 'unassigned' || clean == 'null') return null;
+    if (clean.contains('counsel') || clean.contains('council') || clean.contains('काउन्सिलिङ')) {
+      return 'counseling';
+    }
+    if (clean.contains('gyno') || clean.contains('full') || clean.contains('checkup') || clean.contains('गाइनो') || clean.contains('पूर्ण')) {
+      return 'gyno_checkup';
+    }
+    return clean;
+  }
+
   String get fullName => '$firstName $surname'.trim();
-  bool get isCounseling => treatmentLevel == 'counseling' || treatmentLevel == 'council_level';
-  bool get isGynocheckup => treatmentLevel == 'gyno_checkup' || treatmentLevel == 'full_check_up';
+  bool get isCounseling {
+    final norm = normalizeTreatmentLevel(treatmentLevel);
+    return norm == 'counseling' || norm == 'council_level';
+  }
+  bool get isGynocheckup {
+    final norm = normalizeTreatmentLevel(treatmentLevel);
+    return norm == 'gyno_checkup' || norm == 'full_check_up';
+  }
   bool get isCouncilLevel => isCounseling;
   bool get isFullCheckUp => isGynocheckup;
+  bool get isUnassigned => !isCounseling && !isGynocheckup;
   String get consultationLabel => isCounseling ? 'Counseling' : (isGynocheckup ? 'Gynocheckup' : 'Unassigned');
   String get treatmentLabel => consultationLabel;
 
@@ -264,7 +285,7 @@ class PatientModel {
       pessaryType: pessaryType ?? this.pessaryType,
       pessarySize: pessarySize ?? this.pessarySize,
       surgicalReferral: surgicalReferral ?? this.surgicalReferral,
-      treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
+      treatmentLevel: clearTreatmentLevel ? null : (normalizeTreatmentLevel(treatmentLevel) ?? normalizeTreatmentLevel(this.treatmentLevel)),
     );
   }
 
@@ -357,7 +378,7 @@ class PatientModel {
       'reasons_for_visit': reasonsForVisit.join(','),
       'consent_treatment': consentTreatment ? 1 : 0,
       'consent_store_medical_info': consentStoreMedicalInfo ? 1 : 0,
-      'treatment_level': treatmentLevel,
+      'treatment_level': normalizeTreatmentLevel(treatmentLevel),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'created_by_user_id': createdByUserId,
@@ -458,7 +479,7 @@ class PatientModel {
       pessaryType: map['pessary_type'] as String?,
       pessarySize: map['pessary_size'] as String?,
       surgicalReferral: map['surgical_referral'] as String?,
-      treatmentLevel: map['treatment_level'] as String?,
+      treatmentLevel: normalizeTreatmentLevel(map['treatment_level'] as String?),
     );
   }
 }

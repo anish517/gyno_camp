@@ -80,13 +80,21 @@ class _PatientRegistrationViewState
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.patientToEdit != null) {
-        _applyPatientToEdit(widget.patientToEdit!);
-      } else {
+    if (widget.patientToEdit != null) {
+      _applyPatientToEdit(widget.patientToEdit!);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         _resetToFreshRegistration();
-      }
-    });
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant PatientRegistrationView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.patientToEdit != null && widget.patientToEdit != oldWidget.patientToEdit) {
+      _applyPatientToEdit(widget.patientToEdit!);
+    }
   }
 
   void _applyPatientToEdit(PatientModel patient) {
@@ -2054,14 +2062,18 @@ class _PatientRegistrationViewState
                                 ],
                               ),
                             ),
-                            if (state.treatmentLevel != null && state.treatmentLevel!.isNotEmpty)
+                            if (!state.isUnassigned)
                               Chip(
                                 visualDensity: VisualDensity.compact,
-                                backgroundColor: const Color(0xFFEDE9FE),
-                                avatar: const Icon(Icons.check, size: 14, color: Color(0xFF7C3AED)),
+                                backgroundColor: state.isCounseling ? const Color(0xFFEDE9FE) : const Color(0xFFCCFBF1),
+                                avatar: Icon(Icons.check, size: 14, color: state.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488)),
                                 label: Text(
-                                  (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level') ? 'Counseling' : 'Gynocheckup',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF7C3AED)),
+                                  state.isCounseling ? 'Counseling' : 'Gynocheckup',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: state.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488),
+                                  ),
                                 ),
                               ),
                           ],
@@ -2072,27 +2084,39 @@ class _PatientRegistrationViewState
                           runSpacing: 8,
                           children: [
                             ChoiceChip(
-                              avatar: Icon(Icons.do_not_disturb_alt_rounded, size: 14, color: (state.treatmentLevel == null || state.treatmentLevel!.isEmpty) ? const Color(0xFF64748B) : Colors.grey),
+                              avatar: Icon(
+                                Icons.do_not_disturb_alt_rounded,
+                                size: 14,
+                                color: state.isUnassigned ? const Color(0xFF64748B) : Colors.grey,
+                              ),
                               label: const Text('None / Unassigned (तोकिएको छैन)', style: TextStyle(fontSize: 12)),
-                              selected: state.treatmentLevel == null || state.treatmentLevel!.isEmpty,
+                              selected: state.isUnassigned,
                               selectedColor: const Color(0xFFF1F5F9),
                               onSelected: (selected) {
                                 if (selected) vm.setTreatmentLevel(null);
                               },
                             ),
                             ChoiceChip(
-                              avatar: Icon(Icons.record_voice_over_rounded, size: 14, color: (state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level') ? const Color(0xFF7C3AED) : Colors.grey),
+                              avatar: Icon(
+                                Icons.record_voice_over_rounded,
+                                size: 14,
+                                color: state.isCounseling ? const Color(0xFF7C3AED) : Colors.grey,
+                              ),
                               label: const Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12)),
-                              selected: state.treatmentLevel == 'counseling' || state.treatmentLevel == 'council_level',
+                              selected: state.isCounseling,
                               selectedColor: const Color(0xFFEDE9FE),
                               onSelected: (selected) {
                                 vm.setTreatmentLevel(selected ? 'counseling' : null);
                               },
                             ),
                             ChoiceChip(
-                              avatar: Icon(Icons.health_and_safety_rounded, size: 14, color: (state.treatmentLevel == 'gyno_checkup' || state.treatmentLevel == 'full_check_up') ? const Color(0xFF0D9488) : Colors.grey),
+                              avatar: Icon(
+                                Icons.health_and_safety_rounded,
+                                size: 14,
+                                color: state.isGynocheckup ? const Color(0xFF0D9488) : Colors.grey,
+                              ),
                               label: const Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12)),
-                              selected: state.treatmentLevel == 'gyno_checkup' || state.treatmentLevel == 'full_check_up',
+                              selected: state.isGynocheckup,
                               selectedColor: const Color(0xFFCCFBF1),
                               onSelected: (selected) {
                                 vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);

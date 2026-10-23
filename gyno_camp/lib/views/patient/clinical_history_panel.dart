@@ -360,13 +360,13 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
         _infoRow(Icons.phone_iphone_rounded, 'Contact No.', p.contactMobile!),
       if (p.maritalAge != null)
         _infoRow(Icons.event_outlined, 'Age at Marriage', '${p.maritalAge} yrs'),
-      if (p.treatmentLevel?.isNotEmpty == true)
+      if (!p.isUnassigned)
         _infoRow(
           Icons.layers_outlined,
-          'Treatment Level',
-          p.isCouncilLevel
-              ? 'Council level (काउन्सिलिङ तह)'
-              : (p.isFullCheckUp ? 'Full check up (पूर्ण जाँच)' : p.treatmentLevel!),
+          'Consultation Level',
+          p.isCounseling
+              ? 'Counseling (काउन्सिलिङ तह)'
+              : 'Gynocheckup (गाइनो जाँच)',
         ),
       const SizedBox(height: 10), const Divider(color: Color(0xFFE2E8F0)), const SizedBox(height: 6),
       Row(
