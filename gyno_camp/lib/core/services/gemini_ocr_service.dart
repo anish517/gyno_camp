@@ -378,7 +378,35 @@ class GeminiOcrService {
       'livingChildren': (rawObs['livingChildren'] as num?)?.toInt(),
       'abortions': (rawObs['abortions'] as num?)?.toInt(),
       'complaintsDuration': rawObs['complaintsDuration']?.toString().trim() ?? '',
-      'clinicalComplaints': (rawObs['clinicalComplaints'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[],
+      'clinicalComplaints': () {
+        final rawList = (rawObs['clinicalComplaints'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
+        final normalized = <String>[];
+        for (final item in rawList) {
+          final s = item.toLowerCase();
+          if (s.contains('prolapse') || s.contains('hanging') || s.contains('पाठेघर')) {
+            if (!normalized.contains('prolapse')) normalized.add('prolapse');
+          } else if (s.contains('discharge') || s.contains('itching') || s.contains('स्राव')) {
+            if (!normalized.contains('discharge')) normalized.add('discharge');
+          } else if (s.contains('urine') || s.contains('पिसाब')) {
+            if (!normalized.contains('urine')) normalized.add('urine');
+          } else if (s.contains('stool') || s.contains('दिसा')) {
+            if (!normalized.contains('stool')) normalized.add('stool');
+          } else if (s.contains('menstrual') || s.contains('महिनावारी')) {
+            if (!normalized.contains('menstrual')) normalized.add('menstrual');
+          } else if (s.contains('infertility') || s.contains('बाँझोपन') || s.contains('निःसन्तान')) {
+            if (!normalized.contains('infertility')) normalized.add('infertility');
+          } else if (s == 'lower_abdomen_pain' || (s.contains('pain') && !s.contains('back'))) {
+            if (!normalized.contains('lower_abdomen_pain')) normalized.add('lower_abdomen_pain');
+          } else if (s == 'lower_back_pain' || s.contains('back') || s.contains('ढाड') || s.contains('कम्मर')) {
+            if (!normalized.contains('lower_back_pain')) normalized.add('lower_back_pain');
+          } else if (s.contains('checkup') || s.contains('जाँच')) {
+            if (!normalized.contains('checkup')) normalized.add('checkup');
+          } else {
+            if (!normalized.contains(item)) normalized.add(item);
+          }
+        }
+        return normalized;
+      }(),
       'complaintDetails': () {
         // Gemini returns complaintDetails as a List of {complaint, subOptions, duration, remarks}.
         // The UI/viewmodel/repository expects a Map keyed by complaint name.
@@ -390,11 +418,22 @@ class GeminiOcrService {
               final key = item['complaint']?.toString().trim();
               if (key != null && key.isNotEmpty) {
                 final subOptions = item['subOptions'];
-                result[key] = <String, dynamic>{
+                final detailMap = <String, dynamic>{
                   'duration': item['duration']?.toString() ?? '',
                   'remarks': item['remarks']?.toString() ?? '',
                   'subOption': subOptions is List ? subOptions.join(', ') : (subOptions?.toString() ?? ''),
                 };
+                result[key] = detailMap;
+                final kLow = key.toLowerCase();
+                if (kLow.contains('prolapse') || kLow.contains('hanging')) result['prolapse'] = detailMap;
+                if (kLow.contains('discharge') || kLow.contains('itching')) result['discharge'] = detailMap;
+                if (kLow.contains('urine')) result['urine'] = detailMap;
+                if (kLow.contains('stool')) result['stool'] = detailMap;
+                if (kLow.contains('menstrual')) result['menstrual'] = detailMap;
+                if (kLow.contains('infertility')) result['infertility'] = detailMap;
+                if (kLow.contains('abdomen')) result['lower_abdomen_pain'] = detailMap;
+                if (kLow.contains('back')) result['lower_back_pain'] = detailMap;
+                if (kLow.contains('checkup')) result['checkup'] = detailMap;
               }
             }
           }
@@ -432,6 +471,7 @@ class GeminiOcrService {
     final int? mid = (rawPop['middleStage'] as num?)?.toInt();
     final int? post = (rawPop['posteriorStage'] as num?)?.toInt();
     final int? popStageNum = (rawPop['highestPopStage'] as num?)?.toInt() ??
+        (rawPop['highestStage'] as num?)?.toInt() ??
         (rawPop['stage'] as num?)?.toInt() ??
         (ant != null || mid != null || post != null
             ? [ant ?? 0, mid ?? 0, post ?? 0].reduce((a, b) => a > b ? a : b)
@@ -442,6 +482,7 @@ class GeminiOcrService {
       'middleStage': mid,
       'posteriorStage': post,
       'highestPopStage': popStageNum,
+      'highestStage': popStageNum,
       'stage': popStageNum,
       'uterusInside': rawPop['uterusInside'],  // preserve null if undetected
       'pelvicFloorTone': rawPop['pelvicFloorTone']?.toString().toLowerCase().trim(),  // null if undetected

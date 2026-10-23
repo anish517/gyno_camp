@@ -19,6 +19,31 @@ import '../../viewmodels/ocr_scan_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
 import '../patient/patient_list_view.dart';
 
+/// Safely extracts complaintDetails as `Map<String, dynamic>` regardless of
+/// whether Gemini returned it as a List of objects or a Map keyed by complaint.
+Map<String, dynamic> _safeComplaintDetailsMap(dynamic raw) {
+  if (raw is Map) return Map<String, dynamic>.from(raw);
+  if (raw is List) {
+    final result = <String, dynamic>{};
+    for (final item in raw) {
+      if (item is Map) {
+        final key = item['complaint']?.toString().trim();
+        if (key != null && key.isNotEmpty) {
+          result[key] = <String, dynamic>{
+            'duration': item['duration']?.toString() ?? '',
+            'remarks': item['remarks']?.toString() ?? '',
+            'subOption': item['subOptions'] is List
+                ? (item['subOptions'] as List).join(', ')
+                : (item['subOption']?.toString() ?? ''),
+          };
+        }
+      }
+    }
+    return result;
+  }
+  return <String, dynamic>{};
+}
+
 class FormScanView extends ConsumerStatefulWidget {
   const FormScanView({super.key});
 
@@ -2286,14 +2311,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             ? '${masterItem.labelEn} (${masterItem.labelNe})'
                             : masterItem.labelEn;
 
+                        final canonicalKey = stdMatch != null ? (stdMatch['key'] as String) : code;
                         resolvedComplaints.add({
-                          'key': code,
+                          'key': canonicalKey,
+                          'code': code,
+                          'canonicalKey': canonicalKey,
                           'label': title,
                           'hasDuration': stdMatch?['hasDuration'] ?? true,
                           'isInfertilityDuration': stdMatch?['isInfertilityDuration'] == true || code.contains('infertility'),
                           'options': (stdMatch?['options'] as List<String>?) ?? <String>[],
                           'optionPrefix': stdMatch?['optionPrefix'] as String?,
                           'isIntakeReason': patientReasons.any((r) =>
+                              r.contains(canonicalKey) ||
                               r.contains(code) ||
                               r.contains(masterItem.labelEn.toLowerCase()) ||
                               (masterItem.labelNe.isNotEmpty && r.contains(masterItem.labelNe.toLowerCase()))),
@@ -2302,8 +2331,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     } else {
                       for (final std in standardComplaints) {
                         final matchesFn = std['matches'] as bool Function(List<String>);
+                        final keyStr = std['key'] as String;
                         resolvedComplaints.add({
-                          'key': std['key'] as String,
+                          'key': keyStr,
+                          'code': keyStr,
+                          'canonicalKey': keyStr,
                           'label': std['label'] as String,
                           'hasDuration': std['hasDuration'] as bool,
                           'isInfertilityDuration': std['isInfertilityDuration'] == true,
@@ -2316,6 +2348,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
 
                     return resolvedComplaints.map((comp) {
                       final cKey = comp['key'] as String;
+                      final canonicalKey = comp['canonicalKey'] as String? ?? cKey;
+                      final rawCode = comp['code'] as String? ?? cKey;
                       final label = comp['label'] as String;
                       final hasDuration = comp['hasDuration'] as bool;
                       final isInfertilityDuration = comp['isInfertilityDuration'] == true;
@@ -2323,12 +2357,66 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       final optionPrefix = comp['optionPrefix'] as String?;
                       final isIntakeReason = comp['isIntakeReason'] == true;
 
-                      final selectedComplaints = (obs['clinicalComplaints'] as List?)?.cast<String>() ?? [];
-                      final isSelected = selectedComplaints.contains(cKey) ||
-                          selectedComplaints.any((c) => c.toLowerCase().contains(cKey.toLowerCase()));
+                      final selectedComplaints = (obs['clinicalComplaints'] as List?)
+                              ?.map((e) => e.toString().toLowerCase().trim())
+                              .where((e) => e.isNotEmpty)
+                              .toList() ??
+                          <String>[];
 
-                      final details = Map<String, dynamic>.from(obs['complaintDetails'] as Map? ?? {});
-                      final item = Map<String, dynamic>.from(details[cKey] as Map? ?? {});
+                      bool matchesComplaintItem(String target) {
+                        final t = target.toLowerCase().trim();
+                        if (t.isEmpty) return false;
+                        if (selectedComplaints.contains(t)) return true;
+                        for (final s in selectedComplaints) {
+                          if (s == t || s.contains(t) || t.contains(s)) return true;
+                          if ((t.contains('prolapse') || t.contains('hanging') || t.contains('पाठेघर')) &&
+                              (s.contains('prolapse') || s.contains('hanging') || s.contains('पाठेघर'))) {
+                            return true;
+                          }
+                          if ((t.contains('discharge') || t.contains('itching') || t.contains('स्राव')) &&
+                              (s.contains('discharge') || s.contains('itching') || s.contains('स्राव'))) {
+                            return true;
+                          }
+                          if ((t.contains('urine') || t.contains('पिसाब')) &&
+                              (s.contains('urine') || s.contains('पिसाब'))) {
+                            return true;
+                          }
+                          if ((t.contains('stool') || t.contains('दिसा')) &&
+                              (s.contains('stool') || s.contains('दिसा'))) {
+                            return true;
+                          }
+                          if ((t.contains('menstrual') || t.contains('महिनावारी')) &&
+                              (s.contains('menstrual') || s.contains('महिनावारी'))) {
+                            return true;
+                          }
+                          if ((t.contains('infertility') || t.contains('बाँझोपन') || t.contains('निःसन्तान')) &&
+                              (s.contains('infertility') || s.contains('बाँझोपन') || s.contains('निःसन्तान'))) {
+                            return true;
+                          }
+                          if ((t == 'lower_abdomen_pain' || (t.contains('pain') && !t.contains('back'))) &&
+                              (s == 'lower_abdomen_pain' || (s.contains('pain') && !s.contains('back')))) {
+                            return true;
+                          }
+                          if ((t == 'lower_back_pain' || t.contains('back') || t.contains('ढाड') || t.contains('कम्मर')) &&
+                              (s == 'lower_back_pain' || s.contains('back') || s.contains('ढाड') || s.contains('कम्मर'))) {
+                            return true;
+                          }
+                          if ((t.contains('checkup') || t.contains('जाँच')) &&
+                              (s.contains('checkup') || s.contains('जाँच'))) {
+                            return true;
+                          }
+                        }
+                        return false;
+                      }
+
+                      final isSelected = matchesComplaintItem(cKey) ||
+                          matchesComplaintItem(canonicalKey) ||
+                          matchesComplaintItem(rawCode);
+
+                      final details = _safeComplaintDetailsMap(obs['complaintDetails']);
+                      final item = Map<String, dynamic>.from(
+                        (details[cKey] ?? details[canonicalKey] ?? details[rawCode]) as Map? ?? {},
+                      );
 
                       final currentDuration = (item['duration'] as String?) ?? (obs['complaintsDuration'] as String? ?? '< 1 year');
                       final currentRemarks = (item['remarks'] as String?) ?? '';
@@ -2634,15 +2722,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         'Highest POP Stage (अधिकतम स्टेज):',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
                       ),
-                      if (pop['highestStage'] != null)
-                        Chip(
+                      () {
+                        final highestVal = (pop['highestPopStage'] ?? pop['highestStage'] ?? pop['stage']) as int?;
+                        if (highestVal == null) return const SizedBox.shrink();
+                        return Chip(
                           visualDensity: VisualDensity.compact,
                           backgroundColor: AppTheme.primaryTeal,
                           label: Text(
-                            'Stage ${pop['highestStage']}',
+                            'Stage $highestVal',
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                           ),
-                        ),
+                        );
+                      }(),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -2651,27 +2742,32 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: List.generate(5, (stage) {
-                      final isSelected = pop['highestStage'] == stage;
-                      return ChoiceChip(
-                        label: Text('Stage $stage'),
-                        selected: isSelected,
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 11.5,
-                        ),
-                        onSelected: (selected) {
-                          if (selected) {
-                            vm.updatePopStage('highestStage', stage);
-                          }
-                        },
+                  Builder(
+                    builder: (context) {
+                      final highestVal = (pop['highestPopStage'] ?? pop['highestStage'] ?? pop['stage']) as int?;
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: List.generate(5, (stage) {
+                          final isSelected = highestVal == stage;
+                          return ChoiceChip(
+                            label: Text('Stage $stage'),
+                            selected: isSelected,
+                            selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                            labelStyle: TextStyle(
+                              color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 11.5,
+                            ),
+                            onSelected: (selected) {
+                              if (selected) {
+                                vm.updatePopStage('highestPopStage', stage);
+                              }
+                            },
+                          );
+                        }),
                       );
-                    }),
+                    },
                   ),
                 ],
               ),

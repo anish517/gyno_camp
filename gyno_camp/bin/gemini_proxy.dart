@@ -91,9 +91,8 @@ class GeminiProxy {
   static const int maxImageBase64Chars = 8 * 1024 * 1024;
 
   static const List<String> defaultModels = [
-    'gemini-2.5-flash-preview-05-20',
-    'gemini-flash-latest',
     'gemini-flash-lite-latest',
+    'gemini-flash-latest',
   ];
 
   GeminiProxy({
@@ -154,8 +153,7 @@ class GeminiProxy {
         },
       ],
       'generationConfig': {
-        'temperature': 0.0,
-        'response_mime_type': 'application/json',
+        'temperature': 0.1,
       },
     });
 
@@ -166,8 +164,10 @@ class GeminiProxy {
 
     final response = await _sendWithRetryAndFailover(headers, payload);
     if (response.statusCode != 200) {
-      // Log status only. Never forward the upstream body to the caller.
+      // Log status AND upstream body for debugging.
       print('! [ocr] Gemini upstream status ${response.statusCode}');
+      final errBody = response.body.length > 500 ? response.body.substring(0, 500) : response.body;
+      print('! [ocr] Upstream body: $errBody');
       if (response.statusCode == 429 || response.statusCode == 503) {
         throw const GeminiProxyException(503, 'OCR_BUSY', 'Cloud OCR is busy. Please retry shortly.');
       }
@@ -213,13 +213,14 @@ class GeminiProxy {
           final res = await _client.post(uri, headers: headers, body: body).timeout(requestTimeout);
           if (res.statusCode == 200) return res;
           lastResponse = res;
-          if (res.statusCode == 503 || res.statusCode == 429) {
+          if (res.statusCode == 503 || res.statusCode == 429 || res.statusCode == 404) {
             if (attempts < 2) {
               await Future<void>.delayed(retryDelay(attempts));
               continue;
             }
             break; // fail over to next model
           }
+          print('! [ocr] Model $model returned ${res.statusCode} — not retryable');
           return res; // other 4xx/5xx: do not fail over
         } catch (e) {
           lastError = e;

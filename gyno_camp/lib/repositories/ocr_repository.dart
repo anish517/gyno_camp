@@ -14,6 +14,31 @@ import '../models/patient_model.dart';
 import 'audit_repository.dart';
 import 'patient_repository.dart';
 
+/// Safely extracts complaintDetails as `Map<String, dynamic>` regardless of
+/// whether it's a List (from Gemini) or already a Map.
+Map<String, dynamic> _safeComplaintDetailsMap(dynamic raw) {
+  if (raw is Map) return Map<String, dynamic>.from(raw);
+  if (raw is List) {
+    final result = <String, dynamic>{};
+    for (final item in raw) {
+      if (item is Map) {
+        final key = item['complaint']?.toString().trim();
+        if (key != null && key.isNotEmpty) {
+          result[key] = <String, dynamic>{
+            'duration': item['duration']?.toString() ?? '',
+            'remarks': item['remarks']?.toString() ?? '',
+            'subOption': item['subOptions'] is List
+                ? (item['subOptions'] as List).join(', ')
+                : (item['subOption']?.toString() ?? ''),
+          };
+        }
+      }
+    }
+    return result;
+  }
+  return <String, dynamic>{};
+}
+
 enum OcrEngineMode {
   auto,
   onlineGemini,
@@ -296,7 +321,7 @@ class OcrRepository implements IOcrRepository {
       'clinicalComplaints': complaintsList,
       'complaintsDuration': duration,
     };
-    final complaintDetails = Map<String, dynamic>.from(obs['complaintDetails'] as Map? ?? {});
+    final complaintDetails = _safeComplaintDetailsMap(obs['complaintDetails']);
     for (final c in complaintsList) {
       final itemDetails = Map<String, dynamic>.from(complaintDetails[c] as Map? ?? {});
       final itemDur = (itemDetails['duration'] as String?)?.isNotEmpty == true

@@ -8,6 +8,31 @@ import '../repositories/ocr_repository.dart';
 import '../core/services/duplicate_detection_service.dart';
 import '../repositories/patient_repository.dart';
 
+/// Safely extracts complaintDetails as `Map<String, dynamic>` regardless of
+/// whether it's a List (from Gemini) or already a Map.
+Map<String, dynamic> _safeComplaintDetailsMap(dynamic raw) {
+  if (raw is Map) return Map<String, dynamic>.from(raw);
+  if (raw is List) {
+    final result = <String, dynamic>{};
+    for (final item in raw) {
+      if (item is Map) {
+        final key = item['complaint']?.toString().trim();
+        if (key != null && key.isNotEmpty) {
+          result[key] = <String, dynamic>{
+            'duration': item['duration']?.toString() ?? '',
+            'remarks': item['remarks']?.toString() ?? '',
+            'subOption': item['subOptions'] is List
+                ? (item['subOptions'] as List).join(', ')
+                : (item['subOption']?.toString() ?? ''),
+          };
+        }
+      }
+    }
+    return result;
+  }
+  return <String, dynamic>{};
+}
+
 class OcrScanState {
   final bool isProcessing;
   final bool isSaving;
@@ -451,8 +476,25 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     final updatedObs = Map<String, dynamic>.from(state.scanResult!.obstetrics);
     final rawList = updatedObs['clinicalComplaints'];
     final List<String> complaints = rawList is List ? List<String>.from(rawList) : [];
-    if (complaints.contains(complaint)) {
-      complaints.remove(complaint);
+
+    final clean = complaint.toLowerCase().trim();
+    final existingIndex = complaints.indexWhere((c) {
+      final cLow = c.toLowerCase().trim();
+      if (cLow == clean) return true;
+      if (clean == 'prolapse' && (cLow.contains('prolapse') || cLow.contains('hanging') || cLow.contains('पाठेघर'))) return true;
+      if (clean == 'discharge' && (cLow.contains('discharge') || cLow.contains('itching') || cLow.contains('स्राव'))) return true;
+      if (clean == 'urine' && (cLow.contains('urine') || cLow.contains('पिसाब'))) return true;
+      if (clean == 'stool' && (cLow.contains('stool') || cLow.contains('दिसा'))) return true;
+      if (clean == 'menstrual' && (cLow.contains('menstrual') || cLow.contains('महिनावारी'))) return true;
+      if (clean == 'infertility' && (cLow.contains('infertility') || cLow.contains('बाँझोपन'))) return true;
+      if (clean == 'lower_abdomen_pain' && (cLow == 'lower_abdomen_pain' || (cLow.contains('pain') && !cLow.contains('back')))) return true;
+      if (clean == 'lower_back_pain' && (cLow == 'lower_back_pain' || cLow.contains('back') || cLow.contains('ढाड'))) return true;
+      if (clean == 'checkup' && (cLow.contains('checkup') || cLow.contains('जाँच'))) return true;
+      return false;
+    });
+
+    if (existingIndex != -1) {
+      complaints.removeAt(existingIndex);
     } else {
       complaints.add(complaint);
     }
@@ -478,11 +520,22 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     final updatedPop = Map<String, dynamic>.from(state.scanResult!.popStaging);
     updatedPop[key] = value;
 
-    // Recalculate highest
-    final ant = updatedPop['anteriorStage'] as int? ?? 0;
-    final mid = updatedPop['middleStage'] as int? ?? 0;
-    final post = updatedPop['posteriorStage'] as int? ?? 0;
-    updatedPop['highestPopStage'] = [ant, mid, post].reduce((a, b) => a > b ? a : b);
+    if (key == 'highestPopStage' || key == 'highestStage' || key == 'stage') {
+      updatedPop['highestPopStage'] = value;
+      updatedPop['highestStage'] = value;
+      updatedPop['stage'] = value;
+    } else {
+      // Recalculate highest if anterior, middle, or posterior wall changed
+      final ant = updatedPop['anteriorStage'] as int?;
+      final mid = updatedPop['middleStage'] as int?;
+      final post = updatedPop['posteriorStage'] as int?;
+      if (ant != null || mid != null || post != null) {
+        final calc = [ant ?? 0, mid ?? 0, post ?? 0].reduce((a, b) => a > b ? a : b);
+        updatedPop['highestPopStage'] = calc;
+        updatedPop['highestStage'] = calc;
+        updatedPop['stage'] = calc;
+      }
+    }
 
     state = state.copyWith(
       scanResult: state.scanResult!.copyWith(popStaging: updatedPop),
@@ -620,7 +673,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
   void updateComplaintDetail(String complaint, {String? duration, String? remarks, dynamic subOption}) {
     if (state.scanResult == null) return;
     final updatedObs = Map<String, dynamic>.from(state.scanResult!.obstetrics);
-    final details = Map<String, dynamic>.from(updatedObs['complaintDetails'] as Map? ?? {});
+    final details = _safeComplaintDetailsMap(updatedObs['complaintDetails']);
     final item = Map<String, dynamic>.from(details[complaint] as Map? ?? {});
     if (duration != null) item['duration'] = duration;
     if (remarks != null) item['remarks'] = remarks;

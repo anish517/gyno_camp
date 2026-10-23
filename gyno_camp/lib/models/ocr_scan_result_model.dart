@@ -230,9 +230,33 @@ ${page2.rawText}
       page1RawText: page1.rawText,
       page2RawText: page2.rawText,
       demographics: Map<String, dynamic>.from(page1.demographics.isNotEmpty ? page1.demographics : page2.demographics),
-      obstetrics: _mergeMapNullAware(page1.obstetrics, page2.obstetrics),
+      obstetrics: () {
+        final mergedObs = _mergeMapNullAware(page1.obstetrics, page2.obstetrics);
+        final c1 = (page1.obstetrics['clinicalComplaints'] as List?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? [];
+        final c2 = (page2.obstetrics['clinicalComplaints'] as List?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? [];
+        final combined = <String>{...c1, ...c2}.toList();
+        if (combined.isNotEmpty) {
+          mergedObs['clinicalComplaints'] = combined;
+        }
+        return mergedObs;
+      }(),
       vitals: _mergeMapNullAware(page1.vitals, page2.vitals),
-      popStaging: _mergeMapNullAware(page1.popStaging, page2.popStaging),
+      popStaging: () {
+        final mergedPop = _mergeMapNullAware(page1.popStaging, page2.popStaging);
+        final ant = mergedPop['anteriorStage'] as int?;
+        final mid = mergedPop['middleStage'] as int?;
+        final post = mergedPop['posteriorStage'] as int?;
+        final highest = (mergedPop['highestPopStage'] ?? mergedPop['highestStage'] ?? mergedPop['stage']) as int? ??
+            (ant != null || mid != null || post != null
+                ? [ant ?? 0, mid ?? 0, post ?? 0].reduce((a, b) => a > b ? a : b)
+                : null);
+        if (highest != null) {
+          mergedPop['highestPopStage'] = highest;
+          mergedPop['highestStage'] = highest;
+          mergedPop['stage'] = highest;
+        }
+        return mergedPop;
+      }(),
       diagnoses: List<String>.from(page2.diagnoses.isNotEmpty ? page2.diagnoses : page1.diagnoses),
       counseling: List<String>.from(page2.counseling.isNotEmpty ? page2.counseling : page1.counseling),
       medications: List<String>.from(page2.medications.isNotEmpty ? page2.medications : page1.medications),
@@ -247,7 +271,9 @@ ${page2.rawText}
       attendingDoctors: mergedDoctors,
       examiningNurse: mergedNurse,
       attendingNurses: mergedNurses,
-      treatmentLevel: page2.treatmentLevel ?? page1.treatmentLevel,
+      treatmentLevel: (page1.treatmentLevel != null && page1.treatmentLevel!.isNotEmpty)
+          ? page1.treatmentLevel
+          : (page2.treatmentLevel ?? page1.treatmentLevel),
       clinicalNotes: page2.clinicalNotes ?? page1.clinicalNotes,
       intakeDate: page1.intakeDate ?? page2.intakeDate,
       examDate: page2.examDate ?? page1.examDate,
