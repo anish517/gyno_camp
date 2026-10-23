@@ -154,6 +154,7 @@ class GeminiProxy {
       ],
       'generationConfig': {
         'temperature': 0.1,
+        'responseMimeType': 'application/json',
       },
     });
 
@@ -255,96 +256,100 @@ CRITICAL RULES:
 
 FORM STRUCTURE BY PAGE:
 
-PAGE 1 (FRONT) — PATIENT REGISTRATION:
+PAGE 1 (FRONT) — PATIENT REGISTRATION & ANAMNESIS:
 1. Header:
-   - "PATIENT TOKEN ID / बिरामी टोकन नं." (or अस्पताल दर्ता नं.) format: e.g. "KTM01-0001" or QR code string
-   - "Date / मिति" -> intakeDate (the date written on Page 1 header, format YYYY-MM-DD if possible)
-   - "Level of Treatment / उपचारको तह" (2 checkboxes: "Counseling / काउन्सिलिङ" or "Gynocheckup / Full Check Up / गाइनो जाँच") -> treatmentLevel
+   - "PATIENT TOKEN ID / बिरामी टोकन नं." (or Token: G C - 1 1 - 2 0 2 6 - 0 0 0 1 7) -> patientTokenId
+   - "Date / मिति" -> intakeDate (format YYYY-MM-DD if possible)
+   - "Level of Treatment / उपचारको तह" (2 checkboxes: [ ] Council level / काउन्सिलिङ तह, [ ] Full check up / पूर्ण जाँच) -> treatmentLevel: "counseling" or "gyno_checkup"
 2. Section A: Patient Demographics / बिरामी विवरण:
    - "First Name: पहिलो नाम" (letter boxes)
    - "Surname: थर" (letter boxes)
    - "Patient Age: उमेर" (numeric digit boxes)
-   - "Marital Status / वैवाहिक स्थिति" (4 checkboxes: Married, Widow, Unmarried, Divorced)
+   - "Marital Status / वैवाहिक स्थिति" (4 checkboxes: Married, Unmarried, Widow, Divorced)
    - "Husband's / Father's Name: श्रीमान् / बुबाको नाम" (letter boxes -> relativeName)
-   - IMPORTANT: Check which label is ticked/circled: "Husband / श्रीमान्" or "Father / बुबा" -> relationType: "Husband" or "Father"
-   - "Relative Surname: थर" (letter boxes -> relativeSurname, surname of the husband/father)
-   - "Mobile No.: मोबाइल नम्बर" (10 digit boxes)
-   - "Age at Marriage: विवाह भएको उमेर" (numeric digit boxes -> maritalAge)
-   - "Contact Person (Secondary): सम्पर्क व्यक्ति" (letter boxes -> contactPerson)
-   - "Contact Mobile No.: सम्पर्क मोबाइल नम्बर" (10 digit boxes -> contactMobile)
-   - "District: जिल्ला" (letter boxes)
-   - "Province: प्रदेश" (letter boxes -> province, e.g. Bagmati)
-   - "Palika / Municipality: पालिका / नगर" (letter boxes)
-   - "Ward No.: वडा" (digit boxes -> ward)
-3. Section B: Reasons for Visit / जाँचको कारण (8 exact checkboxes):
-   - "Something Hanging Out / Prolapse (पाठेघर खस्ने)"
-   - "Vaginal Discharge / Itching (स्राव / खटिरा)"
-   - "Problems Passing Urine (पिसाब सम्बन्धी समस्या)"
-   - "Problems Passing Stool (दिसा सम्बन्धी समस्या)"
-   - "Menstrual Problem (महिनावारी सम्बन्धी समस्या)"
-   - "Infertility (बाँझोपन)"
-   - "Pelvic / Abdominal Pain (दुखाई)"
-   - "General Gynaecological Checkup (सामान्य जाँच)"
-4. Section C: Patient Consent / सहमति (2 exact checkboxes):
-   - "I consent to examination and treatment / जाँच र उपचार गर्न सहमत छु" (consentTreatment: bool)
-   - "I consent to storage of my medical information / स्वास्थ्य विवरण भण्डारण गर्न सहमत छु" (consentStoreMedicalInfo: bool)
+   - "Relation: नाता" -> relationType: "Husband" or "Father" (from checked checkbox)
+   - "Relative Surname: थर" (letter boxes -> relativeSurname)
+   - "Mobile W.: महिलाको मोबाइल" (10 digit boxes -> mobile)
+   - "Age at Marriage / विवाह उमेर" (numeric digit boxes -> maritalAge)
+   - "Contact Person / सम्पर्क व्यक्ति" (letter boxes -> contactPerson)
+   - "Contact Mobile / सम्पर्क मोबाइल" (10 digit boxes -> contactMobile)
+   - "District / जिल्ला" (letter boxes)
+   - "Province / प्रदेश" (letter boxes)
+   - "Palika / गाउँ / न.पा." (letter boxes -> municipality)
+   - "Ward / वडा" (digit boxes -> ward)
+3. Section B: Reasons for Visit & Consent / शिविरमा आउनुको कारण तथा सहमति:
+   - Reasons for visit (8 exact checkboxes):
+     - "Something Hanging Out / Prolapse (पाठेघर खस्ने)"
+     - "Vaginal Discharge / Itching (योनी स्राव / चिलाउने)"
+     - "Problems Passing Urine (पिसाब सम्बन्धी समस्या)"
+     - "Problems Passing Stool (दिसा सम्बन्धी समस्या)"
+     - "Menstrual Problem (महिनावारी सम्बन्धी समस्या)"
+     - "Infertility (बाँझोपन)"
+     - "Pelvic / Abdominal Pain (तल्लो पेट / कम्मर दुखाई)"
+     - "General Gynaecological Checkup (सामान्य जाँच)"
+   - Patient Consent:
+     - "Consent for Treatment / उपचारको लागि सहमति:" [ ] YES [ ] NO -> consentTreatment: bool
+     - "Consent for Storage / स्वास्थ्य विवरण सहमति:" [ ] YES [ ] NO -> consentStoreMedicalInfo: bool
+4. Station 1: Anamnesis & Obstetric History / पहिलो स्टेशन: विगत तथा प्रसूति विवरण (ON PAGE 1 FRONT):
+   - "NR deliveries:" [ ] (deliveries)
+   - "NR living children:" [ ] (livingChildren)
+   - "NR abortion:" [ ] (abortions)
+   - Clinical Complaints rows:
+     - "something hanging out (पाठेघर खस्ने)": since when: [ ] < 1month [ ] < 1 year [ ] > 1 year [ ] > 5 years [ ] > 10 years, previous treatment: [ ] pessary [ ] surgery, remarks
+     - "discharge / itching (पानी बग्ने / चिलाउने)": since when: [ ] < 1month [ ] < 1 year [ ] > 1 year [ ] > 5 years [ ] > 10 years, colour: [ ] white [ ] yellow [ ] green [ ] grey [ ] smelly, remarks
+     - "problems passing urine (पिसाब समस्या)": since when: [ ] < 1month [ ] < 1 year [ ] > 1 year [ ] > 5 years [ ] > 10 years, type incontinence: [ ] stress [ ] urge [ ] continuous flow, remarks
+     - "problems passing stool (दिसा समस्या)": since when, remarks
+     - "menstrual problem (महिनावारी समस्या)": [ ] dysmenorrhoea [ ] metrorrhagia [ ] menorrhagia [ ] postmenopausal bleeding, remarks
+     - "infertility (निःसन्तान समस्या)": since when: [ ] > 1 year [ ] > 5 years [ ] > 10 years, remarks
+     - "lower abdomen pain (तल्लो पेट दुख्ने)": since when: [ ] < 1month [ ] < 1 year [ ] > 1 year [ ] > 5 years [ ] > 10 years, remarks
+     - "lower back pain (कम्मर / ढाड दुख्ने)": since when: [ ] < 1month [ ] < 1 year [ ] > 1 year [ ] > 5 years [ ] > 10 years, remarks
+     - "checkup (सामान्य जाँच)": [ ] routine screening, remarks
 
-PAGE 2 (BACK) — CLINICAL ASSESSMENT (STATIONS 1-6):
-1. Header: "Examination Date" -> examDate, "uterus inside" (2 checkboxes: "yes", "no" -> uterusInside: true/false)
-2. Station 1: Anamnesis & Obstetric History:
-   - "Deliveries (NR): [ ]" (integer deliveries)
-   - "Living Children (NR): [ ]" (integer livingChildren)
-   - "Abortion (NR): [ ]" (integer abortions)
-   - "Complaints Duration:" (5 checkboxes: "< 1month", "< 1 year", "> 1 year", "> 5 years", "> 10 years")
-   - "Clinical Complaints & Sub-options:" — for each complaint that is ticked, also capture its sub-options:
-     - "something hanging out": previous treatment: [ ] pessary [ ] surgery, remarks
-     - "discharge / itching": colour: [ ] white [ ] yellow [ ] green [ ] grey [ ] smelly, remarks
-     - "problems passing urine": type incontinence: [ ] stress [ ] urge [ ] continuous flow, remarks
-     - "problems passing stool": remarks
-     - "menstrual problem": [ ] dysmenorroea [ ] metrorrhagia [ ] menorrhagia [ ] postmenopausal bleeding, remarks
-     - "infertility": since when: [ ] > 1 year [ ] > 5 years [ ] > 10 years, remarks
-     - "lower abdomen pain": since when: [ ] < 1month [ ] < 1 year [ ] > 1 year [ ] > 5 years [ ] > 10 years, remarks
-     - "lower back pain": since when: [ ] < 1month [ ] < 1 year [ ] > 1 year [ ] > 5 years [ ] > 10 years, remarks
-     - "checkup": remarks
-3. Station 2: Physical Exam & POP Staging:
-   - "uterus inside:" (2 checkboxes: "yes", "no")
-   - "vulva": [ ] normal checkbox OR [ handwritten text ] — report "normal" if checkbox is ticked, otherwise the handwritten text
-   - "vagina": [ ] normal checkbox OR [ handwritten text ]
-   - "cervix": [ ] normal checkbox OR [ handwritten text ]
-   - "uterus": [ ] normal checkbox OR [ handwritten text ]
-   - "pelvic floor muscle:" (3 checkboxes: "normal", "weak", "hypertonic" -> pelvicFloorTone: string)
-   - "POP anterior wall:" (checkboxes: "stage 0", "stage 1", "stage 2", "stage 3" -> 0-3)
-   - "POP middle part:" (checkboxes: "stage 0", "stage 1", "stage 2", "stage 3", "stage 4" -> 0-4)
-   - "POP posterior wall:" (checkboxes: "stage 0", "stage 1", "stage 2", "stage 3" -> 0-3)
-   - "highest POP stage:" (checkboxes: "highest POP stage 0", "stage 1", "stage 2", "stage 3", "stage 4" -> 0-4)
-4. Station 3: Vitals & Point-of-Care Labs (look for "Lab Date" or "Station 3 Date" -> labTestDate):
-   - "urine test:" (Checkboxes: "normal", "pos")
-   - "pregnancy test (UPT):" (Checkboxes: "neg", "pos")
-   - "bloodpressure:" [ systolic ] / [ diastolic ] mmHg
-   - "pulse:" [ ] bpm, "saturation / SpO2:" [ ] %, "glucose:" [ ] mg/dL
-   - "ECG:" (Checkboxes: "Normal Sinus", "Abnormal", "Not Done", and handwritten "ECG Notes")
-5. Station 4: Confirmed Diagnoses (look for "Conclusion Date" -> conclusionDate) (21 checkboxes + Other):
+PAGE 2 (BACK) — CLINICAL ASSESSMENT & EXAMINATION (STATIONS 2-6):
+1. Station 2: POP & Physical Examination / शारीरिक जाँच तथा पाठेघर खस्ने अवस्था:
+   - "Examination Date:" -> examDate (e.g. 2026-10-16)
+   - "uterus inside:" (2 checkboxes: [ ] yes  [ ] no -> uterusInside: true if yes is ticked, false if no)
+   - "pelvic floor muscle:" (3 checkboxes: [ ] normal  [ ] weak  [ ] hypertonic -> pelvicFloorTone: string)
+   - "vulva": [ ] normal checkbox OR handwritten text — report "normal" if normal checkbox is ticked, otherwise handwritten text
+   - "vagina": [ ] normal checkbox OR handwritten text — report "normal" if normal checkbox is ticked, otherwise handwritten text
+   - "cervix": [ ] normal checkbox OR handwritten text — report "normal" if normal checkbox is ticked, otherwise handwritten text
+   - "uterus": [ ] normal checkbox OR handwritten text — report "normal" if normal checkbox is ticked, otherwise handwritten text
+   - POP STAGING RULES (CRITICAL CHECKBOX GEOMETRY):
+     In Station 2 and Station 4, examine the horizontal checkbox rows:
+     Notice the start of each row has a checkbox [ ] immediately BEFORE "stage 0", and there is NO checkbox after the last stage number.
+     Therefore EVERY checkbox is placed BEFORE its text label (NOT after):
+     * "POP anterior wall:": 1st box is BEFORE "stage 0", 2nd box is BEFORE "stage 1", 3rd box is BEFORE "stage 2", 4th box is BEFORE "stage 3". Report the stage number corresponding to the checked box (0-3).
+     * "POP middle part:": 1st box is BEFORE "stage 0", 2nd box is BEFORE "stage 1", 3rd box is BEFORE "stage 2", 4th box is BEFORE "stage 3", 5th box is BEFORE "stage 4". DO NOT associate a checkbox with the label to its left! A checkmark belongs to the stage label to its RIGHT. For example, if the 3rd box is ticked [✓], report 2 (middleStage: 2).
+     * "POP posterior wall:": 1st box is BEFORE "stage 0", 2nd box is BEFORE "stage 1", 3rd box is BEFORE "stage 2", 4th box is BEFORE "stage 3". Report the stage number corresponding to the checked box (0-3).
+2. Station 3: Point-of-Care Labs, Vitals & ECG / प्रयोगशाला, सूचक तथा ईसीजी:
+   - "Lab test Date:" -> labTestDate
+   - "urine test:" (Checkboxes: [ ] normal  [ ] pos)
+   - "pregnancy test:" (Checkboxes: [ ] neg  [ ] pos)
+   - "blood pressure:" [ systolic ] / [ diastolic ] mmHg
+   - "pulse:" [ ] bpm, "SpO2:" [ ] %, "blood glucose:" [ ] mg/dL
+   - "ECG:" (Checkboxes: [ ] Normal Sinus  [ ] Abnormal  [ ] Not Done, and handwritten "ECG Notes")
+3. Station 4: Confirmed Diagnoses / निदान:
+   - "Conclusion Date:" -> conclusionDate
+   - "highest POP stage:": 1st box is BEFORE "stage 0", 2nd box is BEFORE "stage 1", 3rd box is BEFORE "stage 2", 4th box is BEFORE "stage 3", 5th box is BEFORE "stage 4". Report the stage number corresponding to the checked box (0-4).
    - Checkboxes: "atrophy vagina", "bacterial vaginosis", "candid infection", "trichomonas",
      "PID", "cervicitis", "cervical polyp", "cervical carcinoma", "condylomata", "fistula",
      "infertility", "myoma", "cystitis", "lichen sclerosis", "stress incontinence", "ovarian tumor",
      "urge incontinence", "menstrual disorder", "weak pelvic floor muscle", "pregnancy",
      "hypertonic pelvic floor muscle", and handwritten text under "Other:"
-6. Station 5: Treatment & Prescriptions (look for "Treatment Date" -> treatmentDate):
+4. Station 5: Treatment & Prescriptions / उपचार तथा औषधि:
+   - "Treatment Date:" -> treatmentDate
    - "spec counseling" (5 checkboxes): "weak pelvic floor", "POP", "stress incontinence", "urge incontinence", "abdominal pain"
-   - "pessary" (3 checkboxes): "ring", "ring with support", "ring with knob", "size: [   ]"
+   - "pessary" (3 checkboxes): "ring", "ring with support", "ring with knob", "size: [   ]" mm
    - IMPORTANT: Pessary is a DEVICE fitting, NOT a dispensed medication. Do NOT include pessary in the medications list.
    - "referral surgery" (3 checkboxes): "Scheer Memorial", "Model Hosp", "loc government"
-   - "medication" (10 checkboxes) — these are the ONLY dispensed drugs:
-     "clotrimazol (canesten)", "estradiol crème", "metronidazol", "doxycycline",
-     "azithromycin", "nitrofurantoine", "medroxyprogesterone", "ciproflox", "mirasin", "clobetasol",
-     and handwritten text under "other:"
-7. Station 6: Outtake & Follow-up (look for "Outtake Date" -> outtakeDate):
-   - "follow up needed:" (checkboxes: "Health Post", "GynaeSupport Nurse")
-   - "no follow up needed"
-   - Clinical notes / remarks / outtake observations -> clinicalNotes
-8. Page 2 Footer / Examining Clinician Sign-off:
-   - Look for examining doctor name or checked doctor box
-   - Look for attending nurse name or checked nurse box
+   - "medication" (10 checkboxes): "clotrimazol (canesten)", "estradiol crème", "metronidazol", "doxycycline", "azithromycin", "nitrofurantoine", "medroxyprogesterone", "ciproflox", "mirasin", "clobetasol", and handwritten text under "other medication:"
+5. Station 6: Discharge & Continuity of Care / अनुगमन तथा डिस्चार्ज:
+   - "Outtake Date:" -> outtakeDate
+   - "follow up:" (checkboxes: "Health Post", "GynaeSupport Nurse", "Hospital", "no follow up needed")
+   - Clinical Notes / Outtake Remarks -> clinicalNotes
+6. Page 2 Footer / Examining Clinician Sign-off:
+   - "Attending Nurse (Tick on Paper):" checked box or handwritten nurse name
+   - "Examining Doctor (Tick on Paper):" checked box or handwritten doctor name
    - IMPORTANT: The follow-up destination "GynaeSupport Nurse" is NOT an attending nurse. Never put it into examiningNurse or attendingNurses.
 
 Extract the information accurately into this EXACT JSON structure:
