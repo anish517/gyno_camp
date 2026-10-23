@@ -398,6 +398,23 @@ class SyncRepository implements ISyncRepository {
           final patientMap = patient.toMap();
           patientMap['is_synced'] = 1;
           patientMap['synced_at'] = pullSyncIso;
+
+          // Preserve existing local treatment_level if incoming remote copy has null/empty
+          if (patientMap['treatment_level'] == null || (patientMap['treatment_level'] as String).trim().isEmpty) {
+            final existingRows = await txn.query(
+              DatabaseTables.tablePatients,
+              columns: ['treatment_level'],
+              where: 'id = ?',
+              whereArgs: [patient.id],
+              limit: 1,
+            );
+            if (existingRows.isNotEmpty &&
+                existingRows.first['treatment_level'] != null &&
+                (existingRows.first['treatment_level'] as String).trim().isNotEmpty) {
+              patientMap['treatment_level'] = existingRows.first['treatment_level'];
+            }
+          }
+
           await txn.insert(
             DatabaseTables.tablePatients,
             patientMap,
@@ -423,6 +440,23 @@ class SyncRepository implements ISyncRepository {
 
           final visitMap = visit.toMap();
           visitMap['is_synced'] = 1;
+
+          // Preserve existing local treatment_level if incoming remote copy has null/empty
+          if (visitMap['treatment_level'] == null || (visitMap['treatment_level'] as String).trim().isEmpty) {
+            final existingRows = await txn.query(
+              DatabaseTables.tableClinicalVisits,
+              columns: ['treatment_level'],
+              where: 'id = ?',
+              whereArgs: [visit.id],
+              limit: 1,
+            );
+            if (existingRows.isNotEmpty &&
+                existingRows.first['treatment_level'] != null &&
+                (existingRows.first['treatment_level'] as String).trim().isNotEmpty) {
+              visitMap['treatment_level'] = existingRows.first['treatment_level'];
+            }
+          }
+
           await txn.insert(
             DatabaseTables.tableClinicalVisits,
             visitMap,

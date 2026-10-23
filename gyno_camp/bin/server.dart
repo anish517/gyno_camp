@@ -252,6 +252,7 @@ class GynoCampSyncServer {
           created_by_user_id TEXT NOT NULL,
           created_by_device_id TEXT NOT NULL,
           tenant_id TEXT DEFAULT 'tenant_default',
+          treatment_level TEXT,
           is_synced INTEGER NOT NULL DEFAULT 1,
           synced_at TIMESTAMPTZ
         );
@@ -307,6 +308,7 @@ class GynoCampSyncServer {
           updated_at TIMESTAMPTZ,
           created_by_user_id TEXT NOT NULL,
           tenant_id TEXT DEFAULT 'tenant_default',
+          treatment_level TEXT,
           is_synced INTEGER NOT NULL DEFAULT 1
         );
       ''');
@@ -377,6 +379,8 @@ class GynoCampSyncServer {
       await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS attending_nurse_names TEXT DEFAULT \'\';');
       await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS primary_nurse_name TEXT DEFAULT \'\';');
       await _connection!.execute('ALTER TABLE patients ADD COLUMN IF NOT EXISTS province TEXT DEFAULT \'Bagmati\';');
+      await _connection!.execute('ALTER TABLE patients ADD COLUMN IF NOT EXISTS treatment_level TEXT;');
+      await _connection!.execute('ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS treatment_level TEXT;');
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS sub_category TEXT;');
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS is_deleted INTEGER NOT NULL DEFAULT 0;');
       await _connection!.execute('ALTER TABLE lookup_items ADD COLUMN IF NOT EXISTS label_ne TEXT;');
@@ -1020,12 +1024,14 @@ class GynoCampSyncServer {
                 spouse_or_father_name, relationship_type, mobile, province, district, municipality, ward,
                 contact_person, contact_mobile, marital_status, marital_age,
                 reasons_for_visit, consent_treatment, consent_store_medical_info,
+                treatment_level,
                 created_at, created_by_user_id, created_by_device_id, tenant_id, is_synced, synced_at
               ) VALUES (
                 @id, @patient_id, @camp_id, @camp_code, @intake_date, @first_name, @surname, @age,
                 @spouse_or_father_name, @relationship_type, @mobile, @province, @district, @municipality, @ward,
                 @contact_person, @contact_mobile, @marital_status, @marital_age,
                 @reasons_for_visit, @consent_treatment, @consent_store_medical_info,
+                @treatment_level,
                 @created_at, @created_by_user_id, @created_by_device_id, @tenant_id, 1, NOW()
               )
               ON CONFLICT (id) DO UPDATE SET
@@ -1050,6 +1056,7 @@ class GynoCampSyncServer {
                 reasons_for_visit = EXCLUDED.reasons_for_visit,
                 consent_treatment = EXCLUDED.consent_treatment,
                 consent_store_medical_info = EXCLUDED.consent_store_medical_info,
+                treatment_level = COALESCE(NULLIF(EXCLUDED.treatment_level, ''), patients.treatment_level),
                 updated_at = NOW(),
                 synced_at = NOW();
             '''),
@@ -1084,6 +1091,7 @@ class GynoCampSyncServer {
               'created_by_user_id': map['created_by_user_id'] ?? '',
               'created_by_device_id': map['created_by_device_id'] ?? '',
               'tenant_id': map['tenant_id'] ?? 'tenant_default',
+              'treatment_level': map['treatment_level'],
             },
           );
           syncedPatientIds.add(id);
@@ -1129,6 +1137,7 @@ class GynoCampSyncServer {
                 custom_medication, follow_up_needed, follow_up_destination, outtake_notes,
                 surgery_done, surgery_type, is_follow_up, follow_up_notes, attending_doctor_names, primary_doctor_name,
                 attending_nurse_names, primary_nurse_name,
+                treatment_level,
                 created_at, created_by_user_id, tenant_id, is_synced
               ) VALUES (
                 @id, @patient_id, @camp_id, @visit_date, @deliveries, @living_children, @abortions,
@@ -1140,6 +1149,7 @@ class GynoCampSyncServer {
                 @custom_medication, @follow_up_needed, @follow_up_destination, @outtake_notes,
                 @surgery_done, @surgery_type, @is_follow_up, @follow_up_notes, @attending_doctor_names, @primary_doctor_name,
                 @attending_nurse_names, @primary_nurse_name,
+                @treatment_level,
                 @created_at, @created_by_user_id, @tenant_id, 1
               )
               ON CONFLICT (id) DO UPDATE SET
@@ -1163,6 +1173,7 @@ class GynoCampSyncServer {
                 primary_doctor_name = EXCLUDED.primary_doctor_name,
                 attending_nurse_names = EXCLUDED.attending_nurse_names,
                 primary_nurse_name = EXCLUDED.primary_nurse_name,
+                treatment_level = COALESCE(NULLIF(EXCLUDED.treatment_level, ''), clinical_visits.treatment_level),
                 updated_at = NOW();
             '''),
             parameters: {
@@ -1219,6 +1230,7 @@ class GynoCampSyncServer {
               'created_at': map['created_at'] ?? DateTime.now().toIso8601String(),
               'created_by_user_id': map['created_by_user_id'] ?? '',
               'tenant_id': map['tenant_id'] ?? 'tenant_default',
+              'treatment_level': map['treatment_level'],
             },
           );
           syncedVisitIds.add(id);
@@ -1413,7 +1425,7 @@ class GynoCampSyncServer {
                  marital_status, marital_age, reasons_for_visit,
                  consent_treatment, consent_store_medical_info,
                  created_at, updated_at, created_by_user_id, created_by_device_id,
-                 tenant_id, is_synced, synced_at
+                 tenant_id, is_synced, synced_at, treatment_level
           FROM patients
         ''';
         final patientConditions = <String>['camp_id IN (SELECT id FROM camps)'];
@@ -1466,6 +1478,7 @@ class GynoCampSyncServer {
             'tenant_id': row[26],
             'is_synced': 1,
             'synced_at': row[28]?.toString(),
+            'treatment_level': row[29]?.toString(),
           });
         }
 
@@ -1481,7 +1494,7 @@ class GynoCampSyncServer {
                  created_at, updated_at, created_by_user_id, tenant_id,
                  COALESCE(surgery_done, 0), surgery_type,
                  COALESCE(is_follow_up, 0), follow_up_notes, attending_doctor_names, primary_doctor_name,
-                 attending_nurse_names, primary_nurse_name
+                 attending_nurse_names, primary_nurse_name, treatment_level
           FROM clinical_visits
         ''';
         final visitConditions = <String>['camp_id IN (SELECT id FROM camps)'];
@@ -1553,6 +1566,7 @@ class GynoCampSyncServer {
             'primary_doctor_name': row[45]?.toString() ?? '',
             'attending_nurse_names': row[46]?.toString() ?? '',
             'primary_nurse_name': row[47]?.toString() ?? '',
+            'treatment_level': row[48]?.toString(),
             'is_synced': 1,
           });
         }
