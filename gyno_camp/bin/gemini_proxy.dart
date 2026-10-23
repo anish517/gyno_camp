@@ -314,13 +314,16 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT & EXAMINATION (STATIONS 2-6):
    - "vagina": [ ] normal checkbox OR handwritten text — report "normal" if normal checkbox is ticked, otherwise handwritten text
    - "cervix": [ ] normal checkbox OR handwritten text — report "normal" if normal checkbox is ticked, otherwise handwritten text
    - "uterus": [ ] normal checkbox OR handwritten text — report "normal" if normal checkbox is ticked, otherwise handwritten text
-   - POP STAGING RULES (CRITICAL CHECKBOX GEOMETRY):
-     In Station 2 and Station 4, examine the horizontal checkbox rows:
-     Notice the start of each row has a checkbox [ ] immediately BEFORE "stage 0", and there is NO checkbox after the last stage number.
-     Therefore EVERY checkbox is placed BEFORE its text label (NOT after):
-     * "POP anterior wall:": 1st box is BEFORE "stage 0", 2nd box is BEFORE "stage 1", 3rd box is BEFORE "stage 2", 4th box is BEFORE "stage 3". Report the stage number corresponding to the checked box (0-3).
-     * "POP middle part:": 1st box is BEFORE "stage 0", 2nd box is BEFORE "stage 1", 3rd box is BEFORE "stage 2", 4th box is BEFORE "stage 3", 5th box is BEFORE "stage 4". DO NOT associate a checkbox with the label to its left! A checkmark belongs to the stage label to its RIGHT. For example, if the 3rd box is ticked [✓], report 2 (middleStage: 2).
-     * "POP posterior wall:": 1st box is BEFORE "stage 0", 2nd box is BEFORE "stage 1", 3rd box is BEFORE "stage 2", 4th box is BEFORE "stage 3". Report the stage number corresponding to the checked box (0-3).
+   - POP STAGING RULES (CRITICAL CHECKBOX & COLUMN ALIGNMENT):
+     In Station 2 and Station 4, examine the horizontal checkbox rows and their vertical column alignment:
+     Notice every checkbox is placed BEFORE its text label:
+     * "POP anterior wall:": [ ] stage 0  [ ] stage 1  [ ] stage 2  [ ] stage 3 -> report which stage number (0-3) has the checkmark.
+     * "POP middle part:": [ ] stage 0  [ ] stage 1  [ ] stage 2  [ ] stage 3  [ ] stage 4 -> report which stage number (0-4) has the checkmark. Look carefully at which box has the tick.
+     * "POP posterior wall:": [ ] stage 0  [ ] stage 1  [ ] stage 2  [ ] stage 3 -> report which stage number (0-3) has the checkmark. Look carefully at which box has the tick.
+     Verify the vertical column alignment between the rows:
+     - Notice if "POP anterior wall" and "POP middle part" are both checked in the "stage 2" column, report 2 for both (anteriorStage: 2, middleStage: 2).
+     - Notice if "POP posterior wall" is checked in the "stage 1" column (shifted to the left under stage 1), report 1 for posterior wall (posteriorStage: 1), NOT 2!
+     - Report each wall's stage strictly according to its own row's checked box.
 2. Station 3: Point-of-Care Labs, Vitals & ECG / प्रयोगशाला, सूचक तथा ईसीजी:
    - "Lab test Date:" -> labTestDate
    - "urine test:" (Checkboxes: [ ] normal  [ ] pos)
@@ -330,7 +333,7 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT & EXAMINATION (STATIONS 2-6):
    - "ECG:" (Checkboxes: [ ] Normal Sinus  [ ] Abnormal  [ ] Not Done, and handwritten "ECG Notes")
 3. Station 4: Confirmed Diagnoses / निदान:
    - "Conclusion Date:" -> conclusionDate
-   - "highest POP stage:": 1st box is BEFORE "stage 0", 2nd box is BEFORE "stage 1", 3rd box is BEFORE "stage 2", 4th box is BEFORE "stage 3", 5th box is BEFORE "stage 4". Report the stage number corresponding to the checked box (0-4).
+   - "highest POP stage:" in Station 4: [ ] stage 0  [ ] stage 1  [ ] stage 2  [ ] stage 3  [ ] stage 4 -> report which stage number (0-4) has the checkmark (e.g. 2).
    - Checkboxes: "atrophy vagina", "bacterial vaginosis", "candid infection", "trichomonas",
      "PID", "cervicitis", "cervical polyp", "cervical carcinoma", "condylomata", "fistula",
      "infertility", "myoma", "cystitis", "lichen sclerosis", "stress incontinence", "ovarian tumor",
