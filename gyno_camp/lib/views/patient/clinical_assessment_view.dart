@@ -1948,7 +1948,55 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 10),
+        // Highest POP Stage (Station 4 Top Line on Yellow Form)
+        Card(
+          color: AppTheme.primaryLight.withValues(alpha: 0.25),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: AppTheme.primaryTeal),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.stars_rounded, color: AppTheme.primaryTeal, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Highest POP Stage (अधिकतम स्टेज): Stage ${state.highestPopStage}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryDark),
+                    ),
+                  ],
+                ),
+                Wrap(
+                  spacing: 6,
+                  children: List.generate(5, (stg) {
+                    final isSel = state.highestPopStage == stg;
+                    return ChoiceChip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text('Stage $stg', style: const TextStyle(fontSize: 11)),
+                      selected: isSel,
+                      selectedColor: AppTheme.primaryTeal,
+                      labelStyle: TextStyle(
+                        color: isSel ? Colors.white : const Color(0xFF334155),
+                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      onSelected: (_) => vm.setPopStages(highest: stg),
+                    );
+                  }),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         const Text('Select all confirmed conditions from the Yellow Form standard list:', style: TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 12),
 

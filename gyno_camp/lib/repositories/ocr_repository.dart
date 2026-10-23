@@ -531,11 +531,17 @@ class OcrRepository implements IOcrRepository {
       vaginaRemarks: pop['vaginaRemarks'] as String?,
       vulvaRemarks: pop['vulvaRemarks'] as String?,
       uterusRemarks: pop['uterusRemarks'] as String?,
-      pelvicFloorTone: pop['pelvicFloorTone'] as String? ?? 'normal',
       popAnteriorStage: pop['anteriorStage'] as int? ?? 0,
       popMiddleStage: pop['middleStage'] as int? ?? 0,
       popPosteriorStage: pop['posteriorStage'] as int? ?? 0,
-      highestPopStage: pop['highestPopStage'] as int? ?? 0,
+      highestPopStage: () {
+        final explicit = (pop['highestPopStage'] ?? pop['highestStage'] ?? pop['stage']) as int?;
+        if (explicit != null) return explicit;
+        final a = pop['anteriorStage'] as int? ?? 0;
+        final m = pop['middleStage'] as int? ?? 0;
+        final p = pop['posteriorStage'] as int? ?? 0;
+        return [a, m, p].reduce((x, y) => x > y ? x : y);
+      }(),
       systolicBp: vitals['systolicBp'] as int? ?? 120,
       diastolicBp: vitals['diastolicBp'] as int? ?? 80,
       pulse: vitals['pulseRate'] as int? ?? 78,

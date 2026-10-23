@@ -4270,15 +4270,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           .where((h) =>
                               !h.toLowerCase().contains('scheer') &&
                               !h.toLowerCase().contains('model') &&
+                              !h.toLowerCase().contains('government') &&
+                              !h.toLowerCase().contains('loc') &&
                               h != 'Health Post' &&
                               h != 'GynaeSupport Nurse')
                           .toList();
 
                       final items = [
                         {'val': null, 'label': 'None (छैन)'},
+                        {'val': 'Scheer Memorial', 'label': 'Scheer Memorial'},
+                        {'val': 'Model Hosp', 'label': 'Model Hosp'},
+                        {'val': 'loc government', 'label': 'Local Government (loc government)'},
                         ...referralHosps.map((h) => {'val': h, 'label': h}),
-                        if (referralHosps.isEmpty)
-                          {'val': 'Local Government Hospital', 'label': 'Local Government Hospital'},
                       ];
 
                       return Wrap(

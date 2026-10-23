@@ -1885,9 +1885,9 @@ class PdfReportService {
             ),
             pw.SizedBox(height: 7),
 
-            // 6. BADEN-WALKER POP-Q STAGING MATRIX
+            // 5. POP STAGING MATRIX
             _buildPdfSectionHeader(
-              '5. BADEN-WALKER POP STAGING (PELVIC ORGAN PROLAPSE)',
+              '5. POP STAGING (PELVIC ORGAN PROLAPSE)',
               primaryColor,
             ),
             pw.SizedBox(height: 3),
@@ -2770,7 +2770,7 @@ class PdfReportService {
 
             // ── POP Staging ──────────────────────────────────────────────────
             _buildPdfSectionHeader(
-              '5. BADEN-WALKER POP STAGING',
+              '5. POP STAGING (पाठेघर खस्ने अवस्था)',
               encounterColor,
             ),
             pw.SizedBox(height: 3),

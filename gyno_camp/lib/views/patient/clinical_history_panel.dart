@@ -628,13 +628,13 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                 ),
                 const SizedBox(height: 8),
 
-                // 3. Baden-Walker POP Staging (Station 4)
+                // 3. POP Staging (Station 2 & 4)
                 Wrap(
                   spacing: 4,
                   runSpacing: 4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Text('Baden-Walker POP:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const Text('POP Staging:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
                     const SizedBox(width: 4),
                     if (v.popAnteriorStage == 0 && v.popMiddleStage == 0 && v.popPosteriorStage == 0) ...[
                       _pb('', 'Normal (No Prolapse)', isNormal: true),

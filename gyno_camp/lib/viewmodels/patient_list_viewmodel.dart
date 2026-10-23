@@ -323,12 +323,19 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         if (!matchesDisease) return false;
       }
 
-      // Surgery Done
+      // Surgical Referral (Yellow Form Station 5: referral surgery)
       if (filters.surgeryDone != null && filters.surgeryDone != 'all') {
-        if (filters.surgeryDone == 'yes') {
-          if (p.surgeryDone != true) return false;
+        final refHosp = (p.surgicalReferral?.trim() ?? '').toLowerCase();
+        if (filters.surgeryDone == 'yes' || filters.surgeryDone == 'referral') {
+          if (refHosp.isEmpty && p.surgeryDone != true) return false;
+        } else if (filters.surgeryDone == 'scheer') {
+          if (!refHosp.contains('scheer')) return false;
+        } else if (filters.surgeryDone == 'model') {
+          if (!refHosp.contains('model')) return false;
+        } else if (filters.surgeryDone == 'government') {
+          if (!refHosp.contains('gov') && !refHosp.contains('loc')) return false;
         } else if (filters.surgeryDone == 'no') {
-          if (p.surgeryDone == true) return false;
+          if (refHosp.isNotEmpty || p.surgeryDone == true) return false;
         }
       }
 

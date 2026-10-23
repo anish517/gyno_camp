@@ -952,9 +952,19 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       }));
     }
 
-    // Surgery Done
+    // Surgical Referral
     if (filters.surgeryDone != null && filters.surgeryDone != 'all') {
-      pills.add(_buildFilterPill('Surgery: ${filters.surgeryDone == 'yes' ? 'Done' : 'No'}', () {
+      String refLabel = 'Referral: Yes';
+      if (filters.surgeryDone == 'scheer') {
+        refLabel = 'Referral: Scheer';
+      } else if (filters.surgeryDone == 'model') {
+        refLabel = 'Referral: Model';
+      } else if (filters.surgeryDone == 'government') {
+        refLabel = 'Referral: Loc Gov';
+      } else if (filters.surgeryDone == 'no') {
+        refLabel = 'No Referral';
+      }
+      pills.add(_buildFilterPill(refLabel, () {
         vm.updateFilters(filters.copyWith(surgeryDone: 'all', clearSurgeryType: true));
       }));
     }
@@ -2308,8 +2318,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           key: const ValueKey('surgery_done_dropdown'),
                           initialValue: filters.surgeryDone ?? 'all',
                           decoration: const InputDecoration(
-                            labelText: 'Surgery Performed (शल्यक्रिया भएको)',
-                            prefixIcon: Icon(Icons.medical_services_outlined, size: 18),
+                            labelText: 'Surgical Referral (शल्यक्रिया सिफारिस)',
+                            prefixIcon: Icon(Icons.local_hospital_outlined, size: 18),
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                             isDense: true,
@@ -2317,13 +2327,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           isExpanded: true,
                           items: const [
                             DropdownMenuItem(value: 'all', child: Text('All / Any (सबै)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'yes', child: Text('Surgery Done (शल्यक्रिया भएको)', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'no', child: Text('No Surgery (नभएको)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'yes', child: Text('Referred for Surgery (सिफारिस)', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'scheer', child: Text('Scheer Memorial', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'model', child: Text('Model Hosp', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'government', child: Text('Local Government', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'no', child: Text('No Referral (सिफारिस नभएको)', style: TextStyle(fontSize: 13))),
                           ],
                           onChanged: (val) => vm.updateFilters(
                             filters.copyWith(
                               surgeryDone: val,
-                              clearSurgeryType: val != 'yes',
+                              clearSurgeryType: true,
                             ),
                           ),
                         );

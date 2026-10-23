@@ -128,7 +128,7 @@ class ExcelReportService {
       TextCellValue('N/A'),
     ]);
     summarySheet.appendRow([
-      TextCellValue('Overall Highest POP Stage (Baden-Walker / POP-Q)'),
+      TextCellValue('Overall Highest POP Stage (पाठेघर खस्ने अवस्था)'),
       IntCellValue(summary.highestPopStages[0] ?? 0),
       IntCellValue(summary.highestPopStages[1] ?? 0),
       IntCellValue(summary.highestPopStages[2] ?? 0),

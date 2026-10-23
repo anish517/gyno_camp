@@ -894,13 +894,13 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 ),
                 const SizedBox(height: 6),
 
-                // 3. Baden-Walker POP Staging (Station 4)
+                // 3. POP Staging (Station 2 & 4)
                 Wrap(
                   spacing: 4,
                   runSpacing: 4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Text('Baden-Walker POP: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const Text('POP Staging: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
                     if (v.popAnteriorStage == 0 && v.popMiddleStage == 0 && v.popPosteriorStage == 0) ...[
                       _pb('', 'Normal (No Prolapse)', isNormal: true),
                       _pb('Ant', 'St 0', isNormal: true),
@@ -1491,7 +1491,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                       SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Baden-Walker POP Compartment Staging (अङ्ग खस्ने स्टेज मूल्याङ्कन)',
+                          'POP Compartment Staging (अङ्ग खस्ने स्टेज मूल्याङ्कन)',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF1E293B)),
                         ),
                       ),

@@ -3462,7 +3462,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         ),
         const SizedBox(height: 16),
         const Text(
-          'Highest POP Stage (Baden-Walker / POP-Q)',
+          'Highest POP Stage (पाठेघर खस्ने अवस्था - Station 4)',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
         const SizedBox(height: 8),

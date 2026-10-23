@@ -517,17 +517,18 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     );
   }
 
-  void setPopStages({int? anterior, int? middle, int? posterior}) {
+  void setPopStages({int? anterior, int? middle, int? posterior, int? highest}) {
     final a = anterior ?? state.popAnteriorStage;
     final m = middle ?? state.popMiddleStage;
     final p = posterior ?? state.popPosteriorStage;
-    final highest = ClinicalVisitModel.computeHighestPopStage(a, m, p);
+    final computedHighest = ClinicalVisitModel.computeHighestPopStage(a, m, p);
+    final h = highest ?? computedHighest;
 
     state = state.copyWith(
       popAnteriorStage: a,
       popMiddleStage: m,
       popPosteriorStage: p,
-      highestPopStage: highest,
+      highestPopStage: h,
     );
   }
 

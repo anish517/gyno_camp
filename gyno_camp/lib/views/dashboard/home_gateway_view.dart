@@ -5404,10 +5404,12 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       }
     }
 
-    // Surgery status counts
-    int surgeryYesCount = 0;
-    int surgeryNoCount = 0;
+    // Surgical Referral counts (Yellow Form Station 5: referral surgery)
     int surgeryReferralCount = 0;
+    int surgeryScheerCount = 0;
+    int surgeryModelCount = 0;
+    int surgeryGovCount = 0;
+    int surgeryNoReferralCount = 0;
     int councilLevelCount = 0;
     int fullCheckUpCount = 0;
     int ageUnder20 = 0;
@@ -5418,13 +5420,15 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
     for (final p in campScopedPatients) {
       final v = _patientVisits[p.patientId];
-      if (p.surgeryDone == true || (v != null && v.surgeryDone == true)) {
-        surgeryYesCount++;
-      } else {
-        surgeryNoCount++;
-      }
-      if (v != null && v.surgicalReferral != null && v.surgicalReferral!.trim().isNotEmpty) {
+      final refHosp = (v?.surgicalReferral?.trim() ?? p.surgicalReferral?.trim() ?? '');
+      if (refHosp.isNotEmpty) {
         surgeryReferralCount++;
+        final lowerHosp = refHosp.toLowerCase();
+        if (lowerHosp.contains('scheer')) surgeryScheerCount++;
+        if (lowerHosp.contains('model')) surgeryModelCount++;
+        if (lowerHosp.contains('gov') || lowerHosp.contains('loc')) surgeryGovCount++;
+      } else {
+        surgeryNoReferralCount++;
       }
 
       final tLevel = (v?.treatmentLevel?.trim().isNotEmpty == true)
@@ -5539,13 +5543,22 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         if (!_matchesComplaint(p, visit, _selectedComplaint)) return false;
       }
 
-      // 5. Surgery filter
-      if (_selectedSurgery == 'yes') {
-        if (p.surgeryDone != true && (visit == null || visit.surgeryDone != true)) return false;
-      } else if (_selectedSurgery == 'no') {
-        if (p.surgeryDone == true || (visit != null && visit.surgeryDone == true)) return false;
-      } else if (_selectedSurgery == 'referral') {
-        if (visit == null || visit.surgicalReferral == null || visit.surgicalReferral!.trim().isEmpty) return false;
+      // 5. Surgical Referral filter (Yellow Form Station 5)
+      if (_selectedSurgery == 'any' || _selectedSurgery == 'referral' || _selectedSurgery == 'yes') {
+        final refHosp = visit?.surgicalReferral?.trim() ?? p.surgicalReferral?.trim() ?? '';
+        if (refHosp.isEmpty) return false;
+      } else if (_selectedSurgery == 'scheer') {
+        final refHosp = (visit?.surgicalReferral?.trim() ?? p.surgicalReferral?.trim() ?? '').toLowerCase();
+        if (!refHosp.contains('scheer')) return false;
+      } else if (_selectedSurgery == 'model') {
+        final refHosp = (visit?.surgicalReferral?.trim() ?? p.surgicalReferral?.trim() ?? '').toLowerCase();
+        if (!refHosp.contains('model')) return false;
+      } else if (_selectedSurgery == 'government') {
+        final refHosp = (visit?.surgicalReferral?.trim() ?? p.surgicalReferral?.trim() ?? '').toLowerCase();
+        if (!refHosp.contains('gov') && !refHosp.contains('loc')) return false;
+      } else if (_selectedSurgery == 'none' || _selectedSurgery == 'no') {
+        final refHosp = visit?.surgicalReferral?.trim() ?? p.surgicalReferral?.trim() ?? '';
+        if (refHosp.isNotEmpty) return false;
       }
 
       // 6. Age bracket filter
@@ -5735,9 +5748,11 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                             treatmentDefinitions: treatmentDefinitions,
                             treatmentCounts: treatmentCounts,
                             popStageCounts: popStageCounts,
-                            surgeryPerformedCount: surgeryYesCount,
-                            surgeryNotDoneCount: surgeryNoCount,
                             surgeryReferralCount: surgeryReferralCount,
+                            surgeryScheerCount: surgeryScheerCount,
+                            surgeryModelCount: surgeryModelCount,
+                            surgeryGovCount: surgeryGovCount,
+                            surgeryNoReferralCount: surgeryNoReferralCount,
                             ageUnder20Count: ageUnder20,
                             age20To35Count: age20to35,
                             age36To50Count: age36to50,
@@ -5777,9 +5792,11 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           treatmentDefinitions: treatmentDefinitions,
                           treatmentCounts: treatmentCounts,
                           popStageCounts: popStageCounts,
-                          surgeryPerformedCount: surgeryYesCount,
-                          surgeryNotDoneCount: surgeryNoCount,
                           surgeryReferralCount: surgeryReferralCount,
+                          surgeryScheerCount: surgeryScheerCount,
+                          surgeryModelCount: surgeryModelCount,
+                          surgeryGovCount: surgeryGovCount,
+                          surgeryNoReferralCount: surgeryNoReferralCount,
                           ageUnder20Count: ageUnder20,
                           age20To35Count: age20to35,
                           age36To50Count: age36to50,
@@ -6203,9 +6220,11 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     required Map<String, String> treatmentDefinitions,
     required Map<String, int> treatmentCounts,
     required Map<String, int> popStageCounts,
-    required int surgeryPerformedCount,
-    required int surgeryNotDoneCount,
     required int surgeryReferralCount,
+    required int surgeryScheerCount,
+    required int surgeryModelCount,
+    required int surgeryGovCount,
+    required int surgeryNoReferralCount,
     required int ageUnder20Count,
     required int age20To35Count,
     required int age36To50Count,
@@ -6399,25 +6418,33 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       initialValue: _selectedSurgery,
       isExpanded: true,
       decoration: filterInputDecoration(
-        labelText: 'Surgery Status',
+        labelText: 'Surgical Referral (शल्यक्रिया सिफारिस)',
         prefixIcon: Icons.local_hospital_rounded,
       ),
       items: [
         DropdownMenuItem(
           value: 'all',
-          child: buildOptionRow('All / Any', campScopedPatientsCount, isBold: true),
+          child: buildOptionRow('All / Any (सबै)', campScopedPatientsCount, isBold: true),
         ),
         DropdownMenuItem(
-          value: 'yes',
-          child: buildOptionRow('Surgery Performed', surgeryPerformedCount),
+          value: 'any',
+          child: buildOptionRow('Referred for Surgery (सिफारिस)', surgeryReferralCount),
         ),
         DropdownMenuItem(
-          value: 'no',
-          child: buildOptionRow('No Surgery', surgeryNotDoneCount),
+          value: 'scheer',
+          child: buildOptionRow('Scheer Memorial', surgeryScheerCount),
         ),
         DropdownMenuItem(
-          value: 'referral',
-          child: buildOptionRow('Hospital Referral', surgeryReferralCount),
+          value: 'model',
+          child: buildOptionRow('Model Hosp', surgeryModelCount),
+        ),
+        DropdownMenuItem(
+          value: 'government',
+          child: buildOptionRow('Local Government', surgeryGovCount),
+        ),
+        DropdownMenuItem(
+          value: 'none',
+          child: buildOptionRow('No Referral (सिफारिस नभएको)', surgeryNoReferralCount),
         ),
       ],
       onChanged: (v) => setState(() {
@@ -7099,6 +7126,22 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       }
     }
 
+    int antCount = 0, midCount = 0, postCount = 0;
+    if (summary != null && summary.totalVisitsRecorded > 0) {
+      antCount = (summary.anteriorStages.values.fold<int>(0, (a, b) => a + b) - (summary.anteriorStages[0] ?? 0));
+      midCount = (summary.middleStages.values.fold<int>(0, (a, b) => a + b) - (summary.middleStages[0] ?? 0));
+      postCount = (summary.posteriorStages.values.fold<int>(0, (a, b) => a + b) - (summary.posteriorStages[0] ?? 0));
+    } else {
+      for (final p in patients) {
+        final v = _patientVisits[p.patientId];
+        if (v != null) {
+          if (v.popAnteriorStage > 0) antCount++;
+          if (v.popMiddleStage > 0) midCount++;
+          if (v.popPosteriorStage > 0) postCount++;
+        }
+      }
+    }
+
     final significant = st2 + st3 + st4;
     final sigPct = totalExams > 0 ? (significant / totalExams * 100).toStringAsFixed(1) : '0.0';
 
@@ -7126,11 +7169,11 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Pelvic Organ Prolapse (POP-Q) Severity Spectrum',
+                        'पाठेघर खस्ने अवस्था (Pelvic Organ Prolapse Staging - Highest Stage)',
                         style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                       ),
                       Text(
-                        'Baden-Walker Classification across clinical examinations',
+                        'Yellow Form Station 2 & Station 4 Clinical Staging (अधिकतम स्टेज ० - ४)',
                         style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                       ),
                     ],
@@ -7151,15 +7194,15 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             ),
             const SizedBox(height: 16),
 
-            // POP-Q Stage Breakdown Cards (Responsive 4-column on desktop, 2x2 on mobile)
+            // POP Stage Breakdown Cards (Responsive 4-column on desktop, 2x2 on mobile)
             LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 640;
                 final cards = [
-                  _buildPopStageGridCard('Stage 0 (Normal)', '$st0', const Color(0xFF10B981)),
-                  _buildPopStageGridCard('Stage I (Mild)', '$st1', const Color(0xFF06B6D4)),
-                  _buildPopStageGridCard('Stage II (Moderate)', '$st2', const Color(0xFFF59E0B)),
-                  _buildPopStageGridCard('Stage III-IV (Severe)', '${st3 + st4}', const Color(0xFFEA580C)),
+                  _buildPopStageGridCard('Stage 0 (सामान्य)', '$st0', const Color(0xFF10B981)),
+                  _buildPopStageGridCard('Stage 1 (हल्का)', '$st1', const Color(0xFF06B6D4)),
+                  _buildPopStageGridCard('Stage 2 (मध्यम)', '$st2', const Color(0xFFF59E0B)),
+                  _buildPopStageGridCard('Stage 3-4 (गम्भीर/पूर्ण)', '${st3 + st4}', const Color(0xFFEA580C)),
                 ];
 
                 if (isWide) {
@@ -7200,40 +7243,40 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
             // Horizontal Distribution Bars
             _buildChartHorizontalBar(
-              label: 'Stage 0 - Normal Anatomy (सामान्य)',
-              subtitle: 'Leading edge above -1 cm • No prolapse',
+              label: 'Stage 0 - सामान्य (Normal / No Prolapse)',
+              subtitle: 'सामान्य शारीरिक अवस्था • Normal pelvic anatomy & support',
               count: st0,
               total: totalExams,
               color: const Color(0xFF10B981),
             ),
             const SizedBox(height: 10),
             _buildChartHorizontalBar(
-              label: 'Stage I - Mild Prolapse (हल्का)',
-              subtitle: 'Leading edge > 1 cm above hymenal ring',
+              label: 'Stage 1 - हल्का खसेको (Stage 1 Mild Prolapse)',
+              subtitle: 'योनीको माथिल्लो भागमा सीमित • Descent within upper vagina above hymen',
               count: st1,
               total: totalExams,
               color: const Color(0xFF06B6D4),
             ),
             const SizedBox(height: 10),
             _buildChartHorizontalBar(
-              label: 'Stage II - Moderate Prolapse (मध्यम)',
-              subtitle: 'Leading edge within 1 cm of hymen • Conservative / Pessary candidate',
+              label: 'Stage 2 - मध्यम खसेको (Stage 2 Moderate Prolapse)',
+              subtitle: 'योनीद्वार सम्म आएको • Descent to introitus (Pessary / pelvic floor candidate)',
               count: st2,
               total: totalExams,
               color: const Color(0xFFF59E0B),
             ),
             const SizedBox(height: 10),
             _buildChartHorizontalBar(
-              label: 'Stage III - Severe Prolapse (गम्भीर)',
-              subtitle: 'Leading edge > 1 cm below hymen, but < 2 cm less than TVL',
+              label: 'Stage 3 - गम्भीर खसेको (Stage 3 Severe Prolapse)',
+              subtitle: 'योनीद्वार बाहिर निस्किएको • Protrusion outside introitus',
               count: st3,
               total: totalExams,
               color: const Color(0xFFEA580C),
             ),
             const SizedBox(height: 10),
             _buildChartHorizontalBar(
-              label: 'Stage IV - Complete Procidentia (पूर्ण खसेको)',
-              subtitle: 'Complete eversion of lower genital tract • Surgical candidate',
+              label: 'Stage 4 - पूर्ण खसेको (Stage 4 Complete Procidentia)',
+              subtitle: 'पूर्ण रूपमा बाहिर निस्केको पाठेघर • Complete procidentia (Surgical candidate)',
               count: st4,
               total: totalExams,
               color: const Color(0xFFDC2626),
@@ -7257,6 +7300,96 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                       'Epidemiological Prolapse Burden: $sigPct% ($significant Patients) have Stage II-IV Prolapse requiring clinical intervention.',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
                     ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Station 2: Three Anatomical Compartments (Yellow Form Page 2)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.view_column_rounded, size: 16, color: AppTheme.brandPurple),
+                      SizedBox(width: 6),
+                      Text(
+                        'Station 2: Anatomical Compartments Affected (अङ्गगत खस्ने अवस्था)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Anterior Wall (अगाडि)', style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                              const SizedBox(height: 2),
+                              Text('$antCount Prolapsed', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                              const Text('Cystocele', style: TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8))),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Middle Part (बीचको)', style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                              const SizedBox(height: 2),
+                              Text('$midCount Prolapsed', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                              const Text('Uterine Prolapse', style: TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8))),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Posterior Wall (पछाडि)', style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                              const SizedBox(height: 2),
+                              Text('$postCount Prolapsed', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                              const Text('Rectocele', style: TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8))),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -8660,8 +8793,8 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
 
                         const SizedBox(height: 16),
 
-                        // Section 3: POP-Q Staging
-                        _buildSectionHeader('3. Pelvic Organ Prolapse (Baden-Walker POP-Q)'),
+                        // Section 3: POP Staging
+                        _buildSectionHeader('3. Pelvic Organ Prolapse Staging (पाठेघर खस्ने अवस्था - Station 2 & 4)'),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                           decoration: BoxDecoration(
@@ -8671,11 +8804,11 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
                           ),
                           child: Row(
                             children: [
-                              Expanded(child: _buildPopBox('Anterior', 'Stage ${v?.popAnteriorStage ?? 0}')),
+                              Expanded(child: _buildPopBox('Anterior (अगाडि)', 'Stage ${v?.popAnteriorStage ?? 0}')),
                               const SizedBox(width: 4),
-                              Expanded(child: _buildPopBox('Apical', 'Stage ${v?.popMiddleStage ?? 0}')),
+                              Expanded(child: _buildPopBox('Middle (बीचको)', 'Stage ${v?.popMiddleStage ?? 0}')),
                               const SizedBox(width: 4),
-                              Expanded(child: _buildPopBox('Posterior', 'Stage ${v?.popPosteriorStage ?? 0}')),
+                              Expanded(child: _buildPopBox('Posterior (पछाडि)', 'Stage ${v?.popPosteriorStage ?? 0}')),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: _buildPopBox(
