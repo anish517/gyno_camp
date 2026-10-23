@@ -282,7 +282,15 @@ class OcrRepository implements IOcrRepository {
       firstName: (demo['firstName'] as String? ?? 'Sita').trim(),
       surname: (demo['surname'] as String? ?? 'Sharma').trim(),
       age: (demo['age'] as int? ?? 35),
-      spouseOrFatherName: demo['relativeName'] as String?,
+      spouseOrFatherName: () {
+        final relName = (demo['relativeName'] as String? ?? '').trim();
+        final relSur = (demo['relativeSurname'] as String? ?? '').trim();
+        if (relName.isEmpty) return relSur.isNotEmpty ? relSur : null;
+        if (relSur.isNotEmpty && !relName.toLowerCase().contains(relSur.toLowerCase())) {
+          return '$relName $relSur';
+        }
+        return relName;
+      }(),
       relationshipType: demo['relativeType'] as String? ?? 'Husband',
       mobile: (demo['mobile'] as String? ?? ''),
       // Contact fields — now parsed by OCR service and carried through to DB

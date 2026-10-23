@@ -330,7 +330,60 @@ ${page2.rawText}
 
   /// Helper to get confidence tier for a given field
   String getConfidenceTier(String fieldKey) {
-    final conf = fieldConfidences[fieldKey] ?? 0.5;
+    // Check direct key in fieldConfidences first
+    double? conf = fieldConfidences[fieldKey];
+
+    // Smart aliases if direct key not present
+    if (conf == null) {
+      switch (fieldKey) {
+        case 'firstName':
+        case 'first_name':
+          conf = fieldConfidences['firstName'] ?? fieldConfidences['name'];
+          break;
+        case 'surname':
+        case 'lastName':
+        case 'last_name':
+          conf = fieldConfidences['surname'] ?? fieldConfidences['name'];
+          break;
+        case 'name':
+          conf = fieldConfidences['name'] ?? fieldConfidences['firstName'] ?? fieldConfidences['surname'];
+          break;
+        case 'relative':
+        case 'relativeName':
+        case 'spouseOrFatherName':
+          conf = fieldConfidences['relativeName'] ??
+              fieldConfidences['relativeSurname'] ??
+              fieldConfidences['relative'] ??
+              fieldConfidences['spouseOrFatherName'];
+          break;
+        case 'relativeSurname':
+          conf = fieldConfidences['relativeSurname'] ?? fieldConfidences['relative'];
+          break;
+        case 'mobile':
+          conf = fieldConfidences['mobile'] ?? fieldConfidences['phone'];
+          break;
+        case 'contactMobile':
+          conf = fieldConfidences['contactMobile'] ?? fieldConfidences['mobile'];
+          break;
+        case 'ward':
+          conf = fieldConfidences['ward'];
+          break;
+        case 'age':
+          conf = fieldConfidences['age'];
+          break;
+      }
+    }
+
+    // Fallback: If a field has a detected, non-empty value in demographics,
+    // it was successfully extracted by OCR, so confidence is high.
+    if (conf == null) {
+      final demoVal = demographics[fieldKey]?.toString().trim();
+      if (demoVal != null && demoVal.isNotEmpty && demoVal.toLowerCase() != 'null') {
+        conf = 0.95;
+      }
+    }
+
+    conf ??= overallConfidence;
     if (conf >= 0.85) return 'HIGH';
     if (conf >= 0.60) return 'MEDIUM';
     return 'LOW';

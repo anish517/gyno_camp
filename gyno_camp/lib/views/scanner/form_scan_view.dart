@@ -1692,7 +1692,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           _buildFieldWithConfidence(
             label: 'First Name (नाम)',
             value: demo['firstName']?.toString() ?? '',
-            fieldKey: 'name',
+            fieldKey: 'firstName',
             result: result,
             onChanged: (val) => vm.updateDemographic('firstName', val, campId: campId),
           ),
@@ -1700,7 +1700,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           _buildFieldWithConfidence(
             label: 'Surname (थर)',
             value: demo['surname']?.toString() ?? '',
-            fieldKey: 'name',
+            fieldKey: 'surname',
             result: result,
             onChanged: (val) => vm.updateDemographic('surname', val, campId: campId),
           ),
@@ -1871,12 +1871,30 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             onChanged: (val) => vm.updateDemographic('mobile', val, campId: campId),
           ),
           const SizedBox(height: 12),
-          _buildFieldWithConfidence(
-            label: 'Husband / Father Name (श्रीमानको / बुबाको नाम)',
-            value: demo['relativeName']?.toString() ?? '',
-            fieldKey: 'relative',
-            result: result,
-            onChanged: (val) => vm.updateDemographic('relativeName', val, campId: campId),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: _buildFieldWithConfidence(
+                  label: 'Husband / Father Name (श्रीमान् / बुबाको नाम)',
+                  value: demo['relativeName']?.toString() ?? '',
+                  fieldKey: 'relativeName',
+                  result: result,
+                  onChanged: (val) => vm.updateDemographic('relativeName', val, campId: campId),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: _buildFieldWithConfidence(
+                  label: 'Relative Surname (थर)',
+                  value: demo['relativeSurname']?.toString() ?? '',
+                  fieldKey: 'relativeSurname',
+                  result: result,
+                  onChanged: (val) => vm.updateDemographic('relativeSurname', val, campId: campId),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Column(

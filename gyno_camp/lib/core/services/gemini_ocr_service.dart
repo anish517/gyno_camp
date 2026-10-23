@@ -356,7 +356,17 @@ class GeminiOcrService {
         final age = (rawDemo['age'] as num?)?.toInt();
         return (age != null && age < 20) ? 'Father' : 'Husband';
       }(),
-      'relativeSurname': rawDemo['relativeSurname']?.toString().trim() ?? '',
+      'relativeSurname': () {
+        final relSur = rawDemo['relativeSurname']?.toString().trim() ?? '';
+        if (relSur.isNotEmpty && relSur.toLowerCase() != 'null') return relSur;
+        // In Nepali camps, if marital status is married and patient's surname is known, husband shares the surname
+        final status = rawDemo['maritalStatus']?.toString().toLowerCase().trim() ?? '';
+        final pSur = rawDemo['surname']?.toString().trim() ?? '';
+        if ((status == 'married' || status.contains('विवाहित')) && pSur.isNotEmpty) {
+          return pSur;
+        }
+        return '';
+      }(),
       'mobile': rawDemo['mobile']?.toString().trim() ?? '',
       'maritalAge': (rawDemo['maritalAge'] as num?)?.toInt() ?? (rawObs['ageAtMarriage'] as num?)?.toInt(),
       'contactPerson': rawDemo['contactPerson']?.toString().trim() ?? '',
@@ -513,6 +523,22 @@ class GeminiOcrService {
     }
 
     demographics.forEach(markConf);
+    if (demographics['firstName']?.toString().isNotEmpty == true) {
+      confidences['firstName'] = 0.96;
+      confidences['name'] = 0.96;
+    }
+    if (demographics['surname']?.toString().isNotEmpty == true) {
+      confidences['surname'] = 0.96;
+      confidences['name'] = 0.96;
+    }
+    if (demographics['relativeName']?.toString().isNotEmpty == true) {
+      confidences['relativeName'] = 0.96;
+      confidences['relative'] = 0.96;
+    }
+    if (demographics['relativeSurname']?.toString().isNotEmpty == true) {
+      confidences['relativeSurname'] = 0.96;
+      confidences['relative'] = 0.96;
+    }
     obstetrics.forEach(markConf);
     vitals.forEach(markConf);
     popStaging.forEach(markConf);
@@ -533,7 +559,11 @@ class GeminiOcrService {
     }
     if (demographics['firstName'] != '' || demographics['surname'] != '') {
       buffer.writeln('Patient Name: ${demographics['firstName']} ${demographics['surname']}');
-      buffer.writeln('Age: ${demographics['age'] ?? 'N/A'}, Marital: ${demographics['maritalStatus']}, Relative: ${demographics['relativeName']}');
+      final relFull = [
+        demographics['relativeName']?.toString().trim() ?? '',
+        demographics['relativeSurname']?.toString().trim() ?? '',
+      ].where((s) => s.isNotEmpty).join(' ');
+      buffer.writeln('Age: ${demographics['age'] ?? 'N/A'}, Marital: ${demographics['maritalStatus']}, Relative: $relFull (${demographics['relativeType'] ?? 'Relative'})');
       buffer.writeln('Location: Ward ${demographics['ward']}, ${demographics['municipality']}, ${demographics['district']}, ${demographics['province']}');
       buffer.writeln('Mobile: ${demographics['mobile']}, Contact: ${demographics['contactPerson']} (${demographics['contactMobile']})');
       final reasons = demographics['reasonsForVisit'] as List?;

@@ -278,9 +278,9 @@ PAGE 1 (FRONT) — PATIENT REGISTRATION & ANAMNESIS:
    - "Surname: थर" (letter boxes)
    - "Patient Age: उमेर" (numeric digit boxes)
    - "Marital Status / वैवाहिक स्थिति" (4 checkboxes: Married, Unmarried, Widow, Divorced)
-   - "Husband's / Father's Name: श्रीमान् / बुबाको नाम" (letter boxes -> relativeName)
+   - "Relative Name: आपन्तको नाम" (letter boxes -> relativeName, e.g. BHIM BAHADUR)
+   - "Relative Surname: थर" (letter boxes directly to the right of Relative Name -> relativeSurname, e.g. THAPA)
    - "Relation: नाता" -> relationType: "Husband" or "Father" (from checked checkbox)
-   - "Relative Surname: थर" (letter boxes -> relativeSurname)
    - "Mobile W.: महिलाको मोबाइल" (10 digit boxes -> mobile)
    - "Age at Marriage / विवाह उमेर" (numeric digit boxes -> maritalAge)
    - "Contact Person / सम्पर्क व्यक्ति" (letter boxes -> contactPerson)
@@ -383,9 +383,9 @@ Extract the information accurately into this EXACT JSON structure:
     "surname": "Surname (e.g. TAMANG) or null",
     "age": number or null,
     "maritalStatus": "married or widow or unmarried or divorced or null",
-    "relativeName": "Husband or father first name (e.g. SOM BAHADUR) or null",
-    "relationType": "Husband or Father or null (from the ticked/circled label)",
-    "relativeSurname": "Surname of husband/father (e.g. TAMANG) or null",
+    "relativeName": "Relative first name from 'Relative Name: आपन्तको नाम' letter boxes (e.g. BHIM BAHADUR) or null",
+    "relativeSurname": "Relative surname from 'Relative Surname: थर' letter boxes directly adjacent (e.g. THAPA) or null",
+    "relationType": "Husband or Father or null (from checked 'Relation: नाता' checkbox)",
     "mobile": "10-digit phone number or null",
     "maritalAge": number or null,
     "contactPerson": "Secondary contact person name or null",
