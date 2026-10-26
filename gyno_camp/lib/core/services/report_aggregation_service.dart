@@ -4,6 +4,17 @@ import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
 
 class ReportAggregationService {
+  static final RegExp _dosageInstructionPattern = RegExp(
+    r'^\d*\s*(tab|tabs|tablet|tablets|cap|caps|capsule|capsules|pill|pills|drop|drops|puff|puffs|tsp|tbsp|sachet|amp|ampoule)?\s*(daily|once daily|twice daily|od|bd|bid|tds|tid|qid|hs|sos|prn|stat|po|per day|times a day|a day)$',
+    caseSensitive: false,
+  );
+
+  static bool isDosageInstruction(String s) {
+    final trimmed = s.trim();
+    if (trimmed.isEmpty) return true;
+    return _dosageInstructionPattern.hasMatch(trimmed);
+  }
+
   CampReportSummaryModel aggregate({
     CampModel? camp,
     required List<PatientModel> patients,
@@ -141,15 +152,17 @@ class ReportAggregationService {
       // Medications
       for (final med in v.medications) {
         final cleanMed = med.trim();
-        if (cleanMed.isNotEmpty) {
+        if (cleanMed.isNotEmpty && !isDosageInstruction(cleanMed)) {
           medicationDispensed[cleanMed] = (medicationDispensed[cleanMed] ?? 0) + 1;
           totalPrescriptions++;
         }
       }
       if (v.customMedication != null && v.customMedication!.trim().isNotEmpty) {
         final custom = v.customMedication!.trim();
-        medicationDispensed[custom] = (medicationDispensed[custom] ?? 0) + 1;
-        totalPrescriptions++;
+        if (!isDosageInstruction(custom)) {
+          medicationDispensed[custom] = (medicationDispensed[custom] ?? 0) + 1;
+          totalPrescriptions++;
+        }
       }
     }
 

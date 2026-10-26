@@ -438,7 +438,7 @@ Extract the information accurately into this EXACT JSON structure:
   },
   "diagnoses": ["List of checked diagnoses from Station 4, plus Other text if filled. Empty list if none checked."],
   "counseling": ["List of checked spec counseling options from Station 5. Empty list if none checked."],
-  "medications": ["List of checked medications ONLY from Station 5 medication section, plus Other text if filled. Do NOT include pessary here. Empty list if none checked."],
+  "medications": ["List of checked medications ONLY from Station 5 medication section, plus Other text if filled. Do NOT include standalone dosage instructions (e.g. '1 TAB DAILY', 'OD', 'BD'). Do NOT include pessary here. Empty list if none checked."],
   "ringPessary": true or false,
   "pessaryType": "ring or ring with support or ring with knob or null",
   "ringPessarySize": number or null,

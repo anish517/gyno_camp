@@ -12,6 +12,7 @@ import '../../models/ocr_scan_result_model.dart';
 import '../../models/patient_model.dart';
 import '../security/security_service.dart';
 import 'http_central_api_service.dart';
+import 'report_aggregation_service.dart';
 import 'session_service.dart';
 
 class GeminiOcrException implements Exception {
@@ -188,7 +189,10 @@ class GeminiOcrService {
     final rawVitals = (parsedData['vitals'] as Map<String, dynamic>?) ?? {};
     final rawPop = (parsedData['popStaging'] as Map<String, dynamic>?) ?? {};
     final rawDiagnoses = (parsedData['diagnoses'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
-    final rawMeds = (parsedData['medications'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
+    final rawMeds = (parsedData['medications'] as List<dynamic>?)
+        ?.map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty && !ReportAggregationService.isDosageInstruction(e))
+        .toList() ?? <String>[];
     final rawCounseling = (parsedData['counseling'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
     // Station 5 extra items (Ring Pessary & Surgery)
     // NOTE: Pessary is a device fitting, NOT a dispensed medication.
