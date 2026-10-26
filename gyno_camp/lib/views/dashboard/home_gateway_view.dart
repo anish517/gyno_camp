@@ -5049,10 +5049,23 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
   }
 
   bool _doctorNamesMatch(String a, String b) {
-    final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-    final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-    if (cleanA.isEmpty || cleanB.isEmpty) return false;
-    return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
+    final docA = DoctorProfile.parse(a);
+    final docB = DoctorProfile.parse(b);
+    if (!docA.isValid || !docB.isValid) {
+      final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+      final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+      if (cleanA.isEmpty || cleanB.isEmpty) return false;
+      return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
+    }
+    final nameA = docA.name.toLowerCase().trim();
+    final nameB = docB.name.toLowerCase().trim();
+    if (nameA == nameB || nameA.contains(nameB) || nameB.contains(nameA)) {
+      if (docA.hasNmc && docB.hasNmc) {
+        return docA.nmcNumber == docB.nmcNumber;
+      }
+      return true;
+    }
+    return false;
   }
 
   bool _matchesDoctor(PatientModel p, ClinicalVisitModel? visit, String docName, CampState campState) {
@@ -5170,30 +5183,49 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final relevantCamps = selectedCampObj != null ? [selectedCampObj] : visibleCamps;
 
     // Collect all dynamic doctors scoped strictly to the selected camp (or all visible camps)
-    final allDoctors = <String>{};
+    final doctorMap = <String, DoctorProfile>{};
+    void addDoctorRaw(String raw) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) return;
+      final parsed = DoctorProfile.parse(trimmed);
+      if (!parsed.isValid) return;
+      final key = parsed.name.toLowerCase().trim();
+      final existing = doctorMap[key];
+      if (existing == null) {
+        doctorMap[key] = parsed;
+      } else if (!existing.hasNmc && parsed.hasNmc) {
+        doctorMap[key] = parsed;
+      }
+    }
+
     for (final camp in relevantCamps) {
       if (camp.doctorNames.isNotEmpty) {
-        allDoctors.addAll(camp.doctorNames.map((d) => d.trim()).where((d) => d.isNotEmpty));
+        for (final d in camp.doctorNames) {
+          addDoctorRaw(d);
+        }
       } else if (camp.doctorName.trim().isNotEmpty) {
-        allDoctors.add(camp.doctorName.trim());
+        addDoctorRaw(camp.doctorName);
       }
     }
     for (final p in campScopedPatients) {
       final v = _patientVisits[p.patientId];
       if (v != null) {
         if (v.primaryDoctorName != null && v.primaryDoctorName!.trim().isNotEmpty) {
-          allDoctors.add(v.primaryDoctorName!.trim());
+          addDoctorRaw(v.primaryDoctorName!);
         }
         for (final doc in v.attendingDoctorNames) {
           if (doc.trim().isNotEmpty) {
-            allDoctors.add(doc.trim());
+            addDoctorRaw(doc);
           }
         }
       }
     }
-    final sortedDoctors = allDoctors.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final sortedDoctorProfiles = doctorMap.values.toList()
+      ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+    final sortedDoctors = sortedDoctorProfiles.map((d) => d.formattedLabel).toList();
     if (_selectedDoctor != 'all' && !sortedDoctors.contains(_selectedDoctor)) {
-      _selectedDoctor = 'all';
+      final matchingDoc = sortedDoctorProfiles.where((d) => _doctorNamesMatch(d.formattedLabel, _selectedDoctor)).firstOrNull;
+      _selectedDoctor = matchingDoc?.formattedLabel ?? 'all';
     }
 
     // Compute live patient counts per doctor in the camp scope

@@ -68,6 +68,23 @@ class DoctorProfile {
       return DoctorProfile(name: cleanName, nmcNumber: nmc);
     }
 
+    // Try parenthesized numeric ID pattern: "... (12345)" or "... [12345]"
+    final numMatch = RegExp(
+      r'^(.*?)\s*[\(\[]\s*(\d+)\s*[\)\]]?\s*$',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+
+    if (numMatch != null &&
+        numMatch.group(1) != null &&
+        numMatch.group(2) != null) {
+      final rawName = numMatch.group(1)!.trim();
+      final nmc = numMatch.group(2)!.trim();
+      final cleanName = _stripDrPrefix(rawName);
+      if (cleanName.isNotEmpty) {
+        return DoctorProfile(name: cleanName, nmcNumber: nmc);
+      }
+    }
+
     // Plain name (no NMC)
     return DoctorProfile(name: _stripDrPrefix(trimmed));
   }
