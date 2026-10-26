@@ -5426,13 +5426,15 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     };
     for (final p in campScopedPatients) {
       final v = _patientVisits[p.patientId];
-      final stage = v?.highestPopStage ?? p.highestPopStage ?? 0;
-      final stageKey = stage.toString();
-      if (popStageCounts.containsKey(stageKey)) {
-        popStageCounts[stageKey] = (popStageCounts[stageKey] ?? 0) + 1;
-      }
-      if (stage >= 2) {
-        popStageCounts['significant'] = (popStageCounts['significant'] ?? 0) + 1;
+      if (v != null || p.highestPopStage != null) {
+        final stage = v?.highestPopStage ?? p.highestPopStage ?? 0;
+        final stageKey = stage.toString();
+        if (popStageCounts.containsKey(stageKey)) {
+          popStageCounts[stageKey] = (popStageCounts[stageKey] ?? 0) + 1;
+        }
+        if (stage >= 2) {
+          popStageCounts['significant'] = (popStageCounts['significant'] ?? 0) + 1;
+        }
       }
     }
 
@@ -5557,12 +5559,15 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       final visit = _patientVisits[p.patientId];
 
       // 3. POP Stage filter
-      final popStage = visit?.highestPopStage ?? p.highestPopStage ?? 0;
-      if (_selectedPopStage == 'significant') {
-        if (popStage < 2) return false;
-      } else if (_selectedPopStage != 'all') {
-        final targetStage = int.tryParse(_selectedPopStage);
-        if (targetStage != null && popStage != targetStage) return false;
+      if (_selectedPopStage != 'all') {
+        if (visit == null && p.highestPopStage == null) return false;
+        final popStage = visit?.highestPopStage ?? p.highestPopStage ?? 0;
+        if (_selectedPopStage == 'significant') {
+          if (popStage < 2) return false;
+        } else {
+          final targetStage = int.tryParse(_selectedPopStage);
+          if (targetStage != null && popStage != targetStage) return false;
+        }
       }
 
       // 4. Visit Reason filter

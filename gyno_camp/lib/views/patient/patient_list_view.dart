@@ -919,7 +919,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
 
     // Doctor
     if (filters.doctor != null && filters.doctor != 'all' && filters.doctor!.isNotEmpty) {
-      pills.add(_buildFilterPill('Dr: ${filters.doctor}', () {
+      final docLabel = filters.doctor!.startsWith('Dr') ? filters.doctor! : 'Dr. ${filters.doctor}';
+      pills.add(_buildFilterPill(docLabel, () {
         vm.updateFilters(filters.copyWith(doctor: 'all'));
       }));
     }
@@ -1493,7 +1494,21 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     }
     final visibleCamps = uniqueCampsMap.values.toList();
 
-    final allDoctors = <String>{};
+    final doctorMap = <String, DoctorProfile>{};
+    void addDoctorRaw(String raw) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) return;
+      final parsed = DoctorProfile.parse(trimmed);
+      if (!parsed.isValid) return;
+      final key = parsed.name.toLowerCase().trim();
+      final existing = doctorMap[key];
+      if (existing == null) {
+        doctorMap[key] = parsed;
+      } else if (!existing.hasNmc && parsed.hasNmc) {
+        doctorMap[key] = parsed;
+      }
+    }
+
     final campDoctorsMap = <String, List<String>>{};
     for (final camp in visibleCamps) {
       final docs = camp.doctorNames.isNotEmpty
@@ -1501,25 +1516,25 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           : (camp.doctorName.trim().isNotEmpty ? [camp.doctorName.trim()] : <String>[]);
       campDoctorsMap[camp.id] = docs;
       for (final d in docs) {
-        final clean = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-        if (clean.isNotEmpty) allDoctors.add(clean);
+        addDoctorRaw(d);
       }
     }
     for (final p in patientState.rawPatients) {
       if (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty) {
-        final clean = p.primaryDoctorName!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-        if (clean.isNotEmpty) allDoctors.add(clean);
+        addDoctorRaw(p.primaryDoctorName!);
       }
       for (final doc in p.attendingDoctorNames) {
-        final clean = doc.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-        if (clean.isNotEmpty) allDoctors.add(clean);
+        if (doc.trim().isNotEmpty) {
+          addDoctorRaw(doc);
+        }
       }
     }
     if (filters.doctor != null && filters.doctor != 'all' && filters.doctor!.trim().isNotEmpty) {
-      final clean = filters.doctor!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-      if (clean.isNotEmpty) allDoctors.add(clean);
+      addDoctorRaw(filters.doctor!);
     }
-    final sortedDoctors = allDoctors.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final sortedDoctorProfiles = doctorMap.values.toList()
+      ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+    final sortedDoctors = sortedDoctorProfiles.map((d) => d.formattedLabel).toList();
 
     final allNurses = <String>{};
     for (final camp in visibleCamps) {
@@ -2141,13 +2156,19 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           onChanged: (val) => vm.updateFilters(filters.copyWith(clinicalIntake: val)),
                         );
 
-                        final currentDoctorClean = (filters.doctor != null && filters.doctor != 'all' && filters.doctor!.trim().isNotEmpty)
-                            ? filters.doctor!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim()
+                        final selectedDoc = (filters.doctor != null && filters.doctor != 'all' && filters.doctor!.trim().isNotEmpty)
+                            ? sortedDoctors.where((d) {
+                                if (d == filters.doctor) return true;
+                                final pA = DoctorProfile.parse(d);
+                                final pB = DoctorProfile.parse(filters.doctor!);
+                                if (pA.hasNmc && pB.hasNmc) return pA.nmcNumber == pB.nmcNumber;
+                                return pA.name.toLowerCase().trim() == pB.name.toLowerCase().trim();
+                              }).firstOrNull
                             : null;
 
                         final doctorDropdown = DropdownButtonFormField<String?>(
-                          key: ValueKey('doctor_filter_$currentDoctorClean'),
-                          initialValue: sortedDoctors.contains(currentDoctorClean) ? currentDoctorClean : null,
+                          key: ValueKey('doctor_filter_$selectedDoc'),
+                          initialValue: selectedDoc,
                           decoration: const InputDecoration(
                             labelText: 'Examining Doctor (जाँच गर्ने चिकित्सक)',
                             prefixIcon: Icon(Icons.medical_services_outlined, size: 18),
@@ -2160,7 +2181,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             const DropdownMenuItem(value: null, child: Text('All Doctors (सबै डाक्टर)', style: TextStyle(fontSize: 13, color: Colors.grey))),
                             ...sortedDoctors.map((doc) => DropdownMenuItem(
                               value: doc,
-                              child: Text('Dr. $doc', style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
+                              child: Text(doc, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
                             )),
                           ],
                           onChanged: (val) => vm.updateFilters(

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/doctor_profile.dart';
 import '../models/nurse_profile.dart';
 import '../models/patient_model.dart';
 import '../repositories/patient_repository.dart';
@@ -412,10 +413,23 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         final docFilter = filters.doctor!;
 
         bool docNamesMatch(String a, String b) {
-          final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-          final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-          if (cleanA.isEmpty || cleanB.isEmpty) return false;
-          return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
+          final docA = DoctorProfile.parse(a);
+          final docB = DoctorProfile.parse(b);
+          if (!docA.isValid || !docB.isValid) {
+            final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+            final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
+            if (cleanA.isEmpty || cleanB.isEmpty) return false;
+            return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
+          }
+          final nameA = docA.name.toLowerCase().trim();
+          final nameB = docB.name.toLowerCase().trim();
+          if (nameA == nameB || nameA.contains(nameB) || nameB.contains(nameA)) {
+            if (docA.hasNmc && docB.hasNmc) {
+              return docA.nmcNumber == docB.nmcNumber;
+            }
+            return true;
+          }
+          return false;
         }
 
         final primaryMatch = p.primaryDoctorName != null && docNamesMatch(p.primaryDoctorName!, docFilter);
