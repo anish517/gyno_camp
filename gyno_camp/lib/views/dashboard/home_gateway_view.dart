@@ -7322,7 +7322,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                       Icon(Icons.view_column_rounded, size: 16, color: AppTheme.brandPurple),
                       SizedBox(width: 6),
                       Text(
-                        'Station 2: Anatomical Compartments Affected (अङ्गगत खस्ने अवस्था)',
+                        'Station 2: Anatomical Compartments Affected (प्रभावित शारीरिक भाग)',
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                       ),
                     ],
@@ -7341,9 +7341,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Anterior Wall (अगाडि)', style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                              const Text('Anterior Wall (अगाडिको भित्ति)', style: TextStyle(fontSize: 10, color: Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 2),
-                              Text('$antCount Prolapsed', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                              Text('$antCount Cases', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                               const Text('Cystocele', style: TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8))),
                             ],
                           ),
@@ -7361,9 +7361,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Middle Part (बीचको)', style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                              const Text('Apical Compartment (शीर्ष/मध्य भाग)', style: TextStyle(fontSize: 10, color: Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 2),
-                              Text('$midCount Prolapsed', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                              Text('$midCount Cases', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                               const Text('Uterine Prolapse', style: TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8))),
                             ],
                           ),
@@ -7381,9 +7381,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Posterior Wall (पछाडि)', style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                              const Text('Posterior Wall (पछाडिको भित्ति)', style: TextStyle(fontSize: 10, color: Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 2),
-                              Text('$postCount Prolapsed', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                              Text('$postCount Cases', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                               const Text('Rectocele', style: TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8))),
                             ],
                           ),

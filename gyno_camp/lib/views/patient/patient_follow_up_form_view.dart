@@ -1505,7 +1505,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                     padding: EdgeInsets.symmetric(vertical: 4),
                     child: Divider(height: 1, color: Color(0xFFE2E8F0)),
                   ),
-                  _buildStageSelector('Middle Compartment (Uterine/Apex)', _middleStage, [0, 1, 2, 3, 4], (val) {
+                  _buildStageSelector('Apical Compartment (Uterine/Apex)', _middleStage, [0, 1, 2, 3, 4], (val) {
                     setState(() => _middleStage = val);
                   }),
                   const Padding(

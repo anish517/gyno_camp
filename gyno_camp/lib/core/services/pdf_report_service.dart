@@ -762,7 +762,7 @@ class PdfReportService {
                 ),
                 pw.TableRow(
                   children: [
-                    _buildTableCell('Middle (Uterine / Apex)', isBold: true),
+                    _buildTableCell('Apical (Uterine / Apex)', isBold: true),
                     _buildTableCell(
                       '${summary.middleStages[0] ?? 0}',
                       align: pw.TextAlign.center,

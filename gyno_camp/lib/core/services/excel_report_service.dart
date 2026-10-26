@@ -112,7 +112,7 @@ class ExcelReportService {
       TextCellValue('N/A'),
     ]);
     summarySheet.appendRow([
-      TextCellValue('Middle Compartment (Uterine/Apex Prolapse)'),
+      TextCellValue('Apical Compartment (Uterine/Apex Prolapse)'),
       IntCellValue(summary.middleStages[0] ?? 0),
       IntCellValue(summary.middleStages[1] ?? 0),
       IntCellValue(summary.middleStages[2] ?? 0),

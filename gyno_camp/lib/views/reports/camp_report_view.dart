@@ -3519,7 +3519,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         ),
         const SizedBox(height: 6),
         _buildCompartmentTile(
-          label: 'Middle (Uterine / Apex)',
+          label: 'Apical (Uterine / Apex)',
           count: (summary.middleStages[1] ?? 0) +
               (summary.middleStages[2] ?? 0) +
               (summary.middleStages[3] ?? 0) +
