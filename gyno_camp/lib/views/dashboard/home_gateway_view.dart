@@ -1658,7 +1658,7 @@ class HomeGatewayView extends ConsumerWidget {
                           icon: Icons.calendar_month_rounded,
                           title: 'Camp Lifecycle & Interactive Calendar',
                           description: 'Schedule outreach camps, enforce single-active camp sessions, view monthly calendar & assign staff rosters.',
-                          badgeText: campState.hasActiveCamp ? 'Active: ${campState.activeCamp!.campCode}' : '${campState.camps.length} Camps',
+                          badgeText: campState.hasActiveCamp ? 'Active: ${campState.activeCamp!.campCode}' : (campState.camps.length == 1 ? '1 Camp' : '${campState.camps.length} Camps'),
                           badgeColor: AppTheme.brandPurple,
                           accentColor: AppTheme.brandPurple,
                           actionPrompt: 'Manage Camp Roster',
@@ -7729,7 +7729,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
             _buildChartHorizontalBar(
               label: '< 20 Years (युवा / किशोरावस्था)',
-              subtitle: 'Early reproductive age group',
+              subtitle: 'Patients aged <20 years',
               count: under20,
               total: totalPatients,
               color: const Color(0xFF38BDF8),
@@ -7737,7 +7737,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             const SizedBox(height: 10),
             _buildChartHorizontalBar(
               label: '20 - 35 Years (प्रजनन उमेर समूह)',
-              subtitle: 'Peak childbearing & post-partum cohort',
+              subtitle: 'Patients aged 20–35 years',
               count: a20to35,
               total: totalPatients,
               color: AppTheme.brandPurple,
@@ -7745,15 +7745,15 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             const SizedBox(height: 10),
             _buildChartHorizontalBar(
               label: '36 - 50 Years (मध्यम उमेर समूह)',
-              subtitle: 'Perimenopausal & multiparous cohort',
+              subtitle: 'Patients aged 36–50 years',
               count: a36to50,
               total: totalPatients,
               color: const Color(0xFFF59E0B),
             ),
             const SizedBox(height: 10),
             _buildChartHorizontalBar(
-              label: '51 - 65 Years (प्रौढ उमेर समूह)',
-              subtitle: 'Postmenopausal • High POP & pelvic tone laxity burden',
+              label: '51 - 65 Years (जेष्ठ उमेर समूह)',
+              subtitle: 'Patients aged 51–65 years',
               count: a51to65,
               total: totalPatients,
               color: const Color(0xFFEA580C),
@@ -7761,7 +7761,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             const SizedBox(height: 10),
             _buildChartHorizontalBar(
               label: '> 65 Years (ज्येष्ठ नागरिक)',
-              subtitle: 'Elderly population requiring conservative pessary management',
+              subtitle: 'Patients aged >65 years',
               count: over65,
               total: totalPatients,
               color: const Color(0xFF9333EA),
@@ -7949,7 +7949,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '${camps.length} Camps',
+                    camps.length == 1 ? '1 Camp' : '${camps.length} Camps',
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4338CA)),
                   ),
                 ),
@@ -8027,7 +8027,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                       children: [
                         Text('Exams: $exams', style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
                         const Text('•', style: TextStyle(fontSize: 11, color: Color(0xFFCBD5E1))),
-                        Text('POP Stage II-IV: $sigPop ($sigPopPct%)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+                        Text('POP Stages II–IV: $sigPop ($sigPopPct%)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
                       ],
                     ),
                   ],
