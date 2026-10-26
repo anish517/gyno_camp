@@ -439,8 +439,9 @@ class OcrRepository implements IOcrRepository {
         anamnesisMap['problems passing urine'] = entryData;
         anamnesisMap['problems_passing_urine'] = entryData;
       }
-      if (lowerC.contains('pain') || lowerC.contains('backache') || lowerC.contains('heaviness')) {
-        anamnesisMap['pain'] = entryData;
+      if (lowerC == 'pain') {
+        anamnesisMap['lower_abdomen_pain'] = entryData;
+        anamnesisMap['lower abdomen pain'] = entryData;
       }
       if (lowerC.contains('stool') || lowerC.contains('bowel')) {
         anamnesisMap['stool'] = entryData;
@@ -512,8 +513,13 @@ class OcrRepository implements IOcrRepository {
         anamnesisMap.putIfAbsent('problems_passing_urine', () => defaultEntry);
         syncedClinicalComplaints.add('urine');
       }
-      if (lowerR.contains('pain')) {
-        anamnesisMap.putIfAbsent('pain', () => defaultEntry);
+      if (lowerR.contains('back') || lowerR.contains('ढाड') || lowerR.contains('कम्मर')) {
+        anamnesisMap.putIfAbsent('lower_back_pain', () => defaultEntry);
+        anamnesisMap.putIfAbsent('lower back pain', () => defaultEntry);
+        syncedClinicalComplaints.add('lower_back_pain');
+      } else if (lowerR.contains('pain') || lowerR.contains('abdomen') || lowerR.contains('दुख्ने')) {
+        anamnesisMap.putIfAbsent('lower_abdomen_pain', () => defaultEntry);
+        anamnesisMap.putIfAbsent('lower abdomen pain', () => defaultEntry);
         syncedClinicalComplaints.add('lower_abdomen_pain');
       }
       if (lowerR.contains('stool')) {

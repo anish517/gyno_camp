@@ -1452,40 +1452,36 @@ class PdfReportService {
       // Normalize complaint key to a canonical form for dedup
       String canonicalComplaintKey(String key) {
         final k = key.toLowerCase().replaceAll(RegExp(r'[_\-\s]+'), ' ').trim();
-        if (k.contains('prolapse') || k.contains('hanging') || k.contains('mass per vagina')) return 'prolapse';
-        if (k.contains('discharge') || k.contains('itching')) return 'discharge';
-        if (k.contains('urine') || k.contains('micturition')) return 'urine';
-        if (k.contains('stool') || k.contains('bowel')) return 'stool';
-        if (k.contains('menstrual')) return 'menstrual';
-        if (k.contains('infertility')) return 'infertility';
-        if (k.contains('pelvic') || k.contains('heaviness') || k.contains('dragging')) return 'pelvic_heaviness';
-        if (k.contains('dyspareunia') || k.contains('coital pain')) return 'dyspareunia';
-        if (k.contains('coital bleeding') || k.contains('post coital')) return 'post_coital_bleeding';
-        if (k.contains('incontinence')) return 'incontinence';
-        if (k.contains('back') && k.contains('pain')) return 'backache';
-        if (k.contains('abdomen') || k.contains('abdominal')) return 'lower_abdominal_pain';
-        if (k.contains('checkup')) return 'checkup';
+        if (k.contains('prolapse') || k.contains('hanging') || k.contains('mass per vagina') || k.contains('पाठेघर')) return 'prolapse';
+        if (k.contains('discharge') || k.contains('itching') || k.contains('स्राव') || k.contains('चिलाउने')) return 'discharge';
+        if (k.contains('urine') || k.contains('micturition') || k.contains('incontinence') || k.contains('पिसाब')) return 'urine';
+        if (k.contains('stool') || k.contains('bowel') || k.contains('दिसा')) return 'stool';
+        if (k.contains('menstrual') || k.contains('महिनावारी')) return 'menstrual';
+        if (k.contains('infertility') || k.contains('conception') || k.contains('बाँझोपन') || k.contains('निःसन्तान')) return 'infertility';
+        if (k.contains('back') || k.contains('backache') || k.contains('ढाड') || k.contains('कम्मर') || k.contains('sacral')) return 'lower_back_pain';
+        if (k.contains('abdomen') || k.contains('abdominal') || k.contains('तल्लो पेट') || k.contains('pelvic') || k == 'pain') return 'lower_abdomen_pain';
+        if (k.contains('checkup') || k.contains('screening') || k.contains('जाँच')) return 'checkup';
         return k;
       }
 
-      // Map canonical keys to display labels
+      // Map canonical keys to display labels matching Yellow Blank Form
       final canonicalTitles = {
-        'prolapse': 'Uterine Prolapse / Something Hanging Out',
+        'prolapse': 'Something Hanging Out',
         'discharge': 'Discharge / Itching',
         'urine': 'Problems Passing Urine',
         'stool': 'Problems Passing Stool',
         'menstrual': 'Menstrual Problem',
         'infertility': 'Infertility',
-        'pelvic_heaviness': 'Pelvic Heaviness / Dragging Sensation',
+        'lower_abdomen_pain': 'Lower Abdomen Pain',
+        'lower_back_pain': 'Lower Back Pain',
+        'checkup': 'Checkup',
+        // Optional sub-specialty aliases if present:
+        'pelvic_heaviness': 'Pelvic Heaviness',
         'dyspareunia': 'Dyspareunia / Coital Pain',
-        'post_coital_bleeding': 'Abnormal / Coital Bleeding',
-        'incontinence': 'Urinary Incontinence',
-        'backache': 'Severe Backache / Sacral Pain',
-        'lower_abdominal_pain': 'Lower Abdominal Pain',
-        'checkup': 'General Checkup',
+        'post_coital_bleeding': 'Post-Coital Bleeding',
       };
 
-      // Keys that are metadata, not actual complaint categories
+      // Keys that are metadata or generic aliases, not standalone complaint categories
       const metaKeys = {
         'clinicalComplaints',
         'clinical_complaints',
@@ -1494,6 +1490,8 @@ class PdfReportService {
         'reasons',
         'new_issues',
         'newIssues',
+        'visitReasons',
+        'pain',
       };
 
       // Build complaint display list from clinicalComplaints (source of truth)
@@ -4486,15 +4484,15 @@ class PdfReportService {
     }
     if (effectiveComplaints.isEmpty) {
       effectiveComplaints = [
-        {'code': 'lower_abdominal_pain', 'label': 'Lower Abdominal Pain'},
-        {'code': 'white_foul_discharge', 'label': 'White / Foul Discharge'},
-        {'code': 'pelvic_heaviness', 'label': 'Pelvic Heaviness'},
-        {'code': 'burning_micturition', 'label': 'Burning Micturition'},
-        {'code': 'urinary_incontinence', 'label': 'Urinary Incontinence'},
-        {'code': 'dyspareunia', 'label': 'Dyspareunia'},
-        {'code': 'coital_bleeding', 'label': 'Coital Bleeding'},
-        {'code': 'mass_per_vagina', 'label': 'Mass Per Vagina'},
-        {'code': 'severe_backache', 'label': 'Severe Backache'},
+        {'code': 'prolapse', 'label': 'Something hanging out'},
+        {'code': 'discharge', 'label': 'Discharge / Itching'},
+        {'code': 'urine', 'label': 'Problems passing urine'},
+        {'code': 'stool', 'label': 'Problems passing stool'},
+        {'code': 'menstrual', 'label': 'Menstrual problem'},
+        {'code': 'infertility', 'label': 'Infertility'},
+        {'code': 'lower_abdomen_pain', 'label': 'Lower abdomen pain'},
+        {'code': 'lower_back_pain', 'label': 'Lower back pain'},
+        {'code': 'checkup', 'label': 'Checkup'},
       ];
     }
     if (effectiveComplaints.length > 10) {
