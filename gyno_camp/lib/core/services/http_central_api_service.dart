@@ -103,7 +103,7 @@ class HttpCentralApiService implements ICentralApiService {
       final savedUrl = SessionService.current?.getCentralServerUrl();
       if (savedUrl != null &&
           savedUrl.isNotEmpty &&
-          savedUrl != 'http://192.168.1.19:8080') {
+          savedUrl != 'http://192.168.1.11:8080') {
         return savedUrl;
       }
     } catch (_) {}

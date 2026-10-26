@@ -1308,7 +1308,7 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   initialValue: safeUrineTest,
                   isExpanded: true,
                   decoration: const InputDecoration(
-                    labelText: 'Urine Dipstick (पिसाब जाँच)',
+                    labelText: 'Urine Test (पिसाब जाँच)',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),

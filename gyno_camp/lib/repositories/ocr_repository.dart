@@ -487,6 +487,7 @@ class OcrRepository implements IOcrRepository {
 
     // Populate from intake reasons (Section B)
     final intakeReasons = List<String>.from(demo['reasonsForVisit'] as List? ?? const <String>[]);
+    final syncedClinicalComplaints = <String>{...complaintsList};
     for (final r in intakeReasons) {
       final lowerR = r.toLowerCase();
       final defaultEntry = {'present': true, 'active': true, 'duration': duration, 'options': <String>[], 'subOptions': <String>[], 'subOption': '', 'remarks': ''};
@@ -494,6 +495,7 @@ class OcrRepository implements IOcrRepository {
         anamnesisMap.putIfAbsent('prolapse', () => defaultEntry);
         anamnesisMap.putIfAbsent('something hanging out', () => defaultEntry);
         anamnesisMap.putIfAbsent('something_hanging_out', () => defaultEntry);
+        syncedClinicalComplaints.add('prolapse');
       }
       if (lowerR.contains('discharge') || lowerR.contains('itching')) {
         anamnesisMap.putIfAbsent('discharge', () => defaultEntry);
@@ -502,29 +504,36 @@ class OcrRepository implements IOcrRepository {
         anamnesisMap.putIfAbsent('discharge / itching', () => defaultEntry);
         anamnesisMap.putIfAbsent('discharge___itching', () => defaultEntry);
         anamnesisMap.putIfAbsent('discharge_itching', () => defaultEntry);
+        syncedClinicalComplaints.add('discharge');
       }
       if (lowerR.contains('urine')) {
         anamnesisMap.putIfAbsent('urine', () => defaultEntry);
         anamnesisMap.putIfAbsent('problems passing urine', () => defaultEntry);
         anamnesisMap.putIfAbsent('problems_passing_urine', () => defaultEntry);
+        syncedClinicalComplaints.add('urine');
       }
       if (lowerR.contains('pain')) {
         anamnesisMap.putIfAbsent('pain', () => defaultEntry);
+        syncedClinicalComplaints.add('lower_abdomen_pain');
       }
       if (lowerR.contains('stool')) {
         anamnesisMap.putIfAbsent('stool', () => defaultEntry);
         anamnesisMap.putIfAbsent('problems passing stool', () => defaultEntry);
         anamnesisMap.putIfAbsent('problems_passing_stool', () => defaultEntry);
+        syncedClinicalComplaints.add('stool');
       }
       if (lowerR.contains('menstrual')) {
         anamnesisMap.putIfAbsent('menstrual', () => defaultEntry);
         anamnesisMap.putIfAbsent('menstrual problem', () => defaultEntry);
         anamnesisMap.putIfAbsent('menstrual_problem', () => defaultEntry);
+        syncedClinicalComplaints.add('menstrual');
       }
       if (lowerR.contains('infertility')) {
         anamnesisMap.putIfAbsent('infertility', () => defaultEntry);
+        syncedClinicalComplaints.add('infertility');
       }
     }
+    anamnesisMap['clinicalComplaints'] = syncedClinicalComplaints.toList();
 
     final clinicalVisit = ClinicalVisitModel(
       id: 'vis-${_uuid.v4()}',

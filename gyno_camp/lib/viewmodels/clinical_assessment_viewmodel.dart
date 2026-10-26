@@ -424,6 +424,54 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     return set.toList();
   }
 
+  String _canonicalKey(String key) {
+    final k = key.toLowerCase().replaceAll(RegExp(r'[_\-\s]+'), ' ').trim();
+    if (k.contains('prolapse') || k.contains('hanging') || k.contains('mass')) return 'prolapse';
+    if (k.contains('discharge') || k.contains('itching')) return 'discharge';
+    if (k.contains('urine') || k.contains('micturition')) return 'urine';
+    if (k.contains('stool') || k.contains('bowel')) return 'stool';
+    if (k.contains('menstrual')) return 'menstrual';
+    if (k.contains('infertility')) return 'infertility';
+    if (k.contains('abdomen') || k.contains('abdominal')) return 'lower_abdomen_pain';
+    if (k.contains('back')) return 'lower_back_pain';
+    if (k.contains('checkup')) return 'checkup';
+    return key;
+  }
+
+  void _syncClinicalComplaintsList(Map<String, dynamic> map) {
+    const metaKeys = {
+      'clinicalComplaints',
+      'clinical_complaints',
+      'complaints_duration',
+      'complaintsDuration',
+      'reasons',
+      'new_issues',
+      'newIssues',
+      'visitReasons',
+    };
+
+    final activeKeys = <String>{};
+
+    for (final entry in map.entries) {
+      if (metaKeys.contains(entry.key)) continue;
+      if (entry.value is Map) {
+        final m = entry.value as Map;
+        final isActive = m['active'] == true ||
+            m['present'] == true ||
+            ((m['duration'] as String?)?.isNotEmpty == true) ||
+            ((m['subOption'] as String?)?.isNotEmpty == true) ||
+            (m['options'] is List && (m['options'] as List).isNotEmpty) ||
+            ((m['remarks'] as String?)?.isNotEmpty == true);
+        if (isActive) {
+          final canon = _canonicalKey(entry.key);
+          activeKeys.add(canon);
+        }
+      }
+    }
+
+    map['clinicalComplaints'] = activeKeys.toList();
+  }
+
   void updateComplaint(String complaintKey, Map<String, dynamic> data) {
     final map = Map<String, dynamic>.from(state.complaints);
     for (final k in _getComplaintAliases(complaintKey)) {
@@ -433,6 +481,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         map[k] = Map<String, dynamic>.from(data);
       }
     }
+    _syncClinicalComplaintsList(map);
     state = state.copyWith(complaints: map);
   }
 
@@ -445,6 +494,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     for (final k in _getComplaintAliases(complaintKey)) {
       map[k] = Map<String, dynamic>.from(current);
     }
+    _syncClinicalComplaintsList(map);
     state = state.copyWith(complaints: map);
   }
 
@@ -483,6 +533,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     for (final k in _getComplaintAliases(complaintKey)) {
       map[k] = Map<String, dynamic>.from(current);
     }
+    _syncClinicalComplaintsList(map);
     state = state.copyWith(complaints: map);
   }
 
@@ -495,6 +546,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     for (final k in _getComplaintAliases(complaintKey)) {
       map[k] = Map<String, dynamic>.from(current);
     }
+    _syncClinicalComplaintsList(map);
     state = state.copyWith(complaints: map);
   }
 
@@ -787,6 +839,9 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     state = state.copyWith(isSaving: true, errorMessage: null);
 
     try {
+      final complaintsMap = Map<String, dynamic>.from(state.complaints);
+      _syncClinicalComplaintsList(complaintsMap);
+
       final visit = ClinicalVisitModel(
         id: state.existingVisitId ?? '',
         patientId: patientId,
@@ -795,7 +850,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         deliveries: state.deliveries,
         livingChildren: state.livingChildren,
         abortions: state.abortions,
-        anamnesisComplaints: state.complaints,
+        anamnesisComplaints: complaintsMap,
         uterusInside: state.uterusInside,
         vulvaRemarks: state.vulvaRemarks,
         vaginaRemarks: state.vaginaRemarks,

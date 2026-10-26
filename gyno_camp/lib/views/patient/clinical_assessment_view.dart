@@ -282,52 +282,106 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
               );
 
               final activeCamp = ref.read(campStateProvider).activeCamp;
-              final currentVisit = state.savedVisit ?? ClinicalVisitModel(
-                id: state.existingVisitId ?? 'visit-draft',
+              final complaintsMap = Map<String, dynamic>.from(state.complaints);
+              if (complaintsMap.isEmpty && state.savedVisit?.anamnesisComplaints != null) {
+                complaintsMap.addAll(state.savedVisit!.anamnesisComplaints);
+              }
+              final activeKeys = <String>{};
+              for (final entry in complaintsMap.entries) {
+                if (entry.key == 'clinicalComplaints' || entry.key == 'complaintsDuration') continue;
+                if (entry.value is Map) {
+                  final m = entry.value as Map;
+                  if (m['active'] == true ||
+                      m['present'] == true ||
+                      ((m['duration'] as String?)?.isNotEmpty == true) ||
+                      ((m['subOption'] as String?)?.isNotEmpty == true) ||
+                      (m['options'] is List && (m['options'] as List).isNotEmpty) ||
+                      ((m['remarks'] as String?)?.isNotEmpty == true)) {
+                    final k = entry.key.toLowerCase().replaceAll(RegExp(r'[_\-\s]+'), ' ').trim();
+                    if (k.contains('prolapse') || k.contains('hanging')) {
+                      activeKeys.add('prolapse');
+                    } else if (k.contains('discharge') || k.contains('itching')) {
+                      activeKeys.add('discharge');
+                    } else if (k.contains('urine')) {
+                      activeKeys.add('urine');
+                    } else if (k.contains('stool')) {
+                      activeKeys.add('stool');
+                    } else if (k.contains('menstrual')) {
+                      activeKeys.add('menstrual');
+                    } else if (k.contains('infertility')) {
+                      activeKeys.add('infertility');
+                    } else if (k.contains('abdomen')) {
+                      activeKeys.add('lower_abdomen_pain');
+                    } else if (k.contains('back')) {
+                      activeKeys.add('lower_back_pain');
+                    } else if (k.contains('checkup')) {
+                      activeKeys.add('checkup');
+                    } else {
+                      activeKeys.add(entry.key);
+                    }
+                  }
+                }
+              }
+              if (activeKeys.isNotEmpty) {
+                complaintsMap['clinicalComplaints'] = activeKeys.toList();
+              }
+
+              final currentVisit = ClinicalVisitModel(
+                id: state.existingVisitId ?? state.savedVisit?.id ?? 'visit-draft',
                 patientId: widget.patient.patientId,
                 campId: widget.patient.campId,
-                visitDate: DateTime.now(),
-                deliveries: state.deliveries,
-                livingChildren: state.livingChildren,
-                abortions: state.abortions,
-                anamnesisComplaints: state.complaints,
+                visitDate: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+                deliveries: state.deliveries ?? state.savedVisit?.deliveries,
+                livingChildren: state.livingChildren ?? state.savedVisit?.livingChildren,
+                abortions: state.abortions ?? state.savedVisit?.abortions,
+                anamnesisComplaints: complaintsMap,
                 uterusInside: state.uterusInside,
-                vulvaRemarks: state.vulvaRemarks,
-                vaginaRemarks: state.vaginaRemarks,
-                cervixRemarks: state.cervixRemarks,
-                uterusRemarks: state.uterusRemarks,
+                vulvaRemarks: state.vulvaRemarks ?? state.savedVisit?.vulvaRemarks,
+                vaginaRemarks: state.vaginaRemarks ?? state.savedVisit?.vaginaRemarks,
+                cervixRemarks: state.cervixRemarks ?? state.savedVisit?.cervixRemarks,
+                uterusRemarks: state.uterusRemarks ?? state.savedVisit?.uterusRemarks,
                 pelvicFloorTone: state.pelvicFloorTone,
                 popAnteriorStage: state.popAnteriorStage,
                 popMiddleStage: state.popMiddleStage,
                 popPosteriorStage: state.popPosteriorStage,
                 highestPopStage: state.highestPopStage,
-                urineTest: state.urineTest,
-                pregnancyTest: state.pregnancyTest,
-                systolicBp: state.systolicBp,
-                diastolicBp: state.diastolicBp,
-                pulse: state.pulse,
-                spo2: state.spo2,
-                glucose: state.glucose,
-                ecgNotes: state.ecgNotes,
-                diagnoses: state.selectedDiagnoses,
-                medications: state.selectedMedications,
-                customMedication: state.customMedication,
-                pessaryType: state.pessaryType,
-                pessarySize: state.pessarySize,
-                surgicalReferral: state.surgicalReferral,
-                treatmentLevel: state.treatmentLevel,
-                counseling: state.selectedCounseling,
+                urineTest: state.urineTest ?? state.savedVisit?.urineTest ?? 'normal',
+                pregnancyTest: state.pregnancyTest ?? state.savedVisit?.pregnancyTest ?? 'neg',
+                systolicBp: state.systolicBp ?? state.savedVisit?.systolicBp,
+                diastolicBp: state.diastolicBp ?? state.savedVisit?.diastolicBp,
+                pulse: state.pulse ?? state.savedVisit?.pulse,
+                spo2: state.spo2 ?? state.savedVisit?.spo2,
+                glucose: state.glucose ?? state.savedVisit?.glucose,
+                ecgNotes: state.ecgNotes ?? state.savedVisit?.ecgNotes,
+                diagnoses: state.selectedDiagnoses.isNotEmpty
+                    ? state.selectedDiagnoses
+                    : (state.savedVisit?.diagnoses ?? const []),
+                medications: state.selectedMedications.isNotEmpty
+                    ? state.selectedMedications
+                    : (state.savedVisit?.medications ?? const []),
+                customMedication: state.customMedication ?? state.savedVisit?.customMedication,
+                pessaryType: state.pessaryType ?? state.savedVisit?.pessaryType,
+                pessarySize: state.pessarySize ?? state.savedVisit?.pessarySize,
+                surgicalReferral: state.surgicalReferral ?? state.savedVisit?.surgicalReferral,
+                treatmentLevel: state.treatmentLevel ?? state.savedVisit?.treatmentLevel,
+                counseling: state.selectedCounseling.isNotEmpty
+                    ? state.selectedCounseling
+                    : (state.savedVisit?.counseling ?? const []),
                 followUpNeeded: state.followUpNeeded,
-                followUpDestination: state.followUpDestination,
-                outtakeNotes: state.outtakeNotes,
-                attendingDoctorNames: state.attendingDoctorNames,
-                primaryDoctorName: state.primaryDoctorName,
-                attendingNurseNames: state.attendingNurseNames,
-                primaryNurseName: state.primaryNurseName,
-                createdByUserId: user?.id ?? 'usr-doc',
-                tenantId: user?.tenantId ?? 'tenant_default',
-                isSynced: false,
-                createdAt: DateTime.now(),
+                followUpDestination: state.followUpDestination ?? state.savedVisit?.followUpDestination,
+                outtakeNotes: state.outtakeNotes ?? state.savedVisit?.outtakeNotes,
+                attendingDoctorNames: state.attendingDoctorNames.isNotEmpty
+                    ? state.attendingDoctorNames
+                    : (state.savedVisit?.attendingDoctorNames ?? const []),
+                primaryDoctorName: state.primaryDoctorName ?? state.savedVisit?.primaryDoctorName,
+                attendingNurseNames: state.attendingNurseNames.isNotEmpty
+                    ? state.attendingNurseNames
+                    : (state.savedVisit?.attendingNurseNames ?? const []),
+                primaryNurseName: state.primaryNurseName ?? state.savedVisit?.primaryNurseName,
+                createdByUserId: user?.id ?? state.savedVisit?.createdByUserId ?? 'usr-doc',
+                tenantId: user?.tenantId ?? state.savedVisit?.tenantId ?? 'tenant_default',
+                isSynced: state.savedVisit?.isSynced ?? false,
+                createdAt: state.savedVisit?.createdAt ?? DateTime.now(),
               );
 
               final saved = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(

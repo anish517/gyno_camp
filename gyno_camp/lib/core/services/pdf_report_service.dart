@@ -17,6 +17,7 @@ import '../../models/patient_model.dart';
 import '../../repositories/lookup_repository.dart';
 import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
+import 'report_aggregation_service.dart';
 import 'session_service.dart';
 
 typedef _NeSpec = ({
@@ -1421,10 +1422,13 @@ class PdfReportService {
       final effectiveDiagnoses = (visit != null && visit.diagnoses.isNotEmpty)
           ? visit.diagnoses
           : patient.diagnoses;
-      final effectiveMedications =
+      final rawMedications =
           (visit != null && visit.medications.isNotEmpty)
           ? visit.medications
           : patient.medications;
+      final effectiveMedications = rawMedications
+          .where((m) => m.trim().isNotEmpty && !ReportAggregationService.isDosageInstruction(m))
+          .toList();
       final effectiveCustomMed =
           (visit?.customMedication != null &&
               visit!.customMedication!.isNotEmpty)
@@ -1445,17 +1449,100 @@ class PdfReportService {
 
       // Map structured complaints
       final complaintsMap = visit?.anamnesisComplaints ?? {};
-      final friendlyComplaintTitles = {
-        'lower_abdominal_pain': 'Lower Abdominal Pain',
-        'white_discharge': 'White / Foul Vaginal Discharge',
+      // Normalize complaint key to a canonical form for dedup
+      String canonicalComplaintKey(String key) {
+        final k = key.toLowerCase().replaceAll(RegExp(r'[_\-\s]+'), ' ').trim();
+        if (k.contains('prolapse') || k.contains('hanging') || k.contains('mass per vagina')) return 'prolapse';
+        if (k.contains('discharge') || k.contains('itching')) return 'discharge';
+        if (k.contains('urine') || k.contains('micturition')) return 'urine';
+        if (k.contains('stool') || k.contains('bowel')) return 'stool';
+        if (k.contains('menstrual')) return 'menstrual';
+        if (k.contains('infertility')) return 'infertility';
+        if (k.contains('pelvic') || k.contains('heaviness') || k.contains('dragging')) return 'pelvic_heaviness';
+        if (k.contains('dyspareunia') || k.contains('coital pain')) return 'dyspareunia';
+        if (k.contains('coital bleeding') || k.contains('post coital')) return 'post_coital_bleeding';
+        if (k.contains('incontinence')) return 'incontinence';
+        if (k.contains('back') && k.contains('pain')) return 'backache';
+        if (k.contains('abdomen') || k.contains('abdominal')) return 'lower_abdominal_pain';
+        if (k.contains('checkup')) return 'checkup';
+        return k;
+      }
+
+      // Map canonical keys to display labels
+      final canonicalTitles = {
+        'prolapse': 'Uterine Prolapse / Something Hanging Out',
+        'discharge': 'Discharge / Itching',
+        'urine': 'Problems Passing Urine',
+        'stool': 'Problems Passing Stool',
+        'menstrual': 'Menstrual Problem',
+        'infertility': 'Infertility',
         'pelvic_heaviness': 'Pelvic Heaviness / Dragging Sensation',
-        'burning_micturition': 'Burning Micturition / Dysuria',
-        'incontinence': 'Urinary Incontinence',
         'dyspareunia': 'Dyspareunia / Coital Pain',
         'post_coital_bleeding': 'Abnormal / Coital Bleeding',
-        'mass_per_vagina': 'Mass Per Vagina / Protrusion',
+        'incontinence': 'Urinary Incontinence',
         'backache': 'Severe Backache / Sacral Pain',
+        'lower_abdominal_pain': 'Lower Abdominal Pain',
+        'checkup': 'General Checkup',
       };
+
+      // Keys that are metadata, not actual complaint categories
+      const metaKeys = {
+        'clinicalComplaints',
+        'clinical_complaints',
+        'complaints_duration',
+        'complaintsDuration',
+        'reasons',
+        'new_issues',
+        'newIssues',
+      };
+
+      // Build complaint display list from clinicalComplaints (source of truth)
+      // plus any Map entries not already covered
+      final seenCanonical = <String>{};
+      final complaintDisplayList = <Map<String, dynamic>>[];
+
+      // 1. Use clinicalComplaints list as the primary source
+      final rawClinical = complaintsMap['clinicalComplaints'] ?? complaintsMap['clinical_complaints'];
+      final clinicalList = <String>[];
+      if (rawClinical is List) {
+        for (final item in rawClinical) {
+          if (item != null) clinicalList.add(item.toString());
+        }
+      }
+
+      for (final complaintName in clinicalList) {
+        final canon = canonicalComplaintKey(complaintName);
+        if (seenCanonical.contains(canon)) continue;
+        seenCanonical.add(canon);
+        // Try to find detail Map under any alias
+        Map<String, dynamic>? details;
+        for (final entry in complaintsMap.entries) {
+          if (entry.value is! Map) continue;
+          if (canonicalComplaintKey(entry.key) == canon) {
+            details = Map<String, dynamic>.from(entry.value as Map);
+            break;
+          }
+        }
+        complaintDisplayList.add({
+          'key': complaintName,
+          'canon': canon,
+          'details': details,
+        });
+      }
+
+      // 2. Also include any Map entries not yet covered by clinicalComplaints
+      for (final entry in complaintsMap.entries) {
+        if (metaKeys.contains(entry.key)) continue;
+        if (entry.value is! Map) continue;
+        final canon = canonicalComplaintKey(entry.key);
+        if (seenCanonical.contains(canon)) continue;
+        seenCanonical.add(canon);
+        complaintDisplayList.add({
+          'key': entry.key,
+          'canon': canon,
+          'details': Map<String, dynamic>.from(entry.value as Map),
+        });
+      }
 
       pdf.addPage(
         pw.MultiPage(
@@ -1597,9 +1684,17 @@ class PdfReportService {
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Expanded(
+                        flex: 2,
                         child: _buildPdfField(
                           'Guardian / Spouse',
-                          patient.spouseOrFatherName ?? 'N/A',
+                          () {
+                            final name = patient.spouseOrFatherName ?? 'N/A';
+                            final rel = patient.relationshipType;
+                            if (rel != null && rel.isNotEmpty && name != 'N/A') {
+                              return '$name ($rel)';
+                            }
+                            return name;
+                          }(),
                         ),
                       ),
                       pw.Expanded(
@@ -1610,10 +1705,21 @@ class PdfReportService {
                               : 'Not Provided',
                         ),
                       ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 3),
+                  pw.Row(
+                    children: [
                       pw.Expanded(
                         child: _buildPdfField(
                           'Permanent Address',
-                          'Ward ${patient.ward}, ${patient.district}',
+                          () {
+                            final parts = <String>[];
+                            if (patient.ward.isNotEmpty) parts.add('Ward ${patient.ward}');
+                            if (patient.municipality.isNotEmpty) parts.add(patient.municipality);
+                            if (patient.district.isNotEmpty) parts.add(patient.district);
+                            return parts.isNotEmpty ? parts.join(', ') : 'N/A';
+                          }(),
                         ),
                       ),
                     ],
@@ -1648,7 +1754,7 @@ class PdfReportService {
                 border: pw.Border.all(color: borderGray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
               ),
-              child: complaintsMap.isEmpty
+              child: complaintDisplayList.isEmpty
                   ? pw.Text(
                       'No acute gynecological complaints recorded during clinical intake.',
                       style: const pw.TextStyle(
@@ -1658,26 +1764,23 @@ class PdfReportService {
                     )
                   : pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: complaintsMap.entries.map((entry) {
-                        final title =
-                            friendlyComplaintTitles[entry.key] ??
-                            entry.key.replaceAll('_', ' ').toUpperCase();
-                        final val = entry.value;
+                      children: complaintDisplayList.map((item) {
+                        final canon = item['canon'] as String;
+                        final key = item['key'] as String;
+                        final title = canonicalTitles[canon] ??
+                            key.replaceAll('_', ' ').toUpperCase();
+                        final detailsMap = item['details'] as Map<String, dynamic>?;
                         String details = '';
-                        if (val is Map) {
-                          final dur = val['duration']?.toString() ?? '';
-                          final rem = val['remarks']?.toString() ?? '';
-                          final opts = val['options'];
+                        if (detailsMap != null && detailsMap.isNotEmpty) {
+                          final dur = detailsMap['duration']?.toString() ?? '';
+                          final rem = detailsMap['remarks']?.toString() ?? '';
+                          final opts = detailsMap['options'];
                           final optStr = opts is List ? opts.join(', ') : '';
                           details = [
                             dur,
                             optStr,
                             rem,
                           ].where((s) => s.isNotEmpty).join(' | ');
-                        } else if (val is String) {
-                          details = val;
-                        } else {
-                          details = 'Present';
                         }
                         return pw.Padding(
                           padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
@@ -1711,7 +1814,7 @@ class PdfReportService {
                                 child: pw.Text(
                                   details.isNotEmpty
                                       ? details
-                                      : 'Positive finding',
+                                      : 'Present',
                                   style: const pw.TextStyle(
                                     fontSize: 8,
                                     color: PdfColors.grey800,
@@ -1760,9 +1863,29 @@ class PdfReportService {
                           visit?.abortions?.toString() ?? 'N/A',
                         ),
                       ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 3),
+                  pw.Row(
+                    children: [
                       pw.Expanded(
                         child: _buildPdfField(
-                          'Pelvic Floor Tone',
+                          'Uterus Inside',
+                          (visit?.uterusInside ?? true)
+                              ? 'Yes'
+                              : 'No',
+                          isBold: !(visit?.uterusInside ?? true),
+                        ),
+                      ),
+                      pw.Expanded(
+                        child: _buildPdfField(
+                          'Cervix',
+                          sanitizeText(visit?.cervixRemarks ?? 'normal'),
+                        ),
+                      ),
+                      pw.Expanded(
+                        child: _buildPdfField(
+                          'Pelvic Floor Muscle',
                           visit?.pelvicFloorTone.toUpperCase() ?? 'NORMAL',
                         ),
                       ),
@@ -1773,23 +1896,20 @@ class PdfReportService {
                     children: [
                       pw.Expanded(
                         child: _buildPdfField(
-                          'Uterus Position',
-                          (visit?.uterusInside ?? true)
-                              ? 'Normal / Inside'
-                              : 'Procidentia / Prolapsed',
-                          isBold: !(visit?.uterusInside ?? true),
+                          'Vulva',
+                          sanitizeText(visit?.vulvaRemarks ?? 'normal'),
                         ),
                       ),
                       pw.Expanded(
                         child: _buildPdfField(
-                          'Cervix Appearance',
-                          visit?.cervixRemarks ?? 'Normal / Healthy',
+                          'Vagina',
+                          sanitizeText(visit?.vaginaRemarks ?? 'normal'),
                         ),
                       ),
                       pw.Expanded(
                         child: _buildPdfField(
-                          'Vulva / Vagina',
-                          visit?.vaginaRemarks ?? 'Normal',
+                          'Uterus',
+                          sanitizeText(visit?.uterusRemarks ?? 'normal'),
                         ),
                       ),
                     ],
@@ -1864,7 +1984,7 @@ class PdfReportService {
                     children: [
                       pw.Expanded(
                         child: _buildPdfField(
-                          'Urine Dipstick',
+                          'Urine Test',
                           visit?.urineTest != null
                               ? visit!.urineTest!.toUpperCase()
                               : 'NORMAL',
@@ -1875,7 +1995,15 @@ class PdfReportService {
                           'Pregnancy Test (UPT)',
                           visit?.pregnancyTest != null
                               ? visit!.pregnancyTest!.toUpperCase()
-                              : 'NEGATIVE / N/A',
+                              : 'NEG',
+                        ),
+                      ),
+                      pw.Expanded(
+                        child: _buildPdfField(
+                          'ECG',
+                          (visit?.ecgNotes != null && visit!.ecgNotes!.trim().isNotEmpty)
+                              ? sanitizeText(visit.ecgNotes!)
+                              : 'Normal / Not indicated',
                         ),
                       ),
                     ],
@@ -2648,7 +2776,7 @@ class PdfReportService {
                         ),
                         pw.Expanded(
                           child: _buildPdfField(
-                            'Pelvic Floor Tone',
+                            'Pelvic Floor Muscle',
                             visit.pelvicFloorTone.toUpperCase(),
                           ),
                         ),
@@ -2659,23 +2787,23 @@ class PdfReportService {
                       children: [
                         pw.Expanded(
                           child: _buildPdfField(
-                            'Uterus',
+                            'Uterus Inside',
                             visit.uterusInside
-                                ? 'Normal / Inside'
-                                : 'Prolapsed / Outside',
+                                ? 'Yes'
+                                : 'No',
                             isBold: !visit.uterusInside,
                           ),
                         ),
                         pw.Expanded(
                           child: _buildPdfField(
                             'Cervix',
-                            sanitizeText(visit.cervixRemarks ?? 'Normal'),
+                            sanitizeText(visit.cervixRemarks ?? 'normal'),
                           ),
                         ),
                         pw.Expanded(
                           child: _buildPdfField(
                             'Vulva / Vagina',
-                            sanitizeText(visit.vaginaRemarks ?? 'Normal'),
+                            sanitizeText(visit.vaginaRemarks ?? 'normal'),
                           ),
                         ),
                       ],
@@ -2751,7 +2879,7 @@ class PdfReportService {
                     children: [
                       pw.Expanded(
                         child: _buildPdfField(
-                          'Urine Dipstick',
+                          'Urine Test',
                           (visit.urineTest ?? 'Normal').toUpperCase(),
                         ),
                       ),
@@ -2844,9 +2972,14 @@ class PdfReportService {
                   pw.SizedBox(height: 3),
                   _buildPdfField(
                     'Prescribed Medications',
-                    visit.medications.isNotEmpty
-                        ? visit.medications.join(' | ')
-                        : 'None dispensed',
+                    () {
+                      final filtered = visit.medications
+                          .where((m) => m.trim().isNotEmpty && !ReportAggregationService.isDosageInstruction(m))
+                          .toList();
+                      return filtered.isNotEmpty
+                          ? filtered.join(' | ')
+                          : 'None dispensed';
+                    }(),
                   ),
                   if (visit.customMedication?.isNotEmpty == true) ...[
                     pw.SizedBox(height: 2),
