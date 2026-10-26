@@ -7857,7 +7857,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   _buildModalityCard(
                     title: 'Medications Dispensed',
                     count: '$prescriptionCount',
-                    desc: 'Prescriptions Formulated',
+                    desc: 'Total Medication Items Prescribed',
                     icon: Icons.medication_rounded,
                     color: AppTheme.brandPurple,
                   ),
