@@ -90,6 +90,12 @@ class DatabaseService {
         {'name': 'attending_nurse_names', 'def': "attending_nurse_names TEXT DEFAULT ''"},
         {'name': 'primary_nurse_name', 'def': "primary_nurse_name TEXT DEFAULT ''"},
         {'name': 'treatment_level', 'def': "treatment_level TEXT DEFAULT ''"},
+        {'name': 'anamnesis_date', 'def': 'anamnesis_date TEXT'},
+        {'name': 'exam_date', 'def': 'exam_date TEXT'},
+        {'name': 'lab_test_date', 'def': 'lab_test_date TEXT'},
+        {'name': 'conclusion_date', 'def': 'conclusion_date TEXT'},
+        {'name': 'treatment_date', 'def': 'treatment_date TEXT'},
+        {'name': 'outtake_date', 'def': 'outtake_date TEXT'},
       ],
       DatabaseTables.tableAuditLogs: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},

@@ -31,6 +31,7 @@ class OcrScanResultModel {
   final String? treatmentLevel; // 'council_level', 'full_check_up', or null
   final String? clinicalNotes; // Station 6 Clinical Notes / Outtake Remarks
   final String? intakeDate; // Page 1 Registration / Intake Date
+  final String? anamnesisDate; // Station 1 Anamnesis Date
   final String? examDate; // Station 2 Exam Date
   final String? treatmentDate; // Station 5 Treatment Date
   final String? conclusionDate; // Station 4 Conclusion Date
@@ -72,6 +73,7 @@ class OcrScanResultModel {
     this.treatmentLevel,
     this.clinicalNotes,
     this.intakeDate,
+    this.anamnesisDate,
     this.examDate,
     this.treatmentDate,
     this.conclusionDate,
@@ -85,6 +87,9 @@ class OcrScanResultModel {
 
   String? get patientTokenId =>
       (demographics['patientTokenId'] as String? ?? demographics['patientId'] as String?)?.trim();
+
+  /// Effective Anamnesis Date (falls back to intakeDate if not explicitly set)
+  String? get effectiveAnamnesisDate => anamnesisDate ?? intakeDate;
 
   OcrScanResultModel copyWith({
     int? pageNumber,
@@ -127,6 +132,8 @@ class OcrScanResultModel {
     bool clearClinicalNotes = false,
     String? intakeDate,
     bool clearIntakeDate = false,
+    String? anamnesisDate,
+    bool clearAnamnesisDate = false,
     String? examDate,
     bool clearExamDate = false,
     String? treatmentDate,
@@ -173,6 +180,7 @@ class OcrScanResultModel {
       treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel != null ? PatientModel.normalizeTreatmentLevel(treatmentLevel) : this.treatmentLevel),
       clinicalNotes: clearClinicalNotes ? null : (clinicalNotes ?? this.clinicalNotes),
       intakeDate: clearIntakeDate ? null : (intakeDate ?? this.intakeDate),
+      anamnesisDate: clearAnamnesisDate ? null : (anamnesisDate ?? this.anamnesisDate),
       examDate: clearExamDate ? null : (examDate ?? this.examDate),
       treatmentDate: clearTreatmentDate ? null : (treatmentDate ?? this.treatmentDate),
       conclusionDate: clearConclusionDate ? null : (conclusionDate ?? this.conclusionDate),
@@ -318,6 +326,7 @@ ${page2.rawText}
           : (page2.treatmentLevel ?? page1.treatmentLevel)),
       clinicalNotes: page2.clinicalNotes ?? page1.clinicalNotes,
       intakeDate: harmonizedIntake,
+      anamnesisDate: page1.anamnesisDate ?? page2.anamnesisDate ?? harmonizedIntake,
       examDate: page2.examDate ?? page1.examDate ?? effectiveCampDate,
       treatmentDate: page2.treatmentDate ?? page1.treatmentDate ?? effectiveCampDate,
       conclusionDate: page2.conclusionDate ?? page1.conclusionDate ?? effectiveCampDate,
@@ -423,6 +432,7 @@ ${page2.rawText}
       'treatmentLevel': PatientModel.normalizeTreatmentLevel(treatmentLevel),
       'clinicalNotes': clinicalNotes,
       'intakeDate': intakeDate,
+      'anamnesisDate': anamnesisDate ?? intakeDate,
       'examDate': examDate,
       'treatmentDate': treatmentDate,
       'conclusionDate': conclusionDate,

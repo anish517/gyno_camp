@@ -75,10 +75,22 @@ class ClinicalAssessmentState {
   final ClinicalVisitModel? savedVisit;
   final String? existingVisitId;
   final DateTime? visitDate;
+  final DateTime? anamnesisDate;
+  final DateTime? examDate;
+  final DateTime? labTestDate;
+  final DateTime? conclusionDate;
+  final DateTime? treatmentDate;
+  final DateTime? outtakeDate;
 
   const ClinicalAssessmentState({
     this.currentStationIndex = 0,
     this.visitDate,
+    this.anamnesisDate,
+    this.examDate,
+    this.labTestDate,
+    this.conclusionDate,
+    this.treatmentDate,
+    this.outtakeDate,
     this.deliveries,
     this.livingChildren,
     this.abortions,
@@ -199,10 +211,28 @@ class ClinicalAssessmentState {
     bool clearExistingVisitId = false,
     DateTime? visitDate,
     bool clearVisitDate = false,
+    DateTime? anamnesisDate,
+    bool clearAnamnesisDate = false,
+    DateTime? examDate,
+    bool clearExamDate = false,
+    DateTime? labTestDate,
+    bool clearLabTestDate = false,
+    DateTime? conclusionDate,
+    bool clearConclusionDate = false,
+    DateTime? treatmentDate,
+    bool clearTreatmentDate = false,
+    DateTime? outtakeDate,
+    bool clearOuttakeDate = false,
   }) {
     return ClinicalAssessmentState(
       currentStationIndex: currentStationIndex ?? this.currentStationIndex,
       visitDate: clearVisitDate ? null : (visitDate ?? this.visitDate),
+      anamnesisDate: clearAnamnesisDate ? null : (anamnesisDate ?? this.anamnesisDate),
+      examDate: clearExamDate ? null : (examDate ?? this.examDate),
+      labTestDate: clearLabTestDate ? null : (labTestDate ?? this.labTestDate),
+      conclusionDate: clearConclusionDate ? null : (conclusionDate ?? this.conclusionDate),
+      treatmentDate: clearTreatmentDate ? null : (treatmentDate ?? this.treatmentDate),
+      outtakeDate: clearOuttakeDate ? null : (outtakeDate ?? this.outtakeDate),
       deliveries: deliveries ?? this.deliveries,
       livingChildren: livingChildren ?? this.livingChildren,
       abortions: abortions ?? this.abortions,
@@ -266,6 +296,36 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
 
   void setVisitDate(DateTime date) {
     state = state.copyWith(visitDate: date);
+  }
+
+  void setAnamnesisDate(DateTime date) => state = state.copyWith(anamnesisDate: date);
+  void setExamDate(DateTime date) => state = state.copyWith(examDate: date);
+  void setLabTestDate(DateTime date) => state = state.copyWith(labTestDate: date);
+  void setConclusionDate(DateTime date) => state = state.copyWith(conclusionDate: date);
+  void setTreatmentDate(DateTime date) => state = state.copyWith(treatmentDate: date);
+  void setOuttakeDate(DateTime date) => state = state.copyWith(outtakeDate: date);
+
+  void setStationDate(int stationIndex, DateTime date) {
+    switch (stationIndex) {
+      case 0:
+        setAnamnesisDate(date);
+        break;
+      case 1:
+        setExamDate(date);
+        break;
+      case 2:
+        setLabTestDate(date);
+        break;
+      case 3:
+        setConclusionDate(date);
+        break;
+      case 4:
+        setTreatmentDate(date);
+        break;
+      case 5:
+        setOuttakeDate(date);
+        break;
+    }
   }
 
   void setAttendingDoctors(List<String> doctors) {
@@ -742,6 +802,12 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         state = state.copyWith(
           existingVisitId: visit.id,
           visitDate: visit.visitDate,
+          anamnesisDate: visit.anamnesisDate,
+          examDate: visit.examDate,
+          labTestDate: visit.labTestDate,
+          conclusionDate: visit.conclusionDate,
+          treatmentDate: visit.treatmentDate,
+          outtakeDate: visit.outtakeDate,
           deliveries: visit.deliveries,
           livingChildren: visit.livingChildren,
           abortions: visit.abortions,
@@ -847,6 +913,12 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
         patientId: patientId,
         campId: campId,
         visitDate: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+        anamnesisDate: state.anamnesisDate ?? state.savedVisit?.anamnesisDate,
+        examDate: state.examDate ?? state.savedVisit?.examDate,
+        labTestDate: state.labTestDate ?? state.savedVisit?.labTestDate,
+        conclusionDate: state.conclusionDate ?? state.savedVisit?.conclusionDate,
+        treatmentDate: state.treatmentDate ?? state.savedVisit?.treatmentDate,
+        outtakeDate: state.outtakeDate ?? state.savedVisit?.outtakeDate,
         deliveries: state.deliveries,
         livingChildren: state.livingChildren,
         abortions: state.abortions,

@@ -1465,6 +1465,10 @@ class PdfReportService {
       final alertRed = PdfColor.fromHex('BE123C');
       final warningAmber = PdfColor.fromHex('B45309');
 
+      final visitDate = visit?.visitDate != null
+          ? dateFormatter.format(visit!.visitDate)
+          : dateFormatter.format(patient.intakeDate);
+
       // Interpret Blood Pressure
       String bpStatus = 'N/A';
       PdfColor bpColor = darkTextColor;
@@ -1629,6 +1633,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '1. PATIENT DEMOGRAPHICS & SOCIAL INTAKE',
               primaryColor,
+              date: visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -1731,6 +1736,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '2. STRUCTURED CLINICAL ANAMNESIS (YELLOW FORM)',
               primaryColor,
+              date: visit?.anamnesisDate != null ? dateFormatter.format(visit!.anamnesisDate!) : visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -1818,6 +1824,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '3. OBSTETRIC HISTORY & GYNECOLOGICAL EXAM',
               primaryColor,
+              date: visit?.examDate != null ? dateFormatter.format(visit!.examDate!) : visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -1893,7 +1900,7 @@ class PdfReportService {
                       ),
                       pw.Expanded(
                         child: _buildPdfField(
-                          'Uterus',
+                          'Other / Uterus',
                           sanitizeText(visit?.uterusRemarks ?? 'normal'),
                         ),
                       ),
@@ -1908,6 +1915,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '4. CLINICAL VITALS & SCREENING LABS',
               primaryColor,
+              date: visit?.labTestDate != null ? dateFormatter.format(visit!.labTestDate!) : visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -2002,6 +2010,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '5. POP STAGING (PELVIC ORGAN PROLAPSE)',
               primaryColor,
+              date: visit?.conclusionDate != null ? dateFormatter.format(visit!.conclusionDate!) : visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -2057,6 +2066,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '6. CONFIRMED DIAGNOSES & FORMULARY',
               primaryColor,
+              date: visit?.treatmentDate != null ? dateFormatter.format(visit!.treatmentDate!) : visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -2112,6 +2122,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '7. CONTINUITY OF CARE & REFERRAL',
               primaryColor,
+              date: visit?.outtakeDate != null ? dateFormatter.format(visit!.outtakeDate!) : visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -2412,7 +2423,7 @@ class PdfReportService {
     });
   }
 
-  pw.Widget _buildPdfSectionHeader(String title, PdfColor color) {
+  pw.Widget _buildPdfSectionHeader(String title, PdfColor color, {String? date}) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: pw.BoxDecoration(
@@ -2420,7 +2431,22 @@ class PdfReportService {
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
         border: pw.Border.all(color: color, width: 0.8),
       ),
-      child: ne(title, size: 10.0, bold: true, color: 0xFF30026E),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          ne(title, size: 10.0, bold: true, color: 0xFF30026E),
+          if (date != null && date.trim().isNotEmpty)
+            pw.Text(
+              'Date: $date',
+              style: pw.TextStyle(
+                fontSize: 8.0,
+                fontWeight: pw.FontWeight.bold,
+                color: color,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -2648,7 +2674,7 @@ class PdfReportService {
             pw.SizedBox(height: 8),
 
             // ── Patient Demographics ─────────────────────────────────────────
-            _buildPdfSectionHeader('1. PATIENT IDENTITY', encounterColor),
+            _buildPdfSectionHeader('1. PATIENT IDENTITY', encounterColor, date: visitDate),
             pw.SizedBox(height: 3),
             pw.Container(
               padding: const pw.EdgeInsets.all(7),
@@ -2688,7 +2714,7 @@ class PdfReportService {
                   pw.Row(
                     children: [
                       pw.Expanded(
-                        flex: 5,
+                        flex: 4,
                         child: _buildPdfField(
                           'Guardian / Spouse',
                           () {
@@ -2701,19 +2727,30 @@ class PdfReportService {
                           }(),
                         ),
                       ),
-                      pw.SizedBox(width: 12),
+                      pw.SizedBox(width: 8),
+                      pw.Expanded(
+                        flex: 3,
+                        child: _buildPdfField(
+                          'Mobile',
+                          patient.mobile.isNotEmpty ? patient.mobile : 'N/A',
+                        ),
+                      ),
+                      pw.SizedBox(width: 8),
                       pw.Expanded(
                         flex: 4,
                         child: _buildPdfField(
-                          'Mobile',
+                          'Guardian Touch / Contact Mob',
                           () {
-                            final m = patient.mobile.isNotEmpty ? patient.mobile : 'N/A';
-                            if (patient.contactMobile != null &&
-                                patient.contactMobile!.isNotEmpty &&
-                                patient.contactMobile != patient.mobile) {
-                              return '$m / ${patient.contactMobile}';
+                            final cm = patient.contactMobile ?? '';
+                            final cp = patient.contactPerson ?? '';
+                            if (cm.isNotEmpty && cp.isNotEmpty) {
+                              return '$cm ($cp)';
+                            } else if (cm.isNotEmpty) {
+                              return cm;
+                            } else if (cp.isNotEmpty) {
+                              return cp;
                             }
-                            return m;
+                            return 'N/A';
                           }(),
                         ),
                       ),
@@ -2749,6 +2786,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '2. CHIEF COMPLAINTS & REASONS TO VISIT',
               encounterColor,
+              date: visit.anamnesisDate != null ? dateFormatter.format(visit.anamnesisDate!) : visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -2866,6 +2904,7 @@ class PdfReportService {
               _buildPdfSectionHeader(
                 '3. OBSTETRIC HISTORY & EXAMINATION',
                 encounterColor,
+                date: visit.examDate != null ? dateFormatter.format(visit.examDate!) : visitDate,
               ),
               pw.SizedBox(height: 3),
               pw.Container(
@@ -2965,6 +3004,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '4. CLINICAL VITALS & SCREENING LABS',
               encounterColor,
+              date: visit.labTestDate != null ? dateFormatter.format(visit.labTestDate!) : visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -3060,6 +3100,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '5. POP STAGING (पाठेघर खस्ने अवस्था)',
               encounterColor,
+              date: visit.conclusionDate != null ? dateFormatter.format(visit.conclusionDate!) : visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -3111,6 +3152,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '6. CONFIRMED DIAGNOSES & TREATMENT',
               encounterColor,
+              date: visit.treatmentDate != null ? dateFormatter.format(visit.treatmentDate!) : visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -3180,6 +3222,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '7. CONTINUITY OF CARE & REFERRAL',
               encounterColor,
+              date: visit.outtakeDate != null ? dateFormatter.format(visit.outtakeDate!) : visitDate,
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -5760,11 +5803,28 @@ class PdfReportService {
               secHdr(
                 'STATION 1: ANAMNESIS & OBSTETRIC HISTORY / पहिलो स्टेशन: विगत तथा प्रसूति विवरण',
               ),
-              // Deliveries row (Anamnesis Date removed as per instructions)
+              // Anamnesis Date & Deliveries row
               pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 7.0),
+                padding: const pw.EdgeInsets.only(bottom: 6.0),
                 child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
+                    pw.Text(
+                      'Anamnesis Date: ',
+                      style: pw.TextStyle(
+                        fontSize: 8.0,
+                        fontWeight: pw.FontWeight.bold,
+                        color: dark,
+                      ),
+                    ),
+                    buildDateBsBoxes(
+                      visit?.anamnesisDate ?? visit?.visitDate ?? intakeDate,
+                      hasData: hasPatient,
+                      boxSize: 8.5,
+                      boxHeight: 11.5,
+                      fontSize: 7.0,
+                    ),
+                    pw.SizedBox(width: 10),
                     pw.Text(
                       'NR deliveries: ',
                       style: pw.TextStyle(
@@ -5781,7 +5841,7 @@ class PdfReportService {
                       boxHeight: 14.0,
                       boxMargin: 1.0,
                     ),
-                    pw.SizedBox(width: 14),
+                    pw.SizedBox(width: 10),
                     pw.Text(
                       'NR living children: ',
                       style: pw.TextStyle(
@@ -5798,7 +5858,7 @@ class PdfReportService {
                       boxHeight: 14.0,
                       boxMargin: 1.0,
                     ),
-                    pw.SizedBox(width: 14),
+                    pw.SizedBox(width: 10),
                     pw.Text(
                       'NR abortion: ',
                       style: pw.TextStyle(
@@ -6302,7 +6362,7 @@ class PdfReportService {
                 children: [
                   pw.Text('Examination Date: ', style: bold(size: fsSmall)),
                   buildDateBsBoxes(
-                    intakeDate,
+                    visit?.examDate ?? visit?.visitDate ?? intakeDate,
                     hasData: hasPatient,
                     boxSize: 8.5,
                     boxHeight: 11.5,
@@ -6467,7 +6527,7 @@ class PdfReportService {
                 children: [
                   pw.Text('Lab test Date: ', style: bold(size: fsSmall)),
                   buildDateBsBoxes(
-                    visit?.visitDate ?? intakeDate,
+                    visit?.labTestDate ?? visit?.visitDate ?? intakeDate,
                     hasData: hasPatient,
                     boxSize: 8.5,
                     boxHeight: 11.5,
@@ -6657,7 +6717,7 @@ class PdfReportService {
                 children: [
                   pw.Text('Conclusion Date: ', style: bold(size: fsSmall)),
                   buildDateBsBoxes(
-                    intakeDate,
+                    visit?.conclusionDate ?? visit?.visitDate ?? intakeDate,
                     hasData: hasPatient,
                     boxSize: 8.5,
                     boxHeight: 11.5,
@@ -6865,7 +6925,7 @@ class PdfReportService {
                 children: [
                   pw.Text('Treatment Date: ', style: bold(size: fsSmall)),
                   buildDateBsBoxes(
-                    intakeDate,
+                    visit?.treatmentDate ?? visit?.visitDate ?? intakeDate,
                     hasData: hasPatient,
                     boxSize: 8.5,
                     boxHeight: 11.5,
@@ -7133,7 +7193,7 @@ class PdfReportService {
                 children: [
                   pw.Text('Outtake Date: ', style: bold(size: fsSmall)),
                   buildDateBsBoxes(
-                    intakeDate,
+                    visit?.outtakeDate ?? visit?.visitDate ?? intakeDate,
                     hasData: hasPatient,
                     boxSize: 8.5,
                     boxHeight: 11.5,
@@ -7441,14 +7501,24 @@ class PdfReportService {
                       ] else if (visit != null &&
                           visit.primaryDoctorName != null &&
                           visit.primaryDoctorName!.isNotEmpty) ...[
-                        pw.Text(sanitizeText(visit.primaryDoctorName!), style: bold(size: fsSmall)),
-                        pw.Text(
-                          'Doctor Signature & NMC: ______________',
-                          style: const pw.TextStyle(
-                            fontSize: 6.8,
-                            color: PdfColors.grey700,
-                          ),
-                        ),
+                        () {
+                          final doc = DoctorProfile.parse(visit.primaryDoctorName!);
+                          return pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text(sanitizeText(doc.displayName), style: bold(size: fsSmall)),
+                              pw.Text(
+                                doc.hasNmc
+                                    ? 'NMC No: ${doc.nmcNumber}'
+                                    : 'Doctor Signature & NMC: ______________',
+                                style: const pw.TextStyle(
+                                  fontSize: 6.8,
+                                  color: PdfColors.grey700,
+                                ),
+                              ),
+                            ],
+                          );
+                        }(),
                       ] else if (effectiveDoctors.isNotEmpty) ...[
                         pw.Text(sanitizeText(effectiveDoctors.first.displayName), style: bold(size: fsSmall)),
                         pw.Text(

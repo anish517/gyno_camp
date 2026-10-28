@@ -582,8 +582,13 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     );
   }
 
-  Future<void> _pickStationDate({required String title}) async {
-    final current = ref.read(clinicalAssessmentProvider).visitDate ??
+  Future<void> _pickStationDate({
+    required String title,
+    int? stationIndex,
+    DateTime? initialDate,
+  }) async {
+    final current = initialDate ??
+        ref.read(clinicalAssessmentProvider).visitDate ??
         ref.read(clinicalAssessmentProvider).savedVisit?.visitDate ??
         DateTime.now();
     final picked = await showDatePicker(
@@ -594,7 +599,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
       helpText: title,
     );
     if (picked != null && mounted) {
-      ref.read(clinicalAssessmentProvider.notifier).setVisitDate(picked);
+      if (stationIndex != null) {
+        ref.read(clinicalAssessmentProvider.notifier).setStationDate(stationIndex, picked);
+      } else {
+        ref.read(clinicalAssessmentProvider.notifier).setVisitDate(picked);
+      }
       setState(() {});
     }
   }
@@ -602,12 +611,17 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
   Widget _buildStationDateChip({
     required String label,
     required DateTime date,
+    int? stationIndex,
   }) {
     final formattedAd = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
     final dual = NepaliLocalizationService.formatDualCalendarDate(date);
     return InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: () => _pickStationDate(title: 'Select $label (मिति परिवर्तन)'),
+      onTap: () => _pickStationDate(
+        title: 'Select $label (मिति परिवर्तन)',
+        stationIndex: stationIndex,
+        initialDate: date,
+      ),
       child: Tooltip(
         message: 'Tap to change date: $dual',
         child: Container(
@@ -722,8 +736,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     ),
                     const SizedBox(width: 8),
                     _buildStationDateChip(
-                      label: 'Intake Date',
-                      date: widget.patient.intakeDate,
+                      label: 'Anamnesis Date',
+                      date: state.anamnesisDate ??
+                          state.savedVisit?.anamnesisDate ??
+                          widget.patient.intakeDate,
+                      stationIndex: 0,
                     ),
                   ],
                 ),
@@ -1265,7 +1282,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     const SizedBox(width: 8),
                     _buildStationDateChip(
                       label: 'Exam Date',
-                      date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+                      date: state.examDate ??
+                          state.savedVisit?.examDate ??
+                          state.visitDate ??
+                          widget.patient.intakeDate,
+                      stationIndex: 1,
                     ),
                   ],
                 ),
@@ -1629,7 +1650,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                         ),
                         _buildStationDateChip(
                           label: 'Lab Test Date',
-                          date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+                          date: state.labTestDate ??
+                              state.savedVisit?.labTestDate ??
+                              state.visitDate ??
+                              widget.patient.intakeDate,
+                          stationIndex: 2,
                         ),
                       ],
                     ),
@@ -1995,7 +2020,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   ),
                   _buildStationDateChip(
                     label: 'Conclusion Date',
-                    date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+                    date: state.conclusionDate ??
+                        state.savedVisit?.conclusionDate ??
+                        state.visitDate ??
+                        widget.patient.intakeDate,
+                    stationIndex: 3,
                   ),
                 ],
               ),
@@ -2111,7 +2140,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             ),
             _buildStationDateChip(
               label: 'Treatment Date',
-              date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+              date: state.treatmentDate ??
+                  state.savedVisit?.treatmentDate ??
+                  state.visitDate ??
+                  widget.patient.intakeDate,
+              stationIndex: 4,
             ),
           ],
         ),
@@ -2294,7 +2327,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             const Text('Follow-Up Plan (पुनः जाँच योजना)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             _buildStationDateChip(
               label: 'Outtake Date',
-              date: state.visitDate ?? state.savedVisit?.visitDate ?? DateTime.now(),
+              date: state.outtakeDate ??
+                  state.savedVisit?.outtakeDate ??
+                  state.visitDate ??
+                  widget.patient.intakeDate,
+              stationIndex: 5,
             ),
           ],
         ),

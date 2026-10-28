@@ -270,6 +270,29 @@ class OcrRepository implements IOcrRepository {
       }
     }
 
+    DateTime? parseDateOrNull(String? raw) {
+      if (raw == null || raw.trim().isEmpty) return null;
+      try {
+        final clean = raw.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
+        final parts = clean.split(RegExp(r'[-/]'));
+        if (parts.length == 3) {
+          final y = int.tryParse(parts[0]);
+          final m = int.tryParse(parts[1]);
+          final d = int.tryParse(parts[2]);
+          if (y != null && m != null && d != null) {
+            if (y >= 2070 && y <= 2120) {
+              return NepaliDateHelper.toEnglish(NepaliDateTime(y, m, d));
+            } else {
+              return DateTime(y, m, d);
+            }
+          }
+        }
+        return DateTime.parse(clean);
+      } catch (_) {
+        return null;
+      }
+    }
+
     final parsedIntake = parseDateSafe(verifiedScan.intakeDate ?? demo['intakeDate'] as String? ?? demo['date'] as String?);
     final parsedVisit = parseDateSafe(verifiedScan.treatmentDate ?? verifiedScan.conclusionDate ?? verifiedScan.examDate ?? verifiedScan.intakeDate);
 
@@ -547,6 +570,12 @@ class OcrRepository implements IOcrRepository {
       campId: campId,
       tenantId: registeredPatient.tenantId,
       visitDate: parsedVisit,
+      anamnesisDate: parseDateOrNull(verifiedScan.anamnesisDate ?? verifiedScan.intakeDate ?? demo['anamnesisDate'] as String? ?? demo['intakeDate'] as String?),
+      examDate: parseDateOrNull(verifiedScan.examDate),
+      labTestDate: parseDateOrNull(verifiedScan.labTestDate),
+      conclusionDate: parseDateOrNull(verifiedScan.conclusionDate),
+      treatmentDate: parseDateOrNull(verifiedScan.treatmentDate),
+      outtakeDate: parseDateOrNull(verifiedScan.outtakeDate),
       deliveries: obs['deliveries'] as int?,
       livingChildren: obs['livingChildren'] as int?,
       abortions: obs['abortions'] as int?,

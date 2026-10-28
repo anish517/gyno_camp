@@ -926,6 +926,14 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
             'date': clean,
           },
         ),
+      'anamnesisDate' => state.scanResult!.copyWith(
+          anamnesisDate: clean,
+          clearAnamnesisDate: clean == null,
+          demographics: {
+            ...state.scanResult!.demographics,
+            'anamnesisDate': clean,
+          },
+        ),
       'examDate' => state.scanResult!.copyWith(examDate: clean, clearExamDate: clean == null),
       'treatmentDate' => state.scanResult!.copyWith(treatmentDate: clean, clearTreatmentDate: clean == null),
       'conclusionDate' => state.scanResult!.copyWith(conclusionDate: clean, clearConclusionDate: clean == null),
@@ -943,6 +951,8 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     final updated = state.scanResult!.copyWith(
       intakeDate: clean,
       clearIntakeDate: clean == null,
+      anamnesisDate: clean,
+      clearAnamnesisDate: clean == null,
       examDate: clean,
       clearExamDate: clean == null,
       treatmentDate: clean,

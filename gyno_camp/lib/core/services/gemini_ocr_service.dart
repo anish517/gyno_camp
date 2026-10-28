@@ -621,7 +621,7 @@ class GeminiOcrService {
     }
 
     // Extract station dates from Gemini response
-    String? intakeDate = _extractDate(parsedData['intakeDate']);
+    String? intakeDate = _extractDate(parsedData['intakeDate'] ?? parsedData['anamnesisDate'] ?? parsedData['date']);
     String? examDate = _extractDate(parsedData['examDate']);
     String? labTestDate = _extractDate(parsedData['labTestDate']);
     String? conclusionDate = _extractDate(parsedData['conclusionDate']);

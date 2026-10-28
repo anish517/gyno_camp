@@ -8,6 +8,12 @@ class ClinicalVisitModel {
   final String patientId; // References PatientModel.patientId
   final String campId;
   final DateTime visitDate;
+  final DateTime? anamnesisDate;
+  final DateTime? examDate;
+  final DateTime? labTestDate;
+  final DateTime? conclusionDate;
+  final DateTime? treatmentDate;
+  final DateTime? outtakeDate;
 
   // Obstetric History (Anamnesis Top)
   final int? deliveries; // Parity
@@ -81,6 +87,12 @@ class ClinicalVisitModel {
     required this.patientId,
     required this.campId,
     required this.visitDate,
+    this.anamnesisDate,
+    this.examDate,
+    this.labTestDate,
+    this.conclusionDate,
+    this.treatmentDate,
+    this.outtakeDate,
     this.deliveries,
     this.livingChildren,
     this.abortions,
@@ -157,6 +169,12 @@ class ClinicalVisitModel {
       'patient_id': patientId,
       'camp_id': campId,
       'visit_date': visitDate.toIso8601String(),
+      'anamnesis_date': anamnesisDate?.toIso8601String(),
+      'exam_date': examDate?.toIso8601String(),
+      'lab_test_date': labTestDate?.toIso8601String(),
+      'conclusion_date': conclusionDate?.toIso8601String(),
+      'treatment_date': treatmentDate?.toIso8601String(),
+      'outtake_date': outtakeDate?.toIso8601String(),
       'deliveries': deliveries,
       'living_children': livingChildren,
       'abortions': abortions,
@@ -219,6 +237,12 @@ class ClinicalVisitModel {
       patientId: map['patient_id'] as String,
       campId: map['camp_id'] as String,
       visitDate: DateTime.tryParse(map['visit_date'] as String? ?? '') ?? DateTime.now(),
+      anamnesisDate: map['anamnesis_date'] != null ? DateTime.tryParse(map['anamnesis_date'] as String) : null,
+      examDate: map['exam_date'] != null ? DateTime.tryParse(map['exam_date'] as String) : null,
+      labTestDate: map['lab_test_date'] != null ? DateTime.tryParse(map['lab_test_date'] as String) : null,
+      conclusionDate: map['conclusion_date'] != null ? DateTime.tryParse(map['conclusion_date'] as String) : null,
+      treatmentDate: map['treatment_date'] != null ? DateTime.tryParse(map['treatment_date'] as String) : null,
+      outtakeDate: map['outtake_date'] != null ? DateTime.tryParse(map['outtake_date'] as String) : null,
       deliveries: map['deliveries'] as int?,
       livingChildren: map['living_children'] as int?,
       abortions: map['abortions'] as int?,
@@ -293,6 +317,18 @@ class ClinicalVisitModel {
     String? patientId,
     String? campId,
     DateTime? visitDate,
+    DateTime? anamnesisDate,
+    bool clearAnamnesisDate = false,
+    DateTime? examDate,
+    bool clearExamDate = false,
+    DateTime? labTestDate,
+    bool clearLabTestDate = false,
+    DateTime? conclusionDate,
+    bool clearConclusionDate = false,
+    DateTime? treatmentDate,
+    bool clearTreatmentDate = false,
+    DateTime? outtakeDate,
+    bool clearOuttakeDate = false,
     int? deliveries,
     int? livingChildren,
     int? abortions,
@@ -346,6 +382,12 @@ class ClinicalVisitModel {
       patientId: patientId ?? this.patientId,
       campId: campId ?? this.campId,
       visitDate: visitDate ?? this.visitDate,
+      anamnesisDate: clearAnamnesisDate ? null : (anamnesisDate ?? this.anamnesisDate),
+      examDate: clearExamDate ? null : (examDate ?? this.examDate),
+      labTestDate: clearLabTestDate ? null : (labTestDate ?? this.labTestDate),
+      conclusionDate: clearConclusionDate ? null : (conclusionDate ?? this.conclusionDate),
+      treatmentDate: clearTreatmentDate ? null : (treatmentDate ?? this.treatmentDate),
+      outtakeDate: clearOuttakeDate ? null : (outtakeDate ?? this.outtakeDate),
       deliveries: deliveries ?? this.deliveries,
       livingChildren: livingChildren ?? this.livingChildren,
       abortions: abortions ?? this.abortions,

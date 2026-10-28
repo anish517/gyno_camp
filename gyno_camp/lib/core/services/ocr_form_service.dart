@@ -1715,10 +1715,11 @@ class OcrFormService {
       return null;
     }
 
-    final parsedIntakeDate = extractDateForLabel(['intake date', 'registration date', 'दर्ता मिति', 'date:', 'date', 'मिति:', 'मिति']) ??
+    final parsedIntakeDate = extractDateForLabel(['anamnesis date:', 'anamnesis date', 'विगत मिति', 'intake date', 'registration date', 'दर्ता मिति', 'date:', 'date', 'मिति:', 'मिति']) ??
         RegExp(r'\b([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}(?:\s*BS)?)\b', caseSensitive: false).firstMatch(text)?.group(1);
     if (parsedIntakeDate != null && parsedIntakeDate.isNotEmpty) {
       demographics['intakeDate'] = parsedIntakeDate.trim();
+      demographics['anamnesisDate'] = parsedIntakeDate.trim();
       demographics['date'] = parsedIntakeDate.trim();
     }
     final examDate = extractDateForLabel(['examination date:', 'exam date:', 'examination date', 'exam date', 'जाँच मिति']);
