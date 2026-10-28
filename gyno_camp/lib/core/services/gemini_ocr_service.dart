@@ -206,7 +206,18 @@ class GeminiOcrService {
         : null;
 
     final surgicalRef = parsedData['surgicalReferral']?.toString().trim();
-    final followUp = parsedData['followUpDestination']?.toString().trim();
+    final rawFollowUp = parsedData['followUpDestination']?.toString().trim();
+    final rawFollowUpHospital = parsedData['followUpHospital']?.toString().trim();
+    String? followUp;
+    if (rawFollowUpHospital != null &&
+        rawFollowUpHospital.isNotEmpty &&
+        rawFollowUpHospital.toLowerCase() != 'null') {
+      followUp = rawFollowUpHospital;
+    } else if (rawFollowUp != null &&
+        rawFollowUp.isNotEmpty &&
+        rawFollowUp.toLowerCase() != 'null') {
+      followUp = rawFollowUp;
+    }
     final rawExaminingDoctor = parsedData['examiningDoctor']?.toString().trim();
     final String? examiningDoctor = (rawExaminingDoctor != null && rawExaminingDoctor.isNotEmpty && rawExaminingDoctor.toLowerCase() != 'null')
         ? (rawExaminingDoctor.toLowerCase().startsWith('dr') ? rawExaminingDoctor : 'Dr. $rawExaminingDoctor')

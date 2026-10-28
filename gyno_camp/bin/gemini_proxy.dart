@@ -361,6 +361,7 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT & EXAMINATION (STATIONS 2-6):
 5. Station 6: Discharge & Continuity of Care / अनुगमन तथा डिस्चार्ज:
    - "Outtake Date:" -> outtakeDate (format YYYY-MM-DD from boxes [YYYY]-[MM]-[DD] BS, e.g. 2083-07-06)
    - "follow up:" (checkboxes: "Health Post", "GynaeSupport Nurse", "Hospital", "no follow up needed")
+     * If "Hospital" is checked, extract any hospital or medical center name handwritten on the blank line following "Hospital:" into followUpHospital (e.g. "GANDAKI PROVINCIAL HOSPITAL", "Bir Hospital", "District Hospital", etc.). Capture whatever handwritten hospital text is written dynamically.
    - Clinical Notes / Outtake Remarks -> clinicalNotes
 6. Page 2 Footer / Examining Clinician Sign-off:
    - "Attending Nurse (Tick on Paper):" checked box or handwritten nurse name
@@ -443,7 +444,8 @@ Extract the information accurately into this EXACT JSON structure:
   "pessaryType": "ring or ring with support or ring with knob or null",
   "ringPessarySize": number or null,
   "followUpNeeded": true or false or null,
-  "followUpDestination": "Health Post or GynaeSupport Nurse or null",
+  "followUpDestination": "Health Post or GynaeSupport Nurse or Hospital or No follow up needed or null",
+  "followUpHospital": "Handwritten hospital/center name written on the line next to Hospital: if Hospital is checked (e.g. 'GANDAKI PROVINCIAL HOSPITAL'), or null",
   "surgicalReferral": "Scheer Memorial or Model Hosp or loc government or null",
   "examiningDoctor": "Examining doctor name or checked doctor checkbox on Page 2 or null",
   "attendingDoctors": ["All checked or written doctor names on Page 2, empty list if none"],

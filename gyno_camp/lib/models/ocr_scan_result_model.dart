@@ -476,6 +476,27 @@ ${page2.rawText}
   String get consultationLabel => isCounseling ? 'Counseling' : (isGynocheckup ? 'Gynocheckup' : 'Unassigned');
   String get treatmentLabel => consultationLabel;
 
+  /// Returns true if followUpDestination indicates a hospital referral/visit.
+  bool get isFollowUpHospitalSelected {
+    final d = followUpDestination?.trim().toLowerCase();
+    if (d == null || d.isEmpty) return false;
+    return d != 'health post' &&
+        d != 'gynaesupport nurse' &&
+        d != 'no follow up needed' &&
+        d != 'camp follow-up day';
+  }
+
+  /// Returns the specific hospital name (if any) or null if generic/none.
+  String? get followUpHospitalName {
+    if (!isFollowUpHospitalSelected) return null;
+    final d = followUpDestination!.trim();
+    if (d.toLowerCase() == 'hospital') return null;
+    if (d.toLowerCase().startsWith('hospital:')) {
+      return d.substring('hospital:'.length).trim();
+    }
+    return d;
+  }
+
   /// Null/empty-aware map merge for dual-page OCR results.
   /// Later page values only override earlier page values when they are
   /// non-null and non-empty. This prevents Page 2's default empty lists /

@@ -642,6 +642,14 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     );
   }
 
+  /// Updates follow-up hospital name dynamically
+  void updateFollowUpHospitalName(String? hospitalName) {
+    if (state.scanResult == null) return;
+    final clean = hospitalName?.trim();
+    final effectiveDest = (clean != null && clean.isNotEmpty) ? clean : 'Hospital';
+    updateFollowUpDestination(effectiveDest);
+  }
+
   /// Updates surgery done and surgery route during human verification
   void updateSurgery({required bool done, String? type}) {
     if (state.scanResult == null) return;

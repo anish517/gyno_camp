@@ -4351,34 +4351,153 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                               h != 'GynaeSupport Nurse')
                           .toList();
 
+                      final rawDest = (result.followUpDestination ?? '').trim();
+                      final rawDestLow = rawDest.toLowerCase();
+                      final isNoFollowUp = rawDestLow == 'no follow up needed';
+                      final isHealthPost = rawDestLow == 'health post';
+                      final isGynaeNurse = rawDestLow == 'gynaesupport nurse';
+                      final isCampFollowUp = rawDestLow == 'camp follow-up day';
+                      final isHospital = rawDest.isNotEmpty &&
+                          !isNoFollowUp &&
+                          !isHealthPost &&
+                          !isGynaeNurse &&
+                          !isCampFollowUp;
+
                       final destItems = [
                         {'val': 'No follow up needed', 'label': 'No follow up needed (फलो-अप आवश्यक छैन)'},
                         {'val': 'Health Post', 'label': 'Health Post (स्वास्थ्य चौकी)'},
                         {'val': 'GynaeSupport Nurse', 'label': 'GynaeSupport Nurse (गाइने सपोर्ट नर्स)'},
                         {'val': 'Hospital', 'label': 'Hospital (अस्पताल)'},
                         {'val': 'Camp Follow-up Day', 'label': 'Camp Follow-up Day (पुनः शिविर)'},
-                        ...referralHosps.map((h) => {'val': h, 'label': '$h (अस्पताल)'}),
                       ];
 
-                      return Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: destItems.map((item) {
-                          final val = item['val']!;
-                          final isSelected = (result.followUpDestination ?? '').trim().toLowerCase() == val.toLowerCase() ||
-                              (result.followUpDestination != null && result.followUpDestination!.toLowerCase().contains(val.toLowerCase().split(' ').first));
-                          return ChoiceChip(
-                            label: Text(item['label']!),
-                            selected: isSelected,
-                            selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                            labelStyle: TextStyle(
-                              color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              fontSize: 11.5,
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: destItems.map((item) {
+                              final val = item['val']!;
+                              final isSelected = (val == 'Hospital')
+                                  ? isHospital
+                                  : (rawDestLow == val.toLowerCase());
+                              return ChoiceChip(
+                                label: Text(item['label']!),
+                                selected: isSelected,
+                                selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                                labelStyle: TextStyle(
+                                  color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  fontSize: 11.5,
+                                ),
+                                onSelected: (_) {
+                                  if (val == 'Hospital') {
+                                    final currentHosp = (isHospital && rawDestLow != 'hospital') ? rawDest : 'Hospital';
+                                    vm.updateFollowUpDestination(currentHosp);
+                                  } else {
+                                    vm.updateFollowUpDestination(val);
+                                  }
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          if (isHospital) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryTeal.withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.local_hospital_rounded, size: 16, color: AppTheme.primaryTeal),
+                                      const SizedBox(width: 6),
+                                      const Expanded(
+                                        child: Text(
+                                          'Referral / Follow-up Hospital Name (सिफारिस गरिएको अस्पतालको नाम):',
+                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                                        ),
+                                      ),
+                                      if (rawDest.isNotEmpty && rawDestLow != 'hospital') ...[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.shade50,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.green.shade300),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.check_circle_rounded, size: 12, color: Colors.green),
+                                              SizedBox(width: 4),
+                                              Text('Detected from form', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    key: ValueKey('hosp_dest_field_${rawDestLow == 'hospital' ? '' : rawDest}'),
+                                    initialValue: (rawDestLow == 'hospital') ? '' : rawDest,
+                                    decoration: InputDecoration(
+                                      labelText: 'Hospital Name / Center (अस्पताल वा संस्थाको नाम)',
+                                      hintText: 'Enter or edit hospital name (e.g. GANDAKI PROVINCIAL HOSPITAL, Bir Hospital...)',
+                                      isDense: true,
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: const OutlineInputBorder(),
+                                      prefixIcon: const Icon(Icons.edit_location_alt_rounded, size: 18),
+                                      suffixIcon: rawDest.isNotEmpty && rawDestLow != 'hospital'
+                                          ? IconButton(
+                                              icon: const Icon(Icons.clear, size: 16),
+                                              tooltip: 'Clear hospital name',
+                                              onPressed: () => vm.updateFollowUpDestination('Hospital'),
+                                            )
+                                          : null,
+                                    ),
+                                    onChanged: (val) {
+                                      final clean = val.trim();
+                                      vm.updateFollowUpDestination(clean.isNotEmpty ? clean : 'Hospital');
+                                    },
+                                  ),
+                                  if (referralHosps.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        const Text('Quick Select:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                                        ...referralHosps.map((h) {
+                                          final isQuickSelected = rawDestLow == h.toLowerCase();
+                                          return ActionChip(
+                                            label: Text(h),
+                                            backgroundColor: isQuickSelected ? AppTheme.primaryTeal.withValues(alpha: 0.2) : Colors.white,
+                                            labelStyle: TextStyle(
+                                              fontSize: 11,
+                                              color: isQuickSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
+                                              fontWeight: isQuickSelected ? FontWeight.bold : FontWeight.normal,
+                                            ),
+                                            onPressed: () => vm.updateFollowUpDestination(h),
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
-                            onSelected: (_) => vm.updateFollowUpDestination(val),
-                          );
-                        }).toList(),
+                          ],
+                        ],
                       );
                     },
                   ),
