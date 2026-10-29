@@ -89,7 +89,7 @@ class OcrScanResultModel {
       (demographics['patientTokenId'] as String? ?? demographics['patientId'] as String?)?.trim();
 
   /// Effective Anamnesis Date (falls back to intakeDate if not explicitly set)
-  String? get effectiveAnamnesisDate => anamnesisDate ?? intakeDate;
+  String? get effectiveAnamnesisDate => anamnesisDate;
 
   OcrScanResultModel copyWith({
     int? pageNumber,
@@ -261,7 +261,7 @@ ${page2.rawText}
       }
     }
 
-    final effectiveCampDate = harmonizedIntake ?? (p2Dates.isNotEmpty ? p2Dates.first : null);
+
 
     final mergedDemographics = Map<String, dynamic>.from(page1.demographics.isNotEmpty ? page1.demographics : page2.demographics);
     if (harmonizedIntake != null) {
@@ -326,12 +326,12 @@ ${page2.rawText}
           : (page2.treatmentLevel ?? page1.treatmentLevel)),
       clinicalNotes: page2.clinicalNotes ?? page1.clinicalNotes,
       intakeDate: harmonizedIntake,
-      anamnesisDate: page1.anamnesisDate ?? page2.anamnesisDate ?? harmonizedIntake,
-      examDate: page2.examDate ?? page1.examDate ?? effectiveCampDate,
-      treatmentDate: page2.treatmentDate ?? page1.treatmentDate ?? effectiveCampDate,
-      conclusionDate: page2.conclusionDate ?? page1.conclusionDate ?? effectiveCampDate,
-      labTestDate: page2.labTestDate ?? page1.labTestDate ?? effectiveCampDate,
-      outtakeDate: page2.outtakeDate ?? page1.outtakeDate ?? effectiveCampDate,
+      anamnesisDate: page1.anamnesisDate ?? page2.anamnesisDate,
+      examDate: page2.examDate ?? page1.examDate,
+      treatmentDate: page2.treatmentDate ?? page1.treatmentDate,
+      conclusionDate: page2.conclusionDate ?? page1.conclusionDate,
+      labTestDate: page2.labTestDate ?? page1.labTestDate,
+      outtakeDate: page2.outtakeDate ?? page1.outtakeDate,
       fieldConfidences: mergedConfidences,
       overallConfidence: double.parse(avgConf.toStringAsFixed(2)),
       rawText: combinedText,
@@ -432,7 +432,7 @@ ${page2.rawText}
       'treatmentLevel': PatientModel.normalizeTreatmentLevel(treatmentLevel),
       'clinicalNotes': clinicalNotes,
       'intakeDate': intakeDate,
-      'anamnesisDate': anamnesisDate ?? intakeDate,
+      'anamnesisDate': anamnesisDate,
       'examDate': examDate,
       'treatmentDate': treatmentDate,
       'conclusionDate': conclusionDate,

@@ -1,10 +1,12 @@
+your first task is to review my gyno_camp\lib\core\services\pdf_report_service.dart  and generate blank form and extract what is there in page 1 and page 2 and comapare the all other isssues and OCR form and also detection is perfectly worked or not wheather they are accuracy and consistency review each code 
+
 # Blank Form Review — Handwritten Notes
 
 Transcribed from 4 notebook photos, in reading order. Original wording and spelling are kept; uncertain words are marked with [?].
 
 ---
 
-## Page 1 — 1st issues (blank form)
+## 1st issues (blank form)
 
 - In blank form:
   - Relation: नाता [?] (M/SM/GP) is not four check box
@@ -17,7 +19,7 @@ Transcribed from 4 notebook photos, in reading order. Original wording and spell
 
 ---
 
-## Page 2 — 1st issues (continued)
+##  — 1st issues (continued)
 
 - Examination Date should be dynamic
 - Treatment Date should be dynamic
@@ -29,7 +31,7 @@ Above is 1st issues on blank Form also while downloading blank Form
 
 ---
 
-## Page 3 — 2nd issues (Compare and issues)
+##  — 2nd issues (Compare and issues)
 
 - In blank form I have:
   - First name, Surname, Age, Relative name, Relative Surname, Relation, mobile W, ward, Contact person, Contact Mobile, marital status (Marital status unmarried, widow, Divorced, marital Age, palika, district,
@@ -39,7 +41,7 @@ Above is 1st issues on blank Form also while downloading blank Form
 
 ---
 
-## Page 4 — 2nd issues (continued)
+##  — 2nd issues (continued)
 
 - Station 3: Lab test date is missing
 - Station 4: In blank Form there is no Category but in Clinical intake there is Categories wise diagnosis.
@@ -54,10 +56,3 @@ Now on also compare OCR Form which is consistent:
 
 ---
 
-## Transcription notes
-
-- Page 1 was photographed sideways and pages 2–4 upside down; they were rotated upright before reading.
-- The Nepali word after "Relation:" is hard to read; it looks like "नाता" (relation).
-- "is not four check box" is copied as written (it may mean "your").
-- Crossed-out words are left out: "semi" before "dynamic" in the Outtake line, a repeated word before "Surname", and "Also" after the Station 4 line.
-- The bracket after "marital status" is never closed in the original.

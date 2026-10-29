@@ -103,10 +103,10 @@ void main() {
       expect(find.text('Abortions / Miscarriages (गर्भपतन)'), findsOneWidget);
 
       // Verify Complaints Duration and 9 Chief Clinical Complaints in Obstetric tab
-      expect(find.text('Complaints Duration (समस्या सुरु भएको अवधि)'), findsOneWidget);
+
       expect(find.text('Chief Clinical Complaints (प्रमुख क्लिनिकल लक्षणहरू)'), findsOneWidget);
-      expect(find.text('Mass Per Vagina (केही बाहिर निस्कने)'), findsOneWidget);
-      expect(find.text('White / Foul Discharge (सेतो / गन्हाउने पानी)'), findsOneWidget);
+      expect(find.text('Something hanging out / Prolapse (पाठेघर खस्ने समस्या)'), findsOneWidget);
+      expect(find.text('Discharge and/or Itching (पानी बग्ने / चिलाउने)'), findsOneWidget);
 
       // Switch to POP Staging tab
       await tester.tap(find.text('3. POP Staging'));

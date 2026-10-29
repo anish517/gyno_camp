@@ -1465,9 +1465,9 @@ class PdfReportService {
       final alertRed = PdfColor.fromHex('BE123C');
       final warningAmber = PdfColor.fromHex('B45309');
 
-      final visitDate = visit?.visitDate != null
-          ? dateFormatter.format(visit!.visitDate)
-          : dateFormatter.format(patient.intakeDate);
+      final visitDateFormatted = visit?.visitDate != null
+          ? 'Visit Date: ${dateFormatter.format(visit!.visitDate)}'
+          : 'Intake Date: ${dateFormatter.format(patient.intakeDate)}';
 
       // Interpret Blood Pressure
       String bpStatus = 'N/A';
@@ -1616,7 +1616,7 @@ class PdfReportService {
                         ),
                       ),
                       pw.Text(
-                        'Date: ${dateFormatter.format(visit?.visitDate ?? patient.intakeDate)}',
+                        visitDateFormatted,
                         style: const pw.TextStyle(
                           fontSize: 7.5,
                           color: PdfColors.grey600,
@@ -1633,7 +1633,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '1. PATIENT DEMOGRAPHICS & SOCIAL INTAKE',
               primaryColor,
-              date: visitDate,
+
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -1736,7 +1736,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '2. STRUCTURED CLINICAL ANAMNESIS (YELLOW FORM)',
               primaryColor,
-              date: visit?.anamnesisDate != null ? dateFormatter.format(visit!.anamnesisDate!) : visitDate,
+              date: visit?.anamnesisDate != null ? dateFormatter.format(visit!.anamnesisDate!) : null,
+              dateLabel: 'Anamnesis Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -1824,7 +1825,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '3. OBSTETRIC HISTORY & GYNECOLOGICAL EXAM',
               primaryColor,
-              date: visit?.examDate != null ? dateFormatter.format(visit!.examDate!) : visitDate,
+              date: visit?.examDate != null ? dateFormatter.format(visit!.examDate!) : null,
+              dateLabel: 'Exam Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -1915,7 +1917,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '4. CLINICAL VITALS & SCREENING LABS',
               primaryColor,
-              date: visit?.labTestDate != null ? dateFormatter.format(visit!.labTestDate!) : visitDate,
+              date: visit?.labTestDate != null ? dateFormatter.format(visit!.labTestDate!) : null,
+              dateLabel: 'Lab Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -2010,7 +2013,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '5. POP STAGING (PELVIC ORGAN PROLAPSE)',
               primaryColor,
-              date: visit?.conclusionDate != null ? dateFormatter.format(visit!.conclusionDate!) : visitDate,
+              date: visit?.conclusionDate != null ? dateFormatter.format(visit!.conclusionDate!) : null,
+              dateLabel: 'Conclusion Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -2066,7 +2070,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '6. CONFIRMED DIAGNOSES & FORMULARY',
               primaryColor,
-              date: visit?.treatmentDate != null ? dateFormatter.format(visit!.treatmentDate!) : visitDate,
+              date: visit?.treatmentDate != null ? dateFormatter.format(visit!.treatmentDate!) : null,
+              dateLabel: 'Treatment Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -2122,7 +2127,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '7. CONTINUITY OF CARE & REFERRAL',
               primaryColor,
-              date: visit?.outtakeDate != null ? dateFormatter.format(visit!.outtakeDate!) : visitDate,
+              date: visit?.outtakeDate != null ? dateFormatter.format(visit!.outtakeDate!) : null,
+              dateLabel: 'Outtake Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -2423,7 +2429,7 @@ class PdfReportService {
     });
   }
 
-  pw.Widget _buildPdfSectionHeader(String title, PdfColor color, {String? date}) {
+  pw.Widget _buildPdfSectionHeader(String title, PdfColor color, {String? date, String? dateLabel}) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: pw.BoxDecoration(
@@ -2438,7 +2444,7 @@ class PdfReportService {
           ne(title, size: 10.0, bold: true, color: 0xFF30026E),
           if (date != null && date.trim().isNotEmpty)
             pw.Text(
-              'Date: $date',
+              dateLabel != null ? '$dateLabel: $date' : 'Date: $date',
               style: pw.TextStyle(
                 fontSize: 8.0,
                 fontWeight: pw.FontWeight.bold,
@@ -2540,7 +2546,7 @@ class PdfReportService {
           ? 'FOLLOW-UP CLINICAL ENCOUNTER'
           : 'PRIMARY CAMP EXAMINATION';
       final visitDate = dateFormatter.format(visit.visitDate);
-      final visitTime = timeFormatter.format(visit.visitDate);
+
 
       final effectiveTreatmentLevel =
           (visit.treatmentLevel?.trim().isNotEmpty == true)
@@ -2660,7 +2666,7 @@ class PdfReportService {
                         ),
                       ),
                       pw.Text(
-                        visitTime,
+                        'Visit Date: $visitDate',
                         style: const pw.TextStyle(
                           fontSize: 7,
                           color: PdfColors.grey600,
@@ -2674,7 +2680,7 @@ class PdfReportService {
             pw.SizedBox(height: 8),
 
             // ── Patient Demographics ─────────────────────────────────────────
-            _buildPdfSectionHeader('1. PATIENT IDENTITY', encounterColor, date: visitDate),
+            _buildPdfSectionHeader('1. PATIENT IDENTITY', encounterColor),
             pw.SizedBox(height: 3),
             pw.Container(
               padding: const pw.EdgeInsets.all(7),
@@ -2786,7 +2792,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '2. CHIEF COMPLAINTS & REASONS TO VISIT',
               encounterColor,
-              date: visit.anamnesisDate != null ? dateFormatter.format(visit.anamnesisDate!) : visitDate,
+              date: visit.anamnesisDate != null ? dateFormatter.format(visit.anamnesisDate!) : null,
+              dateLabel: 'Anamnesis Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -2904,7 +2911,8 @@ class PdfReportService {
               _buildPdfSectionHeader(
                 '3. OBSTETRIC HISTORY & EXAMINATION',
                 encounterColor,
-                date: visit.examDate != null ? dateFormatter.format(visit.examDate!) : visitDate,
+                date: visit.examDate != null ? dateFormatter.format(visit.examDate!) : null,
+                dateLabel: 'Exam Date',
               ),
               pw.SizedBox(height: 3),
               pw.Container(
@@ -3004,7 +3012,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '4. CLINICAL VITALS & SCREENING LABS',
               encounterColor,
-              date: visit.labTestDate != null ? dateFormatter.format(visit.labTestDate!) : visitDate,
+              date: visit.labTestDate != null ? dateFormatter.format(visit.labTestDate!) : null,
+              dateLabel: 'Lab Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -3100,7 +3109,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '5. POP STAGING (पाठेघर खस्ने अवस्था)',
               encounterColor,
-              date: visit.conclusionDate != null ? dateFormatter.format(visit.conclusionDate!) : visitDate,
+              date: visit.conclusionDate != null ? dateFormatter.format(visit.conclusionDate!) : null,
+              dateLabel: 'Conclusion Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -3152,7 +3162,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '6. CONFIRMED DIAGNOSES & TREATMENT',
               encounterColor,
-              date: visit.treatmentDate != null ? dateFormatter.format(visit.treatmentDate!) : visitDate,
+              date: visit.treatmentDate != null ? dateFormatter.format(visit.treatmentDate!) : null,
+              dateLabel: 'Treatment Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -3222,7 +3233,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '7. CONTINUITY OF CARE & REFERRAL',
               encounterColor,
-              date: visit.outtakeDate != null ? dateFormatter.format(visit.outtakeDate!) : visitDate,
+              date: visit.outtakeDate != null ? dateFormatter.format(visit.outtakeDate!) : null,
+              dateLabel: 'Outtake Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(

@@ -211,6 +211,83 @@ void main() {
     print('--- All doctors and nurses successfully printed as checklist on 2-page PDF! ---');
   });
 
+  test('Generate Follow-up Encounter Slip and verify dates are hidden when null', () async {
+    final pdfService = PdfReportService();
+    final camp = CampModel(
+      id: 'c-test-1',
+      campCode: 'KTM01',
+      name: 'Gyno Health Outreach Camp',
+      venue: 'Primary Health Center',
+      district: 'Kathmandu',
+      municipality: 'Budhanilkantha Municipality',
+      ward: '03',
+      startDate: DateTime(2026, 10, 23),
+      endDate: DateTime(2026, 10, 25),
+      status: CampStatus.open,
+      createdAt: DateTime.now(),
+    );
+
+    final patient = PatientModel(
+      id: 'p-1',
+      patientId: 'GC-KTM01-2026-001',
+      campId: 'c-test-1',
+      campCode: 'KTM01',
+      intakeDate: DateTime(2026, 10, 23),
+      firstName: 'PARBATI',
+      surname: 'THAPA',
+      age: 33,
+      ward: '08',
+      mobile: '9856123409',
+      maritalStatus: 'married',
+      reasonsForVisit: ['menstrual problem', 'infertility'],
+      createdByUserId: 'usr-1',
+      createdByDeviceId: 'd-1',
+      createdAt: DateTime.now(),
+    );
+
+    final visit = ClinicalVisitModel(
+      id: 'v-1',
+      patientId: 'p-1',
+      campId: 'c-test-1',
+      visitDate: DateTime(2026, 10, 23),
+      anamnesisDate: null,
+      examDate: null,
+      labTestDate: null,
+      conclusionDate: null,
+      treatmentDate: null,
+      outtakeDate: null,
+      deliveries: 0,
+      livingChildren: 0,
+      abortions: 2,
+      highestPopStage: 0,
+      systolicBp: 116,
+      diastolicBp: 74,
+      pulse: 74,
+      spo2: 99,
+      glucose: 90,
+      createdByUserId: 'usr-1',
+      createdAt: DateTime.now(),
+    );
+
+    final slipBytes = await pdfService.generateFollowUpEncounterSlipPdf(
+      patient: patient,
+      visit: visit,
+      camp: camp,
+    );
+
+    final allPdfText = extractAllTextFromPdf(slipBytes);
+    print('Contains Visit: ${allPdfText.contains('Visit')}');
+    print('Contains 2026-10-23: ${allPdfText.contains('2026-10-23')}');
+    print('Contains Visit Date: ${allPdfText.contains('Visit Date')}');
+    expect(allPdfText.contains('Visit') && allPdfText.contains('2026-10-23'), isTrue);
+    expect(allPdfText.contains('Exam Date:'), isFalse);
+    expect(allPdfText.contains('Lab Date:'), isFalse);
+    expect(allPdfText.contains('Conclusion Date:'), isFalse);
+    expect(allPdfText.contains('Treatment Date:'), isFalse);
+    expect(allPdfText.contains('Outtake Date:'), isFalse);
+    print('--- Encounter slip dates successfully verified: hidden when null! ---');
+  });
+
 
 }
 
