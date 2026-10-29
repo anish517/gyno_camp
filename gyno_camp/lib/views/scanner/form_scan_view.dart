@@ -2888,35 +2888,31 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '1. Vulva Examination (बाह्य अङ्ग / भल्भा):',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      'Normal', 'Ulcer', 'Condyloma', 'Lichen Sclerosus', 'Rash'
-                    ].map((chip) {
-                      final current = (pop['vulvaRemarks'] as String? ?? '').toLowerCase();
-                      final isSelected = current.contains(chip.toLowerCase());
-                      return ChoiceChip(
+                      const Text(
+                        '1. Vulva Examination (बाह्य अङ्ग / भल्भा):',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      ),
+                      ChoiceChip(
                         visualDensity: VisualDensity.compact,
-                        label: Text(chip, style: const TextStyle(fontSize: 11)),
-                        selected: isSelected,
+                        label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
+                        selected: (pop['vulvaRemarks'] as String? ?? '').trim().toLowerCase() == 'normal',
                         selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                         onSelected: (sel) {
-                          vm.updatePopStage('vulvaRemarks', sel ? chip : '');
+                          vm.updatePopStage('vulvaRemarks', sel ? 'Normal' : '');
                         },
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
+                    key: Key('vulvaRemarks_${pop['vulvaRemarks']}'),
                     initialValue: pop['vulvaRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
-                      hintText: 'Vulva clinical remarks or notes',
+                      labelText: 'Vulva Remarks (सामान्य नभएमा कैफियत)',
+                      hintText: 'e.g. Normal or write findings',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -2937,35 +2933,31 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '2. Vagina Examination (योनीको अवस्था):',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      'Normal', 'Atrophic', 'Mild discharge', 'Foul discharge', 'Candidiasis'
-                    ].map((chip) {
-                      final current = (pop['vaginaRemarks'] as String? ?? '').toLowerCase();
-                      final isSelected = current.contains(chip.toLowerCase());
-                      return ChoiceChip(
+                      const Text(
+                        '2. Vagina Examination (योनीको अवस्था):',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      ),
+                      ChoiceChip(
                         visualDensity: VisualDensity.compact,
-                        label: Text(chip, style: const TextStyle(fontSize: 11)),
-                        selected: isSelected,
+                        label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
+                        selected: (pop['vaginaRemarks'] as String? ?? '').trim().toLowerCase() == 'normal',
                         selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                         onSelected: (sel) {
-                          vm.updatePopStage('vaginaRemarks', sel ? chip : '');
+                          vm.updatePopStage('vaginaRemarks', sel ? 'Normal' : '');
                         },
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
+                    key: Key('vaginaRemarks_${pop['vaginaRemarks']}'),
                     initialValue: pop['vaginaRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
-                      hintText: 'Vagina clinical remarks or notes',
+                      labelText: 'Vagina Remarks (सामान्य नभएमा कैफियत)',
+                      hintText: 'e.g. Normal or write findings',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -2986,35 +2978,31 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '3. Cervix Appearance (पाठेघरको मुखको अवस्था):',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      'Normal / Smooth', 'Erosion', 'Hypertrophy', 'Polyp', 'Bleeding on Touch', 'Leukoplakia'
-                    ].map((chip) {
-                      final current = (pop['cervixRemarks'] as String? ?? '').toLowerCase();
-                      final isSelected = current.contains(chip.toLowerCase());
-                      return ChoiceChip(
+                      const Text(
+                        '3. Cervix Appearance (पाठेघरको मुखको अवस्था):',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      ),
+                      ChoiceChip(
                         visualDensity: VisualDensity.compact,
-                        label: Text(chip, style: const TextStyle(fontSize: 11)),
-                        selected: isSelected,
+                        label: const Text('Normal / Smooth (सामान्य)', style: TextStyle(fontSize: 11)),
+                        selected: (pop['cervixRemarks'] as String? ?? '').trim().toLowerCase() == 'normal' || (pop['cervixRemarks'] as String? ?? '').trim().toLowerCase() == 'normal / smooth',
                         selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                         onSelected: (sel) {
-                          vm.updatePopStage('cervixRemarks', sel ? chip : '');
+                          vm.updatePopStage('cervixRemarks', sel ? 'Normal / Smooth' : '');
                         },
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
+                    key: Key('cervixRemarks_${pop['cervixRemarks']}'),
                     initialValue: pop['cervixRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
-                      hintText: 'Cervix clinical remarks or notes',
+                      labelText: 'Cervix Remarks (सामान्य नभएमा कैफियत)',
+                      hintText: 'e.g. Normal / Smooth or write findings',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -3035,35 +3023,31 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '4. Uterus Examination (पाठेघर सम्बन्धी कैफियत):',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      'Normal size', 'Bulky', 'Tender', 'Fibroid', 'Mobile', 'Restricted'
-                    ].map((chip) {
-                      final current = (pop['uterusRemarks'] as String? ?? '').toLowerCase();
-                      final isSelected = current.contains(chip.toLowerCase());
-                      return ChoiceChip(
+                      const Text(
+                        '4. Uterus Examination (पाठेघर सम्बन्धी कैफियत):',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      ),
+                      ChoiceChip(
                         visualDensity: VisualDensity.compact,
-                        label: Text(chip, style: const TextStyle(fontSize: 11)),
-                        selected: isSelected,
+                        label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
+                        selected: (pop['uterusRemarks'] as String? ?? '').trim().toLowerCase() == 'normal' || (pop['uterusRemarks'] as String? ?? '').trim().toLowerCase() == 'normal size',
                         selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                         onSelected: (sel) {
-                          vm.updatePopStage('uterusRemarks', sel ? chip : '');
+                          vm.updatePopStage('uterusRemarks', sel ? 'Normal' : '');
                         },
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
+                    key: Key('uterusRemarks_${pop['uterusRemarks']}'),
                     initialValue: pop['uterusRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
-                      hintText: 'Uterus clinical remarks or notes',
+                      labelText: 'Uterus Remarks (सामान्य नभएमा कैफियत)',
+                      hintText: 'e.g. Normal or write findings',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),

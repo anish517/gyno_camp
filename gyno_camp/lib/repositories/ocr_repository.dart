@@ -603,11 +603,17 @@ class OcrRepository implements IOcrRepository {
       glucose: vitals['bloodGlucose'] as int? ?? 110,
       urineTest: vitals['urineTest'] as String? ?? 'normal',
       pregnancyTest: vitals['pregnancyTest'] as String? ?? 'neg',
-      ecgNotes: ((vitals['ecgNotes'] as String?)?.trim().isNotEmpty == true)
-          ? (vitals['ecgNotes'] as String).trim()
-          : ((vitals['ecg'] as String?)?.trim().isNotEmpty == true
-              ? (vitals['ecg'] as String).trim()
-              : null),
+      ecgNotes: () {
+        final rawEcg = (vitals['ecg'] as String?)?.trim();
+        final rawNotes = (vitals['ecgNotes'] as String?)?.trim();
+        if (rawNotes != null && rawNotes.isNotEmpty) {
+          if (rawEcg != null && rawEcg.isNotEmpty && !rawNotes.toLowerCase().contains(rawEcg.toLowerCase())) {
+            return '$rawEcg: $rawNotes';
+          }
+          return rawNotes;
+        }
+        return (rawEcg != null && rawEcg.isNotEmpty) ? rawEcg : null;
+      }(),
       diagnoses: verifiedScan.diagnoses,
       counseling: verifiedScan.counseling,
       medications: verifiedScan.medications,

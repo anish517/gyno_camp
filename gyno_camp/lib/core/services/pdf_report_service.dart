@@ -2000,7 +2000,7 @@ class PdfReportService {
                           'ECG',
                           (visit?.ecgNotes != null && visit!.ecgNotes!.trim().isNotEmpty)
                               ? sanitizeText(visit.ecgNotes!)
-                              : 'Normal / Not indicated',
+                              : 'Not Done',
                         ),
                       ),
                     ],
@@ -3096,7 +3096,7 @@ class PdfReportService {
                           'ECG',
                           (visit.ecgNotes != null && visit.ecgNotes!.trim().isNotEmpty)
                               ? sanitizeText(visit.ecgNotes!)
-                              : 'Normal / Not Done',
+                              : 'Not Done',
                         ),
                       ),
                     ],

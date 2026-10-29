@@ -1371,136 +1371,125 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 const SizedBox(height: 14),
 
                 // 1. Vulva Examination
-                const Text('1. Vulva Examination (बाह्य अङ्ग / भल्भा):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    'Normal', 'Atrophic', 'Discharge', 'Condylomata', 'Ulcer', 'Lichen Sclerosus'
-                  ].map((chip) {
-                    final isSelected = _vulvaRemarksController.text.contains(chip);
-                    return ChoiceChip(
+                    const Text('1. Vulva Examination (बाह्य अङ्ग / भल्भा):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    ChoiceChip(
                       visualDensity: VisualDensity.compact,
-                      label: Text(chip, style: const TextStyle(fontSize: 11)),
-                      selected: isSelected,
+                      label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
+                      selected: _vulvaRemarksController.text.trim().toLowerCase() == 'normal',
                       selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                       onSelected: (sel) {
                         setState(() {
-                          _vulvaRemarksController.text = sel ? chip : '';
+                          _vulvaRemarksController.text = sel ? 'Normal' : '';
                           vm.updateExam(vulvaRemarks: _vulvaRemarksController.text);
                         });
                       },
-                    );
-                  }).toList(),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _vulvaRemarksController,
                   decoration: const InputDecoration(
-                    labelText: 'Vulva Remarks (भल्भा सम्बन्धी कैफियत)',
+                    labelText: 'Vulva Remarks (सामान्य नभएमा कैफियत)',
                     hintText: 'e.g. Normal, healthy, or ulcer/lesion noted',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
-                  onChanged: (val) => vm.updateExam(vulvaRemarks: val),
+                  onChanged: (val) {
+                    setState(() {});
+                    vm.updateExam(vulvaRemarks: val);
+                  },
                 ),
                 const Divider(height: 24),
 
                 // 2. Vagina Examination
-                const Text('2. Vagina Examination (योनीको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    'Normal', 'Atrophic Mucosa', 'Discharge Present', 'Cystocele', 'Rectocele', 'Vault Prolapse'
-                  ].map((chip) {
-                    final isSelected = _vaginaRemarksController.text.contains(chip);
-                    return ChoiceChip(
+                    const Text('2. Vagina Examination (योनीको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    ChoiceChip(
                       visualDensity: VisualDensity.compact,
-                      label: Text(chip, style: const TextStyle(fontSize: 11)),
-                      selected: isSelected,
+                      label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
+                      selected: _vaginaRemarksController.text.trim().toLowerCase() == 'normal',
                       selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                       onSelected: (sel) {
                         setState(() {
-                          _vaginaRemarksController.text = sel ? chip : '';
+                          _vaginaRemarksController.text = sel ? 'Normal' : '';
                           vm.updateExam(vaginaRemarks: _vaginaRemarksController.text);
                         });
                       },
-                    );
-                  }).toList(),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _vaginaRemarksController,
                   decoration: const InputDecoration(
-                    labelText: 'Vagina Remarks (योनी सम्बन्धी कैफियत)',
+                    labelText: 'Vagina Remarks (सामान्य नभएमा कैफियत)',
                     hintText: 'e.g. Healthy mucosa, mild discharge, or laxity',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
-                  onChanged: (val) => vm.updateExam(vaginaRemarks: val),
+                  onChanged: (val) {
+                    setState(() {});
+                    vm.updateExam(vaginaRemarks: val);
+                  },
                 ),
                 const Divider(height: 24),
 
                 // 3. Cervix Examination
-                const Text('3. Cervix Appearance (पाठेघरको मुखको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    'Normal / Smooth', 'Erosion', 'Hypertrophied', 'Polyp', 'Bleeding on Touch', 'Leukoplakia'
-                  ].map((chip) {
-                    final isSelected = _cervixRemarksController.text.contains(chip);
-                    return ChoiceChip(
+                    const Text('3. Cervix Appearance (पाठेघरको मुखको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    ChoiceChip(
                       visualDensity: VisualDensity.compact,
-                      label: Text(chip, style: const TextStyle(fontSize: 11)),
-                      selected: isSelected,
+                      label: const Text('Normal / Smooth (सामान्य)', style: TextStyle(fontSize: 11)),
+                      selected: _cervixRemarksController.text.trim().toLowerCase() == 'normal' || _cervixRemarksController.text.trim().toLowerCase() == 'normal / smooth',
                       selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                       onSelected: (sel) {
                         setState(() {
-                          _cervixRemarksController.text = sel ? chip : '';
+                          _cervixRemarksController.text = sel ? 'Normal / Smooth' : '';
                           vm.updateExam(cervixRemarks: _cervixRemarksController.text);
                         });
                       },
-                    );
-                  }).toList(),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _cervixRemarksController,
                   decoration: const InputDecoration(
-                    labelText: 'Cervix Remarks (पाठेघरको मुख सम्बन्धी कैफियत)',
+                    labelText: 'Cervix Remarks (सामान्य नभएमा कैफियत)',
                     hintText: 'e.g. Smooth, healthy, or erosion present',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
-                  onChanged: (val) => vm.updateExam(cervixRemarks: val),
+                  onChanged: (val) {
+                    setState(() {});
+                    vm.updateExam(cervixRemarks: val);
+                  },
                 ),
                 const Divider(height: 24),
 
                 // 4. Uterus Examination
-                const Text('4. Uterus Examination (पाठेघरको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    'Normal Size & Mobile', 'Enlarged / Bulky', 'Tender on Motion', 'Fibroid / Myoma', 'Retroverted'
-                  ].map((chip) {
-                    final isSelected = _uterusRemarksController.text.contains(chip);
-                    return ChoiceChip(
+                    const Text('4. Uterus Examination (पाठेघरको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    ChoiceChip(
                       visualDensity: VisualDensity.compact,
-                      label: Text(chip, style: const TextStyle(fontSize: 11)),
-                      selected: isSelected,
+                      label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
+                      selected: _uterusRemarksController.text.trim().toLowerCase() == 'normal' || _uterusRemarksController.text.trim().toLowerCase() == 'normal size',
                       selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                       onSelected: (sel) {
                         setState(() {
-                          _uterusRemarksController.text = sel ? chip : '';
+                          _uterusRemarksController.text = sel ? 'Normal' : '';
                           vm.updateExam(uterusRemarks: _uterusRemarksController.text);
                         });
                       },
-                    );
-                  }).toList(),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 TextField(
@@ -1510,7 +1499,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     hintText: 'e.g. Normal size, non-tender, freely mobile, or bulky',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
-                  onChanged: (val) => vm.updateExam(uterusRemarks: val),
+                  onChanged: (val) {
+                    setState(() {});
+                    vm.updateExam(uterusRemarks: val);
+                  },
                 ),
               ],
             ),
@@ -1910,16 +1902,17 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        'Normal Sinus Rhythm',
-                        'Sinus Tachycardia',
-                        'Sinus Bradycardia',
-                        'Arrhythmia',
-                        'Ischemia / ST-T Change',
-                        'Not Done',
-                      ].map((tag) {
-                        final isSelected = _ecgController.text.contains(tag);
+                        {'val': 'Normal Sinus', 'label': 'Normal Sinus (सामान्य)'},
+                        {'val': 'Abnormal', 'label': 'Abnormal (असामान्य)'},
+                        {'val': 'Not Done', 'label': 'Not Done (जाँच नगरिएको)'},
+                      ].map((item) {
+                        final tag = item['val']!;
+                        final isSelected = _ecgController.text.trim().toLowerCase() == tag.toLowerCase() ||
+                            (tag == 'Normal Sinus' && (_ecgController.text.toLowerCase().contains('normal') || _ecgController.text.toLowerCase().contains('sinus'))) ||
+                            (tag == 'Abnormal' && _ecgController.text.toLowerCase().contains('abnormal')) ||
+                            (tag == 'Not Done' && (_ecgController.text.toLowerCase().contains('not done') || (_ecgController.text.trim().isEmpty && tag == 'Not Done')));
                         return ChoiceChip(
-                          label: Text(tag, style: const TextStyle(fontSize: 11.5)),
+                          label: Text(item['label']!, style: const TextStyle(fontSize: 11.5)),
                           selected: isSelected,
                           selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
                           labelStyle: TextStyle(
@@ -1944,7 +1937,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       controller: _ecgController,
                       textInputAction: TextInputAction.done,
                       decoration: const InputDecoration(
-                        labelText: 'ECG Findings / Notes (ईसीजी विवरण / टिप्पणी)',
+                        labelText: 'ECG Findings / Notes (ईसीजी विवरण / कैफियत)',
                         hintText: 'e.g. Normal sinus rhythm, rate 76 bpm, or abnormal findings',
                         prefixIcon: Icon(Icons.edit_note_rounded),
                       ),
