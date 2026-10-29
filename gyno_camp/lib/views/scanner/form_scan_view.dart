@@ -5291,7 +5291,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           color: (dateStr != null && dateStr.isNotEmpty) ? AppTheme.primaryTeal : Colors.blueGrey,
         ),
         label: Text(
-          dateStr != null && dateStr.isNotEmpty ? '$label: $dateStr' : '$label: Set Date',
+          dateStr != null && dateStr.isNotEmpty ? '$label: ${dateStr.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim()} BS' : '$label: Set Date',
           style: TextStyle(
             fontSize: 11,
             fontWeight: (dateStr != null && dateStr.isNotEmpty) ? FontWeight.bold : FontWeight.normal,
@@ -5310,9 +5310,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     String? field,
   }) {
     // Parse initial date components
-    int selectedYear = 2083;
-    int selectedMonth = 7;
-    int selectedDay = 6;
+    final todayNp = NepaliDateHelper.toNepali(DateTime.now());
+    int selectedYear = todayNp.year;
+    int selectedMonth = todayNp.month;
+    int selectedDay = todayNp.day;
 
     final cleanStr = (dateStr ?? '').replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
     if (cleanStr.isNotEmpty) {

@@ -613,7 +613,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     required DateTime date,
     int? stationIndex,
   }) {
-    final formattedAd = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+    final bsFormatted = NepaliLocalizationService.formatBsDateOnly(date);
     final dual = NepaliLocalizationService.formatDualCalendarDate(date);
     return InkWell(
       borderRadius: BorderRadius.circular(20),
@@ -637,7 +637,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
               const Icon(Icons.calendar_month_rounded, size: 13, color: AppTheme.primaryTeal),
               const SizedBox(width: 5),
               Text(
-                '$label: $formattedAd',
+                '$label: $bsFormatted',
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
               ),
               const SizedBox(width: 4),

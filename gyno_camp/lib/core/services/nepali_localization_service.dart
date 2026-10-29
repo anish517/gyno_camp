@@ -1,3 +1,6 @@
+import 'package:nepali_utils/nepali_utils.dart';
+import '../utils/nepali_date_helper.dart';
+
 class NepaliLocalizationService {
   static const Map<String, String> _termsEnToNe = {
     // Primary complaints
@@ -65,16 +68,62 @@ class NepaliLocalizationService {
     return englishTerm;
   }
 
-  /// Formats date showing both Gregorian (AD) and Bikram Sambat (BS approximation)
-  /// Nepal calendar is approx +56.7 years ahead
-  static String formatDualCalendarDate(DateTime date) {
-    final adStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} AD';
-    final bsYear = date.year + 57;
-    // Approximating Nepali month based on mid-month shifts
-    final bsMonth = ((date.month + 8) % 12) + 1;
-    final bsDay = date.day;
-    final bsStr = '$bsYear-${bsMonth.toString().padLeft(2, '0')}-${bsDay.toString().padLeft(2, '0')} BS';
-    return '$adStr ($bsStr)';
+  /// Formats date showing both Bikram Sambat (BS) and Gregorian (AD) accurately using nepali_utils
+  static String formatDualCalendarDate(DateTime date, {bool bsFirst = true}) {
+    try {
+      NepaliDateTime np;
+      DateTime ad;
+      if (date.year >= 2070 && date.year <= 2120) {
+        np = NepaliDateTime(date.year, date.month, date.day);
+        ad = NepaliDateHelper.toEnglish(np);
+      } else {
+        ad = date;
+        np = NepaliDateHelper.toNepali(date);
+      }
+      final bsStr = '${np.year}-${np.month.toString().padLeft(2, '0')}-${np.day.toString().padLeft(2, '0')} BS';
+      final adStr = '${ad.year}-${ad.month.toString().padLeft(2, '0')}-${ad.day.toString().padLeft(2, '0')} AD';
+      return bsFirst ? '$bsStr ($adStr)' : '$adStr ($bsStr)';
+    } catch (_) {
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    }
+  }
+
+  /// Formats date showing Bikram Sambat (BS) only
+  static String formatBsDateOnly(DateTime date) {
+    try {
+      NepaliDateTime np;
+      if (date.year >= 2070 && date.year <= 2120) {
+        np = NepaliDateTime(date.year, date.month, date.day);
+      } else {
+        np = NepaliDateHelper.toNepali(date);
+      }
+      return '${np.year}-${np.month.toString().padLeft(2, '0')}-${np.day.toString().padLeft(2, '0')} BS';
+    } catch (_) {
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} AD';
+    }
+  }
+
+  /// Formats date with Nepali Month name (e.g., 'Kartik 13, 2083 BS (2026-10-29 AD)')
+  static String formatDescriptiveDualDate(DateTime date) {
+    try {
+      NepaliDateTime np;
+      DateTime ad;
+      if (date.year >= 2070 && date.year <= 2120) {
+        np = NepaliDateTime(date.year, date.month, date.day);
+        ad = NepaliDateHelper.toEnglish(np);
+      } else {
+        ad = date;
+        np = NepaliDateHelper.toNepali(date);
+      }
+      final monthName = (np.month >= 1 && np.month <= 12)
+          ? NepaliDateHelper.nepaliMonthPureEn[np.month - 1]
+          : '${np.month}';
+      final bsStr = '$monthName ${np.day}, ${np.year} BS';
+      final adStr = '${ad.year}-${ad.month.toString().padLeft(2, '0')}-${ad.day.toString().padLeft(2, '0')} AD';
+      return '$bsStr ($adStr)';
+    } catch (_) {
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    }
   }
 
   static String formatNepaliDate(DateTime date) => formatDualCalendarDate(date);

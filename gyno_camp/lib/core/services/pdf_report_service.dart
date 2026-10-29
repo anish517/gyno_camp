@@ -19,6 +19,7 @@ import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
 import 'report_aggregation_service.dart';
 import 'session_service.dart';
+import 'nepali_localization_service.dart';
 
 typedef _NeSpec = ({
   String text,
@@ -1466,8 +1467,8 @@ class PdfReportService {
       final warningAmber = PdfColor.fromHex('B45309');
 
       final visitDateFormatted = visit?.visitDate != null
-          ? 'Visit Date: ${dateFormatter.format(visit!.visitDate)}'
-          : 'Intake Date: ${dateFormatter.format(patient.intakeDate)}';
+          ? 'Visit Date: ${NepaliLocalizationService.formatDualCalendarDate(visit!.visitDate)}'
+          : 'Intake Date: ${NepaliLocalizationService.formatDualCalendarDate(patient.intakeDate)}';
 
       // Interpret Blood Pressure
       String bpStatus = 'N/A';
@@ -1736,7 +1737,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '2. STRUCTURED CLINICAL ANAMNESIS (YELLOW FORM)',
               primaryColor,
-              date: visit?.anamnesisDate != null ? dateFormatter.format(visit!.anamnesisDate!) : null,
+              date: visit?.anamnesisDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.anamnesisDate!) : null,
               dateLabel: 'Anamnesis Date',
             ),
             pw.SizedBox(height: 3),
@@ -1825,7 +1826,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '3. OBSTETRIC HISTORY & GYNECOLOGICAL EXAM',
               primaryColor,
-              date: visit?.examDate != null ? dateFormatter.format(visit!.examDate!) : null,
+              date: visit?.examDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.examDate!) : null,
               dateLabel: 'Exam Date',
             ),
             pw.SizedBox(height: 3),
@@ -1917,7 +1918,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '4. CLINICAL VITALS & SCREENING LABS',
               primaryColor,
-              date: visit?.labTestDate != null ? dateFormatter.format(visit!.labTestDate!) : null,
+              date: visit?.labTestDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.labTestDate!) : null,
               dateLabel: 'Lab Date',
             ),
             pw.SizedBox(height: 3),
@@ -2013,7 +2014,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '5. POP STAGING (PELVIC ORGAN PROLAPSE)',
               primaryColor,
-              date: visit?.conclusionDate != null ? dateFormatter.format(visit!.conclusionDate!) : null,
+              date: visit?.conclusionDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.conclusionDate!) : null,
               dateLabel: 'Conclusion Date',
             ),
             pw.SizedBox(height: 3),
@@ -2070,7 +2071,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '6. CONFIRMED DIAGNOSES & FORMULARY',
               primaryColor,
-              date: visit?.treatmentDate != null ? dateFormatter.format(visit!.treatmentDate!) : null,
+              date: visit?.treatmentDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.treatmentDate!) : null,
               dateLabel: 'Treatment Date',
             ),
             pw.SizedBox(height: 3),
@@ -2127,7 +2128,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '7. CONTINUITY OF CARE & REFERRAL',
               primaryColor,
-              date: visit?.outtakeDate != null ? dateFormatter.format(visit!.outtakeDate!) : null,
+              date: visit?.outtakeDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.outtakeDate!) : null,
               dateLabel: 'Outtake Date',
             ),
             pw.SizedBox(height: 3),
@@ -2666,7 +2667,7 @@ class PdfReportService {
                         ),
                       ),
                       pw.Text(
-                        'Visit Date: $visitDate',
+                        'Visit Date: ${NepaliLocalizationService.formatDualCalendarDate(visit.visitDate)}',
                         style: const pw.TextStyle(
                           fontSize: 7,
                           color: PdfColors.grey600,
@@ -2792,7 +2793,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '2. CHIEF COMPLAINTS & REASONS TO VISIT',
               encounterColor,
-              date: visit.anamnesisDate != null ? dateFormatter.format(visit.anamnesisDate!) : null,
+              date: visit.anamnesisDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.anamnesisDate!) : null,
               dateLabel: 'Anamnesis Date',
             ),
             pw.SizedBox(height: 3),
@@ -2911,7 +2912,7 @@ class PdfReportService {
               _buildPdfSectionHeader(
                 '3. OBSTETRIC HISTORY & EXAMINATION',
                 encounterColor,
-                date: visit.examDate != null ? dateFormatter.format(visit.examDate!) : null,
+                date: visit.examDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.examDate!) : null,
                 dateLabel: 'Exam Date',
               ),
               pw.SizedBox(height: 3),
@@ -3012,7 +3013,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '4. CLINICAL VITALS & SCREENING LABS',
               encounterColor,
-              date: visit.labTestDate != null ? dateFormatter.format(visit.labTestDate!) : null,
+              date: visit.labTestDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.labTestDate!) : null,
               dateLabel: 'Lab Date',
             ),
             pw.SizedBox(height: 3),
@@ -3109,7 +3110,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '5. POP STAGING (पाठेघर खस्ने अवस्था)',
               encounterColor,
-              date: visit.conclusionDate != null ? dateFormatter.format(visit.conclusionDate!) : null,
+              date: visit.conclusionDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.conclusionDate!) : null,
               dateLabel: 'Conclusion Date',
             ),
             pw.SizedBox(height: 3),
@@ -3162,7 +3163,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '6. CONFIRMED DIAGNOSES & TREATMENT',
               encounterColor,
-              date: visit.treatmentDate != null ? dateFormatter.format(visit.treatmentDate!) : null,
+              date: visit.treatmentDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.treatmentDate!) : null,
               dateLabel: 'Treatment Date',
             ),
             pw.SizedBox(height: 3),
@@ -3233,7 +3234,7 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '7. CONTINUITY OF CARE & REFERRAL',
               encounterColor,
-              date: visit.outtakeDate != null ? dateFormatter.format(visit.outtakeDate!) : null,
+              date: visit.outtakeDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.outtakeDate!) : null,
               dateLabel: 'Outtake Date',
             ),
             pw.SizedBox(height: 3),
@@ -8158,7 +8159,7 @@ class PdfReportService {
                               style: const pw.TextStyle(fontSize: 10.5),
                             ),
                             pw.Text(
-                              'Intake Date: ${patient.intakeDate.toString().split(" ")[0]}',
+                              'Intake Date: ${NepaliLocalizationService.formatDualCalendarDate(patient.intakeDate)}',
                               style: const pw.TextStyle(fontSize: 10.5),
                             ),
                           ],
