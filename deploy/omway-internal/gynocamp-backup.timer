@@ -1,0 +1,11 @@
+# /etc/systemd/system/gynocamp-backup.timer  (installed by provision.sh)
+[Unit]
+Description=Nightly GynoCamp database dump
+
+[Timer]
+# 02:00 Nepal time.
+OnCalendar=*-*-* 20:15:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
