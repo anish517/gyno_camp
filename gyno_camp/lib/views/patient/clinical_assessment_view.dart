@@ -1078,7 +1078,9 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
           width: isSelected ? 1.5 : 1.0,
         ),
       ),
-      child: Column(
+      child: Material(
+        color: Colors.transparent,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CheckboxListTile(
@@ -1241,6 +1243,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             ),
           ],
         ],
+      ),
       ),
     );
   }

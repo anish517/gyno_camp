@@ -2474,7 +2474,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             width: isSelected ? 1.5 : 1.0,
                           ),
                         ),
-                        child: Column(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             CheckboxListTile(
@@ -2627,6 +2629,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                               ),
                             ],
                           ],
+                        ),
                         ),
                       );
                     });
@@ -5546,7 +5549,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      child: CheckboxListTile(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: CheckboxListTile(
                         contentPadding: EdgeInsets.zero,
                         dense: true,
                         value: applyToAll,
@@ -5562,6 +5567,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         onChanged: (val) {
                           setDlgState(() => applyToAll = val ?? true);
                         },
+                      ),
                       ),
                     ),
                   ],

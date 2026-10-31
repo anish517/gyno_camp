@@ -2151,7 +2151,9 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-              child: Column(
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2229,6 +2231,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     },
                   ),
                 ],
+              ),
               ),
             ),
           ),
