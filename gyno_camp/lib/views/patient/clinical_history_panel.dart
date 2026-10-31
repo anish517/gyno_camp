@@ -60,7 +60,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
   @override
   Widget build(BuildContext context) {
     final p = _patient;
-    final fmt = DateFormat('dd MMM yyyy, HH:mm');
+    final fmt = DateFormat('dd MMM yyyy');
     final sd = DateFormat('dd MMM yyyy');
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -528,7 +528,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 1. Obstetric History & Pelvic Floor Exam (Station 2)
-                if (v.deliveries != null || v.livingChildren != null || v.abortions != null || v.cervixRemarks != null || v.vaginaRemarks != null || !v.uterusInside) ...[
+                if (v.deliveries != null || v.livingChildren != null || v.abortions != null || v.vulvaRemarks != null || v.cervixRemarks != null || v.vaginaRemarks != null || v.uterusRemarks != null || !v.uterusInside) ...[
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 8),
@@ -561,10 +561,14 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                               v.uterusInside ? 'Uterus: Inside' : 'Uterus: Prolapsed',
                               v.uterusInside ? AppTheme.successGreen : AppTheme.dangerRose,
                             ),
-                            if (v.cervixRemarks?.isNotEmpty == true)
-                              _tb('Cervix: ${v.cervixRemarks}', const Color(0xFF64748B)),
+                            if (v.vulvaRemarks?.isNotEmpty == true)
+                              _tb('Vulva: ${v.vulvaRemarks}', const Color(0xFF64748B)),
                             if (v.vaginaRemarks?.isNotEmpty == true)
                               _tb('Vagina: ${v.vaginaRemarks}', const Color(0xFF64748B)),
+                            if (v.cervixRemarks?.isNotEmpty == true)
+                              _tb('Cervix: ${v.cervixRemarks}', const Color(0xFF64748B)),
+                            if (v.uterusRemarks?.isNotEmpty == true)
+                              _tb('Uterus: ${v.uterusRemarks}', const Color(0xFF64748B)),
                           ],
                         ),
                       ],
@@ -620,7 +624,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                           if (v.glucose != null) _vc('Glucose', '${v.glucose} mg/dL'),
                           if (v.urineTest?.isNotEmpty == true) _vc('Urine', v.urineTest!.toUpperCase()),
                           if (v.pregnancyTest?.isNotEmpty == true) _vc('Pregnancy', v.pregnancyTest!.toUpperCase()),
-                          if (v.ecgNotes?.isNotEmpty == true) _vc('ECG', v.ecgNotes!),
+                          _vc('ECG', v.ecgNotes?.isNotEmpty == true ? v.ecgNotes! : 'Not Done'),
                         ],
                       ),
                     ],
