@@ -13,11 +13,10 @@
 #   DB              database name. Default gynocamp_dev.
 #   RUNNER_SUDOERS  1 = install the sudo rule for a local GitLab runner (dev). Default 1.
 #   BACKUP_BEFORE_DEPLOY  1 = install.sh dumps the database before each deploy. Default 0.
-#   CI_DEPLOY_KEY   optional ssh public key that may run ONLY ssh-deploy.sh (production CI).
 #
 # Dev (omway-internal):  bash provision.sh
 # Production (by IP):    SERVER_NAME=_ PUBLIC_URL=http://213.163.200.92 DB=gynocamp \
-#                        RUNNER_SUDOERS=0 BACKUP_BEFORE_DEPLOY=1 CI_DEPLOY_KEY='ssh-ed25519 ...' bash provision.sh
+#                        RUNNER_SUDOERS=0 BACKUP_BEFORE_DEPLOY=1 bash provision.sh
 #
 # Re-run it whenever a file in deploy/omway-internal/ changes: it is the only thing
 # that updates /srv/gynocamp/deploy, the units, the nginx site and the sudoers rule.
@@ -80,7 +79,7 @@ BACKUP_BEFORE_DEPLOY='$BACKUP_BEFORE_DEPLOY'
 EOF
 
 echo "== deploy scripts -> $APP/deploy"
-install -m 755 -o root -g root "$HERE/install.sh" "$HERE/ci-deploy.sh" "$HERE/ssh-deploy.sh" "$HERE/backup.sh" "$APP/deploy/"
+install -m 755 -o root -g root "$HERE/install.sh" "$HERE/ci-deploy.sh" "$HERE/backup.sh" "$APP/deploy/"
 
 echo "== PostgreSQL role and database"
 if [[ ! -f $APP/gynocamp.env ]]; then
@@ -135,15 +134,6 @@ if [[ $RUNNER_SUDOERS == 1 ]]; then
     echo "== sudoers rule for the GitLab runner"
     install -m 440 -o root -g root "$HERE/sudoers-gitlab-runner-gynocamp" /etc/sudoers.d/gitlab-runner-gynocamp
     visudo -c -q || { rm -f /etc/sudoers.d/gitlab-runner-gynocamp; echo "provision: sudoers check failed, rule removed" >&2; exit 1; }
-fi
-
-if [[ -n ${CI_DEPLOY_KEY:-} ]]; then
-    echo "== CI deploy key (restricted to ssh-deploy.sh)"
-    install -d -m 700 /root/.ssh
-    touch /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys
-    KEYBODY=$(awk '{print $2}' <<<"$CI_DEPLOY_KEY")
-    grep -qF "$KEYBODY" /root/.ssh/authorized_keys \
-        || echo "command=\"$APP/deploy/ssh-deploy.sh\",restrict $CI_DEPLOY_KEY" >> /root/.ssh/authorized_keys
 fi
 
 echo "== provisioned"

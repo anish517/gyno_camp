@@ -43,15 +43,5 @@ sudo -u gitlab-runner -H env CI=true "$FLUTTER_DIR/bin/flutter" config --no-anal
 sudo -u gitlab-runner -H env CI=true "$FLUTTER_DIR/bin/flutter" precache --web --no-android --no-ios --no-linux --no-macos --no-windows --no-fuchsia
 sudo -u gitlab-runner -H "$FLUTTER_DIR/bin/flutter" --version
 
-echo "== production deploy key (used by deploy:production)"
-# The private key never leaves this host. Print the public half and install it on
-# production with provision.sh's CI_DEPLOY_KEY, which restricts it to ssh-deploy.sh.
-PROD_HOST=213.163.200.92
-K=/home/gitlab-runner/.ssh/gynocamp_production
-install -d -m 700 -o gitlab-runner -g gitlab-runner /home/gitlab-runner/.ssh
-[[ -f $K ]] || sudo -u gitlab-runner ssh-keygen -q -t ed25519 -N "" -C "gynocamp-ci@omway-gitlab" -f "$K"
-sudo -u gitlab-runner sh -c "ssh-keyscan -t ed25519 $PROD_HOST > $K""_known_hosts 2>/dev/null"
-echo "   public key: $(cat "$K.pub")"
-
 echo "== runner ready; registered runners:"
 gitlab-runner list 2>&1 | tail -n +2 || true
