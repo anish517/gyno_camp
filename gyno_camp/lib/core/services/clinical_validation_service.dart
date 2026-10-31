@@ -197,10 +197,11 @@ class ClinicalValidationService {
   }) {
     if (deliveries != null && livingChildren != null) {
       if (livingChildren > deliveries) {
+        // Twin/triplet pregnancies: 1 delivery can yield 2+ children — warn, don't block
         return const ValidationResult(
-          severity: ValidationSeverity.error,
-          messageEn: 'Living children count cannot exceed total deliveries.',
-          messageNe: 'जीवित बच्चाको संख्या कुल सुत्केरी संख्या भन्दा बढी हुन सक्दैन।',
+          severity: ValidationSeverity.warning,
+          messageEn: 'Living children exceeds deliveries — verify if twin/multiple pregnancy.',
+          messageNe: 'जीवित बच्चा सुत्केरी भन्दा बढी छ — जुम्ल्याहा/बहु गर्भ भए पुष्टि गर्नुहोस्।',
         );
       }
     }

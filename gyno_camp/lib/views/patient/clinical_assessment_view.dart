@@ -1397,7 +1397,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   controller: _vulvaRemarksController,
                   decoration: const InputDecoration(
                     labelText: 'Vulva Remarks (सामान्य नभएमा कैफियत)',
-                    hintText: 'e.g. Normal, healthy, or ulcer/lesion noted',
+                    hintText: 'e.g. Redness, vesicle, ulcer, lesion, atrophic...',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
                   onChanged: (val) {
@@ -1431,7 +1431,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   controller: _vaginaRemarksController,
                   decoration: const InputDecoration(
                     labelText: 'Vagina Remarks (सामान्य नभएमा कैफियत)',
-                    hintText: 'e.g. Healthy mucosa, mild discharge, or laxity',
+                    hintText: 'e.g. Discharge, cystocele, rectocele, atrophic mucosa...',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
                   onChanged: (val) {
@@ -1465,7 +1465,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   controller: _cervixRemarksController,
                   decoration: const InputDecoration(
                     labelText: 'Cervix Remarks (सामान्य नभएमा कैफियत)',
-                    hintText: 'e.g. Smooth, healthy, or erosion present',
+                    hintText: 'e.g. Erosion, polyp, bleeding on touch, hypertrophy...',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
                   onChanged: (val) {
@@ -1499,7 +1499,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   controller: _uterusRemarksController,
                   decoration: const InputDecoration(
                     labelText: 'Uterus Remarks (पाठेघर सम्बन्धी कैफियत)',
-                    hintText: 'e.g. Normal size, non-tender, freely mobile, or bulky',
+                    hintText: 'e.g. Bulky, tender, fibroid, restricted, retroverted...',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
                   onChanged: (val) {
@@ -1941,7 +1941,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       textInputAction: TextInputAction.done,
                       decoration: const InputDecoration(
                         labelText: 'ECG Findings / Notes (ईसीजी विवरण / कैफियत)',
-                        hintText: 'e.g. Normal sinus rhythm, rate 76 bpm, or abnormal findings',
+                        hintText: 'e.g. Rate 76 bpm, ST changes, arrhythmia details...',
                         prefixIcon: Icon(Icons.edit_note_rounded),
                       ),
                       onChanged: (val) => vm.setVitals(ecgNotes: val.trim().isNotEmpty ? val.trim() : null),
