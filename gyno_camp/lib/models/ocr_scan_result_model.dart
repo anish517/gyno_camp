@@ -89,7 +89,7 @@ class OcrScanResultModel {
       (demographics['patientTokenId'] as String? ?? demographics['patientId'] as String?)?.trim();
 
   /// Effective Anamnesis Date (falls back to intakeDate if not explicitly set)
-  String? get effectiveAnamnesisDate => anamnesisDate;
+  String? get effectiveAnamnesisDate => (anamnesisDate != null && anamnesisDate!.isNotEmpty) ? anamnesisDate : intakeDate;
 
   OcrScanResultModel copyWith({
     int? pageNumber,
@@ -326,7 +326,7 @@ ${page2.rawText}
           : (page2.treatmentLevel ?? page1.treatmentLevel)),
       clinicalNotes: page2.clinicalNotes ?? page1.clinicalNotes,
       intakeDate: harmonizedIntake,
-      anamnesisDate: page1.anamnesisDate ?? page2.anamnesisDate,
+      anamnesisDate: page1.effectiveAnamnesisDate ?? page1.anamnesisDate ?? page1.intakeDate ?? page2.anamnesisDate ?? harmonizedIntake,
       examDate: page2.examDate ?? page1.examDate,
       treatmentDate: page2.treatmentDate ?? page1.treatmentDate,
       conclusionDate: page2.conclusionDate ?? page1.conclusionDate,

@@ -570,7 +570,7 @@ class OcrRepository implements IOcrRepository {
       campId: campId,
       tenantId: registeredPatient.tenantId,
       visitDate: parsedVisit,
-      anamnesisDate: parseDateOrNull(verifiedScan.anamnesisDate ?? demo['anamnesisDate'] as String?),
+      anamnesisDate: parseDateOrNull(verifiedScan.effectiveAnamnesisDate ?? verifiedScan.anamnesisDate ?? demo['anamnesisDate'] as String? ?? verifiedScan.intakeDate ?? demo['intakeDate'] as String? ?? demo['date'] as String?),
       examDate: parseDateOrNull(verifiedScan.examDate),
       labTestDate: parseDateOrNull(verifiedScan.labTestDate),
       conclusionDate: parseDateOrNull(verifiedScan.conclusionDate),

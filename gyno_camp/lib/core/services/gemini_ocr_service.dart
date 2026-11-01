@@ -622,6 +622,9 @@ class GeminiOcrService {
 
     // Extract station dates from Gemini response
     String? intakeDate = _extractDate(parsedData['intakeDate'] ?? parsedData['anamnesisDate'] ?? parsedData['date']);
+    String? anamnesisDate = _extractDate(parsedData['anamnesisDate'] ?? parsedData['intakeDate'] ?? parsedData['date']);
+    intakeDate ??= anamnesisDate;
+    anamnesisDate ??= intakeDate;
     String? examDate = _extractDate(parsedData['examDate']);
     String? labTestDate = _extractDate(parsedData['labTestDate']);
     String? conclusionDate = _extractDate(parsedData['conclusionDate']);
@@ -652,6 +655,9 @@ class GeminiOcrService {
       demographics['intakeDate'] = intakeDate;
       demographics['date'] = intakeDate;
       buffer.writeln('Date: $intakeDate BS');
+    }
+    if (anamnesisDate != null && anamnesisDate.isNotEmpty) {
+      demographics['anamnesisDate'] = anamnesisDate;
     }
 
     // Extract clinical notes from Station 6
@@ -689,6 +695,7 @@ class GeminiOcrService {
       treatmentLevel: treatmentLevel,
       clinicalNotes: clinicalNotes,
       intakeDate: intakeDate,
+      anamnesisDate: anamnesisDate,
       examDate: examDate,
       labTestDate: labTestDate,
       conclusionDate: conclusionDate,

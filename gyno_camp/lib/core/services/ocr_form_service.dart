@@ -1715,15 +1715,17 @@ class OcrFormService {
       return null;
     }
 
-    final anamnesisDate = extractDateForLabel(['anamnesis date:', 'anamnesis date', 'विगत मिति']);
+    final rawAnamnesisDate = extractDateForLabel(['anamnesis date:', 'anamnesis date', 'विगत मिति']);
     final parsedIntakeDate = extractDateForLabel(['intake date:', 'intake date', 'registration date:', 'registration date', 'दर्ता मिति:', 'दर्ता मिति', 'date:', 'date', 'मिति:', 'मिति']) ??
         RegExp(r'\b([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}(?:\s*BS)?)\b', caseSensitive: false).firstMatch(text)?.group(1);
-    if (parsedIntakeDate != null && parsedIntakeDate.isNotEmpty) {
-      demographics['intakeDate'] = parsedIntakeDate.trim();
-      demographics['date'] = parsedIntakeDate.trim();
+    final effectiveIntake = parsedIntakeDate?.trim() ?? rawAnamnesisDate?.trim();
+    final effectiveAnamnesis = rawAnamnesisDate?.trim() ?? parsedIntakeDate?.trim();
+    if (effectiveIntake != null && effectiveIntake.isNotEmpty) {
+      demographics['intakeDate'] = effectiveIntake;
+      demographics['date'] = effectiveIntake;
     }
-    if (anamnesisDate != null && anamnesisDate.isNotEmpty) {
-      demographics['anamnesisDate'] = anamnesisDate.trim();
+    if (effectiveAnamnesis != null && effectiveAnamnesis.isNotEmpty) {
+      demographics['anamnesisDate'] = effectiveAnamnesis;
     }
     final examDate = extractDateForLabel(['examination date:', 'exam date:', 'examination date', 'exam date', 'जाँच मिति']);
     final labTestDate = extractDateForLabel(['lab test date:', 'lab test date', 'प्रयोगशाला मिति']);
@@ -1755,8 +1757,8 @@ class OcrFormService {
       attendingNurses: attendingNurses,
       treatmentLevel: PatientModel.normalizeTreatmentLevel(treatmentLevel),
       clinicalNotes: clinicalNotes,
-      intakeDate: parsedIntakeDate?.trim(),
-      anamnesisDate: anamnesisDate?.trim(),
+      intakeDate: effectiveIntake,
+      anamnesisDate: effectiveAnamnesis,
       examDate: examDate?.trim(),
       treatmentDate: treatmentDate,
       conclusionDate: conclusionDate,
