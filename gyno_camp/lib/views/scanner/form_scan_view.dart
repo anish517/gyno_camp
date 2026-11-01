@@ -1,8 +1,10 @@
 import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nepali_utils/nepali_utils.dart';
+
 import '../../core/constants/clinical_constants.dart';
 import '../../core/constants/nepal_geodata.dart';
 import '../../core/services/clinical_validation_service.dart';
@@ -53,12 +55,15 @@ class FormScanView extends ConsumerStatefulWidget {
   ConsumerState<FormScanView> createState() => _FormScanViewState();
 }
 
-class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerProviderStateMixin {
+class _FormScanViewState extends ConsumerState<FormScanView>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   // Tracks per-field verification: true=correct, false=incorrect, null=not yet reviewed
   final Map<String, bool?> _verifyMap = {};
-  final TextEditingController _customDiagnosisController = TextEditingController();
-  final TextEditingController _customMedicationController = TextEditingController();
+  final TextEditingController _customDiagnosisController =
+      TextEditingController();
+  final TextEditingController _customMedicationController =
+      TextEditingController();
 
   @override
   void initState() {
@@ -93,8 +98,23 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Scan & Auto-Fill (फाराम स्क्यान)', style: TextStyle(fontSize: 17.5, fontWeight: FontWeight.w800, color: Color(0xFF1E0A38), letterSpacing: -0.3)),
-            Text('OCR & OMR Split-Screen Verification', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+            Text(
+              'Scan & Auto-Fill (फाराम स्क्यान)',
+              style: TextStyle(
+                fontSize: 17.5,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1E0A38),
+                letterSpacing: -0.3,
+              ),
+            ),
+            Text(
+              'OCR & OMR Split-Screen Verification',
+              style: TextStyle(
+                fontSize: 11,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -104,9 +124,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             icon: const Icon(Icons.document_scanner),
             onSelected: (sample) => ocrVm.loadSample(sample),
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'full', child: Text('📄 Complete 2-Page Yellow Form')),
-              const PopupMenuItem(value: 'page1', child: Text('📋 Page 1: Demographics & History')),
-              const PopupMenuItem(value: 'page2', child: Text('🩺 Page 2: POP Exam & Vitals')),
+              const PopupMenuItem(
+                value: 'full',
+                child: Text('📄 Complete 2-Page Yellow Form'),
+              ),
+              const PopupMenuItem(
+                value: 'page1',
+                child: Text('📋 Page 1: Demographics & History'),
+              ),
+              const PopupMenuItem(
+                value: 'page2',
+                child: Text('🩺 Page 2: POP Exam & Vitals'),
+              ),
             ],
           ),
           if (ocrState.hasScanResult)
@@ -131,41 +160,60 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   SizedBox(height: 6),
                   Text(
                     'Extracting demographics, OMR checkboxes, vitals and diagnoses',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                 ],
               ),
             )
           : !ocrState.hasScanResult
-              ? _buildCapturePrompt(context, ocrVm)
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isWideScreen = constraints.maxWidth >= 850;
-                    if (isWideScreen) {
-                      return Row(
-                        children: [
-                          Expanded(
-                            flex: 4,
-                            child: _buildDocumentPreviewPane(ocrState),
-                          ),
-                          const VerticalDivider(width: 1),
-                          Expanded(
-                            flex: 6,
-                            child: _buildDigitalVerificationPane(context, ref, ocrState, ocrVm, campState, authState, deviceState),
-                          ),
-                        ],
-                      );
-                    } else {
-                      return Column(
-                        children: [
-                          Expanded(
-                            child: _buildDigitalVerificationPane(context, ref, ocrState, ocrVm, campState, authState, deviceState),
-                          ),
-                        ],
-                      );
-                    }
-                  },
-                ),
+          ? _buildCapturePrompt(context, ocrVm)
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final isWideScreen = constraints.maxWidth >= 850;
+                if (isWideScreen) {
+                  return Row(
+                    children: [
+                      Expanded(
+                        flex: 4,
+                        child: _buildDocumentPreviewPane(ocrState),
+                      ),
+                      const VerticalDivider(width: 1),
+                      Expanded(
+                        flex: 6,
+                        child: _buildDigitalVerificationPane(
+                          context,
+                          ref,
+                          ocrState,
+                          ocrVm,
+                          campState,
+                          authState,
+                          deviceState,
+                        ),
+                      ),
+                    ],
+                  );
+                } else {
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: _buildDigitalVerificationPane(
+                          context,
+                          ref,
+                          ocrState,
+                          ocrVm,
+                          campState,
+                          authState,
+                          deviceState,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
+            ),
     );
   }
 
@@ -179,7 +227,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
 
     return Center(
       child: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: isCompact ? 16.0 : 24.0, vertical: isCompact ? 16.0 : 24.0),
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? 16.0 : 24.0,
+          vertical: isCompact ? 16.0 : 24.0,
+        ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 880),
           child: Column(
@@ -187,26 +238,37 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             children: [
               // Header Badge: MoHP Nepal Standard & Engine Mode
               Container(
-                padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 16, vertical: isCompact ? 6 : 7),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isCompact ? 12 : 16,
+                  vertical: isCompact ? 6 : 7,
+                ),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryTeal.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppTheme.primaryTeal.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.verified_user_outlined, color: AppTheme.primaryTeal, size: 16),
+                    const Icon(
+                      Icons.verified_user_outlined,
+                      color: AppTheme.primaryTeal,
+                      size: 16,
+                    ),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
                         ocrState.engineMode == OcrEngineMode.onlineGemini
-                            ? (isCompact ? 'GEMINI CLOUD OCR' : 'GEMINI FLASH AI MULTIMODAL CLOUD OCR')
+                            ? (isCompact
+                                  ? 'GEMINI CLOUD OCR'
+                                  : 'GEMINI FLASH AI MULTIMODAL CLOUD OCR')
                             : (ocrState.engineMode == OcrEngineMode.offlineOnly
-                                ? 'OFFLINE ON-DEVICE ML KIT OCR'
-                                : (isCompact
-                                    ? 'INTELLIGENT DUAL OCR (CLOUD + OFFLINE)'
-                                    : 'INTELLIGENT DUAL OCR (GEMINI CLOUD + OFFLINE ML KIT)')),
+                                  ? 'OFFLINE ON-DEVICE ML KIT OCR'
+                                  : (isCompact
+                                        ? 'INTELLIGENT DUAL OCR (CLOUD + OFFLINE)'
+                                        : 'INTELLIGENT DUAL OCR (GEMINI CLOUD + OFFLINE ML KIT)')),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: isCompact ? 10.5 : 11.5,
@@ -223,13 +285,21 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               Text(
                 'Scan & Auto-Fill Yellow Form',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: isCompact ? 20 : 24, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                style: TextStyle(
+                  fontSize: isCompact ? 20 : 24,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
               ),
               const SizedBox(height: 8),
               const Text(
                 'Capture both Page 1 (Front: Demographics & Anamnesis) and Page 2 (Back: POP Staging & Treatment).\nThe clinical intake engine will parse and merge both sides into a unified electronic record.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondaryLight, height: 1.45),
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: AppTheme.textSecondaryLight,
+                  height: 1.45,
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -240,15 +310,25 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               // Instruction Banner: Block Letters for Scan Accuracy
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 11,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF93C5FD), width: 1.2),
+                  border: Border.all(
+                    color: const Color(0xFF93C5FD),
+                    width: 1.2,
+                  ),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.edit_note_rounded, color: Color(0xFF1D4ED8), size: 22),
+                    Icon(
+                      Icons.edit_note_rounded,
+                      color: Color(0xFF1D4ED8),
+                      size: 22,
+                    ),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -309,11 +389,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     );
                   } else {
                     return Column(
-                      children: [
-                        slot1,
-                        const SizedBox(height: 16),
-                        slot2,
-                      ],
+                      children: [slot1, const SizedBox(height: 16), slot2],
                     );
                   }
                 },
@@ -329,7 +405,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       backgroundColor: AppTheme.primaryTeal,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       elevation: 2,
                     ),
                     icon: const Icon(Icons.fact_check_outlined, size: 22),
@@ -337,9 +415,12 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ocrState.isDualReady
                           ? 'Review & Verify Complete Dual-Page Intake (दुवै पाना रुजु गर्नुहोस्)'
                           : (ocrState.hasPage1
-                              ? 'Review Page 1 (Front) Only & Fill Page 2 Manually'
-                              : 'Review Page 2 (Back) Only & Fill Page 1 Manually'),
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                ? 'Review Page 1 (Front) Only & Fill Page 2 Manually'
+                                : 'Review Page 2 (Back) Only & Fill Page 1 Manually'),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -353,7 +434,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     ocrState.hasPage1
                         ? 'Tip: You can upload Page 2 into Slot 2 above for complete 2-page extraction.'
                         : 'Tip: You can upload Page 1 into Slot 1 above for complete 2-page extraction.',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight, fontStyle: FontStyle.italic),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondaryLight,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -369,30 +454,58 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.primaryTeal,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     icon: const Icon(Icons.document_scanner_outlined, size: 18),
-                    label: const Text('Scan Both Pages (Edge Detect & OMR)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      'Scan Both Pages (Edge Detect & OMR)',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     onPressed: () => ocrVm.scanBothPagesWithDocumentScanner(),
                   ),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                    icon: const Icon(Icons.photo_library_outlined, size: 18, color: AppTheme.primaryTeal),
-                    label: const Text('Select Both Images at Once (Multi-Select)', style: TextStyle(fontWeight: FontWeight.w600)),
+                    icon: const Icon(
+                      Icons.photo_library_outlined,
+                      size: 18,
+                      color: AppTheme.primaryTeal,
+                    ),
+                    label: const Text(
+                      'Select Both Images at Once (Multi-Select)',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     onPressed: () => ocrVm.pickBothPages(),
                   ),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       foregroundColor: Colors.indigo.shade800,
                     ),
                     icon: const Icon(Icons.assignment_outlined, size: 18),
-                    label: const Text('Load Complete 2-Page Template', style: TextStyle(fontWeight: FontWeight.w600)),
+                    label: const Text(
+                      'Load Complete 2-Page Template',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     onPressed: () => ocrVm.loadSample('full'),
                   ),
                 ],
@@ -415,12 +528,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.info_outline, size: 18, color: AppTheme.primaryTeal),
+                            Icon(
+                              Icons.info_outline,
+                              size: 18,
+                              color: AppTheme.primaryTeal,
+                            ),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Clinical Quality Standards & Digitization Protocols',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryDark),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppTheme.primaryDark,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -504,7 +625,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     );
   }
 
-  Widget _buildGuidelineBullet({required IconData icon, required String title, required String desc}) {
+  Widget _buildGuidelineBullet({
+    required IconData icon,
+    required String title,
+    required String desc,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -514,8 +639,21 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
-              Text(desc, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              Text(
+                desc,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondaryLight,
+                ),
+              ),
             ],
           ),
         ),
@@ -547,19 +685,30 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             children: [
               Row(
                 children: [
-                  const Icon(Icons.settings_suggest_outlined, size: 18, color: AppTheme.primaryTeal),
+                  const Icon(
+                    Icons.settings_suggest_outlined,
+                    size: 18,
+                    color: AppTheme.primaryTeal,
+                  ),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
                       'OCR Detection Engine (अप्टिकल पहिचान इन्जिन):',
-                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryDark,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (ocrState.engineMode == OcrEngineMode.auto) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2.5,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.green.shade50,
                         borderRadius: BorderRadius.circular(10),
@@ -567,7 +716,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       child: const Text(
                         '⚡ Recommended',
-                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.green),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
                       ),
                     ),
                   ],
@@ -576,28 +729,43 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               const SizedBox(height: 10),
               if (isCompact) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.primaryTeal.withValues(alpha: 0.06),
-                    border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: AppTheme.primaryTeal.withValues(alpha: 0.3),
+                    ),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<OcrEngineMode>(
                       isExpanded: true,
                       value: ocrState.engineMode,
-                      icon: const Icon(Icons.arrow_drop_down, color: AppTheme.primaryTeal),
+                      icon: const Icon(
+                        Icons.arrow_drop_down,
+                        color: AppTheme.primaryTeal,
+                      ),
                       items: const [
                         DropdownMenuItem(
                           value: OcrEngineMode.auto,
                           child: Row(
                             children: [
-                              Icon(Icons.bolt, size: 16, color: AppTheme.primaryTeal),
+                              Icon(
+                                Icons.bolt,
+                                size: 16,
+                                color: AppTheme.primaryTeal,
+                              ),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   '⚡ Auto (Cloud + Offline)',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -608,12 +776,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           value: OcrEngineMode.onlineGemini,
                           child: Row(
                             children: [
-                              Icon(Icons.auto_awesome, size: 16, color: Colors.indigo),
+                              Icon(
+                                Icons.auto_awesome,
+                                size: 16,
+                                color: Colors.indigo,
+                              ),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   '✨ Gemini AI (Cloud)',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -624,12 +799,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           value: OcrEngineMode.offlineOnly,
                           child: Row(
                             children: [
-                              Icon(Icons.phone_android, size: 16, color: Colors.teal),
+                              Icon(
+                                Icons.phone_android,
+                                size: 16,
+                                color: Colors.teal,
+                              ),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   '📱 ML Kit (Offline)',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -651,17 +833,26 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     ButtonSegment<OcrEngineMode>(
                       value: OcrEngineMode.auto,
                       icon: Icon(Icons.bolt, size: 15),
-                      label: Text('⚡ Auto (Cloud + Offline)', style: TextStyle(fontSize: 11.5)),
+                      label: Text(
+                        '⚡ Auto (Cloud + Offline)',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
                     ),
                     ButtonSegment<OcrEngineMode>(
                       value: OcrEngineMode.onlineGemini,
                       icon: Icon(Icons.auto_awesome, size: 15),
-                      label: Text('✨ Gemini AI (Cloud)', style: TextStyle(fontSize: 11.5)),
+                      label: Text(
+                        '✨ Gemini AI (Cloud)',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
                     ),
                     ButtonSegment<OcrEngineMode>(
                       value: OcrEngineMode.offlineOnly,
                       icon: Icon(Icons.phone_android, size: 15),
-                      label: Text('📱 ML Kit (Offline)', style: TextStyle(fontSize: 11.5)),
+                      label: Text(
+                        '📱 ML Kit (Offline)',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
                     ),
                   ],
                   selected: {ocrState.engineMode},
@@ -669,7 +860,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     ocrVm.setEngineMode(newSelection.first);
                   },
                   style: SegmentedButton.styleFrom(
-                    selectedBackgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.15),
+                    selectedBackgroundColor: AppTheme.primaryTeal.withValues(
+                      alpha: 0.15,
+                    ),
                     selectedForegroundColor: AppTheme.primaryTeal,
                     textStyle: const TextStyle(fontWeight: FontWeight.w600),
                   ),
@@ -696,7 +889,14 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           children: [
             Icon(Icons.auto_awesome, size: 11, color: Colors.indigo.shade700),
             const SizedBox(width: 4),
-            Text('Gemini AI', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.indigo.shade800)),
+            Text(
+              'Gemini AI',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo.shade800,
+              ),
+            ),
           ],
         ),
       );
@@ -713,7 +913,14 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           children: [
             Icon(Icons.phone_android, size: 11, color: Colors.teal.shade700),
             const SizedBox(width: 4),
-            Text('ML Kit Offline', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.teal.shade800)),
+            Text(
+              'ML Kit Offline',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.teal.shade800,
+              ),
+            ),
           ],
         ),
       );
@@ -730,7 +937,14 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           children: [
             Icon(Icons.info_outline, size: 11, color: Colors.amber.shade800),
             const SizedBox(width: 4),
-            Text('Simulation', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber.shade900)),
+            Text(
+              'Simulation',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.amber.shade900,
+              ),
+            ),
           ],
         ),
       );
@@ -771,11 +985,15 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     children: [
                       CircleAvatar(
                         radius: 14,
-                        backgroundColor: isCaptured ? AppTheme.primaryTeal : Colors.blueGrey.shade100,
+                        backgroundColor: isCaptured
+                            ? AppTheme.primaryTeal
+                            : Colors.blueGrey.shade100,
                         child: Text(
                           '$pageNumber',
                           style: TextStyle(
-                            color: isCaptured ? Colors.white : Colors.blueGrey.shade800,
+                            color: isCaptured
+                                ? Colors.white
+                                : Colors.blueGrey.shade800,
                             fontSize: 12.5,
                             fontWeight: FontWeight.bold,
                           ),
@@ -785,7 +1003,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       Expanded(
                         child: Text(
                           title,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14.5,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -802,7 +1023,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         const SizedBox(width: 6),
                       ],
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.successGreen.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(14),
@@ -810,9 +1034,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.check_circle, size: 14, color: AppTheme.successGreen),
+                            Icon(
+                              Icons.check_circle,
+                              size: 14,
+                              color: AppTheme.successGreen,
+                            ),
                             SizedBox(width: 4),
-                            Text('Ready', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.successGreen)),
+                            Text(
+                              'Ready',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.successGreen,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -820,17 +1055,33 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   )
                 else
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text('Slot Empty', style: TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                    child: const Text(
+                      'Slot Empty',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.blueGrey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
               ],
             ),
             const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight)),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondaryLight,
+              ),
+            ),
             const SizedBox(height: 14),
 
             // If captured, show summary & clear button
@@ -841,16 +1092,26 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 decoration: BoxDecoration(
                   color: AppTheme.primaryLight.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
+                  border: Border.all(
+                    color: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.assignment_turned_in_outlined, size: 18, color: AppTheme.primaryTeal),
+                    const Icon(
+                      Icons.assignment_turned_in_outlined,
+                      size: 18,
+                      color: AppTheme.primaryTeal,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         summaryText,
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryDark,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -877,10 +1138,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     child: FilledButton.tonalIcon(
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       icon: const Icon(Icons.camera_alt, size: 16),
-                      label: const Text('Scan Camera', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      label: const Text(
+                        'Scan Camera',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       onPressed: onCamera,
                     ),
                   ),
@@ -889,10 +1160,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       icon: const Icon(Icons.file_upload_outlined, size: 16),
-                      label: const Text('Upload File', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      label: const Text(
+                        'Upload File',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       onPressed: onGallery,
                     ),
                   ),
@@ -905,22 +1186,34 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   icon: const Icon(Icons.file_upload_outlined, size: 16),
-                  label: const Text('Upload Image File', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  label: const Text(
+                    'Upload Image File',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   onPressed: onGallery,
                 ),
               ),
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(Icons.info_outline, size: 13, color: Colors.blueGrey),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 13,
+                    color: Colors.blueGrey,
+                  ),
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
                       'Camera capture is only available on Android / iOS',
-                      style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade500),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.blueGrey.shade500,
+                      ),
                     ),
                   ),
                 ],
@@ -938,10 +1231,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
   Widget _buildDocumentPreviewPane(OcrScanState ocrState) {
     final result = ocrState.scanResult!;
     final activePage = ocrState.activeInspectionPage;
-    final isDual = result.isDualPage || (ocrState.hasPage1 && ocrState.hasPage2);
+    final isDual =
+        result.isDualPage || (ocrState.hasPage1 && ocrState.hasPage2);
 
     final rawTextToShow = isDual
-        ? (activePage == 1 ? (result.page1RawText ?? result.rawText) : (result.page2RawText ?? result.rawText))
+        ? (activePage == 1
+              ? (result.page1RawText ?? result.rawText)
+              : (result.page2RawText ?? result.rawText))
         : result.rawText;
 
     return Container(
@@ -956,12 +1252,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               const Expanded(
                 child: Row(
                   children: [
-                    Icon(Icons.image_search, color: AppTheme.primaryDark, size: 20),
+                    Icon(
+                      Icons.image_search,
+                      color: AppTheme.primaryDark,
+                      size: 20,
+                    ),
                     SizedBox(width: 8),
                     Flexible(
                       child: Text(
                         'Document Scan Inspection',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -973,7 +1276,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 visualDensity: VisualDensity.compact,
                 label: Text(
                   '${(result.overallConfidence * 100).toInt()}% Match',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
                 ),
                 backgroundColor: AppTheme.successGreen.withValues(alpha: 0.15),
               ),
@@ -987,19 +1293,35 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               children: [
                 Expanded(
                   child: ChoiceChip(
-                    label: const Text('📄 Page 1 (Front: Demographics)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      '📄 Page 1 (Front: Demographics)',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     selected: activePage == 1,
                     selectedColor: AppTheme.primaryLight,
-                    onSelected: (_) => ref.read(ocrScanProvider.notifier).switchInspectionPage(1),
+                    onSelected: (_) => ref
+                        .read(ocrScanProvider.notifier)
+                        .switchInspectionPage(1),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ChoiceChip(
-                    label: const Text('🩺 Page 2 (Back: POP & Vitals)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      '🩺 Page 2 (Back: POP & Vitals)',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     selected: activePage == 2,
                     selectedColor: AppTheme.primaryLight,
-                    onSelected: (_) => ref.read(ocrScanProvider.notifier).switchInspectionPage(2),
+                    onSelected: (_) => ref
+                        .read(ocrScanProvider.notifier)
+                        .switchInspectionPage(2),
                   ),
                 ),
               ],
@@ -1014,7 +1336,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.amber.shade300),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                  ),
                 ],
               ),
               padding: const EdgeInsets.all(16.0),
@@ -1023,7 +1348,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.amber.shade700,
                         borderRadius: BorderRadius.circular(4),
@@ -1032,7 +1360,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         isDual
                             ? 'PAGE $activePage OCR STREAM & METRICS CROP'
                             : 'PAPER FORM OCR STREAM CROP',
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -1080,7 +1412,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -1125,7 +1461,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               return Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.primaryDark),
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: AppTheme.primaryDark,
+                    ),
                     tooltip: 'Return to Document Upload Slots',
                     onPressed: () => ocrVm.returnToCaptureSlots(),
                   ),
@@ -1137,7 +1476,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         Text(
                           ocrState.isDualReady || result.isDualPage
                               ? 'Dual-Page Verification (दुवै पाना रुजु गर्नुहोस्)'
-                              : (ocrState.hasPage1 ? 'Page 1 Verification (Front Page)' : 'Page 2 Verification (Back Page)'),
+                              : (ocrState.hasPage1
+                                    ? 'Page 1 Verification (Front Page)'
+                                    : 'Page 2 Verification (Back Page)'),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: isNarrow ? 12.5 : 13.5,
@@ -1153,7 +1494,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           children: [
                             Text(
                               'AI Digitization: ${(result.overallConfidence * 100).toInt()}% Confidence',
-                              style: TextStyle(fontSize: isNarrow ? 10 : 11, color: AppTheme.textSecondaryLight),
+                              style: TextStyle(
+                                fontSize: isNarrow ? 10 : 11,
+                                color: AppTheme.textSecondaryLight,
+                              ),
                             ),
                             _buildEngineBadge(result.ocrEngine),
                           ],
@@ -1165,11 +1509,17 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         visualDensity: VisualDensity.compact,
                       ),
                       icon: const Icon(Icons.file_upload_outlined, size: 14),
-                      label: const Text('Capture Slots', style: TextStyle(fontSize: 11)),
+                      label: const Text(
+                        'Capture Slots',
+                        style: TextStyle(fontSize: 11),
+                      ),
                       onPressed: () => ocrVm.returnToCaptureSlots(),
                     ),
                   ],
@@ -1240,12 +1590,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
                       : const Icon(Icons.check_circle_outline),
                   label: Text(
                     ocrState.isSaving ? 'Committing Record...' : 'Verify & Commit to Camp Database (दर्ता सम्पन्न गर्नुहोस्)',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -1256,7 +1612,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           final activeCamp = campState.activeCamp;
                           if (activeCamp == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please open or select an active camp first!')),
+                              const SnackBar(
+                                content: Text(
+                                  'Please open or select an active camp first!',
+                                ),
+                              ),
                             );
                             return;
                           }
@@ -1265,12 +1625,24 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             final proceed = await showDialog<bool>(
                               context: context,
                               builder: (ctx) => AlertDialog(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
                                 title: const Row(
                                   children: [
-                                    Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
+                                    Icon(
+                                      Icons.warning_amber_rounded,
+                                      color: Colors.amber,
+                                      size: 28,
+                                    ),
                                     SizedBox(width: 10),
-                                    Text('Duplicate Warning', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    Text(
+                                      'Duplicate Warning',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 content: Text(
@@ -1296,29 +1668,48 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             if (proceed != true) return;
                           }
 
-                          final resultDoc = ocrState.scanResult?.examiningDoctor ??
+                          final resultDoc =
+                              ocrState.scanResult?.examiningDoctor ??
                               (activeCamp.doctorNames.length == 1
                                   ? activeCamp.doctorNames.first
-                                  : (activeCamp.doctorName.trim().isNotEmpty ? activeCamp.doctorName.trim() : null));
-                          final List<String> resultAttendingDoctors = ocrState.scanResult?.attendingDoctors.isNotEmpty == true
+                                  : (activeCamp.doctorName.trim().isNotEmpty
+                                        ? activeCamp.doctorName.trim()
+                                        : null));
+                          final List<String> resultAttendingDoctors =
+                              ocrState
+                                      .scanResult
+                                      ?.attendingDoctors
+                                      .isNotEmpty ==
+                                  true
                               ? ocrState.scanResult!.attendingDoctors
-                              : (resultDoc != null ? [resultDoc] : const <String>[]);
+                              : (resultDoc != null
+                                    ? [resultDoc]
+                                    : const <String>[]);
 
-                          final resultNurse = ocrState.scanResult?.examiningNurse ??
+                          final resultNurse =
+                              ocrState.scanResult?.examiningNurse ??
                               (activeCamp.nurseProfiles.length == 1
                                   ? activeCamp.nurseProfiles.first.displayName
                                   : null);
-                          final List<String> resultAttendingNurses = ocrState.scanResult?.attendingNurses.isNotEmpty == true
+                          final List<String> resultAttendingNurses =
+                              ocrState.scanResult?.attendingNurses.isNotEmpty ==
+                                  true
                               ? ocrState.scanResult!.attendingNurses
-                              : (resultNurse != null ? [resultNurse] : const <String>[]);
+                              : (resultNurse != null
+                                    ? [resultNurse]
+                                    : const <String>[]);
 
                           final savedPatient = await ocrVm.confirmAndCommit(
                             campId: activeCamp.id,
                             campCode: activeCamp.campCode,
                             userId: authState.currentUser?.id ?? 'usr-local',
-                            userName: authState.currentUser?.name ?? 'Field Staff',
-                            userRole: authState.currentUser?.role.toString() ?? 'DataTaker',
-                            deviceId: deviceState.device?.deviceId ?? 'dev-local',
+                            userName:
+                                authState.currentUser?.name ?? 'Field Staff',
+                            userRole:
+                                authState.currentUser?.role.toString() ??
+                                'DataTaker',
+                            deviceId:
+                                deviceState.device?.deviceId ?? 'dev-local',
                             primaryDoctorName: resultDoc,
                             attendingDoctorNames: resultAttendingDoctors,
                             primaryNurseName: resultNurse,
@@ -1327,12 +1718,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
 
                           if (savedPatient != null && context.mounted) {
                             ref.read(campStateProvider.notifier).loadCamps();
-                            ref.read(patientListProvider.notifier).loadPatients(activeCamp.id);
+                            ref
+                                .read(patientListProvider.notifier)
+                                .loadPatients(activeCamp.id);
                             _showSuccessDialog(context, savedPatient);
                           } else if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(ocrState.errorMessage ?? 'Failed to commit scanned form. Please verify required fields.'),
+                                content: Text(
+                                  ocrState.errorMessage ?? 'Failed to commit scanned form. Please verify required fields.',
+                                ),
                                 backgroundColor: Colors.red[700],
                               ),
                             );
@@ -1365,7 +1760,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     final districtList = NepalGeodata.districtsFor(validProvince);
     final rawDist = demo['district']?.toString().trim() ?? '';
     final validDistrict = districtList.firstWhere(
-      (d) => d.toLowerCase() == rawDist.toLowerCase() || rawDist.toLowerCase().contains(d.toLowerCase()),
+      (d) =>
+          d.toLowerCase() == rawDist.toLowerCase() ||
+          rawDist.toLowerCase().contains(d.toLowerCase()),
       orElse: () {
         for (final d in NepalGeodata.allDistricts) {
           if (d.toLowerCase() == rawDist.toLowerCase()) return d;
@@ -1391,7 +1788,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 24),
+                  const Icon(
+                    Icons.error_outline,
+                    color: Color(0xFFDC2626),
+                    size: 24,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -1399,22 +1800,40 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       children: [
                         const Text(
                           'TOKEN ID CONFLICT (टोकन नं. दोहोरिएको छ)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF991B1B)),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                            color: Color(0xFF991B1B),
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          ocrState.patientIdConflictReason ?? 'This Patient Token ID is already registered.',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D)),
+                          ocrState.patientIdConflictReason ??
+                              'This Patient Token ID is already registered.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF7F1D1D),
+                          ),
                         ),
                       ],
                     ),
                   ),
                   TextButton.icon(
-                    style: TextButton.styleFrom(foregroundColor: AppTheme.primaryPurple),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.primaryPurple,
+                    ),
                     icon: const Icon(Icons.autorenew, size: 16),
-                    label: const Text('Auto-Generate', style: TextStyle(fontSize: 11)),
+                    label: const Text(
+                      'Auto-Generate',
+                      style: TextStyle(fontSize: 11),
+                    ),
                     onPressed: () {
-                      vm.updateDemographic('patientId', '', campId: campId, campCode: campCode);
+                      vm.updateDemographic(
+                        'patientId',
+                        '',
+                        campId: campId,
+                        campCode: campCode,
+                      );
                     },
                   ),
                 ],
@@ -1435,7 +1854,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 26),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 26,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -1443,23 +1866,36 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       children: [
                         const Text(
                           'DUPLICATE REGISTRY DETECTED (दोहोरिएको बिरामी रेकर्ड)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF991B1B)),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Color(0xFF991B1B),
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           ocrState.duplicateResult.matchReasonEn ?? 'A patient with matching credentials already exists in this camp.',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D)),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF7F1D1D),
+                          ),
                         ),
                         if (ocrState.duplicateResult.matchReasonNe != null) ...[
                           const SizedBox(height: 2),
                           Text(
                             ocrState.duplicateResult.matchReasonNe!,
-                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF991B1B)),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF991B1B),
+                            ),
                           ),
                         ],
                         const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(6),
@@ -1467,7 +1903,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           ),
                           child: Text(
                             'Existing Record: ${ocrState.duplicateResult.matchedPatient?.fullName} • ID: ${ocrState.duplicateResult.matchedPatient?.patientId} (Ward ${ocrState.duplicateResult.matchedPatient?.ward})',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF991B1B)),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11.5,
+                              color: Color(0xFF991B1B),
+                            ),
                           ),
                         ),
                       ],
@@ -1478,7 +1918,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ),
           ],
 
-          if (!result.isDualPage && (demo.isEmpty || demo['firstName'] == null)) ...[
+          if (!result.isDualPage &&
+              (demo.isEmpty || demo['firstName'] == null)) ...[
             Container(
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.all(12),
@@ -1523,26 +1964,47 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   _buildOcrSectionHeader(
                     icon: Icons.medical_information_rounded,
                     iconColor: const Color(0xFF7C3AED),
-                    title: 'Consultation Triage & Date (परामर्श तथा दर्ता मिति)',
-                    titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF5B21B6)),
+                    title:
+                        'Consultation Triage & Date (परामर्श तथा दर्ता मिति)',
+                    titleStyle: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      color: Color(0xFF5B21B6),
+                    ),
                     dateChip: _buildStationDateChip(
                       context: context,
                       field: 'intakeDate',
                       label: 'Intake Date',
-                      dateStr: result.intakeDate ?? demo['intakeDate'] as String? ?? demo['date'] as String?,
-                      onDateSelected: (d) => vm.updateStationDate('intakeDate', d),
+                      dateStr:
+                          result.intakeDate ??
+                          demo['intakeDate'] as String? ??
+                          demo['date'] as String?,
+                      onDateSelected: (d) =>
+                          vm.updateStationDate('intakeDate', d),
                     ),
                     extraChip: !result.isUnassigned
                         ? Chip(
                             visualDensity: VisualDensity.compact,
-                            backgroundColor: result.isCounseling ? const Color(0xFFEDE9FE) : const Color(0xFFCCFBF1),
-                            avatar: Icon(Icons.check, size: 14, color: result.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488)),
+                            backgroundColor: result.isCounseling
+                                ? const Color(0xFFEDE9FE)
+                                : const Color(0xFFCCFBF1),
+                            avatar: Icon(
+                              Icons.check,
+                              size: 14,
+                              color: result.isCounseling
+                                  ? const Color(0xFF7C3AED)
+                                  : const Color(0xFF0D9488),
+                            ),
                             label: Text(
-                              result.isCounseling ? 'Counseling' : 'Gynocheckup',
+                              result.isCounseling
+                                  ? 'Counseling'
+                                  : 'Gynocheckup',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 11,
-                                color: result.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488),
+                                color: result.isCounseling
+                                    ? const Color(0xFF7C3AED)
+                                    : const Color(0xFF0D9488),
                               ),
                             ),
                           )
@@ -1551,7 +2013,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   const SizedBox(height: 6),
                   const Text(
                     'Page 1 Header Triage — Cross-check with physical Yellow Form top checkboxes:',
-                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Wrap(
@@ -1562,9 +2027,14 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         avatar: Icon(
                           Icons.do_not_disturb_alt_rounded,
                           size: 14,
-                          color: result.isUnassigned ? const Color(0xFF64748B) : Colors.grey,
+                          color: result.isUnassigned
+                              ? const Color(0xFF64748B)
+                              : Colors.grey,
                         ),
-                        label: const Text('None / Unassigned (तोकिएको छैन)', style: TextStyle(fontSize: 12)),
+                        label: const Text(
+                          'None / Unassigned (तोकिएको छैन)',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         selected: result.isUnassigned,
                         selectedColor: const Color(0xFFF1F5F9),
                         onSelected: (selected) {
@@ -1575,9 +2045,14 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         avatar: Icon(
                           Icons.record_voice_over_rounded,
                           size: 14,
-                          color: result.isCounseling ? const Color(0xFF7C3AED) : Colors.grey,
+                          color: result.isCounseling
+                              ? const Color(0xFF7C3AED)
+                              : Colors.grey,
                         ),
-                        label: const Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12)),
+                        label: const Text(
+                          'Counseling (काउन्सिलिङ)',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         selected: result.isCounseling,
                         selectedColor: const Color(0xFFEDE9FE),
                         onSelected: (selected) {
@@ -1588,13 +2063,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         avatar: Icon(
                           Icons.health_and_safety_rounded,
                           size: 14,
-                          color: result.isGynocheckup ? const Color(0xFF0D9488) : Colors.grey,
+                          color: result.isGynocheckup
+                              ? const Color(0xFF0D9488)
+                              : Colors.grey,
                         ),
-                        label: const Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12)),
+                        label: const Text(
+                          'Gynocheckup (गाइनो जाँच)',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         selected: result.isGynocheckup,
                         selectedColor: const Color(0xFFCCFBF1),
                         onSelected: (selected) {
-                          vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);
+                          vm.setTreatmentLevel(
+                            selected ? 'gyno_checkup' : null,
+                          );
                         },
                       ),
                     ],
@@ -1607,16 +2089,24 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // ── Patient Token ID Section ──
           Builder(
             builder: (context) {
-              final detectedId = (demo['patientId'] as String? ?? demo['patientTokenId'] as String? ?? '').trim();
+              final detectedId =
+                  (demo['patientId'] as String? ??
+                          demo['patientTokenId'] as String? ??
+                          '')
+                      .trim();
               final isDetected = detectedId.isNotEmpty;
               return Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isDetected ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                  color: isDetected
+                      ? const Color(0xFFF0FDF4)
+                      : const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isDetected ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1),
+                    color: isDetected
+                        ? const Color(0xFF86EFAC)
+                        : const Color(0xFFCBD5E1),
                     width: 1.2,
                   ),
                 ),
@@ -1631,33 +2121,50 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             Icon(
                               isDetected ? Icons.qr_code_scanner : Icons.tag,
                               size: 18,
-                              color: isDetected ? const Color(0xFF16A34A) : AppTheme.primaryPurple,
+                              color: isDetected
+                                  ? const Color(0xFF16A34A)
+                                  : AppTheme.primaryPurple,
                             ),
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Text(
                                 'Patient Token ID / बिरामी टोकन नं.',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Color(0xFF1E293B),
+                                ),
                               ),
                             ),
                           ],
                         );
 
                         final badge = Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
-                            color: isDetected ? const Color(0xFFDCFCE7) : const Color(0xFFEDE9FE),
+                            color: isDetected
+                                ? const Color(0xFFDCFCE7)
+                                : const Color(0xFFEDE9FE),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: isDetected ? const Color(0xFF86EFAC) : const Color(0xFFDDD6FE),
+                              color: isDetected
+                                  ? const Color(0xFF86EFAC)
+                                  : const Color(0xFFDDD6FE),
                             ),
                           ),
                           child: Text(
-                            isDetected ? 'Detected from Form (फारमबाट पहिचान)' : 'Auto-Generate on Save (स्वतः उत्पन्न हुनेछ)',
+                            isDetected
+                                ? 'Detected from Form (फारमबाट पहिचान)'
+                                : 'Auto-Generate on Save (स्वतः उत्पन्न हुनेछ)',
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.bold,
-                              color: isDetected ? const Color(0xFF15803D) : AppTheme.primaryPurple,
+                              color: isDetected
+                                  ? const Color(0xFF15803D)
+                                  : AppTheme.primaryPurple,
                             ),
                           ),
                         );
@@ -1691,21 +2198,37 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       textCapitalization: TextCapitalization.characters,
                       decoration: InputDecoration(
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         hintText: 'Leave blank to auto-generate sequentially (e.g. 00042 or GC-DHN-2026-00042)',
-                        hintStyle: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                        hintStyle: const TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey,
+                        ),
                         suffixIcon: detectedId.isNotEmpty
                             ? IconButton(
                                 icon: const Icon(Icons.clear, size: 16),
                                 tooltip: 'Clear to auto-generate',
                                 onPressed: () {
-                                  vm.updateDemographic('patientId', '', campId: campId, campCode: campCode);
+                                  vm.updateDemographic(
+                                    'patientId',
+                                    '',
+                                    campId: campId,
+                                    campCode: campCode,
+                                  );
                                 },
                               )
                             : null,
                       ),
                       onChanged: (val) {
-                        vm.updateDemographic('patientId', val, campId: campId, campCode: campCode);
+                        vm.updateDemographic(
+                          'patientId',
+                          val,
+                          campId: campId,
+                          campCode: campCode,
+                        );
                       },
                     ),
                   ],
@@ -1719,7 +2242,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             value: demo['firstName']?.toString() ?? '',
             fieldKey: 'firstName',
             result: result,
-            onChanged: (val) => vm.updateDemographic('firstName', val, campId: campId),
+            onChanged: (val) =>
+                vm.updateDemographic('firstName', val, campId: campId),
           ),
           const SizedBox(height: 12),
           _buildFieldWithConfidence(
@@ -1727,7 +2251,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             value: demo['surname']?.toString() ?? '',
             fieldKey: 'surname',
             result: result,
-            onChanged: (val) => vm.updateDemographic('surname', val, campId: campId),
+            onChanged: (val) =>
+                vm.updateDemographic('surname', val, campId: campId),
           ),
           const SizedBox(height: 12),
           LayoutBuilder(
@@ -1739,34 +2264,115 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 fieldKey: 'age',
                 result: result,
                 keyboardType: TextInputType.number,
-                onChanged: (val) => vm.updateDemographic('age', int.tryParse(val) ?? 35, campId: campId),
+                onChanged: (val) => vm.updateDemographic(
+                  'age',
+                  int.tryParse(val) ?? 35,
+                  campId: campId,
+                ),
               );
               final maritalField = DropdownButtonFormField<String>(
                 key: ValueKey('scan_marital_${demo['maritalStatus']}'),
-                initialValue: const ['married', 'unmarried', 'widow', 'divorced'].contains(demo['maritalStatus']?.toString().toLowerCase())
+                initialValue:
+                    const [
+                      'married',
+                      'unmarried',
+                      'widow',
+                      'divorced',
+                    ].contains(demo['maritalStatus']?.toString().toLowerCase())
                     ? demo['maritalStatus']?.toString().toLowerCase()
                     : 'married',
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Marital Status (वैवाहिक स्थिति)',
                   border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
                 ),
                 selectedItemBuilder: (context) => const [
-                  Align(alignment: Alignment.centerLeft, child: Text('Married (विवाहित)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1)),
-                  Align(alignment: Alignment.centerLeft, child: Text('Unmarried (अविवाहित)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1)),
-                  Align(alignment: Alignment.centerLeft, child: Text('Widow (एकल/विधवा)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1)),
-                  Align(alignment: Alignment.centerLeft, child: Text('Divorced (सम्बन्धविच्छेद)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1)),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Married (विवाहित)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Unmarried (अविवाहित)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Widow (एकल/विधवा)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Divorced (सम्बन्धविच्छेद)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
                 ],
                 items: const [
-                  DropdownMenuItem(value: 'married', child: Text('Married (विवाहित)', style: TextStyle(fontSize: 13))),
-                  DropdownMenuItem(value: 'unmarried', child: Text('Unmarried (अविवाहित)', style: TextStyle(fontSize: 13))),
-                  DropdownMenuItem(value: 'widow', child: Text('Widow (एकल/विधवा)', style: TextStyle(fontSize: 13))),
-                  DropdownMenuItem(value: 'divorced', child: Text('Divorced (सम्बन्धविच्छेद)', style: TextStyle(fontSize: 13))),
+                  DropdownMenuItem(
+                    value: 'married',
+                    child: Text(
+                      'Married (विवाहित)',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'unmarried',
+                    child: Text(
+                      'Unmarried (अविवाहित)',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'widow',
+                    child: Text(
+                      'Widow (एकल/विधवा)',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'divorced',
+                    child: Text(
+                      'Divorced (सम्बन्धविच्छेद)',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
                 ],
                 onChanged: (status) {
                   if (status != null) {
-                    vm.updateDemographic('maritalStatus', status, campId: campId);
+                    vm.updateDemographic(
+                      'maritalStatus',
+                      status,
+                      campId: campId,
+                    );
                   }
                 },
               );
@@ -1802,7 +2408,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   decoration: const InputDecoration(
                     labelText: 'Province (प्रदेश)',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
                   ),
                   items: ClinicalConstants.nepalProvinces.map((prov) {
                     return DropdownMenuItem(
@@ -1820,7 +2429,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       vm.updateDemographic('district', newDist, campId: campId);
                       final newPalikas = NepalGeodata.palikasFor(newDist);
                       if (!newPalikas.contains(demo['municipality'])) {
-                        vm.updateDemographic('municipality', newPalikas.isNotEmpty ? newPalikas.first : '', campId: campId);
+                        vm.updateDemographic(
+                          'municipality',
+                          newPalikas.isNotEmpty ? newPalikas.first : '',
+                          campId: campId,
+                        );
                       }
                     }
                   },
@@ -1835,7 +2448,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   decoration: const InputDecoration(
                     labelText: 'District (जिल्ला)',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
                   ),
                   items: districtList.map((dist) {
                     return DropdownMenuItem(
@@ -1848,7 +2464,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       vm.updateDemographic('district', newDist, campId: campId);
                       final newPalikas = NepalGeodata.palikasFor(newDist);
                       if (!newPalikas.contains(demo['municipality'])) {
-                        vm.updateDemographic('municipality', newPalikas.isNotEmpty ? newPalikas.first : '', campId: campId);
+                        vm.updateDemographic(
+                          'municipality',
+                          newPalikas.isNotEmpty ? newPalikas.first : '',
+                          campId: campId,
+                        );
                       }
                     }
                   },
@@ -1864,29 +2484,47 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 builder: (context) {
                   final palikas = NepalGeodata.palikasFor(
                     validDistrict,
-                    extraPalikas: demo['municipality'] != null && demo['municipality'].toString().isNotEmpty
+                    extraPalikas:
+                        demo['municipality'] != null &&
+                            demo['municipality'].toString().isNotEmpty
                         ? [demo['municipality'].toString()]
                         : null,
                   );
                   final currentPalika = palikas.firstWhere(
-                    (p) => p.toLowerCase() == demo['municipality']?.toString().toLowerCase(),
+                    (p) =>
+                        p.toLowerCase() ==
+                        demo['municipality']?.toString().toLowerCase(),
                     orElse: () => palikas.isNotEmpty ? palikas.first : '',
                   );
                   return DropdownButtonFormField<String>(
-                    key: ValueKey('scan_palika_${validDistrict}_${demo['municipality']}'),
-                    initialValue: currentPalika.isNotEmpty ? currentPalika : null,
+                    key: ValueKey(
+                      'scan_palika_${validDistrict}_${demo['municipality']}',
+                    ),
+                    initialValue: currentPalika.isNotEmpty
+                        ? currentPalika
+                        : null,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Palika / Municipality * (पालिका)',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
                     ),
                     items: palikas.map((p) {
-                      return DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)));
+                      return DropdownMenuItem(
+                        value: p,
+                        child: Text(p, style: const TextStyle(fontSize: 13)),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
-                        vm.updateDemographic('municipality', val, campId: campId);
+                        vm.updateDemographic(
+                          'municipality',
+                          val,
+                          campId: campId,
+                        );
                       }
                     },
                   );
@@ -1899,7 +2537,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 fieldKey: 'ward',
                 result: result,
                 keyboardType: TextInputType.number,
-                onChanged: (val) => vm.updateDemographic('ward', val, campId: campId),
+                onChanged: (val) =>
+                    vm.updateDemographic('ward', val, campId: campId),
               );
 
               if (isNarrow) {
@@ -1928,7 +2567,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             fieldKey: 'mobile',
             result: result,
             keyboardType: TextInputType.phone,
-            onChanged: (val) => vm.updateDemographic('mobile', val, campId: campId),
+            onChanged: (val) =>
+                vm.updateDemographic('mobile', val, campId: campId),
           ),
           const SizedBox(height: 12),
           LayoutBuilder(
@@ -1939,14 +2579,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 value: demo['relativeName']?.toString() ?? '',
                 fieldKey: 'relativeName',
                 result: result,
-                onChanged: (val) => vm.updateDemographic('relativeName', val, campId: campId),
+                onChanged: (val) =>
+                    vm.updateDemographic('relativeName', val, campId: campId),
               );
               final relativeSurnameField = _buildFieldWithConfidence(
                 label: 'Relative Surname (थर)',
                 value: demo['relativeSurname']?.toString() ?? '',
                 fieldKey: 'relativeSurname',
                 result: result,
-                onChanged: (val) => vm.updateDemographic('relativeSurname', val, campId: campId),
+                onChanged: (val) => vm.updateDemographic(
+                  'relativeSurname',
+                  val,
+                  campId: campId,
+                ),
               );
 
               if (isNarrow) {
@@ -1985,30 +2630,42 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 spacing: 8,
                 runSpacing: 6,
                 children: [
-                  for (final rel in ['Husband', 'Father', 'Mother', 'Guardian', 'Other'])
+                  for (final rel in [
+                    'Husband',
+                    'Father',
+                    'Mother',
+                    'Guardian',
+                    'Other',
+                  ])
                     ChoiceChip(
                       visualDensity: VisualDensity.compact,
                       label: Text(
                         rel == 'Husband'
                             ? 'Husband (श्रीमान्)'
                             : rel == 'Father'
-                                ? 'Father (बुबा)'
-                                : rel == 'Mother'
-                                    ? 'Mother (आमा)'
-                                    : rel == 'Guardian'
-                                        ? 'Guardian (अभिभावक)'
-                                        : 'Other (अन्य)',
+                            ? 'Father (बुबा)'
+                            : rel == 'Mother'
+                            ? 'Mother (आमा)'
+                            : rel == 'Guardian'
+                            ? 'Guardian (अभिभावक)'
+                            : 'Other (अन्य)',
                         style: TextStyle(
                           fontSize: 11.5,
-                          fontWeight: (demo['relativeType']?.toString().toLowerCase() == rel.toLowerCase())
+                          fontWeight:
+                              (demo['relativeType']?.toString().toLowerCase() ==
+                                  rel.toLowerCase())
                               ? FontWeight.bold
                               : FontWeight.normal,
-                          color: (demo['relativeType']?.toString().toLowerCase() == rel.toLowerCase())
+                          color:
+                              (demo['relativeType']?.toString().toLowerCase() ==
+                                  rel.toLowerCase())
                               ? Colors.white
                               : const Color(0xFF334155),
                         ),
                       ),
-                      selected: demo['relativeType']?.toString().toLowerCase() == rel.toLowerCase(),
+                      selected:
+                          demo['relativeType']?.toString().toLowerCase() ==
+                          rel.toLowerCase(),
                       selectedColor: const Color(0xFF1B5E20),
                       onSelected: (selected) {
                         if (selected) {
@@ -2045,7 +2702,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 fieldKey: 'maritalAge',
                 result: result,
                 keyboardType: TextInputType.number,
-                onChanged: (val) => vm.updateDemographic('maritalAge', int.tryParse(val)),
+                onChanged: (val) =>
+                    vm.updateDemographic('maritalAge', int.tryParse(val)),
               );
 
               if (isNarrow) {
@@ -2079,34 +2737,62 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           const SizedBox(height: 8),
           Builder(
             builder: (context) {
-              final currentReasons = List<String>.from(demo['reasonsForVisit'] as List? ?? []);
+              final currentReasons = List<String>.from(
+                demo['reasonsForVisit'] as List? ?? [],
+              );
               return Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: ClinicalConstants.visitReasonOptions.entries.map((entry) {
+                children: ClinicalConstants.visitReasonOptions.entries.map((
+                  entry,
+                ) {
                   final key = entry.key;
                   final label = entry.value;
-                  final isSelected = currentReasons.contains(key) ||
+                  final isSelected =
+                      currentReasons.contains(key) ||
                       currentReasons.any((r) {
                         final rLower = r.toLowerCase();
                         return rLower == key.toLowerCase() ||
                             rLower == label.toLowerCase() ||
-                            (key == 'something hanging out' && (rLower.contains('hanging') || rLower.contains('prolapse') || rLower.contains('पाठेघर खस्ने'))) ||
-                            (key == 'discharge and or itching' && (rLower.contains('discharge') || rLower.contains('itching') || rLower.contains('स्राव') || rLower.contains('चिलाउने'))) ||
-                            (key == 'problems passing urine' && (rLower.contains('urine') || rLower.contains('पिसाब'))) ||
-                            (key == 'problems passing stool' && (rLower.contains('stool') || rLower.contains('दिसा'))) ||
-                            (key == 'menstrual problem' && (rLower.contains('menstrual') || rLower.contains('महिनावारी'))) ||
-                            (key == 'infertility' && (rLower.contains('infertility') || rLower.contains('बाँझोपन'))) ||
-                            (key == 'pain' && (rLower.contains('pain') || rLower.contains('दुखाई'))) ||
-                            (key == 'checkup' && (rLower.contains('checkup') || rLower.contains('जाँच')));
+                            (key == 'something hanging out' &&
+                                (rLower.contains('hanging') ||
+                                    rLower.contains('prolapse') ||
+                                    rLower.contains('पाठेघर खस्ने'))) ||
+                            (key == 'discharge and or itching' &&
+                                (rLower.contains('discharge') ||
+                                    rLower.contains('itching') ||
+                                    rLower.contains('स्राव') ||
+                                    rLower.contains('चिलाउने'))) ||
+                            (key == 'problems passing urine' &&
+                                (rLower.contains('urine') ||
+                                    rLower.contains('पिसाब'))) ||
+                            (key == 'problems passing stool' &&
+                                (rLower.contains('stool') ||
+                                    rLower.contains('दिसा'))) ||
+                            (key == 'menstrual problem' &&
+                                (rLower.contains('menstrual') ||
+                                    rLower.contains('महिनावारी'))) ||
+                            (key == 'infertility' &&
+                                (rLower.contains('infertility') ||
+                                    rLower.contains('बाँझोपन'))) ||
+                            (key == 'pain' &&
+                                (rLower.contains('pain') ||
+                                    rLower.contains('दुखाई'))) ||
+                            (key == 'checkup' &&
+                                (rLower.contains('checkup') ||
+                                    rLower.contains('जाँच')));
                       });
                   return FilterChip(
                     label: Text(
                       label,
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? AppTheme.primaryTeal : Colors.black87,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: isSelected
+                            ? AppTheme.primaryTeal
+                            : Colors.black87,
                       ),
                     ),
                     selected: isSelected,
@@ -2117,9 +2803,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       if (selected) {
                         if (!updated.contains(key)) updated.add(key);
                       } else {
-                        updated.removeWhere((r) => r == key || r == label || r.toLowerCase().contains(key));
+                        updated.removeWhere(
+                          (r) =>
+                              r == key ||
+                              r == label ||
+                              r.toLowerCase().contains(key),
+                        );
                       }
-                      vm.updateDemographic('reasonsForVisit', updated, campId: campId);
+                      vm.updateDemographic(
+                        'reasonsForVisit',
+                        updated,
+                        campId: campId,
+                      );
                     },
                   );
                 }).toList(),
@@ -2143,25 +2838,45 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               children: [
                 CheckboxListTile(
                   value: demo['consentTreatment'] as bool? ?? true,
-                  title: const Text('Consent for Examination & Treatment', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('परीक्षण तथा आवश्यक उपचारको लागि स्वीकृति', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  title: const Text(
+                    'Consent for Examination & Treatment',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'परीक्षण तथा आवश्यक उपचारको लागि स्वीकृति',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
                   activeColor: AppTheme.primaryTeal,
                   controlAffinity: ListTileControlAffinity.leading,
                   dense: true,
                   onChanged: (val) {
-                    vm.updateDemographic('consentTreatment', val ?? false, campId: campId);
+                    vm.updateDemographic(
+                      'consentTreatment',
+                      val ?? false,
+                      campId: campId,
+                    );
                   },
                 ),
                 const Divider(height: 1),
                 CheckboxListTile(
                   value: demo['consentStoreMedicalInfo'] as bool? ?? true,
-                  title: const Text('Consent to Store Medical Information', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('स्वास्थ्य विवरण भण्डारण तथा अनुसन्धान सहमति', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  title: const Text(
+                    'Consent to Store Medical Information',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'स्वास्थ्य विवरण भण्डारण तथा अनुसन्धान सहमति',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
                   activeColor: AppTheme.primaryTeal,
                   controlAffinity: ListTileControlAffinity.leading,
                   dense: true,
                   onChanged: (val) {
-                    vm.updateDemographic('consentStoreMedicalInfo', val ?? false, campId: campId);
+                    vm.updateDemographic(
+                      'consentStoreMedicalInfo',
+                      val ?? false,
+                      campId: campId,
+                    );
                   },
                 ),
               ],
@@ -2171,7 +2886,6 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       ),
     );
   }
-
 
   // Tab 2: Obstetrics
   Widget _buildObstetricsTab(OcrScanResultModel result, OcrScanViewModel vm) {
@@ -2187,18 +2901,30 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             decoration: BoxDecoration(
               color: AppTheme.primaryLight.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: AppTheme.primaryTeal.withValues(alpha: 0.2),
+              ),
             ),
             child: _buildOcrSectionHeader(
               icon: Icons.child_friendly,
               iconColor: AppTheme.primaryTeal,
               title: 'Station 1: Obstetric History & Anamnesis (पहिलो स्टेशन: विगत तथा प्रसूति विवरण)',
-              titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+              titleStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryDark,
+              ),
               dateChip: _buildStationDateChip(
                 context: context,
                 field: 'anamnesisDate',
                 label: 'Anamnesis Date',
-                dateStr: result.effectiveAnamnesisDate ?? result.anamnesisDate ?? result.demographics['anamnesisDate'] as String? ?? result.intakeDate ?? result.demographics['intakeDate'] as String? ?? result.demographics['date'] as String?,
+                dateStr:
+                    result.effectiveAnamnesisDate ??
+                    result.anamnesisDate ??
+                    result.demographics['anamnesisDate'] as String? ??
+                    result.intakeDate ??
+                    result.demographics['intakeDate'] as String? ??
+                    result.demographics['date'] as String?,
                 onDateSelected: (d) => vm.updateStationDate('anamnesisDate', d),
               ),
             ),
@@ -2206,9 +2932,14 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           const SizedBox(height: 16),
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 12.0,
+              ),
               child: Column(
                 children: [
                   _buildStepperCardRow(
@@ -2246,12 +2977,12 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ),
           const SizedBox(height: 16),
 
-
-
           // Station 1: 9 Chief Clinical Complaints Checkboxes
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -2259,23 +2990,38 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.checklist_rounded, color: AppTheme.primaryTeal, size: 20),
+                      const Icon(
+                        Icons.checklist_rounded,
+                        color: AppTheme.primaryTeal,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
                           'Chief Clinical Complaints (प्रमुख क्लिनिकल लक्षणहरू)',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryLight.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           '${((obs['clinicalComplaints'] as List?) ?? []).length} detected',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryTeal,
+                          ),
                         ),
                       ),
                     ],
@@ -2283,14 +3029,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   const SizedBox(height: 4),
                   const Text(
                     'Select all presenting complaints matching physical Yellow Form Page 2 checkboxes:',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   // 9 canonical Yellow Form complaints with per-complaint duration, options & remarks
                   ...() {
-                    final patientReasons = ((result.demographics['reasonsForVisit'] as List?) ?? [])
-                        .map((r) => r.toString().toLowerCase().trim())
-                        .toList();
+                    final patientReasons =
+                        ((result.demographics['reasonsForVisit'] as List?) ??
+                                [])
+                            .map((r) => r.toString().toLowerCase().trim())
+                            .toList();
 
                     final standardComplaints = [
                       {
@@ -2300,43 +3051,76 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         'hasDuration': true,
                         'options': ['pessary', 'surgery'],
                         'optionPrefix': 'Previous treatment',
-                        'matches': (List<String> r) => r.any((x) => x.contains('hanging') || x.contains('prolapse') || x.contains('पाठेघर')),
+                        'matches': (List<String> r) => r.any(
+                          (x) =>
+                              x.contains('hanging') ||
+                              x.contains('prolapse') ||
+                              x.contains('पाठेघर'),
+                        ),
                       },
                       {
                         'key': 'discharge',
-                        'label': 'Discharge and/or Itching (पानी बग्ने / चिलाउने)',
+                        'label':
+                            'Discharge and/or Itching (पानी बग्ने / चिलाउने)',
                         'subCategory': 'Infections & Discharge',
                         'hasDuration': true,
-                        'options': ['white', 'yellow', 'green', 'grey', 'smelly'],
+                        'options': [
+                          'white',
+                          'yellow',
+                          'green',
+                          'grey',
+                          'smelly',
+                        ],
                         'optionPrefix': 'Discharge colour',
-                        'matches': (List<String> r) => r.any((x) => x.contains('discharge') || x.contains('itching') || x.contains('स्राव') || x.contains('चिलाउने')),
+                        'matches': (List<String> r) => r.any(
+                          (x) =>
+                              x.contains('discharge') ||
+                              x.contains('itching') ||
+                              x.contains('स्राव') ||
+                              x.contains('चिलाउने'),
+                        ),
                       },
                       {
                         'key': 'urine',
-                        'label': 'Problems passing urine (पिसाब सम्बन्धी समस्या)',
+                        'label':
+                            'Problems passing urine (पिसाब सम्बन्धी समस्या)',
                         'subCategory': 'Urinary Symptoms',
                         'hasDuration': true,
                         'options': ['stress', 'urge', 'continuous flow'],
                         'optionPrefix': 'Incontinence type',
-                        'matches': (List<String> r) => r.any((x) => x.contains('urine') || x.contains('पिसाब')),
+                        'matches': (List<String> r) => r.any(
+                          (x) => x.contains('urine') || x.contains('पिसाब'),
+                        ),
                       },
                       {
                         'key': 'stool',
-                        'label': 'Problems passing stool (दिसा सम्बन्धी समस्या)',
+                        'label':
+                            'Problems passing stool (दिसा सम्बन्धी समस्या)',
                         'subCategory': 'Pelvic Floor & Prolapse',
                         'hasDuration': true,
                         'options': <String>[],
                         'optionPrefix': null,
-                        'matches': (List<String> r) => r.any((x) => x.contains('stool') || x.contains('दिसा')),
+                        'matches': (List<String> r) => r.any(
+                          (x) => x.contains('stool') || x.contains('दिसा'),
+                        ),
                       },
                       {
                         'key': 'menstrual',
                         'label': 'Menstrual problem (महिनावारी समस्या)',
                         'subCategory': 'Reproductive & Sexual',
                         'hasDuration': false,
-                        'options': ['dysmenorrhoea', 'metrorrhagia', 'menorrhagia', 'postmenopausal bleeding'],
+                        'options': [
+                          'dysmenorrhoea',
+                          'metrorrhagia',
+                          'menorrhagia',
+                          'postmenopausal bleeding',
+                        ],
                         'optionPrefix': 'Symptom type',
-                        'matches': (List<String> r) => r.any((x) => x.contains('menstrual') || x.contains('महिनावारी')),
+                        'matches': (List<String> r) => r.any(
+                          (x) =>
+                              x.contains('menstrual') ||
+                              x.contains('महिनावारी'),
+                        ),
                       },
                       {
                         'key': 'infertility',
@@ -2346,7 +3130,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         'isInfertilityDuration': true,
                         'options': <String>[],
                         'optionPrefix': null,
-                        'matches': (List<String> r) => r.any((x) => x.contains('infertility') || x.contains('बाँझोपन')),
+                        'matches': (List<String> r) => r.any(
+                          (x) =>
+                              x.contains('infertility') ||
+                              x.contains('बाँझोपन'),
+                        ),
                       },
                       {
                         'key': 'lower_abdomen_pain',
@@ -2355,7 +3143,14 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         'hasDuration': true,
                         'options': <String>[],
                         'optionPrefix': null,
-                        'matches': (List<String> r) => r.any((x) => x == 'pain' || x.contains('दुख्ने') || ((x.contains('abdomen') || x.contains('तल्लो पेट')) && x.contains('pain'))),
+                        'matches': (List<String> r) => r.any(
+                          (x) =>
+                              x == 'pain' ||
+                              x.contains('दुख्ने') ||
+                              ((x.contains('abdomen') ||
+                                      x.contains('तल्लो पेट')) &&
+                                  x.contains('pain')),
+                        ),
                       },
                       {
                         'key': 'lower_back_pain',
@@ -2364,57 +3159,94 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         'hasDuration': true,
                         'options': <String>[],
                         'optionPrefix': null,
-                        'matches': (List<String> r) => r.any((x) => x == 'pain' || x.contains('दुख्ने') || ((x.contains('back') || x.contains('ढाड') || x.contains('कम्मर')) && x.contains('pain'))),
+                        'matches': (List<String> r) => r.any(
+                          (x) =>
+                              x == 'pain' ||
+                              x.contains('दुख्ने') ||
+                              ((x.contains('back') ||
+                                      x.contains('ढाड') ||
+                                      x.contains('कम्मर')) &&
+                                  x.contains('pain')),
+                        ),
                       },
                       {
                         'key': 'checkup',
                         'label': 'General checkup (सामान्य स्वास्थ्य जाँच)',
                         'subCategory': 'General / Other',
                         'hasDuration': false,
-                        'options': ['routine wellness screening', 'follow-up checkup', 'general counseling'],
+                        'options': [
+                          'routine wellness screening',
+                          'follow-up checkup',
+                          'general counseling',
+                        ],
                         'optionPrefix': 'Checkup type',
-                        'matches': (List<String> r) => r.any((x) => x.contains('checkup') || x.contains('जाँच')),
+                        'matches': (List<String> r) => r.any(
+                          (x) => x.contains('checkup') || x.contains('जाँच'),
+                        ),
                       },
                     ];
 
                     final List<Map<String, dynamic>> resolvedComplaints = [];
                     final lookupState = ref.watch(masterLookupProvider);
-                    final activeMasterComplaints = lookupState.activeChiefComplaints;
+                    final activeMasterComplaints =
+                        lookupState.activeChiefComplaints;
 
                     if (activeMasterComplaints.isNotEmpty) {
                       for (final masterItem in activeMasterComplaints) {
                         final code = masterItem.code.toLowerCase().trim();
-                        final stdMatch = standardComplaints.cast<Map<String, dynamic>?>().firstWhere(
-                          (s) => s != null && (s['key'] == code ||
-                                 masterItem.labelEn.toLowerCase().contains(s['key'] as String) ||
-                                 (s['label'] as String).toLowerCase().contains(masterItem.labelEn.toLowerCase())),
-                          orElse: () => null,
-                        );
+                        final stdMatch = standardComplaints
+                            .cast<Map<String, dynamic>?>()
+                            .firstWhere(
+                              (s) =>
+                                  s != null &&
+                                  (s['key'] == code ||
+                                      masterItem.labelEn.toLowerCase().contains(
+                                        s['key'] as String,
+                                      ) ||
+                                      (s['label'] as String)
+                                          .toLowerCase()
+                                          .contains(
+                                            masterItem.labelEn.toLowerCase(),
+                                          )),
+                              orElse: () => null,
+                            );
 
                         final title = masterItem.labelNe.isNotEmpty
                             ? '${masterItem.labelEn} (${masterItem.labelNe})'
                             : masterItem.labelEn;
 
-                        final canonicalKey = stdMatch != null ? (stdMatch['key'] as String) : code;
+                        final canonicalKey = stdMatch != null
+                            ? (stdMatch['key'] as String)
+                            : code;
                         resolvedComplaints.add({
                           'key': canonicalKey,
                           'code': code,
                           'canonicalKey': canonicalKey,
                           'label': title,
                           'hasDuration': stdMatch?['hasDuration'] ?? true,
-                          'isInfertilityDuration': stdMatch?['isInfertilityDuration'] == true || code.contains('infertility'),
-                          'options': (stdMatch?['options'] as List<String>?) ?? <String>[],
+                          'isInfertilityDuration':
+                              stdMatch?['isInfertilityDuration'] == true ||
+                              code.contains('infertility'),
+                          'options':
+                              (stdMatch?['options'] as List<String>?) ??
+                              <String>[],
                           'optionPrefix': stdMatch?['optionPrefix'] as String?,
-                          'isIntakeReason': patientReasons.any((r) =>
-                              r.contains(canonicalKey) ||
-                              r.contains(code) ||
-                              r.contains(masterItem.labelEn.toLowerCase()) ||
-                              (masterItem.labelNe.isNotEmpty && r.contains(masterItem.labelNe.toLowerCase()))),
+                          'isIntakeReason': patientReasons.any(
+                            (r) =>
+                                r.contains(canonicalKey) ||
+                                r.contains(code) ||
+                                r.contains(masterItem.labelEn.toLowerCase()) ||
+                                (masterItem.labelNe.isNotEmpty &&
+                                    r.contains(
+                                      masterItem.labelNe.toLowerCase(),
+                                    )),
+                          ),
                         });
                       }
                     } else {
                       for (final std in standardComplaints) {
-                        final matchesFn = std['matches'] as bool Function(List<String>);
+                        final matchesFn =
+                            std['matches'] as bool Function(List<String>);
                         final keyStr = std['key'] as String;
                         resolvedComplaints.add({
                           'key': keyStr,
@@ -2422,7 +3254,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           'canonicalKey': keyStr,
                           'label': std['label'] as String,
                           'hasDuration': std['hasDuration'] as bool,
-                          'isInfertilityDuration': std['isInfertilityDuration'] == true,
+                          'isInfertilityDuration':
+                              std['isInfertilityDuration'] == true,
                           'options': std['options'] as List<String>,
                           'optionPrefix': std['optionPrefix'] as String?,
                           'isIntakeReason': matchesFn(patientReasons),
@@ -2432,16 +3265,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
 
                     return resolvedComplaints.map((comp) {
                       final cKey = comp['key'] as String;
-                      final canonicalKey = comp['canonicalKey'] as String? ?? cKey;
+                      final canonicalKey =
+                          comp['canonicalKey'] as String? ?? cKey;
                       final rawCode = comp['code'] as String? ?? cKey;
                       final label = comp['label'] as String;
                       final hasDuration = comp['hasDuration'] as bool;
-                      final isInfertilityDuration = comp['isInfertilityDuration'] == true;
+                      final isInfertilityDuration =
+                          comp['isInfertilityDuration'] == true;
                       final options = (comp['options'] as List<String>?) ?? [];
                       final optionPrefix = comp['optionPrefix'] as String?;
                       final isIntakeReason = comp['isIntakeReason'] == true;
 
-                      final selectedComplaints = (obs['clinicalComplaints'] as List?)
+                      final selectedComplaints =
+                          (obs['clinicalComplaints'] as List?)
                               ?.map((e) => e.toString().toLowerCase().trim())
                               .where((e) => e.isNotEmpty)
                               .toList() ??
@@ -2452,13 +3288,23 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         if (t.isEmpty) return false;
                         if (selectedComplaints.contains(t)) return true;
                         for (final s in selectedComplaints) {
-                          if (s == t || s.contains(t) || t.contains(s)) return true;
-                          if ((t.contains('prolapse') || t.contains('hanging') || t.contains('पाठेघर')) &&
-                              (s.contains('prolapse') || s.contains('hanging') || s.contains('पाठेघर'))) {
+                          if (s == t || s.contains(t) || t.contains(s)) {
                             return true;
                           }
-                          if ((t.contains('discharge') || t.contains('itching') || t.contains('स्राव')) &&
-                              (s.contains('discharge') || s.contains('itching') || s.contains('स्राव'))) {
+                          if ((t.contains('prolapse') ||
+                                  t.contains('hanging') ||
+                                  t.contains('पाठेघर')) &&
+                              (s.contains('prolapse') ||
+                                  s.contains('hanging') ||
+                                  s.contains('पाठेघर'))) {
+                            return true;
+                          }
+                          if ((t.contains('discharge') ||
+                                  t.contains('itching') ||
+                                  t.contains('स्राव')) &&
+                              (s.contains('discharge') ||
+                                  s.contains('itching') ||
+                                  s.contains('स्राव'))) {
                             return true;
                           }
                           if ((t.contains('urine') || t.contains('पिसाब')) &&
@@ -2469,20 +3315,36 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                               (s.contains('stool') || s.contains('दिसा'))) {
                             return true;
                           }
-                          if ((t.contains('menstrual') || t.contains('महिनावारी')) &&
-                              (s.contains('menstrual') || s.contains('महिनावारी'))) {
+                          if ((t.contains('menstrual') ||
+                                  t.contains('महिनावारी')) &&
+                              (s.contains('menstrual') ||
+                                  s.contains('महिनावारी'))) {
                             return true;
                           }
-                          if ((t.contains('infertility') || t.contains('बाँझोपन') || t.contains('निःसन्तान')) &&
-                              (s.contains('infertility') || s.contains('बाँझोपन') || s.contains('निःसन्तान'))) {
+                          if ((t.contains('infertility') ||
+                                  t.contains('बाँझोपन') ||
+                                  t.contains('निःसन्तान')) &&
+                              (s.contains('infertility') ||
+                                  s.contains('बाँझोपन') ||
+                                  s.contains('निःसन्तान'))) {
                             return true;
                           }
-                          if ((t == 'lower_abdomen_pain' || (t.contains('pain') && !t.contains('back'))) &&
-                              (s == 'lower_abdomen_pain' || (s.contains('pain') && !s.contains('back')))) {
+                          if ((t == 'lower_abdomen_pain' ||
+                                  (t.contains('pain') &&
+                                      !t.contains('back'))) &&
+                              (s == 'lower_abdomen_pain' ||
+                                  (s.contains('pain') &&
+                                      !s.contains('back')))) {
                             return true;
                           }
-                          if ((t == 'lower_back_pain' || t.contains('back') || t.contains('ढाड') || t.contains('कम्मर')) &&
-                              (s == 'lower_back_pain' || s.contains('back') || s.contains('ढाड') || s.contains('कम्मर'))) {
+                          if ((t == 'lower_back_pain' ||
+                                  t.contains('back') ||
+                                  t.contains('ढाड') ||
+                                  t.contains('कम्मर')) &&
+                              (s == 'lower_back_pain' ||
+                                  s.contains('back') ||
+                                  s.contains('ढाड') ||
+                                  s.contains('कम्मर'))) {
                             return true;
                           }
                           if ((t.contains('checkup') || t.contains('जाँच')) &&
@@ -2493,29 +3355,44 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         return false;
                       }
 
-                      final isSelected = matchesComplaintItem(cKey) ||
+                      final isSelected =
+                          matchesComplaintItem(cKey) ||
                           matchesComplaintItem(canonicalKey) ||
                           matchesComplaintItem(rawCode);
 
-                      final details = _safeComplaintDetailsMap(obs['complaintDetails']);
+                      final details = _safeComplaintDetailsMap(
+                        obs['complaintDetails'],
+                      );
                       final item = Map<String, dynamic>.from(
                         (details[cKey] ??
-                         details[canonicalKey] ??
-                         details[rawCode] ??
-                         details[cKey.replaceAll('_', ' ')] ??
-                         details[canonicalKey.replaceAll('_', ' ')]) as Map? ?? {},
+                                    details[canonicalKey] ??
+                                    details[rawCode] ??
+                                    details[cKey.replaceAll('_', ' ')] ??
+                                    details[canonicalKey.replaceAll('_', ' ')])
+                                as Map? ??
+                            {},
                       );
 
-                      final currentDuration = (item['duration'] as String?) ?? (obs['complaintsDuration'] as String? ?? '< 1 year');
+                      final currentDuration =
+                          (item['duration'] as String?) ??
+                          (obs['complaintsDuration'] as String? ?? '< 1 year');
                       final currentRemarks = (item['remarks'] as String?) ?? '';
 
                       // Extract selected sub-options
-                      final rawSub = item['subOption'] ?? item['options'] ?? item['subOptions'];
+                      final rawSub =
+                          item['subOption'] ??
+                          item['options'] ??
+                          item['subOptions'];
                       List<String> selectedSubOptions = [];
                       if (rawSub is List) {
-                        selectedSubOptions = rawSub.map((e) => e.toString().toLowerCase().trim()).toList();
+                        selectedSubOptions = rawSub
+                            .map((e) => e.toString().toLowerCase().trim())
+                            .toList();
                       } else if (rawSub is String && rawSub.isNotEmpty) {
-                        selectedSubOptions = rawSub.split(',').map((e) => e.toLowerCase().trim()).toList();
+                        selectedSubOptions = rawSub
+                            .split(',')
+                            .map((e) => e.toLowerCase().trim())
+                            .toList();
                       }
 
                       final durationsList = isInfertilityDuration
@@ -2525,169 +3402,287 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primaryLight.withValues(alpha: 0.15) : Colors.grey.shade50,
+                          color: isSelected
+                              ? AppTheme.primaryLight.withValues(alpha: 0.15)
+                              : Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: isSelected ? AppTheme.primaryTeal.withValues(alpha: 0.5) : Colors.grey.shade300,
+                            color: isSelected
+                                ? AppTheme.primaryTeal.withValues(alpha: 0.5)
+                                : Colors.grey.shade300,
                             width: isSelected ? 1.5 : 1.0,
                           ),
                         ),
                         child: Material(
                           color: Colors.transparent,
                           child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            CheckboxListTile(
-                              dense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                              title: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      label,
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                        color: isSelected ? AppTheme.primaryDark : const Color(0xFF334155),
-                                      ),
-                                    ),
-                                  ),
-                                  if (isIntakeReason) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
-                                      ),
-                                      child: const Text(
-                                        'Reported in Intake',
-                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              value: isSelected,
-                              activeColor: AppTheme.primaryTeal,
-                              onChanged: (_) {
-                                vm.toggleClinicalComplaint(cKey);
-                              },
-                            ),
-                            if (isSelected) ...[
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              CheckboxListTile(
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 0,
+                                ),
+                                title: Row(
                                   children: [
-                                    const Divider(height: 10),
-                                    if (hasDuration) ...[
-                                      const Text(
-                                        'Duration since onset (सुरु भएको अवधि):',
-                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: durationsList.map((dur) {
-                                          final isDurSelected = currentDuration == dur ||
-                                              dur.toLowerCase().replaceAll(' ', '') == currentDuration.toLowerCase().replaceAll(' ', '') ||
-                                              (dur.contains('> 1 year') && currentDuration.contains('>1y')) ||
-                                              (dur.contains('< 1 year') && currentDuration.contains('<1y')) ||
-                                              (dur.contains('< 1month') && currentDuration.contains('1m'));
-                                          return ChoiceChip(
-                                            visualDensity: VisualDensity.compact,
-                                            label: Text(dur, style: const TextStyle(fontSize: 11)),
-                                            selected: isDurSelected,
-                                            selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                                            labelStyle: TextStyle(
-                                              color: isDurSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                                              fontWeight: isDurSelected ? FontWeight.bold : FontWeight.normal,
-                                            ),
-                                            onSelected: (sel) {
-                                              if (sel) {
-                                                vm.updateComplaintDetail(cKey, duration: dur);
-                                              }
-                                            },
-                                          );
-                                        }).toList(),
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ],
-                                    if (options.isNotEmpty) ...[
-                                      Text(
-                                        optionPrefix != null
-                                            ? '$optionPrefix (प्रकार / विवरण):'
-                                            : 'Clinical Presentation / Subtypes:',
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: options.map((opt) {
-                                          final isOptChecked = selectedSubOptions.any((s) =>
-                                              s == opt.toLowerCase().trim() ||
-                                              opt.toLowerCase().trim().contains(s) ||
-                                              s.contains(opt.toLowerCase().trim()));
-                                          return FilterChip(
-                                            visualDensity: VisualDensity.compact,
-                                            label: Text(
-                                              '${NepaliLocalizationService.translate(opt)} ($opt)',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: isOptChecked ? FontWeight.bold : FontWeight.normal,
-                                              ),
-                                            ),
-                                            selected: isOptChecked,
-                                            selectedColor: AppTheme.primaryLight,
-                                            checkmarkColor: AppTheme.primaryTeal,
-                                            labelStyle: TextStyle(
-                                              color: isOptChecked ? AppTheme.primaryTeal : const Color(0xFF334155),
-                                            ),
-                                            onSelected: (sel) {
-                                              final updatedList = List<String>.from(selectedSubOptions);
-                                              if (sel) {
-                                                if (!updatedList.contains(opt.toLowerCase())) {
-                                                  updatedList.add(opt.toLowerCase());
-                                                }
-                                              } else {
-                                                updatedList.remove(opt.toLowerCase());
-                                              }
-                                              vm.updateComplaintDetail(cKey, subOption: updatedList);
-                                            },
-                                          );
-                                        }).toList(),
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ],
-                                    const SizedBox(height: 4),
-                                    TextFormField(
-                                      key: ValueKey('complaint_remarks_${cKey}_$currentRemarks'),
-                                      initialValue: currentRemarks,
-                                      decoration: InputDecoration(
-                                        isDense: true,
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                        labelText: 'Clinical Remarks / टिप्पणी ($cKey)',
-                                        hintText: 'Enter clinical remarks, details or severity...',
-                                        prefixIcon: const Icon(Icons.edit_note_rounded, size: 20),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                    Expanded(
+                                      child: Text(
+                                        label,
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.w500,
+                                          color: isSelected
+                                              ? AppTheme.primaryDark
+                                              : const Color(0xFF334155),
                                         ),
                                       ),
-                                      onChanged: (val) {
-                                        vm.updateComplaintDetail(cKey, remarks: val);
-                                      },
                                     ),
+                                    if (isIntakeReason) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 7,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryTeal
+                                              .withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          border: Border.all(
+                                            color: AppTheme.primaryTeal
+                                                .withValues(alpha: 0.3),
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Reported in Intake',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryTeal,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
+                                value: isSelected,
+                                activeColor: AppTheme.primaryTeal,
+                                onChanged: (_) {
+                                  vm.toggleClinicalComplaint(cKey);
+                                },
                               ),
+                              if (isSelected) ...[
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    14,
+                                    0,
+                                    14,
+                                    12,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Divider(height: 10),
+                                      if (hasDuration) ...[
+                                        const Text(
+                                          'Duration since onset (सुरु भएको अवधि):',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: durationsList.map((dur) {
+                                            final isDurSelected =
+                                                currentDuration == dur ||
+                                                dur.toLowerCase().replaceAll(
+                                                      ' ',
+                                                      '',
+                                                    ) ==
+                                                    currentDuration
+                                                        .toLowerCase()
+                                                        .replaceAll(' ', '') ||
+                                                (dur.contains('> 1 year') &&
+                                                    currentDuration.contains(
+                                                      '>1y',
+                                                    )) ||
+                                                (dur.contains('< 1 year') &&
+                                                    currentDuration.contains(
+                                                      '<1y',
+                                                    )) ||
+                                                (dur.contains('< 1month') &&
+                                                    currentDuration.contains(
+                                                      '1m',
+                                                    ));
+                                            return ChoiceChip(
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              label: Text(
+                                                dur,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                              selected: isDurSelected,
+                                              selectedColor: AppTheme
+                                                  .primaryTeal
+                                                  .withValues(alpha: 0.2),
+                                              labelStyle: TextStyle(
+                                                color: isDurSelected
+                                                    ? AppTheme.primaryTeal
+                                                    : const Color(0xFF334155),
+                                                fontWeight: isDurSelected
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                              ),
+                                              onSelected: (sel) {
+                                                if (sel) {
+                                                  vm.updateComplaintDetail(
+                                                    cKey,
+                                                    duration: dur,
+                                                  );
+                                                }
+                                              },
+                                            );
+                                          }).toList(),
+                                        ),
+                                        const SizedBox(height: 8),
+                                      ],
+                                      if (options.isNotEmpty) ...[
+                                        Text(
+                                          optionPrefix != null
+                                              ? '$optionPrefix (प्रकार / विवरण):'
+                                              : 'Clinical Presentation / Subtypes:',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: options.map((opt) {
+                                            final isOptChecked =
+                                                selectedSubOptions.any(
+                                                  (s) =>
+                                                      s ==
+                                                          opt
+                                                              .toLowerCase()
+                                                              .trim() ||
+                                                      opt
+                                                          .toLowerCase()
+                                                          .trim()
+                                                          .contains(s) ||
+                                                      s.contains(
+                                                        opt
+                                                            .toLowerCase()
+                                                            .trim(),
+                                                      ),
+                                                );
+                                            return FilterChip(
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              label: Text(
+                                                '${NepaliLocalizationService.translate(opt)} ($opt)',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: isOptChecked
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                              selected: isOptChecked,
+                                              selectedColor:
+                                                  AppTheme.primaryLight,
+                                              checkmarkColor:
+                                                  AppTheme.primaryTeal,
+                                              labelStyle: TextStyle(
+                                                color: isOptChecked
+                                                    ? AppTheme.primaryTeal
+                                                    : const Color(0xFF334155),
+                                              ),
+                                              onSelected: (sel) {
+                                                final updatedList =
+                                                    List<String>.from(
+                                                      selectedSubOptions,
+                                                    );
+                                                if (sel) {
+                                                  if (!updatedList.contains(
+                                                    opt.toLowerCase(),
+                                                  )) {
+                                                    updatedList.add(
+                                                      opt.toLowerCase(),
+                                                    );
+                                                  }
+                                                } else {
+                                                  updatedList.remove(
+                                                    opt.toLowerCase(),
+                                                  );
+                                                }
+                                                vm.updateComplaintDetail(
+                                                  cKey,
+                                                  subOption: updatedList,
+                                                );
+                                              },
+                                            );
+                                          }).toList(),
+                                        ),
+                                        const SizedBox(height: 8),
+                                      ],
+                                      const SizedBox(height: 4),
+                                      TextFormField(
+                                        key: ValueKey(
+                                          'complaint_remarks_${cKey}_$currentRemarks',
+                                        ),
+                                        initialValue: currentRemarks,
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 10,
+                                              ),
+                                          labelText:
+                                              'Clinical Remarks / टिप्पणी ($cKey)',
+                                          hintText: 'Enter clinical remarks, details or severity...',
+                                          prefixIcon: const Icon(
+                                            Icons.edit_note_rounded,
+                                            size: 20,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFCBD5E1),
+                                            ),
+                                          ),
+                                        ),
+                                        onChanged: (val) {
+                                          vm.updateComplaintDetail(
+                                            cKey,
+                                            remarks: val,
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
+                          ),
                         ),
                       );
                     });
@@ -2734,21 +3729,25 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ),
           ],
 
-
-
           Container(
             margin: const EdgeInsets.only(bottom: 14),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: AppTheme.primaryLight.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: AppTheme.primaryTeal.withValues(alpha: 0.2),
+              ),
             ),
             child: _buildOcrSectionHeader(
               icon: Icons.medical_services_outlined,
               iconColor: AppTheme.primaryTeal,
               title: 'Station 2: POP Staging & Clinical Examination (पाठेघर खस्ने जाँच)',
-              titleStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+              titleStyle: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryDark,
+              ),
               dateChip: _buildStationDateChip(
                 context: context,
                 field: 'examDate',
@@ -2762,7 +3761,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // POP Staging (POP anterior wall, POP middle part, POP posterior wall)
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -2770,7 +3771,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   const Text(
                     'POP Staging (Yellow Form Page 2):',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryDark,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   _buildStageDropdown(
@@ -2802,7 +3807,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // Station 4 Highest POP Stage on Yellow Form
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -2815,19 +3822,31 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       const Expanded(
                         child: Text(
                           'Highest POP Stage (अधिकतम स्टेज):',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       () {
-                        final highestVal = (pop['highestPopStage'] ?? pop['highestStage'] ?? pop['stage']) as int?;
+                        final highestVal =
+                            (pop['highestPopStage'] ??
+                                    pop['highestStage'] ??
+                                    pop['stage'])
+                                as int?;
                         if (highestVal == null) return const SizedBox.shrink();
                         return Chip(
                           visualDensity: VisualDensity.compact,
                           backgroundColor: AppTheme.primaryTeal,
                           label: Text(
                             'Stage $highestVal',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
                           ),
                         );
                       }(),
@@ -2836,12 +3855,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   const SizedBox(height: 4),
                   const Text(
                     'Directly detected from Station 4 summary on Yellow Form:',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Builder(
                     builder: (context) {
-                      final highestVal = (pop['highestPopStage'] ?? pop['highestStage'] ?? pop['stage']) as int?;
+                      final highestVal =
+                          (pop['highestPopStage'] ??
+                                  pop['highestStage'] ??
+                                  pop['stage'])
+                              as int?;
                       return Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -2850,10 +3876,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           return ChoiceChip(
                             label: Text('Stage $stage'),
                             selected: isSelected,
-                            selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                            selectedColor: AppTheme.primaryTeal.withValues(
+                              alpha: 0.2,
+                            ),
                             labelStyle: TextStyle(
-                              color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected
+                                  ? AppTheme.primaryTeal
+                                  : const Color(0xFF334155),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                               fontSize: 11.5,
                             ),
                             onSelected: (selected) {
@@ -2875,7 +3907,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // Station 2: Pelvic Floor Tone & Uterus Inside
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -2883,7 +3917,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   const Text(
                     'Uterus Inside & Pelvic Floor Muscle (पाठेघरको अवस्था तथा पेल्भिक मांसपेशी):',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryDark,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -2891,45 +3929,72 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     spacing: 8,
                     runSpacing: 6,
                     children: [
-                      const Text('Uterus Inside:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Uterus Inside:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       ChoiceChip(
                         label: const Text('Yes'),
                         selected: pop['uterusInside'] == true,
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                        onSelected: (sel) => vm.updatePopStage('uterusInside', true),
+                        selectedColor: AppTheme.primaryTeal.withValues(
+                          alpha: 0.2,
+                        ),
+                        onSelected: (sel) =>
+                            vm.updatePopStage('uterusInside', true),
                       ),
                       ChoiceChip(
                         label: const Text('No'),
                         selected: pop['uterusInside'] == false,
                         selectedColor: Colors.orange.shade100,
-                        onSelected: (sel) => vm.updatePopStage('uterusInside', false),
+                        onSelected: (sel) =>
+                            vm.updatePopStage('uterusInside', false),
                       ),
                     ],
                   ),
                   const Divider(height: 24),
-                  const Text('Pelvic Floor Muscle (पेल्भिक मांसपेशी):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Pelvic Floor Muscle (पेल्भिक मांसपेशी):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: [
-                      {'val': 'normal', 'label': 'Normal (सामान्य)'},
-                      {'val': 'weak', 'label': 'Weak (कमजोर)'},
-                      {'val': 'hypertonic', 'label': 'Hypertonic (कडा / तनावग्रस्त)'},
-                    ].map((t) {
-                      final isSelected = (pop['pelvicFloorTone'] as String?)?.toLowerCase() == t['val'];
-                      return ChoiceChip(
-                        label: Text(t['label']!),
-                        selected: isSelected,
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 12,
-                        ),
-                        onSelected: (_) => vm.updatePopStage('pelvicFloorTone', t['val']),
-                      );
-                    }).toList(),
+                    children:
+                        [
+                          {'val': 'normal', 'label': 'Normal (सामान्य)'},
+                          {'val': 'weak', 'label': 'Weak (कमजोर)'},
+                          {
+                            'val': 'hypertonic',
+                            'label': 'Hypertonic (कडा / तनावग्रस्त)',
+                          },
+                        ].map((t) {
+                          final isSelected =
+                              (pop['pelvicFloorTone'] as String?)
+                                  ?.toLowerCase() ==
+                              t['val'];
+                          return ChoiceChip(
+                            label: Text(t['label']!),
+                            selected: isSelected,
+                            selectedColor: AppTheme.primaryTeal.withValues(
+                              alpha: 0.2,
+                            ),
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? AppTheme.primaryTeal
+                                  : const Color(0xFF334155),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              fontSize: 12,
+                            ),
+                            onSelected: (_) =>
+                                vm.updatePopStage('pelvicFloorTone', t['val']),
+                          );
+                        }).toList(),
                   ),
                 ],
               ),
@@ -2941,7 +4006,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // 1. Vulva Examination
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -2954,17 +4021,33 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       const Expanded(
                         child: Text(
                           '1. Vulva Examination (बाह्य अङ्ग / भल्भा):',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
                         visualDensity: VisualDensity.compact,
-                        label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
-                        selected: (pop['vulvaRemarks'] as String? ?? '').trim().toLowerCase() == 'normal',
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        label: const Text(
+                          'Normal (सामान्य)',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        selected:
+                            (pop['vulvaRemarks'] as String? ?? '')
+                                .trim()
+                                .toLowerCase() ==
+                            'normal',
+                        selectedColor: AppTheme.primaryTeal.withValues(
+                          alpha: 0.2,
+                        ),
                         onSelected: (sel) {
-                          vm.updatePopStage('vulvaRemarks', sel ? 'Normal' : '');
+                          vm.updatePopStage(
+                            'vulvaRemarks',
+                            sel ? 'Normal' : '',
+                          );
                         },
                       ),
                     ],
@@ -2990,7 +4073,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // 2. Vagina Examination
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -3003,17 +4088,33 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       const Expanded(
                         child: Text(
                           '2. Vagina Examination (योनीको अवस्था):',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
                         visualDensity: VisualDensity.compact,
-                        label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
-                        selected: (pop['vaginaRemarks'] as String? ?? '').trim().toLowerCase() == 'normal',
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        label: const Text(
+                          'Normal (सामान्य)',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        selected:
+                            (pop['vaginaRemarks'] as String? ?? '')
+                                .trim()
+                                .toLowerCase() ==
+                            'normal',
+                        selectedColor: AppTheme.primaryTeal.withValues(
+                          alpha: 0.2,
+                        ),
                         onSelected: (sel) {
-                          vm.updatePopStage('vaginaRemarks', sel ? 'Normal' : '');
+                          vm.updatePopStage(
+                            'vaginaRemarks',
+                            sel ? 'Normal' : '',
+                          );
                         },
                       ),
                     ],
@@ -3024,7 +4125,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     initialValue: pop['vaginaRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
                       labelText: 'Vagina Remarks (सामान्य नभएमा कैफियत)',
-                      hintText: 'Discharge, cystocele, rectocele, atrophic mucosa...',
+                      hintText:
+                          'Discharge, cystocele, rectocele, atrophic mucosa...',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -3039,7 +4141,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // 3. Cervix Appearance
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -3052,17 +4156,37 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       const Expanded(
                         child: Text(
                           '3. Cervix Appearance (पाठेघरको मुखको अवस्था):',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
                         visualDensity: VisualDensity.compact,
-                        label: const Text('Normal / Smooth (सामान्य)', style: TextStyle(fontSize: 11)),
-                        selected: (pop['cervixRemarks'] as String? ?? '').trim().toLowerCase() == 'normal' || (pop['cervixRemarks'] as String? ?? '').trim().toLowerCase() == 'normal / smooth',
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        label: const Text(
+                          'Normal / Smooth (सामान्य)',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        selected:
+                            (pop['cervixRemarks'] as String? ?? '')
+                                    .trim()
+                                    .toLowerCase() ==
+                                'normal' ||
+                            (pop['cervixRemarks'] as String? ?? '')
+                                    .trim()
+                                    .toLowerCase() ==
+                                'normal / smooth',
+                        selectedColor: AppTheme.primaryTeal.withValues(
+                          alpha: 0.2,
+                        ),
                         onSelected: (sel) {
-                          vm.updatePopStage('cervixRemarks', sel ? 'Normal / Smooth' : '');
+                          vm.updatePopStage(
+                            'cervixRemarks',
+                            sel ? 'Normal / Smooth' : '',
+                          );
                         },
                       ),
                     ],
@@ -3073,7 +4197,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     initialValue: pop['cervixRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
                       labelText: 'Cervix Remarks (सामान्य नभएमा कैफियत)',
-                      hintText: 'Erosion, polyp, bleeding on touch, hypertrophy...',
+                      hintText:
+                          'Erosion, polyp, bleeding on touch, hypertrophy...',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -3088,7 +4213,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // 4. Uterus Examination
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -3101,17 +4228,37 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       const Expanded(
                         child: Text(
                           '4. Uterus Examination (पाठेघर सम्बन्धी कैफियत):',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
                         visualDensity: VisualDensity.compact,
-                        label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
-                        selected: (pop['uterusRemarks'] as String? ?? '').trim().toLowerCase() == 'normal' || (pop['uterusRemarks'] as String? ?? '').trim().toLowerCase() == 'normal size',
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        label: const Text(
+                          'Normal (सामान्य)',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        selected:
+                            (pop['uterusRemarks'] as String? ?? '')
+                                    .trim()
+                                    .toLowerCase() ==
+                                'normal' ||
+                            (pop['uterusRemarks'] as String? ?? '')
+                                    .trim()
+                                    .toLowerCase() ==
+                                'normal size',
+                        selectedColor: AppTheme.primaryTeal.withValues(
+                          alpha: 0.2,
+                        ),
                         onSelected: (sel) {
-                          vm.updatePopStage('uterusRemarks', sel ? 'Normal' : '');
+                          vm.updatePopStage(
+                            'uterusRemarks',
+                            sel ? 'Normal' : '',
+                          );
                         },
                       ),
                     ],
@@ -3122,7 +4269,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     initialValue: pop['uterusRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
                       labelText: 'Uterus Remarks (सामान्य नभएमा कैफियत)',
-                      hintText: 'Bulky, tender, fibroid, restricted, retroverted...',
+                      hintText:
+                          'Bulky, tender, fibroid, restricted, retroverted...',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -3138,7 +4286,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
   }
 
   // Tab 4: Vitals & Diagnoses
-  Widget _buildVitalsAndDiagnosesTab(OcrScanResultModel result, OcrScanViewModel vm) {
+  Widget _buildVitalsAndDiagnosesTab(
+    OcrScanResultModel result,
+    OcrScanViewModel vm,
+  ) {
     final vitals = result.vitals;
 
     final sys = vitals['systolicBp'] as int? ?? 120;
@@ -3148,12 +4299,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     final glucose = vitals['bloodGlucose'] as int? ?? 110;
 
     final bpStatus = ClinicalValidationService.validateSystolicBp(sys);
-    final bpDiaStatus = ClinicalValidationService.validateDiastolicBp(dia, systolic: sys);
-    final ValidationSeverity bpSeverity = (bpStatus.isError || bpDiaStatus.isError)
+    final bpDiaStatus = ClinicalValidationService.validateDiastolicBp(
+      dia,
+      systolic: sys,
+    );
+    final ValidationSeverity bpSeverity =
+        (bpStatus.isError || bpDiaStatus.isError)
         ? ValidationSeverity.error
         : (bpStatus.isWarning || bpDiaStatus.isWarning)
-            ? ValidationSeverity.warning
-            : ValidationSeverity.normal;
+        ? ValidationSeverity.warning
+        : ValidationSeverity.normal;
 
     final pulseStatus = ClinicalValidationService.validatePulse(pulse);
     final spo2Status = ClinicalValidationService.validateSpO2(spo2);
@@ -3188,7 +4343,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ),
           ],
 
-          const Text('Point-of-Care Vitals (भाइटल परीक्षण):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const Text(
+            'Point-of-Care Vitals (भाइटल परीक्षण):',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
           const SizedBox(height: 4),
           const Text(
             'Directly edit detected vitals. Live clinical warnings and validation will update automatically.',
@@ -3205,8 +4363,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 color: bpSeverity == ValidationSeverity.normal
                     ? AppTheme.successGreen.withValues(alpha: 0.3)
                     : bpSeverity == ValidationSeverity.warning
-                        ? AppTheme.warningAmber
-                        : AppTheme.dangerRose,
+                    ? AppTheme.warningAmber
+                    : AppTheme.dangerRose,
                 width: bpSeverity == ValidationSeverity.normal ? 1 : 1.5,
               ),
             ),
@@ -3217,12 +4375,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.favorite, color: Colors.redAccent, size: 20),
+                      const Icon(
+                        Icons.favorite,
+                        color: Colors.redAccent,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
                           'Blood Pressure (रक्तचाप)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
                       Chip(
@@ -3230,22 +4396,22 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         backgroundColor: bpSeverity == ValidationSeverity.normal
                             ? AppTheme.successGreen.withValues(alpha: 0.15)
                             : bpSeverity == ValidationSeverity.warning
-                                ? AppTheme.warningAmber.withValues(alpha: 0.2)
-                                : AppTheme.dangerRose.withValues(alpha: 0.2),
+                            ? AppTheme.warningAmber.withValues(alpha: 0.2)
+                            : AppTheme.dangerRose.withValues(alpha: 0.2),
                         label: Text(
                           bpSeverity == ValidationSeverity.normal
                               ? 'Normal ($sys/$dia)'
                               : bpSeverity == ValidationSeverity.warning
-                                  ? 'Warning ($sys/$dia)'
-                                  : 'Alert ($sys/$dia)',
+                              ? 'Warning ($sys/$dia)'
+                              : 'Alert ($sys/$dia)',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: bpSeverity == ValidationSeverity.normal
                                 ? AppTheme.successGreen
                                 : bpSeverity == ValidationSeverity.warning
-                                    ? Colors.amber.shade900
-                                    : AppTheme.dangerRose,
+                                ? Colors.amber.shade900
+                                : AppTheme.dangerRose,
                           ),
                         ),
                       ),
@@ -3254,27 +4420,47 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   const SizedBox(height: 4),
                   const Text(
                     'Standard unit: mmHg. Cross-check against Yellow Form Box 4.',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final isNarrow = constraints.maxWidth < 400;
                       final sysField = TextFormField(
-                        key: ValueKey('vital_sys_${result.scannedAt.millisecondsSinceEpoch}'),
+                        key: ValueKey(
+                          'vital_sys_${result.scannedAt.millisecondsSinceEpoch}',
+                        ),
                         initialValue: '$sys',
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                         decoration: InputDecoration(
-                          labelText: isNarrow ? 'Systolic' : 'Systolic (सिस्टोलिक)',
+                          labelText: isNarrow
+                              ? 'Systolic'
+                              : 'Systolic (सिस्टोलिक)',
                           suffixText: 'mmHg',
-                          suffixStyle: const TextStyle(fontSize: 13, color: Colors.blueGrey),
+                          suffixStyle: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.blueGrey,
+                          ),
                           border: const OutlineInputBorder(),
                           isDense: false,
                           prefixIcon: isNarrow
                               ? null
-                              : const Icon(Icons.arrow_upward, size: 16, color: Colors.blueGrey),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              : const Icon(
+                                  Icons.arrow_upward,
+                                  size: 16,
+                                  color: Colors.blueGrey,
+                                ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 14,
+                          ),
                         ),
                         onChanged: (val) {
                           final parsed = int.tryParse(val.trim());
@@ -3284,20 +4470,37 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         },
                       );
                       final diaField = TextFormField(
-                        key: ValueKey('vital_dia_${result.scannedAt.millisecondsSinceEpoch}'),
+                        key: ValueKey(
+                          'vital_dia_${result.scannedAt.millisecondsSinceEpoch}',
+                        ),
                         initialValue: '$dia',
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                         decoration: InputDecoration(
-                          labelText: isNarrow ? 'Diastolic' : 'Diastolic (डायस्टोलिक)',
+                          labelText: isNarrow
+                              ? 'Diastolic'
+                              : 'Diastolic (डायस्टोलिक)',
                           suffixText: 'mmHg',
-                          suffixStyle: const TextStyle(fontSize: 13, color: Colors.blueGrey),
+                          suffixStyle: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.blueGrey,
+                          ),
                           border: const OutlineInputBorder(),
                           isDense: false,
                           prefixIcon: isNarrow
                               ? null
-                              : const Icon(Icons.arrow_downward, size: 16, color: Colors.blueGrey),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              : const Icon(
+                                  Icons.arrow_downward,
+                                  size: 16,
+                                  color: Colors.blueGrey,
+                                ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 14,
+                          ),
                         ),
                         onChanged: (val) {
                           final parsed = int.tryParse(val.trim());
@@ -3320,17 +4523,28 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           Expanded(child: sysField),
                           const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text('/', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.grey)),
+                            child: Text(
+                              '/',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey,
+                              ),
+                            ),
                           ),
                           Expanded(child: diaField),
                         ],
                       );
                     },
                   ),
-                  if (bpStatus.messageEn != null || bpDiaStatus.messageEn != null) ...[
+                  if (bpStatus.messageEn != null ||
+                      bpDiaStatus.messageEn != null) ...[
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: (bpStatus.isError || bpDiaStatus.isError)
                             ? Colors.red.shade50
@@ -3381,8 +4595,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     color: pulseStatus.severity == ValidationSeverity.normal
                         ? AppTheme.successGreen.withValues(alpha: 0.3)
                         : pulseStatus.severity == ValidationSeverity.warning
-                            ? AppTheme.warningAmber
-                            : AppTheme.dangerRose,
+                        ? AppTheme.warningAmber
+                        : AppTheme.dangerRose,
                   ),
                 ),
                 child: Padding(
@@ -3392,27 +4606,45 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.monitor_heart, color: Colors.pinkAccent, size: 18),
+                          const Icon(
+                            Icons.monitor_heart,
+                            color: Colors.pinkAccent,
+                            size: 18,
+                          ),
                           const SizedBox(width: 6),
                           const Expanded(
                             child: Text(
                               'Pulse Rate',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                              ),
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: pulseStatus.severity == ValidationSeverity.normal
-                                  ? AppTheme.successGreen.withValues(alpha: 0.15)
+                              color:
+                                  pulseStatus.severity ==
+                                      ValidationSeverity.normal
+                                  ? AppTheme.successGreen.withValues(
+                                      alpha: 0.15,
+                                    )
                                   : Colors.amber.shade100,
                             ),
                             child: Text(
-                              pulseStatus.severity == ValidationSeverity.normal ? 'Normal' : 'Alert',
+                              pulseStatus.severity == ValidationSeverity.normal
+                                  ? 'Normal'
+                                  : 'Alert',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: pulseStatus.severity == ValidationSeverity.normal
+                                color:
+                                    pulseStatus.severity ==
+                                        ValidationSeverity.normal
                                     ? AppTheme.successGreen
                                     : Colors.amber.shade900,
                               ),
@@ -3422,7 +4654,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
-                        key: ValueKey('vital_pulse_${result.scannedAt.millisecondsSinceEpoch}'),
+                        key: ValueKey(
+                          'vital_pulse_${result.scannedAt.millisecondsSinceEpoch}',
+                        ),
                         initialValue: '$pulse',
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
@@ -3430,7 +4664,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           suffixText: 'bpm',
                           border: OutlineInputBorder(),
                           isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 10,
+                          ),
                         ),
                         onChanged: (val) {
                           final parsed = int.tryParse(val.trim());
@@ -3443,7 +4680,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         const SizedBox(height: 6),
                         Text(
                           pulseStatus.messageEn!,
-                          style: TextStyle(fontSize: 10, color: Colors.amber.shade900),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.amber.shade900,
+                          ),
                         ),
                       ],
                     ],
@@ -3459,8 +4699,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     color: spo2Status.severity == ValidationSeverity.normal
                         ? AppTheme.successGreen.withValues(alpha: 0.3)
                         : spo2Status.severity == ValidationSeverity.warning
-                            ? AppTheme.warningAmber
-                            : AppTheme.dangerRose,
+                        ? AppTheme.warningAmber
+                        : AppTheme.dangerRose,
                   ),
                 ),
                 child: Padding(
@@ -3470,27 +4710,45 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.air, color: Colors.blueAccent, size: 18),
+                          const Icon(
+                            Icons.air,
+                            color: Colors.blueAccent,
+                            size: 18,
+                          ),
                           const SizedBox(width: 6),
                           const Expanded(
                             child: Text(
                               'SpO2 Saturation',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                              ),
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: spo2Status.severity == ValidationSeverity.normal
-                                  ? AppTheme.successGreen.withValues(alpha: 0.15)
+                              color:
+                                  spo2Status.severity ==
+                                      ValidationSeverity.normal
+                                  ? AppTheme.successGreen.withValues(
+                                      alpha: 0.15,
+                                    )
                                   : Colors.amber.shade100,
                             ),
                             child: Text(
-                              spo2Status.severity == ValidationSeverity.normal ? 'Normal' : 'Hypoxia',
+                              spo2Status.severity == ValidationSeverity.normal
+                                  ? 'Normal'
+                                  : 'Hypoxia',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: spo2Status.severity == ValidationSeverity.normal
+                                color:
+                                    spo2Status.severity ==
+                                        ValidationSeverity.normal
                                     ? AppTheme.successGreen
                                     : Colors.amber.shade900,
                               ),
@@ -3500,7 +4758,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
-                        key: ValueKey('vital_spo2_${result.scannedAt.millisecondsSinceEpoch}'),
+                        key: ValueKey(
+                          'vital_spo2_${result.scannedAt.millisecondsSinceEpoch}',
+                        ),
                         initialValue: '$spo2',
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
@@ -3508,7 +4768,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           suffixText: '%',
                           border: OutlineInputBorder(),
                           isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 10,
+                          ),
                         ),
                         onChanged: (val) {
                           final parsed = int.tryParse(val.trim());
@@ -3521,7 +4784,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         const SizedBox(height: 6),
                         Text(
                           spo2Status.messageEn!,
-                          style: TextStyle(fontSize: 10, color: Colors.amber.shade900),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.amber.shade900,
+                          ),
                         ),
                       ],
                     ],
@@ -3531,11 +4797,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
 
               if (isNarrow) {
                 return Column(
-                  children: [
-                    pulseCard,
-                    const SizedBox(height: 10),
-                    spo2Card,
-                  ],
+                  children: [pulseCard, const SizedBox(height: 10), spo2Card],
                 );
               }
 
@@ -3560,8 +4822,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 color: glucoseStatus.severity == ValidationSeverity.normal
                     ? AppTheme.successGreen.withValues(alpha: 0.3)
                     : glucoseStatus.severity == ValidationSeverity.warning
-                        ? AppTheme.warningAmber
-                        : AppTheme.dangerRose,
+                    ? AppTheme.warningAmber
+                    : AppTheme.dangerRose,
               ),
             ),
             child: Padding(
@@ -3571,18 +4833,30 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.bloodtype, color: Colors.deepOrange, size: 18),
+                      const Icon(
+                        Icons.bloodtype,
+                        color: Colors.deepOrange,
+                        size: 18,
+                      ),
                       const SizedBox(width: 6),
                       const Expanded(
                         child: Text(
                           'Blood Glucose / सुगर जाँच (RBS)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: glucoseStatus.severity == ValidationSeverity.normal
+                          color:
+                              glucoseStatus.severity ==
+                                  ValidationSeverity.normal
                               ? AppTheme.successGreen.withValues(alpha: 0.15)
                               : Colors.amber.shade100,
                           borderRadius: BorderRadius.circular(4),
@@ -3594,7 +4868,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
-                            color: glucoseStatus.severity == ValidationSeverity.normal
+                            color:
+                                glucoseStatus.severity ==
+                                    ValidationSeverity.normal
                                 ? AppTheme.successGreen
                                 : Colors.amber.shade900,
                           ),
@@ -3604,7 +4880,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
-                    key: ValueKey('vital_glucose_${result.scannedAt.millisecondsSinceEpoch}'),
+                    key: ValueKey(
+                      'vital_glucose_${result.scannedAt.millisecondsSinceEpoch}',
+                    ),
                     initialValue: '$glucose',
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
@@ -3612,7 +4890,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       suffixText: 'mg/dL',
                       border: OutlineInputBorder(),
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     onChanged: (val) {
                       final parsed = int.tryParse(val.trim());
@@ -3625,7 +4906,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     const SizedBox(height: 6),
                     Text(
                       glucoseStatus.messageEn!,
-                      style: TextStyle(fontSize: 10.5, color: Colors.amber.shade900),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Colors.amber.shade900,
+                      ),
                     ),
                   ],
                 ],
@@ -3637,7 +4921,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // Station 3: Rapid Lab Tests (Urine Dipstick & UPT)
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -3647,23 +4933,40 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     icon: Icons.biotech_outlined,
                     iconColor: AppTheme.primaryDark,
                     title: 'Point-of-Care Lab Tests (प्रयोगशाला जाँच):',
-                    titleStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                    titleStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryDark,
+                    ),
                     dateChip: _buildStationDateChip(
                       context: context,
                       field: 'labTestDate',
                       label: 'Lab Date',
                       dateStr: result.labTestDate,
-                      onDateSelected: (d) => vm.updateStationDate('labTestDate', d),
+                      onDateSelected: (d) =>
+                          vm.updateStationDate('labTestDate', d),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text('Urine Test (पिसाब जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Urine Test (पिसाब जाँच):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 6),
                   Builder(
                     builder: (context) {
-                      final currentUrine = (vitals['urineTest'] as String? ?? 'normal').toLowerCase();
-                      final isNormal = currentUrine == 'normal' || currentUrine.isEmpty;
-                      final isPos = !isNormal && (currentUrine.contains('pos') || currentUrine.contains('+') || currentUrine.contains('protein') || currentUrine.contains('glucose') || currentUrine.contains('blood'));
+                      final currentUrine =
+                          (vitals['urineTest'] as String? ?? 'normal')
+                              .toLowerCase();
+                      final isNormal =
+                          currentUrine == 'normal' || currentUrine.isEmpty;
+                      final isPos =
+                          !isNormal &&
+                          (currentUrine.contains('pos') ||
+                              currentUrine.contains('+') ||
+                              currentUrine.contains('protein') ||
+                              currentUrine.contains('glucose') ||
+                              currentUrine.contains('blood'));
 
                       return Wrap(
                         spacing: 8,
@@ -3672,55 +4975,86 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           ChoiceChip(
                             label: const Text('Normal (सामान्य)'),
                             selected: isNormal,
-                            selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                            selectedColor: AppTheme.primaryTeal.withValues(
+                              alpha: 0.2,
+                            ),
                             labelStyle: TextStyle(
-                              color: isNormal ? AppTheme.primaryTeal : const Color(0xFF334155),
-                              fontWeight: isNormal ? FontWeight.bold : FontWeight.normal,
+                              color: isNormal
+                                  ? AppTheme.primaryTeal
+                                  : const Color(0xFF334155),
+                              fontWeight: isNormal
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                               fontSize: 11.5,
                             ),
-                            onSelected: (_) => vm.updateVital('urineTest', 'normal'),
+                            onSelected: (_) =>
+                                vm.updateVital('urineTest', 'normal'),
                           ),
                           ChoiceChip(
                             label: const Text('Positive (पोजिटिभ)'),
                             selected: isPos,
                             selectedColor: Colors.purple.shade100,
                             labelStyle: TextStyle(
-                              color: isPos ? Colors.purple.shade900 : const Color(0xFF334155),
-                              fontWeight: isPos ? FontWeight.bold : FontWeight.normal,
+                              color: isPos
+                                  ? Colors.purple.shade900
+                                  : const Color(0xFF334155),
+                              fontWeight: isPos
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                               fontSize: 11.5,
                             ),
-                            onSelected: (_) => vm.updateVital('urineTest', 'pos'),
+                            onSelected: (_) =>
+                                vm.updateVital('urineTest', 'pos'),
                           ),
                         ],
                       );
                     },
                   ),
                   const Divider(height: 24),
-                  const Text('Pregnancy Test (UPT) (गर्भ जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Pregnancy Test (UPT) (गर्भ जाँच):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: [
-                      {'val': 'neg', 'label': 'Negative (नेगेटिभ)'},
-                      {'val': 'pos', 'label': 'Positive (पोजिटिभ)'},
-                    ].map((item) {
-                      final rawPreg = (vitals['pregnancyTest'] as String? ?? 'neg').toLowerCase().trim();
-                      final isSelected = rawPreg == item['val'] ||
-                          (item['val'] == 'neg' && (rawPreg == 'negative' || rawPreg.startsWith('neg'))) ||
-                          (item['val'] == 'pos' && (rawPreg == 'positive' || rawPreg.startsWith('pos')));
-                      return ChoiceChip(
-                        label: Text(item['label']!),
-                        selected: isSelected,
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 11.5,
-                        ),
-                        onSelected: (_) => vm.updateVital('pregnancyTest', item['val']),
-                      );
-                    }).toList(),
+                    children:
+                        [
+                          {'val': 'neg', 'label': 'Negative (नेगेटिभ)'},
+                          {'val': 'pos', 'label': 'Positive (पोजिटिभ)'},
+                        ].map((item) {
+                          final rawPreg =
+                              (vitals['pregnancyTest'] as String? ?? 'neg')
+                                  .toLowerCase()
+                                  .trim();
+                          final isSelected =
+                              rawPreg == item['val'] ||
+                              (item['val'] == 'neg' &&
+                                  (rawPreg == 'negative' ||
+                                      rawPreg.startsWith('neg'))) ||
+                              (item['val'] == 'pos' &&
+                                  (rawPreg == 'positive' ||
+                                      rawPreg.startsWith('pos')));
+                          return ChoiceChip(
+                            label: Text(item['label']!),
+                            selected: isSelected,
+                            selectedColor: AppTheme.primaryTeal.withValues(
+                              alpha: 0.2,
+                            ),
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? AppTheme.primaryTeal
+                                  : const Color(0xFF334155),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              fontSize: 11.5,
+                            ),
+                            onSelected: (_) =>
+                                vm.updateVital('pregnancyTest', item['val']),
+                          );
+                        }).toList(),
                   ),
                 ],
               ),
@@ -3731,7 +5065,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // ── ECG Examination (ईसीजी परीक्षण) ─────────────────────────
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -3739,11 +5075,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.monitor_heart, color: AppTheme.primaryTeal, size: 20),
+                      Icon(
+                        Icons.monitor_heart,
+                        color: AppTheme.primaryTeal,
+                        size: 20,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'ECG Examination (ईसीजी परीक्षण):',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryDark,
+                        ),
                       ),
                     ],
                   ),
@@ -3751,41 +5095,70 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: [
-                      {'val': 'Normal Sinus', 'label': 'Normal Sinus (सामान्य)'},
-                      {'val': 'Abnormal', 'label': 'Abnormal (असामान्य)'},
-                      {'val': 'Not Done', 'label': 'Not Done (जाँच नगरिएको)'},
-                    ].map((item) {
-                      final rawEcg = (vitals['ecg'] as String? ?? '').trim();
-                      final isSelected = rawEcg.toLowerCase() == item['val']!.toLowerCase() ||
-                          (item['val'] == 'Normal Sinus' && (rawEcg.toLowerCase().contains('normal') || rawEcg.toLowerCase().contains('sinus'))) ||
-                          (item['val'] == 'Abnormal' && rawEcg.toLowerCase().contains('abnormal')) ||
-                          (item['val'] == 'Not Done' && (rawEcg.toLowerCase().contains('not') || rawEcg.toLowerCase().contains('done')));
-                      return ChoiceChip(
-                        label: Text(item['label']!),
-                        selected: isSelected,
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 11.5,
-                        ),
-                        onSelected: (_) {
-                          vm.updateVital('ecg', item['val']);
-                        },
-                      );
-                    }).toList(),
+                    children:
+                        [
+                          {
+                            'val': 'Normal Sinus',
+                            'label': 'Normal Sinus (सामान्य)',
+                          },
+                          {'val': 'Abnormal', 'label': 'Abnormal (असामान्य)'},
+                          {
+                            'val': 'Not Done',
+                            'label': 'Not Done (जाँच नगरिएको)',
+                          },
+                        ].map((item) {
+                          final rawEcg = (vitals['ecg'] as String? ?? '')
+                              .trim();
+                          final isSelected =
+                              rawEcg.toLowerCase() ==
+                                  item['val']!.toLowerCase() ||
+                              (item['val'] == 'Normal Sinus' &&
+                                  (rawEcg.toLowerCase().contains('normal') ||
+                                      rawEcg.toLowerCase().contains(
+                                        'sinus',
+                                      ))) ||
+                              (item['val'] == 'Abnormal' &&
+                                  rawEcg.toLowerCase().contains('abnormal')) ||
+                              (item['val'] == 'Not Done' &&
+                                  (rawEcg.toLowerCase().contains('not') ||
+                                      rawEcg.toLowerCase().contains('done')));
+                          return ChoiceChip(
+                            label: Text(item['label']!),
+                            selected: isSelected,
+                            selectedColor: AppTheme.primaryTeal.withValues(
+                              alpha: 0.2,
+                            ),
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? AppTheme.primaryTeal
+                                  : const Color(0xFF334155),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              fontSize: 11.5,
+                            ),
+                            onSelected: (_) {
+                              vm.updateVital('ecg', item['val']);
+                            },
+                          );
+                        }).toList(),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    key: ValueKey('vital_ecgNotes_${result.scannedAt.millisecondsSinceEpoch}'),
+                    key: ValueKey(
+                      'vital_ecgNotes_${result.scannedAt.millisecondsSinceEpoch}',
+                    ),
                     initialValue: vitals['ecgNotes'] as String? ?? '',
                     decoration: const InputDecoration(
                       labelText: 'ECG Findings / Notes (ईसीजी कैफियत)',
-                      hintText: 'Rate, rhythm, axis, ST-T changes if abnormal...',
+                      hintText:
+                          'Rate, rhythm, axis, ST-T changes if abnormal...',
                       border: OutlineInputBorder(),
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 10,
+                      ),
                     ),
                     onChanged: (val) {
                       vm.updateVital('ecgNotes', val.trim());
@@ -3800,7 +5173,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // ── 4. DIAGNOSES DETECTED & VERIFICATION ──────────────────
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(14.0),
               child: Column(
@@ -3810,27 +5185,39 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     icon: Icons.healing,
                     iconColor: AppTheme.primaryTeal,
                     title: 'Diagnoses Detected (रोग पहिचान)',
-                    titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                    titleStyle: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      color: AppTheme.primaryDark,
+                    ),
                     dateChip: _buildStationDateChip(
                       context: context,
                       field: 'conclusionDate',
                       label: 'Conclusion Date',
                       dateStr: result.conclusionDate,
-                      onDateSelected: (d) => vm.updateStationDate('conclusionDate', d),
+                      onDateSelected: (d) =>
+                          vm.updateStationDate('conclusionDate', d),
                     ),
                     extraChip: Chip(
                       visualDensity: VisualDensity.compact,
                       backgroundColor: AppTheme.primaryLight,
                       label: Text(
                         '${result.diagnoses.length} Selected',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryTeal),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: AppTheme.primaryTeal,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     'Review OCR-detected diagnoses. Tap "×" on any chip to remove, or toggle below to add:',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                   const SizedBox(height: 10),
 
@@ -3846,12 +5233,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.info_outline, size: 18, color: Colors.blueGrey),
+                          Icon(
+                            Icons.info_outline,
+                            size: 18,
+                            color: Colors.blueGrey,
+                          ),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'No diagnoses selected. Tap standard diagnoses below or type to add custom.',
-                              style: TextStyle(fontSize: 11.5, color: Colors.blueGrey),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Colors.blueGrey,
+                              ),
                             ),
                           ),
                         ],
@@ -3863,10 +5257,24 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       runSpacing: 8,
                       children: result.diagnoses.map((dx) {
                         return InputChip(
-                          avatar: const Icon(Icons.healing, size: 15, color: Colors.teal),
-                          label: Text(dx, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          avatar: const Icon(
+                            Icons.healing,
+                            size: 15,
+                            color: Colors.teal,
+                          ),
+                          label: Text(
+                            dx,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                           backgroundColor: Colors.teal.shade50,
-                          deleteIcon: const Icon(Icons.cancel, size: 16, color: Colors.teal),
+                          deleteIcon: const Icon(
+                            Icons.cancel,
+                            size: 16,
+                            color: Colors.teal,
+                          ),
                           onDeleted: () => vm.removeDiagnosis(dx),
                         );
                       }).toList(),
@@ -3876,7 +5284,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   const Divider(height: 24),
                   const Text(
                     'Standard Yellow Form Diagnoses (२१ वटा मानक रोगहरू):',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryDark,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -3886,7 +5298,15 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       final isSelected = result.diagnoses.contains(dx);
                       return FilterChip(
                         visualDensity: VisualDensity.compact,
-                        label: Text(dx, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                        label: Text(
+                          dx,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
                         selected: isSelected,
                         selectedColor: AppTheme.primaryLight,
                         checkmarkColor: AppTheme.primaryTeal,
@@ -3909,10 +5329,14 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         child: TextField(
                           controller: _customDiagnosisController,
                           decoration: const InputDecoration(
-                            hintText: 'Add custom or other diagnosis (अन्य रोग)...',
+                            hintText:
+                                'Add custom or other diagnosis (अन्य रोग)...',
                             isDense: true,
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 10,
+                            ),
                           ),
                           onSubmitted: (val) {
                             if (val.trim().isNotEmpty) {
@@ -3927,10 +5351,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryTeal,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                         ),
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Add', style: TextStyle(fontSize: 12)),
+                        label: const Text(
+                          'Add',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         onPressed: () {
                           final val = _customDiagnosisController.text.trim();
                           if (val.isNotEmpty) {
@@ -3950,7 +5380,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // ── 5. PRESCRIPTIONS DISPENSED & VERIFICATION ──────────────
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(14.0),
               child: Column(
@@ -3960,27 +5392,39 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     icon: Icons.medication,
                     iconColor: Colors.indigo,
                     title: 'Prescriptions Dispensed (औषधी)',
-                    titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                    titleStyle: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      color: AppTheme.primaryDark,
+                    ),
                     dateChip: _buildStationDateChip(
                       context: context,
                       field: 'treatmentDate',
                       label: 'Treatment Date',
                       dateStr: result.treatmentDate,
-                      onDateSelected: (d) => vm.updateStationDate('treatmentDate', d),
+                      onDateSelected: (d) =>
+                          vm.updateStationDate('treatmentDate', d),
                     ),
                     extraChip: Chip(
                       visualDensity: VisualDensity.compact,
                       backgroundColor: Colors.indigo.shade50,
                       label: Text(
                         '${result.medications.length} Prescribed',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.indigo.shade800),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: Colors.indigo.shade800,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     'Tap "×" to remove incorrect medicine, or select from Station 5 medicines below:',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                   const SizedBox(height: 10),
 
@@ -3996,12 +5440,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.info_outline, size: 18, color: Colors.blueGrey),
+                          Icon(
+                            Icons.info_outline,
+                            size: 18,
+                            color: Colors.blueGrey,
+                          ),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'No medications recorded. Tap standard medicines below or type custom prescription.',
-                              style: TextStyle(fontSize: 11.5, color: Colors.blueGrey),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Colors.blueGrey,
+                              ),
                             ),
                           ),
                         ],
@@ -4013,10 +5464,24 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       runSpacing: 8,
                       children: result.medications.map((rx) {
                         return InputChip(
-                          avatar: const Icon(Icons.medication, size: 15, color: Colors.indigo),
-                          label: Text(rx, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                          avatar: const Icon(
+                            Icons.medication,
+                            size: 15,
+                            color: Colors.indigo,
+                          ),
+                          label: Text(
+                            rx,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
                           backgroundColor: Colors.indigo.shade50,
-                          deleteIcon: const Icon(Icons.cancel, size: 16, color: Colors.indigo),
+                          deleteIcon: const Icon(
+                            Icons.cancel,
+                            size: 16,
+                            color: Colors.indigo,
+                          ),
                           onDeleted: () => vm.removeMedication(rx),
                         );
                       }).toList(),
@@ -4026,7 +5491,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   const Divider(height: 24),
                   const Text(
                     'Standard Yellow Form Medications (स्टेशन ५ औषधीहरू):',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryDark,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -4036,7 +5505,15 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       final isSelected = result.medications.contains(rx);
                       return FilterChip(
                         visualDensity: VisualDensity.compact,
-                        label: Text(rx, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                        label: Text(
+                          rx,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
                         selected: isSelected,
                         selectedColor: Colors.indigo.shade100,
                         checkmarkColor: Colors.indigo.shade900,
@@ -4052,8 +5529,6 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   ),
                   const SizedBox(height: 12),
 
-
-
                   // Custom prescription text field
                   Row(
                     children: [
@@ -4061,10 +5536,14 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         child: TextField(
                           controller: _customMedicationController,
                           decoration: const InputDecoration(
-                            hintText: 'Add custom medication or dosage (थप औषधी)...',
+                            hintText:
+                                'Add custom medication or dosage (थप औषधी)...',
                             isDense: true,
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 10,
+                            ),
                           ),
                           onSubmitted: (val) {
                             if (val.trim().isNotEmpty) {
@@ -4079,10 +5558,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.indigo,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                         ),
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Add', style: TextStyle(fontSize: 12)),
+                        label: const Text(
+                          'Add',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         onPressed: () {
                           final val = _customMedicationController.text.trim();
                           if (val.isNotEmpty) {
@@ -4102,7 +5587,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // ── 6. SPECIALIZED COUNSELING (Station 5: spec counseling) ──
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(14.0),
               child: Column(
@@ -4110,12 +5597,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.record_voice_over, color: AppTheme.primaryTeal, size: 20),
+                      Icon(
+                        Icons.record_voice_over,
+                        color: AppTheme.primaryTeal,
+                        size: 20,
+                      ),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Specialized Counseling (स्टेशन ५: विशेष परामर्श)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
                     ],
@@ -4123,38 +5618,67 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   const SizedBox(height: 4),
                   const Text(
                     'Cross-check with physical Yellow Form Station 5 (spec counseling) checkboxes:',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: [
-                      {'key': 'Weak pelvic floor', 'label': 'Weak pelvic floor (कमजोर पेल्भिक मांसपेशी)'},
-                      {'key': 'POP',               'label': 'POP (पाठेघर खसेको समस्या)'},
-                      {'key': 'Stress incontinence','label': 'Stress incontinence (खोक्दा पिसाब चुहिने)'},
-                      {'key': 'Urge incontinence',  'label': 'Urge incontinence (हतारिने पिसाब)'},
-                      {'key': 'Abdominal pain',    'label': 'Abdominal pain (तल्लो पेट दुख्ने)'},
-                    ].map((topic) {
-                      final isSelected = result.counseling.any(
-                        (c) => c.toLowerCase().contains(topic['key']!.toLowerCase()) ||
-                               topic['key']!.toLowerCase().contains(c.toLowerCase()),
-                      );
-                      return FilterChip(
-                        label: Text(topic['label']!),
-                        selected: isSelected,
-                        selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                        checkmarkColor: AppTheme.primaryTeal,
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 11.5,
-                        ),
-                        onSelected: (_) {
-                          vm.toggleCounseling(topic['key']!);
-                        },
-                      );
-                    }).toList(),
+                    children:
+                        [
+                          {
+                            'key': 'Weak pelvic floor',
+                            'label':
+                                'Weak pelvic floor (कमजोर पेल्भिक मांसपेशी)',
+                          },
+                          {'key': 'POP', 'label': 'POP (पाठेघर खसेको समस्या)'},
+                          {
+                            'key': 'Stress incontinence',
+                            'label':
+                                'Stress incontinence (खोक्दा पिसाब चुहिने)',
+                          },
+                          {
+                            'key': 'Urge incontinence',
+                            'label': 'Urge incontinence (हतारिने पिसाब)',
+                          },
+                          {
+                            'key': 'Abdominal pain',
+                            'label': 'Abdominal pain (तल्लो पेट दुख्ने)',
+                          },
+                        ].map((topic) {
+                          final isSelected = result.counseling.any(
+                            (c) =>
+                                c.toLowerCase().contains(
+                                  topic['key']!.toLowerCase(),
+                                ) ||
+                                topic['key']!.toLowerCase().contains(
+                                  c.toLowerCase(),
+                                ),
+                          );
+                          return FilterChip(
+                            label: Text(topic['label']!),
+                            selected: isSelected,
+                            selectedColor: AppTheme.primaryTeal.withValues(
+                              alpha: 0.2,
+                            ),
+                            checkmarkColor: AppTheme.primaryTeal,
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? AppTheme.primaryTeal
+                                  : const Color(0xFF334155),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              fontSize: 11.5,
+                            ),
+                            onSelected: (_) {
+                              vm.toggleCounseling(topic['key']!);
+                            },
+                          );
+                        }).toList(),
                   ),
                 ],
               ),
@@ -4168,7 +5692,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: result.ringPessary ? AppTheme.primaryTeal : Colors.grey.shade300,
+                color: result.ringPessary
+                    ? AppTheme.primaryTeal
+                    : Colors.grey.shade300,
                 width: result.ringPessary ? 1.5 : 1.0,
               ),
             ),
@@ -4179,12 +5705,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.radio_button_unchecked, color: AppTheme.primaryTeal, size: 20),
+                      const Icon(
+                        Icons.radio_button_unchecked,
+                        color: AppTheme.primaryTeal,
+                        size: 20,
+                      ),
                       SizedBox(width: 8),
                       const Expanded(
                         child: Text(
                           'Pessary Fitting & Insertion (पेसरी राखिएको)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
                       Switch(
@@ -4193,7 +5727,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         onChanged: (val) {
                           vm.updatePessary(
                             ringPessary: val,
-                            pessaryType: val ? (result.pessaryType ?? 'ring') : null,
+                            pessaryType: val
+                                ? (result.pessaryType ?? 'ring')
+                                : null,
                             size: val ? (result.ringPessarySize ?? 70) : null,
                           );
                         },
@@ -4203,45 +5739,73 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   const SizedBox(height: 4),
                   const Text(
                     'Cross-check with Yellow Form Station 5 (pessary) options and size:',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                   if (result.ringPessary) ...[
                     const SizedBox(height: 12),
-                    const Text('Pessary Type (पेसरीको प्रकार):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Pessary Type (पेसरीको प्रकार):',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: [
-                        {'key': 'ring',              'label': 'Ring (सामान्य रिङ्ग)'},
-                        {'key': 'ring with support',  'label': 'Ring with support (सपोर्ट सहित)'},
-                        {'key': 'ring with knob',     'label': 'Ring with knob (नब सहित)'},
-                      ].map((t) {
-                        final currentType = (result.pessaryType ?? 'ring').toLowerCase();
-                        final isSelected = currentType == t['key']!.toLowerCase();
-                        return ChoiceChip(
-                          label: Text(t['label']!),
-                          selected: isSelected,
-                          selectedColor: AppTheme.primaryLight,
-                          labelStyle: TextStyle(
-                            color: isSelected ? AppTheme.primaryDark : const Color(0xFF334155),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 11.5,
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              vm.updatePessary(
-                                ringPessary: true,
-                                pessaryType: t['key']!,
-                                size: result.ringPessarySize ?? 70,
-                              );
-                            }
-                          },
-                        );
-                      }).toList(),
+                      children:
+                          [
+                            {'key': 'ring', 'label': 'Ring (सामान्य रिङ्ग)'},
+                            {
+                              'key': 'ring with support',
+                              'label': 'Ring with support (सपोर्ट सहित)',
+                            },
+                            {
+                              'key': 'ring with knob',
+                              'label': 'Ring with knob (नब सहित)',
+                            },
+                          ].map((t) {
+                            final currentType = (result.pessaryType ?? 'ring')
+                                .toLowerCase();
+                            final isSelected =
+                                currentType == t['key']!.toLowerCase();
+                            return ChoiceChip(
+                              label: Text(t['label']!),
+                              selected: isSelected,
+                              selectedColor: AppTheme.primaryLight,
+                              labelStyle: TextStyle(
+                                color: isSelected
+                                    ? AppTheme.primaryDark
+                                    : const Color(0xFF334155),
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                fontSize: 11.5,
+                              ),
+                              onSelected: (selected) {
+                                if (selected) {
+                                  vm.updatePessary(
+                                    ringPessary: true,
+                                    pessaryType: t['key']!,
+                                    size: result.ringPessarySize ?? 70,
+                                  );
+                                }
+                              },
+                            );
+                          }).toList(),
                     ),
                     const SizedBox(height: 12),
-                    const Text('Pessary Size (साइज mm):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Pessary Size (साइज mm):',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -4251,10 +5815,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         return ChoiceChip(
                           label: Text('${sz}mm'),
                           selected: isSelected,
-                          selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                          selectedColor: AppTheme.primaryTeal.withValues(
+                            alpha: 0.2,
+                          ),
                           labelStyle: TextStyle(
-                            color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected
+                                ? AppTheme.primaryTeal
+                                : const Color(0xFF334155),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                             fontSize: 12,
                           ),
                           onSelected: (selected) {
@@ -4275,8 +5845,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         SizedBox(
                           width: 140,
                           child: TextFormField(
-                            key: ValueKey('custom_pessary_size_${result.ringPessarySize}'),
-                            initialValue: result.ringPessarySize != null && ![55, 60, 65, 70, 75, 80, 85].contains(result.ringPessarySize)
+                            key: ValueKey(
+                              'custom_pessary_size_${result.ringPessarySize}',
+                            ),
+                            initialValue:
+                                result.ringPessarySize != null &&
+                                    ![
+                                      55,
+                                      60,
+                                      65,
+                                      70,
+                                      75,
+                                      80,
+                                      85,
+                                    ].contains(result.ringPessarySize)
                                 ? '${result.ringPessarySize}'
                                 : '',
                             keyboardType: TextInputType.number,
@@ -4285,7 +5867,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                               hintText: 'e.g. 62',
                               isDense: true,
                               border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
                             ),
                             onChanged: (val) {
                               final sz = int.tryParse(val.trim());
@@ -4311,7 +5896,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // ── 8. SURGICAL REFERRAL & FOLLOW-UP DESTINATION ───────────
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(14.0),
               child: Column(
@@ -4319,38 +5906,54 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.local_hospital, color: Colors.redAccent, size: 20),
+                      Icon(
+                        Icons.local_hospital,
+                        color: Colors.redAccent,
+                        size: 20,
+                      ),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Surgical Referral & Follow-up (शल्यक्रिया सिफारिस)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  const Text('Referral Hospital Destination (सिफारिस गरिएको अस्पताल):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Referral Hospital Destination (सिफारिस गरिएको अस्पताल):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 6),
                   Builder(
                     builder: (context) {
                       final lookupState = ref.watch(masterLookupProvider);
                       final referralHosps = lookupState.activeReferralHospitals
                           .map((h) => h.labelEn)
-                          .where((h) =>
-                              !h.toLowerCase().contains('scheer') &&
-                              !h.toLowerCase().contains('model') &&
-                              !h.toLowerCase().contains('government') &&
-                              !h.toLowerCase().contains('loc') &&
-                              h != 'Health Post' &&
-                              h != 'GynaeSupport Nurse')
+                          .where(
+                            (h) =>
+                                !h.toLowerCase().contains('scheer') &&
+                                !h.toLowerCase().contains('model') &&
+                                !h.toLowerCase().contains('government') &&
+                                !h.toLowerCase().contains('loc') &&
+                                h != 'Health Post' &&
+                                h != 'GynaeSupport Nurse',
+                          )
                           .toList();
 
                       final items = [
                         {'val': null, 'label': 'None (छैन)'},
                         {'val': 'Scheer Memorial', 'label': 'Scheer Memorial'},
                         {'val': 'Model Hosp', 'label': 'Model Hosp'},
-                        {'val': 'loc government', 'label': 'Local Government (loc government)'},
+                        {
+                          'val': 'loc government',
+                          'label': 'Local Government (loc government)',
+                        },
                         ...referralHosps.map((h) => {'val': h, 'label': h}),
                       ];
 
@@ -4359,15 +5962,32 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         runSpacing: 8,
                         children: items.map((item) {
                           final val = item['val'];
-                          final isSelected = (val == null && (result.surgicalReferral == null || result.surgicalReferral!.isEmpty)) ||
-                              (val != null && result.surgicalReferral?.toLowerCase().contains(val.toLowerCase().split(' ').first) == true);
+                          final isSelected =
+                              (val == null &&
+                                  (result.surgicalReferral == null ||
+                                      result.surgicalReferral!.isEmpty)) ||
+                              (val != null &&
+                                  result.surgicalReferral
+                                          ?.toLowerCase()
+                                          .contains(
+                                            val.toLowerCase().split(' ').first,
+                                          ) ==
+                                      true);
                           return ChoiceChip(
                             label: Text(item['label']!),
                             selected: isSelected,
-                            selectedColor: val == null ? Colors.grey.shade200 : Colors.red.shade100,
+                            selectedColor: val == null
+                                ? Colors.grey.shade200
+                                : Colors.red.shade100,
                             labelStyle: TextStyle(
-                              color: isSelected ? (val == null ? Colors.black87 : Colors.red.shade900) : const Color(0xFF334155),
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected
+                                  ? (val == null
+                                        ? Colors.black87
+                                        : Colors.red.shade900)
+                                  : const Color(0xFF334155),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                               fontSize: 11.5,
                             ),
                             onSelected: (_) => vm.updateSurgicalReferral(val),
@@ -4377,18 +5997,23 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     },
                   ),
                   const Divider(height: 20),
-                  const Text('Follow-up Destination (फलो-अप कहाँ गर्ने):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Follow-up Destination (फलो-अप कहाँ गर्ने):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 6),
                   Builder(
                     builder: (context) {
                       final lookupState = ref.watch(masterLookupProvider);
                       final referralHosps = lookupState.activeReferralHospitals
                           .map((h) => h.labelEn)
-                          .where((h) =>
-                              !h.toLowerCase().contains('scheer') &&
-                              !h.toLowerCase().contains('model') &&
-                              h != 'Health Post' &&
-                              h != 'GynaeSupport Nurse')
+                          .where(
+                            (h) =>
+                                !h.toLowerCase().contains('scheer') &&
+                                !h.toLowerCase().contains('model') &&
+                                h != 'Health Post' &&
+                                h != 'GynaeSupport Nurse',
+                          )
                           .toList();
 
                       final rawDest = (result.followUpDestination ?? '').trim();
@@ -4397,18 +6022,31 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       final isHealthPost = rawDestLow == 'health post';
                       final isGynaeNurse = rawDestLow == 'gynaesupport nurse';
                       final isCampFollowUp = rawDestLow == 'camp follow-up day';
-                      final isHospital = rawDest.isNotEmpty &&
+                      final isHospital =
+                          rawDest.isNotEmpty &&
                           !isNoFollowUp &&
                           !isHealthPost &&
                           !isGynaeNurse &&
                           !isCampFollowUp;
 
                       final destItems = [
-                        {'val': 'No follow up needed', 'label': 'No follow up needed (फलो-अप आवश्यक छैन)'},
-                        {'val': 'Health Post', 'label': 'Health Post (स्वास्थ्य चौकी)'},
-                        {'val': 'GynaeSupport Nurse', 'label': 'GynaeSupport Nurse (गाइने सपोर्ट नर्स)'},
+                        {
+                          'val': 'No follow up needed',
+                          'label': 'No follow up needed (फलो-अप आवश्यक छैन)',
+                        },
+                        {
+                          'val': 'Health Post',
+                          'label': 'Health Post (स्वास्थ्य चौकी)',
+                        },
+                        {
+                          'val': 'GynaeSupport Nurse',
+                          'label': 'GynaeSupport Nurse (गाइने सपोर्ट नर्स)',
+                        },
                         {'val': 'Hospital', 'label': 'Hospital (अस्पताल)'},
-                        {'val': 'Camp Follow-up Day', 'label': 'Camp Follow-up Day (पुनः शिविर)'},
+                        {
+                          'val': 'Camp Follow-up Day',
+                          'label': 'Camp Follow-up Day (पुनः शिविर)',
+                        },
                       ];
 
                       return Column(
@@ -4425,15 +6063,24 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                               return ChoiceChip(
                                 label: Text(item['label']!),
                                 selected: isSelected,
-                                selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                                selectedColor: AppTheme.primaryTeal.withValues(
+                                  alpha: 0.2,
+                                ),
                                 labelStyle: TextStyle(
-                                  color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected
+                                      ? AppTheme.primaryTeal
+                                      : const Color(0xFF334155),
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                   fontSize: 11.5,
                                 ),
                                 onSelected: (_) {
                                   if (val == 'Hospital') {
-                                    final currentHosp = (isHospital && rawDestLow != 'hospital') ? rawDest : 'Hospital';
+                                    final currentHosp =
+                                        (isHospital && rawDestLow != 'hospital')
+                                        ? rawDest
+                                        : 'Hospital';
                                     vm.updateFollowUpDestination(currentHosp);
                                   } else {
                                     vm.updateFollowUpDestination(val);
@@ -4447,37 +6094,70 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryTeal.withValues(alpha: 0.05),
+                                color: AppTheme.primaryTeal.withValues(
+                                  alpha: 0.05,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: AppTheme.primaryTeal.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(Icons.local_hospital_rounded, size: 16, color: AppTheme.primaryTeal),
+                                      const Icon(
+                                        Icons.local_hospital_rounded,
+                                        size: 16,
+                                        color: AppTheme.primaryTeal,
+                                      ),
                                       const SizedBox(width: 6),
                                       const Expanded(
                                         child: Text(
                                           'Referral / Follow-up Hospital Name (सिफारिस गरिएको अस्पतालको नाम):',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryDark,
+                                          ),
                                         ),
                                       ),
-                                      if (rawDest.isNotEmpty && rawDestLow != 'hospital') ...[
+                                      if (rawDest.isNotEmpty &&
+                                          rawDestLow != 'hospital') ...[
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: Colors.green.shade50,
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: Colors.green.shade300),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.green.shade300,
+                                            ),
                                           ),
                                           child: const Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Icon(Icons.check_circle_rounded, size: 12, color: Colors.green),
+                                              Icon(
+                                                Icons.check_circle_rounded,
+                                                size: 12,
+                                                color: Colors.green,
+                                              ),
                                               SizedBox(width: 4),
-                                              Text('Detected from form', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                                              Text(
+                                                'Detected from form',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.green,
+                                                ),
+                                              ),
                                             ],
                                           ),
                                         ),
@@ -4486,8 +6166,12 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                                   ),
                                   const SizedBox(height: 8),
                                   TextFormField(
-                                    key: ValueKey('hosp_dest_field_${rawDestLow == 'hospital' ? '' : rawDest}'),
-                                    initialValue: (rawDestLow == 'hospital') ? '' : rawDest,
+                                    key: ValueKey(
+                                      'hosp_dest_field_${rawDestLow == 'hospital' ? '' : rawDest}',
+                                    ),
+                                    initialValue: (rawDestLow == 'hospital')
+                                        ? ''
+                                        : rawDest,
                                     decoration: InputDecoration(
                                       labelText: 'Hospital Name / Center (अस्पताल वा संस्थाको नाम)',
                                       hintText: 'Enter or edit hospital name (e.g. GANDAKI PROVINCIAL HOSPITAL, Bir Hospital...)',
@@ -4495,18 +6179,31 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                                       filled: true,
                                       fillColor: Colors.white,
                                       border: const OutlineInputBorder(),
-                                      prefixIcon: const Icon(Icons.edit_location_alt_rounded, size: 18),
-                                      suffixIcon: rawDest.isNotEmpty && rawDestLow != 'hospital'
+                                      prefixIcon: const Icon(
+                                        Icons.edit_location_alt_rounded,
+                                        size: 18,
+                                      ),
+                                      suffixIcon:
+                                          rawDest.isNotEmpty &&
+                                              rawDestLow != 'hospital'
                                           ? IconButton(
-                                              icon: const Icon(Icons.clear, size: 16),
+                                              icon: const Icon(
+                                                Icons.clear,
+                                                size: 16,
+                                              ),
                                               tooltip: 'Clear hospital name',
-                                              onPressed: () => vm.updateFollowUpDestination('Hospital'),
+                                              onPressed: () =>
+                                                  vm.updateFollowUpDestination(
+                                                    'Hospital',
+                                                  ),
                                             )
                                           : null,
                                     ),
                                     onChanged: (val) {
                                       final clean = val.trim();
-                                      vm.updateFollowUpDestination(clean.isNotEmpty ? clean : 'Hospital');
+                                      vm.updateFollowUpDestination(
+                                        clean.isNotEmpty ? clean : 'Hospital',
+                                      );
                                     },
                                   ),
                                   if (referralHosps.isNotEmpty) ...[
@@ -4514,20 +6211,37 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                                     Wrap(
                                       spacing: 6,
                                       runSpacing: 6,
-                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
                                       children: [
-                                        const Text('Quick Select:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                                        const Text(
+                                          'Quick Select:',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF64748B),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
                                         ...referralHosps.map((h) {
-                                          final isQuickSelected = rawDestLow == h.toLowerCase();
+                                          final isQuickSelected =
+                                              rawDestLow == h.toLowerCase();
                                           return ActionChip(
                                             label: Text(h),
-                                            backgroundColor: isQuickSelected ? AppTheme.primaryTeal.withValues(alpha: 0.2) : Colors.white,
+                                            backgroundColor: isQuickSelected
+                                                ? AppTheme.primaryTeal
+                                                      .withValues(alpha: 0.2)
+                                                : Colors.white,
                                             labelStyle: TextStyle(
                                               fontSize: 11,
-                                              color: isQuickSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                                              fontWeight: isQuickSelected ? FontWeight.bold : FontWeight.normal,
+                                              color: isQuickSelected
+                                                  ? AppTheme.primaryTeal
+                                                  : const Color(0xFF334155),
+                                              fontWeight: isQuickSelected
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
                                             ),
-                                            onPressed: () => vm.updateFollowUpDestination(h),
+                                            onPressed: () =>
+                                                vm.updateFollowUpDestination(h),
                                           );
                                         }),
                                       ],
@@ -4553,7 +6267,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: (result.examiningDoctor != null && result.examiningDoctor!.isNotEmpty)
+                color:
+                    (result.examiningDoctor != null &&
+                        result.examiningDoctor!.isNotEmpty)
                     ? AppTheme.primaryTeal
                     : Colors.amber.shade400,
                 width: 1.5,
@@ -4566,17 +6282,30 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.person_pin_rounded, color: AppTheme.primaryTeal, size: 20),
+                      const Icon(
+                        Icons.person_pin_rounded,
+                        color: AppTheme.primaryTeal,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
                           'Examining / Attending Doctor (जाँच गर्ने चिकित्सक)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
-                      if (result.attendingDoctors.isNotEmpty || (result.examiningDoctor != null && result.examiningDoctor!.isNotEmpty))
+                      if (result.attendingDoctors.isNotEmpty ||
+                          (result.examiningDoctor != null &&
+                              result.examiningDoctor!.isNotEmpty))
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: AppTheme.primaryLight,
                             borderRadius: BorderRadius.circular(12),
@@ -4584,52 +6313,87 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.check, size: 13, color: AppTheme.primaryDark),
+                              const Icon(
+                                Icons.check,
+                                size: 13,
+                                color: AppTheme.primaryDark,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 '${result.attendingDoctors.isNotEmpty ? result.attendingDoctors.length : 1} Selected',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryDark),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  color: AppTheme.primaryDark,
+                                ),
                               ),
                             ],
                           ),
                         ),
                     ],
                   ),
-                  if (result.attendingDoctors.isNotEmpty || (result.examiningDoctor != null && result.examiningDoctor!.isNotEmpty)) ...[
+                  if (result.attendingDoctors.isNotEmpty ||
+                      (result.examiningDoctor != null &&
+                          result.examiningDoctor!.isNotEmpty)) ...[
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
-                      children: (result.attendingDoctors.isNotEmpty ? result.attendingDoctors : [result.examiningDoctor!]).map((doc) => Chip(
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: AppTheme.primaryLight,
-                        avatar: const Icon(Icons.check, size: 13, color: AppTheme.primaryDark),
-                        label: Text(
-                          doc,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryDark),
-                        ),
-                      )).toList(),
+                      children:
+                          (result.attendingDoctors.isNotEmpty
+                                  ? result.attendingDoctors
+                                  : [result.examiningDoctor!])
+                              .map(
+                                (doc) => Chip(
+                                  visualDensity: VisualDensity.compact,
+                                  backgroundColor: AppTheme.primaryLight,
+                                  avatar: const Icon(
+                                    Icons.check,
+                                    size: 13,
+                                    color: AppTheme.primaryDark,
+                                  ),
+                                  label: Text(
+                                    doc,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      color: AppTheme.primaryDark,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
                     ),
                   ],
                   const SizedBox(height: 6),
                   const Text(
                     'Select clinician(s) who performed Station 2 POP exam & treatment for this patient (multi-select):',
-                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Builder(
                     builder: (context) {
-                      final activeCamp = ref.watch(campStateProvider).activeCamp;
-                      final List<String> campDoctors = activeCamp?.doctorNames.isNotEmpty == true
+                      final activeCamp = ref
+                          .watch(campStateProvider)
+                          .activeCamp;
+                      final List<String> campDoctors =
+                          activeCamp?.doctorNames.isNotEmpty == true
                           ? activeCamp!.doctorNames
                           : (activeCamp?.doctorName.trim().isNotEmpty == true
-                              ? [activeCamp!.doctorName.trim()]
-                              : <String>[]);
+                                ? [activeCamp!.doctorName.trim()]
+                                : <String>[]);
 
                       if (campDoctors.isEmpty) {
                         return const Text(
                           'No doctors assigned to active camp in settings.',
-                          style: TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.blueGrey,
+                          ),
                         );
                       }
 
@@ -4637,21 +6401,48 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         spacing: 8,
                         runSpacing: 8,
                         children: campDoctors.map((doc) {
-                          final cleanDoc = doc.toLowerCase().startsWith('dr') ? doc : 'Dr. $doc';
-                          final isSelected = result.examiningDoctor == cleanDoc ||
+                          final cleanDoc = doc.toLowerCase().startsWith('dr')
+                              ? doc
+                              : 'Dr. $doc';
+                          final isSelected =
+                              result.examiningDoctor == cleanDoc ||
                               result.examiningDoctor == doc ||
                               result.attendingDoctors.contains(cleanDoc) ||
                               result.attendingDoctors.contains(doc) ||
-                              _isNameFuzzyMatch(doc, result.attendingDoctors, result.examiningDoctor);
+                              _isNameFuzzyMatch(
+                                doc,
+                                result.attendingDoctors,
+                                result.examiningDoctor,
+                              );
                           return FilterChip(
                             avatar: CircleAvatar(
                               radius: 12,
-                              backgroundColor: isSelected ? Colors.white : AppTheme.primaryTeal.withValues(alpha: 0.15),
-                              child: Icon(Icons.medical_services, size: 13, color: isSelected ? AppTheme.primaryTeal : Colors.blueGrey),
+                              backgroundColor: isSelected
+                                  ? Colors.white
+                                  : AppTheme.primaryTeal.withValues(
+                                      alpha: 0.15,
+                                    ),
+                              child: Icon(
+                                Icons.medical_services,
+                                size: 13,
+                                color: isSelected
+                                    ? AppTheme.primaryTeal
+                                    : Colors.blueGrey,
+                              ),
                             ),
-                            label: Text(cleanDoc, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                            label: Text(
+                              cleanDoc,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
                             selected: isSelected,
-                            selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                            selectedColor: AppTheme.primaryTeal.withValues(
+                              alpha: 0.2,
+                            ),
                             checkmarkColor: AppTheme.primaryTeal,
                             onSelected: (selected) {
                               vm.toggleAttendingDoctor(cleanDoc);
@@ -4673,7 +6464,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: (result.attendingNurses.isNotEmpty || (result.examiningNurse != null && result.examiningNurse!.isNotEmpty))
+                color:
+                    (result.attendingNurses.isNotEmpty ||
+                        (result.examiningNurse != null &&
+                            result.examiningNurse!.isNotEmpty))
                     ? const Color(0xFF81005D)
                     : Colors.pink.shade200,
                 width: 1.5,
@@ -4686,17 +6480,30 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.badge_outlined, color: Color(0xFF81005D), size: 20),
+                      const Icon(
+                        Icons.badge_outlined,
+                        color: Color(0xFF81005D),
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
                           'Attending Nurse (सेवा दिने नर्स)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF81005D)),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                            color: Color(0xFF81005D),
+                          ),
                         ),
                       ),
-                      if (result.attendingNurses.isNotEmpty || (result.examiningNurse != null && result.examiningNurse!.isNotEmpty))
+                      if (result.attendingNurses.isNotEmpty ||
+                          (result.examiningNurse != null &&
+                              result.examiningNurse!.isNotEmpty))
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFCE7F3),
                             borderRadius: BorderRadius.circular(12),
@@ -4704,48 +6511,83 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.check, size: 13, color: Color(0xFF81005D)),
+                              const Icon(
+                                Icons.check,
+                                size: 13,
+                                color: Color(0xFF81005D),
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 '${result.attendingNurses.isNotEmpty ? result.attendingNurses.length : 1} Selected',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF81005D)),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  color: Color(0xFF81005D),
+                                ),
                               ),
                             ],
                           ),
                         ),
                     ],
                   ),
-                  if (result.attendingNurses.isNotEmpty || (result.examiningNurse != null && result.examiningNurse!.isNotEmpty)) ...[
+                  if (result.attendingNurses.isNotEmpty ||
+                      (result.examiningNurse != null &&
+                          result.examiningNurse!.isNotEmpty)) ...[
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
-                      children: (result.attendingNurses.isNotEmpty ? result.attendingNurses : [result.examiningNurse!]).map((nurse) => Chip(
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: const Color(0xFFFCE7F3),
-                        avatar: const Icon(Icons.check, size: 13, color: Color(0xFF81005D)),
-                        label: Text(
-                          nurse,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF81005D)),
-                        ),
-                      )).toList(),
+                      children:
+                          (result.attendingNurses.isNotEmpty
+                                  ? result.attendingNurses
+                                  : [result.examiningNurse!])
+                              .map(
+                                (nurse) => Chip(
+                                  visualDensity: VisualDensity.compact,
+                                  backgroundColor: const Color(0xFFFCE7F3),
+                                  avatar: const Icon(
+                                    Icons.check,
+                                    size: 13,
+                                    color: Color(0xFF81005D),
+                                  ),
+                                  label: Text(
+                                    nurse,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      color: Color(0xFF81005D),
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
                     ),
                   ],
                   const SizedBox(height: 6),
                   const Text(
                     'Select nurse(s) who assisted Station 2 examination or provided care (multi-select):',
-                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Builder(
                     builder: (context) {
-                      final activeCamp = ref.watch(campStateProvider).activeCamp;
-                      final List<NurseProfile> campNurses = activeCamp?.nurseProfiles ?? <NurseProfile>[];
+                      final activeCamp = ref
+                          .watch(campStateProvider)
+                          .activeCamp;
+                      final List<NurseProfile> campNurses =
+                          activeCamp?.nurseProfiles ?? <NurseProfile>[];
 
                       if (campNurses.isEmpty) {
                         return const Text(
                           'No nurses assigned to active camp in settings.',
-                          style: TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.blueGrey,
+                          ),
                         );
                       }
 
@@ -4754,16 +6596,38 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         runSpacing: 8,
                         children: campNurses.map((nurse) {
                           final cleanNurse = nurse.displayName;
-                          final isSelected = result.attendingNurses.contains(cleanNurse) ||
+                          final isSelected =
+                              result.attendingNurses.contains(cleanNurse) ||
                               result.attendingNurses.contains(nurse.name) ||
-                              _isNameFuzzyMatch(nurse.name, result.attendingNurses, result.examiningNurse);
+                              _isNameFuzzyMatch(
+                                nurse.name,
+                                result.attendingNurses,
+                                result.examiningNurse,
+                              );
                           return FilterChip(
                             avatar: CircleAvatar(
                               radius: 12,
-                              backgroundColor: isSelected ? Colors.white : const Color(0xFF81005D).withValues(alpha: 0.15),
-                              child: Icon(Icons.person, size: 13, color: isSelected ? const Color(0xFF81005D) : Colors.pink.shade700),
+                              backgroundColor: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF81005D)
+                                        .withValues(alpha: 0.15),
+                              child: Icon(
+                                Icons.person,
+                                size: 13,
+                                color: isSelected
+                                    ? const Color(0xFF81005D)
+                                    : Colors.pink.shade700,
+                              ),
                             ),
-                            label: Text(nurse.formattedLabel, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                            label: Text(
+                              nurse.formattedLabel,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
                             selected: isSelected,
                             selectedColor: const Color(0xFFFCE7F3),
                             checkmarkColor: const Color(0xFF81005D),
@@ -4782,7 +6646,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           // ── 11. CLINICAL NOTES & OUTTAKE REMARKS ───
           Card(
             elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(14.0),
               child: Column(
@@ -4792,23 +6658,33 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     icon: Icons.note_alt_outlined,
                     iconColor: AppTheme.primaryTeal,
                     title: 'Clinical Notes & Outtake Remarks (क्लिनिकल कैफियत / टिप्पणी)',
-                    titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                    titleStyle: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      color: AppTheme.primaryDark,
+                    ),
                     dateChip: _buildStationDateChip(
                       context: context,
                       field: 'outtakeDate',
                       label: 'Outtake Date',
                       dateStr: result.outtakeDate,
-                      onDateSelected: (d) => vm.updateStationDate('outtakeDate', d),
+                      onDateSelected: (d) =>
+                          vm.updateStationDate('outtakeDate', d),
                     ),
                   ),
                   const SizedBox(height: 6),
                   const Text(
                     'Handwritten clinical advice, counseling, or remarks from Station 6:',
-                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppTheme.textSecondaryLight,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
-                    key: ValueKey('clinical_notes_${result.scannedAt.millisecondsSinceEpoch}'),
+                    key: ValueKey(
+                      'clinical_notes_${result.scannedAt.millisecondsSinceEpoch}',
+                    ),
                     initialValue: result.clinicalNotes ?? '',
                     maxLines: 3,
                     decoration: const InputDecoration(
@@ -4841,57 +6717,408 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     // Build the master list of all detected fields to verify
     final List<Map<String, dynamic>> fields = [
       // ── Demographics ──────────────────────────────────────
-      {'key': 'firstName',     'label': 'First Name',        'section': 'Demographics', 'tabIndex': 0, 'value': demo['firstName']?.toString() ?? '—', 'confKey': 'name'},
-      {'key': 'surname',       'label': 'Surname',           'section': 'Demographics', 'tabIndex': 0, 'value': demo['surname']?.toString() ?? '—',    'confKey': 'name'},
-      {'key': 'age',           'label': 'Patient Age',       'section': 'Demographics', 'tabIndex': 0, 'value': demo['age']?.toString() ?? '—',        'confKey': 'age'},
-      {'key': 'maritalStatus', 'label': 'Marital Status',    'section': 'Demographics', 'tabIndex': 0, 'value': demo['maritalStatus']?.toString() ?? '—', 'confKey': 'maritalStatus'},
-      {'key': 'relativeName',  'label': 'Husband / Father',  'section': 'Demographics', 'tabIndex': 0, 'value': demo['relativeName']?.toString() ?? '—', 'confKey': 'relative'},
-      {'key': 'mobile',        'label': 'Mobile No.',        'section': 'Demographics', 'tabIndex': 0, 'value': demo['mobile']?.toString() ?? '—',     'confKey': 'mobile'},
-      {'key': 'contactPerson', 'label': 'Contact Person',    'section': 'Demographics', 'tabIndex': 0, 'value': demo['contactPerson']?.toString() ?? '—', 'confKey': 'contactPerson'},
-      {'key': 'contactMobile', 'label': 'Contact Mobile',    'section': 'Demographics', 'tabIndex': 0, 'value': demo['contactMobile']?.toString() ?? '—', 'confKey': 'contactMobile'},
-      {'key': 'maritalAge',    'label': 'Age at Marriage',   'section': 'Demographics', 'tabIndex': 0, 'value': demo['maritalAge']?.toString() ?? '—', 'confKey': 'maritalAge'},
-      {'key': 'province',      'label': 'Province',          'section': 'Demographics', 'tabIndex': 0, 'value': demo['province']?.toString() ?? '—',   'confKey': 'location'},
-      {'key': 'district',      'label': 'District',          'section': 'Demographics', 'tabIndex': 0, 'value': demo['district']?.toString() ?? '—',   'confKey': 'location'},
-      {'key': 'municipality',  'label': 'Palika / Municipality', 'section': 'Demographics', 'tabIndex': 0, 'value': demo['municipality']?.toString() ?? '—', 'confKey': 'location'},
-      {'key': 'ward',          'label': 'Ward No.',          'section': 'Demographics', 'tabIndex': 0, 'value': demo['ward']?.toString() ?? '—',       'confKey': 'ward'},
-      {'key': 'consentTreatment', 'label': 'Consent: Treatment', 'section': 'Demographics', 'tabIndex': 0, 'value': (demo['consentTreatment'] as bool?) == false ? 'No' : 'Yes', 'confKey': 'consent'},
-      {'key': 'consentStoreMedicalInfo', 'label': 'Consent: Store Info', 'section': 'Demographics', 'tabIndex': 0, 'value': (demo['consentStoreMedicalInfo'] as bool?) == false ? 'No' : 'Yes', 'confKey': 'consent'},
+      {
+        'key': 'firstName',
+        'label': 'First Name',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['firstName']?.toString() ?? '—',
+        'confKey': 'name',
+      },
+      {
+        'key': 'surname',
+        'label': 'Surname',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['surname']?.toString() ?? '—',
+        'confKey': 'name',
+      },
+      {
+        'key': 'age',
+        'label': 'Patient Age',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['age']?.toString() ?? '—',
+        'confKey': 'age',
+      },
+      {
+        'key': 'maritalStatus',
+        'label': 'Marital Status',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['maritalStatus']?.toString() ?? '—',
+        'confKey': 'maritalStatus',
+      },
+      {
+        'key': 'relativeName',
+        'label': 'Husband / Father',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['relativeName']?.toString() ?? '—',
+        'confKey': 'relative',
+      },
+      {
+        'key': 'mobile',
+        'label': 'Mobile No.',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['mobile']?.toString() ?? '—',
+        'confKey': 'mobile',
+      },
+      {
+        'key': 'contactPerson',
+        'label': 'Contact Person',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['contactPerson']?.toString() ?? '—',
+        'confKey': 'contactPerson',
+      },
+      {
+        'key': 'contactMobile',
+        'label': 'Contact Mobile',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['contactMobile']?.toString() ?? '—',
+        'confKey': 'contactMobile',
+      },
+      {
+        'key': 'maritalAge',
+        'label': 'Age at Marriage',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['maritalAge']?.toString() ?? '—',
+        'confKey': 'maritalAge',
+      },
+      {
+        'key': 'province',
+        'label': 'Province',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['province']?.toString() ?? '—',
+        'confKey': 'location',
+      },
+      {
+        'key': 'district',
+        'label': 'District',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['district']?.toString() ?? '—',
+        'confKey': 'location',
+      },
+      {
+        'key': 'municipality',
+        'label': 'Palika / Municipality',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['municipality']?.toString() ?? '—',
+        'confKey': 'location',
+      },
+      {
+        'key': 'ward',
+        'label': 'Ward No.',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': demo['ward']?.toString() ?? '—',
+        'confKey': 'ward',
+      },
+      {
+        'key': 'consentTreatment',
+        'label': 'Consent: Treatment',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': (demo['consentTreatment'] as bool?) == false ? 'No' : 'Yes',
+        'confKey': 'consent',
+      },
+      {
+        'key': 'consentStoreMedicalInfo',
+        'label': 'Consent: Store Info',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value': (demo['consentStoreMedicalInfo'] as bool?) == false
+            ? 'No'
+            : 'Yes',
+        'confKey': 'consent',
+      },
       // ── Obstetrics ────────────────────────────────────────
-      {'key': 'deliveries',     'label': 'Deliveries (P)',   'section': 'Obstetrics',   'tabIndex': 1, 'value': obs['deliveries']?.toString() ?? '—',     'confKey': 'obstetrics'},
-      {'key': 'livingChildren', 'label': 'Living Children',  'section': 'Obstetrics',   'tabIndex': 1, 'value': obs['livingChildren']?.toString() ?? '—', 'confKey': 'obstetrics'},
-      {'key': 'abortions',      'label': 'Abortions',        'section': 'Obstetrics',   'tabIndex': 1, 'value': obs['abortions']?.toString() ?? '—',      'confKey': 'obstetrics'},
+      {
+        'key': 'deliveries',
+        'label': 'Deliveries (P)',
+        'section': 'Obstetrics',
+        'tabIndex': 1,
+        'value': obs['deliveries']?.toString() ?? '—',
+        'confKey': 'obstetrics',
+      },
+      {
+        'key': 'livingChildren',
+        'label': 'Living Children',
+        'section': 'Obstetrics',
+        'tabIndex': 1,
+        'value': obs['livingChildren']?.toString() ?? '—',
+        'confKey': 'obstetrics',
+      },
+      {
+        'key': 'abortions',
+        'label': 'Abortions',
+        'section': 'Obstetrics',
+        'tabIndex': 1,
+        'value': obs['abortions']?.toString() ?? '—',
+        'confKey': 'obstetrics',
+      },
       // ── Visit Reasons ─────────────────────────────────────
-      {'key': 'reasonsForVisit','label': 'Reasons for Visit','section': 'Visit Reasons','tabIndex': 1, 'value': (demo['reasonsForVisit'] as List?)?.join(', ') ?? '—', 'confKey': 'reasonsForVisit'},
+      {
+        'key': 'reasonsForVisit',
+        'label': 'Reasons for Visit',
+        'section': 'Visit Reasons',
+        'tabIndex': 1,
+        'value': (demo['reasonsForVisit'] as List?)?.join(', ') ?? '—',
+        'confKey': 'reasonsForVisit',
+      },
       // ── POP & Physical Examination ────────────────────────
-      {'key': 'anteriorStage',  'label': 'POP anterior wall',   'section': 'POP Exam',     'tabIndex': 2, 'value': pop['anteriorStage']?.toString() ?? '—',   'confKey': 'popStaging'},
-      {'key': 'middleStage',    'label': 'POP middle part',     'section': 'POP Exam',     'tabIndex': 2, 'value': pop['middleStage']?.toString() ?? '—',     'confKey': 'popStaging'},
-      {'key': 'posteriorStage', 'label': 'POP posterior wall',  'section': 'POP Exam',     'tabIndex': 2, 'value': pop['posteriorStage']?.toString() ?? '—',  'confKey': 'popStaging'},
-      {'key': 'uterusInside',   'label': 'Uterus Inside',    'section': 'POP Exam',     'tabIndex': 2, 'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No', 'confKey': 'popStaging'},
-      {'key': 'pelvicTone',     'label': 'Pelvic Floor Muscle','section': 'POP Exam',   'tabIndex': 2, 'value': pop['pelvicFloorTone']?.toString() ?? '—', 'confKey': 'popStaging'},
-      {'key': 'vulvaRemarks',   'label': 'Vulva Appearance', 'section': 'POP Exam',     'tabIndex': 2, 'value': pop['vulvaRemarks']?.toString() ?? 'Normal', 'confKey': 'popStaging'},
-      {'key': 'vaginaRemarks',  'label': 'Vagina Exam',      'section': 'POP Exam',     'tabIndex': 2, 'value': pop['vaginaRemarks']?.toString() ?? 'Normal', 'confKey': 'popStaging'},
-      {'key': 'cervixRemarks',  'label': 'Cervix Appearance','section': 'POP Exam',     'tabIndex': 2, 'value': pop['cervixRemarks']?.toString() ?? 'Normal / Smooth', 'confKey': 'popStaging'},
-      {'key': 'uterusRemarks',  'label': 'Uterus Exam',      'section': 'POP Exam',     'tabIndex': 2, 'value': pop['uterusRemarks']?.toString() ?? 'Normal size', 'confKey': 'popStaging'},
-      {'key': 'examDate',       'label': 'Examination Date',  'section': 'POP Exam',     'tabIndex': 2, 'value': result.examDate ?? '—', 'confKey': 'date'},
+      {
+        'key': 'anteriorStage',
+        'label': 'POP anterior wall',
+        'section': 'POP Exam',
+        'tabIndex': 2,
+        'value': pop['anteriorStage']?.toString() ?? '—',
+        'confKey': 'popStaging',
+      },
+      {
+        'key': 'middleStage',
+        'label': 'POP middle part',
+        'section': 'POP Exam',
+        'tabIndex': 2,
+        'value': pop['middleStage']?.toString() ?? '—',
+        'confKey': 'popStaging',
+      },
+      {
+        'key': 'posteriorStage',
+        'label': 'POP posterior wall',
+        'section': 'POP Exam',
+        'tabIndex': 2,
+        'value': pop['posteriorStage']?.toString() ?? '—',
+        'confKey': 'popStaging',
+      },
+      {
+        'key': 'uterusInside',
+        'label': 'Uterus Inside',
+        'section': 'POP Exam',
+        'tabIndex': 2,
+        'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No',
+        'confKey': 'popStaging',
+      },
+      {
+        'key': 'pelvicTone',
+        'label': 'Pelvic Floor Muscle',
+        'section': 'POP Exam',
+        'tabIndex': 2,
+        'value': pop['pelvicFloorTone']?.toString() ?? '—',
+        'confKey': 'popStaging',
+      },
+      {
+        'key': 'vulvaRemarks',
+        'label': 'Vulva Appearance',
+        'section': 'POP Exam',
+        'tabIndex': 2,
+        'value': pop['vulvaRemarks']?.toString() ?? 'Normal',
+        'confKey': 'popStaging',
+      },
+      {
+        'key': 'vaginaRemarks',
+        'label': 'Vagina Exam',
+        'section': 'POP Exam',
+        'tabIndex': 2,
+        'value': pop['vaginaRemarks']?.toString() ?? 'Normal',
+        'confKey': 'popStaging',
+      },
+      {
+        'key': 'cervixRemarks',
+        'label': 'Cervix Appearance',
+        'section': 'POP Exam',
+        'tabIndex': 2,
+        'value': pop['cervixRemarks']?.toString() ?? 'Normal / Smooth',
+        'confKey': 'popStaging',
+      },
+      {
+        'key': 'uterusRemarks',
+        'label': 'Uterus Exam',
+        'section': 'POP Exam',
+        'tabIndex': 2,
+        'value': pop['uterusRemarks']?.toString() ?? 'Normal size',
+        'confKey': 'popStaging',
+      },
+      {
+        'key': 'examDate',
+        'label': 'Examination Date',
+        'section': 'POP Exam',
+        'tabIndex': 2,
+        'value': result.examDate ?? '—',
+        'confKey': 'date',
+      },
       // ── Vitals ────────────────────────────────────────────
-      {'key': 'bp',             'label': 'Blood Pressure',   'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['systolicBp'] ?? '—'}/${vitals['diastolicBp'] ?? '—'} mmHg', 'confKey': 'bp'},
-      {'key': 'pulse',          'label': 'Pulse Rate',       'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['pulseRate'] ?? '—'} bpm', 'confKey': 'pulse'},
-      {'key': 'spo2',           'label': 'SpO2',             'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['spo2'] ?? '—'}%',         'confKey': 'spo2'},
-      {'key': 'glucose',        'label': 'Blood Glucose',    'section': 'Vitals',       'tabIndex': 3, 'value': '${vitals['bloodGlucose'] ?? '—'} mg/dL', 'confKey': 'glucose'},
-      {'key': 'urineTest',      'label': 'Urine Test',       'section': 'Vitals',       'tabIndex': 3, 'value': vitals['urineTest']?.toString() ?? '—',   'confKey': 'labs'},
-      {'key': 'pregnancyTest',  'label': 'Pregnancy Test',   'section': 'Vitals',       'tabIndex': 3, 'value': vitals['pregnancyTest']?.toString() ?? '—','confKey': 'labs'},
+      {
+        'key': 'bp',
+        'label': 'Blood Pressure',
+        'section': 'Vitals',
+        'tabIndex': 3,
+        'value':
+            '${vitals['systolicBp'] ?? '—'}/${vitals['diastolicBp'] ?? '—'} mmHg',
+        'confKey': 'bp',
+      },
+      {
+        'key': 'pulse',
+        'label': 'Pulse Rate',
+        'section': 'Vitals',
+        'tabIndex': 3,
+        'value': '${vitals['pulseRate'] ?? '—'} bpm',
+        'confKey': 'pulse',
+      },
+      {
+        'key': 'spo2',
+        'label': 'SpO2',
+        'section': 'Vitals',
+        'tabIndex': 3,
+        'value': '${vitals['spo2'] ?? '—'}%',
+        'confKey': 'spo2',
+      },
+      {
+        'key': 'glucose',
+        'label': 'Blood Glucose',
+        'section': 'Vitals',
+        'tabIndex': 3,
+        'value': '${vitals['bloodGlucose'] ?? '—'} mg/dL',
+        'confKey': 'glucose',
+      },
+      {
+        'key': 'urineTest',
+        'label': 'Urine Test',
+        'section': 'Vitals',
+        'tabIndex': 3,
+        'value': vitals['urineTest']?.toString() ?? '—',
+        'confKey': 'labs',
+      },
+      {
+        'key': 'pregnancyTest',
+        'label': 'Pregnancy Test',
+        'section': 'Vitals',
+        'tabIndex': 3,
+        'value': vitals['pregnancyTest']?.toString() ?? '—',
+        'confKey': 'labs',
+      },
       // ── Diagnoses & Treatment ─────────────────────────────
-      {'key': 'diagnoses',      'label': 'Diagnoses',        'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.diagnoses.isEmpty ? '—' : result.diagnoses.join(', '), 'confKey': 'diagnoses'},
-      {'key': 'counseling',     'label': 'Spec Counseling',  'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.counseling.isEmpty ? 'None' : result.counseling.join(', '), 'confKey': 'diagnoses'},
-      {'key': 'ringPessary',    'label': 'Pessary Fitting',  'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.ringPessary ? '${result.pessaryType ?? "Ring"} (${result.ringPessarySize != null ? "${result.ringPessarySize}mm" : "Fitted"})' : 'None', 'confKey': 'diagnoses'},
-      {'key': 'medications',    'label': 'Medications',      'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.medications.isEmpty ? '—' : result.medications.join(', '), 'confKey': 'medications'},
-      {'key': 'referral',       'label': 'Surgical Referral','section': 'Treatment Plan', 'tabIndex': 3, 'value': result.surgicalReferral ?? 'None', 'confKey': 'diagnoses'},
-      {'key': 'followUp',       'label': 'Follow-up',        'section': 'Treatment Plan', 'tabIndex': 3, 'value': result.followUpDestination ?? '—', 'confKey': 'diagnoses'},
-      {'key': 'intakeDate',     'label': 'Registration Date', 'section': 'Demographics', 'tabIndex': 0, 'value': result.intakeDate ?? demo['intakeDate']?.toString() ?? demo['date']?.toString() ?? '—', 'confKey': 'date'},
-      {'key': 'anamnesisDate',  'label': 'Anamnesis Date',    'section': 'Obstetric History', 'tabIndex': 1, 'value': result.effectiveAnamnesisDate ?? result.anamnesisDate ?? result.demographics['anamnesisDate']?.toString() ?? result.intakeDate ?? demo['intakeDate']?.toString() ?? demo['date']?.toString() ?? '—', 'confKey': 'date'},
-      {'key': 'treatmentLevel', 'label': 'Consultation',      'section': 'Demographics', 'tabIndex': 0, 'value': (result.treatmentLevel == 'counseling' || result.treatmentLevel == 'council_level') ? 'Counseling (काउन्सिलिङ तह)' : ((result.treatmentLevel == 'gyno_checkup' || result.treatmentLevel == 'full_check_up') ? 'Gynocheckup (गाइनो जाँच)' : 'Unassigned'), 'confKey': 'treatmentLevel'},
-      {'key': 'examiningDoctor','label': 'Examining Doctor', 'section': 'Signatures',     'tabIndex': 3, 'value': result.examiningDoctor ?? 'Unassigned', 'confKey': 'diagnoses'},
-      {'key': 'attendingNurse', 'label': 'Attending Nurse',  'section': 'Signatures',     'tabIndex': 3, 'value': result.attendingNurses.isNotEmpty ? result.attendingNurses.join(', ') : (result.examiningNurse ?? 'Unassigned'), 'confKey': 'diagnoses'},
+      {
+        'key': 'diagnoses',
+        'label': 'Diagnoses',
+        'section': 'Treatment Plan',
+        'tabIndex': 3,
+        'value': result.diagnoses.isEmpty ? '—' : result.diagnoses.join(', '),
+        'confKey': 'diagnoses',
+      },
+      {
+        'key': 'counseling',
+        'label': 'Spec Counseling',
+        'section': 'Treatment Plan',
+        'tabIndex': 3,
+        'value': result.counseling.isEmpty
+            ? 'None'
+            : result.counseling.join(', '),
+        'confKey': 'diagnoses',
+      },
+      {
+        'key': 'ringPessary',
+        'label': 'Pessary Fitting',
+        'section': 'Treatment Plan',
+        'tabIndex': 3,
+        'value': result.ringPessary
+            ? '${result.pessaryType ?? "Ring"} (${result.ringPessarySize != null ? "${result.ringPessarySize}mm" : "Fitted"})'
+            : 'None',
+        'confKey': 'diagnoses',
+      },
+      {
+        'key': 'medications',
+        'label': 'Medications',
+        'section': 'Treatment Plan',
+        'tabIndex': 3,
+        'value': result.medications.isEmpty
+            ? '—'
+            : result.medications.join(', '),
+        'confKey': 'medications',
+      },
+      {
+        'key': 'referral',
+        'label': 'Surgical Referral',
+        'section': 'Treatment Plan',
+        'tabIndex': 3,
+        'value': result.surgicalReferral ?? 'None',
+        'confKey': 'diagnoses',
+      },
+      {
+        'key': 'followUp',
+        'label': 'Follow-up',
+        'section': 'Treatment Plan',
+        'tabIndex': 3,
+        'value': result.followUpDestination ?? '—',
+        'confKey': 'diagnoses',
+      },
+      {
+        'key': 'intakeDate',
+        'label': 'Registration Date',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value':
+            result.intakeDate ??
+            demo['intakeDate']?.toString() ??
+            demo['date']?.toString() ??
+            '—',
+        'confKey': 'date',
+      },
+      {
+        'key': 'anamnesisDate',
+        'label': 'Anamnesis Date',
+        'section': 'Obstetric History',
+        'tabIndex': 1,
+        'value':
+            result.effectiveAnamnesisDate ??
+            result.anamnesisDate ??
+            result.demographics['anamnesisDate']?.toString() ??
+            result.intakeDate ??
+            demo['intakeDate']?.toString() ??
+            demo['date']?.toString() ??
+            '—',
+        'confKey': 'date',
+      },
+      {
+        'key': 'treatmentLevel',
+        'label': 'Consultation',
+        'section': 'Demographics',
+        'tabIndex': 0,
+        'value':
+            (result.treatmentLevel == 'counseling' ||
+                result.treatmentLevel == 'council_level')
+            ? 'Counseling (काउन्सिलिङ तह)'
+            : ((result.treatmentLevel == 'gyno_checkup' ||
+                      result.treatmentLevel == 'full_check_up')
+                  ? 'Gynocheckup (गाइनो जाँच)'
+                  : 'Unassigned'),
+        'confKey': 'treatmentLevel',
+      },
+      {
+        'key': 'examiningDoctor',
+        'label': 'Examining Doctor',
+        'section': 'Signatures',
+        'tabIndex': 3,
+        'value': result.examiningDoctor ?? 'Unassigned',
+        'confKey': 'diagnoses',
+      },
+      {
+        'key': 'attendingNurse',
+        'label': 'Attending Nurse',
+        'section': 'Signatures',
+        'tabIndex': 3,
+        'value': result.attendingNurses.isNotEmpty
+            ? result.attendingNurses.join(', ')
+            : (result.examiningNurse ?? 'Unassigned'),
+        'confKey': 'diagnoses',
+      },
     ];
 
     final total = fields.length;
@@ -4935,8 +7162,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             color: reviewed == 0
                 ? Colors.grey.shade50
                 : correct == reviewed
-                    ? Colors.green.shade50
-                    : Colors.blue.shade50,
+                ? Colors.green.shade50
+                : Colors.blue.shade50,
             border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
           ),
           child: Row(
@@ -4952,7 +7179,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
-                        color: reviewed == 0 ? Colors.grey.shade700 : AppTheme.primaryDark,
+                        color: reviewed == 0
+                            ? Colors.grey.shade700
+                            : AppTheme.primaryDark,
                       ),
                     ),
                     if (reviewed > 0)
@@ -4973,10 +7202,16 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 TextButton.icon(
                   onPressed: () => setState(() => _verifyMap.clear()),
                   icon: const Icon(Icons.refresh, size: 14),
-                  label: const Text('Reset All', style: TextStyle(fontSize: 11)),
+                  label: const Text(
+                    'Reset All',
+                    style: TextStyle(fontSize: 11),
+                  ),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.grey.shade600,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                   ),
                 ),
             ],
@@ -4992,67 +7227,100 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 // Section divider
                 Padding(
                   padding: const EdgeInsets.only(top: 12, bottom: 6),
-                  child: Row(children: [
-                    Container(width: 3, height: 14, color: AppTheme.primaryTeal,
-                        margin: const EdgeInsets.only(right: 8)),
-                    Text(section.toUpperCase(),
-                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryTeal, letterSpacing: 1.1)),
-                  ]),
-                ),
-                for (final f in sections[section]!) ...[
-                  Builder(builder: (context) {
-                    final key = f['key'] as String;
-                    final verified = _verifyMap[key];
-                    final confKey = f['confKey'] as String?;
-                    final tabIdx = f['tabIndex'] as int? ?? 0;
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: verified == null
-                              ? Colors.grey.shade200
-                              : verified
-                                  ? Colors.green.shade300
-                                  : Colors.red.shade300,
-                          width: verified != null ? 1.5 : 0.8,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 3,
+                        height: 14,
+                        color: AppTheme.primaryTeal,
+                        margin: const EdgeInsets.only(right: 8),
+                      ),
+                      Text(
+                        section.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryTeal,
+                          letterSpacing: 1.1,
                         ),
                       ),
-                      color: verified == null
-                          ? Colors.white
-                          : verified
-                              ? Colors.green.shade50
-                              : Colors.red.shade50,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        child: Row(
-                          children: [
-                            // Label + value
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(children: [
-                                    Text(f['label'] as String,
-                                        style: const TextStyle(
-                                            fontSize: 11, fontWeight: FontWeight.w600,
-                                            color: AppTheme.primaryDark)),
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: confBg(confKey),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(confLabel(confKey),
-                                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
-                                              color: confColor(confKey))),
+                    ],
+                  ),
+                ),
+                for (final f in sections[section]!) ...[
+                  Builder(
+                    builder: (context) {
+                      final key = f['key'] as String;
+                      final verified = _verifyMap[key];
+                      final confKey = f['confKey'] as String?;
+                      final tabIdx = f['tabIndex'] as int? ?? 0;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(
+                            color: verified == null
+                                ? Colors.grey.shade200
+                                : verified
+                                ? Colors.green.shade300
+                                : Colors.red.shade300,
+                            width: verified != null ? 1.5 : 0.8,
+                          ),
+                        ),
+                        color: verified == null
+                            ? Colors.white
+                            : verified
+                            ? Colors.green.shade50
+                            : Colors.red.shade50,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              // Label + value
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          f['label'] as String,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppTheme.primaryDark,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 5,
+                                            vertical: 1,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: confBg(confKey),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            confLabel(confKey),
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                              color: confColor(confKey),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ]),
-                                  const SizedBox(height: 2),
-                                  Text(f['value'] as String,
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      f['value'] as String,
                                       style: TextStyle(
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w500,
@@ -5061,49 +7329,66 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                                             : AppTheme.primaryDark,
                                       ),
                                       maxLines: 2,
-                                      overflow: TextOverflow.ellipsis),
-                                ],
-                              ),
-                            ),
-
-                            // ✅ / ❌ buttons + Edit link
-                            const SizedBox(width: 8),
-                            if (verified == false)
-                              TextButton.icon(
-                                onPressed: () => _tabController.animateTo(tabIdx),
-                                icon: const Icon(Icons.edit_outlined, size: 13),
-                                label: const Text('Edit', style: TextStyle(fontSize: 11)),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.red.shade700,
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
                               ),
-                            _verifyButton(
-                              icon: Icons.check_circle_outline,
-                              color: Colors.green.shade600,
-                              activeColor: Colors.green,
-                              isActive: verified == true,
-                              tooltip: 'Correct — OCR matched',
-                              onTap: () => setState(() =>
-                                  _verifyMap[key] = _verifyMap[key] == true ? null : true),
-                            ),
-                            const SizedBox(width: 4),
-                            _verifyButton(
-                              icon: Icons.cancel_outlined,
-                              color: Colors.red.shade400,
-                              activeColor: Colors.red,
-                              isActive: verified == false,
-                              tooltip: 'Wrong — OCR missed or incorrect',
-                              onTap: () => setState(() =>
-                                  _verifyMap[key] = _verifyMap[key] == false ? null : false),
-                            ),
-                          ],
+
+                              // ✅ / ❌ buttons + Edit link
+                              const SizedBox(width: 8),
+                              if (verified == false)
+                                TextButton.icon(
+                                  onPressed: () =>
+                                      _tabController.animateTo(tabIdx),
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 13,
+                                  ),
+                                  label: const Text(
+                                    'Edit',
+                                    style: TextStyle(fontSize: 11),
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.red.shade700,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 4,
+                                    ),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                              _verifyButton(
+                                icon: Icons.check_circle_outline,
+                                color: Colors.green.shade600,
+                                activeColor: Colors.green,
+                                isActive: verified == true,
+                                tooltip: 'Correct — OCR matched',
+                                onTap: () => setState(
+                                  () => _verifyMap[key] =
+                                      _verifyMap[key] == true ? null : true,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              _verifyButton(
+                                icon: Icons.cancel_outlined,
+                                color: Colors.red.shade400,
+                                activeColor: Colors.red,
+                                isActive: verified == false,
+                                tooltip: 'Wrong — OCR missed or incorrect',
+                                onTap: () => setState(
+                                  () => _verifyMap[key] =
+                                      _verifyMap[key] == false ? null : false,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    },
+                  ),
                 ],
               ],
             ],
@@ -5127,9 +7412,12 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          width: 36, height: 36,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
-            color: isActive ? activeColor.withValues(alpha: 0.12) : Colors.transparent,
+            color: isActive
+                ? activeColor.withValues(alpha: 0.12)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isActive ? activeColor : color.withValues(alpha: 0.4),
@@ -5157,8 +7445,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     final color = tier == 'HIGH'
         ? AppTheme.successGreen
         : tier == 'MEDIUM'
-            ? AppTheme.warningAmber
-            : AppTheme.dangerRose;
+        ? AppTheme.warningAmber
+        : AppTheme.dangerRose;
 
     return TextFormField(
       initialValue: value,
@@ -5178,7 +7466,12 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ),
             child: Text(
               tier,
-              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.3),
+              style: const TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: 0.3,
+              ),
             ),
           ),
         ),
@@ -5200,12 +7493,19 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
               const SizedBox(height: 3),
               Text(
                 description,
-                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondaryLight,
+                ),
               ),
             ],
           ),
@@ -5222,19 +7522,31 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             children: [
               IconButton(
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.remove, size: 18, color: Colors.blueGrey),
+                icon: const Icon(
+                  Icons.remove,
+                  size: 18,
+                  color: Colors.blueGrey,
+                ),
                 onPressed: value > 0 ? () => onChanged(value - 1) : null,
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
                   '$value',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryDark,
+                  ),
                 ),
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.add, size: 18, color: AppTheme.primaryTeal),
+                icon: const Icon(
+                  Icons.add,
+                  size: 18,
+                  color: AppTheme.primaryTeal,
+                ),
                 onPressed: () => onChanged(value + 1),
               ),
             ],
@@ -5251,11 +7563,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     required ValueChanged<int> onChanged,
   }) {
     final int effectiveMax = value > maxStage ? value : maxStage;
-    final int safeValue = value < 0 ? 0 : (value > effectiveMax ? effectiveMax : value);
+    final int safeValue = value < 0
+        ? 0
+        : (value > effectiveMax ? effectiveMax : value);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          ),
+        ),
         DropdownButton<int>(
           value: safeValue,
           items: List.generate(
@@ -5268,17 +7587,28 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     );
   }
 
-  bool _isNameFuzzyMatch(String campStaffName, List<String> detectedStaffList, String? primaryDetected) {
+  bool _isNameFuzzyMatch(
+    String campStaffName,
+    List<String> detectedStaffList,
+    String? primaryDetected,
+  ) {
     final targets = <String>[
       ...detectedStaffList,
-      if (primaryDetected != null && primaryDetected.trim().isNotEmpty) primaryDetected,
+      if (primaryDetected != null && primaryDetected.trim().isNotEmpty)
+        primaryDetected,
     ];
     if (targets.isEmpty) return false;
 
     String clean(String s) {
       return s
           .toLowerCase()
-          .replaceAll(RegExp(r'\b(dr|dr\.|doctor|sister|sr|sr\.|nurse|staff\s*nurse)\b', caseSensitive: false), '')
+          .replaceAll(
+            RegExp(
+              r'\b(dr|dr\.|doctor|sister|sr|sr\.|nurse|staff\s*nurse)\b',
+              caseSensitive: false,
+            ),
+            '',
+          )
           .replaceAll(RegExp(r'[^a-z0-9]'), '')
           .trim();
     }
@@ -5290,14 +7620,26 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       final targetClean = clean(rawTarget);
       if (targetClean.isEmpty) continue;
       if (staffClean == targetClean) return true;
-      if (staffClean.contains(targetClean) || targetClean.contains(staffClean)) {
+      if (staffClean.contains(targetClean) ||
+          targetClean.contains(staffClean)) {
         if (targetClean.length >= 3 && staffClean.length >= 3) return true;
       }
-      final staffTokens = campStaffName.toLowerCase().split(RegExp(r'\s+')).map(clean).where((t) => t.length >= 3).toList();
-      final targetTokens = rawTarget.toLowerCase().split(RegExp(r'\s+')).map(clean).where((t) => t.length >= 3).toList();
+      final staffTokens = campStaffName
+          .toLowerCase()
+          .split(RegExp(r'\s+'))
+          .map(clean)
+          .where((t) => t.length >= 3)
+          .toList();
+      final targetTokens = rawTarget
+          .toLowerCase()
+          .split(RegExp(r'\s+'))
+          .map(clean)
+          .where((t) => t.length >= 3)
+          .toList();
       for (final st in staffTokens) {
         for (final tt in targetTokens) {
-          if (st == tt || (st.length >= 4 && (st.contains(tt) || tt.contains(st)))) {
+          if (st == tt ||
+              (st.length >= 4 && (st.contains(tt) || tt.contains(st)))) {
             return true;
           }
         }
@@ -5321,9 +7663,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           children: [
             Icon(icon, color: iconColor, size: 20),
             const SizedBox(width: 8),
-            Expanded(
-              child: Text(title, style: titleStyle),
-            ),
+            Expanded(child: Text(title, style: titleStyle)),
           ],
         );
 
@@ -5331,20 +7671,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           spacing: 6,
           runSpacing: 6,
           crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            dateChip,
-            ?extraChip,
-          ],
+          children: [dateChip, ?extraChip],
         );
 
         if (isNarrow) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              titleRow,
-              const SizedBox(height: 8),
-              chipsRow,
-            ],
+            children: [titleRow, const SizedBox(height: 8), chipsRow],
           );
         }
 
@@ -5381,18 +7714,28 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       },
       child: Chip(
         visualDensity: VisualDensity.compact,
-        backgroundColor: (dateStr != null && dateStr.isNotEmpty) ? AppTheme.primaryLight : Colors.grey.shade100,
+        backgroundColor: (dateStr != null && dateStr.isNotEmpty)
+            ? AppTheme.primaryLight
+            : Colors.grey.shade100,
         avatar: Icon(
           Icons.event_note,
           size: 14,
-          color: (dateStr != null && dateStr.isNotEmpty) ? AppTheme.primaryTeal : Colors.blueGrey,
+          color: (dateStr != null && dateStr.isNotEmpty)
+              ? AppTheme.primaryTeal
+              : Colors.blueGrey,
         ),
         label: Text(
-          dateStr != null && dateStr.isNotEmpty ? '$label: ${dateStr.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim()} BS' : '$label: Set Date',
+          dateStr != null && dateStr.isNotEmpty
+              ? '$label: ${dateStr.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim()} BS'
+              : '$label: Set Date',
           style: TextStyle(
             fontSize: 11,
-            fontWeight: (dateStr != null && dateStr.isNotEmpty) ? FontWeight.bold : FontWeight.normal,
-            color: (dateStr != null && dateStr.isNotEmpty) ? AppTheme.primaryTeal : Colors.blueGrey,
+            fontWeight: (dateStr != null && dateStr.isNotEmpty)
+                ? FontWeight.bold
+                : FontWeight.normal,
+            color: (dateStr != null && dateStr.isNotEmpty)
+                ? AppTheme.primaryTeal
+                : Colors.blueGrey,
           ),
         ),
       ),
@@ -5412,7 +7755,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     int selectedMonth = todayNp.month;
     int selectedDay = todayNp.day;
 
-    final cleanStr = (dateStr ?? '').replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
+    final cleanStr = (dateStr ?? '')
+        .replaceAll(RegExp(r'\s*BS', caseSensitive: false), '')
+        .trim();
     if (cleanStr.isNotEmpty) {
       final parts = cleanStr.split(RegExp(r'[-/]'));
       if (parts.length == 3) {
@@ -5428,7 +7773,8 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
     }
 
     final textController = TextEditingController(
-      text: '${selectedYear.toString().padLeft(4, '0')}-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')}',
+      text:
+          '${selectedYear.toString().padLeft(4, '0')}-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')}',
     );
 
     bool applyToAll = true;
@@ -5443,18 +7789,27 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 selectedYear = y;
                 selectedMonth = m;
                 selectedDay = d;
-                textController.text = '${y.toString().padLeft(4, '0')}-${m.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}';
+                textController.text =
+                    '${y.toString().padLeft(4, '0')}-${m.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}';
               });
             }
 
             void updateFromText(String val) {
-              final clean = val.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
+              final clean = val
+                  .replaceAll(RegExp(r'\s*BS', caseSensitive: false), '')
+                  .trim();
               final parts = clean.split(RegExp(r'[-/]'));
               if (parts.length == 3) {
                 final y = int.tryParse(parts[0]);
                 final m = int.tryParse(parts[1]);
                 final d = int.tryParse(parts[2]);
-                if (y != null && m != null && d != null && m >= 1 && m <= 12 && d >= 1 && d <= 32) {
+                if (y != null &&
+                    m != null &&
+                    d != null &&
+                    m >= 1 &&
+                    m <= 12 &&
+                    d >= 1 &&
+                    d <= 32) {
                   setDlgState(() {
                     selectedYear = y;
                     selectedMonth = m;
@@ -5469,29 +7824,42 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             if (selectedYear >= 2070 && selectedYear <= 2120) {
               try {
                 final safeDay = selectedDay > 30 ? 30 : selectedDay;
-                final nepaliDt = NepaliDateTime(selectedYear, selectedMonth, safeDay);
+                final nepaliDt = NepaliDateTime(
+                  selectedYear,
+                  selectedMonth,
+                  safeDay,
+                );
                 final engDt = NepaliDateHelper.toEnglish(nepaliDt);
                 final nepMonthName = (selectedMonth >= 1 && selectedMonth <= 12)
                     ? NepaliDateHelper.nepaliMonthPureNp[selectedMonth - 1]
                     : '';
-                dualPreview = '🇳🇵 वि.सं. $selectedYear $nepMonthName ${selectedDay.toString().padLeft(2, '0')}  •  🌍 ${engDt.year}-${engDt.month.toString().padLeft(2, '0')}-${engDt.day.toString().padLeft(2, '0')} AD';
+                dualPreview =
+                    '🇳🇵 वि.सं. $selectedYear $nepMonthName ${selectedDay.toString().padLeft(2, '0')}  •  🌍 ${engDt.year}-${engDt.month.toString().padLeft(2, '0')}-${engDt.day.toString().padLeft(2, '0')} AD';
               } catch (_) {
-                dualPreview = '🇳🇵 Bikram Sambat: $selectedYear-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')} BS';
+                dualPreview =
+                    '🇳🇵 Bikram Sambat: $selectedYear-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')} BS';
               }
             } else {
               try {
                 final safeDay = selectedDay > 28 ? 28 : selectedDay;
                 final engDt = DateTime(selectedYear, selectedMonth, safeDay);
                 final nepDt = NepaliDateHelper.toNepali(engDt);
-                dualPreview = '🌍 $selectedYear-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')} AD  •  🇳🇵 वि.सं. ${nepDt.year}-${nepDt.month.toString().padLeft(2, '0')}-${nepDt.day.toString().padLeft(2, '0')} BS';
+                dualPreview =
+                    '🌍 $selectedYear-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')} AD  •  🇳🇵 वि.सं. ${nepDt.year}-${nepDt.month.toString().padLeft(2, '0')}-${nepDt.day.toString().padLeft(2, '0')} BS';
               } catch (_) {
-                dualPreview = '$selectedYear-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')}';
+                dualPreview =
+                    '$selectedYear-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')}';
               }
             }
 
             return AlertDialog(
-              insetPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 24.0,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               title: Row(
                 children: [
                   Container(
@@ -5500,7 +7868,11 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       color: AppTheme.primaryLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.edit_calendar_rounded, color: AppTheme.primaryTeal, size: 22),
+                    child: const Icon(
+                      Icons.edit_calendar_rounded,
+                      color: AppTheme.primaryTeal,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -5509,11 +7881,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       children: [
                         Text(
                           'Edit $label',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                         const Text(
                           'फाराम मिति संशोधन (Bikram Sambat BS / AD)',
-                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textSecondaryLight,
+                          ),
                         ),
                       ],
                     ),
@@ -5527,23 +7906,37 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   children: [
                     // Dual Preview Card
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF0FDF4),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+                        border: Border.all(
+                          color: const Color(0xFF86EFAC),
+                          width: 1.2,
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
                             'CURRENT CALENDAR EQUIVALENT / मिति मिलान:',
-                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF15803D),
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             dualPreview,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF166534),
+                            ),
                           ),
                         ],
                       ),
@@ -5551,56 +7944,210 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     const SizedBox(height: 16),
 
                     // Manual Text Field
-                    const Text('Direct Date Entry (मिति सिधै प्रविष्ट गर्नुहोस्):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Direct Date Entry (मिति सिधै प्रविष्ट गर्नुहोस्):',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: textController,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.5, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: Color(0xFF0F172A),
+                      ),
                       decoration: InputDecoration(
                         hintText: 'YYYY-MM-DD (e.g. 2083-07-06)',
-                        prefixIcon: const Icon(Icons.event, size: 20, color: AppTheme.primaryTeal),
+                        prefixIcon: const Icon(
+                          Icons.event,
+                          size: 20,
+                          color: AppTheme.primaryTeal,
+                        ),
                         suffixIcon: IconButton(
-                          icon: const Icon(Icons.check_circle_outline, color: AppTheme.primaryTeal),
+                          icon: const Icon(
+                            Icons.check_circle_outline,
+                            color: AppTheme.primaryTeal,
+                          ),
                           tooltip: 'Apply typed date',
                           onPressed: () => updateFromText(textController.text),
                         ),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                       ),
                       onChanged: updateFromText,
                     ),
                     const SizedBox(height: 16),
 
                     // Dropdown Selectors
-                    const Text('Quick Bikram Sambat (BS) Selectors (वि.सं. छनौट):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Quick Bikram Sambat (BS) Selectors (वि.सं. छनौट):',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     // Month on its own row so full name is clearly visible
                     DropdownButtonFormField<int>(
-                      initialValue: (selectedMonth >= 1 && selectedMonth <= 12) ? selectedMonth : 7,
+                      initialValue: (selectedMonth >= 1 && selectedMonth <= 12)
+                          ? selectedMonth
+                          : 7,
                       isExpanded: true,
                       decoration: InputDecoration(
                         labelText: 'Month / महिना (Bikram Sambat)',
-                        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
-                        prefixIcon: const Icon(Icons.calendar_month_rounded, size: 20, color: AppTheme.primaryTeal),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        labelStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryTeal,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.calendar_month_rounded,
+                          size: 20,
+                          color: AppTheme.primaryTeal,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 1, child: Text('01 - बैशाख (Baisakh)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                        DropdownMenuItem(value: 2, child: Text('02 - जेठ (Jestha)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                        DropdownMenuItem(value: 3, child: Text('03 - असार (Ashadh)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                        DropdownMenuItem(value: 4, child: Text('04 - श्रावण (Shrawan)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                        DropdownMenuItem(value: 5, child: Text('05 - भाद्र (Bhadra)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                        DropdownMenuItem(value: 6, child: Text('06 - असोज (Ashwin)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                        DropdownMenuItem(value: 7, child: Text('07 - कार्तिक (Kartik)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                        DropdownMenuItem(value: 8, child: Text('08 - मंसिर (Mangsir)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                        DropdownMenuItem(value: 9, child: Text('09 - पौष (Poush)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                        DropdownMenuItem(value: 10, child: Text('10 - माघ (Magh)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                        DropdownMenuItem(value: 11, child: Text('11 - फाल्गुन (Falgun)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                        DropdownMenuItem(value: 12, child: Text('12 - चैत्र (Chaitra)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(
+                          value: 1,
+                          child: Text(
+                            '01 - बैशाख (Baisakh)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 2,
+                          child: Text(
+                            '02 - जेठ (Jestha)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 3,
+                          child: Text(
+                            '03 - असार (Ashadh)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 4,
+                          child: Text(
+                            '04 - श्रावण (Shrawan)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 5,
+                          child: Text(
+                            '05 - भाद्र (Bhadra)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 6,
+                          child: Text(
+                            '06 - असोज (Ashwin)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 7,
+                          child: Text(
+                            '07 - कार्तिक (Kartik)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 8,
+                          child: Text(
+                            '08 - मंसिर (Mangsir)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 9,
+                          child: Text(
+                            '09 - पौष (Poush)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 10,
+                          child: Text(
+                            '10 - माघ (Magh)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 11,
+                          child: Text(
+                            '11 - फाल्गुन (Falgun)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 12,
+                          child: Text(
+                            '12 - चैत्र (Chaitra)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ],
                       onChanged: (m) {
-                        if (m != null) updateFromComponents(selectedYear, m, selectedDay);
+                        if (m != null) {
+                          updateFromComponents(selectedYear, m, selectedDay);
+                        }
                       },
                     ),
                     const SizedBox(height: 10),
@@ -5610,20 +8157,46 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         // Year
                         Expanded(
                           child: DropdownButtonFormField<int>(
-                            initialValue: (selectedYear >= 2075 && selectedYear <= 2090) ? selectedYear : 2083,
+                            initialValue:
+                                (selectedYear >= 2075 && selectedYear <= 2090)
+                                ? selectedYear
+                                : 2083,
                             isExpanded: true,
                             decoration: InputDecoration(
                               labelText: 'Year / वर्ष (BS)',
-                              labelStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              labelStyle: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 10,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                             items: [
                               for (int y = 2078; y <= 2090; y++)
-                                DropdownMenuItem(value: y, child: Text('$y', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+                                DropdownMenuItem(
+                                  value: y,
+                                  child: Text(
+                                    '$y',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
                             ],
                             onChanged: (y) {
-                              if (y != null) updateFromComponents(y, selectedMonth, selectedDay);
+                              if (y != null) {
+                                updateFromComponents(
+                                  y,
+                                  selectedMonth,
+                                  selectedDay,
+                                );
+                              }
                             },
                           ),
                         ),
@@ -5631,13 +8204,24 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                         // Day
                         Expanded(
                           child: DropdownButtonFormField<int>(
-                            initialValue: (selectedDay >= 1 && selectedDay <= 32) ? selectedDay : 6,
+                            initialValue:
+                                (selectedDay >= 1 && selectedDay <= 32)
+                                ? selectedDay
+                                : 6,
                             isExpanded: true,
                             decoration: InputDecoration(
                               labelText: 'Day / गते',
-                              labelStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              labelStyle: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 10,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                             items: [
                               for (int d = 1; d <= 32; d++)
@@ -5645,12 +8229,21 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                                   value: d,
                                   child: Text(
                                     'गते ${d.toString().padLeft(2, '0')}',
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                             ],
                             onChanged: (d) {
-                              if (d != null) updateFromComponents(selectedYear, selectedMonth, d);
+                              if (d != null) {
+                                updateFromComponents(
+                                  selectedYear,
+                                  selectedMonth,
+                                  d,
+                                );
+                              }
                             },
                           ),
                         ),
@@ -5660,7 +8253,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
 
                     // Apply to all stations checkbox
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(8),
@@ -5669,22 +8265,29 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                       child: Material(
                         color: Colors.transparent,
                         child: CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        value: applyToAll,
-                        activeColor: AppTheme.primaryTeal,
-                        title: const Text(
-                          'Apply to all 6 stations (सबै ६ वटै स्टेशनहरूमा यो मिति मिलाउनुहोस्)',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          value: applyToAll,
+                          activeColor: AppTheme.primaryTeal,
+                          title: const Text(
+                            'Apply to all 6 stations (सबै ६ वटै स्टेशनहरूमा यो मिति मिलाउनुहोस्)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryDark,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Syncs Intake, Exam, Lab, Conclusion, Treatment, & Outtake dates',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: AppTheme.textSecondaryLight,
+                            ),
+                          ),
+                          onChanged: (val) {
+                            setDlgState(() => applyToAll = val ?? true);
+                          },
                         ),
-                        subtitle: const Text(
-                          'Syncs Intake, Exam, Lab, Conclusion, Treatment, & Outtake dates',
-                          style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryLight),
-                        ),
-                        onChanged: (val) {
-                          setDlgState(() => applyToAll = val ?? true);
-                        },
-                      ),
                       ),
                     ),
                   ],
@@ -5698,32 +8301,43 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 TextButton(
                   onPressed: () {
                     if (applyToAll) {
-                      ref.read(ocrScanProvider.notifier).syncAllStationDates(null);
+                      ref
+                          .read(ocrScanProvider.notifier)
+                          .syncAllStationDates(null);
                     } else {
                       onDateSelected(null);
                     }
                     Navigator.pop(dlgContext);
                   },
-                  child: const Text('Clear Date (हटाउनुहोस्)', style: TextStyle(color: Colors.red)),
+                  child: const Text(
+                    'Clear Date (हटाउनुहोस्)',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.check, size: 16),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryTeal,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   onPressed: () {
                     final finalFormatted = textController.text.trim();
                     if (applyToAll) {
-                      ref.read(ocrScanProvider.notifier).syncAllStationDates(finalFormatted);
+                      ref
+                          .read(ocrScanProvider.notifier)
+                          .syncAllStationDates(finalFormatted);
                     } else {
                       onDateSelected(finalFormatted);
                     }
                     Navigator.pop(dlgContext);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Date updated to $finalFormatted (${applyToAll ? "Synchronized to all 6 stations" : label})'),
+                        content: Text(
+                          'Date updated to $finalFormatted (${applyToAll ? "Synchronized to all 6 stations" : label})',
+                        ),
                         backgroundColor: AppTheme.successGreen,
                         duration: const Duration(seconds: 2),
                       ),
@@ -5749,10 +8363,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             Icon(Icons.check_circle, color: AppTheme.successGreen, size: 28),
             SizedBox(width: 10),
             Flexible(
-              child: Text(
-                'Scan Committed!',
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('Scan Committed!', overflow: TextOverflow.ellipsis),
             ),
           ],
         ),
@@ -5760,7 +8371,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('The photographed Yellow Form was verified and committed to the camp database:'),
+            const Text(
+              'The photographed Yellow Form was verified and committed to the camp database:',
+            ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -5773,10 +8386,17 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Text(
                     'Patient ID:\n${patient.patientId}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  Text('Name: ${patient.fullName}', overflow: TextOverflow.ellipsis, maxLines: 2),
+                  Text(
+                    'Name: ${patient.fullName}',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
                   Text('Age: ${patient.age} • Ward ${patient.ward}'),
                 ],
               ),
