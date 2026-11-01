@@ -130,6 +130,38 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
   Widget build(BuildContext context) {
     final state = ref.watch(masterLookupProvider);
     final user = ref.watch(authStateProvider).currentUser;
+
+    if (user?.canCustomizeDropdowns != true) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Access Restricted'),
+          backgroundColor: Colors.transparent,
+          flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline_rounded, size: 48, color: Color(0xFF94A3B8)),
+                SizedBox(height: 12),
+                Text(
+                  'Super Administrator Permission Required',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E293B)),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Master clinical formulary, diagnoses, and medication protocols can only be customized by Super Administrators.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final deviceState = ref.watch(deviceSecurityProvider);
     final campState = ref.watch(campStateProvider);
 
