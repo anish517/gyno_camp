@@ -1520,39 +1520,33 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.medical_information_rounded, color: Color(0xFF7C3AED), size: 20),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Consultation Triage & Date (परामर्श तथा दर्ता मिति)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF5B21B6)),
-                        ),
-                      ),
-                      _buildStationDateChip(
-                        context: context,
-                        field: 'intakeDate',
-                        label: 'Intake Date',
-                        dateStr: result.intakeDate ?? demo['intakeDate'] as String? ?? demo['date'] as String?,
-                        onDateSelected: (d) => vm.updateStationDate('intakeDate', d),
-                      ),
-                      const SizedBox(width: 6),
-                      if (!result.isUnassigned)
-                        Chip(
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: result.isCounseling ? const Color(0xFFEDE9FE) : const Color(0xFFCCFBF1),
-                          avatar: Icon(Icons.check, size: 14, color: result.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488)),
-                          label: Text(
-                            result.isCounseling ? 'Counseling' : 'Gynocheckup',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
-                              color: result.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488),
+                  _buildOcrSectionHeader(
+                    icon: Icons.medical_information_rounded,
+                    iconColor: const Color(0xFF7C3AED),
+                    title: 'Consultation Triage & Date (परामर्श तथा दर्ता मिति)',
+                    titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF5B21B6)),
+                    dateChip: _buildStationDateChip(
+                      context: context,
+                      field: 'intakeDate',
+                      label: 'Intake Date',
+                      dateStr: result.intakeDate ?? demo['intakeDate'] as String? ?? demo['date'] as String?,
+                      onDateSelected: (d) => vm.updateStationDate('intakeDate', d),
+                    ),
+                    extraChip: !result.isUnassigned
+                        ? Chip(
+                            visualDensity: VisualDensity.compact,
+                            backgroundColor: result.isCounseling ? const Color(0xFFEDE9FE) : const Color(0xFFCCFBF1),
+                            avatar: Icon(Icons.check, size: 14, color: result.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488)),
+                            label: Text(
+                              result.isCounseling ? 'Counseling' : 'Gynocheckup',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                color: result.isCounseling ? const Color(0xFF7C3AED) : const Color(0xFF0D9488),
+                              ),
                             ),
-                          ),
-                        ),
-                    ],
+                          )
+                        : null,
                   ),
                   const SizedBox(height: 6),
                   const Text(
@@ -2125,24 +2119,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.child_friendly, color: AppTheme.primaryTeal, size: 20),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Station 1: Obstetric History & Anamnesis (पहिलो स्टेशन: विगत तथा प्रसूति विवरण)',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
-                  ),
-                ),
-                _buildStationDateChip(
-                  context: context,
-                  field: 'anamnesisDate',
-                  label: 'Anamnesis Date',
-                  dateStr: result.anamnesisDate ?? result.demographics['anamnesisDate'] as String?,
-                  onDateSelected: (d) => vm.updateStationDate('anamnesisDate', d),
-                ),
-              ],
+            child: _buildOcrSectionHeader(
+              icon: Icons.child_friendly,
+              iconColor: AppTheme.primaryTeal,
+              title: 'Station 1: Obstetric History & Anamnesis (पहिलो स्टेशन: विगत तथा प्रसूति विवरण)',
+              titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+              dateChip: _buildStationDateChip(
+                context: context,
+                field: 'anamnesisDate',
+                label: 'Anamnesis Date',
+                dateStr: result.anamnesisDate ?? result.demographics['anamnesisDate'] as String?,
+                onDateSelected: (d) => vm.updateStationDate('anamnesisDate', d),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -2686,24 +2674,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.medical_services_outlined, color: AppTheme.primaryTeal, size: 20),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Station 2: POP Staging & Clinical Examination (पाठेघर खस्ने जाँच)',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
-                  ),
-                ),
-                _buildStationDateChip(
-                  context: context,
-                  field: 'examDate',
-                  label: 'Exam Date',
-                  dateStr: result.examDate,
-                  onDateSelected: (d) => vm.updateStationDate('examDate', d),
-                ),
-              ],
+            child: _buildOcrSectionHeader(
+              icon: Icons.medical_services_outlined,
+              iconColor: AppTheme.primaryTeal,
+              title: 'Station 2: POP Staging & Clinical Examination (पाठेघर खस्ने जाँच)',
+              titleStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+              dateChip: _buildStationDateChip(
+                context: context,
+                field: 'examDate',
+                label: 'Exam Date',
+                dateStr: result.examDate,
+                onDateSelected: (d) => vm.updateStationDate('examDate', d),
+              ),
             ),
           ),
 
@@ -3571,23 +3553,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Point-of-Care Lab Tests (प्रयोगशाला जाँच):',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                        ),
-                      ),
-                      _buildStationDateChip(
-                        context: context,
-                        field: 'labTestDate',
-                        label: 'Lab Date',
-                        dateStr: result.labTestDate,
-                        onDateSelected: (d) => vm.updateStationDate('labTestDate', d),
-                      ),
-                    ],
+                  _buildOcrSectionHeader(
+                    icon: Icons.biotech_outlined,
+                    iconColor: AppTheme.primaryDark,
+                    title: 'Point-of-Care Lab Tests (प्रयोगशाला जाँच):',
+                    titleStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                    dateChip: _buildStationDateChip(
+                      context: context,
+                      field: 'labTestDate',
+                      label: 'Lab Date',
+                      dateStr: result.labTestDate,
+                      onDateSelected: (d) => vm.updateStationDate('labTestDate', d),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   const Text('Urine Test (पिसाब जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -3739,33 +3716,26 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.healing, color: AppTheme.primaryTeal, size: 20),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Diagnoses Detected (रोग पहिचान)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
-                        ),
+                  _buildOcrSectionHeader(
+                    icon: Icons.healing,
+                    iconColor: AppTheme.primaryTeal,
+                    title: 'Diagnoses Detected (रोग पहिचान)',
+                    titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                    dateChip: _buildStationDateChip(
+                      context: context,
+                      field: 'conclusionDate',
+                      label: 'Conclusion Date',
+                      dateStr: result.conclusionDate,
+                      onDateSelected: (d) => vm.updateStationDate('conclusionDate', d),
+                    ),
+                    extraChip: Chip(
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: AppTheme.primaryLight,
+                      label: Text(
+                        '${result.diagnoses.length} Selected',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryTeal),
                       ),
-                      _buildStationDateChip(
-                        context: context,
-                        field: 'conclusionDate',
-                        label: 'Conclusion Date',
-                        dateStr: result.conclusionDate,
-                        onDateSelected: (d) => vm.updateStationDate('conclusionDate', d),
-                      ),
-                      const SizedBox(width: 6),
-                      Chip(
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: AppTheme.primaryLight,
-                        label: Text(
-                          '${result.diagnoses.length} Selected',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryTeal),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
@@ -3896,33 +3866,26 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.medication, color: Colors.indigo, size: 20),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Prescriptions Dispensed (औषधी)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
-                        ),
+                  _buildOcrSectionHeader(
+                    icon: Icons.medication,
+                    iconColor: Colors.indigo,
+                    title: 'Prescriptions Dispensed (औषधी)',
+                    titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                    dateChip: _buildStationDateChip(
+                      context: context,
+                      field: 'treatmentDate',
+                      label: 'Treatment Date',
+                      dateStr: result.treatmentDate,
+                      onDateSelected: (d) => vm.updateStationDate('treatmentDate', d),
+                    ),
+                    extraChip: Chip(
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: Colors.indigo.shade50,
+                      label: Text(
+                        '${result.medications.length} Prescribed',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.indigo.shade800),
                       ),
-                      _buildStationDateChip(
-                        context: context,
-                        field: 'treatmentDate',
-                        label: 'Treatment Date',
-                        dateStr: result.treatmentDate,
-                        onDateSelected: (d) => vm.updateStationDate('treatmentDate', d),
-                      ),
-                      const SizedBox(width: 6),
-                      Chip(
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: Colors.indigo.shade50,
-                        label: Text(
-                          '${result.medications.length} Prescribed',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.indigo.shade800),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
@@ -4735,24 +4698,18 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.note_alt_outlined, color: AppTheme.primaryTeal, size: 20),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Clinical Notes & Outtake Remarks (क्लिनिकल कैफियत / टिप्पणी)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
-                        ),
-                      ),
-                      _buildStationDateChip(
-                        context: context,
-                        field: 'outtakeDate',
-                        label: 'Outtake Date',
-                        dateStr: result.outtakeDate,
-                        onDateSelected: (d) => vm.updateStationDate('outtakeDate', d),
-                      ),
-                    ],
+                  _buildOcrSectionHeader(
+                    icon: Icons.note_alt_outlined,
+                    iconColor: AppTheme.primaryTeal,
+                    title: 'Clinical Notes & Outtake Remarks (क्लिनिकल कैफियत / टिप्पणी)',
+                    titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryDark),
+                    dateChip: _buildStationDateChip(
+                      context: context,
+                      field: 'outtakeDate',
+                      label: 'Outtake Date',
+                      dateStr: result.outtakeDate,
+                      onDateSelected: (d) => vm.updateStationDate('outtakeDate', d),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   const Text(
@@ -5249,6 +5206,62 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       }
     }
     return false;
+  }
+
+  Widget _buildOcrSectionHeader({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required TextStyle titleStyle,
+    required Widget dateChip,
+    Widget? extraChip,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 560;
+        final titleRow = Row(
+          children: [
+            Icon(icon, color: iconColor, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(title, style: titleStyle),
+            ),
+          ],
+        );
+
+        final chipsRow = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            dateChip,
+            if (extraChip != null) ...[
+              const SizedBox(width: 6),
+              extraChip,
+            ],
+          ],
+        );
+
+        if (isNarrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              titleRow,
+              const SizedBox(height: 8),
+              chipsRow,
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: titleRow),
+            const SizedBox(width: 10),
+            chipsRow,
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildStationDateChip({

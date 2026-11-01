@@ -649,6 +649,64 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     );
   }
 
+  Widget _buildStationHeader({
+    required IconData icon,
+    required String title,
+    required String dateLabel,
+    required DateTime date,
+    required int stationIndex,
+    double titleFontSize = 14.5,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 560;
+        final titleRow = Row(
+          children: [
+            Icon(icon, color: AppTheme.primaryTeal, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: titleFontSize,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+          ],
+        );
+
+        final dateChip = _buildStationDateChip(
+          label: dateLabel,
+          date: date,
+          stationIndex: stationIndex,
+        );
+
+        if (isNarrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              titleRow,
+              const SizedBox(height: 8),
+              dateChip,
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: titleRow),
+            const SizedBox(width: 12),
+            dateChip,
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildStepTab(int index, String label, IconData icon, int currentIndex) {
     final isSelected = index == currentIndex;
     return InkWell(
@@ -717,32 +775,15 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Expanded(
-                      child: Row(
-                        children: [
-                          Icon(Icons.child_care_rounded, color: AppTheme.primaryTeal, size: 20),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Obstetric History (सुत्केरी तथा गर्भ विवरण)',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildStationDateChip(
-                      label: 'Anamnesis Date',
-                      date: state.anamnesisDate ??
-                          state.savedVisit?.anamnesisDate ??
-                          widget.patient.intakeDate,
-                      stationIndex: 0,
-                    ),
-                  ],
+                _buildStationHeader(
+                  icon: Icons.child_care_rounded,
+                  title: 'Obstetric History (सुत्केरी तथा गर्भ विवरण)',
+                  dateLabel: 'Anamnesis Date',
+                  date: state.anamnesisDate ??
+                      state.savedVisit?.anamnesisDate ??
+                      widget.patient.intakeDate,
+                  stationIndex: 0,
+                  titleFontSize: 15,
                 ),
                 const SizedBox(height: 14),
                 LayoutBuilder(
@@ -1281,33 +1322,16 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Expanded(
-                      child: Row(
-                        children: [
-                          Icon(Icons.health_and_safety_outlined, color: AppTheme.primaryTeal, size: 20),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Uterus Position & Pelvic Muscle Tone (पाठेघरको स्थिति तथा मांसपेशी तनाव)',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildStationDateChip(
-                      label: 'Exam Date',
-                      date: state.examDate ??
-                          state.savedVisit?.examDate ??
-                          state.visitDate ??
-                          widget.patient.intakeDate,
-                      stationIndex: 1,
-                    ),
-                  ],
+                _buildStationHeader(
+                  icon: Icons.health_and_safety_outlined,
+                  title: 'Uterus Position & Pelvic Muscle Tone (पाठेघरको स्थिति तथा मांसपेशी तनाव)',
+                  dateLabel: 'Exam Date',
+                  date: state.examDate ??
+                      state.savedVisit?.examDate ??
+                      state.visitDate ??
+                      widget.patient.intakeDate,
+                  stationIndex: 1,
+                  titleFontSize: 14,
                 ),
                 const SizedBox(height: 12),
                 const Text('Uterus Inside (पाठेघर भित्रै छ?):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
@@ -1652,22 +1676,16 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Rapid Point-of-Care Tests (प्रयोगशाला जाँच)',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                        ),
-                        _buildStationDateChip(
-                          label: 'Lab Test Date',
-                          date: state.labTestDate ??
-                              state.savedVisit?.labTestDate ??
-                              state.visitDate ??
-                              widget.patient.intakeDate,
-                          stationIndex: 2,
-                        ),
-                      ],
+                    _buildStationHeader(
+                      icon: Icons.biotech_outlined,
+                      title: 'Rapid Point-of-Care Tests (प्रयोगशाला जाँच)',
+                      dateLabel: 'Lab Test Date',
+                      date: state.labTestDate ??
+                          state.savedVisit?.labTestDate ??
+                          state.visitDate ??
+                          widget.patient.intakeDate,
+                      stationIndex: 2,
+                      titleFontSize: 15,
                     ),
                     const SizedBox(height: 12),
                     const Text('Urine Test (पिसाब जाँच):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -2023,31 +2041,16 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  Text(
-                    'Clinical Diagnoses (${state.selectedDiagnoses.length} selected)',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  _buildStationDateChip(
-                    label: 'Conclusion Date',
-                    date: state.conclusionDate ??
-                        state.savedVisit?.conclusionDate ??
-                        state.visitDate ??
-                        widget.patient.intakeDate,
-                    stationIndex: 3,
-                  ),
-                ],
-              ),
-            ),
-          ],
+        _buildStationHeader(
+          icon: Icons.assignment_outlined,
+          title: 'Clinical Diagnoses (${state.selectedDiagnoses.length} selected)',
+          dateLabel: 'Conclusion Date',
+          date: state.conclusionDate ??
+              state.savedVisit?.conclusionDate ??
+              state.visitDate ??
+              widget.patient.intakeDate,
+          stationIndex: 3,
+          titleFontSize: 16,
         ),
         const SizedBox(height: 10),
         // Highest POP Stage (Station 4 Top Line on Yellow Form)
@@ -2149,22 +2152,16 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Specialized Counseling (परामर्श)',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-            _buildStationDateChip(
-              label: 'Treatment Date',
-              date: state.treatmentDate ??
-                  state.savedVisit?.treatmentDate ??
-                  state.visitDate ??
-                  widget.patient.intakeDate,
-              stationIndex: 4,
-            ),
-          ],
+        _buildStationHeader(
+          icon: Icons.psychology_outlined,
+          title: 'Specialized Counseling (परामर्श)',
+          dateLabel: 'Treatment Date',
+          date: state.treatmentDate ??
+              state.savedVisit?.treatmentDate ??
+              state.visitDate ??
+              widget.patient.intakeDate,
+          stationIndex: 4,
+          titleFontSize: 15,
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -2339,19 +2336,16 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Follow-Up Plan (पुनः जाँच योजना)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            _buildStationDateChip(
-              label: 'Outtake Date',
-              date: state.outtakeDate ??
-                  state.savedVisit?.outtakeDate ??
-                  state.visitDate ??
-                  widget.patient.intakeDate,
-              stationIndex: 5,
-            ),
-          ],
+        _buildStationHeader(
+          icon: Icons.event_available_outlined,
+          title: 'Follow-Up Plan (पुनः जाँच योजना)',
+          dateLabel: 'Outtake Date',
+          date: state.outtakeDate ??
+              state.savedVisit?.outtakeDate ??
+              state.visitDate ??
+              widget.patient.intakeDate,
+          stationIndex: 5,
+          titleFontSize: 16,
         ),
         const SizedBox(height: 12),
         Card(
