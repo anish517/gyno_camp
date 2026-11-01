@@ -1024,8 +1024,8 @@ class _PatientFollowUpFormViewState
                             ),
                             _tb(
                               v.uterusInside
-                                  ? 'Uterus: Inside'
-                                  : 'Uterus: Prolapsed',
+                                  ? 'Uterus Inside: Yes'
+                                  : 'Uterus Inside: No',
                               v.uterusInside
                                   ? AppTheme.successGreen
                                   : AppTheme.dangerRose,
@@ -1727,18 +1727,18 @@ class _PatientFollowUpFormViewState
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
-                const validUrineValues = {
-                  'normal',
-                  'protein_pos',
-                  'glucose_pos',
-                  'leukocytes_pos',
-                  'blood_pos',
-                };
-                final safeUrineTest =
-                    (_urineTest != null &&
-                        validUrineValues.contains(_urineTest))
-                    ? _urineTest
-                    : null;
+                String? safeUrineTest;
+                final rawUrine = (_urineTest ?? '').trim().toLowerCase();
+                if (rawUrine == 'normal' ||
+                    rawUrine == 'neg' ||
+                    rawUrine == 'negative') {
+                  safeUrineTest = 'normal';
+                } else if (rawUrine == 'pos' ||
+                    rawUrine == 'positive' ||
+                    rawUrine.contains('pos') ||
+                    rawUrine.contains('+')) {
+                  safeUrineTest = 'pos';
+                }
 
                 String? safePregTest;
                 if (_pregnancyTest == 'neg' || _pregnancyTest == 'negative') {
@@ -1761,28 +1761,15 @@ class _PatientFollowUpFormViewState
                     DropdownMenuItem(value: null, child: Text('Not Done')),
                     DropdownMenuItem(
                       value: 'normal',
-                      child: Text('Normal (नर्मल)'),
+                      child: Text('Normal / Negative (-)'),
                     ),
                     DropdownMenuItem(
-                      value: 'protein_pos',
-                      child: Text('Protein (+)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'glucose_pos',
-                      child: Text('Glucose (+)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'leukocytes_pos',
-                      child: Text('Leukocytes (+)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'blood_pos',
-                      child: Text('Blood / Hematuria (+)'),
+                      value: 'pos',
+                      child: Text('Positive (+)'),
                     ),
                   ],
                   onChanged: (val) => setState(() => _urineTest = val),
                 );
-
                 final pregDropdown = DropdownButtonFormField<String>(
                   key: ValueKey('preg_test_$safePregTest'),
                   initialValue: safePregTest,
@@ -1891,30 +1878,36 @@ class _PatientFollowUpFormViewState
               ],
             ),
             const SizedBox(height: 12),
-            // Uterus Position
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'Uterus Position (पाठेघरको अवस्था)',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-              subtitle: Text(
-                _uterusInside
-                    ? 'Inside (भित्र सामान्य अवस्था)'
-                    : 'Prolapsed / Outside (बाहिर खसेको)',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: _uterusInside
-                      ? AppTheme.successGreen
-                      : AppTheme.dangerRose,
-                ),
-              ),
-              value: _uterusInside,
-              onChanged: (val) => setState(() => _uterusInside = val),
+            // Uterus Inside (Yellow Form Station 2: yes / no)
+            const Text(
+              'Uterus Inside (पाठेघर भित्रै छ?):',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
             ),
-            const SizedBox(height: 8),
-
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                {'val': true, 'label': 'Yes'},
+                {'val': false, 'label': 'No'},
+              ].map((opt) {
+                final val = opt['val'] as bool;
+                final isSelected = _uterusInside == val;
+                return ChoiceChip(
+                  showCheckmark: false,
+                  label: Text(opt['label'] as String),
+                  selected: isSelected,
+                  selectedColor: AppTheme.primaryTeal,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : Colors.black87,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontSize: 11.5,
+                  ),
+                  onSelected: (_) => setState(() => _uterusInside = val),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
             // Pelvic Floor Muscle
             const Text(
               'Pelvic Floor Muscle (पेल्भिक मांसपेशी):',

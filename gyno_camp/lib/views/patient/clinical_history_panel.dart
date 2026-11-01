@@ -558,7 +558,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                             ],
                             _tb('Pelvic Floor: ${v.pelvicFloorTone.toUpperCase()}', AppTheme.primaryTeal),
                             _tb(
-                              v.uterusInside ? 'Uterus: Inside' : 'Uterus: Prolapsed',
+                              v.uterusInside ? 'Uterus Inside: Yes' : 'Uterus Inside: No',
                               v.uterusInside ? AppTheme.successGreen : AppTheme.dangerRose,
                             ),
                             if (v.vulvaRemarks?.isNotEmpty == true)
