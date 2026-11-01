@@ -139,9 +139,11 @@ class _PatientFollowUpFormViewState
             final histSurgRef = _latestVisit!.surgicalReferral;
             _surgicalReferral =
                 (histSurgRef != null &&
+                    histSurgRef.trim().isNotEmpty &&
+                    !RegExp(r'^\(.*\)$').hasMatch(histSurgRef.trim()) &&
                     !histSurgRef.toLowerCase().contains('scheer') &&
                     !histSurgRef.toLowerCase().contains('model'))
-                ? histSurgRef
+                ? histSurgRef.trim()
                 : null;
             _urineTest = _latestVisit!.urineTest;
             _pregnancyTest = _latestVisit!.pregnancyTest;
@@ -150,11 +152,14 @@ class _PatientFollowUpFormViewState
             final histFollowDest = _latestVisit!.followUpDestination;
             _followUpDestination =
                 (histFollowDest != null &&
+                    histFollowDest.trim().isNotEmpty &&
+                    !RegExp(r'^\(.*\)$').hasMatch(histFollowDest.trim()) &&
+                    histFollowDest.trim().toLowerCase() != 'no follow up needed' &&
                     !histFollowDest.toLowerCase().contains('scheer') &&
-                    !histFollowDest.toLowerCase().contains('model') &&
-                    histFollowDest != 'Health Post' &&
-                    histFollowDest != 'GynaeSupport Nurse')
-                ? histFollowDest
+                    !histFollowDest.toLowerCase().contains('model'))
+                ? (histFollowDest.trim().toLowerCase() == 'local health post'
+                    ? 'Health Post'
+                    : histFollowDest.trim())
                 : null;
             _followUpNeeded = _latestVisit!.followUpNeeded;
             _selectedCounseling.addAll(_latestVisit!.counseling);
@@ -2339,6 +2344,7 @@ class _PatientFollowUpFormViewState
                         for (final h in lookupState.activeReferralHospitals) {
                           final name = h.labelEn.trim();
                           if (name.isNotEmpty &&
+                              !RegExp(r'^\(.*\)$').hasMatch(name) &&
                               !name.toLowerCase().contains('scheer') &&
                               !name.toLowerCase().contains('model') &&
                               name != 'Health Post' &&
@@ -2351,6 +2357,7 @@ class _PatientFollowUpFormViewState
                           for (final h in ClinicalConstants.referralHospitals) {
                             final name = h.trim();
                             if (name.isNotEmpty &&
+                                !RegExp(r'^\(.*\)$').hasMatch(name) &&
                                 !name.toLowerCase().contains('scheer') &&
                                 !name.toLowerCase().contains('model')) {
                               referralHospitalsSet.add(name);
@@ -2359,6 +2366,7 @@ class _PatientFollowUpFormViewState
                         }
                         if (_surgicalReferral != null &&
                             _surgicalReferral!.trim().isNotEmpty &&
+                            !RegExp(r'^\(.*\)$').hasMatch(_surgicalReferral!.trim()) &&
                             !_surgicalReferral!.toLowerCase().contains(
                               'scheer',
                             ) &&
@@ -2620,55 +2628,66 @@ class _PatientFollowUpFormViewState
               ),
               value: _followUpNeeded,
               activeThumbColor: AppTheme.primaryTeal,
-              onChanged: (val) => setState(() => _followUpNeeded = val),
+              onChanged: (val) => setState(() {
+                _followUpNeeded = val;
+                if (!val) _followUpDestination = null;
+              }),
             ),
             Builder(
               builder: (context) {
-                final Set<String> followUpDestSet = {};
+                bool isValidHospitalOption(String raw) {
+                  final name = raw.trim();
+                  if (name.isEmpty) return false;
+                  if (RegExp(r'^\(.*\)$').hasMatch(name)) return false;
+                  final low = name.toLowerCase();
+                  if (low == 'health post' ||
+                      low == 'local health post' ||
+                      low == 'gynaesupport nurse' ||
+                      low == 'no follow up needed' ||
+                      low.contains('scheer') ||
+                      low.contains('model')) {
+                    return false;
+                  }
+                  return true;
+                }
+
+                final Set<String> hospitalDestSet = {};
                 for (final h in lookupState.activeReferralHospitals) {
-                  final name = h.labelEn.trim();
-                  if (name.isNotEmpty &&
-                      name != 'Health Post' &&
-                      name != 'GynaeSupport Nurse' &&
-                      !name.toLowerCase().contains('scheer') &&
-                      !name.toLowerCase().contains('model')) {
-                    followUpDestSet.add(name);
+                  if (isValidHospitalOption(h.labelEn)) {
+                    hospitalDestSet.add(h.labelEn.trim());
                   }
                 }
-                if (followUpDestSet.isEmpty) {
+                if (hospitalDestSet.isEmpty) {
                   for (final h in ClinicalConstants.referralHospitals) {
-                    final name = h.trim();
-                    if (name.isNotEmpty &&
-                        name != 'Health Post' &&
-                        name != 'GynaeSupport Nurse' &&
-                        !name.toLowerCase().contains('scheer') &&
-                        !name.toLowerCase().contains('model')) {
-                      followUpDestSet.add(name);
+                    if (isValidHospitalOption(h)) {
+                      hospitalDestSet.add(h.trim());
                     }
                   }
                 }
                 if (_followUpDestination != null &&
-                    _followUpDestination!.trim().isNotEmpty &&
-                    _followUpDestination != 'Health Post' &&
-                    _followUpDestination != 'GynaeSupport Nurse' &&
-                    !_followUpDestination!.toLowerCase().contains('scheer') &&
-                    !_followUpDestination!.toLowerCase().contains('model')) {
-                  followUpDestSet.add(_followUpDestination!.trim());
+                    isValidHospitalOption(_followUpDestination!)) {
+                  hospitalDestSet.add(_followUpDestination!.trim());
                 }
 
-                final followUpDestList = followUpDestSet.toList()
+                final hospitalDestList = hospitalDestSet.toList()
                   ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
+                final allAllowedDests = <String>{
+                  'Health Post',
+                  'GynaeSupport Nurse',
+                  ...hospitalDestList,
+                };
+
+                final normalizedCurDest =
+                    _followUpDestination?.trim().toLowerCase() ==
+                            'local health post'
+                        ? 'Health Post'
+                        : _followUpDestination?.trim();
+
                 final safeFollowUpDest =
-                    (_followUpDestination != null &&
-                        followUpDestSet.contains(
-                          _followUpDestination!.trim(),
-                        ) &&
-                        !_followUpDestination!.toLowerCase().contains(
-                          'scheer',
-                        ) &&
-                        !_followUpDestination!.toLowerCase().contains('model'))
-                    ? _followUpDestination!.trim()
+                    (normalizedCurDest != null &&
+                        allAllowedDests.contains(normalizedCurDest))
+                    ? normalizedCurDest
                     : null;
 
                 return DropdownButtonFormField<String>(
@@ -2685,12 +2704,22 @@ class _PatientFollowUpFormViewState
                       value: null,
                       child: Text('None / Not Specified'),
                     ),
-                    ...followUpDestList.map(
+                    const DropdownMenuItem(
+                      value: 'Health Post',
+                      child: Text('Health Post (स्वास्थ्य चौकी)'),
+                    ),
+                    const DropdownMenuItem(
+                      value: 'GynaeSupport Nurse',
+                      child: Text('GynaeSupport Nurse (गाइने नर्स)'),
+                    ),
+                    ...hospitalDestList.map(
                       (h) => DropdownMenuItem(value: h, child: Text(h)),
                     ),
                   ],
-                  onChanged: (val) =>
-                      setState(() => _followUpDestination = val),
+                  onChanged: (val) => setState(() {
+                    _followUpDestination = val;
+                    if (val != null) _followUpNeeded = true;
+                  }),
                 );
               },
             ),
