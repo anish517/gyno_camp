@@ -2740,11 +2740,15 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
-                        'Highest POP Stage (अधिकतम स्टेज):',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      const Expanded(
+                        child: Text(
+                          'Highest POP Stage (अधिकतम स्टेज):',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       () {
                         final highestVal = (pop['highestPopStage'] ?? pop['highestStage'] ?? pop['stage']) as int?;
                         if (highestVal == null) return const SizedBox.shrink();
@@ -2875,11 +2879,15 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
-                        '1. Vulva Examination (बाह्य अङ्ग / भल्भा):',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      const Expanded(
+                        child: Text(
+                          '1. Vulva Examination (बाह्य अङ्ग / भल्भा):',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       ChoiceChip(
                         visualDensity: VisualDensity.compact,
                         label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
@@ -2920,11 +2928,15 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
-                        '2. Vagina Examination (योनीको अवस्था):',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      const Expanded(
+                        child: Text(
+                          '2. Vagina Examination (योनीको अवस्था):',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       ChoiceChip(
                         visualDensity: VisualDensity.compact,
                         label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
@@ -2965,11 +2977,15 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
-                        '3. Cervix Appearance (पाठेघरको मुखको अवस्था):',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      const Expanded(
+                        child: Text(
+                          '3. Cervix Appearance (पाठेघरको मुखको अवस्था):',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       ChoiceChip(
                         visualDensity: VisualDensity.compact,
                         label: const Text('Normal / Smooth (सामान्य)', style: TextStyle(fontSize: 11)),
@@ -3010,11 +3026,15 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
-                        '4. Uterus Examination (पाठेघर सम्बन्धी कैफियत):',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      const Expanded(
+                        child: Text(
+                          '4. Uterus Examination (पाठेघर सम्बन्धी कैफियत):',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       ChoiceChip(
                         visualDensity: VisualDensity.compact,
                         label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),

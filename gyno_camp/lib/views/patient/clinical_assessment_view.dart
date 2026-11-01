@@ -1416,8 +1416,12 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 // 1. Vulva Examination
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text('1. Vulva Examination (बाह्य अङ्ग / भल्भा):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    const Expanded(
+                      child: Text('1. Vulva Examination (बाह्य अङ्ग / भल्भा):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    ),
+                    const SizedBox(width: 8),
                     ChoiceChip(
                       visualDensity: VisualDensity.compact,
                       label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
@@ -1450,8 +1454,12 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 // 2. Vagina Examination
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text('2. Vagina Examination (योनीको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    const Expanded(
+                      child: Text('2. Vagina Examination (योनीको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    ),
+                    const SizedBox(width: 8),
                     ChoiceChip(
                       visualDensity: VisualDensity.compact,
                       label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
@@ -1484,8 +1492,12 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 // 3. Cervix Examination
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text('3. Cervix Appearance (पाठेघरको मुखको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    const Expanded(
+                      child: Text('3. Cervix Appearance (पाठेघरको मुखको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    ),
+                    const SizedBox(width: 8),
                     ChoiceChip(
                       visualDensity: VisualDensity.compact,
                       label: const Text('Normal / Smooth (सामान्य)', style: TextStyle(fontSize: 11)),
@@ -1518,8 +1530,12 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 // 4. Uterus Examination
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text('4. Uterus Examination (पाठेघरको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    const Expanded(
+                      child: Text('4. Uterus Examination (पाठेघरको अवस्था):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                    ),
+                    const SizedBox(width: 8),
                     ChoiceChip(
                       visualDensity: VisualDensity.compact,
                       label: const Text('Normal (सामान्य)', style: TextStyle(fontSize: 11)),
@@ -2062,25 +2078,25 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.stars_rounded, color: AppTheme.primaryTeal, size: 20),
                     const SizedBox(width: 8),
-                    Text(
-                      'Highest POP Stage (अधिकतम स्टेज): Stage ${state.highestPopStage}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryDark),
+                    Expanded(
+                      child: Text(
+                        'Highest POP Stage (अधिकतम स्टेज): Stage ${state.highestPopStage}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryDark),
+                      ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
+                  runSpacing: 6,
                   children: List.generate(5, (stg) {
                     final isSel = state.highestPopStage == stg;
                     return ChoiceChip(
