@@ -1623,21 +1623,27 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          isDetected ? Icons.qr_code_scanner : Icons.tag,
-                          size: 18,
-                          color: isDetected ? const Color(0xFF16A34A) : AppTheme.primaryPurple,
-                        ),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Patient Token ID / बिरामी टोकन नं.',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
-                          ),
-                        ),
-                        Container(
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isCompact = constraints.maxWidth < 520;
+                        final titleWidget = Row(
+                          children: [
+                            Icon(
+                              isDetected ? Icons.qr_code_scanner : Icons.tag,
+                              size: 18,
+                              color: isDetected ? const Color(0xFF16A34A) : AppTheme.primaryPurple,
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'Patient Token ID / बिरामी टोकन नं.',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+                              ),
+                            ),
+                          ],
+                        );
+
+                        final badge = Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: isDetected ? const Color(0xFFDCFCE7) : const Color(0xFFEDE9FE),
@@ -1654,8 +1660,29 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                               color: isDetected ? const Color(0xFF15803D) : AppTheme.primaryPurple,
                             ),
                           ),
-                        ),
-                      ],
+                        );
+
+                        if (isCompact) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              titleWidget,
+                              const SizedBox(height: 6),
+                              badge,
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(child: titleWidget),
+                            const SizedBox(width: 8),
+                            badge,
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
@@ -5249,14 +5276,13 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           ],
         );
 
-        final chipsRow = Row(
-          mainAxisSize: MainAxisSize.min,
+        final chipsRow = Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             dateChip,
-            if (extraChip != null) ...[
-              const SizedBox(width: 6),
-              extraChip,
-            ],
+            if (extraChip != null) extraChip,
           ],
         );
 
