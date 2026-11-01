@@ -2915,7 +2915,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     initialValue: pop['vulvaRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
                       labelText: 'Vulva Remarks (सामान्य नभएमा कैफियत)',
-                      hintText: 'e.g. Normal or write findings',
+                      hintText: 'Redness, vesicle, ulcer, lesion, atrophic changes...',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -2960,7 +2960,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     initialValue: pop['vaginaRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
                       labelText: 'Vagina Remarks (सामान्य नभएमा कैफियत)',
-                      hintText: 'e.g. Normal or write findings',
+                      hintText: 'Discharge, cystocele, rectocele, atrophic mucosa...',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -3005,7 +3005,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     initialValue: pop['cervixRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
                       labelText: 'Cervix Remarks (सामान्य नभएमा कैफियत)',
-                      hintText: 'e.g. Erosion, polyp, bleeding on touch, hypertrophy...',
+                      hintText: 'Erosion, polyp, bleeding on touch, hypertrophy...',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -3050,7 +3050,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     initialValue: pop['uterusRemarks'] as String? ?? '',
                     decoration: const InputDecoration(
                       labelText: 'Uterus Remarks (सामान्य नभएमा कैफियत)',
-                      hintText: 'e.g. Normal or write findings',
+                      hintText: 'Bulky, tender, fibroid, restricted, retroverted...',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -3715,7 +3715,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     initialValue: vitals['ecgNotes'] as String? ?? '',
                     decoration: const InputDecoration(
                       labelText: 'ECG Findings / Notes (ईसीजी कैफियत)',
-                      hintText: 'e.g. Rate 76 bpm, ST changes, arrhythmia details...',
+                      hintText: 'Rate, rhythm, axis, ST-T changes if abnormal...',
                       border: OutlineInputBorder(),
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),

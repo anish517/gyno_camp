@@ -3344,12 +3344,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               children: [
                                 Icon(Icons.record_voice_over_rounded, size: 10, color: Color(0xFF7C3AED)),
                                 SizedBox(width: 3),
-                                Text(
-                                  'Counseling (काउन्सिलिङ)',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF7C3AED),
+                                Flexible(
+                                  child: Text(
+                                    'Counseling',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF7C3AED),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -3368,12 +3372,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                               children: [
                                 Icon(Icons.medical_services_rounded, size: 10, color: Color(0xFF0D9488)),
                                 SizedBox(width: 3),
-                                Text(
-                                  'Gynocheckup (गाइनो जाँच)',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF0D9488),
+                                Flexible(
+                                  child: Text(
+                                    'Gynocheckup',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0D9488),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],

@@ -836,12 +836,28 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     );
                   },
                 ),
-                if (state.obstetricValidation.isError)
+                if (state.obstetricValidation.isError || state.obstetricValidation.isWarning)
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      state.obstetricValidation.messageEn!,
-                      style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12, fontWeight: FontWeight.bold),
+                    child: Row(
+                      children: [
+                        Icon(
+                          state.obstetricValidation.isError ? Icons.error_outline : Icons.info_outline,
+                          size: 14,
+                          color: state.obstetricValidation.isError ? AppTheme.dangerRose : const Color(0xFFD97706),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            state.obstetricValidation.messageEn!,
+                            style: TextStyle(
+                              color: state.obstetricValidation.isError ? AppTheme.dangerRose : const Color(0xFFD97706),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],
@@ -1397,7 +1413,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   controller: _vulvaRemarksController,
                   decoration: const InputDecoration(
                     labelText: 'Vulva Remarks (सामान्य नभएमा कैफियत)',
-                    hintText: 'e.g. Redness, vesicle, ulcer, lesion, atrophic...',
+                    hintText: 'Redness, vesicle, ulcer, lesion, atrophic changes...',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
                   onChanged: (val) {
@@ -1431,7 +1447,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   controller: _vaginaRemarksController,
                   decoration: const InputDecoration(
                     labelText: 'Vagina Remarks (सामान्य नभएमा कैफियत)',
-                    hintText: 'e.g. Discharge, cystocele, rectocele, atrophic mucosa...',
+                    hintText: 'Discharge, cystocele, rectocele, atrophic mucosa...',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
                   onChanged: (val) {
@@ -1465,7 +1481,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   controller: _cervixRemarksController,
                   decoration: const InputDecoration(
                     labelText: 'Cervix Remarks (सामान्य नभएमा कैफियत)',
-                    hintText: 'e.g. Erosion, polyp, bleeding on touch, hypertrophy...',
+                    hintText: 'Erosion, polyp, bleeding on touch, hypertrophy...',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
                   onChanged: (val) {
@@ -1499,7 +1515,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   controller: _uterusRemarksController,
                   decoration: const InputDecoration(
                     labelText: 'Uterus Remarks (पाठेघर सम्बन्धी कैफियत)',
-                    hintText: 'e.g. Bulky, tender, fibroid, restricted, retroverted...',
+                    hintText: 'Bulky, tender, fibroid, restricted, retroverted...',
                     prefixIcon: Icon(Icons.edit_note_rounded),
                   ),
                   onChanged: (val) {
@@ -1939,10 +1955,16 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     TextField(
                       controller: _ecgController,
                       textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'ECG Findings / Notes (ईसीजी विवरण / कैफियत)',
-                        hintText: 'e.g. Rate 76 bpm, ST changes, arrhythmia details...',
-                        prefixIcon: Icon(Icons.edit_note_rounded),
+                        hintText: _ecgController.text.toLowerCase().contains('normal sinus')
+                            ? 'Rate 76 bpm, regular rhythm, normal axis...'
+                            : _ecgController.text.toLowerCase().contains('abnormal')
+                                ? 'ST depression, T-wave inversion, arrhythmia...'
+                                : _ecgController.text.toLowerCase().contains('not done')
+                                    ? 'Reason not done or additional notes...'
+                                    : 'Select status above, then add details...',
+                        prefixIcon: const Icon(Icons.edit_note_rounded),
                       ),
                       onChanged: (val) => vm.setVitals(ecgNotes: val.trim().isNotEmpty ? val.trim() : null),
                     ),
