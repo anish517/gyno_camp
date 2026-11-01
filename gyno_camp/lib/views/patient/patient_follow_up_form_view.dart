@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
 import '../../core/constants/clinical_constants.dart';
 import '../../core/services/file_download_helper.dart';
 import '../../core/services/nepali_localization_service.dart';
@@ -24,17 +25,15 @@ class PatientFollowUpFormView extends ConsumerStatefulWidget {
   final PatientModel patient;
   final CampModel? camp;
 
-  const PatientFollowUpFormView({
-    super.key,
-    required this.patient,
-    this.camp,
-  });
+  const PatientFollowUpFormView({super.key, required this.patient, this.camp});
 
   @override
-  ConsumerState<PatientFollowUpFormView> createState() => _PatientFollowUpFormViewState();
+  ConsumerState<PatientFollowUpFormView> createState() =>
+      _PatientFollowUpFormViewState();
 }
 
-class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormView> {
+class _PatientFollowUpFormViewState
+    extends ConsumerState<PatientFollowUpFormView> {
   final _formKey = GlobalKey<FormState>();
 
   // Prior visits history
@@ -45,7 +44,8 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
 
   // Form Fields
   final TextEditingController _newIssuesController = TextEditingController();
-  final TextEditingController _followUpNotesController = TextEditingController();
+  final TextEditingController _followUpNotesController =
+      TextEditingController();
   final TextEditingController _systolicController = TextEditingController();
   final TextEditingController _diastolicController = TextEditingController();
   final TextEditingController _pulseController = TextEditingController();
@@ -75,10 +75,6 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   String? _selectedSurgeryType;
   String? _surgicalReferral;
 
-  // Grouping Toggles
-  bool _groupDiagnosesByCategory = true;
-  bool _groupMedicationsByCategory = true;
-
   // Treatment / Follow-Up Outtake (Station 5 & 6)
   final Set<String> _selectedMedications = {};
   final Set<String> _selectedCounseling = {};
@@ -96,7 +92,9 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
     super.initState();
     if (widget.patient.campId.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(masterLookupProvider.notifier).setCampScope(widget.patient.campId);
+        ref
+            .read(masterLookupProvider.notifier)
+            .setCampScope(widget.patient.campId);
       });
     }
     _loadPatientHistory();
@@ -119,7 +117,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
     setState(() => _isLoadingHistory = true);
     try {
       final repo = ref.read(patientRepositoryProvider);
-      final visits = await repo.getClinicalVisits(widget.patient.patientId, patientUuid: widget.patient.id);
+      final visits = await repo.getClinicalVisits(
+        widget.patient.patientId,
+        patientUuid: widget.patient.id,
+      );
       visits.sort((a, b) => b.visitDate.compareTo(a.visitDate));
       if (mounted) {
         setState(() {
@@ -136,7 +137,8 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             _surgeryDone = _latestVisit!.surgeryDone;
             _selectedSurgeryType = _latestVisit!.surgeryType;
             final histSurgRef = _latestVisit!.surgicalReferral;
-            _surgicalReferral = (histSurgRef != null &&
+            _surgicalReferral =
+                (histSurgRef != null &&
                     !histSurgRef.toLowerCase().contains('scheer') &&
                     !histSurgRef.toLowerCase().contains('model'))
                 ? histSurgRef
@@ -146,7 +148,8 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             _pessaryType = _latestVisit!.pessaryType;
             _pessarySize = _latestVisit!.pessarySize;
             final histFollowDest = _latestVisit!.followUpDestination;
-            _followUpDestination = (histFollowDest != null &&
+            _followUpDestination =
+                (histFollowDest != null &&
                     !histFollowDest.toLowerCase().contains('scheer') &&
                     !histFollowDest.toLowerCase().contains('model') &&
                     histFollowDest != 'Health Post' &&
@@ -170,7 +173,8 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             if (_latestVisit!.glucose != null) {
               _glucoseController.text = _latestVisit!.glucose.toString();
             }
-            if (_latestVisit!.ecgNotes != null && _latestVisit!.ecgNotes!.isNotEmpty) {
+            if (_latestVisit!.ecgNotes != null &&
+                _latestVisit!.ecgNotes!.isNotEmpty) {
               _ecgNotesController.text = _latestVisit!.ecgNotes!;
             }
             if (_latestVisit!.attendingDoctorNames.isNotEmpty) {
@@ -205,7 +209,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         visit: v,
         camp: widget.camp,
       );
-      final filename = ReportFilenameHelper.encounterSlip(widget.patient.patientId, v.visitDate);
+      final filename = ReportFilenameHelper.encounterSlip(
+        widget.patient.patientId,
+        v.visitDate,
+      );
       final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: bytes,
         filename: filename,
@@ -213,14 +220,20 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         autoOpen: true,
       );
       if (mounted) {
-        FileDownloadHelper.showDownloadFeedback(context, result, forceForegroundModal: true);
+        FileDownloadHelper.showDownloadFeedback(
+          context,
+          result,
+          forceForegroundModal: true,
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error generating slip: $e'),
-          backgroundColor: AppTheme.dangerRose,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating slip: $e'),
+            backgroundColor: AppTheme.dangerRose,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _dlSlipIdx.remove(i));
@@ -272,13 +285,16 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
       glucose: int.tryParse(_glucoseController.text.trim()),
       urineTest: _urineTest,
       pregnancyTest: _pregnancyTest,
-      ecgNotes: _ecgNotesController.text.trim().isNotEmpty ? _ecgNotesController.text.trim().toUpperCase() : null,
+      ecgNotes: _ecgNotesController.text.trim().isNotEmpty
+          ? _ecgNotesController.text.trim().toUpperCase()
+          : null,
       diagnoses: _selectedDiagnoses.toList(),
       counseling: _selectedCounseling.toList(),
       medications: _selectedMedications.toList(),
       pessaryType: _pessaryType,
       pessarySize: _pessarySize,
-      treatmentLevel: _latestVisit?.treatmentLevel ?? widget.patient.treatmentLevel,
+      treatmentLevel:
+          _latestVisit?.treatmentLevel ?? widget.patient.treatmentLevel,
       surgicalReferral: _surgicalReferral,
       followUpNeeded: _followUpNeeded,
       followUpDestination: _followUpDestination,
@@ -288,9 +304,13 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
       surgeryDone: _surgeryDone,
       surgeryType: _surgeryDone ? _selectedSurgeryType : null,
       attendingDoctorNames: _selectedDoctors.toList(),
-      primaryDoctorName: _selectedDoctors.isNotEmpty ? _selectedDoctors.first : null,
+      primaryDoctorName: _selectedDoctors.isNotEmpty
+          ? _selectedDoctors.first
+          : null,
       attendingNurseNames: _selectedNurses.toList(),
-      primaryNurseName: _selectedNurses.isNotEmpty ? _selectedNurses.first : null,
+      primaryNurseName: _selectedNurses.isNotEmpty
+          ? _selectedNurses.first
+          : null,
       createdAt: DateTime.now(),
       createdByUserId: auth?.id ?? 'usr-staff',
     );
@@ -326,14 +346,17 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
   Widget build(BuildContext context) {
     final campState = ref.watch(campStateProvider);
     final user = ref.watch(authStateProvider).currentUser;
-    final currentCamp = widget.camp ??
+    final currentCamp =
+        widget.camp ??
         campState.camps.cast<CampModel?>().firstWhere(
           (c) => c?.id == widget.patient.campId,
           orElse: () => null,
         );
     final isSuperAdmin = user?.role == UserRole.superAdmin;
-    final bool isLockedCamp = (currentCamp?.status.isLocked ?? false) && !isSuperAdmin;
-    final bool isCampClosed = currentCamp?.status.isLocked ?? false; // for banner only
+    final bool isLockedCamp =
+        (currentCamp?.status.isLocked ?? false) && !isSuperAdmin;
+    final bool isCampClosed =
+        currentCamp?.status.isLocked ?? false; // for banner only
 
     return Scaffold(
       appBar: AppBar(
@@ -376,22 +399,31 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               // CAMP LOCKED / READ-ONLY BANNER
               if (isCampClosed) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: isSuperAdmin
                         ? const Color(0xFFFFFBEB)
                         : AppTheme.dangerRose.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isSuperAdmin ? const Color(0xFFF59E0B) : AppTheme.dangerRose,
+                      color: isSuperAdmin
+                          ? const Color(0xFFF59E0B)
+                          : AppTheme.dangerRose,
                       width: 1.5,
                     ),
                   ),
                   child: Row(
                     children: [
                       Icon(
-                        isSuperAdmin ? Icons.lock_open_rounded : Icons.lock_rounded,
-                        color: isSuperAdmin ? const Color(0xFFD97706) : AppTheme.dangerRose,
+                        isSuperAdmin
+                            ? Icons.lock_open_rounded
+                            : Icons.lock_rounded,
+                        color: isSuperAdmin
+                            ? const Color(0xFFD97706)
+                            : AppTheme.dangerRose,
                         size: 22,
                       ),
                       const SizedBox(width: 10),
@@ -404,7 +436,9 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                                   ? 'SUPER ADMIN OVERRIDE — CAMP CLOSED'
                                   : 'CAMP CLOSED & LOCKED — RECORD IS READ-ONLY',
                               style: TextStyle(
-                                color: isSuperAdmin ? const Color(0xFFD97706) : AppTheme.dangerRose,
+                                color: isSuperAdmin
+                                    ? const Color(0xFFD97706)
+                                    : AppTheme.dangerRose,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                                 letterSpacing: 0.5,
@@ -416,7 +450,9 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                                   ? 'This camp is closed. You are logged in as Super Admin — follow-up records can still be submitted.'
                                   : 'This camp has concluded and is closed. New follow-up submissions or edits are disabled.',
                               style: TextStyle(
-                                color: isSuperAdmin ? const Color(0xFF92400E) : const Color(0xFF991B1B),
+                                color: isSuperAdmin
+                                    ? const Color(0xFF92400E)
+                                    : const Color(0xFF991B1B),
                                 fontSize: 11.5,
                               ),
                             ),
@@ -431,15 +467,24 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
 
               // 1. Mandatory Instruction Banner (Block Letters)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryLight,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.4)),
+                  border: Border.all(
+                    color: AppTheme.primaryTeal.withValues(alpha: 0.4),
+                  ),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.info_outline, color: AppTheme.primaryDark, size: 20),
+                    Icon(
+                      Icons.info_outline,
+                      color: AppTheme.primaryDark,
+                      size: 20,
+                    ),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -476,12 +521,18 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline, color: AppTheme.dangerRose),
+                      const Icon(
+                        Icons.error_outline,
+                        color: AppTheme.dangerRose,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(color: AppTheme.dangerRose, fontSize: 13),
+                          style: const TextStyle(
+                            color: AppTheme.dangerRose,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],
@@ -516,22 +567,30 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   backgroundColor: AppTheme.primaryTeal,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 icon: _isSaving
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Icon(Icons.save_rounded),
                 label: Text(
                   _isSaving
                       ? 'Saving Record...'
                       : (isLockedCamp
-                          ? 'Camp Locked (Closed) — Edits Disabled'
-                          : 'Save Follow-Up Record (फलो-अप सुरक्षित गर्नुहोस्)'),
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            ? 'Camp Locked (Closed) — Edits Disabled'
+                            : 'Save Follow-Up Record (फलो-अप सुरक्षित गर्नुहोस्)'),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 onPressed: (_isSaving || isLockedCamp) ? null : _submitFollowUp,
               ),
@@ -561,8 +620,14 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   radius: 22,
                   backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.12),
                   child: Text(
-                    widget.patient.firstName.isNotEmpty ? widget.patient.firstName[0].toUpperCase() : 'P',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                    widget.patient.firstName.isNotEmpty
+                        ? widget.patient.firstName[0].toUpperCase()
+                        : 'P',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryTeal,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -575,20 +640,30 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                           Flexible(
                             child: Text(
                               widget.patient.fullName,
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.primaryLight,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               widget.patient.patientId,
-                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryDark,
+                              ),
                             ),
                           ),
                         ],
@@ -596,7 +671,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                       const SizedBox(height: 2),
                       Text(
                         'Age: ${widget.patient.age}y • Ward: ${widget.patient.ward} • ${widget.patient.district}, ${widget.patient.province}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondaryLight,
+                        ),
                       ),
                     ],
                   ),
@@ -612,12 +690,20 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.assignment_outlined, size: 15, color: AppTheme.primaryTeal),
+                      Icon(
+                        Icons.assignment_outlined,
+                        size: 15,
+                        color: AppTheme.primaryTeal,
+                      ),
                       SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           'Initial Intake Reasons (प्रारम्भिक समस्या):',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryDark,
+                          ),
                         ),
                       ),
                     ],
@@ -626,18 +712,35 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   Wrap(
                     spacing: 5,
                     runSpacing: 5,
-                    children: widget.patient.reasonsForVisit.map((r) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryTeal.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
-                      ),
-                      child: Text(
-                        r,
-                        style: const TextStyle(fontSize: 11, color: AppTheme.primaryDark, fontWeight: FontWeight.w500),
-                      ),
-                    )).toList(),
+                    children: widget.patient.reasonsForVisit
+                        .map(
+                          (r) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryTeal.withValues(
+                                alpha: 0.1,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: AppTheme.primaryTeal.withValues(
+                                  alpha: 0.3,
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              r,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.primaryDark,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ],
               ),
@@ -674,12 +777,19 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               ),
               child: Text(
                 '${_pastVisits.length} visits',
-                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryTeal,
+                ),
               ),
             ),
           ],
         ),
-        subtitle: const Text('Stations 2–6 details matching Yellow Form & Downloadable PDF Slip', style: TextStyle(fontSize: 11)),
+        subtitle: const Text(
+          'Stations 2–6 details matching Yellow Form & Downloadable PDF Slip',
+          style: TextStyle(fontSize: 11),
+        ),
         children: [
           if (_isLoadingHistory)
             const Padding(
@@ -691,7 +801,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               padding: EdgeInsets.all(16.0),
               child: Text(
                 'No previous clinical visits found. This will be recorded as the initial follow-up.',
-                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryLight),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AppTheme.textSecondaryLight,
+                ),
               ),
             )
           else
@@ -741,7 +854,13 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: ac.withValues(alpha: 0.3), width: 1.2),
-        boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 6, offset: Offset(0, 2))],
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -749,13 +868,27 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
           // Header Row
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: bg, borderRadius: const BorderRadius.vertical(top: Radius.circular(11))),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(11),
+              ),
+            ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: ac.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-                  child: Icon(isF ? Icons.replay_circle_filled_rounded : Icons.local_hospital_rounded, size: 16, color: ac),
+                  decoration: BoxDecoration(
+                    color: ac.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    isF
+                        ? Icons.replay_circle_filled_rounded
+                        : Icons.local_hospital_rounded,
+                    size: 16,
+                    color: ac,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -763,10 +896,22 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isF ? 'Follow-Up Visit #$index' : 'Initial Assessment (प्राथमिक जाँच)',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: ac),
+                        isF
+                            ? 'Follow-Up Visit #$index'
+                            : 'Initial Assessment (प्राथमिक जाँच)',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: ac,
+                        ),
                       ),
-                      Text(fmt.format(v.visitDate), style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                      Text(
+                        fmt.format(v.visitDate),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -774,14 +919,32 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ac,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
                     elevation: 0,
                   ),
                   icon: isDl
-                      ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Icon(Icons.download_rounded, size: 13),
-                  label: Text(isDl ? '...' : 'Slip (PDF)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(
+                    isDl ? '...' : 'Slip (PDF)',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   onPressed: isDl ? null : () => _dlSlip(v, index),
                 ),
               ],
@@ -793,11 +956,19 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 1. Obstetric History & Pelvic Floor Exam (Station 2)
-                if (v.deliveries != null || v.livingChildren != null || v.abortions != null || v.cervixRemarks != null || v.vaginaRemarks != null || !v.uterusInside) ...[
+                if (v.deliveries != null ||
+                    v.livingChildren != null ||
+                    v.abortions != null ||
+                    v.cervixRemarks != null ||
+                    v.vaginaRemarks != null ||
+                    !v.uterusInside) ...[
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(6),
@@ -808,7 +979,11 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                       children: [
                         const Text(
                           'Obstetric & Pelvic Floor Exam (प्रसूति तथा श्रोणी जाँच):',
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF475569),
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Wrap(
@@ -816,20 +991,50 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                           runSpacing: 4,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            if (v.deliveries != null || v.livingChildren != null || v.abortions != null) ...[
-                              _obsBadge('Deliveries (P)', v.deliveries?.toString() ?? '?', AppTheme.brandPurpleLight, AppTheme.brandPurple),
-                              _obsBadge('Living (L)', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A)),
-                              _obsBadge('Losses (A)', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C)),
+                            if (v.deliveries != null ||
+                                v.livingChildren != null ||
+                                v.abortions != null) ...[
+                              _obsBadge(
+                                'Deliveries (P)',
+                                v.deliveries?.toString() ?? '?',
+                                AppTheme.brandPurpleLight,
+                                AppTheme.brandPurple,
+                              ),
+                              _obsBadge(
+                                'Living (L)',
+                                v.livingChildren?.toString() ?? '?',
+                                const Color(0xFFF0FFF4),
+                                const Color(0xFF16A34A),
+                              ),
+                              _obsBadge(
+                                'Losses (A)',
+                                v.abortions?.toString() ?? '?',
+                                const Color(0xFFFFF7ED),
+                                const Color(0xFFEA580C),
+                              ),
                             ],
-                            _tb('Pelvic Floor: ${v.pelvicFloorTone.toUpperCase()}', AppTheme.primaryTeal),
                             _tb(
-                              v.uterusInside ? 'Uterus: Inside' : 'Uterus: Prolapsed',
-                              v.uterusInside ? AppTheme.successGreen : AppTheme.dangerRose,
+                              'Pelvic Floor: ${v.pelvicFloorTone.toUpperCase()}',
+                              AppTheme.primaryTeal,
+                            ),
+                            _tb(
+                              v.uterusInside
+                                  ? 'Uterus: Inside'
+                                  : 'Uterus: Prolapsed',
+                              v.uterusInside
+                                  ? AppTheme.successGreen
+                                  : AppTheme.dangerRose,
                             ),
                             if (v.cervixRemarks?.isNotEmpty == true)
-                              _tb('Cervix: ${v.cervixRemarks}', const Color(0xFF64748B)),
+                              _tb(
+                                'Cervix: ${v.cervixRemarks}',
+                                const Color(0xFF64748B),
+                              ),
                             if (v.vaginaRemarks?.isNotEmpty == true)
-                              _tb('Vagina: ${v.vaginaRemarks}', const Color(0xFF64748B)),
+                              _tb(
+                                'Vagina: ${v.vaginaRemarks}',
+                                const Color(0xFF64748B),
+                              ),
                           ],
                         ),
                       ],
@@ -840,7 +1045,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 // 2. Vitals & Screening Labs (Station 3)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(6),
@@ -855,22 +1063,35 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                           const Flexible(
                             child: Text(
                               'Clinical Vitals & Screening Labs (स्वास्थ्य सूचक):',
-                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF475569),
+                              ),
                               overflow: TextOverflow.ellipsis,
                               maxLines: 2,
                             ),
                           ),
                           const SizedBox(width: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
                               color: bpColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: bpColor.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                color: bpColor.withValues(alpha: 0.3),
+                              ),
                             ),
                             child: Text(
                               'BP: $bpStatus',
-                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: bpColor),
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: bpColor,
+                              ),
                             ),
                           ),
                         ],
@@ -880,13 +1101,20 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                         spacing: 10,
                         runSpacing: 3,
                         children: [
-                          _vc('BP', '${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"} mmHg'),
+                          _vc(
+                            'BP',
+                            '${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"} mmHg',
+                          ),
                           if (v.pulse != null) _vc('Pulse', '${v.pulse} bpm'),
                           if (v.spo2 != null) _vc('SpO2', '${v.spo2}%'),
-                          if (v.glucose != null) _vc('Glucose', '${v.glucose} mg/dL'),
-                          if (v.urineTest?.isNotEmpty == true) _vc('Urine', v.urineTest!.toUpperCase()),
-                          if (v.pregnancyTest?.isNotEmpty == true) _vc('UPT', v.pregnancyTest!.toUpperCase()),
-                          if (v.ecgNotes?.isNotEmpty == true) _vc('ECG', v.ecgNotes!),
+                          if (v.glucose != null)
+                            _vc('Glucose', '${v.glucose} mg/dL'),
+                          if (v.urineTest?.isNotEmpty == true)
+                            _vc('Urine', v.urineTest!.toUpperCase()),
+                          if (v.pregnancyTest?.isNotEmpty == true)
+                            _vc('UPT', v.pregnancyTest!.toUpperCase()),
+                          if (v.ecgNotes?.isNotEmpty == true)
+                            _vc('ECG', v.ecgNotes!),
                         ],
                       ),
                     ],
@@ -900,16 +1128,43 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   runSpacing: 4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Text('POP Staging: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                    if (v.popAnteriorStage == 0 && v.popMiddleStage == 0 && v.popPosteriorStage == 0) ...[
+                    const Text(
+                      'POP Staging: ',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                    if (v.popAnteriorStage == 0 &&
+                        v.popMiddleStage == 0 &&
+                        v.popPosteriorStage == 0) ...[
                       _pb('', 'Normal (No Prolapse)', isNormal: true),
                       _pb('Ant', 'St 0', isNormal: true),
                       _pb('Mid', 'St 0', isNormal: true),
                       _pb('Post', 'St 0', isNormal: true),
                     ] else ...[
-                      _pb('Ant', 'St ${v.popAnteriorStage}', ip: v.popAnteriorStage == 2, ic: v.popAnteriorStage >= 3, isNormal: v.popAnteriorStage == 0),
-                      _pb('Mid', 'St ${v.popMiddleStage}', ip: v.popMiddleStage == 2, ic: v.popMiddleStage >= 3, isNormal: v.popMiddleStage == 0),
-                      _pb('Post', 'St ${v.popPosteriorStage}', ip: v.popPosteriorStage == 2, ic: v.popPosteriorStage >= 3, isNormal: v.popPosteriorStage == 0),
+                      _pb(
+                        'Ant',
+                        'St ${v.popAnteriorStage}',
+                        ip: v.popAnteriorStage == 2,
+                        ic: v.popAnteriorStage >= 3,
+                        isNormal: v.popAnteriorStage == 0,
+                      ),
+                      _pb(
+                        'Mid',
+                        'St ${v.popMiddleStage}',
+                        ip: v.popMiddleStage == 2,
+                        ic: v.popMiddleStage >= 3,
+                        isNormal: v.popMiddleStage == 0,
+                      ),
+                      _pb(
+                        'Post',
+                        'St ${v.popPosteriorStage}',
+                        ip: v.popPosteriorStage == 2,
+                        ic: v.popPosteriorStage >= 3,
+                        isNormal: v.popPosteriorStage == 0,
+                      ),
                     ],
                   ],
                 ),
@@ -920,20 +1175,47 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Diagnoses: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                      const Text(
+                        'Diagnoses: ',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF475569),
+                        ),
+                      ),
                       Expanded(
                         child: Wrap(
                           spacing: 4,
                           runSpacing: 4,
-                          children: v.diagnoses.map((d) => Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryLight.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
-                            ),
-                            child: Text(d, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.primaryDark)),
-                          )).toList(),
+                          children: v.diagnoses
+                              .map(
+                                (d) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 1.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryLight.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: AppTheme.primaryTeal.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    d,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.primaryDark,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
                         ),
                       ),
                     ],
@@ -941,35 +1223,71 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 ],
 
                 // Prescriptions & Treatments (Station 5)
-                if (v.medications.isNotEmpty || v.customMedication?.isNotEmpty == true) ...[
+                if (v.medications.isNotEmpty ||
+                    v.customMedication?.isNotEmpty == true) ...[
                   const SizedBox(height: 5),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Prescriptions: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                      const Text(
+                        'Prescriptions: ',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF475569),
+                        ),
+                      ),
                       Expanded(
                         child: Wrap(
                           spacing: 4,
                           runSpacing: 4,
                           children: [
-                            ...v.medications.map((m) => Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF0F9FF),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: const Color(0xFF0891B2).withValues(alpha: 0.3)),
+                            ...v.medications.map(
+                              (m) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1.5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0F9FF),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: const Color(0xFF0891B2)
+                                        .withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Text(
+                                  m,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF0C4A6E),
+                                  ),
+                                ),
                               ),
-                              child: Text(m, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF0C4A6E))),
-                            )),
+                            ),
                             if (v.customMedication?.isNotEmpty == true)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1.5,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFFFFBEB),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                                  border: Border.all(
+                                    color: const Color(0xFFF59E0B)
+                                        .withValues(alpha: 0.4),
+                                  ),
                                 ),
-                                child: Text('Rx: ${v.customMedication}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
+                                child: Text(
+                                  'Rx: ${v.customMedication}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF92400E),
+                                  ),
+                                ),
                               ),
                           ],
                         ),
@@ -979,26 +1297,44 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 ],
 
                 // Interventions: Pessary, Surgery, Referral, Counseling
-                if (v.pessarySize?.isNotEmpty == true || v.surgeryDone || v.surgicalReferral?.isNotEmpty == true || v.counseling.isNotEmpty) ...[
+                if (v.pessarySize?.isNotEmpty == true ||
+                    v.surgeryDone ||
+                    v.surgicalReferral?.isNotEmpty == true ||
+                    v.counseling.isNotEmpty) ...[
                   const SizedBox(height: 5),
                   Wrap(
                     spacing: 5,
                     runSpacing: 4,
                     children: [
                       if (v.pessarySize?.isNotEmpty == true)
-                        _tb('Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.pessarySize}', AppTheme.primaryTeal),
+                        _tb(
+                          'Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.pessarySize}',
+                          AppTheme.primaryTeal,
+                        ),
                       if (v.surgeryDone)
-                        _tb('Surgery: ${v.surgeryType ?? "Done"}', AppTheme.successGreen),
+                        _tb(
+                          'Surgery: ${v.surgeryType ?? "Done"}',
+                          AppTheme.successGreen,
+                        ),
                       if (v.surgicalReferral?.isNotEmpty == true)
-                        _tb('Referral: ${v.surgicalReferral}', AppTheme.dangerRose),
+                        _tb(
+                          'Referral: ${v.surgicalReferral}',
+                          AppTheme.dangerRose,
+                        ),
                       if (v.counseling.isNotEmpty)
-                        _tb('Counseling: ${v.counseling.join(", ")}', const Color(0xFF0284C7)),
+                        _tb(
+                          'Counseling: ${v.counseling.join(", ")}',
+                          const Color(0xFF0284C7),
+                        ),
                     ],
                   ),
                 ],
 
                 // 5. Continuity of Care & Outtake (Station 6)
-                if (v.followUpNeeded || v.followUpDestination?.isNotEmpty == true || v.followUpNotes?.isNotEmpty == true || v.outtakeNotes?.isNotEmpty == true) ...[
+                if (v.followUpNeeded ||
+                    v.followUpDestination?.isNotEmpty == true ||
+                    v.followUpNotes?.isNotEmpty == true ||
+                    v.outtakeNotes?.isNotEmpty == true) ...[
                   const SizedBox(height: 6),
                   Container(
                     width: double.infinity,
@@ -1013,11 +1349,15 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                         Row(
                           children: [
                             Text(
-                              v.followUpNeeded ? 'Follow-Up: YES' : 'Follow-Up: Routine',
+                              v.followUpNeeded
+                                  ? 'Follow-Up: YES'
+                                  : 'Follow-Up: Routine',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: v.followUpNeeded ? AppTheme.dangerRose : const Color(0xFF475569),
+                                color: v.followUpNeeded
+                                    ? AppTheme.dangerRose
+                                    : const Color(0xFF475569),
                               ),
                             ),
                             if (v.followUpDestination?.isNotEmpty == true) ...[
@@ -1025,7 +1365,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                               Flexible(
                                 child: Text(
                                   '• Center: ${v.followUpDestination}',
-                                  style: const TextStyle(fontSize: 10, color: Color(0xFF334155)),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Color(0xFF334155),
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -1034,11 +1377,26 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                         ),
                         if (v.followUpNotes?.isNotEmpty == true) ...[
                           const SizedBox(height: 3),
-                          Text('Clinical / Follow-up Notes: ${v.followUpNotes}', style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Color(0xFF334155))),
+                          Text(
+                            'Clinical / Follow-up Notes: ${v.followUpNotes}',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontStyle: FontStyle.italic,
+                              color: Color(0xFF334155),
+                            ),
+                          ),
                         ],
-                        if (v.outtakeNotes?.isNotEmpty == true && v.outtakeNotes != v.followUpNotes) ...[
+                        if (v.outtakeNotes?.isNotEmpty == true &&
+                            v.outtakeNotes != v.followUpNotes) ...[
                           const SizedBox(height: 3),
-                          Text('Outtake Notes: ${v.outtakeNotes}', style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Color(0xFF334155))),
+                          Text(
+                            'Outtake Notes: ${v.outtakeNotes}',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontStyle: FontStyle.italic,
+                              color: Color(0xFF334155),
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -1054,37 +1412,78 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
 
   Widget _obsBadge(String label, String val, Color bg, Color fg) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4), border: Border.all(color: fg.withValues(alpha: 0.3))),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: fg.withValues(alpha: 0.3)),
+    ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: fg.withValues(alpha: 0.85))),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w600,
+            color: fg.withValues(alpha: 0.85),
+          ),
+        ),
         const SizedBox(width: 3.5),
-        Text(val, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: fg)),
+        Text(
+          val,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.bold,
+            color: fg,
+          ),
+        ),
       ],
     ),
   );
 
   Widget _tb(String text, Color color) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withValues(alpha: 0.3))),
-    child: Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+    ),
   );
 
   Widget _vc(String label, String val) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Text('$label: ', style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
-      Text(val, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
+      Text(
+        '$label: ',
+        style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+      ),
+      Text(
+        val,
+        style: const TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF0F172A),
+        ),
+      ),
     ],
   );
 
-  Widget _pb(String label, String val, {bool ip = false, bool ic = false, bool isNormal = false}) {
+  Widget _pb(
+    String label,
+    String val, {
+    bool ip = false,
+    bool ic = false,
+    bool isNormal = false,
+  }) {
     final c = ic
         ? AppTheme.dangerRose
         : (isNormal
-            ? const Color(0xFF16A34A)
-            : (ip ? const Color(0xFFD97706) : const Color(0xFF475569)));
+              ? const Color(0xFF16A34A)
+              : (ip ? const Color(0xFFD97706) : const Color(0xFF475569)));
     final bg = isNormal
         ? const Color(0xFFF0FDF4)
         : (ip ? const Color(0xFFFEF3C7) : c.withValues(alpha: 0.1));
@@ -1093,19 +1492,45 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: isNormal ? const Color(0xFF86EFAC) : c.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: isNormal ? const Color(0xFF86EFAC) : c.withValues(alpha: 0.3),
+        ),
       ),
-      child: Text(label.isEmpty ? val : '$label: $val', style: TextStyle(fontSize: 9.5, fontWeight: (ip || ic || isNormal) ? FontWeight.bold : FontWeight.w600, color: c)),
+      child: Text(
+        label.isEmpty ? val : '$label: $val',
+        style: TextStyle(
+          fontSize: 9.5,
+          fontWeight: (ip || ic || isNormal)
+              ? FontWeight.bold
+              : FontWeight.w600,
+          color: c,
+        ),
+      ),
     );
   }
 
   Widget _buildComplaintsSection() {
     const complaintsList = [
-      {'key': 'something hanging out', 'label': 'Something hanging out (आङ खस्ने)'},
-      {'key': 'discharge and or itching', 'label': 'Discharge / Itching (स्राव / चिलाउने)'},
-      {'key': 'problems passing urine', 'label': 'Urinary complaint (पिसाब सम्बन्धी)'},
-      {'key': 'problems passing stool', 'label': 'Stool complaint (दिसा सम्बन्धी)'},
-      {'key': 'menstrual problem', 'label': 'Menstrual issue (महिनावारी समस्या)'},
+      {
+        'key': 'something hanging out',
+        'label': 'Something hanging out (आङ खस्ने)',
+      },
+      {
+        'key': 'discharge and or itching',
+        'label': 'Discharge / Itching (स्राव / चिलाउने)',
+      },
+      {
+        'key': 'problems passing urine',
+        'label': 'Urinary complaint (पिसाब सम्बन्धी)',
+      },
+      {
+        'key': 'problems passing stool',
+        'label': 'Stool complaint (दिसा सम्बन्धी)',
+      },
+      {
+        'key': 'menstrual problem',
+        'label': 'Menstrual issue (महिनावारी समस्या)',
+      },
       {'key': 'infertility', 'label': 'Infertility (निःसन्तान)'},
       {'key': 'pain', 'label': 'Pelvic / abdominal pain (तल्लो पेट दुखाइ)'},
       {'key': 'checkup', 'label': 'Routine follow-up checkup (नियमित जाँच)'},
@@ -1126,7 +1551,10 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             const SizedBox(height: 4),
             const Text(
               'Select any ongoing symptoms or newly emerged clinical issues',
-              style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+              style: TextStyle(
+                fontSize: 11,
+                color: AppTheme.textSecondaryLight,
+              ),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -1159,7 +1587,8 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               maxLines: 2,
               decoration: const InputDecoration(
                 labelText: 'NEW ISSUES / OBSERVATIONS (नयाँ देखिएका समस्या तथा कैफियत) [BLOCK LETTERS]',
-                hintText: 'e.g. RING PESSARY DISPLACEMENT, PERSISTENT DISCHARGE',
+                hintText:
+                    'e.g. RING PESSARY DISPLACEMENT, PERSISTENT DISCHARGE',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -1293,13 +1722,24 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
-                const validUrineValues = {'normal', 'protein_pos', 'glucose_pos', 'leukocytes_pos', 'blood_pos'};
-                final safeUrineTest = (_urineTest != null && validUrineValues.contains(_urineTest)) ? _urineTest : null;
+                const validUrineValues = {
+                  'normal',
+                  'protein_pos',
+                  'glucose_pos',
+                  'leukocytes_pos',
+                  'blood_pos',
+                };
+                final safeUrineTest =
+                    (_urineTest != null &&
+                        validUrineValues.contains(_urineTest))
+                    ? _urineTest
+                    : null;
 
                 String? safePregTest;
                 if (_pregnancyTest == 'neg' || _pregnancyTest == 'negative') {
                   safePregTest = 'neg';
-                } else if (_pregnancyTest == 'pos' || _pregnancyTest == 'positive') {
+                } else if (_pregnancyTest == 'pos' ||
+                    _pregnancyTest == 'positive') {
                   safePregTest = 'pos';
                 }
 
@@ -1314,11 +1754,26 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   ),
                   items: const [
                     DropdownMenuItem(value: null, child: Text('Not Done')),
-                    DropdownMenuItem(value: 'normal', child: Text('Normal (नर्मल)')),
-                    DropdownMenuItem(value: 'protein_pos', child: Text('Protein (+)')),
-                    DropdownMenuItem(value: 'glucose_pos', child: Text('Glucose (+)')),
-                    DropdownMenuItem(value: 'leukocytes_pos', child: Text('Leukocytes (+)')),
-                    DropdownMenuItem(value: 'blood_pos', child: Text('Blood / Hematuria (+)')),
+                    DropdownMenuItem(
+                      value: 'normal',
+                      child: Text('Normal (नर्मल)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'protein_pos',
+                      child: Text('Protein (+)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'glucose_pos',
+                      child: Text('Glucose (+)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'leukocytes_pos',
+                      child: Text('Leukocytes (+)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'blood_pos',
+                      child: Text('Blood / Hematuria (+)'),
+                    ),
                   ],
                   onChanged: (val) => setState(() => _urineTest = val),
                 );
@@ -1402,14 +1857,19 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: _calculatedHighestPopStage >= 2
                         ? AppTheme.warningAmber.withValues(alpha: 0.15)
                         : AppTheme.primaryLight,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: _calculatedHighestPopStage >= 2 ? AppTheme.warningAmber : AppTheme.primaryTeal,
+                      color: _calculatedHighestPopStage >= 2
+                          ? AppTheme.warningAmber
+                          : AppTheme.primaryTeal,
                     ),
                   ),
                   child: Text(
@@ -1417,7 +1877,9 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
-                      color: _calculatedHighestPopStage >= 2 ? Colors.brown : AppTheme.primaryDark,
+                      color: _calculatedHighestPopStage >= 2
+                          ? Colors.brown
+                          : AppTheme.primaryDark,
                     ),
                   ),
                 ),
@@ -1432,11 +1894,15 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               ),
               subtitle: Text(
-                _uterusInside ? 'Inside (भित्र सामान्य अवस्था)' : 'Prolapsed / Outside (बाहिर खसेको)',
+                _uterusInside
+                    ? 'Inside (भित्र सामान्य अवस्था)'
+                    : 'Prolapsed / Outside (बाहिर खसेको)',
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.bold,
-                  color: _uterusInside ? AppTheme.successGreen : AppTheme.dangerRose,
+                  color: _uterusInside
+                      ? AppTheme.successGreen
+                      : AppTheme.dangerRose,
                 ),
               ),
               value: _uterusInside,
@@ -1453,25 +1919,33 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             Wrap(
               spacing: 8,
               runSpacing: 6,
-              children: [
-                {'key': 'normal', 'label': 'Normal (सामान्य)'},
-                {'key': 'weak', 'label': 'Weak (कमजोर)'},
-                {'key': 'hypertonic', 'label': 'Hypertonic (कडा / तनावग्रस्त)'},
-              ].map((t) {
-                final isSelected = _pelvicFloorTone.toLowerCase() == t['key'];
-                return ChoiceChip(
-                  showCheckmark: false,
-                  label: Text(t['label']!),
-                  selected: isSelected,
-                  selectedColor: AppTheme.primaryTeal,
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black87,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    fontSize: 11.5,
-                  ),
-                  onSelected: (_) => setState(() => _pelvicFloorTone = t['key']!),
-                );
-              }).toList(),
+              children:
+                  [
+                    {'key': 'normal', 'label': 'Normal (सामान्य)'},
+                    {'key': 'weak', 'label': 'Weak (कमजोर)'},
+                    {
+                      'key': 'hypertonic',
+                      'label': 'Hypertonic (कडा / तनावग्रस्त)',
+                    },
+                  ].map((t) {
+                    final isSelected =
+                        _pelvicFloorTone.toLowerCase() == t['key'];
+                    return ChoiceChip(
+                      showCheckmark: false,
+                      label: Text(t['label']!),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryTeal,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black87,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w500,
+                        fontSize: 11.5,
+                      ),
+                      onSelected: (_) =>
+                          setState(() => _pelvicFloorTone = t['key']!),
+                    );
+                  }).toList(),
             ),
             const SizedBox(height: 14),
             Material(
@@ -1485,47 +1959,75 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.straighten_rounded, size: 15, color: AppTheme.primaryTeal),
-                      SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'POP Compartment Staging (अङ्ग खस्ने स्टेज मूल्याङ्कन)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF1E293B)),
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.straighten_rounded,
+                          size: 15,
+                          color: AppTheme.primaryTeal,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildStageSelector('Anterior Compartment (Cystocele)', _anteriorStage, [0, 1, 2, 3], (val) {
-                    setState(() => _anteriorStage = val);
-                  }),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Divider(height: 1, color: Color(0xFFE2E8F0)),
-                  ),
-                  _buildStageSelector('Apical Compartment (Uterine/Apex)', _middleStage, [0, 1, 2, 3, 4], (val) {
-                    setState(() => _middleStage = val);
-                  }),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Divider(height: 1, color: Color(0xFFE2E8F0)),
-                  ),
-                  _buildStageSelector('Posterior Compartment (Rectocele)', _posteriorStage, [0, 1, 2, 3], (val) {
-                    setState(() => _posteriorStage = val);
-                  }),
-                ],
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'POP Compartment Staging (अङ्ग खस्ने स्टेज मूल्याङ्कन)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildStageSelector(
+                      'Anterior Compartment (Cystocele)',
+                      _anteriorStage,
+                      [0, 1, 2, 3],
+                      (val) {
+                        setState(() => _anteriorStage = val);
+                      },
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                    ),
+                    _buildStageSelector(
+                      'Apical Compartment (Uterine/Apex)',
+                      _middleStage,
+                      [0, 1, 2, 3, 4],
+                      (val) {
+                        setState(() => _middleStage = val);
+                      },
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                    ),
+                    _buildStageSelector(
+                      'Posterior Compartment (Rectocele)',
+                      _posteriorStage,
+                      [0, 1, 2, 3],
+                      (val) {
+                        setState(() => _posteriorStage = val);
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStageSelector(String title, int current, List<int> allowed, ValueChanged<int> onSelect) {
+  Widget _buildStageSelector(
+    String title,
+    int current,
+    List<int> allowed,
+    ValueChanged<int> onSelect,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isCompact = constraints.maxWidth < 460;
@@ -1545,8 +2047,12 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   child: Text(
                     'S$stage',
                     style: TextStyle(
-                      color: isSelected ? Colors.white : const Color(0xFF334155),
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF334155),
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.w600,
                       fontSize: 12,
                     ),
                   ),
@@ -1557,7 +2063,9 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
                   side: BorderSide(
-                    color: isSelected ? AppTheme.primaryTeal : const Color(0xFFCBD5E1),
+                    color: isSelected
+                        ? AppTheme.primaryTeal
+                        : const Color(0xFFCBD5E1),
                     width: isSelected ? 1.5 : 1,
                   ),
                 ),
@@ -1580,7 +2088,11 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1E293B),
+                ),
               ),
               const SizedBox(height: 6),
               SingleChildScrollView(
@@ -1615,7 +2127,11 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E293B),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1627,7 +2143,6 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
     );
   }
 
-
   Widget _buildDiagnosesAndSurgerySection() {
     final lookupState = ref.watch(masterLookupProvider);
     final activeDiagItems = lookupState.activeDiagnoses;
@@ -1635,38 +2150,16 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         ? activeDiagItems.map((d) => d.labelEn).toList()
         : ClinicalConstants.defaultDiagnoses;
 
-    final Map<String, String> itemToCategory = {};
-    final List<String> dynamicCategories = [];
-    if (activeDiagItems.isNotEmpty) {
-      for (final d in activeDiagItems) {
-        final cat = (d.subCategory != null && d.subCategory!.trim().isNotEmpty)
-            ? d.subCategory!.trim()
-            : (ClinicalConstants.diagnosisCategoryMap[d.labelEn.toLowerCase()] ?? 'General / Other (सामान्य)');
-        itemToCategory[d.labelEn] = cat;
-        if (!dynamicCategories.contains(cat)) {
-          dynamicCategories.add(cat);
-        }
-      }
-    } else {
-      for (final d in diagnosesList) {
-        final cat = ClinicalConstants.diagnosisCategoryMap[d.toLowerCase()] ?? 'General / Other (सामान्य)';
-        itemToCategory[d] = cat;
-        if (!dynamicCategories.contains(cat)) {
-          dynamicCategories.add(cat);
-        }
-      }
-    }
-
-    final categoriesToDisplay = dynamicCategories.isNotEmpty
-        ? dynamicCategories
-        : ClinicalConstants.diagnosisCategories;
-
     String getDiagnosisDisplayLabel(String diag) {
       final masterItem = activeDiagItems.cast<LookupItemModel?>().firstWhere(
         (d) => d != null && d.labelEn.toLowerCase() == diag.toLowerCase(),
         orElse: () => null,
       );
-      final labelNe = (masterItem != null && masterItem.labelNe.isNotEmpty && masterItem.labelNe.toLowerCase() != masterItem.labelEn.toLowerCase())
+      final labelNe =
+          (masterItem != null &&
+              masterItem.labelNe.isNotEmpty &&
+              masterItem.labelNe.toLowerCase() !=
+                  masterItem.labelEn.toLowerCase())
           ? masterItem.labelNe
           : NepaliLocalizationService.translate(diag);
       return (labelNe.isNotEmpty && labelNe.toLowerCase() != diag.toLowerCase())
@@ -1682,153 +2175,48 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    '4. Diagnoses & Surgical Evaluation (${_selectedDiagnoses.length} selected)',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    side: BorderSide(color: AppTheme.primaryTeal.withValues(alpha: 0.5)),
-                  ),
-                  icon: Icon(
-                    _groupDiagnosesByCategory ? Icons.category_rounded : Icons.view_list_rounded,
-                    size: 14,
-                    color: AppTheme.primaryTeal,
-                  ),
-                  label: Text(
-                    _groupDiagnosesByCategory ? 'Grouped' : 'Flat List',
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
-                  ),
-                  onPressed: () => setState(() => _groupDiagnosesByCategory = !_groupDiagnosesByCategory),
-                ),
-              ],
+            Text(
+              '4. Diagnoses & Surgical Evaluation (${_selectedDiagnoses.length} selected)',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 10),
-            if (!_groupDiagnosesByCategory)
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: diagnosesList.map((d) {
-                  final isSelected = _selectedDiagnoses.any((x) => x.toLowerCase().trim() == d.toLowerCase().trim());
-                  return FilterChip(
-                    label: Text(getDiagnosisDisplayLabel(d), style: const TextStyle(fontSize: 11.5)),
-                    selected: isSelected,
-                    selectedColor: AppTheme.primaryLight,
-                    checkmarkColor: AppTheme.primaryTeal,
-                    onSelected: (val) {
-                      setState(() {
-                        if (val) {
-                          _selectedDiagnoses.add(d);
-                        } else {
-                          _selectedDiagnoses.removeWhere((x) => x.toLowerCase().trim() == d.toLowerCase().trim());
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              )
-            else
-              Column(
-                children: categoriesToDisplay.map((category) {
-                  final itemsInCategory = diagnosesList.where((d) {
-                    final cat = itemToCategory[d] ?? ClinicalConstants.diagnosisCategoryMap[d] ?? 'General / Other (सामान्य)';
-                    return cat == category;
-                  }).toList();
-
-                  if (itemsInCategory.isEmpty) return const SizedBox.shrink();
-                  final selectedCount = itemsInCategory.where((d) => _selectedDiagnoses.any((x) => x.toLowerCase().trim() == d.toLowerCase().trim())).length;
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Material(
-                      color: const Color(0xFFF8FAFC),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: selectedCount > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.5) : const Color(0xFFE2E8F0),
-                          width: selectedCount > 0 ? 1.4 : 1,
-                        ),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: ExpansionTile(
-                        key: PageStorageKey('followup_diag_$category'),
-                      initiallyExpanded: selectedCount > 0 || category.contains('Prolapse'),
-                      tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                      dense: true,
-                      leading: Icon(
-                        Icons.folder_open_rounded,
-                        size: 16,
-                        color: selectedCount > 0 ? AppTheme.primaryTeal : Colors.blueGrey,
-                      ),
-                      title: Text(
-                        category,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12.5,
-                          color: selectedCount > 0 ? AppTheme.primaryTeal : const Color(0xFF1E293B),
-                        ),
-                      ),
-                      trailing: selectedCount > 0
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryTeal,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$selectedCount',
-                                style: const TextStyle(fontSize: 10.5, color: Colors.white, fontWeight: FontWeight.bold),
-                              ),
-                            )
-                          : null,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                          child: Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: itemsInCategory.map((d) {
-                              final isSelected = _selectedDiagnoses.any((x) => x.toLowerCase().trim() == d.toLowerCase().trim());
-                              return FilterChip(
-                                visualDensity: VisualDensity.compact,
-                                label: Text(
-                                  getDiagnosisDisplayLabel(d),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  ),
-                                ),
-                                selected: isSelected,
-                                selectedColor: AppTheme.primaryLight,
-                                checkmarkColor: AppTheme.primaryTeal,
-                                onSelected: (val) {
-                                  setState(() {
-                                    if (val) {
-                                      _selectedDiagnoses.add(d);
-                                    } else {
-                                      _selectedDiagnoses.remove(d);
-                                    }
-                                  });
-                                },
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ],
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: diagnosesList.map((d) {
+                final isSelected = _selectedDiagnoses.any(
+                  (x) => x.toLowerCase().trim() == d.toLowerCase().trim(),
+                );
+                return FilterChip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(
+                    getDiagnosisDisplayLabel(d),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
+                  selected: isSelected,
+                  selectedColor: AppTheme.primaryLight,
+                  checkmarkColor: AppTheme.primaryTeal,
+                  onSelected: (val) {
+                    setState(() {
+                      if (val) {
+                        _selectedDiagnoses.add(d);
+                      } else {
+                        _selectedDiagnoses.removeWhere(
+                          (x) =>
+                              x.toLowerCase().trim() == d.toLowerCase().trim(),
+                        );
+                      }
+                    });
+                  },
                 );
               }).toList(),
-              ),
+            ),
             const SizedBox(height: 16),
             Material(
               color: const Color(0xFFF8FAFC),
@@ -1841,146 +2229,194 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Icon(Icons.medical_services_rounded, size: 16, color: AppTheme.primaryTeal),
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Surgical Evaluation & Intervention (शल्यक्रिया मूल्याङ्कन)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Surgery Performed (शल्यक्रिया भएको हो?)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    subtitle: const Text(
-                      'Indicate if surgical intervention was performed prior to or during follow-up',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                    value: _surgeryDone,
-                    activeThumbColor: AppTheme.primaryTeal,
-                    onChanged: (val) {
-                      setState(() {
-                        _surgeryDone = val;
-                        if (!_surgeryDone) _selectedSurgeryType = null;
-                      });
-                    },
-                  ),
-                  if (_surgeryDone) ...[
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Surgical Route / Procedure Type (शल्यक्रियाको प्रकार):',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
+                    Row(
                       children: [
-                        'Open surgery',
-                        'Laparoscopy',
-                        'Vaginal route',
-                      ].map((type) {
-                        final isSelected = _selectedSurgeryType == type;
-                        return ChoiceChip(
-                          showCheckmark: false,
-                          label: Text(type),
-                          selected: isSelected,
-                          selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                          labelStyle: TextStyle(
-                            color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            fontSize: 11.5,
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryTeal.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedSurgeryType = selected ? type : null;
-                            });
-                          },
-                        );
-                      }).toList(),
+                          child: const Icon(
+                            Icons.medical_services_rounded,
+                            size: 16,
+                            color: AppTheme.primaryTeal,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Surgical Evaluation & Intervention (शल्यक्रिया मूल्याङ्कन)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 18),
-                  ] else ...[
-                    const SizedBox(height: 8),
-                  ],
-                  Builder(
-                    builder: (context) {
-                      final lookupState = ref.watch(masterLookupProvider);
-                      final Set<String> referralHospitalsSet = {};
-                      for (final h in lookupState.activeReferralHospitals) {
-                        final name = h.labelEn.trim();
-                        if (name.isNotEmpty &&
-                            !name.toLowerCase().contains('scheer') &&
-                            !name.toLowerCase().contains('model') &&
-                            name != 'Health Post' &&
-                            name != 'GynaeSupport Nurse') {
-                          referralHospitalsSet.add(name);
-                        }
-                      }
-                      // If no active referral hospitals configured for the camp, fallback to defaults
-                      if (referralHospitalsSet.isEmpty) {
-                        for (final h in ClinicalConstants.referralHospitals) {
-                          final name = h.trim();
+                    const SizedBox(height: 10),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Surgery Performed (शल्यक्रिया भएको हो?)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Indicate if surgical intervention was performed prior to or during follow-up',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      value: _surgeryDone,
+                      activeThumbColor: AppTheme.primaryTeal,
+                      onChanged: (val) {
+                        setState(() {
+                          _surgeryDone = val;
+                          if (!_surgeryDone) _selectedSurgeryType = null;
+                        });
+                      },
+                    ),
+                    if (_surgeryDone) ...[
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Surgical Route / Procedure Type (शल्यक्रियाको प्रकार):',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children:
+                            [
+                              'Open surgery',
+                              'Laparoscopy',
+                              'Vaginal route',
+                            ].map((type) {
+                              final isSelected = _selectedSurgeryType == type;
+                              return ChoiceChip(
+                                showCheckmark: false,
+                                label: Text(type),
+                                selected: isSelected,
+                                selectedColor: AppTheme.primaryTeal.withValues(
+                                  alpha: 0.2,
+                                ),
+                                labelStyle: TextStyle(
+                                  color: isSelected
+                                      ? AppTheme.primaryTeal
+                                      : const Color(0xFF334155),
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  fontSize: 11.5,
+                                ),
+                                onSelected: (selected) {
+                                  setState(() {
+                                    _selectedSurgeryType = selected
+                                        ? type
+                                        : null;
+                                  });
+                                },
+                              );
+                            }).toList(),
+                      ),
+                      const SizedBox(height: 18),
+                    ] else ...[
+                      const SizedBox(height: 8),
+                    ],
+                    Builder(
+                      builder: (context) {
+                        final lookupState = ref.watch(masterLookupProvider);
+                        final Set<String> referralHospitalsSet = {};
+                        for (final h in lookupState.activeReferralHospitals) {
+                          final name = h.labelEn.trim();
                           if (name.isNotEmpty &&
                               !name.toLowerCase().contains('scheer') &&
-                              !name.toLowerCase().contains('model')) {
+                              !name.toLowerCase().contains('model') &&
+                              name != 'Health Post' &&
+                              name != 'GynaeSupport Nurse') {
                             referralHospitalsSet.add(name);
                           }
                         }
-                      }
-                      if (_surgicalReferral != null &&
-                          _surgicalReferral!.trim().isNotEmpty &&
-                          !_surgicalReferral!.toLowerCase().contains('scheer') &&
-                          !_surgicalReferral!.toLowerCase().contains('model')) {
-                        referralHospitalsSet.add(_surgicalReferral!.trim());
-                      }
+                        // If no active referral hospitals configured for the camp, fallback to defaults
+                        if (referralHospitalsSet.isEmpty) {
+                          for (final h in ClinicalConstants.referralHospitals) {
+                            final name = h.trim();
+                            if (name.isNotEmpty &&
+                                !name.toLowerCase().contains('scheer') &&
+                                !name.toLowerCase().contains('model')) {
+                              referralHospitalsSet.add(name);
+                            }
+                          }
+                        }
+                        if (_surgicalReferral != null &&
+                            _surgicalReferral!.trim().isNotEmpty &&
+                            !_surgicalReferral!.toLowerCase().contains(
+                              'scheer',
+                            ) &&
+                            !_surgicalReferral!.toLowerCase().contains(
+                              'model',
+                            )) {
+                          referralHospitalsSet.add(_surgicalReferral!.trim());
+                        }
 
-                      final referralHospitalsList = referralHospitalsSet.toList()
-                        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+                        final referralHospitalsList =
+                            referralHospitalsSet.toList()..sort(
+                              (a, b) =>
+                                  a.toLowerCase().compareTo(b.toLowerCase()),
+                            );
 
-                      final safeSurgicalReferral = (_surgicalReferral != null &&
-                              referralHospitalsSet.contains(_surgicalReferral!.trim()) &&
-                              !_surgicalReferral!.toLowerCase().contains('scheer') &&
-                              !_surgicalReferral!.toLowerCase().contains('model'))
-                          ? _surgicalReferral!.trim()
-                          : null;
+                        final safeSurgicalReferral =
+                            (_surgicalReferral != null &&
+                                referralHospitalsSet.contains(
+                                  _surgicalReferral!.trim(),
+                                ) &&
+                                !_surgicalReferral!.toLowerCase().contains(
+                                  'scheer',
+                                ) &&
+                                !_surgicalReferral!.toLowerCase().contains(
+                                  'model',
+                                ))
+                            ? _surgicalReferral!.trim()
+                            : null;
 
-                      return DropdownButtonFormField<String>(
-                        key: ValueKey('surgical_referral_$safeSurgicalReferral'),
-                        initialValue: safeSurgicalReferral,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Surgical Referral Center (शल्यक्रिया सिफारिस अस्पताल)',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        items: [
-                          const DropdownMenuItem(value: null, child: Text('No Surgical Referral')),
-                          ...referralHospitalsList.map((h) => DropdownMenuItem(value: h, child: Text(h))),
-                        ],
-                        onChanged: (val) => setState(() => _surgicalReferral = val),
-                      );
-                    },
-                  ),
-                ],
+                        return DropdownButtonFormField<String>(
+                          key: ValueKey(
+                            'surgical_referral_$safeSurgicalReferral',
+                          ),
+                          initialValue: safeSurgicalReferral,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Surgical Referral Center (शल्यक्रिया सिफारिस अस्पताल)',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('No Surgical Referral'),
+                            ),
+                            ...referralHospitalsList.map(
+                              (h) => DropdownMenuItem(value: h, child: Text(h)),
+                            ),
+                          ],
+                          onChanged: (val) =>
+                              setState(() => _surgicalReferral = val),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
           ],
         ),
       ),
@@ -1994,38 +2430,16 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         ? activeMedItems.map((m) => m.labelEn).toList()
         : ClinicalConstants.defaultMedications;
 
-    final Map<String, String> medToCategory = {};
-    final List<String> dynamicMedCategories = [];
-    if (activeMedItems.isNotEmpty) {
-      for (final m in activeMedItems) {
-        final cat = (m.subCategory != null && m.subCategory!.trim().isNotEmpty)
-            ? m.subCategory!.trim()
-            : (ClinicalConstants.medicationCategoryMap[m.labelEn.toLowerCase()] ?? 'Other / Custom (अन्य औषधिहरू)');
-        medToCategory[m.labelEn] = cat;
-        if (!dynamicMedCategories.contains(cat)) {
-          dynamicMedCategories.add(cat);
-        }
-      }
-    } else {
-      for (final m in medicinesList) {
-        final cat = ClinicalConstants.medicationCategoryMap[m.toLowerCase()] ?? 'Other / Custom (अन्य औषधिहरू)';
-        medToCategory[m] = cat;
-        if (!dynamicMedCategories.contains(cat)) {
-          dynamicMedCategories.add(cat);
-        }
-      }
-    }
-
-    final medCategoriesToDisplay = dynamicMedCategories.isNotEmpty
-        ? dynamicMedCategories
-        : ClinicalConstants.medicationCategories;
-
     String getMedicationDisplayLabel(String med) {
       final masterItem = activeMedItems.cast<LookupItemModel?>().firstWhere(
         (m) => m != null && m.labelEn.toLowerCase() == med.toLowerCase(),
         orElse: () => null,
       );
-      final labelNe = (masterItem != null && masterItem.labelNe.isNotEmpty && masterItem.labelNe.toLowerCase() != masterItem.labelEn.toLowerCase())
+      final labelNe =
+          (masterItem != null &&
+              masterItem.labelNe.isNotEmpty &&
+              masterItem.labelNe.toLowerCase() !=
+                  masterItem.labelEn.toLowerCase())
           ? masterItem.labelNe
           : '';
       return labelNe.isNotEmpty ? '$med ($labelNe)' : med;
@@ -2039,142 +2453,45 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    '5. Prescription & Follow-up Destination (${_selectedMedications.length} selected)',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    side: BorderSide(color: AppTheme.primaryTeal.withValues(alpha: 0.5)),
-                  ),
-                  icon: Icon(
-                    _groupMedicationsByCategory ? Icons.category_rounded : Icons.view_list_rounded,
-                    size: 14,
-                    color: AppTheme.primaryTeal,
-                  ),
-                  label: Text(
-                    _groupMedicationsByCategory ? 'Grouped' : 'Flat List',
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
-                  ),
-                  onPressed: () => setState(() => _groupMedicationsByCategory = !_groupMedicationsByCategory),
-                ),
-              ],
+            Text(
+              '5. Prescription & Follow-up Destination (${_selectedMedications.length} selected)',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 10),
-            if (!_groupMedicationsByCategory)
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: medicinesList.map((med) {
-                  final isSelected = _selectedMedications.any((x) => x.toLowerCase().trim() == med.toLowerCase().trim());
-                  return FilterChip(
-                    label: Text(getMedicationDisplayLabel(med), style: const TextStyle(fontSize: 12)),
-                    selected: isSelected,
-                    selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedMedications.add(med);
-                        } else {
-                          _selectedMedications.removeWhere((x) => x.toLowerCase().trim() == med.toLowerCase().trim());
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              )
-            else
-              Column(
-                children: medCategoriesToDisplay.map((category) {
-                  final itemsInCategory = medicinesList.where((m) {
-                    final cat = medToCategory[m] ?? ClinicalConstants.medicationCategoryMap[m] ?? 'Other / Custom (अन्य औषधिहरू)';
-                    return cat == category;
-                  }).toList();
-
-                  if (itemsInCategory.isEmpty) return const SizedBox.shrink();
-                  final selectedCount = itemsInCategory.where((m) => _selectedMedications.any((x) => x.toLowerCase().trim() == m.toLowerCase().trim())).length;
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Material(
-                      color: const Color(0xFFF8FAFC),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: selectedCount > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.5) : const Color(0xFFE2E8F0),
-                          width: selectedCount > 0 ? 1.4 : 1,
-                        ),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: ExpansionTile(
-                        key: PageStorageKey('followup_med_$category'),
-                      initiallyExpanded: selectedCount > 0,
-                      tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                      dense: true,
-                      leading: Icon(
-                        Icons.medication_outlined,
-                        size: 16,
-                        color: selectedCount > 0 ? AppTheme.primaryTeal : Colors.blueGrey,
-                      ),
-                      title: Text(
-                        category,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12.5,
-                          color: selectedCount > 0 ? AppTheme.primaryTeal : const Color(0xFF1E293B),
-                        ),
-                      ),
-                      trailing: selectedCount > 0
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryTeal,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$selectedCount',
-                                style: const TextStyle(fontSize: 10.5, color: Colors.white, fontWeight: FontWeight.bold),
-                              ),
-                            )
-                          : null,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                          child: Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: itemsInCategory.map((med) {
-                              final isSelected = _selectedMedications.any((x) => x.toLowerCase().trim() == med.toLowerCase().trim());
-                              return FilterChip(
-                                visualDensity: VisualDensity.compact,
-                                label: Text(getMedicationDisplayLabel(med), style: const TextStyle(fontSize: 11)),
-                                selected: isSelected,
-                                selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
-                                onSelected: (selected) {
-                                  setState(() {
-                                    if (selected) {
-                                      _selectedMedications.add(med);
-                                    } else {
-                                      _selectedMedications.remove(med);
-                                    }
-                                  });
-                                },
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ],
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: medicinesList.map((med) {
+                final isSelected = _selectedMedications.any(
+                  (x) => x.toLowerCase().trim() == med.toLowerCase().trim(),
+                );
+                return FilterChip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(
+                    getMedicationDisplayLabel(med),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
+                  selected: isSelected,
+                  selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedMedications.add(med);
+                      } else {
+                        _selectedMedications.removeWhere(
+                          (x) =>
+                              x.toLowerCase().trim() ==
+                              med.toLowerCase().trim(),
+                        );
+                      }
+                    });
+                  },
                 );
               }).toList(),
             ),
@@ -2189,36 +2506,42 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: [
-                'weak pelvic floor',
-                'POP',
-                'stress incontinence',
-                'urge incontinence',
-                'abdominal pain',
-                'pelvic floor exercises',
-                'pessary care & hygiene',
-              ].map((c) {
-                final isSelected = _selectedCounseling.contains(c);
-                return FilterChip(
-                  visualDensity: VisualDensity.compact,
-                  label: Text(
-                    c,
-                    style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
-                  ),
-                  selected: isSelected,
-                  selectedColor: AppTheme.primaryLight,
-                  checkmarkColor: AppTheme.primaryTeal,
-                  onSelected: (val) {
-                    setState(() {
-                      if (val) {
-                        _selectedCounseling.add(c);
-                      } else {
-                        _selectedCounseling.remove(c);
-                      }
-                    });
-                  },
-                );
-              }).toList(),
+              children:
+                  [
+                    'weak pelvic floor',
+                    'POP',
+                    'stress incontinence',
+                    'urge incontinence',
+                    'abdominal pain',
+                    'pelvic floor exercises',
+                    'pessary care & hygiene',
+                  ].map((c) {
+                    final isSelected = _selectedCounseling.contains(c);
+                    return FilterChip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(
+                        c,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryLight,
+                      checkmarkColor: AppTheme.primaryTeal,
+                      onSelected: (val) {
+                        setState(() {
+                          if (val) {
+                            _selectedCounseling.add(c);
+                          } else {
+                            _selectedCounseling.remove(c);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
             ),
             const SizedBox(height: 14),
             const Text(
@@ -2231,11 +2554,18 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 Expanded(
                   child: Builder(
                     builder: (context) {
-                      final Set<String> pessaryTypesSet = {'ring', 'ring with support', 'ring with knob'};
-                      if (_pessaryType != null && _pessaryType!.trim().isNotEmpty) {
+                      final Set<String> pessaryTypesSet = {
+                        'ring',
+                        'ring with support',
+                        'ring with knob',
+                      };
+                      if (_pessaryType != null &&
+                          _pessaryType!.trim().isNotEmpty) {
                         pessaryTypesSet.add(_pessaryType!.trim());
                       }
-                      final safePessaryType = (_pessaryType != null && pessaryTypesSet.contains(_pessaryType!.trim()))
+                      final safePessaryType =
+                          (_pessaryType != null &&
+                              pessaryTypesSet.contains(_pessaryType!.trim()))
                           ? _pessaryType!.trim()
                           : null;
 
@@ -2249,8 +2579,13 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                           isDense: true,
                         ),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('None')),
-                          ...pessaryTypesSet.map((p) => DropdownMenuItem(value: p, child: Text(p))),
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('None'),
+                          ),
+                          ...pessaryTypesSet.map(
+                            (p) => DropdownMenuItem(value: p, child: Text(p)),
+                          ),
                         ],
                         onChanged: (val) => setState(() => _pessaryType = val),
                       );
@@ -2266,7 +2601,8 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
-                    onChanged: (val) => setState(() => _pessarySize = val.isEmpty ? null : val),
+                    onChanged: (val) =>
+                        setState(() => _pessarySize = val.isEmpty ? null : val),
                   ),
                 ),
               ],
@@ -2323,9 +2659,14 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 final followUpDestList = followUpDestSet.toList()
                   ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-                final safeFollowUpDest = (_followUpDestination != null &&
-                        followUpDestSet.contains(_followUpDestination!.trim()) &&
-                        !_followUpDestination!.toLowerCase().contains('scheer') &&
+                final safeFollowUpDest =
+                    (_followUpDestination != null &&
+                        followUpDestSet.contains(
+                          _followUpDestination!.trim(),
+                        ) &&
+                        !_followUpDestination!.toLowerCase().contains(
+                          'scheer',
+                        ) &&
                         !_followUpDestination!.toLowerCase().contains('model'))
                     ? _followUpDestination!.trim()
                     : null;
@@ -2340,13 +2681,16 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                     isDense: true,
                   ),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('None / Not Specified')),
-                    ...followUpDestList.map((h) => DropdownMenuItem(
-                          value: h,
-                          child: Text(h),
-                        )),
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('None / Not Specified'),
+                    ),
+                    ...followUpDestList.map(
+                      (h) => DropdownMenuItem(value: h, child: Text(h)),
+                    ),
                   ],
-                  onChanged: (val) => setState(() => _followUpDestination = val),
+                  onChanged: (val) =>
+                      setState(() => _followUpDestination = val),
                 );
               },
             ),
@@ -2374,19 +2718,26 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             Builder(
               builder: (context) {
                 final campState = ref.watch(campStateProvider);
-                final cCamp = widget.camp ??
+                final cCamp =
+                    widget.camp ??
                     campState.camps.cast<CampModel?>().firstWhere(
                       (c) => c?.id == widget.patient.campId,
                       orElse: () => null,
                     );
                 final doctors = cCamp?.doctorNames.isNotEmpty == true
                     ? cCamp!.doctorNames
-                    : (cCamp?.doctorName.isNotEmpty == true ? [cCamp!.doctorName] : <String>[]);
+                    : (cCamp?.doctorName.isNotEmpty == true
+                          ? [cCamp!.doctorName]
+                          : <String>[]);
 
                 if (doctors.isEmpty) {
                   return const Text(
                     'No specific doctors assigned to this camp. Default staff record will be logged.',
-                    style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                      color: Colors.blueGrey,
+                    ),
                   );
                 }
 
@@ -2398,12 +2749,30 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                     return FilterChip(
                       avatar: CircleAvatar(
                         radius: 10,
-                        backgroundColor: isSelected ? Colors.white : AppTheme.primaryTeal.withValues(alpha: 0.2),
-                        child: Icon(Icons.person, size: 12, color: isSelected ? AppTheme.primaryTeal : Colors.blueGrey),
+                        backgroundColor: isSelected
+                            ? Colors.white
+                            : AppTheme.primaryTeal.withValues(alpha: 0.2),
+                        child: Icon(
+                          Icons.person,
+                          size: 12,
+                          color: isSelected
+                              ? AppTheme.primaryTeal
+                              : Colors.blueGrey,
+                        ),
                       ),
-                      label: Text(doc, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                      label: Text(
+                        doc,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
                       selected: isSelected,
-                      selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.2),
+                      selectedColor: AppTheme.primaryTeal.withValues(
+                        alpha: 0.2,
+                      ),
                       checkmarkColor: AppTheme.primaryTeal,
                       onSelected: (selected) {
                         setState(() {
@@ -2424,13 +2793,18 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
             const SizedBox(height: 12),
             const Text(
               'Attending / Assisting Nurse(s) (सेवा दिने नर्सहरू):',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: Color(0xFF81005D)),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12.5,
+                color: Color(0xFF81005D),
+              ),
             ),
             const SizedBox(height: 6),
             Builder(
               builder: (context) {
                 final campState = ref.watch(campStateProvider);
-                final cCamp = widget.camp ??
+                final cCamp =
+                    widget.camp ??
                     campState.camps.cast<CampModel?>().firstWhere(
                       (c) => c?.id == widget.patient.campId,
                       orElse: () => null,
@@ -2440,7 +2814,11 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                 if (nurses.isEmpty) {
                   return const Text(
                     'No specific nurses assigned to this camp in camp settings.',
-                    style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                      color: Colors.blueGrey,
+                    ),
                   );
                 }
 
@@ -2449,15 +2827,36 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                   runSpacing: 6,
                   children: nurses.map((nurse) {
                     final nurseKey = nurse.displayName;
-                    final isSelected = _selectedNurses.contains(nurseKey) ||
-                        _selectedNurses.any((n) => n.toLowerCase().trim() == nurse.name.toLowerCase().trim());
+                    final isSelected =
+                        _selectedNurses.contains(nurseKey) ||
+                        _selectedNurses.any(
+                          (n) =>
+                              n.toLowerCase().trim() ==
+                              nurse.name.toLowerCase().trim(),
+                        );
                     return FilterChip(
                       avatar: CircleAvatar(
                         radius: 10,
-                        backgroundColor: isSelected ? Colors.white : const Color(0xFF81005D).withValues(alpha: 0.15),
-                        child: Icon(Icons.badge_outlined, size: 12, color: isSelected ? const Color(0xFF81005D) : Colors.pink.shade700),
+                        backgroundColor: isSelected
+                            ? Colors.white
+                            : const Color(0xFF81005D).withValues(alpha: 0.15),
+                        child: Icon(
+                          Icons.badge_outlined,
+                          size: 12,
+                          color: isSelected
+                              ? const Color(0xFF81005D)
+                              : Colors.pink.shade700,
+                        ),
                       ),
-                      label: Text(nurse.formattedLabel, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                      label: Text(
+                        nurse.formattedLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
                       selected: isSelected,
                       selectedColor: const Color(0xFFFCE7F3),
                       checkmarkColor: const Color(0xFF81005D),
@@ -2467,7 +2866,11 @@ class _PatientFollowUpFormViewState extends ConsumerState<PatientFollowUpFormVie
                             _selectedNurses.add(nurseKey);
                           } else {
                             _selectedNurses.remove(nurseKey);
-                            _selectedNurses.removeWhere((n) => n.toLowerCase().trim() == nurse.name.toLowerCase().trim());
+                            _selectedNurses.removeWhere(
+                              (n) =>
+                                  n.toLowerCase().trim() ==
+                                  nurse.name.toLowerCase().trim(),
+                            );
                           }
                         });
                       },
