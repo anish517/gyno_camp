@@ -5333,7 +5333,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             dateChip,
-            if (extraChip != null) extraChip,
+            ?extraChip,
           ],
         );
 
