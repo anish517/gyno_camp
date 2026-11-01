@@ -108,5 +108,48 @@ void main() {
       expect(correctUnlock, isTrue);
       expect(deviceVm.state.isAppLocked, isFalse);
     });
+
+    test('ensureAdminDeviceApproved registers and approves the admin device without manual steps', () async {
+      expect(deviceVm.state.isApproved, isFalse);
+
+      final ok = await deviceVm.ensureAdminDeviceApproved(
+        adminUserId: 'usr-superadmin-01',
+        adminName: 'System Administrator',
+      );
+
+      expect(ok, isTrue);
+      expect(deviceVm.state.isApproved, isTrue);
+      expect(deviceVm.state.device?.approvedByUserId, 'usr-superadmin-01');
+      // Admin is not forced into a PIN lock screen: no PIN means no lock.
+      expect(deviceVm.state.device?.hasPinSet, isFalse);
+
+      // Idempotent: a second call keeps the same approved device.
+      final deviceId = deviceVm.state.device!.deviceId;
+      final again = await deviceVm.ensureAdminDeviceApproved(
+        adminUserId: 'usr-superadmin-01',
+        adminName: 'System Administrator',
+      );
+      expect(again, isTrue);
+      expect(deviceVm.state.device!.deviceId, deviceId);
+    });
+
+    test('ensureAdminDeviceApproved never re-approves a revoked device', () async {
+      await deviceVm.ensureAdminDeviceApproved(
+        adminUserId: 'usr-superadmin-01',
+        adminName: 'System Administrator',
+      );
+      final deviceId = deviceVm.state.device!.deviceId;
+      await deviceRepo.revokeDevice(deviceId: deviceId, adminUserId: 'usr-superadmin-01');
+
+      final freshVm = DeviceSecurityViewModel(deviceRepo);
+      final ok = await freshVm.ensureAdminDeviceApproved(
+        adminUserId: 'usr-superadmin-01',
+        adminName: 'System Administrator',
+      );
+
+      expect(ok, isFalse);
+      final stored = await deviceRepo.getDeviceById(deviceId);
+      expect(stored?.isApproved, isFalse);
+    });
   });
 }
