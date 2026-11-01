@@ -1730,45 +1730,65 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             onChanged: (val) => vm.updateDemographic('surname', val, campId: campId),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildFieldWithConfidence(
-                  label: 'Age (उमेर)',
-                  value: demo['age']?.toString() ?? '35',
-                  fieldKey: 'age',
-                  result: result,
-                  keyboardType: TextInputType.number,
-                  onChanged: (val) => vm.updateDemographic('age', int.tryParse(val) ?? 35, campId: campId),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 550;
+              final ageField = _buildFieldWithConfidence(
+                label: 'Age (उमेर)',
+                value: demo['age']?.toString() ?? '35',
+                fieldKey: 'age',
+                result: result,
+                keyboardType: TextInputType.number,
+                onChanged: (val) => vm.updateDemographic('age', int.tryParse(val) ?? 35, campId: campId),
+              );
+              final maritalField = DropdownButtonFormField<String>(
+                key: ValueKey('scan_marital_${demo['maritalStatus']}'),
+                initialValue: const ['married', 'unmarried', 'widow', 'divorced'].contains(demo['maritalStatus']?.toString().toLowerCase())
+                    ? demo['maritalStatus']?.toString().toLowerCase()
+                    : 'married',
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Marital Status (वैवाहिक स्थिति)',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey('scan_marital_${demo['maritalStatus']}'),
-                  initialValue: const ['married', 'unmarried', 'widow', 'divorced'].contains(demo['maritalStatus']?.toString().toLowerCase())
-                      ? demo['maritalStatus']?.toString().toLowerCase()
-                      : 'married',
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Marital Status (वैवाहिक स्थिति)',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'married', child: Text('Married (विवाहित)', style: TextStyle(fontSize: 13))),
-                    DropdownMenuItem(value: 'unmarried', child: Text('Unmarried (अविवाहित)', style: TextStyle(fontSize: 13))),
-                    DropdownMenuItem(value: 'widow', child: Text('Widow (एकल/विधवा)', style: TextStyle(fontSize: 13))),
-                    DropdownMenuItem(value: 'divorced', child: Text('Divorced (सम्बन्धविच्छेद)', style: TextStyle(fontSize: 13))),
+                selectedItemBuilder: (context) => const [
+                  Align(alignment: Alignment.centerLeft, child: Text('Married (विवाहित)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1)),
+                  Align(alignment: Alignment.centerLeft, child: Text('Unmarried (अविवाहित)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1)),
+                  Align(alignment: Alignment.centerLeft, child: Text('Widow (एकल/विधवा)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1)),
+                  Align(alignment: Alignment.centerLeft, child: Text('Divorced (सम्बन्धविच्छेद)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1)),
+                ],
+                items: const [
+                  DropdownMenuItem(value: 'married', child: Text('Married (विवाहित)', style: TextStyle(fontSize: 13))),
+                  DropdownMenuItem(value: 'unmarried', child: Text('Unmarried (अविवाहित)', style: TextStyle(fontSize: 13))),
+                  DropdownMenuItem(value: 'widow', child: Text('Widow (एकल/विधवा)', style: TextStyle(fontSize: 13))),
+                  DropdownMenuItem(value: 'divorced', child: Text('Divorced (सम्बन्धविच्छेद)', style: TextStyle(fontSize: 13))),
+                ],
+                onChanged: (status) {
+                  if (status != null) {
+                    vm.updateDemographic('maritalStatus', status, campId: campId);
+                  }
+                },
+              );
+
+              if (isNarrow) {
+                return Column(
+                  children: [
+                    ageField,
+                    const SizedBox(height: 12),
+                    maritalField,
                   ],
-                  onChanged: (status) {
-                    if (status != null) {
-                      vm.updateDemographic('maritalStatus', status, campId: campId);
-                    }
-                  },
-                ),
-              ),
-            ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: ageField),
+                  const SizedBox(width: 12),
+                  Expanded(child: maritalField),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
           // Administrative Location: Province & Cascading District
@@ -1837,54 +1857,69 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Builder(
-                  builder: (context) {
-                    final palikas = NepalGeodata.palikasFor(
-                      validDistrict,
-                      extraPalikas: demo['municipality'] != null && demo['municipality'].toString().isNotEmpty
-                          ? [demo['municipality'].toString()]
-                          : null,
-                    );
-                    final currentPalika = palikas.firstWhere(
-                      (p) => p.toLowerCase() == demo['municipality']?.toString().toLowerCase(),
-                      orElse: () => palikas.isNotEmpty ? palikas.first : '',
-                    );
-                    return DropdownButtonFormField<String>(
-                      key: ValueKey('scan_palika_${validDistrict}_${demo['municipality']}'),
-                      initialValue: currentPalika.isNotEmpty ? currentPalika : null,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Palika / Municipality * (पालिका)',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                      ),
-                      items: palikas.map((p) {
-                        return DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)));
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          vm.updateDemographic('municipality', val, campId: campId);
-                        }
-                      },
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildFieldWithConfidence(
-                  label: 'Ward Number (वडा नं)',
-                  value: demo['ward']?.toString() ?? '03',
-                  fieldKey: 'ward',
-                  result: result,
-                  onChanged: (val) => vm.updateDemographic('ward', val, campId: campId),
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 550;
+              final palikaField = Builder(
+                builder: (context) {
+                  final palikas = NepalGeodata.palikasFor(
+                    validDistrict,
+                    extraPalikas: demo['municipality'] != null && demo['municipality'].toString().isNotEmpty
+                        ? [demo['municipality'].toString()]
+                        : null,
+                  );
+                  final currentPalika = palikas.firstWhere(
+                    (p) => p.toLowerCase() == demo['municipality']?.toString().toLowerCase(),
+                    orElse: () => palikas.isNotEmpty ? palikas.first : '',
+                  );
+                  return DropdownButtonFormField<String>(
+                    key: ValueKey('scan_palika_${validDistrict}_${demo['municipality']}'),
+                    initialValue: currentPalika.isNotEmpty ? currentPalika : null,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Palika / Municipality * (पालिका)',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    ),
+                    items: palikas.map((p) {
+                      return DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)));
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        vm.updateDemographic('municipality', val, campId: campId);
+                      }
+                    },
+                  );
+                },
+              );
+
+              final wardField = _buildFieldWithConfidence(
+                label: 'Ward Number (वडा नं)',
+                value: demo['ward']?.toString() ?? '03',
+                fieldKey: 'ward',
+                result: result,
+                keyboardType: TextInputType.number,
+                onChanged: (val) => vm.updateDemographic('ward', val, campId: campId),
+              );
+
+              if (isNarrow) {
+                return Column(
+                  children: [
+                    palikaField,
+                    const SizedBox(height: 12),
+                    wardField,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(flex: 2, child: palikaField),
+                  const SizedBox(width: 12),
+                  Expanded(child: wardField),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
           _buildFieldWithConfidence(
@@ -1896,30 +1931,42 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             onChanged: (val) => vm.updateDemographic('mobile', val, campId: campId),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: _buildFieldWithConfidence(
-                  label: 'Husband / Father Name (श्रीमान् / बुबाको नाम)',
-                  value: demo['relativeName']?.toString() ?? '',
-                  fieldKey: 'relativeName',
-                  result: result,
-                  onChanged: (val) => vm.updateDemographic('relativeName', val, campId: campId),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: _buildFieldWithConfidence(
-                  label: 'Relative Surname (थर)',
-                  value: demo['relativeSurname']?.toString() ?? '',
-                  fieldKey: 'relativeSurname',
-                  result: result,
-                  onChanged: (val) => vm.updateDemographic('relativeSurname', val, campId: campId),
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 550;
+              final relativeNameField = _buildFieldWithConfidence(
+                label: 'Husband / Father Name (श्रीमान् / बुबाको नाम)',
+                value: demo['relativeName']?.toString() ?? '',
+                fieldKey: 'relativeName',
+                result: result,
+                onChanged: (val) => vm.updateDemographic('relativeName', val, campId: campId),
+              );
+              final relativeSurnameField = _buildFieldWithConfidence(
+                label: 'Relative Surname (थर)',
+                value: demo['relativeSurname']?.toString() ?? '',
+                fieldKey: 'relativeSurname',
+                result: result,
+                onChanged: (val) => vm.updateDemographic('relativeSurname', val, campId: campId),
+              );
+
+              if (isNarrow) {
+                return Column(
+                  children: [
+                    relativeNameField,
+                    const SizedBox(height: 12),
+                    relativeSurnameField,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(flex: 3, child: relativeNameField),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 2, child: relativeSurnameField),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 8),
           Column(
@@ -2006,13 +2053,9 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                   children: [
                     contactPersonField,
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(child: contactMobileField),
-                        const SizedBox(width: 12),
-                        Expanded(child: maritalAgeField),
-                      ],
-                    ),
+                    contactMobileField,
+                    const SizedBox(height: 12),
+                    maritalAgeField,
                   ],
                 );
               }
@@ -5123,12 +5166,20 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: const TextStyle(fontSize: 12.5),
+        suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
         suffixIcon: Padding(
           padding: const EdgeInsets.only(right: 8.0),
-          child: Chip(
-            visualDensity: VisualDensity.compact,
-            label: Text(tier, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-            backgroundColor: color,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              tier,
+              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.3),
+            ),
           ),
         ),
       ),
