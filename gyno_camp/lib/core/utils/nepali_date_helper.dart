@@ -35,7 +35,44 @@ class NepaliDateHelper {
   ];
 
   static NepaliDateTime toNepali(DateTime dt) {
-    return dt.toNepaliDateTime();
+    final targetDate = DateTime(dt.year, dt.month, dt.day);
+    // Anchor at 12:00 Nepal Time (06:15 UTC) on the calendar date so device timezone
+    // offsets never shift the calendar day.
+    var np = DateTime.utc(
+      dt.year,
+      dt.month,
+      dt.day,
+      6,
+      15,
+      dt.second,
+      dt.millisecond,
+      dt.microsecond,
+    ).toNepaliDateTime();
+
+    // Guard against nepali_utils-3.0.8's Windows "Nepal Standard Time" (+05:45) +1 day
+    // offset bug (Windows lacks the 1986 +05:30->+05:45 LMT rule, yet nepali_utils
+    // unconditionally adds +1 day when local timeZoneOffset == +05:45).
+    // NepaliDateTime.toDateTime() uses pure lookup-table integer math, so verifying
+    // against it guarantees an exact AD <-> BS bijection on every OS and timezone.
+    final roundTrip = NepaliDateTime(np.year, np.month, np.day).toDateTime();
+    final diffDays = DateTime.utc(targetDate.year, targetDate.month, targetDate.day)
+        .difference(DateTime.utc(roundTrip.year, roundTrip.month, roundTrip.day))
+        .inDays;
+    if (diffDays != 0) {
+      final adjusted = DateTime.utc(dt.year, dt.month, dt.day, 6, 15)
+          .add(Duration(days: diffDays));
+      np = adjusted.toNepaliDateTime();
+    }
+    return NepaliDateTime(
+      np.year,
+      np.month,
+      np.day,
+      dt.hour,
+      dt.minute,
+      dt.second,
+      dt.millisecond,
+      dt.microsecond,
+    );
   }
 
   static DateTime toEnglish(NepaliDateTime np) {

@@ -254,7 +254,10 @@ ${page2.rawText}
         final p1Parts = p1Clean.split(RegExp(r'[-/]'));
         final p2Parts = p2Clean.split(RegExp(r'[-/]'));
         if (p1Parts.length == 3 && p2Parts.length == 3) {
-          if (p1Parts[0] == p2Parts[0] && p1Parts[2] == p2Parts[2]) {
+          final m1 = p1Parts[1].padLeft(2, '0');
+          final m2 = p2Parts[1].padLeft(2, '0');
+          final is17Confusion = (m1 == '01' && m2 == '07') || (m1 == '07' && m2 == '01');
+          if (p1Parts[0] == p2Parts[0] && p1Parts[2] == p2Parts[2] && is17Confusion) {
             harmonizedIntake = dominantP2Date;
           }
         }

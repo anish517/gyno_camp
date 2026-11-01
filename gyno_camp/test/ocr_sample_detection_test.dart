@@ -34,7 +34,7 @@ REASONS FOR VISIT / मुख्य कारण:
       expect(res.demographics['age'], 34);
       expect(res.demographics['maritalStatus'], 'married');
       expect(res.demographics['ward'], '05');
-      expect(res.demographics['district'], 'ILAM');
+      expect(res.demographics['district'], 'Ilam');
       expect(res.demographics['reasonsForVisit'], contains('pain'));
     });
 

@@ -259,33 +259,36 @@ class GeminiOcrService {
         parsedData['consultation']?.toString().trim();
     final String? treatmentLevel = PatientModel.normalizeTreatmentLevel(rawTreatmentLevel);
 
-    // Normalize Province (case-insensitive)
+    // Normalize Province (case-insensitive + 8-box character prefix support e.g. SUDURPAS -> Sudurpashchim)
     String normProvince(String? raw) {
       if (raw == null || raw.trim().isEmpty) return 'Bagmati';
-      final clean = raw.trim().toLowerCase();
+      final clean = raw.replaceAll(RegExp(r'\s+'), '').toLowerCase();
       for (final p in ClinicalConstants.nepalProvinces) {
-        if (p.toLowerCase() == clean) return p;
+        final pLow = p.toLowerCase();
+        if (pLow == clean || (clean.length >= 4 && pLow.startsWith(clean))) return p;
       }
       return 'Bagmati';
     }
 
-    // Normalize District (case-insensitive against NepalGeodata)
+    // Normalize District (case-insensitive & space-insensitive against NepalGeodata, supporting 11-box prefixes)
     String normDistrict(String? raw, String prov) {
       if (raw == null || raw.trim().isEmpty) return '';
-      final clean = raw.trim().toLowerCase();
+      final clean = raw.replaceAll(RegExp(r'\s+'), '').toLowerCase();
       final provDistricts = NepalGeodata.districtsFor(prov);
       for (final d in provDistricts) {
-        if (d.toLowerCase() == clean) return d;
+        if (d.replaceAll(' ', '').toLowerCase() == clean) return d;
       }
       for (final d in provDistricts) {
-        if (clean.contains(d.toLowerCase()) || d.toLowerCase().contains(clean)) return d;
+        final dClean = d.replaceAll(' ', '').toLowerCase();
+        if (clean.contains(dClean) || (clean.length >= 4 && dClean.contains(clean))) return d;
       }
       // Search across all districts if province was misidentified
       for (final d in NepalGeodata.allDistricts) {
-        if (d.toLowerCase() == clean) return d;
+        if (d.replaceAll(' ', '').toLowerCase() == clean) return d;
       }
       for (final d in NepalGeodata.allDistricts) {
-        if (clean.contains(d.toLowerCase()) || d.toLowerCase().contains(clean)) return d;
+        final dClean = d.replaceAll(' ', '').toLowerCase();
+        if (clean.contains(dClean) || (clean.length >= 4 && dClean.contains(clean))) return d;
       }
       return raw.trim();
     }
