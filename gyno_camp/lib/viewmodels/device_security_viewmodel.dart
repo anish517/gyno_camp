@@ -264,6 +264,73 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
     }
   }
 
+  bool _isEnsuringAdminDevice = false;
+  final Set<String> _adminDeviceEnsured = <String>{};
+
+  /// Ensures the workstation a Super Admin is signed in on is registered and
+  /// approved, without a separate manual approval step.
+  ///
+  /// Why: the Super Admin is exempt from the on-screen device gate, so their
+  /// machine would otherwise never be registered. Features that authenticate
+  /// by device (e.g. cloud OCR via the device fingerprint + secret) would then
+  /// be rejected for admins. The Super Admin is the approving authority, so the
+  /// device is registered, OTP-verified and approved in one audited step.
+  ///
+  /// A device an administrator has explicitly revoked is never re-approved.
+  /// Runs at most once successfully per admin per app session. Returns true
+  /// when the current device is approved afterwards.
+  Future<bool> ensureAdminDeviceApproved({
+    required String adminUserId,
+    required String adminName,
+  }) async {
+    if (_isEnsuringAdminDevice || _adminDeviceEnsured.contains(adminUserId)) {
+      return state.isApproved;
+    }
+    _isEnsuringAdminDevice = true;
+    try {
+      final existing = await _repository.getDeviceByFingerprint(state.hardwareFingerprint);
+      if (!mounted) return false;
+      if (existing?.status == DeviceActivationStatus.revoked) return false;
+      if (existing?.isApproved == true) {
+        if (state.device != existing) state = state.copyWith(device: existing);
+        _adminDeviceEnsured.add(adminUserId);
+        return true;
+      }
+
+      final registration = await _repository.requestDeviceRegistration(
+        deviceName: existing?.deviceName ?? "$adminName's Admin Workstation",
+        model: existing?.model ?? 'Admin Workstation',
+        hardwareFingerprint: state.hardwareFingerprint,
+        staffUserId: adminUserId,
+        staffName: adminName,
+      );
+      final deviceId = registration.device.deviceId;
+      final verified = await _repository.verifyOtp(
+        deviceId: deviceId,
+        enteredOtp: registration.plainOtp,
+      );
+      if (!verified) return false;
+      final approved = await _repository.approveDevice(
+        deviceId: deviceId,
+        adminUserId: adminUserId,
+      );
+      if (!approved) return false;
+
+      final updated = await _repository.getDeviceById(deviceId);
+      if (!mounted) return approved;
+      state = state.copyWith(device: updated, isInitialized: true, clearError: true);
+      _adminDeviceEnsured.add(adminUserId);
+      _stopPollingApproval();
+      _ref?.read(deviceManagementProvider.notifier).loadDevices();
+      return updated?.isApproved ?? false;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[DeviceSecurity] Admin device auto-approval failed: $e');
+      return false;
+    } finally {
+      _isEnsuringAdminDevice = false;
+    }
+  }
+
   Future<bool> setupPin(String pin) async {
     if (state.device == null) return false;
     try {
