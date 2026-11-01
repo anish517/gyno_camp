@@ -5439,6 +5439,7 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
             }
 
             return AlertDialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
@@ -5503,9 +5504,10 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: textController,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.5, color: Color(0xFF0F172A)),
                       decoration: InputDecoration(
                         hintText: 'YYYY-MM-DD (e.g. 2083-07-06)',
-                        prefixIcon: const Icon(Icons.event, size: 20),
+                        prefixIcon: const Icon(Icons.event, size: 20, color: AppTheme.primaryTeal),
                         suffixIcon: IconButton(
                           icon: const Icon(Icons.check_circle_outline, color: AppTheme.primaryTeal),
                           tooltip: 'Apply typed date',
@@ -5521,75 +5523,80 @@ class _FormScanViewState extends ConsumerState<FormScanView> with SingleTickerPr
                     // Dropdown Selectors
                     const Text('Quick Bikram Sambat (BS) Selectors (वि.सं. छनौट):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
+                    // Month on its own row so full name is clearly visible
+                    DropdownButtonFormField<int>(
+                      initialValue: (selectedMonth >= 1 && selectedMonth <= 12) ? selectedMonth : 7,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Month / महिना (Bikram Sambat)',
+                        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                        prefixIcon: const Icon(Icons.calendar_month_rounded, size: 20, color: AppTheme.primaryTeal),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('01 - बैशाख (Baisakh)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(value: 2, child: Text('02 - जेठ (Jestha)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(value: 3, child: Text('03 - असार (Ashadh)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(value: 4, child: Text('04 - श्रावण (Shrawan)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(value: 5, child: Text('05 - भाद्र (Bhadra)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(value: 6, child: Text('06 - असोज (Ashwin)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(value: 7, child: Text('07 - कार्तिक (Kartik)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(value: 8, child: Text('08 - मंसिर (Mangsir)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(value: 9, child: Text('09 - पौष (Poush)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(value: 10, child: Text('10 - माघ (Magh)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(value: 11, child: Text('11 - फाल्गुन (Falgun)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                        DropdownMenuItem(value: 12, child: Text('12 - चैत्र (Chaitra)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                      ],
+                      onChanged: (m) {
+                        if (m != null) updateFromComponents(selectedYear, m, selectedDay);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    // Year & Day side-by-side with equal width
                     Row(
                       children: [
                         // Year
                         Expanded(
-                          flex: 3,
                           child: DropdownButtonFormField<int>(
                             initialValue: (selectedYear >= 2075 && selectedYear <= 2090) ? selectedYear : 2083,
+                            isExpanded: true,
                             decoration: InputDecoration(
-                              labelText: 'Year / वर्ष',
-                              labelStyle: const TextStyle(fontSize: 11),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              labelText: 'Year / वर्ष (BS)',
+                              labelStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             items: [
                               for (int y = 2078; y <= 2090; y++)
-                                DropdownMenuItem(value: y, child: Text('$y', style: const TextStyle(fontSize: 12.5))),
+                                DropdownMenuItem(value: y, child: Text('$y', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
                             ],
                             onChanged: (y) {
                               if (y != null) updateFromComponents(y, selectedMonth, selectedDay);
                             },
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        // Month
-                        Expanded(
-                          flex: 4,
-                          child: DropdownButtonFormField<int>(
-                            initialValue: (selectedMonth >= 1 && selectedMonth <= 12) ? selectedMonth : 7,
-                            isExpanded: true,
-                            decoration: InputDecoration(
-                              labelText: 'Month / महिना',
-                              labelStyle: const TextStyle(fontSize: 11),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            items: const [
-                              DropdownMenuItem(value: 1, child: Text('01 - बैशाख (Baisakh)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 2, child: Text('02 - जेठ (Jestha)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 3, child: Text('03 - असार (Ashadh)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 4, child: Text('04 - श्रावण (Shrawan)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 5, child: Text('05 - भाद्र (Bhadra)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 6, child: Text('06 - असोज (Ashwin)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 7, child: Text('07 - कार्तिक (Kartik)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 8, child: Text('08 - मंसिर (Mangsir)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 9, child: Text('09 - पौष (Poush)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 10, child: Text('10 - माघ (Magh)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 11, child: Text('11 - फाल्गुन (Falgun)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 12, child: Text('12 - चैत्र (Chaitra)', style: TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis)),
-                            ],
-                            onChanged: (m) {
-                              if (m != null) updateFromComponents(selectedYear, m, selectedDay);
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 10),
                         // Day
                         Expanded(
-                          flex: 2,
                           child: DropdownButtonFormField<int>(
                             initialValue: (selectedDay >= 1 && selectedDay <= 32) ? selectedDay : 6,
+                            isExpanded: true,
                             decoration: InputDecoration(
                               labelText: 'Day / गते',
-                              labelStyle: const TextStyle(fontSize: 11),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              labelStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             items: [
                               for (int d = 1; d <= 32; d++)
-                                DropdownMenuItem(value: d, child: Text(d.toString().padLeft(2, '0'), style: const TextStyle(fontSize: 12))),
+                                DropdownMenuItem(
+                                  value: d,
+                                  child: Text(
+                                    'गते ${d.toString().padLeft(2, '0')}',
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
                             ],
                             onChanged: (d) {
                               if (d != null) updateFromComponents(selectedYear, selectedMonth, d);
