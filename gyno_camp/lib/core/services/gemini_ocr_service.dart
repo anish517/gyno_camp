@@ -712,10 +712,23 @@ class GeminiOcrService {
   /// Returns YYYY-MM-DD format or null.
   static String? _extractDate(dynamic raw) {
     if (raw == null) return null;
-    final str = raw.toString().trim();
+    var str = raw.toString().trim();
     if (str.isEmpty || str.toLowerCase() == 'null') return null;
     // Accept YYYY-MM-DD format
-    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(str)) return str;
+    // Convert Devanagari numerals to ASCII digits
+    const devanagari = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+    for (int i = 0; i < devanagari.length; i++) {
+      str = str.replaceAll(devanagari[i], i.toString());
+    }
+
+    // Match any dynamic YYYY-MM-DD or YYYY/MM/DD with 1-2 digit month/day
+    final m = RegExp(r'\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b').firstMatch(str);
+    if (m != null) {
+      final y = m.group(1)!;
+      final mo = m.group(2)!.padLeft(2, '0');
+      final d = m.group(3)!.padLeft(2, '0');
+      return '$y-$mo-$d';
+    }
     // Try to parse other formats
     try {
       final dt = DateTime.parse(str);

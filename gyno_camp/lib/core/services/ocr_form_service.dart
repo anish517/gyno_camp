@@ -1707,8 +1707,8 @@ class OcrFormService {
           final idx = low.indexOf(lLow);
           if (idx != -1) {
             final after = line.substring(idx + l.length).trim();
-            final m = RegExp(r'\b(\d{4}[-/]\d{1,2}[-/]\d{1,2}(?:\s*BS)?)\b', caseSensitive: false).firstMatch(after);
-            if (m != null) return m.group(1);
+            final parsed = _extractDynamicDate(after);
+            if (parsed != null) return parsed;
           }
         }
       }
@@ -1717,7 +1717,7 @@ class OcrFormService {
 
     final rawAnamnesisDate = extractDateForLabel(['anamnesis date:', 'anamnesis date', 'विगत मिति']);
     final parsedIntakeDate = extractDateForLabel(['intake date:', 'intake date', 'registration date:', 'registration date', 'दर्ता मिति:', 'दर्ता मिति', 'date:', 'date', 'मिति:', 'मिति']) ??
-        RegExp(r'\b([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}(?:\s*BS)?)\b', caseSensitive: false).firstMatch(text)?.group(1);
+        _extractDynamicDate(text);
     final effectiveIntake = parsedIntakeDate?.trim() ?? rawAnamnesisDate?.trim();
     final effectiveAnamnesis = rawAnamnesisDate?.trim() ?? parsedIntakeDate?.trim();
     if (effectiveIntake != null && effectiveIntake.isNotEmpty) {
@@ -1802,6 +1802,24 @@ class OcrFormService {
   static String _capitalizeFirst(String s) {
     if (s.isEmpty) return s;
     return s[0].toUpperCase() + s.substring(1).toLowerCase();
+  }
+
+  /// Extracts and normalizes any dynamic date (BS or AD) from text, handling Devanagari numerals
+  static String? _extractDynamicDate(String input) {
+    if (input.trim().isEmpty) return null;
+    var clean = input;
+    const dev = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+    for (int i = 0; i < dev.length; i++) {
+      clean = clean.replaceAll(dev[i], i.toString());
+    }
+    final m = RegExp(r'\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b').firstMatch(clean);
+    if (m != null) {
+      final y = m.group(1)!;
+      final mo = m.group(2)!.padLeft(2, '0');
+      final d = m.group(3)!.padLeft(2, '0');
+      return '$y-$mo-$d';
+    }
+    return null;
   }
 
   /// Pre-processes and normalizes raw OCR text to resolve common artifacts:
