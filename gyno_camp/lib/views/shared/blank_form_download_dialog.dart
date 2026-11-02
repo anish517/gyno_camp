@@ -9,6 +9,7 @@ import '../../core/services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/patient_model.dart';
+import '../../models/user_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
@@ -82,8 +83,27 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   @override
   void initState() {
     super.initState();
-    _selectedCamp = widget.camp;
-    _resetCliniciansForCamp(widget.camp, shouldInitToken: true);
+    final user = ref.read(authStateProvider).currentUser;
+    final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
+    final isPrivileged = isSuperAdmin || user?.role == UserRole.staff || user?.role == UserRole.dataAnalyst;
+
+    CampModel? initialCamp = widget.camp;
+    if (!isPrivileged && user != null) {
+      final campState = ref.read(campStateProvider);
+      final assignedCamps = campState.camps
+          .where((c) =>
+              c.isStaffAssigned(user.id) ||
+              user.assignedCampIds.contains(c.id))
+          .toList();
+
+      if (initialCamp != null && !assignedCamps.any((c) => c.id == initialCamp!.id)) {
+        initialCamp = null;
+      }
+      initialCamp ??= ref.read(userActiveCampProvider) ?? (assignedCamps.isNotEmpty ? assignedCamps.first : null);
+    }
+
+    _selectedCamp = initialCamp;
+    _resetCliniciansForCamp(initialCamp, shouldInitToken: true);
   }
 
   void _resetCliniciansForCamp(CampModel? camp, {bool shouldInitToken = true}) {
@@ -170,6 +190,31 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
 
       final repo = ref.read(lookupRepositoryProvider);
       final user = ref.read(authStateProvider).currentUser;
+      final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
+      final isPrivileged = isSuperAdmin || user?.role == UserRole.staff || user?.role == UserRole.dataAnalyst;
+
+      if (!isPrivileged && user != null) {
+        if (_selectedCamp == null) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Cannot download: You are not assigned to any health camp.'),
+              backgroundColor: AppTheme.dangerRose,
+            ),
+          );
+          return;
+        }
+        final isAssigned = _selectedCamp!.isStaffAssigned(user.id) || user.assignedCampIds.contains(_selectedCamp!.id);
+        if (!isAssigned) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Access restricted: You are not assigned to camp "${_selectedCamp!.name}".'),
+              backgroundColor: AppTheme.dangerRose,
+            ),
+          );
+          return;
+        }
+      }
+
       final tenantId = user?.tenantId;
       final campId = _selectedCamp?.id;
 
@@ -467,7 +512,46 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   @override
   Widget build(BuildContext context) {
     final campState = ref.watch(campStateProvider);
-    final allCamps = campState.camps;
+    final user = ref.watch(authStateProvider).currentUser;
+    final isSuperAdmin = user?.role == UserRole.superAdmin || (user?.isSuperAdmin ?? false);
+    final isPrivileged = isSuperAdmin || user?.role == UserRole.staff || user?.role == UserRole.dataAnalyst;
+
+    final visibleCamps = isPrivileged || user == null
+        ? campState.camps
+        : campState.camps
+            .where((c) =>
+                c.isStaffAssigned(user.id) ||
+                user.assignedCampIds.contains(c.id))
+            .toList();
+
+    // Auto-heal / guard selection for non-privileged users
+    if (!isPrivileged && user != null && visibleCamps.isNotEmpty) {
+      if (_selectedCamp == null || !visibleCamps.any((c) => c.id == _selectedCamp!.id)) {
+        final fallback = ref.read(userActiveCampProvider);
+        final nextCamp = (fallback != null && visibleCamps.any((c) => c.id == fallback.id))
+            ? fallback
+            : visibleCamps.first;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _resetCliniciansForCamp(nextCamp);
+            });
+          }
+        });
+      }
+    }
+
+    final canDownload = !_isGenerating && (isPrivileged || (visibleCamps.isNotEmpty && _selectedCamp != null));
+    final downloadLabel = _isGenerating
+        ? 'Generating PDF...'
+        : (!isPrivileged && visibleCamps.isEmpty)
+            ? 'No Assigned Camp'
+            : (_selectedCamp == null
+                ? 'Download Universal Blank Form (PDF)'
+                : (_enablePreNumberedTokens
+                    ? 'Download $safeTokenCount Pre-Numbered Forms'
+                    : 'Download Printable PDF'));
+
     final doctors = _selectedCamp?.doctorProfiles ?? [];
     final hasDoctors = doctors.isNotEmpty;
     final showDoctorSetting = _selectedCamp?.showDoctorOnForms ?? true;
@@ -552,7 +636,12 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Camp Scope Selector (Universal vs Specific Camp)
-                        _buildCampScopeSelector(allCamps, campState.activeCamp, isNarrow),
+                        _buildCampScopeSelector(
+                          visibleCamps,
+                          campState.activeCamp,
+                          isNarrow,
+                          isPrivileged: isPrivileged,
+                        ),
 
                         // Form Type Selection
                         const Text(
@@ -772,7 +861,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             ElevatedButton.icon(
-                              onPressed: _isGenerating ? null : _generateAndDownload,
+                              onPressed: canDownload ? _generateAndDownload : null,
                               icon: _isGenerating
                                   ? const SizedBox(
                                       width: 16,
@@ -781,13 +870,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                                     )
                                   : const Icon(Icons.download_rounded, size: 18),
                               label: Text(
-                                _isGenerating
-                                    ? 'Generating PDF...'
-                                    : (_selectedCamp == null
-                                        ? 'Download Universal Blank Form (PDF)'
-                                        : (_enablePreNumberedTokens
-                                            ? 'Download $safeTokenCount Pre-Numbered Forms'
-                                            : 'Download Printable PDF')),
+                                downloadLabel,
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -826,7 +909,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                             ),
                             const SizedBox(width: 12),
                             ElevatedButton.icon(
-                              onPressed: _isGenerating ? null : _generateAndDownload,
+                              onPressed: canDownload ? _generateAndDownload : null,
                               icon: _isGenerating
                                   ? const SizedBox(
                                       width: 16,
@@ -835,13 +918,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                                     )
                                   : const Icon(Icons.download_rounded, size: 18),
                               label: Text(
-                                _isGenerating
-                                    ? 'Generating PDF...'
-                                    : (_selectedCamp == null
-                                        ? 'Download Universal Blank Form (PDF)'
-                                        : (_enablePreNumberedTokens
-                                            ? 'Download $safeTokenCount Pre-Numbered Forms'
-                                            : 'Download Printable PDF')),
+                                downloadLabel,
                                 style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -1364,116 +1441,246 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
     );
   }
 
-  Widget _buildCampScopeSelector(List<CampModel> camps, CampModel? activeCamp, bool isNarrow) {
-    final isUniversal = _selectedCamp == null;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Material(
-        color: isUniversal ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: isUniversal ? const Color(0xFF93C5FD) : const Color(0xFFE2E8F0),
-            width: isUniversal ? 1.5 : 1.0,
+  Widget _buildCampScopeSelector(
+    List<CampModel> camps,
+    CampModel? activeCamp,
+    bool isNarrow, {
+    required bool isPrivileged,
+  }) {
+    // 1. NON-PRIVILEGED (e.g. Data Taker) with NO assigned camps
+    if (!isPrivileged && camps.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 18),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEF2F2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFFECACA), width: 1.2),
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                isUniversal ? Icons.public_rounded : Icons.location_on_rounded,
-                size: 18,
-                color: isUniversal ? const Color(0xFF1D4ED8) : AppTheme.brandPurple,
-              ),
-              const SizedBox(width: 8),
+              Icon(Icons.lock_person_rounded, color: Color(0xFFDC2626), size: 22),
+              SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'CAMP SCOPE / शिविर छनोट',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    color: isUniversal ? const Color(0xFF1D4ED8) : AppTheme.brandPurple,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                decoration: BoxDecoration(
-                  color: isUniversal ? const Color(0xFFDBEAFE) : const Color(0xFFEDE9FE),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  isUniversal ? 'Universal Mode (सार्वभौमिक)' : 'Camp-Specific',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.bold,
-                    color: isUniversal ? const Color(0xFF1E40AF) : AppTheme.brandPurple,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'No Health Camps Assigned',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF991B1B),
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Your data taker account is not currently assigned to any active health camp. Please contact your health camp coordinator or administrator to assign you to a camp before downloading printable blank forms.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFFB91C1C),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          // Option 1: Universal Form
-          RadioListTile<String?>(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            activeColor: const Color(0xFF2563EB),
-            value: null,
-            groupValue: _selectedCamp?.id,
-            title: const Text(
-              'Universal Blank Form (सार्वभौमिक फाराम — No Camp Required)',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-            ),
-            subtitle: const Text(
-              'Printable blank forms with fillable Camp, Venue, and Token boxes. Perfect for advance printing & any health camp station.',
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-            ),
-            onChanged: (_) {
-              setState(() {
-                _resetCliniciansForCamp(null);
-              });
-            },
+        ),
+      );
+    }
+
+    // 2. NON-PRIVILEGED (e.g. Data Taker) with EXACTLY ONE assigned camp
+    if (!isPrivileged && camps.length == 1) {
+      final assignedCamp = camps.first;
+      final isActive = activeCamp?.id == assignedCamp.id;
+
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 18),
+        child: Material(
+          color: const Color(0xFFF0FDF4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFF86EFAC), width: 1.3),
           ),
-          // Option 2: Camp-Specific Form (if camps exist)
-          if (camps.isNotEmpty) ...[
-            RadioListTile<String?>(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              activeColor: AppTheme.brandPurple,
-              value: _selectedCamp?.id ?? 'SPECIFIC_CAMP_PLACEHOLDER',
-              groupValue: _selectedCamp?.id,
-              title: const Text(
-                'Camp-Specific Form (तोकिएको स्वास्थ्य शिविर)',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-              ),
-              subtitle: const Text(
-                'Pre-prints camp name, venue, clinician rosters, and allows sequential token numbering.',
-                style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-              ),
-              onChanged: (_) {
-                final targetCamp = widget.camp ?? activeCamp ?? camps.first;
-                setState(() {
-                  _resetCliniciansForCamp(targetCamp);
-                });
-              },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF16A34A)),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'CAMP SCOPE / शिविर छनोट',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                          color: Color(0xFF166534),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Assigned Camp Only',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF166534),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.location_on_rounded, color: Color(0xFF16A34A), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${assignedCamp.name} (${assignedCamp.campCode})',
+                                    style: const TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF14532D),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (isActive)
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFDCFCE7),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'ACTIVE',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF166534),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (assignedCamp.venue.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Venue: ${assignedCamp.venue}',
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    'Forms are pre-configured with the doctors, nurses, and venue for your assigned camp.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF15803D)),
+                  ),
+                ),
+              ],
             ),
-            if (_selectedCamp != null)
-              Padding(
-                padding: EdgeInsets.only(left: isNarrow ? 12 : 32, top: 4, bottom: 4),
-                child: DropdownButtonFormField<CampModel>(
-                  value: camps.any((c) => c.id == _selectedCamp!.id)
+          ),
+        ),
+      );
+    }
+
+    // 3. NON-PRIVILEGED (e.g. Data Taker) with MULTIPLE assigned camps
+    if (!isPrivileged) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 18),
+        child: Material(
+          color: const Color(0xFFF8FAFC),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.0),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_rounded, size: 18, color: AppTheme.brandPurple),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'CAMP SCOPE / शिविर छनोट',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                          color: AppTheme.brandPurple,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEDE9FE),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Assigned Camps Only',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.brandPurple,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<CampModel>(
+                  value: camps.any((c) => c.id == _selectedCamp?.id)
                       ? camps.firstWhere((c) => c.id == _selectedCamp!.id)
                       : camps.first,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: 'Select Registered Camp (शिविर छान्नुहोस्)',
+                    labelText: 'Select Assigned Camp (तोकिएको शिविर छान्नुहोस्)',
                     isDense: true,
                     filled: true,
                     fillColor: Colors.white,
@@ -1515,12 +1722,170 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                     }
                   },
                 ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 4. PRIVILEGED USERS (SuperAdmin, Staff Coordinator, Data Analyst)
+    final isUniversal = _selectedCamp == null;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Material(
+        color: isUniversal ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: isUniversal ? const Color(0xFF93C5FD) : const Color(0xFFE2E8F0),
+            width: isUniversal ? 1.5 : 1.0,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isUniversal ? Icons.public_rounded : Icons.location_on_rounded,
+                    size: 18,
+                    color: isUniversal ? const Color(0xFF1D4ED8) : AppTheme.brandPurple,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'CAMP SCOPE / शिविर छनोट',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: isUniversal ? const Color(0xFF1D4ED8) : AppTheme.brandPurple,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: isUniversal ? const Color(0xFFDBEAFE) : const Color(0xFFEDE9FE),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      isUniversal ? 'Universal Mode (सार्वभौमिक)' : 'Camp-Specific',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: isUniversal ? const Color(0xFF1E40AF) : AppTheme.brandPurple,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-          ],
-        ],
+              const SizedBox(height: 10),
+              // Option 1: Universal Form
+              RadioListTile<String?>(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                activeColor: const Color(0xFF2563EB),
+                value: null,
+                groupValue: _selectedCamp?.id,
+                title: const Text(
+                  'Universal Blank Form (सार्वभौमिक फाराम — No Camp Required)',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                ),
+                subtitle: const Text(
+                  'Printable blank forms with fillable Camp, Venue, and Token boxes. Perfect for advance printing & any health camp station.',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                ),
+                onChanged: (_) {
+                  setState(() {
+                    _resetCliniciansForCamp(null);
+                  });
+                },
+              ),
+              // Option 2: Camp-Specific Form (if camps exist)
+              if (camps.isNotEmpty) ...[
+                RadioListTile<String?>(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppTheme.brandPurple,
+                  value: _selectedCamp?.id ?? 'SPECIFIC_CAMP_PLACEHOLDER',
+                  groupValue: _selectedCamp?.id,
+                  title: const Text(
+                    'Camp-Specific Form (तोकिएको स्वास्थ्य शिविर)',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                  ),
+                  subtitle: const Text(
+                    'Pre-prints camp name, venue, clinician rosters, and allows sequential token numbering.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                  onChanged: (_) {
+                    final targetCamp = widget.camp ?? activeCamp ?? camps.first;
+                    setState(() {
+                      _resetCliniciansForCamp(targetCamp);
+                    });
+                  },
+                ),
+                if (_selectedCamp != null)
+                  Padding(
+                    padding: EdgeInsets.only(left: isNarrow ? 12 : 32, top: 4, bottom: 4),
+                    child: DropdownButtonFormField<CampModel>(
+                      value: camps.any((c) => c.id == _selectedCamp!.id)
+                          ? camps.firstWhere((c) => c.id == _selectedCamp!.id)
+                          : camps.first,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Select Registered Camp (शिविर छान्नुहोस्)',
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      items: camps.map((c) {
+                        final isActive = activeCamp?.id == c.id;
+                        return DropdownMenuItem(
+                          value: c,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${c.name} (${c.campCode})',
+                                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isActive)
+                                Container(
+                                  margin: const EdgeInsets.only(left: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFDCFCE7),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text('ACTIVE', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                                ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (camp) {
+                        if (camp != null) {
+                          setState(() {
+                            _resetCliniciansForCamp(camp);
+                          });
+                        }
+                      },
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
       ),
-    ),
-  ),
-);
+    );
 }
 }
