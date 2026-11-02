@@ -322,5 +322,67 @@ void main() {
       final newPinLogin = await authRepo.login(email: 'admin@gynocamp.org', password: '8888', deviceId: 'dev-test-02');
       expect(newPinLogin, isNotNull, reason: 'New cloud PIN must authenticate successfully');
     });
+
+    test('createUser with assigned camps updates camp assigned_staff_ids and deleteUser cleans up', () async {
+      const newStaff = UserModel(
+        id: 'usr-nurse-test2',
+        name: 'Nurse Test 2',
+        email: 'test2@gmail.com',
+        phone: '12345',
+        role: UserRole.dataTaker,
+        assignedCampIds: ['camp-ktm-01'],
+      );
+
+      await authRepo.createUser(
+        user: newStaff,
+        adminUserId: 'usr-superadmin-01',
+        deviceId: 'dev-test-01',
+      );
+
+      var campRows = await testDb.query(
+        'camps',
+        where: 'id = ?',
+        whereArgs: ['camp-ktm-01'],
+      );
+      var rawStaff = (campRows.first['assigned_staff_ids'] as String? ?? '').split(',');
+      expect(rawStaff, contains('usr-nurse-test2'));
+
+      final unassignedStaff = newStaff.copyWith(assignedCampIds: const []);
+      await authRepo.updateUser(
+        user: unassignedStaff,
+        adminUserId: 'usr-superadmin-01',
+        deviceId: 'dev-test-01',
+      );
+
+      campRows = await testDb.query(
+        'camps',
+        where: 'id = ?',
+        whereArgs: ['camp-ktm-01'],
+      );
+      rawStaff = (campRows.first['assigned_staff_ids'] as String? ?? '').split(',');
+      expect(rawStaff.contains('usr-nurse-test2'), isFalse);
+
+      final reassignedStaff = newStaff.copyWith(assignedCampIds: ['camp-ktm-01']);
+      await authRepo.updateUser(
+        user: reassignedStaff,
+        adminUserId: 'usr-superadmin-01',
+        deviceId: 'dev-test-01',
+      );
+
+      campRows = await testDb.query('camps', where: 'id = ?', whereArgs: ['camp-ktm-01']);
+      rawStaff = (campRows.first['assigned_staff_ids'] as String? ?? '').split(',');
+      expect(rawStaff, contains('usr-nurse-test2'));
+
+      await authRepo.deleteUser(
+        userId: 'usr-nurse-test2',
+        adminUserId: 'usr-superadmin-01',
+        deviceId: 'dev-test-01',
+      );
+
+      campRows = await testDb.query('camps', where: 'id = ?', whereArgs: ['camp-ktm-01']);
+      rawStaff = (campRows.first['assigned_staff_ids'] as String? ?? '').split(',');
+      expect(rawStaff.contains('usr-nurse-test2'), isFalse);
+    });
   });
+
 }

@@ -18,10 +18,11 @@ import '../patient/patient_registration_view.dart';
 import '../scanner/form_scan_view.dart';
 import '../patient/patient_list_view.dart';
 import '../shared/blank_form_download_dialog.dart';
+import 'user_management_view.dart';
 
 final staffUsersProvider = FutureProvider<List<UserModel>>((ref) async {
-  final authRepo = ref.watch(authRepositoryProvider);
-  return authRepo.getAllUsers();
+  // Watch allUsersProvider so staff mutations anywhere in the app immediately invalidate and reload here.
+  return ref.watch(allUsersProvider.future);
 });
 
 class CampManagementView extends ConsumerStatefulWidget {
@@ -73,12 +74,21 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   }
 
   int _computeAssignedStaffCount(CampModel camp) {
-    final staffUsers = ref.read(staffUsersProvider).value ?? const <UserModel>[];
+    final staffUsers = ref.read(staffUsersProvider).value;
+    if (staffUsers == null) {
+      return camp.assignedStaffIds.where((id) => id.trim().isNotEmpty).length;
+    }
     final eligibleStaff = staffUsers.where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin).toList();
-    // Only count staff actually listed in the camp's assigned_staff_ids (source of truth)
-    final staffIds = Set<String>.from(camp.assignedStaffIds)
-      ..removeWhere((id) => !eligibleStaff.any((u) => u.id == id));
-    return eligibleStaff.where((u) => staffIds.contains(u.id)).length;
+    final staffIds = Set<String>.from(camp.assignedStaffIds);
+    if (eligibleStaff.isNotEmpty) {
+      staffIds.removeWhere((id) => !eligibleStaff.any((u) => u.id == id));
+    }
+    for (final u in eligibleStaff) {
+      if (u.assignedCampIds.contains(camp.id)) {
+        staffIds.add(u.id);
+      }
+    }
+    return staffIds.length;
   }
 
   @override
@@ -2394,18 +2404,17 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
   }
 
   void _showAssignStaffDialog(BuildContext context, CampModel camp) {
-    // Use only camp.assignedStaffIds as the single source of truth.
-    // Previously we also unioned user.assignedCampIds here, which caused stale
-    // user records to pre-check staff in the wrong camps. The camp's own
-    // assigned_staff_ids is the authoritative list.
     final staffUsers = ref.read(staffUsersProvider).value ?? const <UserModel>[];
     final eligibleUsers = staffUsers.where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin).toList();
     final assigned = Set<String>.from(camp.assignedStaffIds);
-    // Remove any orphaned or super-admin IDs that might have been saved in the past
-    assigned.removeWhere((id) => !eligibleUsers.any((u) => u.id == id));
-    // NOTE: Do NOT add user.assignedCampIds here — that union caused phantom
-    // assignments when user records were stale from a previous sync.
-
+    if (eligibleUsers.isNotEmpty) {
+      assigned.removeWhere((id) => !eligibleUsers.any((u) => u.id == id));
+    }
+    for (final u in eligibleUsers) {
+      if (u.assignedCampIds.contains(camp.id)) {
+        assigned.add(u.id);
+      }
+    }
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
 

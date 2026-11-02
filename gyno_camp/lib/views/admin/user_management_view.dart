@@ -873,6 +873,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
             deviceId: deviceState.device?.deviceId ?? 'dev-admin',
           );
       ref.invalidate(allUsersProvider);
+      ref.read(campStateProvider.notifier).loadCamps(silent: true);
       if (mounted) {
         messenger.showSnackBar(
           SnackBar(
@@ -983,6 +984,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                 deviceId: deviceState.device?.deviceId ?? 'dev-admin',
                               );
                           ref.invalidate(allUsersProvider);
+                          ref.read(campStateProvider.notifier).loadCamps(silent: true);
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
                           }
@@ -1569,6 +1571,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                             deviceId: deviceState.device?.deviceId ?? 'dev-admin',
                                           );
                                       ref.invalidate(allUsersProvider);
+                                      ref.read(campStateProvider.notifier).loadCamps(silent: true);
                                       if (ctx.mounted) {
                                         Navigator.pop(ctx);
                                       }
@@ -1675,6 +1678,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                 deviceId: deviceState.device?.deviceId ?? 'dev-admin',
                               );
                           ref.invalidate(allUsersProvider);
+                          ref.read(campStateProvider.notifier).loadCamps(silent: true);
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
                           }
@@ -1924,6 +1928,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                             ref.read(authStateProvider.notifier).updateCurrentUser(updated);
                           }
                           ref.invalidate(allUsersProvider);
+                          ref.read(campStateProvider.notifier).loadCamps(silent: true);
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
                           }
@@ -2147,6 +2152,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                             ref.read(authStateProvider.notifier).updateCurrentUser(updated);
                           }
                           ref.invalidate(allUsersProvider);
+                          ref.read(campStateProvider.notifier).loadCamps(silent: true);
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
                           }
