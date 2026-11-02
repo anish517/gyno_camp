@@ -28,7 +28,6 @@ class HttpCentralApiService implements ICentralApiService {
   /// be persisted in SharedPreferences / browser localStorage.
   static const Set<String> _legacyObsoleteHosts = {
     '192.168.1.4',
-    '192.168.1.10',
     '192.168.1.13',
     '192.168.1.110',
     '192.168.16.113',
@@ -37,6 +36,13 @@ class HttpCentralApiService implements ICentralApiService {
   /// Returns true if [rawUrl] points to one of the retired hardcoded dev IPs.
   static bool isLegacyObsoleteUrl(String? rawUrl) {
     if (rawUrl == null || rawUrl.trim().isEmpty) return false;
+    const envUrl = String.fromEnvironment(
+      'CENTRAL_SERVER_URL',
+      defaultValue: '',
+    );
+    if (envUrl.isNotEmpty && _normalizeUrl(rawUrl) == _normalizeUrl(envUrl)) {
+      return false;
+    }
     final trimmed = rawUrl.trim();
     if (_legacyObsoleteHosts.contains(trimmed)) return true;
     final uri = Uri.tryParse(trimmed);

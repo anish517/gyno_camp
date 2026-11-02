@@ -69,10 +69,6 @@ void main() {
         isTrue,
       );
       expect(
-        HttpCentralApiService.isLegacyObsoleteUrl('http://192.168.1.10:8080'),
-        isTrue,
-      );
-      expect(
         HttpCentralApiService.isLegacyObsoleteUrl('http://192.168.1.13:8080'),
         isTrue,
       );
