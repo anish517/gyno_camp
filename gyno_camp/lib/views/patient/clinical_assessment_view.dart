@@ -1934,13 +1934,16 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.monitor_heart_outlined, color: AppTheme.primaryTeal, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'ECG Examination (ईसीजी जाँच)',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                        const Icon(Icons.monitor_heart_outlined, color: AppTheme.primaryTeal, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'ECG Examination (ईसीजी जाँच)',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),

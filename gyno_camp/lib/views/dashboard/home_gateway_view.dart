@@ -3563,15 +3563,16 @@ class HomeGatewayView extends ConsumerWidget {
                 spacing: 8,
                 runSpacing: 4,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
                       const Text(
                         'Recent Station Intakes',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                       ),
-                      if (activeCampPatients.isNotEmpty) ...[
-                        const SizedBox(width: 8),
+                      if (activeCampPatients.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
@@ -3583,7 +3584,6 @@ class HomeGatewayView extends ConsumerWidget {
                             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
                           ),
                         ),
-                      ],
                     ],
                   ),
                   if (activeCampPatients.isNotEmpty)
