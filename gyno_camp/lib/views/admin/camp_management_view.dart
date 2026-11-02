@@ -2413,8 +2413,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       context: context,
       builder: (ctx) {
         return Consumer(
-          builder: (dialogCtx, ref, _) {
-            final staffAsync = ref.watch(staffUsersProvider);
+          builder: (dialogCtx, dialogRef, _) {
+            final staffAsync = dialogRef.watch(staffUsersProvider);
 
             return StatefulBuilder(
               builder: (innerCtx, setDialogState) {
@@ -2564,16 +2564,18 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     ElevatedButton(
                       onPressed: () async {
                         final messenger = ScaffoldMessenger.of(context);
-                        Navigator.pop(ctx);
-                        final success = await ref.read(campStateProvider.notifier).assignStaff(
+                        final campNotifier = ref.read(campStateProvider.notifier);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        final success = await campNotifier.assignStaff(
                               camp.id,
                               assigned.toList(),
                               adminUserId: user?.id ?? 'admin-user',
                               deviceId: deviceState.device?.deviceId ?? 'dev-admin',
                             );
-                        if (mounted && success) {
+                        if (!mounted) return;
+                        if (success) {
                           ref.invalidate(staffUsersProvider);
-                          await ref.read(campStateProvider.notifier).loadCamps();
+                          await campNotifier.loadCamps();
                           messenger.showSnackBar(
                             SnackBar(content: Text('Staff updated for camp "${camp.name}".')),
                           );
@@ -2815,8 +2817,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       context: context,
       builder: (ctx) {
         return Consumer(
-          builder: (dialogCtx, ref, _) {
-            final staffAsync = ref.watch(staffUsersProvider);
+          builder: (dialogCtx, dialogRef, _) {
+            final staffAsync = dialogRef.watch(staffUsersProvider);
 
             return StatefulBuilder(
               builder: (innerCtx, setDialogState) {
