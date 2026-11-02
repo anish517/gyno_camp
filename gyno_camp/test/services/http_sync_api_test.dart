@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gyno_camp/core/services/http_central_api_service.dart';
+import 'package:gyno_camp/core/services/session_service.dart';
 import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/patient_model.dart';
 import 'package:gyno_camp/models/sync_payload_model.dart';
@@ -10,6 +12,14 @@ import 'package:gyno_camp/models/user_model.dart';
 
 void main() {
   group('HttpCentralApiService Cloud Sync Tests', () {
+    setUp(() {
+      HttpCentralApiService.resetStaticStateForTest();
+    });
+
+    tearDown(() {
+      HttpCentralApiService.resetStaticStateForTest();
+    });
+
     test('pingServer returns true on HTTP 200 health check', () async {
       final mockClient = MockClient((request) async {
         expect(request.url.path, '/health');
@@ -25,18 +35,67 @@ void main() {
       expect(isOnline, isTrue);
     });
 
-    test('pingServer returns false on connection failure or HTTP 500', () async {
+    test('pingServer returns false on connection failure or HTTP 500 without multi-IP spraying', () async {
+      final requestedHosts = <String>[];
       final mockClient = MockClient((request) async {
+        requestedHosts.add('${request.url.host}:${request.url.port}');
         return http.Response('Server Error', 500);
       });
 
-      final service = HttpCentralApiService(
-        baseUrl: 'http://localhost:8080',
-        client: mockClient,
-      );
+      SharedPreferences.setMockInitialValues({});
+      await SessionService.getInstance(await SharedPreferences.getInstance());
+
+      final service = HttpCentralApiService(client: mockClient);
 
       final isOnline = await service.pingServer();
       expect(isOnline, isFalse);
+      // Must probe ONLY the single resolved default endpoint (localhost:8080), never 6 legacy LAN IPs
+      expect(requestedHosts, equals(['localhost:8080']));
+    });
+
+    test('self-heals legacy hardcoded dev IPs saved in SessionService to defaultServerUrl', () async {
+      SharedPreferences.setMockInitialValues({
+        'gynocamp_central_server_url': 'http://192.168.16.113:8080',
+      });
+      final session = await SessionService.getInstance(
+        await SharedPreferences.getInstance(),
+      );
+
+      final service = HttpCentralApiService();
+      expect(service.baseUrl, 'http://localhost:8080');
+      expect(session.getCentralServerUrl(), 'http://localhost:8080');
+      expect(
+        HttpCentralApiService.isLegacyObsoleteUrl('http://192.168.1.4:8080'),
+        isTrue,
+      );
+      expect(
+        HttpCentralApiService.isLegacyObsoleteUrl('http://192.168.1.13:8080'),
+        isTrue,
+      );
+      expect(
+        HttpCentralApiService.isLegacyObsoleteUrl('http://192.168.1.110:8080'),
+        isTrue,
+      );
+    });
+
+    test('skips background health-check HTTP probe while an active OCR/API request is in flight', () async {
+      var healthCallCount = 0;
+      final mockClient = MockClient((request) async {
+        healthCallCount++;
+        return http.Response('Timeout simulated', 500);
+      });
+
+      HttpCentralApiService.markServerOnline('http://localhost:8080');
+      HttpCentralApiService.beginActiveRequest();
+      try {
+        final service = HttpCentralApiService(client: mockClient);
+        final isOnline = await service.pingServer();
+        expect(isOnline, isTrue);
+        expect(healthCallCount, 0);
+      } finally {
+        HttpCentralApiService.endActiveRequest();
+      }
+      expect(HttpCentralApiService.hasActiveRequest, isFalse);
     });
 
     test('pushDelta packages patients and visits and parses successful SyncPushResponse', () async {

@@ -116,6 +116,16 @@ class SseSyncService {
     }
   }
 
+  /// Resets the current SSE stream and immediately reconnects without marking
+  /// the service permanently disposed.
+  Future<void> reconnect() async {
+    if (_isDisposed) return;
+    _reconnectTimer?.cancel();
+    _reconnectAttempts = 0;
+    _cleanup();
+    await connect();
+  }
+
   void _handleEvent(String eventType, String data) {
     if (eventType == 'heartbeat') {
       // Server keepalive — ignore silently

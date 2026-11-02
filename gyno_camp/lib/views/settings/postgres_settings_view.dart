@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +29,8 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
   late TextEditingController _usernameController;
   late TextEditingController _passwordController;
 
+  final http.Client _httpClient = http.Client();
+
   bool _obscurePassword = true;
   bool _useSsl = false;
   bool _directMode = false;
@@ -46,20 +49,13 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
   void initState() {
     super.initState();
 
-    const envUrl =
-        String.fromEnvironment('CENTRAL_SERVER_URL', defaultValue: '');
-    String savedCentral = envUrl.isNotEmpty
-        ? envUrl
-        : (SessionService.current?.getCentralServerUrl() ??
-            'http://192.168.16.113:8080');
-    if (savedCentral == 'http://192.168.1.4:8080') {
-      savedCentral = 'http://192.168.16.113:8080';
-    }
-    _centralApiUrlController = TextEditingController(text: savedCentral);
+    final resolvedCentral = HttpCentralApiService().baseUrl;
+    _centralApiUrlController = TextEditingController(text: resolvedCentral);
 
     final config = ref.read(postgresConfigProvider).config;
-    final initialHost =
-        config.host == '192.168.1.4' ? '192.168.16.113' : config.host;
+    final initialHost = HttpCentralApiService.isLegacyObsoleteUrl(config.host)
+        ? 'localhost'
+        : config.host;
     _hostController = TextEditingController(text: initialHost);
     _portController = TextEditingController(text: config.port.toString());
     _databaseController = TextEditingController(text: config.database);
@@ -77,6 +73,7 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
   @override
   void dispose() {
     _liveTimer?.cancel();
+    _httpClient.close();
     _centralApiUrlController.dispose();
     _hostController.dispose();
     _portController.dispose();
@@ -89,13 +86,14 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
   // ── Background ping (silent) ──────────────────────────────────────────────
   Future<void> _pingOnce() async {
     if (_isLivePinging || !mounted) return;
-    _isLivePinging = true;
     final target = _centralApiUrlController.text.trim();
+    if (target.isEmpty) return;
+    _isLivePinging = true;
     final sw = Stopwatch()..start();
     try {
-      final res = await http.Client()
+      final res = await _httpClient
           .get(Uri.parse('$target/health'))
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 4));
       sw.stop();
       if (!mounted) return;
       if (res.statusCode == 200) {
@@ -124,7 +122,7 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
     });
     final sw = Stopwatch()..start();
     try {
-      final res = await http.Client()
+      final res = await _httpClient
           .get(Uri.parse('$target/health'))
           .timeout(const Duration(seconds: 5));
       sw.stop();
@@ -166,7 +164,7 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
       setState(() {
         _status = _TestStatus.offline;
         _statusMessage =
-            'Cannot reach $target — check your IP address and Wi-Fi.';
+            'Cannot reach $target — verify the server URL and connection.';
       });
     }
   }
@@ -175,26 +173,42 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
   Future<void> _autoDetect() async {
     setState(() {
       _status = _TestStatus.testing;
-      _statusMessage = 'Scanning network for server…';
+      _statusMessage = 'Verifying server endpoint…';
     });
-    final candidates = [
-      'http://192.168.16.113:8080',
-      'http://127.0.0.1:8080',
-      'http://localhost:8080',
-      'http://192.168.1.4:8080',
-      'http://192.168.1.110:8080',
-      'http://10.0.2.2:8080',
+
+    const envUrl =
+        String.fromEnvironment('CENTRAL_SERVER_URL', defaultValue: '');
+    final candidates = <String>[
+      HttpCentralApiService.defaultServerUrl,
     ];
-    final saved = SessionService.current?.getCentralServerUrl();
-    if (saved != null && saved.isNotEmpty && !candidates.contains(saved)) {
-      candidates.insert(0, saved);
+
+    if (envUrl.isEmpty) {
+      final saved = SessionService.current?.getCentralServerUrl();
+      if (saved != null &&
+          saved.trim().isNotEmpty &&
+          !HttpCentralApiService.isLegacyObsoleteUrl(saved) &&
+          !candidates.contains(saved.trim())) {
+        candidates.insert(0, saved.trim());
+      }
+      if (!kIsWeb || Uri.base.scheme != 'https') {
+        if (!candidates.contains('http://localhost:8080')) {
+          candidates.add('http://localhost:8080');
+        }
+        if (!candidates.contains('http://127.0.0.1:8080')) {
+          candidates.add('http://127.0.0.1:8080');
+        }
+      }
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        candidates.add('http://10.0.2.2:8080');
+      }
     }
+
     for (final c in candidates) {
       try {
         final sw = Stopwatch()..start();
-        final res = await http.Client()
+        final res = await _httpClient
             .get(Uri.parse('$c/health'))
-            .timeout(const Duration(milliseconds: 1500));
+            .timeout(const Duration(seconds: 3));
         sw.stop();
         if (res.statusCode == 200) {
           if (!mounted) return;
@@ -206,7 +220,7 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
             _status = _TestStatus.online;
             _latencyMs = sw.elapsedMilliseconds;
             _statusMessage =
-                'Auto-detected at $c  •  ${sw.elapsedMilliseconds} ms';
+                'Connected at $c  •  ${sw.elapsedMilliseconds} ms';
           });
           return;
         }
@@ -216,7 +230,7 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
     setState(() {
       _status = _TestStatus.offline;
       _statusMessage =
-          'No server found. Make sure bin/server.dart is running on your PC.';
+          'No server found. Make sure bin/server.dart is running or enter your server URL above.';
     });
   }
 
@@ -295,7 +309,7 @@ class _PostgresSettingsViewState extends ConsumerState<PostgresSettingsView> {
                         style: const TextStyle(
                             fontFamily: 'monospace', fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'http://192.168.16.113:8080',
+                          hintText: HttpCentralApiService.defaultServerUrl,
                           filled: true,
                           fillColor: Colors.white,
                           contentPadding: const EdgeInsets.symmetric(

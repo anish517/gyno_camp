@@ -94,35 +94,44 @@ class GeminiOcrService {
       throw const GeminiOcrException('Device credentials are unavailable for cloud OCR.');
     }
 
-    // Prepare & optimize image (<= 1600px max dimension, quality 85% JPEG)
-    final prepared = await _prepareImage(rawBytes);
-
-    final uri = Uri.parse('$_baseUrl/api/ocr/extract');
-    final headers = {
-      'Content-Type': 'application/json',
-      'X-Device-Fingerprint': _deviceFingerprint,
-      'X-Device-Secret': secret,
-    };
-    final body = jsonEncode({
-      'imageBase64': prepared.base64,
-      'mimeType': prepared.mimeType,
-      'pageNumber': pageNumber,
-    });
-
-    if (kDebugMode) {
-      debugPrint('[GeminiOCR] Sending image to server (${rawBytes.length ~/ 1024} KB raw, Page: $pageNumber)...');
-    }
-
-    http.Response response;
+    HttpCentralApiService.beginActiveRequest();
+    late final http.Response response;
     try {
-      response = await _client.post(uri, headers: headers, body: body).timeout(requestTimeout);
-    } on TimeoutException {
-      throw const GeminiOcrException('Cloud OCR timed out. Check the server connection and try again.');
-    } catch (e) {
+      // Prepare & optimize image (<= 1600px max dimension, quality 85% JPEG)
+      final prepared = await _prepareImage(rawBytes);
+
+      final targetBaseUrl = _baseUrl;
+      final uri = Uri.parse('$targetBaseUrl/api/ocr/extract');
+      final headers = {
+        'Content-Type': 'application/json',
+        'X-Device-Fingerprint': _deviceFingerprint,
+        'X-Device-Secret': secret,
+      };
+      final body = jsonEncode({
+        'imageBase64': prepared.base64,
+        'mimeType': prepared.mimeType,
+        'pageNumber': pageNumber,
+      });
+
       if (kDebugMode) {
-        debugPrint('[GeminiOCR] Network error: ${e.runtimeType}');
+        debugPrint('[GeminiOCR] Sending image to server (${rawBytes.length ~/ 1024} KB raw, Page: $pageNumber)...');
       }
-      throw const GeminiOcrException('Cannot reach the GynoCamp server for cloud OCR.');
+
+      try {
+        response = await _client.post(uri, headers: headers, body: body).timeout(requestTimeout);
+        if (_explicitBaseUrl == null) {
+          HttpCentralApiService.markServerOnline(targetBaseUrl);
+        }
+      } on TimeoutException {
+        throw const GeminiOcrException('Cloud OCR timed out. Check the server connection and try again.');
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[GeminiOCR] Network error: ${e.runtimeType}');
+        }
+        throw const GeminiOcrException('Cannot reach the GynoCamp server for cloud OCR.');
+      }
+    } finally {
+      HttpCentralApiService.endActiveRequest();
     }
 
     if (response.statusCode != 200) {

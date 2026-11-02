@@ -11,21 +11,28 @@ abstract class INetworkConnectivityService {
 }
 
 /// Real network connectivity service that auto-detects server reachability
-/// by periodically pinging the central server.
+/// by periodically pinging the single configured central server.
 ///
 /// • Fires [onConnectivityChanged] automatically when the server comes back
 ///   online or goes offline — no manual calls needed.
-/// • When a reconnect is detected, it also clears the HttpCentralApiService
+/// • Skips background health-check pings while an active API or Cloud OCR
+///   request is already in flight, and requires 2 consecutive failed polls
+///   before switching online -> offline to prevent transient flapping during
+///   heavy image uploads.
+/// • When a reconnect is detected, it clears the HttpCentralApiService
 ///   offline cooldown so syncs are not blocked by the 30-second circuit breaker.
-/// • Poll interval is short (5 s) so the UI updates within seconds of a
-///   network change, giving a professional "just works" UX.
 class NetworkConnectivityService implements INetworkConnectivityService {
   bool _isOnline;
+  bool _isChecking = false;
+  int _consecutiveFailures = 0;
   final StreamController<bool> _controller = StreamController<bool>.broadcast();
   Timer? _pollTimer;
 
-  /// How often to check reachability (5 seconds is fast enough to feel instant)
-  static const Duration _pollInterval = Duration(seconds: 5);
+  /// Background reachability poll interval (SSE handles instant real-time pushes).
+  static const Duration _pollInterval = Duration(seconds: 10);
+
+  /// Consecutive failed background pings required before transitioning online -> offline.
+  static const int _failuresBeforeOffline = 2;
 
   NetworkConnectivityService({
     bool initialOnline = true,
@@ -43,34 +50,47 @@ class NetworkConnectivityService implements INetworkConnectivityService {
   }
 
   Future<void> _checkAndUpdate() async {
+    if (_isChecking || _controller.isClosed) return;
+
+    // Do not interrupt or flap connectivity while an active API / Gemini OCR
+    // request is currently communicating with the central server.
+    if (HttpCentralApiService.hasActiveRequest && _isOnline) {
+      _consecutiveFailures = 0;
+      return;
+    }
+
+    _isChecking = true;
     try {
       final reachable = await HttpCentralApiService().pingServer();
+      if (_controller.isClosed) return;
 
-      final wasOffline = !_isOnline;
-      if (reachable != _isOnline) {
-        _isOnline = reachable;
-        if (!_controller.isClosed) {
-          _controller.add(_isOnline);
-        }
-
-        if (wasOffline && reachable) {
-          // Server is back — immediately clear the circuit-breaker cooldown so
-          // SyncViewModel.syncNow() is not blocked by the 30-second wait.
+      if (reachable) {
+        _consecutiveFailures = 0;
+        if (!_isOnline) {
+          _isOnline = true;
+          _controller.add(true);
           HttpCentralApiService.markServerOnline();
           debugPrint('[Connectivity] 🟢 Server reachable — cooldown cleared, auto-sync will fire.');
-        } else {
+        }
+      } else {
+        _consecutiveFailures++;
+        if (_isOnline && _consecutiveFailures >= _failuresBeforeOffline) {
+          _isOnline = false;
+          _controller.add(false);
           debugPrint('[Connectivity] 🔴 Server unreachable — app switched to offline mode.');
         }
       }
     } catch (e) {
-      // If the ping itself throws (e.g. no network at all), mark offline
-      if (_isOnline) {
+      _consecutiveFailures++;
+      if (_isOnline &&
+          _consecutiveFailures >= _failuresBeforeOffline &&
+          !_controller.isClosed) {
         _isOnline = false;
-        if (!_controller.isClosed) {
-          _controller.add(false);
-        }
+        _controller.add(false);
         debugPrint('[Connectivity] ⚠️ Ping threw: $e — switching to offline mode.');
       }
+    } finally {
+      _isChecking = false;
     }
   }
 
@@ -86,10 +106,13 @@ class NetworkConnectivityService implements INetworkConnectivityService {
   /// Manual override — used by tests and the settings toggle simulation
   @override
   void setOnline(bool online) {
+    _consecutiveFailures = 0;
     if (_isOnline != online) {
       _isOnline = online;
       if (online) HttpCentralApiService.markServerOnline();
-      _controller.add(_isOnline);
+      if (!_controller.isClosed) {
+        _controller.add(_isOnline);
+      }
     }
   }
 
