@@ -3399,22 +3399,21 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           ? ClinicalConstants.infertilityDurations
                           : ClinicalConstants.anamnesisDurations;
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Material(
                           color: isSelected
                               ? AppTheme.primaryLight.withValues(alpha: 0.15)
                               : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppTheme.primaryTeal.withValues(alpha: 0.5)
-                                : Colors.grey.shade300,
-                            width: isSelected ? 1.5 : 1.0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? AppTheme.primaryTeal.withValues(alpha: 0.5)
+                                  : Colors.grey.shade300,
+                              width: isSelected ? 1.5 : 1.0,
+                            ),
                           ),
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -8252,18 +8251,17 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     const SizedBox(height: 16),
 
                     // Apply to all stations checkbox
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                    Material(
+                      color: const Color(0xFFF8FAFC),
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
                       ),
-                      child: Material(
-                        color: Colors.transparent,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         child: CheckboxListTile(
                           contentPadding: EdgeInsets.zero,
                           dense: true,

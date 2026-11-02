@@ -1125,18 +1125,17 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         selectedDuration,
     ];
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? AppTheme.primaryLight.withValues(alpha: 0.15) : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isSelected ? AppTheme.primaryTeal.withValues(alpha: 0.5) : Colors.grey.shade300,
-          width: isSelected ? 1.5 : 1.0,
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: Colors.transparent,
+        color: isSelected ? AppTheme.primaryLight.withValues(alpha: 0.15) : Colors.grey.shade50,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+            color: isSelected ? AppTheme.primaryTeal.withValues(alpha: 0.5) : Colors.grey.shade300,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
