@@ -1367,18 +1367,20 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   Widget _buildCampScopeSelector(List<CampModel> camps, CampModel? activeCamp, bool isNarrow) {
     final isUniversal = _selectedCamp == null;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Material(
         color: isUniversal ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isUniversal ? const Color(0xFF93C5FD) : const Color(0xFFE2E8F0),
-          width: isUniversal ? 1.5 : 1.0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: isUniversal ? const Color(0xFF93C5FD) : const Color(0xFFE2E8F0),
+            width: isUniversal ? 1.5 : 1.0,
+          ),
         ),
-      ),
-      child: Column(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -1517,7 +1519,8 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           ],
         ],
       ),
-    );
-  }
+    ),
+  ),
+);
 }
-
+}
