@@ -28,6 +28,7 @@ class HttpCentralApiService implements ICentralApiService {
   /// be persisted in SharedPreferences / browser localStorage.
   static const Set<String> _legacyObsoleteHosts = {
     '192.168.1.4',
+    '192.168.1.10',
     '192.168.1.13',
     '192.168.1.110',
     '192.168.16.113',
@@ -598,6 +599,12 @@ class HttpCentralApiService implements ICentralApiService {
         if (_customBaseUrl == null) markServerOnline(baseUrl);
         final map =
             jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+        if (map['found'] == false ||
+            map['status'] == 'unregistered' ||
+            map['status'] == 'not_found' ||
+            map['device_id'] == null) {
+          return null;
+        }
         return DeviceModel.fromMap(map);
       }
     } catch (e) {

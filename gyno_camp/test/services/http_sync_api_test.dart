@@ -69,6 +69,10 @@ void main() {
         isTrue,
       );
       expect(
+        HttpCentralApiService.isLegacyObsoleteUrl('http://192.168.1.10:8080'),
+        isTrue,
+      );
+      expect(
         HttpCentralApiService.isLegacyObsoleteUrl('http://192.168.1.13:8080'),
         isTrue,
       );
@@ -240,6 +244,28 @@ void main() {
 
       final success = await service.broadcastCamp(camp);
       expect(success, isTrue);
+    });
+
+    test('checkCentralDeviceStatus returns null on 200 with found=false (clean non-404 unregistered check)', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, '/api/devices/check');
+        return http.Response(
+          jsonEncode({
+            'found': false,
+            'status': 'unregistered',
+            'fingerprint': 'test-fp',
+          }),
+          200,
+        );
+      });
+
+      final service = HttpCentralApiService(
+        baseUrl: 'http://localhost:8080',
+        client: mockClient,
+      );
+
+      final device = await service.checkCentralDeviceStatus('test-fp');
+      expect(device, isNull);
     });
 
     test('broadcastUser posts new staff member to /api/users', () async {
