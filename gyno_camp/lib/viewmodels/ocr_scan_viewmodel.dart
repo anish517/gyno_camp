@@ -35,6 +35,7 @@ Map<String, dynamic> _safeComplaintDetailsMap(dynamic raw) {
 
 class OcrScanState {
   final bool isProcessing;
+  final String? processingStep;
   final bool isSaving;
   final OcrScanResultModel? page1Scan;
   final OcrScanResultModel? page2Scan;
@@ -50,6 +51,7 @@ class OcrScanState {
 
   const OcrScanState({
     this.isProcessing = false,
+    this.processingStep,
     this.isSaving = false,
     this.page1Scan,
     this.page2Scan,
@@ -72,6 +74,8 @@ class OcrScanState {
 
   OcrScanState copyWith({
     bool? isProcessing,
+    String? processingStep,
+    bool clearProcessingStep = false,
     bool? isSaving,
     OcrScanResultModel? page1Scan,
     OcrScanResultModel? page2Scan,
@@ -91,6 +95,7 @@ class OcrScanState {
   }) {
     return OcrScanState(
       isProcessing: isProcessing ?? this.isProcessing,
+      processingStep: clearProcessingStep ? null : (processingStep ?? ((isProcessing == false) ? null : this.processingStep)),
       isSaving: isSaving ?? this.isSaving,
       page1Scan: clearPage1 ? null : (page1Scan ?? this.page1Scan),
       page2Scan: clearPage2 ? null : (page2Scan ?? this.page2Scan),
@@ -193,7 +198,10 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       }
       if (!mounted) return;
       // Photo confirmed — now show the processing indicator
-      state = state.copyWith(isProcessing: true);
+      state = state.copyWith(
+        isProcessing: true,
+        processingStep: 'Digitizing Page $pageNumber (${pageNumber == 1 ? "Demographics & Obstetric History" : "POP Exam & Vitals"})...',
+      );
       final result = await _repository.processImageScan(photo, pageNumber: pageNumber, engineMode: state.engineMode);
       if (!mounted) return;
       if (pageNumber == 1) {
@@ -238,7 +246,10 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       }
       if (!mounted) return;
       // File confirmed — now show the processing indicator
-      state = state.copyWith(isProcessing: true);
+      state = state.copyWith(
+        isProcessing: true,
+        processingStep: 'Digitizing Page $pageNumber (${pageNumber == 1 ? "Demographics & Obstetric History" : "POP Exam & Vitals"})...',
+      );
       final result = await _repository.processImageScan(photo, pageNumber: pageNumber, engineMode: state.engineMode);
       if (!mounted) return;
       if (pageNumber == 1) {
@@ -279,7 +290,10 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       }
       if (!mounted) return;
       // Files confirmed — now show the processing indicator
-      state = state.copyWith(isProcessing: true);
+      state = state.copyWith(
+        isProcessing: true,
+        processingStep: 'Digitizing Page 1 of 2 (Demographics & Obstetric History)...',
+      );
       if (photos.length == 1) {
         final res = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
         if (!mounted) return;
@@ -293,7 +307,15 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
       // Process first as Page 1, second as Page 2
       final res1 = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
+      if (!mounted) return;
+      state = state.copyWith(
+        processingStep: 'Page 1 complete! Digitizing Page 2 of 2 (POP Exam & Vitals)...',
+      );
       final res2 = await _repository.processImageScan(photos[1], pageNumber: 2, engineMode: state.engineMode);
+      if (!mounted) return;
+      state = state.copyWith(
+        processingStep: 'Merging clinical stations & checking records...',
+      );
       if (!mounted) return;
       final merged = OcrScanResultModel.merge(res1, res2);
 
@@ -321,7 +343,10 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       if (photos.isEmpty) return;
       if (!mounted) return;
 
-      state = state.copyWith(isProcessing: true);
+      state = state.copyWith(
+        isProcessing: true,
+        processingStep: 'Digitizing Page 1 of 2 (Demographics & Obstetric History)...',
+      );
       if (photos.length == 1) {
         final res = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
         if (!mounted) return;
@@ -334,7 +359,15 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       }
 
       final res1 = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
+      if (!mounted) return;
+      state = state.copyWith(
+        processingStep: 'Page 1 complete! Digitizing Page 2 of 2 (POP Exam & Vitals)...',
+      );
       final res2 = await _repository.processImageScan(photos[1], pageNumber: 2, engineMode: state.engineMode);
+      if (!mounted) return;
+      state = state.copyWith(
+        processingStep: 'Merging clinical stations & checking records...',
+      );
       if (!mounted) return;
       final merged = OcrScanResultModel.merge(res1, res2);
 

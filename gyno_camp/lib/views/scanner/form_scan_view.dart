@@ -147,25 +147,71 @@ class _FormScanViewState extends ConsumerState<FormScanView>
         ],
       ),
       body: ocrState.isProcessing
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: AppTheme.primaryTeal),
-                  SizedBox(height: 16),
-                  Text(
-                    'Scanning & Digitizing Yellow Form...',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ? Center(
+              child: Card(
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: Colors.grey.shade200),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 36,
+                    vertical: 32,
                   ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Extracting demographics, OMR checkboxes, vitals and diagnoses',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textSecondaryLight,
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3.5,
+                          color: AppTheme.primaryTeal,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        ocrState.processingStep ??
+                            'Scanning & Digitizing Yellow Form...',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Extracting demographics, OMR checkboxes, vitals and diagnoses',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondaryLight,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'Powered by Google Gemini Flash Cloud OCR',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primaryTeal,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             )
           : !ocrState.hasScanResult

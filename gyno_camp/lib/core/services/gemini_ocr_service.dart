@@ -164,25 +164,57 @@ class GeminiOcrService {
   }
 
   /// Scales image down if larger than 1600px to ensure fast mobile upload.
+  /// For already-compressed images (<= 2.5 MB), skips pure-Dart software decoding
+  /// to avoid locking the UI thread and freezing animations.
   Future<({String base64, String mimeType})> _prepareImage(Uint8List bytes) async {
-    try {
-      final decoded = img.decodeImage(bytes);
-      if (decoded != null && (decoded.width > 1600 || decoded.height > 1600)) {
-        final resized = img.copyResize(
-          decoded,
-          width: decoded.width > decoded.height ? 1600 : null,
-          height: decoded.height >= decoded.width ? 1600 : null,
-        );
-        final compressedJpg = img.encodeJpg(resized, quality: 85);
-        return (base64: base64Encode(compressedJpg), mimeType: 'image/jpeg');
+    final isPng = bytes.length > 4 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47;
+    final defaultMime = isPng ? 'image/png' : 'image/jpeg';
+
+    // Fast path: if already <= 2.5 MB, avoid software decompression entirely.
+    // Base64 encoding takes < 2 ms and avoids freezing the browser event loop.
+    if (bytes.length <= 2500000) {
+      return (base64: base64Encode(bytes), mimeType: defaultMime);
+    }
+
+    // Heavy path: for large images (> 2.5 MB), resize down.
+    // On native platforms, offload to a background isolate (compute) to keep UI thread fluid.
+    if (!kIsWeb) {
+      try {
+        final resized = await compute(_resizeImageIsolate, bytes);
+        if (resized != null) {
+          return (base64: base64Encode(resized), mimeType: 'image/jpeg');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[GeminiOCR] Background resize failed: $e');
+        }
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[GeminiOCR] Image resize skipped: $e');
+    } else {
+      // On web, yield to the event loop so the UI can paint before running image resize
+      await Future<void>.delayed(Duration.zero);
+      try {
+        final decoded = img.decodeImage(bytes);
+        if (decoded != null && (decoded.width > 1600 || decoded.height > 1600)) {
+          final resized = img.copyResize(
+            decoded,
+            width: decoded.width > decoded.height ? 1600 : null,
+            height: decoded.height >= decoded.width ? 1600 : null,
+          );
+          final compressedJpg = img.encodeJpg(resized, quality: 85);
+          return (base64: base64Encode(compressedJpg), mimeType: 'image/jpeg');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[GeminiOCR] Image resize skipped: $e');
+        }
       }
     }
-    final isPng = bytes.length > 4 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
-    return (base64: base64Encode(bytes), mimeType: isPng ? 'image/png' : 'image/jpeg');
+
+    return (base64: base64Encode(bytes), mimeType: defaultMime);
   }
 
   /// Maps structured JSON returned by Gemini to [OcrScanResultModel].
@@ -771,4 +803,20 @@ class GeminiOcrService {
   void dispose() {
     _client.close();
   }
+}
+
+/// Top-level worker function for offloading software image resizing to a background isolate.
+Uint8List? _resizeImageIsolate(Uint8List bytes) {
+  try {
+    final decoded = img.decodeImage(bytes);
+    if (decoded != null && (decoded.width > 1600 || decoded.height > 1600)) {
+      final resized = img.copyResize(
+        decoded,
+        width: decoded.width > decoded.height ? 1600 : null,
+        height: decoded.height >= decoded.width ? 1600 : null,
+      );
+      return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+    }
+  } catch (_) {}
+  return null;
 }
