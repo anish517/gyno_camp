@@ -21,7 +21,6 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
   late TabController _tabController;
   final _searchController = TextEditingController();
   String _statusFilter = 'ALL'; // 'ALL', 'ACTIVE', 'INACTIVE'
-  bool _groupByCategory = true;
 
   @override
   void initState() {
@@ -451,22 +450,6 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                             'EXCLUDED',
                             'Excluded (${state.excludedFromCurrentCamp.where((i) => i.category == _getCategoryForIndex(_tabController.index)).length})',
                           ),
-                        if (_tabController.index != 2)
-                          ActionChip(
-                            avatar: Icon(
-                              _groupByCategory ? Icons.category_rounded : Icons.view_list_rounded,
-                              size: 14,
-                              color: AppTheme.primaryTeal,
-                            ),
-                            label: Text(
-                              _groupByCategory ? 'Grouped by Category' : 'Flat List',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
-                            ),
-                            backgroundColor: AppTheme.primaryLight,
-                            side: const BorderSide(color: AppTheme.primaryTeal),
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => setState(() => _groupByCategory = !_groupByCategory),
-                          ),
                         _buildCategoryContextBadge(_tabController.index),
                       ],
                     ),
@@ -826,105 +809,6 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
           ),
         ),
       );
-    } else if (_groupByCategory && (categoryIndex == 0 || categoryIndex == 1)) {
-      // Categorized Accordion View
-      final definedCategories = categoryIndex == 0
-          ? ClinicalConstants.diagnosisCategories
-          : ClinicalConstants.medicationCategories;
-
-      final Map<String, List<LookupItemModel>> grouped = {};
-      for (final cat in definedCategories) {
-        grouped[cat] = [];
-      }
-
-      for (final item in filtered) {
-        final fallback = categoryIndex == 0
-            ? (ClinicalConstants.diagnosisCategoryMap[item.labelEn] ?? 'General / Other')
-            : (ClinicalConstants.medicationCategoryMap[item.labelEn] ?? 'Other / Custom');
-        final cat = (item.subCategory != null && item.subCategory!.isNotEmpty)
-            ? item.subCategory!
-            : fallback;
-        grouped.putIfAbsent(cat, () => []).add(item);
-      }
-
-      final activeGroups = grouped.entries.where((e) => e.value.isNotEmpty).toList();
-
-      listWidget = ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        itemCount: activeGroups.length,
-        itemBuilder: (context, gIdx) {
-          final groupName = activeGroups[gIdx].key;
-          final groupItems = activeGroups[gIdx].value;
-          final activeCount = groupItems.where((i) => i.isActive).length;
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: activeCount > 0 ? categoryColor.withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
-                width: 1.2,
-              ),
-            ),
-            child: Theme(
-              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                initiallyExpanded: true,
-                leading: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: categoryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    categoryIndex == 0 ? Icons.medical_services_outlined : Icons.medication_outlined,
-                    size: 18,
-                    color: categoryColor,
-                  ),
-                ),
-                title: Text(
-                  groupName,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryLight),
-                ),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                  decoration: BoxDecoration(
-                    color: categoryColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '$activeCount / ${groupItems.length} Active',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: categoryColor),
-                  ),
-                ),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                    child: Column(
-                      children: List.generate(groupItems.length, (idx) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: _buildItemCard(
-                            context,
-                            groupItems[idx],
-                            idx,
-                            categoryColor,
-                            adminUserId,
-                            deviceId,
-                            vm,
-                            user,
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
     } else {
       // Flat List View
       listWidget = ListView.separated(
@@ -1087,23 +971,6 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                             color: Colors.grey.shade400,
                           ),
                         ),
-                      if (item.subCategory != null && item.subCategory!.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: categoryColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: categoryColor.withValues(alpha: 0.3)),
-                          ),
-                          child: Text(
-                            item.subCategory!,
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.bold,
-                              color: categoryColor,
-                            ),
-                          ),
-                        ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                         decoration: BoxDecoration(
@@ -1204,8 +1071,6 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
     final enCtrl = TextEditingController(text: item?.labelEn ?? '');
     final neCtrl = TextEditingController(text: item?.labelNe ?? '');
     final codeCtrl = TextEditingController(text: item?.code ?? '');
-    final customCategoryCtrl = TextEditingController();
-    bool isCustomCategoryMode = false;
 
     final lookupState = ref.read(masterLookupProvider);
     final List<String> availableCategories = [];
@@ -1240,13 +1105,11 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
       }
     }
 
-    String selectedSubCategory = item?.subCategory ??
+    final String selectedSubCategory = item?.subCategory ??
         (availableCategories.isNotEmpty ? availableCategories.first : 'General / Other');
     if (!availableCategories.contains(selectedSubCategory) && selectedSubCategory.isNotEmpty) {
       availableCategories.add(selectedSubCategory);
     }
-
-    const String addCustomCategorySentinel = '__ADD_CUSTOM_CATEGORY__';
 
     final user = ref.read(authStateProvider).currentUser;
     final deviceState = ref.read(deviceSecurityProvider);
@@ -1343,73 +1206,6 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                         prefixIcon: Icon(Icons.translate, size: 18),
                       ),
                     ),
-                    if (category == 'diagnosis' || category == 'medicine' || category == 'chief_complaint') ...[
-                      const SizedBox(height: 14),
-                      DropdownButtonFormField<String>(
-                        key: ValueKey(isCustomCategoryMode ? addCustomCategorySentinel : selectedSubCategory),
-                        isExpanded: true,
-                        initialValue: isCustomCategoryMode ? addCustomCategorySentinel : selectedSubCategory,
-                        decoration: const InputDecoration(
-                          labelText: 'Clinical Sub-Category / Group *',
-                          prefixIcon: Icon(Icons.category_outlined, size: 18),
-                        ),
-                        items: [
-                          ...availableCategories.map((cat) => DropdownMenuItem(value: cat, child: Text(cat))),
-                          const DropdownMenuItem(
-                            value: addCustomCategorySentinel,
-                            child: Row(
-                              children: [
-                                Icon(Icons.add_circle_outline, size: 16, color: AppTheme.primaryTeal),
-                                SizedBox(width: 6),
-                                Text(
-                                  '+ Add Custom Category...',
-                                  style: TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          if (val == addCustomCategorySentinel) {
-                            setDialogState(() {
-                              isCustomCategoryMode = true;
-                            });
-                          } else if (val != null) {
-                            setDialogState(() {
-                              selectedSubCategory = val;
-                              isCustomCategoryMode = false;
-                            });
-                          }
-                        },
-                      ),
-                      if (isCustomCategoryMode) ...[
-                        const SizedBox(height: 10),
-                        TextField(
-                          controller: customCategoryCtrl,
-                          autofocus: true,
-                          decoration: InputDecoration(
-                            labelText: 'New Custom Category Name *',
-                            prefixIcon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.primaryTeal),
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.close, size: 16),
-                              tooltip: 'Cancel Custom Category',
-                              onPressed: () {
-                                setDialogState(() {
-                                  isCustomCategoryMode = false;
-                                  customCategoryCtrl.clear();
-                                });
-                              },
-                            ),
-                            filled: true,
-                            fillColor: AppTheme.brandPurpleLight,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppTheme.primaryTeal),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
                     const SizedBox(height: 14),
                     TextField(
                       controller: codeCtrl,
@@ -1448,11 +1244,7 @@ class _MasterConfigViewState extends ConsumerState<MasterConfigView> with Single
                     return;
                   }
 
-                  final finalSubCategory = isCustomCategoryMode
-                      ? (customCategoryCtrl.text.trim().isNotEmpty
-                          ? customCategoryCtrl.text.trim()
-                          : 'Other / Custom')
-                      : selectedSubCategory;
+                  final finalSubCategory = selectedSubCategory;
 
                   var rawCode = codeCtrl.text.trim();
                   if (rawCode.isEmpty) {
