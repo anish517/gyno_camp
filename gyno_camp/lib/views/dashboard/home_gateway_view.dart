@@ -6846,7 +6846,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search cohort by Patient Name, ID (GC-...), Mobile, Ward, or Camp...',
+                hintText: 'Search cohort by Name, ID, Mobile, Ward...',
                 prefixIcon: const Icon(Icons.search, size: 18),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -6963,8 +6963,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 // Responsive Grid in Stacked Mobile Mode
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final isWide = constraints.maxWidth >= 700;
-                    if (isWide) {
+                    final width = constraints.maxWidth;
+                    if (width >= 750) {
                       return Column(
                         children: [
                           Row(
@@ -7006,49 +7006,88 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           ),
                         ],
                       );
-                    }
-                    return Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(child: popDropdown),
-                            const SizedBox(width: 8),
-                            Expanded(child: visitReasonDropdown),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(child: complaintDropdown),
-                            const SizedBox(width: 8),
-                            Expanded(child: surgeryDropdown),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(child: ageDropdown),
-                            const SizedBox(width: 8),
-                            Expanded(child: diagnosisDropdown),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(child: treatmentDropdown),
-                            const SizedBox(width: 8),
-                            Expanded(child: treatmentLevelDropdown),
-                          ],
-                        ),
-                        if (allNurses.isNotEmpty) ...[
+                    } else if (width >= 550) {
+                      // 2-column grid on tablets
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(child: popDropdown),
+                              const SizedBox(width: 8),
+                              Expanded(child: visitReasonDropdown),
+                            ],
+                          ),
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              Expanded(child: nurseDropdown),
+                              Expanded(child: complaintDropdown),
                               const SizedBox(width: 8),
-                              const Expanded(child: SizedBox.shrink()),
+                              Expanded(child: surgeryDropdown),
                             ],
                           ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: ageDropdown),
+                              const SizedBox(width: 8),
+                              Expanded(child: diagnosisDropdown),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: treatmentDropdown),
+                              const SizedBox(width: 8),
+                              Expanded(child: treatmentLevelDropdown),
+                            ],
+                          ),
+                          if (allDoctors.isNotEmpty || allNurses.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                if (allDoctors.isNotEmpty) ...[
+                                  Expanded(child: doctorDropdown),
+                                  const SizedBox(width: 8),
+                                ] else
+                                  const Expanded(child: SizedBox.shrink()),
+                                if (allNurses.isNotEmpty)
+                                  Expanded(child: nurseDropdown)
+                                else
+                                  const Expanded(child: SizedBox.shrink()),
+                              ],
+                            ),
+                          ],
+                        ],
+                      );
+                    }
+
+                    // Clean full-width single-column layout on Mobile (< 550px)
+                    // Eliminates cramped truncation ("All ...", "Reason for Vi...", etc.)
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        popDropdown,
+                        const SizedBox(height: 8),
+                        visitReasonDropdown,
+                        const SizedBox(height: 8),
+                        complaintDropdown,
+                        const SizedBox(height: 8),
+                        surgeryDropdown,
+                        const SizedBox(height: 8),
+                        ageDropdown,
+                        const SizedBox(height: 8),
+                        diagnosisDropdown,
+                        const SizedBox(height: 8),
+                        treatmentDropdown,
+                        const SizedBox(height: 8),
+                        treatmentLevelDropdown,
+                        if (allDoctors.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          doctorDropdown,
+                        ],
+                        if (allNurses.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          nurseDropdown,
                         ],
                       ],
                     );
