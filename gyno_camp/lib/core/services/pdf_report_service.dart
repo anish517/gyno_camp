@@ -3750,7 +3750,9 @@ class PdfReportService {
                                     preprintedTokenId,
                                     minBoxes: preprintedTokenId.length,
                                     maxBoxes: preprintedTokenId.length,
-                                    boxSize: 11.0,
+                                    boxSize: preprintedTokenId.length > 18
+                                        ? 9.2
+                                        : (preprintedTokenId.length > 16 ? 10.2 : 11.0),
                                   ),
                                   pw.SizedBox(width: 5),
                                   pw.BarcodeWidget(
@@ -3761,14 +3763,25 @@ class PdfReportService {
                                   ),
                                 ],
                               )
-                            : buildCharBoxes(
-                                camp?.campCode != null
-                                    ? '${camp!.campCode}-'
-                                    : 'GC-□□□□-',
-                                minBoxes: 14,
-                                maxBoxes: 14,
-                                boxSize: camp?.campCode != null ? 13 : 11,
-                              ),
+                            : () {
+                                final String blankTokenPrefix = camp?.campCode != null
+                                    ? 'GC-${camp!.campCode.trim().toUpperCase()}-${(camp?.startDate ?? DateTime.now()).year}-'
+                                    : 'GC-□□□□-${DateTime.now().year}-';
+                                final int blankTokenTotalBoxes = blankTokenPrefix.length + 5;
+                                final double blankTokenBoxSize = blankTokenTotalBoxes > 24
+                                    ? 8.5
+                                    : (blankTokenTotalBoxes > 20
+                                        ? 9.5
+                                        : (blankTokenTotalBoxes > 18 ? 10.5 : 11.5));
+                                final double blankTokenBoxMargin = blankTokenTotalBoxes > 22 ? 0.8 : 1.0;
+                                return buildCharBoxes(
+                                  blankTokenPrefix,
+                                  minBoxes: blankTokenTotalBoxes,
+                                  maxBoxes: blankTokenTotalBoxes,
+                                  boxSize: blankTokenBoxSize,
+                                  boxMargin: blankTokenBoxMargin,
+                                );
+                              }(),
                         pw.SizedBox(height: 2),
                         pw.Text(
                           'Date: ${dateFormatter.format(DateTime.now())}',
@@ -4408,6 +4421,15 @@ class PdfReportService {
     final String dynamicTokenPrefix = dynamicCampCode.isNotEmpty
         ? 'GC-$dynamicCampCode-$dynamicYear-'
         : 'GC-□□□□-$dynamicYear-';
+    final int dynamicTokenTotalBoxes = dynamicTokenPrefix.length + 5;
+    final double dynamicTokenBoxSize = dynamicTokenTotalBoxes > 28
+        ? 7.2
+        : (dynamicTokenTotalBoxes > 23
+            ? 8.5
+            : (dynamicTokenTotalBoxes > 19
+                ? 9.5
+                : (dynamicTokenTotalBoxes > 17 ? 10.5 : 11.5)));
+    final double dynamicTokenBoxMargin = dynamicTokenTotalBoxes > 22 ? 0.8 : 1.0;
 
     // ── Resolve Doctor Information ──
     final bool showDoctor = camp?.showDoctorOnForms ?? true;
@@ -6328,11 +6350,11 @@ class PdfReportService {
                             ),
                             buildCharBoxes(
                               dynamicTokenPrefix,
-                              minBoxes: 18,
-                              maxBoxes: 18,
-                              boxSize: 11.5,
+                              minBoxes: dynamicTokenTotalBoxes,
+                              maxBoxes: dynamicTokenTotalBoxes,
+                              boxSize: dynamicTokenBoxSize,
                               boxHeight: 14.5,
-                              boxMargin: 1.0,
+                              boxMargin: dynamicTokenBoxMargin,
                             ),
                           ],
                         ),
@@ -7914,11 +7936,11 @@ class PdfReportService {
                             ),
                             buildCharBoxes(
                               dynamicTokenPrefix,
-                              minBoxes: 18,
-                              maxBoxes: 18,
-                              boxSize: 11.5,
+                              minBoxes: dynamicTokenTotalBoxes,
+                              maxBoxes: dynamicTokenTotalBoxes,
+                              boxSize: dynamicTokenBoxSize,
                               boxHeight: 14.5,
-                              boxMargin: 1.0,
+                              boxMargin: dynamicTokenBoxMargin,
                             ),
                           ],
                         ),
