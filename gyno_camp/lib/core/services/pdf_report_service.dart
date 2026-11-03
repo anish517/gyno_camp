@@ -3765,7 +3765,7 @@ class PdfReportService {
                               )
                             : () {
                                 final String blankTokenPrefix = camp?.campCode != null
-                                    ? 'GC-${camp!.campCode.trim().toUpperCase()}-${(camp?.startDate ?? DateTime.now()).year}-'
+                                    ? 'GC-${camp!.campCode.trim().toUpperCase()}-${camp.startDate.year}-'
                                     : 'GC-□□□□-${DateTime.now().year}-';
                                 final int blankTokenTotalBoxes = blankTokenPrefix.length + 5;
                                 final double blankTokenBoxSize = blankTokenTotalBoxes > 24
