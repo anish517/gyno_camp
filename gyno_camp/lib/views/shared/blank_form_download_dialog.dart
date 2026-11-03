@@ -64,6 +64,8 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   NurseProfile? _selectedNurse;
   bool _includeBlankNurseLine = false; // used only when the camp has no nurses
   bool _isGenerating = false;
+  String? _progressMessage;
+  double? _progressValue;
 
   // Pre-numbered Patient Token Range State
   bool _enablePreNumberedTokens = false;
@@ -178,7 +180,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   }
 
   Future<void> _generateAndDownload() async {
-    setState(() => _isGenerating = true);
+    setState(() {
+      _isGenerating = true;
+      _progressMessage = 'Preparing PDF document...';
+      _progressValue = 0.0;
+    });
     final messenger = ScaffoldMessenger.of(context);
 
     try {
@@ -259,12 +265,6 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
         final endPad = endSeq.toString().padLeft(5, '0');
 
         if (_selectedFormType == PrintableFormType.yellowRegistrationForm) {
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text('Generating $count pre-numbered blank forms ($startPad to $endPad, ${count * 2} pages)...'),
-              duration: const Duration(seconds: 3),
-            ),
-          );
           pdfBytes = await pdfService.generatePreNumberedBlankFormsPdf(
             camp: _selectedCamp!,
             startSequence: startSeq,
@@ -281,15 +281,17 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             referralHospitals: referralHospitals,
             visitReasons: visitReasons,
             chiefComplaints: chiefComplaints,
+            onProgress: (current, total, status) {
+              if (mounted) {
+                setState(() {
+                  _progressMessage = status;
+                  _progressValue = current / total;
+                });
+              }
+            },
           );
           filename = 'Blank_YellowForms_${campCode}_${startPad}_to_$endPad.pdf';
         } else {
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text('Generating $count pre-numbered follow-up sheets ($startPad to $endPad, $count pages)...'),
-              duration: const Duration(seconds: 3),
-            ),
-          );
           pdfBytes = await pdfService.generatePreNumberedBlankFollowUpSlipsPdf(
             camp: _selectedCamp!,
             startSequence: startSeq,
@@ -299,6 +301,14 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
             organizationName: orgName,
+            onProgress: (current, total, status) {
+              if (mounted) {
+                setState(() {
+                  _progressMessage = status;
+                  _progressValue = current / total;
+                });
+              }
+            },
           );
           filename = 'Blank_FollowUpSlips_${campCode}_${startPad}_to_$endPad.pdf';
         }
@@ -504,7 +514,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
       }
     } finally {
       if (mounted) {
-        setState(() => _isGenerating = false);
+        setState(() {
+          _isGenerating = false;
+          _progressMessage = null;
+          _progressValue = null;
+        });
       }
     }
   }
@@ -855,8 +869,66 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                     color: Color(0xFFF8FAFC),
                     border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                   ),
-                  child: isNarrow
-                      ? Column(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_isGenerating && _progressMessage != null) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.brandPurple.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.brandPurple.withOpacity(0.25)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.brandPurple,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _progressMessage!,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.brandPurple,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_progressValue != null) ...[
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(2),
+                                  child: LinearProgressIndicator(
+                                    value: _progressValue,
+                                    backgroundColor: AppTheme.brandPurple.withOpacity(0.15),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                                    minHeight: 4,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (isNarrow)
+                        Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -870,7 +942,9 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                                     )
                                   : const Icon(Icons.download_rounded, size: 18),
                               label: Text(
-                                downloadLabel,
+                                _isGenerating
+                                    ? (_progressMessage ?? 'Generating...')
+                                    : downloadLabel,
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -894,7 +968,8 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                             ),
                           ],
                         )
-                      : Row(
+                      else
+                        Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             OutlinedButton(
@@ -918,7 +993,9 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                                     )
                                   : const Icon(Icons.download_rounded, size: 18),
                               label: Text(
-                                downloadLabel,
+                                _isGenerating
+                                    ? (_progressMessage ?? 'Generating...')
+                                    : downloadLabel,
                                 style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -931,6 +1008,8 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                             ),
                           ],
                         ),
+                    ],
+                  ),
                 ),
               ],
             );

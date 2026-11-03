@@ -246,10 +246,12 @@ class PdfReportService {
     Future<pw.Document> Function() build,
   ) async {
     var doc = await build();
+    await Future.delayed(Duration.zero);
     await doc.save();
     if (_nePending.isNotEmpty) {
       await _renderPendingNepali();
       doc = await build();
+      await Future.delayed(Duration.zero);
       return await doc.save();
     }
     return doc.save();
@@ -7886,9 +7888,11 @@ class PdfReportService {
                                 ),
                                 buildCharBoxes(
                                   preprintedPatientId,
-                                  minBoxes: 16,
-                                  maxBoxes: 16,
-                                  boxSize: 11.0,
+                                  minBoxes: preprintedPatientId.length,
+                                  maxBoxes: preprintedPatientId.length,
+                                  boxSize: preprintedPatientId.length > 18
+                                      ? 9.2
+                                      : (preprintedPatientId.length > 16 ? 10.2 : 11.0),
                                   boxHeight: 14.0,
                                   boxMargin: 1.0,
                                 ),
@@ -8084,6 +8088,7 @@ class PdfReportService {
     List<LookupItemModel>? referralHospitals,
     List<LookupItemModel>? visitReasons,
     List<LookupItemModel>? chiefComplaints,
+    void Function(int current, int total, String status)? onProgress,
   }) async {
     final theme = await getPdfTheme();
     final logoImage = await loadLogoImage();
@@ -8099,6 +8104,14 @@ class PdfReportService {
           sequenceNumber: seq,
           year: year,
         );
+
+        onProgress?.call(
+          i + 1,
+          count,
+          'Building form ${i + 1} of $count (${((i + 1) / count * 100).toInt()}%)...',
+        );
+        // Yield to the UI event loop every form to allow animation frames and progress updates
+        await Future.delayed(const Duration(milliseconds: 1));
 
         await _addPatientRegistrationFormPages(
           pdf,
@@ -8120,6 +8133,12 @@ class PdfReportService {
           logoImage: logoImage,
         );
       }
+      onProgress?.call(
+        count,
+        count,
+        'Finalizing PDF document (${count * 2} pages)...',
+      );
+      await Future.delayed(const Duration(milliseconds: 5));
       return pdf;
     });
   }
@@ -8135,6 +8154,7 @@ class PdfReportService {
     NurseProfile? nurse,
     bool blankNurseLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
+    void Function(int current, int total, String status)? onProgress,
   }) async {
     final theme = await getPdfTheme();
     final logoImage = await loadLogoImage();
@@ -8151,6 +8171,14 @@ class PdfReportService {
           year: year,
         );
 
+        onProgress?.call(
+          i + 1,
+          count,
+          'Building follow-up sheet ${i + 1} of $count (${((i + 1) / count * 100).toInt()}%)...',
+        );
+        // Yield to the UI event loop every form to allow animation frames and progress updates
+        await Future.delayed(const Duration(milliseconds: 1));
+
         _addBlankFollowUpSlipPage(
           pdf,
           camp: camp,
@@ -8163,6 +8191,12 @@ class PdfReportService {
           logoImage: logoImage,
         );
       }
+      onProgress?.call(
+        count,
+        count,
+        'Finalizing PDF document ($count pages)...',
+      );
+      await Future.delayed(const Duration(milliseconds: 5));
       return pdf;
     });
   }
