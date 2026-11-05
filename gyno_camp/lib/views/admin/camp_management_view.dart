@@ -2440,7 +2440,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       TextButton.icon(
                         icon: const Icon(Icons.person_add_alt_1, size: 18),
                         label: const Text('Add Staff', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        onPressed: () => _showAddNewStaffDialog(context, assigned, setDialogState),
+                        onPressed: () => _showAddNewStaffDialog(context, camp, assigned, setDialogState),
                       ),
                     ],
                   ),
@@ -2471,7 +2471,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 ElevatedButton.icon(
                                   icon: const Icon(Icons.add),
                                   label: const Text('Register First Staff Member'),
-                                  onPressed: () => _showAddNewStaffDialog(context, assigned, setDialogState),
+                                  onPressed: () => _showAddNewStaffDialog(context, camp, assigned, setDialogState),
                                 ),
                               ],
                             ),
@@ -2583,6 +2583,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             );
                         if (!mounted) return;
                         if (success) {
+                          ref.invalidate(allUsersProvider);
                           ref.invalidate(staffUsersProvider);
                           await campNotifier.loadCamps();
                           messenger.showSnackBar(
@@ -2604,6 +2605,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
   void _showAddNewStaffDialog(
     BuildContext context,
+    CampModel camp,
     Set<String> assigned,
     void Function(void Function()) setDialogState,
   ) {
@@ -2613,31 +2615,66 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     final passwordCtrl = TextEditingController();
     final pinCtrl = TextEditingController();
     UserRole selectedRole = UserRole.dataTaker;
+    bool obscurePassword = true;
+    bool obscurePin = true;
+    String? nameError;
+    String? emailError;
+    String? passwordError;
+    String? pinError;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (innerCtx, setInnerState) {
           return AlertDialog(
-            title: const Text('Register New Staff Member'),
+            title: Row(
+              children: [
+                const Icon(Icons.person_add_alt_1, color: AppTheme.brandPurple, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Register New Staff Member',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Assigned to ${camp.campCode} (${camp.name})',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.normal),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name',
-                      prefixIcon: Icon(Icons.person),
+                    onChanged: (_) {
+                      if (nameError != null) setInnerState(() => nameError = null);
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Full Name *',
+                      prefixIcon: const Icon(Icons.person),
+                      errorText: nameError,
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: emailCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Official Email',
-                      prefixIcon: Icon(Icons.email),
+                    onChanged: (_) {
+                      if (emailError != null) setInnerState(() => emailError = null);
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Official Email *',
+                      prefixIcon: const Icon(Icons.email),
+                      errorText: emailError,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -2670,14 +2707,24 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   ),
                   const SizedBox(height: 12),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: TextField(
                           controller: passwordCtrl,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Initial Password',
-                            prefixIcon: Icon(Icons.lock_outline),
+                          obscureText: obscurePassword,
+                          onChanged: (_) {
+                            if (passwordError != null) setInnerState(() => passwordError = null);
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'Initial Password *',
+                            helperText: 'Min 6 characters (à¤¨à¥à¤¯à¥‚à¤¨à¤¤à¤® à¥¬ à¤…à¤•à¥à¤·à¤°)',
+                            errorText: passwordError,
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18),
+                              onPressed: () => setInnerState(() => obscurePassword = !obscurePassword),
+                            ),
                           ),
                         ),
                       ),
@@ -2687,10 +2734,20 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           controller: pinCtrl,
                           keyboardType: TextInputType.number,
                           maxLength: 6,
-                          decoration: const InputDecoration(
-                            labelText: 'Station PIN',
+                          obscureText: obscurePin,
+                          onChanged: (_) {
+                            if (pinError != null) setInnerState(() => pinError = null);
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'Station PIN *',
+                            helperText: '4-6 digits (४-६ अंक)',
                             counterText: '',
-                            prefixIcon: Icon(Icons.pin),
+                            errorText: pinError,
+                            prefixIcon: const Icon(Icons.pin),
+                            suffixIcon: IconButton(
+                              icon: Icon(obscurePin ? Icons.visibility_off : Icons.visibility, size: 18),
+                              onPressed: () => setInnerState(() => obscurePin = !obscurePin),
+                            ),
                           ),
                         ),
                       ),
@@ -2712,26 +2769,38 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   final password = passwordCtrl.text.trim();
                   final pin = pinCtrl.text.trim();
 
-                  if (name.isEmpty || email.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter staff name and official email.')),
-                    );
-                    return;
-                  }
+                  bool hasError = false;
+                  setInnerState(() {
+                    nameError = null;
+                    emailError = null;
+                    passwordError = null;
+                    pinError = null;
 
-                  if (password.isEmpty || pin.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please set both an initial password and a 4-6 digit station PIN.')),
-                    );
-                    return;
-                  }
+                    if (name.isEmpty) {
+                      nameError = 'Staff name is required';
+                      hasError = true;
+                    }
+                    if (email.isEmpty || !email.contains('@')) {
+                      emailError = 'Valid official email is required';
+                      hasError = true;
+                    }
+                    if (password.isEmpty) {
+                      passwordError = 'Password is required (min 6 chars)';
+                      hasError = true;
+                    } else if (password.length < 6) {
+                      passwordError = 'Initial password must be at least 6 characters (à¤¨à¥à¤¯à¥‚à¤¨à¤¤à¤® à¥¬ à¤…à¤•à¥à¤·à¤°)';
+                      hasError = true;
+                    }
+                    if (pin.isEmpty) {
+                      pinError = 'Station PIN is required';
+                      hasError = true;
+                    } else if (pin.length < 4 || pin.length > 6) {
+                      pinError = 'PIN must be between 4 and 6 digits';
+                      hasError = true;
+                    }
+                  });
 
-                  if (pin.length < 4 || pin.length > 6) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Station PIN must be between 4 and 6 digits.')),
-                    );
-                    return;
-                  }
+                  if (hasError) return;
 
                   final user = ref.read(authStateProvider).currentUser;
                   final deviceState = ref.read(deviceSecurityProvider);
@@ -2743,6 +2812,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     phone: phoneCtrl.text.trim(),
                     role: selectedRole,
                     isActive: true,
+                    assignedCampIds: [camp.id],
                     tenantId: user?.tenantId ?? 'tenant_default',
                     tenantName: user?.tenantName ?? 'Community Health Outreach Mission',
                     passwordHash: SecurityService.hashSha256(password),
@@ -2757,15 +2827,24 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           deviceId: deviceState.device?.deviceId ?? 'dev-admin',
                         );
 
+                    assigned.add(newUser.id);
+                    await ref.read(campStateProvider.notifier).assignStaff(
+                          camp.id,
+                          assigned.toList(),
+                          adminUserId: user?.id ?? 'admin-user',
+                          deviceId: deviceState.device?.deviceId ?? 'dev-admin',
+                        );
+
+                    ref.invalidate(allUsersProvider);
                     ref.invalidate(staffUsersProvider);
-                    setDialogState(() {
-                      assigned.add(newUser.id);
-                    });
+                    await ref.read(campStateProvider.notifier).loadCamps(silent: true);
+
+                    setDialogState(() {});
 
                     if (mounted) {
                       messenger.showSnackBar(
                         SnackBar(
-                          content: Text('Registered "$name" (PIN: $pin) and assigned to camp.'),
+                          content: Text('Registered "$name" (PIN: $pin) and assigned to camp "${camp.name}".'),
                           backgroundColor: AppTheme.successGreen,
                         ),
                       );
