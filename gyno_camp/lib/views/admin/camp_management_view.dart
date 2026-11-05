@@ -2428,6 +2428,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             return StatefulBuilder(
               builder: (innerCtx, setDialogState) {
                 return AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   title: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -2627,6 +2628,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       builder: (ctx) => StatefulBuilder(
         builder: (innerCtx, setInnerState) {
           return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
                 const Icon(Icons.person_add_alt_1, color: AppTheme.brandPurple, size: 22),
@@ -2649,8 +2651,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 ),
               ],
             ),
-            content: SingleChildScrollView(
-              child: Column(
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
@@ -2755,6 +2759,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   ),
                 ],
               ),
+            ),
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
