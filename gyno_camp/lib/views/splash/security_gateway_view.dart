@@ -42,6 +42,23 @@ class SecurityGatewayView extends ConsumerWidget {
 
     final user = authState.currentUser;
 
+    // Super Admin is the approving authority, so their own workstation is
+    // registered + approved automatically (audited). This keeps device-bound
+    // features such as cloud OCR working for admins without a manual step.
+    // Revoked devices are never re-approved; the call is guarded to run once.
+    if (user != null &&
+        user.isSuperAdmin &&
+        !deviceState.isApproved &&
+        !deviceState.isRevoked) {
+      final deviceNotifier = ref.read(deviceSecurityProvider.notifier);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        deviceNotifier.ensureAdminDeviceApproved(
+          adminUserId: user.id,
+          adminName: user.name,
+        );
+      });
+    }
+
     // 2. Hardware security guard: Non-admin staff must be on an approved workstation
     if (user != null && !user.isSuperAdmin && !deviceState.isApproved) {
       return DeviceActivationView(

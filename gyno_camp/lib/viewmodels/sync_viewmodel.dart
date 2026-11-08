@@ -101,9 +101,8 @@ class SyncViewModel extends StateNotifier<SyncState> {
 
       if (wasOffline && online) {
         debugPrint('[SyncVM] Network restored — triggering auto-sync.');
-        // Restart the SSE stream so real-time events resume immediately
-        _sseSyncService?.dispose();
-        _sseSyncService?.connect();
+        // Cleanly reconnect the SSE stream (do NOT call dispose(), which permanently marks it disposed)
+        _sseSyncService?.reconnect();
         // Fire a full sync cycle — this also refreshes camps/patients in UI
         syncNow(deviceId: _lastKnownDeviceId, userId: _lastKnownUserId);
       }
@@ -114,16 +113,22 @@ class SyncViewModel extends StateNotifier<SyncState> {
       // Auto-trigger initial sync on app startup if connected
       if (state.isOnline) {
         Future.delayed(const Duration(milliseconds: 1500), () {
-          if (mounted && state.isOnline && !state.isSyncing) {
+          if (mounted &&
+              state.isOnline &&
+              !state.isSyncing &&
+              !HttpCentralApiService.hasActiveRequest) {
             syncNow(deviceId: _lastKnownDeviceId, userId: _lastKnownUserId);
           }
         });
       }
 
-      // Periodic fallback sync every 15 seconds (reduced from 30s)
+      // Periodic fallback sync every 15 seconds (skipped during active OCR/API requests)
       // SSE provides instant updates when available; this is the safety net
       _periodicSyncTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-        if (mounted && state.isOnline && !state.isSyncing) {
+        if (mounted &&
+            state.isOnline &&
+            !state.isSyncing &&
+            !HttpCentralApiService.hasActiveRequest) {
           syncNow(deviceId: _lastKnownDeviceId, userId: _lastKnownUserId);
         }
       });

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:nepali_utils/nepali_utils.dart';
 import '../core/constants/app_constants.dart';
+import '../core/constants/clinical_constants.dart';
 import '../core/utils/nepali_date_helper.dart';
 import '../core/services/gemini_ocr_service.dart';
 import '../core/services/mlkit_ocr_service.dart';
@@ -541,9 +542,11 @@ class OcrRepository implements IOcrRepository {
         anamnesisMap.putIfAbsent('lower back pain', () => defaultEntry);
         syncedClinicalComplaints.add('lower_back_pain');
       } else if (lowerR.contains('pain') || lowerR.contains('abdomen') || lowerR.contains('दुख्ने')) {
-        anamnesisMap.putIfAbsent('lower_abdomen_pain', () => defaultEntry);
-        anamnesisMap.putIfAbsent('lower abdomen pain', () => defaultEntry);
-        syncedClinicalComplaints.add('lower_abdomen_pain');
+        if (!syncedClinicalComplaints.contains('lower_back_pain')) {
+          anamnesisMap.putIfAbsent('lower_abdomen_pain', () => defaultEntry);
+          anamnesisMap.putIfAbsent('lower abdomen pain', () => defaultEntry);
+          syncedClinicalComplaints.add('lower_abdomen_pain');
+        }
       }
       if (lowerR.contains('stool')) {
         anamnesisMap.putIfAbsent('stool', () => defaultEntry);
@@ -561,8 +564,17 @@ class OcrRepository implements IOcrRepository {
         anamnesisMap.putIfAbsent('infertility', () => defaultEntry);
         syncedClinicalComplaints.add('infertility');
       }
+      if (lowerR.contains('checkup')) {
+        anamnesisMap.putIfAbsent('checkup', () => defaultEntry);
+        syncedClinicalComplaints.add('checkup');
+      }
     }
     anamnesisMap['clinicalComplaints'] = syncedClinicalComplaints.toList();
+
+    final defaultMedsLow = ClinicalConstants.defaultMedications.map((m) => m.toLowerCase()).toSet();
+    final nonDefaultMeds = verifiedScan.medications
+        .where((m) => !defaultMedsLow.contains(m.toLowerCase().trim()) && m.toLowerCase().trim() != 'ring pessary')
+        .toList();
 
     final clinicalVisit = ClinicalVisitModel(
       id: 'vis-${_uuid.v4()}',
@@ -570,7 +582,7 @@ class OcrRepository implements IOcrRepository {
       campId: campId,
       tenantId: registeredPatient.tenantId,
       visitDate: parsedVisit,
-      anamnesisDate: parseDateOrNull(verifiedScan.anamnesisDate ?? demo['anamnesisDate'] as String?),
+      anamnesisDate: parseDateOrNull(verifiedScan.effectiveAnamnesisDate ?? verifiedScan.anamnesisDate ?? demo['anamnesisDate'] as String? ?? verifiedScan.intakeDate ?? demo['intakeDate'] as String? ?? demo['date'] as String?),
       examDate: parseDateOrNull(verifiedScan.examDate),
       labTestDate: parseDateOrNull(verifiedScan.labTestDate),
       conclusionDate: parseDateOrNull(verifiedScan.conclusionDate),
@@ -581,6 +593,7 @@ class OcrRepository implements IOcrRepository {
       abortions: obs['abortions'] as int?,
       anamnesisComplaints: anamnesisMap,
       uterusInside: pop['uterusInside'] as bool? ?? false,
+      pelvicFloorTone: (pop['pelvicFloorTone'] as String?)?.trim().toLowerCase() ?? ClinicalConstants.pelvicFloorNormal,
       cervixRemarks: pop['cervixRemarks'] as String?,
       vaginaRemarks: pop['vaginaRemarks'] as String?,
       vulvaRemarks: pop['vulvaRemarks'] as String?,
@@ -617,6 +630,7 @@ class OcrRepository implements IOcrRepository {
       diagnoses: verifiedScan.diagnoses,
       counseling: verifiedScan.counseling,
       medications: verifiedScan.medications,
+      customMedication: nonDefaultMeds.isNotEmpty ? nonDefaultMeds.join(', ') : null,
       pessaryType: verifiedScan.pessaryType ??
           ((verifiedScan.ringPessary || pop['ringPessary'] == true)
               ? (pop['pessaryType'] as String? ?? 'ring')
@@ -628,7 +642,7 @@ class OcrRepository implements IOcrRepository {
       surgeryType: verifiedScan.surgeryType ?? pop['surgeryType'] as String?,
       surgicalReferral: verifiedScan.surgicalReferral,
       followUpNeeded: (verifiedScan.followUpDestination != null &&
-              verifiedScan.followUpDestination != 'No follow up needed') ||
+              verifiedScan.followUpDestination!.trim().toLowerCase() != 'no follow up needed') ||
           (pop['highestPopStage'] as int? ?? 0) >= 2,
       followUpDestination: verifiedScan.followUpDestination,
       outtakeNotes: verifiedScan.clinicalNotes,

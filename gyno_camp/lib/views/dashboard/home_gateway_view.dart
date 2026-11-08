@@ -3563,15 +3563,16 @@ class HomeGatewayView extends ConsumerWidget {
                 spacing: 8,
                 runSpacing: 4,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
                       const Text(
                         'Recent Station Intakes',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                       ),
-                      if (activeCampPatients.isNotEmpty) ...[
-                        const SizedBox(width: 8),
+                      if (activeCampPatients.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
@@ -3583,7 +3584,6 @@ class HomeGatewayView extends ConsumerWidget {
                             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
                           ),
                         ),
-                      ],
                     ],
                   ),
                   if (activeCampPatients.isNotEmpty)
@@ -5913,21 +5913,24 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: const Color(0xFFE9D5FF)),
                         ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.analytics_rounded, color: AppTheme.brandPurple, size: 13),
-                            SizedBox(width: 5),
-                            Text(
-                              'CLINICAL DATA ANALYST WORKSTATION',
-                              style: TextStyle(
-                                color: AppTheme.brandPurple,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.6,
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.analytics_rounded, color: AppTheme.brandPurple, size: 13),
+                              SizedBox(width: 5),
+                              Text(
+                                'CLINICAL DATA ANALYST WORKSTATION',
+                                style: TextStyle(
+                                  color: AppTheme.brandPurple,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.6,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                       Builder(
@@ -6843,7 +6846,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search cohort by Patient Name, ID (GC-...), Mobile, Ward, or Camp...',
+                hintText: 'Search cohort by Name, ID, Mobile, Ward...',
                 prefixIcon: const Icon(Icons.search, size: 18),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -6960,8 +6963,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                 // Responsive Grid in Stacked Mobile Mode
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final isWide = constraints.maxWidth >= 700;
-                    if (isWide) {
+                    final width = constraints.maxWidth;
+                    if (width >= 750) {
                       return Column(
                         children: [
                           Row(
@@ -7003,49 +7006,88 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                           ),
                         ],
                       );
-                    }
-                    return Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(child: popDropdown),
-                            const SizedBox(width: 8),
-                            Expanded(child: visitReasonDropdown),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(child: complaintDropdown),
-                            const SizedBox(width: 8),
-                            Expanded(child: surgeryDropdown),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(child: ageDropdown),
-                            const SizedBox(width: 8),
-                            Expanded(child: diagnosisDropdown),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(child: treatmentDropdown),
-                            const SizedBox(width: 8),
-                            Expanded(child: treatmentLevelDropdown),
-                          ],
-                        ),
-                        if (allNurses.isNotEmpty) ...[
+                    } else if (width >= 550) {
+                      // 2-column grid on tablets
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(child: popDropdown),
+                              const SizedBox(width: 8),
+                              Expanded(child: visitReasonDropdown),
+                            ],
+                          ),
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              Expanded(child: nurseDropdown),
+                              Expanded(child: complaintDropdown),
                               const SizedBox(width: 8),
-                              const Expanded(child: SizedBox.shrink()),
+                              Expanded(child: surgeryDropdown),
                             ],
                           ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: ageDropdown),
+                              const SizedBox(width: 8),
+                              Expanded(child: diagnosisDropdown),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: treatmentDropdown),
+                              const SizedBox(width: 8),
+                              Expanded(child: treatmentLevelDropdown),
+                            ],
+                          ),
+                          if (allDoctors.isNotEmpty || allNurses.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                if (allDoctors.isNotEmpty) ...[
+                                  Expanded(child: doctorDropdown),
+                                  const SizedBox(width: 8),
+                                ] else
+                                  const Expanded(child: SizedBox.shrink()),
+                                if (allNurses.isNotEmpty)
+                                  Expanded(child: nurseDropdown)
+                                else
+                                  const Expanded(child: SizedBox.shrink()),
+                              ],
+                            ),
+                          ],
+                        ],
+                      );
+                    }
+
+                    // Clean full-width single-column layout on Mobile (< 550px)
+                    // Eliminates cramped truncation ("All ...", "Reason for Vi...", etc.)
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        popDropdown,
+                        const SizedBox(height: 8),
+                        visitReasonDropdown,
+                        const SizedBox(height: 8),
+                        complaintDropdown,
+                        const SizedBox(height: 8),
+                        surgeryDropdown,
+                        const SizedBox(height: 8),
+                        ageDropdown,
+                        const SizedBox(height: 8),
+                        diagnosisDropdown,
+                        const SizedBox(height: 8),
+                        treatmentDropdown,
+                        const SizedBox(height: 8),
+                        treatmentLevelDropdown,
+                        if (allDoctors.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          doctorDropdown,
+                        ],
+                        if (allNurses.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          nurseDropdown,
                         ],
                       ],
                     );
@@ -7354,13 +7396,16 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.view_column_rounded, size: 16, color: AppTheme.brandPurple),
-                      SizedBox(width: 6),
-                      Text(
-                        'Station 2: Anatomical Compartments Affected (प्रभावित शारीरिक भाग)',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      const Icon(Icons.view_column_rounded, size: 16, color: AppTheme.brandPurple),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Station 2: Anatomical Compartments Affected (प्रभावित शारीरिक भाग)',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -7926,7 +7971,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                   physics: const NeverScrollableScrollPhysics(),
                   mainAxisSpacing: 8,
                   crossAxisSpacing: 8,
-                  childAspectRatio: 1.35,
+                  childAspectRatio: 1.18,
                   children: items,
                 );
               },
@@ -8555,7 +8600,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(10),
@@ -8568,14 +8613,14 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: color, size: 20),
+              Icon(icon, color: color, size: 18),
               Text(
                 count,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             title,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),

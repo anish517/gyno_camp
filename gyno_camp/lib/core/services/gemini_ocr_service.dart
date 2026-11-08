@@ -94,35 +94,44 @@ class GeminiOcrService {
       throw const GeminiOcrException('Device credentials are unavailable for cloud OCR.');
     }
 
-    // Prepare & optimize image (<= 1600px max dimension, quality 85% JPEG)
-    final prepared = await _prepareImage(rawBytes);
-
-    final uri = Uri.parse('$_baseUrl/api/ocr/extract');
-    final headers = {
-      'Content-Type': 'application/json',
-      'X-Device-Fingerprint': _deviceFingerprint,
-      'X-Device-Secret': secret,
-    };
-    final body = jsonEncode({
-      'imageBase64': prepared.base64,
-      'mimeType': prepared.mimeType,
-      'pageNumber': pageNumber,
-    });
-
-    if (kDebugMode) {
-      debugPrint('[GeminiOCR] Sending image to server (${rawBytes.length ~/ 1024} KB raw, Page: $pageNumber)...');
-    }
-
-    http.Response response;
+    HttpCentralApiService.beginActiveRequest();
+    late final http.Response response;
     try {
-      response = await _client.post(uri, headers: headers, body: body).timeout(requestTimeout);
-    } on TimeoutException {
-      throw const GeminiOcrException('Cloud OCR timed out. Check the server connection and try again.');
-    } catch (e) {
+      // Prepare & optimize image (<= 1600px max dimension, quality 85% JPEG)
+      final prepared = await _prepareImage(rawBytes);
+
+      final targetBaseUrl = _baseUrl;
+      final uri = Uri.parse('$targetBaseUrl/api/ocr/extract');
+      final headers = {
+        'Content-Type': 'application/json',
+        'X-Device-Fingerprint': _deviceFingerprint,
+        'X-Device-Secret': secret,
+      };
+      final body = jsonEncode({
+        'imageBase64': prepared.base64,
+        'mimeType': prepared.mimeType,
+        'pageNumber': pageNumber,
+      });
+
       if (kDebugMode) {
-        debugPrint('[GeminiOCR] Network error: ${e.runtimeType}');
+        debugPrint('[GeminiOCR] Sending image to server (${rawBytes.length ~/ 1024} KB raw, Page: $pageNumber)...');
       }
-      throw const GeminiOcrException('Cannot reach the GynoCamp server for cloud OCR.');
+
+      try {
+        response = await _client.post(uri, headers: headers, body: body).timeout(requestTimeout);
+        if (_explicitBaseUrl == null) {
+          HttpCentralApiService.markServerOnline(targetBaseUrl);
+        }
+      } on TimeoutException {
+        throw const GeminiOcrException('Cloud OCR timed out. Check the server connection and try again.');
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[GeminiOCR] Network error: ${e.runtimeType}');
+        }
+        throw const GeminiOcrException('Cannot reach the GynoCamp server for cloud OCR.');
+      }
+    } finally {
+      HttpCentralApiService.endActiveRequest();
     }
 
     if (response.statusCode != 200) {
@@ -155,25 +164,57 @@ class GeminiOcrService {
   }
 
   /// Scales image down if larger than 1600px to ensure fast mobile upload.
+  /// For already-compressed images (<= 2.5 MB), skips pure-Dart software decoding
+  /// to avoid locking the UI thread and freezing animations.
   Future<({String base64, String mimeType})> _prepareImage(Uint8List bytes) async {
-    try {
-      final decoded = img.decodeImage(bytes);
-      if (decoded != null && (decoded.width > 1600 || decoded.height > 1600)) {
-        final resized = img.copyResize(
-          decoded,
-          width: decoded.width > decoded.height ? 1600 : null,
-          height: decoded.height >= decoded.width ? 1600 : null,
-        );
-        final compressedJpg = img.encodeJpg(resized, quality: 85);
-        return (base64: base64Encode(compressedJpg), mimeType: 'image/jpeg');
+    final isPng = bytes.length > 4 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47;
+    final defaultMime = isPng ? 'image/png' : 'image/jpeg';
+
+    // Fast path: if already <= 2.5 MB, avoid software decompression entirely.
+    // Base64 encoding takes < 2 ms and avoids freezing the browser event loop.
+    if (bytes.length <= 2500000) {
+      return (base64: base64Encode(bytes), mimeType: defaultMime);
+    }
+
+    // Heavy path: for large images (> 2.5 MB), resize down.
+    // On native platforms, offload to a background isolate (compute) to keep UI thread fluid.
+    if (!kIsWeb) {
+      try {
+        final resized = await compute(_resizeImageIsolate, bytes);
+        if (resized != null) {
+          return (base64: base64Encode(resized), mimeType: 'image/jpeg');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[GeminiOCR] Background resize failed: $e');
+        }
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[GeminiOCR] Image resize skipped: $e');
+    } else {
+      // On web, yield to the event loop so the UI can paint before running image resize
+      await Future<void>.delayed(Duration.zero);
+      try {
+        final decoded = img.decodeImage(bytes);
+        if (decoded != null && (decoded.width > 1600 || decoded.height > 1600)) {
+          final resized = img.copyResize(
+            decoded,
+            width: decoded.width > decoded.height ? 1600 : null,
+            height: decoded.height >= decoded.width ? 1600 : null,
+          );
+          final compressedJpg = img.encodeJpg(resized, quality: 85);
+          return (base64: base64Encode(compressedJpg), mimeType: 'image/jpeg');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[GeminiOCR] Image resize skipped: $e');
+        }
       }
     }
-    final isPng = bytes.length > 4 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
-    return (base64: base64Encode(bytes), mimeType: isPng ? 'image/png' : 'image/jpeg');
+
+    return (base64: base64Encode(bytes), mimeType: defaultMime);
   }
 
   /// Maps structured JSON returned by Gemini to [OcrScanResultModel].
@@ -259,33 +300,36 @@ class GeminiOcrService {
         parsedData['consultation']?.toString().trim();
     final String? treatmentLevel = PatientModel.normalizeTreatmentLevel(rawTreatmentLevel);
 
-    // Normalize Province (case-insensitive)
+    // Normalize Province (case-insensitive + 8-box character prefix support e.g. SUDURPAS -> Sudurpashchim)
     String normProvince(String? raw) {
       if (raw == null || raw.trim().isEmpty) return 'Bagmati';
-      final clean = raw.trim().toLowerCase();
+      final clean = raw.replaceAll(RegExp(r'\s+'), '').toLowerCase();
       for (final p in ClinicalConstants.nepalProvinces) {
-        if (p.toLowerCase() == clean) return p;
+        final pLow = p.toLowerCase();
+        if (pLow == clean || (clean.length >= 4 && pLow.startsWith(clean))) return p;
       }
       return 'Bagmati';
     }
 
-    // Normalize District (case-insensitive against NepalGeodata)
+    // Normalize District (case-insensitive & space-insensitive against NepalGeodata, supporting 11-box prefixes)
     String normDistrict(String? raw, String prov) {
       if (raw == null || raw.trim().isEmpty) return '';
-      final clean = raw.trim().toLowerCase();
+      final clean = raw.replaceAll(RegExp(r'\s+'), '').toLowerCase();
       final provDistricts = NepalGeodata.districtsFor(prov);
       for (final d in provDistricts) {
-        if (d.toLowerCase() == clean) return d;
+        if (d.replaceAll(' ', '').toLowerCase() == clean) return d;
       }
       for (final d in provDistricts) {
-        if (clean.contains(d.toLowerCase()) || d.toLowerCase().contains(clean)) return d;
+        final dClean = d.replaceAll(' ', '').toLowerCase();
+        if (clean.contains(dClean) || (clean.length >= 4 && dClean.contains(clean))) return d;
       }
       // Search across all districts if province was misidentified
       for (final d in NepalGeodata.allDistricts) {
-        if (d.toLowerCase() == clean) return d;
+        if (d.replaceAll(' ', '').toLowerCase() == clean) return d;
       }
       for (final d in NepalGeodata.allDistricts) {
-        if (clean.contains(d.toLowerCase()) || d.toLowerCase().contains(clean)) return d;
+        final dClean = d.replaceAll(' ', '').toLowerCase();
+        if (clean.contains(dClean) || (clean.length >= 4 && dClean.contains(clean))) return d;
       }
       return raw.trim();
     }
@@ -622,6 +666,9 @@ class GeminiOcrService {
 
     // Extract station dates from Gemini response
     String? intakeDate = _extractDate(parsedData['intakeDate'] ?? parsedData['anamnesisDate'] ?? parsedData['date']);
+    String? anamnesisDate = _extractDate(parsedData['anamnesisDate'] ?? parsedData['intakeDate'] ?? parsedData['date']);
+    intakeDate ??= anamnesisDate;
+    anamnesisDate ??= intakeDate;
     String? examDate = _extractDate(parsedData['examDate']);
     String? labTestDate = _extractDate(parsedData['labTestDate']);
     String? conclusionDate = _extractDate(parsedData['conclusionDate']);
@@ -652,6 +699,9 @@ class GeminiOcrService {
       demographics['intakeDate'] = intakeDate;
       demographics['date'] = intakeDate;
       buffer.writeln('Date: $intakeDate BS');
+    }
+    if (anamnesisDate != null && anamnesisDate.isNotEmpty) {
+      demographics['anamnesisDate'] = anamnesisDate;
     }
 
     // Extract clinical notes from Station 6
@@ -689,6 +739,7 @@ class GeminiOcrService {
       treatmentLevel: treatmentLevel,
       clinicalNotes: clinicalNotes,
       intakeDate: intakeDate,
+      anamnesisDate: anamnesisDate,
       examDate: examDate,
       labTestDate: labTestDate,
       conclusionDate: conclusionDate,
@@ -705,10 +756,23 @@ class GeminiOcrService {
   /// Returns YYYY-MM-DD format or null.
   static String? _extractDate(dynamic raw) {
     if (raw == null) return null;
-    final str = raw.toString().trim();
+    var str = raw.toString().trim();
     if (str.isEmpty || str.toLowerCase() == 'null') return null;
     // Accept YYYY-MM-DD format
-    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(str)) return str;
+    // Convert Devanagari numerals to ASCII digits
+    const devanagari = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+    for (int i = 0; i < devanagari.length; i++) {
+      str = str.replaceAll(devanagari[i], i.toString());
+    }
+
+    // Match any dynamic YYYY-MM-DD or YYYY/MM/DD with 1-2 digit month/day
+    final m = RegExp(r'\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b').firstMatch(str);
+    if (m != null) {
+      final y = m.group(1)!;
+      final mo = m.group(2)!.padLeft(2, '0');
+      final d = m.group(3)!.padLeft(2, '0');
+      return '$y-$mo-$d';
+    }
     // Try to parse other formats
     try {
       final dt = DateTime.parse(str);
@@ -739,4 +803,20 @@ class GeminiOcrService {
   void dispose() {
     _client.close();
   }
+}
+
+/// Top-level worker function for offloading software image resizing to a background isolate.
+Uint8List? _resizeImageIsolate(Uint8List bytes) {
+  try {
+    final decoded = img.decodeImage(bytes);
+    if (decoded != null && (decoded.width > 1600 || decoded.height > 1600)) {
+      final resized = img.copyResize(
+        decoded,
+        width: decoded.width > decoded.height ? 1600 : null,
+        height: decoded.height >= decoded.width ? 1600 : null,
+      );
+      return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+    }
+  } catch (_) {}
+  return null;
 }

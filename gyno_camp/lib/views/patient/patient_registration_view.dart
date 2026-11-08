@@ -819,7 +819,10 @@ class _PatientRegistrationViewState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 4,
                                 children: [
                                   const Text(
                                     'Intake Date (दर्ता मिति):',
@@ -829,7 +832,6 @@ class _PatientRegistrationViewState
                                       color: AppTheme.primaryDark,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                     decoration: BoxDecoration(
@@ -849,14 +851,18 @@ class _PatientRegistrationViewState
                                 ],
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                NepaliLocalizationService.formatDualCalendarDate(
-                                  state.intakeDate ?? (camp?.startDate ?? DateTime.now()),
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimaryLight,
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  NepaliLocalizationService.formatDualCalendarDate(
+                                    state.intakeDate ?? (camp?.startDate ?? DateTime.now()),
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimaryLight,
+                                  ),
                                 ),
                               ),
                             if (camp != null) ...[

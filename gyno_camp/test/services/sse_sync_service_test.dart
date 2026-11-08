@@ -61,6 +61,40 @@ void main() {
       expect(sseService.isConnected, isFalse);
     });
 
+    test('reconnect cleanly re-establishes stream without marking service disposed', () async {
+      var connectionCount = 0;
+      final controllers = <StreamController<List<int>>>[];
+
+      http.Client buildClient() {
+        return MockClient.streaming((request, bodyStream) async {
+          connectionCount++;
+          final sc = StreamController<List<int>>();
+          controllers.add(sc);
+          return http.StreamedResponse(sc.stream, 200);
+        });
+      }
+
+      final apiService = HttpCentralApiService(baseUrl: 'http://localhost:8080');
+      final sseService = SseSyncService(
+        apiService: apiService,
+        deviceId: 'dev-test-reconnect',
+        clientFactory: buildClient,
+      );
+
+      await sseService.connect();
+      expect(sseService.isConnected, isTrue);
+      expect(connectionCount, 1);
+
+      await sseService.reconnect();
+      expect(sseService.isConnected, isTrue);
+      expect(connectionCount, 2);
+
+      sseService.dispose();
+      for (final sc in controllers) {
+        await sc.close();
+      }
+    });
+
     test('reconnect scheduled on non-200 server response', () async {
       final mockClient = MockClient.streaming((request, bodyStream) async {
         return http.StreamedResponse(

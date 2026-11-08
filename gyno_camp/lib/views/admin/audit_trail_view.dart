@@ -236,19 +236,27 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
                 child: Row(
                   children: [
-                    _buildFilterChip('ALL', 'All Events', Icons.auto_awesome_mosaic_rounded, _countForCategory(userLogs, 'ALL')),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('CAMP', 'Camps', Icons.campaign_rounded, _countForCategory(userLogs, 'CAMP')),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('DEVICE', 'Devices', Icons.devices_rounded, _countForCategory(userLogs, 'DEVICE')),
+                    _buildFilterChip('ALL', currentUser?.isDataTaker == true ? 'My Events' : 'All Events', Icons.auto_awesome_mosaic_rounded, _countForCategory(userLogs, 'ALL')),
                     const SizedBox(width: 8),
                     _buildFilterChip('PATIENT', 'Patients', Icons.people_alt_rounded, _countForCategory(userLogs, 'PATIENT')),
                     const SizedBox(width: 8),
                     _buildFilterChip('USER', 'Authentication', Icons.badge_rounded, _countForCategory(userLogs, 'USER')),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('LOOKUP', 'Formulary', Icons.tune_rounded, _countForCategory(userLogs, 'LOOKUP')),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('REPORT', 'Reports', Icons.bar_chart_rounded, _countForCategory(userLogs, 'REPORT')),
+                    if (currentUser?.canManageCamps == true) ...[
+                      const SizedBox(width: 8),
+                      _buildFilterChip('CAMP', 'Camps', Icons.campaign_rounded, _countForCategory(userLogs, 'CAMP')),
+                    ],
+                    if (currentUser?.canApproveDevices == true) ...[
+                      const SizedBox(width: 8),
+                      _buildFilterChip('DEVICE', 'Devices', Icons.devices_rounded, _countForCategory(userLogs, 'DEVICE')),
+                    ],
+                    if (currentUser?.canCustomizeDropdowns == true) ...[
+                      const SizedBox(width: 8),
+                      _buildFilterChip('LOOKUP', 'Formulary', Icons.tune_rounded, _countForCategory(userLogs, 'LOOKUP')),
+                    ],
+                    if (currentUser?.canExportReports == true) ...[
+                      const SizedBox(width: 8),
+                      _buildFilterChip('REPORT', 'Reports', Icons.bar_chart_rounded, _countForCategory(userLogs, 'REPORT')),
+                    ],
                   ],
                 ),
               ),
@@ -273,7 +281,7 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
                     : Stack(
                         children: [
                           filteredLogs.isEmpty
-                              ? _buildContextualEmptyState(context, _selectedCategory)
+                              ? _buildContextualEmptyState(context, _selectedCategory, currentUser)
                               : ListView.separated(
                                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                                   itemCount: filteredLogs.length,
@@ -803,7 +811,11 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
   // -------------------------------------------------------------
   // Rich Contextual Empty State
   // -------------------------------------------------------------
-  Widget _buildContextualEmptyState(BuildContext context, String category) {
+  Widget _buildContextualEmptyState(BuildContext context, String category, dynamic currentUser) {
+    final canManageCamps = currentUser?.canManageCamps == true;
+    final canApproveDevices = currentUser?.canApproveDevices == true;
+    final canCustomizeDropdowns = currentUser?.canCustomizeDropdowns == true;
+    final canExportReports = currentUser?.canExportReports == true;
     final isSearching = _searchController.text.trim().isNotEmpty;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isCompact = screenWidth < 500;
@@ -855,29 +867,29 @@ class _AuditTrailViewState extends ConsumerState<AuditTrailView> {
         icon = Icons.devices_other_rounded;
         title = 'No Device Security Events Logged Yet';
         explanation = 'Field tablet registration requests, OTP verifications, and Super Admin whitelisting events will appear here as outreach terminals join the network.';
-        buttonLabel = 'Authorize Hardware Workstations';
-        onButtonTap = () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeviceManagementView()));
+        buttonLabel = canApproveDevices ? 'Authorize Hardware Workstations' : null;
+        onButtonTap = canApproveDevices ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeviceManagementView())) : null;
         break;
       case 'LOOKUP':
         icon = Icons.tune_rounded;
         title = 'Clinical Master Formulary Active';
         explanation = 'Nepal MoHP Yellow Form diagnoses, pelvic organ prolapse stages, and essential dispensary medicines are active. Custom formulary modifications will be recorded here.';
-        buttonLabel = 'Manage Master Data & Formulary';
-        onButtonTap = () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MasterConfigView()));
+        buttonLabel = canCustomizeDropdowns ? 'Manage Master Data & Formulary' : null;
+        onButtonTap = canCustomizeDropdowns ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MasterConfigView())) : null;
         break;
       case 'CAMP':
         icon = Icons.campaign_rounded;
         title = 'No Camp Lifecycle Events Recorded';
         explanation = 'Camp initialization, status shifts (Scheduled / Open / Closed), and staff deployments are permanently anchored in this audit chain.';
-        buttonLabel = 'Manage Clinical Camps';
-        onButtonTap = () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CampManagementView()));
+        buttonLabel = canManageCamps ? 'Manage Clinical Camps' : null;
+        onButtonTap = canManageCamps ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CampManagementView())) : null;
         break;
       case 'REPORT':
         icon = Icons.assessment_rounded;
         title = 'No Clinical Reports Exported Yet';
         explanation = 'PDF and Excel clinical dossier exports, aggregate epidemiology summaries, and patient referral sheets will be cataloged with their digital export signatures here.';
-        buttonLabel = 'Generate Camp Reports';
-        onButtonTap = () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CampReportView()));
+        buttonLabel = canExportReports ? 'Generate Camp Reports' : null;
+        onButtonTap = canExportReports ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CampReportView())) : null;
         break;
       case 'PATIENT':
         icon = Icons.people_outline_rounded;

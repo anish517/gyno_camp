@@ -470,6 +470,9 @@ class AuthRepository implements IAuthRepository {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
 
+    // Reflect newly assigned camps on each camp's Staff Team roster
+    await _syncCampStaffAssignments(db, createdUser);
+
     await _auditRepository.logActivity(
       userId: adminUserId,
       userName: _currentUser?.name ?? 'Super Admin',
@@ -518,7 +521,40 @@ class AuthRepository implements IAuthRepository {
       );
     }
 
-    // Synchronize camp assigned_staff_ids with user.assignedCampIds (Issue 1)
+    // Keep camp.assigned_staff_ids in sync with user.assignedCampIds
+    await _syncCampStaffAssignments(db, user);
+
+    await _auditRepository.logActivity(
+      userId: adminUserId,
+      userName: _currentUser?.name ?? 'Super Admin',
+      userRole: AppConstants.roleSuperAdmin,
+      action: 'USER_UPDATED',
+      entityType: 'User',
+      entityId: user.id,
+      detailsJson:
+          '{"name":"${user.name}","email":"${user.email}","role":"${user.role.toDbString()}","isActive":${user.isActive}}',
+      deviceId: deviceId,
+    );
+
+    if (enableCentralSync) {
+      try {
+        await HttpCentralApiService().broadcastUser(updatedWithTimestamp);
+      } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
+    }
+
+    if (_currentUser?.id == updatedWithTimestamp.id) {
+      _currentUser = updatedWithTimestamp;
+    }
+    return updatedWithTimestamp;
+  }
+
+  /// Keeps each camp's `assigned_staff_ids` in sync with [user].assignedCampIds.
+  ///
+  /// The camp roster ("Staff Team") reads `camp.assignedStaffIds`, while the staff
+  /// registration / "Assign Camps" screens write `user.assignedCampIds`. Both
+  /// create and update must call this so the two sides never diverge.
+  Future<void> _syncCampStaffAssignments(DatabaseExecutor db, UserModel user) async {
+    if (user.isSuperAdmin || user.role == UserRole.superAdmin) return;
     try {
       final campRows = await db.query(DatabaseTables.tableCamps);
       for (final r in campRows) {
@@ -543,7 +579,10 @@ class AuthRepository implements IAuthRepository {
         if (changed) {
           await db.update(
             DatabaseTables.tableCamps,
-            {'assigned_staff_ids': rawStaff.join(',')},
+            {
+              'assigned_staff_ids': rawStaff.join(','),
+              'updated_at': DateTime.now().toUtc().toIso8601String(),
+            },
             where: 'id = ?',
             whereArgs: [cId],
           );
@@ -553,35 +592,14 @@ class AuthRepository implements IAuthRepository {
                 assignedStaffIds: rawStaff.toList(),
                 updatedAt: DateTime.now().toUtc(),
               );
-              HttpCentralApiService().broadcastCamp(campObj);
+              await HttpCentralApiService().broadcastCamp(campObj);
             } catch (_) {}
           }
         }
       }
-    } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
-
-    await _auditRepository.logActivity(
-      userId: adminUserId,
-      userName: _currentUser?.name ?? 'Super Admin',
-      userRole: AppConstants.roleSuperAdmin,
-      action: 'USER_UPDATED',
-      entityType: 'User',
-      entityId: user.id,
-      detailsJson:
-          '{"name":"${user.name}","email":"${user.email}","role":"${user.role.toDbString()}","isActive":${user.isActive}}',
-      deviceId: deviceId,
-    );
-
-    if (enableCentralSync) {
-      try {
-        await HttpCentralApiService().broadcastUser(updatedWithTimestamp);
-      } catch (e) { debugPrint('[AuthRepo] Central sync error: $e'); }
+    } catch (e) {
+      debugPrint('[AuthRepo] Camp staff sync error: $e');
     }
-
-    if (_currentUser?.id == updatedWithTimestamp.id) {
-      _currentUser = updatedWithTimestamp;
-    }
-    return updatedWithTimestamp;
   }
 
   Future<void> updateTenantOrganizationName({
@@ -700,6 +718,9 @@ class AuthRepository implements IAuthRepository {
       where: 'id = ?',
       whereArgs: [userId],
     );
+
+    // Remove deleted staff member from any camp's assigned_staff_ids
+    await _syncCampStaffAssignments(db, target.copyWith(assignedCampIds: const []));
 
     // Save tombstone in app_metadata
     try {

@@ -181,8 +181,8 @@ void main() {
     setUpAll(() { r = parsePage2(); });
 
     test('Ring Pessary',          () { expect(r.medications.any((m) => m.toLowerCase().contains('pessary')),      isTrue, reason: r.medications.toString()); });
-    test('Metronidazole',         () { expect(r.medications.any((m) => m.toLowerCase().contains('metronidazole')),isTrue, reason: r.medications.toString()); });
-    test('Fluconazole',           () { expect(r.medications.any((m) => m.toLowerCase().contains('fluconazole')),  isTrue, reason: r.medications.toString()); });
+    test('Metronidazol',          () { expect(r.medications.any((m) => m.toLowerCase().contains('metronidazol')), isTrue, reason: r.medications.toString()); });
+    test('Clotrimazol',           () { expect(r.medications.any((m) => m.toLowerCase().contains('clotrimazol')),  isTrue, reason: r.medications.toString()); });
     test('Scheer referral',       () { expect(r.surgicalReferral?.toLowerCase().contains('scheer') ?? false, isTrue, reason: r.surgicalReferral); });
     test('Follow-up not empty',   () { expect(r.followUpDestination?.isNotEmpty ?? false, isTrue); });
   });

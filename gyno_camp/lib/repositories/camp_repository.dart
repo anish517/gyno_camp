@@ -154,6 +154,66 @@ class CampRepository implements ICampRepository {
         .where((c) => !deletedCampIds.contains(c.id))
         .toList();
 
+    // Self-healing: Reconcile any staff assignments recorded in users.assigned_camp_ids
+    // that are missing from camps.assigned_staff_ids (e.g. from staff registered before bi-directional sync).
+    try {
+      final userRows = await db.query(DatabaseTables.tableUsers);
+      final staffUsers = userRows
+          .map((r) => UserModel.fromMap(r))
+          .where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin)
+          .toList();
+
+      for (int i = 0; i < localCamps.length; i++) {
+        final camp = localCamps[i];
+        final currentStaffIds = Set<String>.from(camp.assignedStaffIds);
+        bool campChanged = false;
+
+        // 1. Add any active staff assigned to this camp in their user record
+        for (final u in staffUsers) {
+          if (u.assignedCampIds.contains(camp.id) && !currentStaffIds.contains(u.id)) {
+            currentStaffIds.add(u.id);
+            campChanged = true;
+          }
+        }
+
+        // 2. Remove any orphaned staff IDs that no longer exist in tableUsers
+        final validUserIds = userRows.map((r) => r['id'] as String).toSet();
+        final beforeRemoveCount = currentStaffIds.length;
+        currentStaffIds.removeWhere((id) => !validUserIds.contains(id));
+        if (currentStaffIds.length != beforeRemoveCount) {
+          campChanged = true;
+        }
+
+        if (campChanged) {
+          final nowUtc = DateTime.now().toUtc();
+          final updatedStaffList = currentStaffIds.toList();
+          final updatedCamp = camp.copyWith(
+            assignedStaffIds: updatedStaffList,
+            updatedAt: nowUtc,
+          );
+          localCamps[i] = updatedCamp;
+
+          await db.update(
+            DatabaseTables.tableCamps,
+            {
+              'assigned_staff_ids': updatedStaffList.join(','),
+              'updated_at': nowUtc.toIso8601String(),
+            },
+            where: 'id = ?',
+            whereArgs: [camp.id],
+          );
+
+          if (enableCentralSync) {
+            try {
+              await HttpCentralApiService().broadcastCamp(updatedCamp);
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[CampRepo] Self-healing staff assignment reconciliation error: $e');
+    }
+
     return localCamps;
   }
 
@@ -596,7 +656,7 @@ class CampRepository implements ICampRepository {
     // 1. Broadcast the updated camp to Central Cloud
     if (enableCentralSync) {
       try {
-        HttpCentralApiService().broadcastCamp(updated);
+        await HttpCentralApiService().broadcastCamp(updated);
       } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
     }
 
@@ -638,7 +698,7 @@ class CampRepository implements ICampRepository {
           );
           if (enableCentralSync) {
             try {
-              HttpCentralApiService().broadcastUser(updatedUser);
+              await HttpCentralApiService().broadcastUser(updatedUser);
             } catch (_) {}
           }
         }

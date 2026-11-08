@@ -2332,8 +2332,13 @@ class GynoCampSyncServer {
     );
 
     if (found.isEmpty) {
-      request.response.statusCode = HttpStatus.notFound;
-      request.response.write(jsonEncode({'error': 'Device not found', 'fingerprint': fp}));
+      request.response.statusCode = HttpStatus.ok;
+      request.response.write(jsonEncode({
+        'found': false,
+        'status': 'unregistered',
+        'message': 'Device not found or pending registration',
+        'fingerprint': fp,
+      }));
     } else {
       request.response.statusCode = HttpStatus.ok;
       request.response.write(jsonEncode(found));

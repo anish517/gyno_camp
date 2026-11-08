@@ -464,7 +464,7 @@ void main() {
       expect(find.textContaining('3. Pelvic Floor & POP Re-Staging'), findsOneWidget);
 
       // Verify Uterus Position and Pelvic Floor Tone controls
-      expect(find.textContaining('Uterus Position (पाठेघरको अवस्था)'), findsOneWidget);
+      expect(find.textContaining('Uterus Inside'), findsOneWidget);
       expect(find.textContaining('Pelvic Floor Muscle Tone'), findsOneWidget);
       expect(find.text('Normal (सामान्य)'), findsOneWidget);
       expect(find.text('Weak / Lax (कमजोर)'), findsOneWidget);

@@ -21,7 +21,94 @@ class HttpCentralApiService implements ICentralApiService {
   static String? _activeBaseUrl;
   static bool _isServerReachable = true;
   static DateTime? _lastOfflineCheck;
+  static int _inFlightRequests = 0;
   static const Duration _offlineCooldown = Duration(seconds: 30);
+
+  /// Obsolete hardcoded LAN/hotspot IPs from legacy dev builds that may still
+  /// be persisted in SharedPreferences / browser localStorage.
+  static const Set<String> _legacyObsoleteHosts = {
+    '192.168.1.4',
+    '192.168.1.13',
+    '192.168.1.110',
+    '192.168.16.113',
+  };
+
+  /// Returns true if [rawUrl] points to one of the retired hardcoded dev IPs.
+  static bool isLegacyObsoleteUrl(String? rawUrl) {
+    if (rawUrl == null || rawUrl.trim().isEmpty) return false;
+    const envUrl = String.fromEnvironment(
+      'CENTRAL_SERVER_URL',
+      defaultValue: '',
+    );
+    if (envUrl.isNotEmpty && _normalizeUrl(rawUrl) == _normalizeUrl(envUrl)) {
+      return false;
+    }
+    final trimmed = rawUrl.trim();
+    if (_legacyObsoleteHosts.contains(trimmed)) return true;
+    final uri = Uri.tryParse(trimmed);
+    return uri != null && _legacyObsoleteHosts.contains(uri.host);
+  }
+
+  static String _normalizeUrl(String raw) {
+    final trimmed = raw.trim();
+    return trimmed.endsWith('/')
+        ? trimmed.substring(0, trimmed.length - 1)
+        : trimmed;
+  }
+
+  /// Platform- and deployment-aware single default Central Server URL.
+  ///
+  /// - Production builds (`--dart-define=CENTRAL_SERVER_URL=...`): uses that exact URL.
+  /// - Web (`kIsWeb`):
+  ///   - Local dev (`localhost` / `127.0.0.1`): `http://localhost:8080`.
+  ///   - Reverse-proxied deployment (HTTPS or ports 80/443): same origin (`Uri.base.origin`).
+  ///   - LAN dev host (`http://<lan-ip>:<dev-port>`): `http://<lan-ip>:8080`.
+  /// - Native (Desktop / Android via `adb reverse`): `http://localhost:8080`.
+  static String get defaultServerUrl {
+    const envUrl = String.fromEnvironment(
+      'CENTRAL_SERVER_URL',
+      defaultValue: 'http://213.163.200.92',
+    );
+    if (envUrl.isNotEmpty) {
+      return _normalizeUrl(envUrl);
+    }
+
+    if (kIsWeb) {
+      final host = Uri.base.host;
+      if (host.isEmpty || host == 'localhost' || host == '127.0.0.1') {
+        return 'http://localhost:8080';
+      }
+      if (Uri.base.scheme == 'https' ||
+          Uri.base.port == 80 ||
+          Uri.base.port == 443) {
+        return _normalizeUrl(Uri.base.origin);
+      }
+      return '${Uri.base.scheme}://$host:8080';
+    }
+
+    return 'http://213.163.200.92';
+  }
+
+  /// True while an active API or Cloud OCR request is communicating with the server.
+  static bool get hasActiveRequest => _inFlightRequests > 0;
+
+  static void beginActiveRequest() {
+    _inFlightRequests++;
+  }
+
+  static void endActiveRequest() {
+    if (_inFlightRequests > 0) {
+      _inFlightRequests--;
+    }
+  }
+
+  @visibleForTesting
+  static void resetStaticStateForTest() {
+    _activeBaseUrl = null;
+    _isServerReachable = true;
+    _lastOfflineCheck = null;
+    _inFlightRequests = 0;
+  }
 
   /// Checks whether a central cloud server is configured or enabled
   static bool get isServerConfigured {
@@ -68,8 +155,8 @@ class HttpCentralApiService implements ICentralApiService {
   static void markServerOnline([String? url]) {
     _isServerReachable = true;
     _lastOfflineCheck = null;
-    if (url != null && url.isNotEmpty) {
-      _activeBaseUrl = url;
+    if (url != null && url.isNotEmpty && !isLegacyObsoleteUrl(url)) {
+      _activeBaseUrl = _normalizeUrl(url);
     }
   }
 
@@ -79,49 +166,58 @@ class HttpCentralApiService implements ICentralApiService {
 
   String get baseUrl {
     final customUrl = _customBaseUrl;
-    if (customUrl != null && customUrl.isNotEmpty) {
-      return customUrl;
+    if (customUrl != null && customUrl.trim().isNotEmpty) {
+      return _normalizeUrl(customUrl);
     }
 
-    // 1. Explicit runtime environment flag (--dart-define=CENTRAL_SERVER_URL=...) MUST take top priority
+    // 1. Explicit compile-time deployment flag (--dart-define=CENTRAL_SERVER_URL=...)
+    //    is ALWAYS the single authoritative endpoint in deployed builds.
     const envUrl = String.fromEnvironment(
       'CENTRAL_SERVER_URL',
-      defaultValue: '',
+      defaultValue: 'http://213.163.200.92',
     );
     if (envUrl.isNotEmpty) {
-      return envUrl;
+      return _normalizeUrl(envUrl);
     }
 
-    // 2. Verified active URL from dynamic candidate probing
+    // 2. Verified active URL (ignoring retired hardcoded dev IPs)
     final activeUrl = _activeBaseUrl;
-    if (activeUrl != null && activeUrl.isNotEmpty) {
-      return activeUrl;
+    if (activeUrl != null &&
+        activeUrl.isNotEmpty &&
+        !isLegacyObsoleteUrl(activeUrl)) {
+      return _normalizeUrl(activeUrl);
     }
 
-    // 3. User-configured saved URL from preferences (ignore obsolete 192.168.1.4 if present)
+    // 3. User-configured saved URL from preferences (self-heal obsolete legacy IPs)
     try {
       final savedUrl = SessionService.current?.getCentralServerUrl();
-      if (savedUrl != null &&
-          savedUrl.isNotEmpty &&
-          savedUrl != 'http://192.168.1.5:8080') {
-        return savedUrl;
+      if (savedUrl != null && savedUrl.trim().isNotEmpty) {
+        if (isLegacyObsoleteUrl(savedUrl)) {
+          SessionService.current?.saveCentralServerUrl(defaultServerUrl);
+        } else {
+          return _normalizeUrl(savedUrl);
+        }
       }
     } catch (_) {}
 
-    try {
-      final configuredHost = SessionService.current?.getPostgresConfig().host;
-      if (configuredHost != null &&
-          configuredHost.isNotEmpty &&
-          configuredHost != 'localhost' &&
-          configuredHost != '127.0.0.1' &&
-          configuredHost != '192.168.1.4') {
-        return configuredHost.startsWith('http')
-            ? configuredHost
-            : 'http://$configuredHost:8080';
-      }
-    } catch (_) {}
+    // 4. Native PostgreSQL host fallback (for tablets configured via PG host)
+    if (!kIsWeb) {
+      try {
+        final configuredHost = SessionService.current?.getPostgresConfig().host;
+        if (configuredHost != null &&
+            configuredHost.trim().isNotEmpty &&
+            configuredHost != 'localhost' &&
+            configuredHost != '127.0.0.1' &&
+            !isLegacyObsoleteUrl(configuredHost)) {
+          final host = configuredHost.trim();
+          return _normalizeUrl(
+            host.startsWith('http') ? host : 'http://$host:8080',
+          );
+        }
+      } catch (_) {}
+    }
 
-    return 'http://192.168.1.5:8080';
+    return defaultServerUrl;
   }
 
   bool simulateNetworkFailure = false;
@@ -138,63 +234,57 @@ class HttpCentralApiService implements ICentralApiService {
   @override
   void setMockServerLookupItems(List<LookupItemModel> items) {}
 
-  /// Ensures the service has discovered and verified a live connection to the Central Server.
+  /// Ensures the service has verified a live connection to the Central Server.
   Future<bool> ensureServerConnected() async {
+    if (_customBaseUrl != null) return true;
     if (_activeBaseUrl != null && _isServerReachable) return true;
     return await pingServer();
   }
 
   @override
   Future<bool> pingServer() async {
-    // 1. Fast path: test activeBaseUrl or preferred configured baseUrl first.
-    // If the configured endpoint (e.g., from --dart-define or SessionService) is reachable,
-    // return immediately to avoid probing dead LAN IPs which trigger noisy
-    // net::ERR_CONNECTION_TIMED_OUT errors in the browser console.
-    final preferred = _activeBaseUrl ?? baseUrl;
-    if (preferred.isNotEmpty && await _testEndpoint(preferred)) {
-      markServerOnline(preferred);
+    if (simulateNetworkFailure) {
+      if (_customBaseUrl == null) markServerOffline();
+      return false;
+    }
+
+    // Instance with explicit custom baseUrl (e.g. unit tests): test ONLY that endpoint.
+    final custom = _customBaseUrl;
+    if (custom != null && custom.trim().isNotEmpty) {
+      return _testEndpoint(_normalizeUrl(custom));
+    }
+
+    // If an active API / Cloud OCR request is currently communicating with the server,
+    // skip redundant health-check probing so we don't cause contention or false timeouts.
+    if (_inFlightRequests > 0 && _isServerReachable) {
       return true;
     }
 
-    // 2. Also check saved URL from session if different from preferred
-    final saved = SessionService.current?.getCentralServerUrl();
-    if (saved != null &&
-        saved.isNotEmpty &&
-        saved != preferred &&
-        await _testEndpoint(saved)) {
-      markServerOnline(saved);
+    // Test ONLY the single authoritative resolved server URL (never spray multiple LAN IPs).
+    final target = baseUrl;
+    if (target.isEmpty) {
+      markServerOffline();
+      return false;
+    }
+
+    if (await _testEndpoint(target)) {
+      markServerOnline(target);
       return true;
     }
 
-    // 3. Only if configured server is unreachable, probe candidate endpoints for LAN auto-discovery
-    final candidateSet = <String>{
-      'http://192.168.1.110:8080', // Active Wi-Fi host IP
-      'http://localhost:8080', // Web / desktop localhost
-      'http://127.0.0.1:8080', // ADB reverse USB loopback
-      'http://192.168.1.13:8080',
-      'http://192.168.1.4:8080',
-      'http://192.168.16.113:8080',
-    };
-
-    // 10.0.2.2 is exclusively for Android emulator host bridge - never probe on Web or desktop
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      candidateSet.add('http://10.0.2.2:8080');
-    }
-
-    candidateSet.remove(preferred);
-    if (saved != null) candidateSet.remove(saved);
-
-    final probeFutures = candidateSet.map((candidate) async {
-      final ok = await _testEndpoint(candidate);
-      return (candidate: candidate, ok: ok);
-    });
-
-    final results = await Future.wait(probeFutures);
-    for (final res in results) {
-      if (res.ok) {
-        markServerOnline(res.candidate);
+    // Local dev self-healing ONLY when CENTRAL_SERVER_URL is not compiled in:
+    // If a manually saved LAN IP in Settings became stale after a router DHCP change,
+    // check the platform default (e.g. http://localhost:8080) once before marking offline.
+    const envUrl = String.fromEnvironment(
+      'CENTRAL_SERVER_URL',
+      defaultValue: '',
+    );
+    if (envUrl.isEmpty) {
+      final fallbackDefault = defaultServerUrl;
+      if (fallbackDefault != target && await _testEndpoint(fallbackDefault)) {
+        markServerOnline(fallbackDefault);
         try {
-          SessionService.current?.saveCentralServerUrl(res.candidate);
+          SessionService.current?.saveCentralServerUrl(fallbackDefault);
         } catch (_) {}
         return true;
       }
@@ -209,7 +299,7 @@ class HttpCentralApiService implements ICentralApiService {
       final uri = Uri.parse('$targetUrl/health');
       final res = await _client
           .get(uri)
-          .timeout(const Duration(milliseconds: 1500));
+          .timeout(const Duration(milliseconds: 4000));
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -218,9 +308,10 @@ class HttpCentralApiService implements ICentralApiService {
 
   @override
   Future<SyncPushResponse> pushDelta(SyncPushPayload payload) async {
-    if (_activeBaseUrl == null || !_isServerReachable) {
+    if (_customBaseUrl == null && (_activeBaseUrl == null || !_isServerReachable)) {
       await pingServer();
     }
+    beginActiveRequest();
     try {
       final uri = Uri.parse('$baseUrl/api/sync/push');
       final body = jsonEncode(payload.toMap());
@@ -233,7 +324,7 @@ class HttpCentralApiService implements ICentralApiService {
           .timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         final data =
             jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
         return SyncPushResponse.fromMap(data);
@@ -243,9 +334,11 @@ class HttpCentralApiService implements ICentralApiService {
         );
       }
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
       debugPrint('HttpCentralApiService pushDelta error: $e');
       rethrow;
+    } finally {
+      endActiveRequest();
     }
   }
 
@@ -254,9 +347,10 @@ class HttpCentralApiService implements ICentralApiService {
     DateTime? since,
     required String deviceId,
   }) async {
-    if (_activeBaseUrl == null || !_isServerReachable) {
+    if (_customBaseUrl == null && (_activeBaseUrl == null || !_isServerReachable)) {
       await pingServer();
     }
+    beginActiveRequest();
     try {
       var urlStr = '$baseUrl/api/sync/pull?deviceId=$deviceId';
       if (since != null) {
@@ -268,7 +362,7 @@ class HttpCentralApiService implements ICentralApiService {
           .timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 200) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         final data =
             jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
         return SyncPullResponse.fromMap(data);
@@ -278,9 +372,11 @@ class HttpCentralApiService implements ICentralApiService {
         );
       }
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
       debugPrint('HttpCentralApiService pullDelta error: $e');
       rethrow;
+    } finally {
+      endActiveRequest();
     }
   }
 
@@ -297,10 +393,10 @@ class HttpCentralApiService implements ICentralApiService {
           )
           .timeout(const Duration(seconds: 3));
       final ok = res.statusCode == 200 || res.statusCode == 201;
-      if (ok) markServerOnline();
+      if (ok && _customBaseUrl == null) markServerOnline(baseUrl);
       return ok;
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
       return false;
     }
   }
@@ -312,10 +408,10 @@ class HttpCentralApiService implements ICentralApiService {
       final uri = Uri.parse('$baseUrl/api/camps?id=$campId');
       final res = await _client.delete(uri).timeout(const Duration(seconds: 3));
       final ok = res.statusCode == 200 || res.statusCode == 204;
-      if (ok) markServerOnline();
+      if (ok && _customBaseUrl == null) markServerOnline(baseUrl);
       return ok;
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
       return false;
     }
   }
@@ -333,10 +429,10 @@ class HttpCentralApiService implements ICentralApiService {
           )
           .timeout(const Duration(seconds: 3));
       final ok = res.statusCode == 200 || res.statusCode == 201;
-      if (ok) markServerOnline();
+      if (ok && _customBaseUrl == null) markServerOnline(baseUrl);
       return ok;
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
       return false;
     }
   }
@@ -348,10 +444,10 @@ class HttpCentralApiService implements ICentralApiService {
       final uri = Uri.parse('$baseUrl/api/users?id=$userId');
       final res = await _client.delete(uri).timeout(const Duration(seconds: 3));
       final ok = res.statusCode == 200 || res.statusCode == 204;
-      if (ok) markServerOnline();
+      if (ok && _customBaseUrl == null) markServerOnline(baseUrl);
       return ok;
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
       return false;
     }
   }
@@ -375,10 +471,10 @@ class HttpCentralApiService implements ICentralApiService {
           )
           .timeout(const Duration(seconds: 4));
       final ok = res.statusCode == 200 || res.statusCode == 201;
-      if (ok) markServerOnline();
+      if (ok && _customBaseUrl == null) markServerOnline(baseUrl);
       return ok;
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
       return false;
     }
   }
@@ -396,14 +492,14 @@ class HttpCentralApiService implements ICentralApiService {
           .get(uri, headers: {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
         return list
             .map((item) => CampModel.fromMap(item as Map<String, dynamic>))
             .toList();
       }
     } catch (e) {
-      if (!bypassCooldown) markServerOffline();
+      if (!bypassCooldown && _customBaseUrl == null) markServerOffline();
     }
     return [];
   }
@@ -421,14 +517,14 @@ class HttpCentralApiService implements ICentralApiService {
           .get(uri, headers: {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
         return list
             .map((item) => UserModel.fromMap(item as Map<String, dynamic>))
             .toList();
       }
     } catch (e) {
-      if (!bypassCooldown) markServerOffline();
+      if (!bypassCooldown && _customBaseUrl == null) markServerOffline();
     }
     return [];
   }
@@ -456,11 +552,11 @@ class HttpCentralApiService implements ICentralApiService {
           .post(uri, headers: headers, body: jsonEncode(device.toMap()))
           .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200 || res.statusCode == 201) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         return true;
       }
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
     }
     return false;
   }
@@ -478,14 +574,14 @@ class HttpCentralApiService implements ICentralApiService {
           .get(uri, headers: {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
         return list
             .map((item) => DeviceModel.fromMap(item as Map<String, dynamic>))
             .toList();
       }
     } catch (e) {
-      if (!bypassCooldown) markServerOffline();
+      if (!bypassCooldown && _customBaseUrl == null) markServerOffline();
     }
     return [];
   }
@@ -506,13 +602,19 @@ class HttpCentralApiService implements ICentralApiService {
           .get(uri, headers: {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         final map =
             jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+        if (map['found'] == false ||
+            map['status'] == 'unregistered' ||
+            map['status'] == 'not_found' ||
+            map['device_id'] == null) {
+          return null;
+        }
         return DeviceModel.fromMap(map);
       }
     } catch (e) {
-      if (!bypassCooldown) markServerOffline();
+      if (!bypassCooldown && _customBaseUrl == null) markServerOffline();
     }
     return null;
   }
@@ -533,11 +635,11 @@ class HttpCentralApiService implements ICentralApiService {
           )
           .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         return true;
       }
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
     }
     return false;
   }
@@ -558,11 +660,11 @@ class HttpCentralApiService implements ICentralApiService {
           )
           .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         return true;
       }
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
     }
     return false;
   }
@@ -588,7 +690,7 @@ class HttpCentralApiService implements ICentralApiService {
       final body =
           jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
       if (res.statusCode == 200 || res.statusCode == 201) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         return body;
       } else {
         return {
@@ -598,7 +700,7 @@ class HttpCentralApiService implements ICentralApiService {
         };
       }
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
       return {
         'success': false,
         'error': 'Network connection error: $e',
@@ -631,7 +733,7 @@ class HttpCentralApiService implements ICentralApiService {
       final body =
           jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
       if (res.statusCode == 200) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         return body;
       } else {
         return {
@@ -640,7 +742,7 @@ class HttpCentralApiService implements ICentralApiService {
         };
       }
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
       return {
         'success': false,
         'error': 'Network connection error: $e',
@@ -683,7 +785,7 @@ class HttpCentralApiService implements ICentralApiService {
       final body =
           jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
       if (res.statusCode == 200) {
-        markServerOnline();
+        if (_customBaseUrl == null) markServerOnline(baseUrl);
         return body;
       } else {
         return {
@@ -693,7 +795,7 @@ class HttpCentralApiService implements ICentralApiService {
         };
       }
     } catch (e) {
-      markServerOffline();
+      if (_customBaseUrl == null) markServerOffline();
       return {
         'success': false,
         'error': 'Network error: $e',

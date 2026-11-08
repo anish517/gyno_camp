@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -15,6 +16,11 @@ void main() {
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    final sampleImg = File('test_samples/sample_yellow_form_filled_page1.jpg');
+    if (!sampleImg.existsSync()) {
+      sampleImg.parent.createSync(recursive: true);
+      sampleImg.writeAsBytesSync(base64Decode('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA='));
+    }
   });
 
   /// Builds a client wired to a fake GynoCamp server (the proxy), never to Google.
@@ -205,7 +211,8 @@ void main() {
       // Station 4: Diagnoses & Station 5: Meds
       expect(result.diagnoses, contains('candid infection'));
       expect(result.medications, contains('metronidazol'));
-      expect(result.medications, contains('Ring Pessary 65mm'));
+      expect(result.ringPessary, true);
+      expect(result.ringPessarySize, 65);
 
       // Station 6: Referral
       expect(result.surgicalReferral, 'Scheer Memorial Hospital');

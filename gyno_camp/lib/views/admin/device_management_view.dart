@@ -39,6 +39,38 @@ class _DeviceManagementViewState extends ConsumerState<DeviceManagementView> {
     final vm = ref.read(deviceManagementProvider.notifier);
     final user = ref.watch(authStateProvider).currentUser;
 
+    if (user?.canApproveDevices != true) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Access Restricted'),
+          backgroundColor: Colors.transparent,
+          flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline_rounded, size: 48, color: Color(0xFF94A3B8)),
+                SizedBox(height: 12),
+                Text(
+                  'Super Administrator Permission Required',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E293B)),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Field tablet whitelisting and hardware workstation authorization can only be performed by Super Administrators.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     // Filter devices based on status tab and search query
     final filteredDevices = deviceState.filteredDevices.where((d) {
       if (_searchQuery.trim().isEmpty) return true;
