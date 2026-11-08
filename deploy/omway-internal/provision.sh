@@ -11,12 +11,13 @@
 #   PUBLIC_URL      URL the web bundle is built for and the smoke test fetches.
 #                   Default https://$SERVER_NAME.
 #   DB              database name. Default gynocamp_dev.
-#   RUNNER_SUDOERS  1 = install the sudo rule for a local GitLab runner (dev). Default 1.
+#   RUNNER_SUDOERS  1 = install the sudo rule for a local GitLab runner (dev, and
+#                   production's protected runner). Default 1.
 #   BACKUP_BEFORE_DEPLOY  1 = install.sh dumps the database before each deploy. Default 0.
 #
 # Dev (omway-internal):  bash provision.sh
 # Production (by IP):    SERVER_NAME=_ PUBLIC_URL=http://213.163.200.92 DB=gynocamp \
-#                        RUNNER_SUDOERS=0 BACKUP_BEFORE_DEPLOY=1 bash provision.sh
+#                        RUNNER_SUDOERS=1 BACKUP_BEFORE_DEPLOY=1 bash provision.sh
 #
 # Re-run it whenever a file in deploy/omway-internal/ changes: it is the only thing
 # that updates /srv/gynocamp/deploy, the units, the nginx site and the sudoers rule.
