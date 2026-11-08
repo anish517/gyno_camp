@@ -67,7 +67,7 @@ class HttpCentralApiService implements ICentralApiService {
   static String get defaultServerUrl {
     const envUrl = String.fromEnvironment(
       'CENTRAL_SERVER_URL',
-      defaultValue: 'http://213.163.200.92',
+      defaultValue: '',
     );
     if (envUrl.isNotEmpty) {
       return _normalizeUrl(envUrl);
@@ -86,7 +86,7 @@ class HttpCentralApiService implements ICentralApiService {
       return '${Uri.base.scheme}://$host:8080';
     }
 
-    return 'http://213.163.200.92';
+    return 'http://localhost:8080';
   }
 
   /// True while an active API or Cloud OCR request is communicating with the server.
@@ -174,7 +174,7 @@ class HttpCentralApiService implements ICentralApiService {
     //    is ALWAYS the single authoritative endpoint in deployed builds.
     const envUrl = String.fromEnvironment(
       'CENTRAL_SERVER_URL',
-      defaultValue: 'http://213.163.200.92',
+      defaultValue: '',
     );
     if (envUrl.isNotEmpty) {
       return _normalizeUrl(envUrl);
