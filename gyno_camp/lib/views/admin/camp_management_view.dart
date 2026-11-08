@@ -2722,7 +2722,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           },
                           decoration: InputDecoration(
                             labelText: 'Initial Password *',
-                            helperText: 'Min 6 characters (à¤¨à¥à¤¯à¥‚à¤¨à¤¤à¤® à¥¬ à¤…à¤•à¥à¤·à¤°)',
+                            helperText: 'Min 6 characters (न्यूनतम ६ अक्षर)',
                             errorText: passwordError,
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
@@ -2793,7 +2793,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       passwordError = 'Password is required (min 6 chars)';
                       hasError = true;
                     } else if (password.length < 6) {
-                      passwordError = 'Initial password must be at least 6 characters (à¤¨à¥à¤¯à¥‚à¤¨à¤¤à¤® à¥¬ à¤…à¤•à¥à¤·à¤°)';
+                      passwordError = 'Initial password must be at least 6 characters (न्यूनतम ६ अक्षर)';
                       hasError = true;
                     }
                     if (pin.isEmpty) {
