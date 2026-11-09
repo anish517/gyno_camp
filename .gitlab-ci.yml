@@ -1,10 +1,17 @@
 # MR -> build. Push to main -> build, then deploy:dev to https://gynocamp.omwaytechnologies.com
+# Push to PRODUCTION -> build for http://213.163.200.92, then deploy:production.
+# To release: merge main into PRODUCTION (an MR, or a push by a maintainer).
 #
-# Two shell-executor runners, picked by tag (neither accepts untagged jobs):
+# Three shell-executor runners, picked by tag (none accepts untagged jobs):
 #   flutter-build   omway-gitlab. The Flutter web build peaks at ~1.8 GB, which
 #                   omway-internal does not have. Capped at 2 GB and low CPU
 #                   priority so GitLab itself always wins (deploy/omway-gitlab/).
 #   omway-internal  the dev host. Only installs the prebuilt artifacts.
+#   gynocamp-production  the production box itself, registered as a PROTECTED
+#                   runner: GitLab gives it jobs from protected branches only, and
+#                   PRODUCTION is protected, so merge-request code never runs there
+#                   and no production credential exists anywhere else. It only
+#                   installs the prebuilt artifacts (deploy/production/).
 #
 # CI/CD variables (Settings > CI/CD > Variables):
 #   GEMINI_API_KEY  optional, masked. Compiled into the web bundle, so it is public
@@ -22,6 +29,7 @@ workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "PRODUCTION"
     - when: never
 
 default:
@@ -36,6 +44,12 @@ build:
     FLUTTER: /home/gitlab-runner/flutter/bin/flutter
     DART: /home/gitlab-runner/flutter/bin/dart
     CENTRAL_SERVER_URL: https://gynocamp.omwaytechnologies.com
+  rules:
+    # The API URL is compiled into the web bundle, so production needs its own build.
+    - if: $CI_COMMIT_BRANCH == "PRODUCTION"
+      variables:
+        CENTRAL_SERVER_URL: http://213.163.200.92
+    - when: on_success
   script:
     - bash deploy/omway-internal/build.sh dist
   artifacts:
@@ -65,4 +79,27 @@ deploy:dev:
       case "$CI_COMMIT_SHA" in
         *[!0-9a-f]*|"") echo "refusing to deploy: CI_COMMIT_SHA is not a hex sha"; exit 1 ;;
       esac
+    - sudo /srv/gynocamp/deploy/ci-deploy.sh "$CI_PROJECT_DIR/dist" "$CI_COMMIT_SHA"
+
+deploy:production:
+  stage: deploy
+  tags:
+    - gynocamp-production
+  needs:
+    - build
+  rules:
+    - if: $CI_COMMIT_BRANCH == "PRODUCTION"
+  interruptible: false
+  resource_group: gynocamp-production
+  environment:
+    name: production
+    url: http://213.163.200.92
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - |
+      case "$CI_COMMIT_SHA" in
+        *[!0-9a-f]*|"") echo "refusing to deploy: CI_COMMIT_SHA is not a hex sha"; exit 1 ;;
+      esac
+    # Same entry point as dev; on production install.sh also dumps the database first.
     - sudo /srv/gynocamp/deploy/ci-deploy.sh "$CI_PROJECT_DIR/dist" "$CI_COMMIT_SHA"

@@ -1,0 +1,9 @@
+# /etc/systemd/system/gynocamp-backup.service  (installed by provision.sh)
+[Unit]
+Description=GynoCamp database dump
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/gynocamp/deploy/backup.sh
