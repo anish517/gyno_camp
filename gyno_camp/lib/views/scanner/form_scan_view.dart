@@ -748,7 +748,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (ocrState.engineMode == OcrEngineMode.auto) ...[
+                  if (ocrState.engineMode == OcrEngineMode.onlineGemini) ...[
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
