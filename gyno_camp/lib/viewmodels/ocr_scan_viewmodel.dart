@@ -57,7 +57,7 @@ class OcrScanState {
     this.page2Scan,
     this.scanResult,
     this.activeInspectionPage = 1,
-    this.engineMode = OcrEngineMode.auto,
+    this.engineMode = OcrEngineMode.onlineGemini,
     this.errorMessage,
     this.successMessage,
     this.committedPatient,
@@ -130,7 +130,10 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     final saved = SessionService.current?.getOcrEngineMode();
     if (saved == 'onlineGemini') return OcrEngineMode.onlineGemini;
     if (saved == 'offlineOnly') return OcrEngineMode.offlineOnly;
-    return OcrEngineMode.auto;
+    if (saved == 'auto') return OcrEngineMode.auto;
+    // Default for devices that never picked an engine: Gemini AI (Cloud),
+    // as requested by the client. A device's own saved choice still wins.
+    return OcrEngineMode.onlineGemini;
   }
 
   Future<void> setEngineMode(OcrEngineMode mode) async {
