@@ -2548,7 +2548,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     child: CheckboxListTile(
                                       dense: true,
                                       title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      subtitle: Text('${s.role.displayNameEn} • ${s.email}'),
+                                      subtitle: Text('${s.rolesLabel} • ${s.email}'),
                                       value: isChecked,
                                       onChanged: (val) {
                                         setDialogState(() {
@@ -3677,7 +3677,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                                                         borderRadius: BorderRadius.circular(4),
                                                                       ),
                                                                       child: Text(
-                                                                        s.role.displayNameEn,
+                                                                        s.rolesLabel,
                                                                         style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: roleColor),
                                                                       ),
                                                                     ),

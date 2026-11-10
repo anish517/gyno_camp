@@ -145,7 +145,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
         ),
         data: (users) {
           final filteredUsers = users.where((u) {
-            if (_filterRole != null && u.role != _filterRole) return false;
+            if (_filterRole != null && !u.hasRole(_filterRole!)) return false;
             if (_statusFilter == StaffStatusFilter.activeOnly && !u.isActive) return false;
             if (_statusFilter == StaffStatusFilter.inactiveOnly && u.isActive) return false;
             if (_searchQuery.trim().isNotEmpty) {
@@ -159,7 +159,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
             return true;
           }).toList();
 
-          final activeNurses = users.where((u) => u.role == UserRole.dataTaker && u.isActive).length;
+          final activeNurses = users.where((u) => u.hasRole(UserRole.dataTaker) && u.isActive).length;
           final totalAdmins = users.where((u) => u.role == UserRole.superAdmin && u.isActive).length;
           final totalInactive = users.where((u) => !u.isActive).length;
 
@@ -517,6 +517,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
         roleLabel = 'Data Analyst';
         break;
     }
+    if (staff.hasMultipleRoles) roleLabel = staff.rolesLabel;
 
     final isProtectedRoot = staff.id == 'usr-superadmin-01';
 
@@ -730,7 +731,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                         'All Camps (Universal Super Admin)',
                         style: TextStyle(fontSize: 12, color: AppTheme.primaryDark, fontWeight: FontWeight.w600),
                       )
-                    else if (staff.role == UserRole.staff)
+                    // Multi-role staff also work as Data Taker / Analyst, which is camp-restricted.
+                    else if (staff.role == UserRole.staff && !staff.hasMultipleRoles)
                       const Text(
                         'All Camps (Staff Roster Coordinator)',
                         style: TextStyle(fontSize: 12, color: Color(0xFF4F46E5), fontWeight: FontWeight.w600),
@@ -1030,7 +1032,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     String? generalError;
 
     final messenger = ScaffoldMessenger.of(context);
-    UserRole selectedRole = UserRole.dataTaker;
+    Set<UserRole> selectedRoles = {UserRole.dataTaker};
     final selectedCampIds = <String>{};
     bool obscurePassword = false;
     bool obscurePin = false;
@@ -1245,28 +1247,12 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                             const SizedBox(height: 20),
                             _buildFormSectionHeader(Icons.security_outlined, 'Designated Role & Station Credentials'),
                             const SizedBox(height: 12),
-                            DropdownButtonFormField<UserRole>(
-                              initialValue: selectedRole,
-                              decoration: InputDecoration(
-                                labelText: 'Designated User Role *',
-                                prefixIcon: const Icon(Icons.admin_panel_settings_outlined, size: 18, color: Color(0xFF64748B)),
-                                floatingLabelBehavior: FloatingLabelBehavior.always,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                                isDense: true,
-                              ),
-                              items: UserRole.values
-                                  .where((r) => r != UserRole.superAdmin)
-                                  .map((r) {
-                                return DropdownMenuItem(
-                                  value: r,
-                                  child: Text(r.displayNameEn, style: const TextStyle(fontSize: 13.5)),
-                                );
-                              }).toList(),
-                              onChanged: isSubmitting
-                                  ? null
-                                  : (val) {
-                                      if (val != null) setDialogState(() => selectedRole = val);
-                                    },
+                            const Text('Designated Roles * (select one or more)', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                            const SizedBox(height: 6),
+                            _buildRolePicker(
+                              selected: selectedRoles,
+                              enabled: !isSubmitting,
+                              onChanged: (next) => setDialogState(() => selectedRoles = next),
                             ),
                             const SizedBox(height: 12),
                             LayoutBuilder(
@@ -1555,7 +1541,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                                       name: name,
                                       email: email,
                                       phone: phone,
-                                      role: selectedRole,
+                                      role: UserRole.primaryOf(selectedRoles),
+                                      grantedRoles: selectedRoles,
                                       isActive: true,
                                       assignedCampIds: selectedCampIds.toList(),
                                       tenantId: currentUser?.tenantId ?? 'tenant_default',
@@ -1721,6 +1708,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     final messenger = ScaffoldMessenger.of(context);
     bool isActive = staff.isActive;
     UserRole selectedRole = staff.role;
+    Set<UserRole> selectedRoles = staff.roles.where((r) => r != UserRole.superAdmin).toSet();
+    if (selectedRoles.isEmpty) selectedRoles = {UserRole.dataTaker};
     bool isSubmitting = false;
 
     final currentUser = ref.read(authStateProvider).currentUser;
@@ -1832,7 +1821,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                     const SizedBox(height: 14),
                     const Text('Role Designation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<UserRole>(
+                    if (isProtectedRoot)
+                      DropdownButtonFormField<UserRole>(
                       initialValue: selectedRole,
                       decoration: InputDecoration(
                         border: const OutlineInputBorder(),
@@ -1850,7 +1840,13 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                           : (val) {
                               if (val != null) setDialogState(() => selectedRole = val);
                             },
-                    ),
+                      )
+                    else
+                      _buildRolePicker(
+                        selected: selectedRoles,
+                        enabled: !isSubmitting,
+                        onChanged: (next) => setDialogState(() => selectedRoles = next),
+                      ),
                     const SizedBox(height: 14),
                     SwitchListTile(
                       title: const Text('Account Active Status', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
@@ -1914,7 +1910,8 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                           email: newEmail,
                           tenantName: newTenant,
                           phone: phoneCtrl.text.trim(),
-                          role: selectedRole,
+                          role: isProtectedRoot ? UserRole.superAdmin : UserRole.primaryOf(selectedRoles),
+                          grantedRoles: isProtectedRoot ? {UserRole.superAdmin} : selectedRoles,
                           isActive: isActive,
                         );
 
@@ -2175,6 +2172,40 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
           );
         },
       ),
+    );
+  }
+
+  /// Role picker for staff accounts: an account can hold several roles
+  /// (e.g. Staff Coordinator + Data Taker + Data Analyst) and picks one
+  /// workspace at login. At least one role stays selected.
+  Widget _buildRolePicker({
+    required Set<UserRole> selected,
+    required bool enabled,
+    required ValueChanged<Set<UserRole>> onChanged,
+  }) {
+    const assignable = [UserRole.staff, UserRole.dataTaker, UserRole.dataAnalyst];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        for (final r in assignable)
+          FilterChip(
+            key: ValueKey('role_chip_${r.name}'),
+            label: Text(r.displayNameEn, style: const TextStyle(fontSize: 13)),
+            selected: selected.contains(r),
+            onSelected: !enabled
+                ? null
+                : (on) {
+                    final next = {...selected};
+                    if (on) {
+                      next.add(r);
+                    } else if (next.length > 1) {
+                      next.remove(r);
+                    }
+                    onChanged(next);
+                  },
+          ),
+      ],
     );
   }
 
