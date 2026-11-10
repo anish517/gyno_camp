@@ -86,7 +86,15 @@ class AuthViewModel extends StateNotifier<AuthState> {
                 : (!AppConstants.isLegacyDefaultOrganization(user.tenantName)
                     ? user.tenantName.trim()
                     : AppConstants.defaultOrganizationName);
-            final effectiveUser = user.copyWith(tenantName: effectiveTenant);
+            // Resume in the workspace chosen at login (multi-role accounts).
+            final savedRole = session.getSavedUserRole();
+            final resumeRole = (savedRole != null && savedRole.isNotEmpty && !savedRole.contains(','))
+                ? UserRole.fromString(savedRole)
+                : null;
+            final effectiveUser = user.copyWith(
+              tenantName: effectiveTenant,
+              role: resumeRole != null && user.hasRole(resumeRole) ? resumeRole : null,
+            );
             _authRepository.setCurrentUser(effectiveUser);
             state = state.copyWith(currentUser: effectiveUser, isRestoringSession: false);
             return;
@@ -109,14 +117,14 @@ class AuthViewModel extends StateNotifier<AuthState> {
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final user = await _authRepository.login(
+      final account = await _authRepository.login(
         email: email,
         password: password,
         deviceId: deviceId,
       );
       if (!mounted) return false;
-      if (user != null) {
-        if (requiredRole != null && user.role != requiredRole) {
+      if (account != null) {
+        if (requiredRole != null && !account.hasRole(requiredRole)) {
           // STRICT RBAC CHECK: Deny access if account role does not match selected station terminal
           await _authRepository.logout(deviceId: deviceId);
           if (!mounted) return false;
@@ -124,10 +132,13 @@ class AuthViewModel extends StateNotifier<AuthState> {
             currentUser: null,
             isLoading: false,
             errorMessage:
-                'Access Denied: Staff account "${user.name}" is designated as ${user.role.displayNameEn}. You cannot authenticate into the ${requiredRole.displayNameEn} terminal.',
+                'Access Denied: Staff account "${account.name}" is designated as ${account.rolesLabel}. You cannot authenticate into the ${requiredRole.displayNameEn} terminal.',
           );
           return false;
         }
+        // Work as the terminal's role (accounts can hold several roles).
+        final user = requiredRole != null ? account.copyWith(role: requiredRole) : account;
+        _authRepository.setCurrentUser(user);
         // CAMP ASSIGNMENT GATE: Regular field staff must have at least one assigned camp that exists
         if (!user.isSuperAdmin && user.role != UserRole.superAdmin && user.role != UserRole.staff) {
           var validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
@@ -263,7 +274,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
         deviceId: deviceId,
       );
       if (!mounted) return true;
-      state = state.copyWith(currentUser: saved, isLoading: false);
+      state = state.copyWith(currentUser: _keepActiveRole(saved), isLoading: false);
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -311,7 +322,44 @@ class AuthViewModel extends StateNotifier<AuthState> {
   }
 
   void updateCurrentUser(UserModel user) {
-    state = state.copyWith(currentUser: user);
+    state = state.copyWith(currentUser: _keepActiveRole(user));
+  }
+
+  /// A refreshed copy of the signed-in user comes back in its primary role;
+  /// keep the workspace the user is in, as long as the account still holds it.
+  UserModel _keepActiveRole(UserModel fresh) {
+    final current = state.currentUser;
+    if (current == null || current.id != fresh.id || !fresh.hasRole(current.role)) return fresh;
+    return fresh.copyWith(role: current.role);
+  }
+
+  /// Switches a multi-role account to another of its workspaces without logging
+  /// out. Applies the same camp-assignment gate as logging into that terminal.
+  Future<bool> switchRole(UserRole role) async {
+    final user = state.currentUser;
+    if (user == null || !user.hasRole(role)) return false;
+    if (role == user.role) return true;
+    if (role != UserRole.superAdmin && role != UserRole.staff) {
+      final validCamps = await _authRepository.getValidCampsForUser(user.assignedCampIds);
+      if (!mounted) return false;
+      if (validCamps.isEmpty) {
+        state = state.copyWith(
+          errorMessage:
+              'Cannot open the ${role.displayNameEn} workspace: "${user.name}" has no assigned camps. Please contact your Super Admin.',
+        );
+        return false;
+      }
+    }
+    final switched = user.copyWith(role: role);
+    _authRepository.setCurrentUser(switched);
+    await SessionService.current?.saveUserSession(
+      userId: switched.id,
+      email: switched.email,
+      role: role.toDbString(),
+    );
+    if (!mounted) return true;
+    state = state.copyWith(currentUser: switched, errorMessage: null);
+    return true;
   }
 
   Future<void> logout({required String deviceId}) async {

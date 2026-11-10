@@ -206,23 +206,63 @@ class HomeGatewayView extends ConsumerWidget {
                       ),
                       if (!isCompact) ...[
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF30026E).withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.2)),
-                          ),
-                          child: Text(
-                            (user.isSuperAdmin ? UserRole.superAdmin : user.role).displayNameEn,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF30026E),
-                              letterSpacing: 0.3,
+                        if (user.hasMultipleRoles && !user.isSuperAdmin)
+                          PopupMenuButton<UserRole>(
+                            tooltip: 'Switch workspace',
+                            initialValue: user.role,
+                            onSelected: (r) {
+                              if (r != user.role) _switchWorkspace(context, ref, r);
+                            },
+                            itemBuilder: (_) => [
+                              for (final r in user.sortedRoles)
+                                CheckedPopupMenuItem<UserRole>(
+                                  value: r,
+                                  checked: r == user.role,
+                                  child: Text(r.displayNameEn),
+                                ),
+                            ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF30026E).withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.2)),
+                                  ),
+                                  child: Text(
+                                    (user.isSuperAdmin ? UserRole.superAdmin : user.role).displayNameEn,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF30026E),
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                                const Icon(Icons.arrow_drop_down_rounded, size: 18, color: Color(0xFF30026E)),
+                              ],
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF30026E).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.2)),
+                            ),
+                            child: Text(
+                              (user.isSuperAdmin ? UserRole.superAdmin : user.role).displayNameEn,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF30026E),
+                                letterSpacing: 0.3,
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ],
                   ),
@@ -437,6 +477,19 @@ class HomeGatewayView extends ConsumerWidget {
     );
   }
 
+  /// Moves a multi-role account to another of its workspaces (dashboard,
+  /// permissions and camp scope follow the active role).
+  Future<void> _switchWorkspace(BuildContext context, WidgetRef ref, UserRole role) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final notifier = ref.read(authStateProvider.notifier);
+    final ok = await notifier.switchRole(role);
+    messenger.showSnackBar(SnackBar(
+      content: Text(ok
+          ? 'Now working as ${role.displayNameEn}'
+          : (ref.read(authStateProvider).errorMessage ?? 'Could not switch to ${role.displayNameEn}')),
+    ));
+  }
+
   Future<void> _showSignOutDialog(
     BuildContext context,
     WidgetRef ref,
@@ -544,6 +597,30 @@ class HomeGatewayView extends ConsumerWidget {
                 ],
               ),
             ),
+            if (user.hasMultipleRoles && !user.isSuperAdmin) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Switch workspace instead',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  for (final r in user.sortedRoles.where((r) => r != user.role))
+                    OutlinedButton.icon(
+                      key: ValueKey('switch_role_${r.name}'),
+                      icon: const Icon(Icons.swap_horiz_rounded, size: 16),
+                      label: Text(r.displayNameEn, style: const TextStyle(fontSize: 12.5)),
+                      onPressed: () {
+                        Navigator.pop(dialogCtx);
+                        _switchWorkspace(context, ref, r);
+                      },
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: 12),
             const Text(
               'Are you sure you want to end this clinical session? Unsaved form progress will be closed and you will be returned to the Staff Login screen.',
@@ -606,8 +683,8 @@ class HomeGatewayView extends ConsumerWidget {
     final usersAsync = ref.watch(allUsersProvider);
     final users = usersAsync.value ?? const <UserModel>[];
 
-    final activeNurses = users.where((u) => u.role == UserRole.dataTaker && u.isActive).length;
-    final activeStaffCoordinators = users.where((u) => u.role == UserRole.staff && u.isActive).length;
+    final activeNurses = users.where((u) => u.hasRole(UserRole.dataTaker) && u.isActive).length;
+    final activeStaffCoordinators = users.where((u) => u.hasRole(UserRole.staff) && u.isActive).length;
     final totalPersonnel = users.length;
     final openCamps = campState.camps.where((c) => c.isOpen).length;
 
@@ -1069,7 +1146,7 @@ class HomeGatewayView extends ConsumerWidget {
                                           style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                                         ),
                                         Text(
-                                          st.role.displayNameEn,
+                                          st.rolesLabel,
                                           style: TextStyle(fontSize: 10, color: roleColor, fontWeight: FontWeight.w600),
                                         ),
                                       ],
@@ -4421,7 +4498,7 @@ class HomeGatewayView extends ConsumerWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Tenant ID: ${user.tenantId} • Role: ${user.role.displayNameEn}',
+                            'Tenant ID: ${user.tenantId} • ${user.hasMultipleRoles ? 'Roles: ${user.rolesLabel} (working as ${user.role.displayNameEn})' : 'Role: ${user.role.displayNameEn}'}',
                             style: const TextStyle(fontSize: 11, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
                           ),
                         ),

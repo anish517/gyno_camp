@@ -481,7 +481,7 @@ class AuthRepository implements IAuthRepository {
       entityType: 'User',
       entityId: createdUser.id,
       detailsJson:
-          '{"name":"${createdUser.name}","email":"${createdUser.email}","role":"${createdUser.role.toDbString()}"}',
+          '{"name":"${createdUser.name}","email":"${createdUser.email}","role":"${createdUser.rolesDbString}"}',
       deviceId: deviceId,
     );
 
@@ -532,7 +532,7 @@ class AuthRepository implements IAuthRepository {
       entityType: 'User',
       entityId: user.id,
       detailsJson:
-          '{"name":"${user.name}","email":"${user.email}","role":"${user.role.toDbString()}","isActive":${user.isActive}}',
+          '{"name":"${user.name}","email":"${user.email}","role":"${user.rolesDbString}","isActive":${user.isActive}}',
       deviceId: deviceId,
     );
 
@@ -543,7 +543,11 @@ class AuthRepository implements IAuthRepository {
     }
 
     if (_currentUser?.id == updatedWithTimestamp.id) {
-      _currentUser = updatedWithTimestamp;
+      // Stay in the workspace the user is signed into, if the account still holds it.
+      final active = _currentUser!.role;
+      _currentUser = updatedWithTimestamp.hasRole(active)
+          ? updatedWithTimestamp.copyWith(role: active)
+          : updatedWithTimestamp;
     }
     return updatedWithTimestamp;
   }
@@ -758,7 +762,7 @@ class AuthRepository implements IAuthRepository {
       entityType: 'User',
       entityId: userId,
       detailsJson:
-          '{"name":"${target.name}","email":"${target.email}","role":"${target.role.toDbString()}"}',
+          '{"name":"${target.name}","email":"${target.email}","role":"${target.rolesDbString}"}',
       deviceId: deviceId,
     );
   }
@@ -898,13 +902,14 @@ class AuthRepository implements IAuthRepository {
     final db = await _databaseService.database;
     final maps = await db.query(
       DatabaseTables.tableUsers,
-      where: 'role = ? AND is_active = 1',
-      whereArgs: [role.toDbString()],
+      // The role column can hold a comma-separated list ("STAFF,DATA_TAKER").
+      where: "(',' || role || ',') LIKE ? AND is_active = 1",
+      whereArgs: ['%,${role.toDbString()},%'],
       limit: 1,
     );
 
     if (maps.isEmpty) return null;
-    final user = UserModel.fromMap(maps.first);
+    final user = UserModel.fromMap(maps.first).copyWith(role: role);
     final now = DateTime.now();
 
     await db.update(
