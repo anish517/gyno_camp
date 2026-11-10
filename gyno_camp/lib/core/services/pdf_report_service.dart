@@ -5797,7 +5797,7 @@ class PdfReportService {
                 : ClinicalConstants.anamnesisDurations;
 
             return pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 11.0),
+              padding: const pw.EdgeInsets.only(bottom: 12.5),
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
@@ -5820,7 +5820,7 @@ class PdfReportService {
                     child: pw.Container(
                       padding: const pw.EdgeInsets.symmetric(
                         horizontal: 5,
-                        vertical: 5.0,
+                        vertical: 6.0,
                       ),
                       decoration: pw.BoxDecoration(
                         color: isTicked
@@ -5866,7 +5866,7 @@ class PdfReportService {
                                 }),
                               ],
                             ),
-                            pw.SizedBox(height: 1.5),
+                            pw.SizedBox(height: 3.0),
                           ],
                           if (!hasDuration && options.length >= 4) ...[
                             pw.Row(
@@ -5896,7 +5896,7 @@ class PdfReportService {
                                 }),
                               ],
                             ),
-                            pw.SizedBox(height: 1.5),
+                            pw.SizedBox(height: 3.0),
                             pw.Row(
                               crossAxisAlignment: pw.CrossAxisAlignment.center,
                               children: [
@@ -6162,71 +6162,6 @@ class PdfReportService {
             ],
           );
 
-          // ── Bottom Administrative Footer ──
-          final bottomFooter = pw.Container(
-            width: double.infinity,
-            margin: const pw.EdgeInsets.only(top: 16),
-            padding: const pw.EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 4.5,
-            ),
-            decoration: pw.BoxDecoration(
-              color: PdfColor.fromHex('F8FAFC'),
-              border: pw.Border.all(color: primary, width: 0.8),
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
-            ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  'FOR OFFICIAL USE ONLY: Registration Verified',
-                  style: pw.TextStyle(
-                    fontSize: 7.2,
-                    fontWeight: pw.FontWeight.bold,
-                    color: primary,
-                  ),
-                ),
-                pw.Text(
-                  'Data Entry Operator: _______________________',
-                  style: const pw.TextStyle(
-                    fontSize: 7.0,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-                pw.Row(
-                  mainAxisSize: pw.MainAxisSize.min,
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    ne(
-                      'Date / मिति:',
-                      size: 7.0,
-                      bold: false,
-                      color: 0xFF616161,
-                    ),
-                    pw.SizedBox(width: 4),
-                    buildDateBsBoxes(
-                      intakeDate,
-                      hasData: hasPatient,
-                      boxSize: 8.0,
-                      boxHeight: 11.0,
-                      fontSize: 6.8,
-                    ),
-                  ],
-                ),
-                pw.Text(
-                  camp != null
-                      ? 'Camp: ${camp.campCode}'
-                      : 'Camp / कोड: [    ]',
-                  style: pw.TextStyle(
-                    fontSize: 7.2,
-                    fontWeight: pw.FontWeight.bold,
-                    color: dark,
-                  ),
-                ),
-              ],
-            ),
-          );
-
           // Return full page layout with FittedBox ensuring strictly 1 physical page
           return pw.FittedBox(
             fit: pw.BoxFit.scaleDown,
@@ -6367,8 +6302,6 @@ class PdfReportService {
                   sectionB,
                   pw.SizedBox(height: 7),
                   station1,
-                  pw.SizedBox(height: 10),
-                  bottomFooter,
                 ],
               ),
             ),

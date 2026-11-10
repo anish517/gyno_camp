@@ -964,10 +964,15 @@ class GynoCampSyncServer {
       }
     }
 
-    // 2. Process Users
+    // 2. Process Users (never resurrect a user deleted through the API)
+    final deletedUserIds = users.isEmpty ? <String>{} : await _deletedIds('user');
     for (final u in users) {
       final map = u as Map<String, dynamic>;
       final id = map['id']?.toString() ?? '';
+      if (deletedUserIds.contains(id)) {
+        print('! Ignoring pushed user $id: it was deleted on the central server.');
+        continue;
+      }
       _memUsers[id] = map;
       if (_isPgConnected && _connection != null) {
         try {
@@ -2035,6 +2040,27 @@ class GynoCampSyncServer {
     await request.response.close();
   }
 
+  /// Ids deleted through the API (camps, users, lookups). A client that still
+  /// holds such a record locally must not bring it back by pushing it again.
+  Future<Set<String>> _deletedIds(String entityType) async {
+    final ids = {
+      for (final e in _memDeletedEntities.entries)
+        if (e.value == entityType) e.key,
+    };
+    if (_isPgConnected && _connection != null) {
+      try {
+        final rows = await _connection!.execute(
+          Sql.named('SELECT id FROM deleted_entities WHERE entity_type = @type;'),
+          parameters: {'type': entityType},
+        );
+        ids.addAll(rows.map((r) => r[0].toString()));
+      } catch (e) {
+        print('Error reading deleted_entities ($entityType): $e');
+      }
+    }
+    return ids;
+  }
+
   Future<void> _handlePostUser(HttpRequest request) async {
     final body = await utf8.decodeStream(request);
     final map = jsonDecode(body) as Map<String, dynamic>;
@@ -2043,6 +2069,12 @@ class GynoCampSyncServer {
     final roleVal = isRootAdmin ? 'SUPER_ADMIN' : (map['role'] ?? 'data_taker');
     map['role'] = roleVal;
     map['id'] = id;
+    if ((await _deletedIds('user')).contains(id)) {
+      request.response.statusCode = HttpStatus.gone;
+      request.response.write(jsonEncode({'error': 'User $id was deleted and cannot be re-created.'}));
+      await request.response.close();
+      return;
+    }
     final nowIso = DateTime.now().toUtc().toIso8601String();
     map['updated_at'] = (map['updated_at'] != null && map['updated_at'].toString().isNotEmpty)
         ? map['updated_at']

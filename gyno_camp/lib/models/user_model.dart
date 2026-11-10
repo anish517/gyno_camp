@@ -61,6 +61,26 @@ enum UserRole {
     }
   }
 
+  /// Order used to pick a user's default (primary) role and to list roles:
+  /// the broadest workspace first.
+  static const List<UserRole> precedence = [
+    UserRole.superAdmin,
+    UserRole.staff,
+    UserRole.dataTaker,
+    UserRole.dataAnalyst,
+  ];
+
+  /// Parses the `role` column, which holds one role ("DATA_TAKER") or, for
+  /// staff with several jobs, a comma-separated list ("STAFF,DATA_TAKER").
+  static Set<UserRole> parseList(String raw) {
+    final parts = raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+    final roles = parts.map(UserRole.fromString).toSet();
+    return roles.isEmpty ? {UserRole.dataTaker} : roles;
+  }
+
+  static UserRole primaryOf(Iterable<UserRole> roles) =>
+      precedence.firstWhere(roles.contains, orElse: () => UserRole.dataTaker);
+
   String get displayNameNe {
     switch (this) {
       case UserRole.superAdmin:
@@ -80,7 +100,14 @@ class UserModel {
   final String name;
   final String email;
   final String phone;
+
+  /// The role this session is working as: the terminal chosen at login, or the
+  /// account's primary role. All `isX` / `canX` checks below use this role, so
+  /// each workspace behaves exactly as it does for a single-role account.
   final UserRole role;
+
+  /// Every role the account holds (empty = just [role]). Use [roles].
+  final Set<UserRole> grantedRoles;
   final bool isActive;
   final DateTime? lastLoginAt;
   final List<String> assignedCampIds;
@@ -96,6 +123,7 @@ class UserModel {
     required this.email,
     required this.phone,
     required this.role,
+    this.grantedRoles = const {},
     this.isActive = true,
     this.lastLoginAt,
     this.assignedCampIds = const [],
@@ -112,6 +140,20 @@ class UserModel {
       email.trim().toLowerCase() == 'admin@gynocamp.org' ||
       name.toLowerCase().contains('super admin') ||
       name.toLowerCase().contains('super administrator');
+  /// All roles the account holds, always including the active [role].
+  Set<UserRole> get roles => {...grantedRoles, role};
+  bool hasRole(UserRole r) => roles.contains(r);
+  bool get hasMultipleRoles => roles.length > 1;
+
+  /// Roles in display order, e.g. [staff, dataTaker, dataAnalyst].
+  List<UserRole> get sortedRoles => UserRole.precedence.where(roles.contains).toList();
+
+  /// Value stored in the `role` column: one role, or a comma-separated list.
+  String get rolesDbString => sortedRoles.map((r) => r.toDbString()).join(',');
+
+  /// "Staff Coordinator, Data Taker, Data Analyst"
+  String get rolesLabel => sortedRoles.map((r) => r.displayNameEn).join(', ');
+
   bool get isStaff => role == UserRole.staff;
   bool get isDataTaker => role == UserRole.dataTaker;
   bool get isDataAnalyst => role == UserRole.dataAnalyst;
@@ -129,7 +171,7 @@ class UserModel {
       'name': name,
       'email': email,
       'phone': phone,
-      'role': role.toDbString(),
+      'role': rolesDbString,
       'is_active': isActive ? 1 : 0,
       'last_login_at': lastLoginAt?.toIso8601String(),
       'assigned_camp_ids': assignedCampIds.join(','),
@@ -141,29 +183,32 @@ class UserModel {
     };
   }
 
+  static Set<UserRole> _rolesFromMap(Map<String, dynamic> map) {
+    final emailStr = (map['email'] as String? ?? '').trim().toLowerCase();
+    final idStr = (map['id'] as String? ?? '').trim();
+    final nameStr = (map['name'] as String? ?? '').trim().toLowerCase();
+    if (idStr == 'usr-superadmin-01' ||
+        emailStr == 'admin@gynocamp.org' ||
+        nameStr.contains('super administrator') ||
+        nameStr.contains('super admin')) {
+      return {UserRole.superAdmin};
+    }
+    try {
+      return UserRole.parseList(map['role'] as String? ?? '');
+    } catch (_) {
+      // Gracefully handle unknown/legacy roles from DB without crashing
+      return {UserRole.dataTaker};
+    }
+  }
+
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
       id: map['id'] as String,
       name: map['name'] as String,
       email: map['email'] as String,
       phone: map['phone'] as String? ?? '',
-      role: () {
-        final emailStr = (map['email'] as String? ?? '').trim().toLowerCase();
-        final idStr = (map['id'] as String? ?? '').trim();
-        final nameStr = (map['name'] as String? ?? '').trim().toLowerCase();
-        if (idStr == 'usr-superadmin-01' ||
-            emailStr == 'admin@gynocamp.org' ||
-            nameStr.contains('super administrator') ||
-            nameStr.contains('super admin')) {
-          return UserRole.superAdmin;
-        }
-        try {
-          return UserRole.fromString(map['role'] as String? ?? '');
-        } catch (_) {
-          // Gracefully handle unknown/legacy roles from DB without crashing
-          return UserRole.dataTaker;
-        }
-      }(),
+      role: UserRole.primaryOf(_rolesFromMap(map)),
+      grantedRoles: _rolesFromMap(map),
       isActive: (map['is_active'] is int)
           ? (map['is_active'] as int) == 1
           : (map['is_active'] as bool? ?? true),
@@ -195,6 +240,7 @@ class UserModel {
     String? email,
     String? phone,
     UserRole? role,
+    Set<UserRole>? grantedRoles,
     bool? isActive,
     DateTime? lastLoginAt,
     List<String>? assignedCampIds,
@@ -204,12 +250,30 @@ class UserModel {
     String? pinHash,
     DateTime? updatedAt,
   }) {
+    // grantedRoles given: the account's roles change; keep the active role if
+    //   still granted, otherwise fall back to the new primary role.
+    // Only role given: switching workspace when the account holds that role,
+    //   otherwise a plain role change (the account now holds just that role).
+    final Set<UserRole> newGranted;
+    final UserRole newRole;
+    if (grantedRoles != null && grantedRoles.isNotEmpty) {
+      newGranted = Set.unmodifiable(grantedRoles);
+      final wanted = role ?? this.role;
+      newRole = newGranted.contains(wanted) ? wanted : UserRole.primaryOf(newGranted);
+    } else if (role != null && !roles.contains(role)) {
+      newGranted = const {};
+      newRole = role;
+    } else {
+      newGranted = this.grantedRoles;
+      newRole = role ?? this.role;
+    }
     return UserModel(
       id: id ?? this.id,
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,
-      role: role ?? this.role,
+      role: newRole,
+      grantedRoles: newGranted,
       isActive: isActive ?? this.isActive,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       assignedCampIds: assignedCampIds ?? this.assignedCampIds,

@@ -349,75 +349,81 @@ class DatabaseService {
       'updated_at': bootstrapEpoch,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert(DatabaseTables.tableUsers, {
-      'id': 'usr-datataker-01',
-      'name': 'Sita Sharma (Field Nurse)',
-      'email': 'sita@gynocamp.org',
-      'phone': '9841234567',
-      'role': AppConstants.roleDataTaker,
-      'is_active': 1,
-      'last_login_at': bootstrapEpoch,
-      'assigned_camp_ids': 'camp-ktm-01',
-      'tenant_id': 'tenant_default',
-      'tenant_name': 'Community Health Outreach',
-      'password_hash': SecurityService.hashSha256('nurse123'),
-      'pin_hash': SecurityService.hashPin('1234'),
-      'updated_at': bootstrapEpoch,
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    // Demo accounts and the sample camp exist only in debug/test builds. Release
+    // builds (dev and production servers) start with the Super Admin alone:
+    // every device seeding these and syncing them up is how demo staff ended up
+    // on production.
+    if (!kReleaseMode) {
+      await db.insert(DatabaseTables.tableUsers, {
+        'id': 'usr-datataker-01',
+        'name': 'Sita Sharma (Field Nurse)',
+        'email': 'sita@gynocamp.org',
+        'phone': '9841234567',
+        'role': AppConstants.roleDataTaker,
+        'is_active': 1,
+        'last_login_at': bootstrapEpoch,
+        'assigned_camp_ids': 'camp-ktm-01',
+        'tenant_id': 'tenant_default',
+        'tenant_name': 'Community Health Outreach',
+        'password_hash': SecurityService.hashSha256('nurse123'),
+        'pin_hash': SecurityService.hashPin('1234'),
+        'updated_at': bootstrapEpoch,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert(DatabaseTables.tableUsers, {
-      'id': 'usr-dataanalyst-01',
-      'name': 'Bikash Adhikari',
-      'email': 'analyst@gynocamp.org',
-      'phone': '9860123456',
-      'role': AppConstants.roleDataAnalyst,
-      'is_active': 1,
-      'last_login_at': bootstrapEpoch,
-      'assigned_camp_ids': '',
-      'tenant_id': 'tenant_default',
-      'tenant_name': 'Community Health Outreach',
-      'password_hash': SecurityService.hashSha256('analyst123'),
-      'pin_hash': SecurityService.hashPin('1234'),
-      'updated_at': bootstrapEpoch,
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      await db.insert(DatabaseTables.tableUsers, {
+        'id': 'usr-dataanalyst-01',
+        'name': 'Bikash Adhikari',
+        'email': 'analyst@gynocamp.org',
+        'phone': '9860123456',
+        'role': AppConstants.roleDataAnalyst,
+        'is_active': 1,
+        'last_login_at': bootstrapEpoch,
+        'assigned_camp_ids': '',
+        'tenant_id': 'tenant_default',
+        'tenant_name': 'Community Health Outreach',
+        'password_hash': SecurityService.hashSha256('analyst123'),
+        'pin_hash': SecurityService.hashPin('1234'),
+        'updated_at': bootstrapEpoch,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert(DatabaseTables.tableUsers, {
-      'id': 'usr-staff-01',
-      'name': 'Ramesh Poudel (Staff Coordinator)',
-      'email': 'staff@gynocamp.org',
-      'phone': '9851099999',
-      'role': AppConstants.roleStaff,
-      'is_active': 1,
-      'last_login_at': bootstrapEpoch,
-      'assigned_camp_ids': '',
-      'tenant_id': 'tenant_default',
-      'tenant_name': 'Community Health Outreach',
-      'password_hash': SecurityService.hashSha256('staff123'),
-      'pin_hash': SecurityService.hashPin('1234'),
-      'updated_at': bootstrapEpoch,
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      await db.insert(DatabaseTables.tableUsers, {
+        'id': 'usr-staff-01',
+        'name': 'Ramesh Poudel (Staff Coordinator)',
+        'email': 'staff@gynocamp.org',
+        'phone': '9851099999',
+        'role': AppConstants.roleStaff,
+        'is_active': 1,
+        'last_login_at': bootstrapEpoch,
+        'assigned_camp_ids': '',
+        'tenant_id': 'tenant_default',
+        'tenant_name': 'Community Health Outreach',
+        'password_hash': SecurityService.hashSha256('staff123'),
+        'pin_hash': SecurityService.hashPin('1234'),
+        'updated_at': bootstrapEpoch,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    // 2. Seed active sample camp
-    await db.insert(DatabaseTables.tableCamps, {
-      'id': 'camp-ktm-01',
-      'camp_code': 'KTM01',
-      'name': 'Outreach Gyno Health Camp',
-      'province': 'Bagmati',
-      'district': 'Kathmandu',
-      'municipality': 'Budhanilkantha Municipality',
-      'ward': '03',
-      'venue': 'Primary Health Care Center',
-      'start_date': DateTime.now()
-          .subtract(const Duration(days: 1))
-          .toIso8601String(),
-      'end_date': DateTime.now().add(const Duration(days: 3)).toIso8601String(),
-      'status': AppConstants.campStatusOpen,
-      'assigned_staff_ids': 'usr-datataker-01,usr-superadmin-01',
-      'total_patients_registered': 0,
-      'tenant_id': 'tenant_default',
-      'organization_name': 'Community Health Outreach Mission',
-      'created_at': now,
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      // 2. Seed active sample camp
+      await db.insert(DatabaseTables.tableCamps, {
+        'id': 'camp-ktm-01',
+        'camp_code': 'KTM01',
+        'name': 'Outreach Gyno Health Camp',
+        'province': 'Bagmati',
+        'district': 'Kathmandu',
+        'municipality': 'Budhanilkantha Municipality',
+        'ward': '03',
+        'venue': 'Primary Health Care Center',
+        'start_date': DateTime.now()
+            .subtract(const Duration(days: 1))
+            .toIso8601String(),
+        'end_date': DateTime.now().add(const Duration(days: 3)).toIso8601String(),
+        'status': AppConstants.campStatusOpen,
+        'assigned_staff_ids': 'usr-datataker-01,usr-superadmin-01',
+        'total_patients_registered': 0,
+        'tenant_id': 'tenant_default',
+        'organization_name': 'Community Health Outreach Mission',
+        'created_at': now,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
 
     // 3. Seed default diagnoses from Yellow Form
     int sortIdx = 0;
@@ -522,20 +528,23 @@ class DatabaseService {
       'updated_at': now,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
 
-    // 6. Seed primary administrative workstation
-    await db.insert(DatabaseTables.tableDevices, {
-      'device_id': 'dev-admin-workstation',
-      'device_name': 'Central Command Workstation (Admin)',
-      'model': 'Medical Outreach Terminal',
-      'hardware_fingerprint': SecurityService.generateDeviceFingerprint(brand: 'Admin', model: 'Console', serial: 'ADMIN-001'),
-      'status': AppConstants.deviceStatusApproved,
-      'registered_by_user_id': 'usr-superadmin-01',
-      'registered_by_name': 'System Administrator (Super Admin)',
-      'registered_at': now,
-      'approved_by_user_id': 'usr-superadmin-01',
-      'approved_at': now,
-      'tenant_id': 'tenant_default',
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    // 6. Demo administrative workstation (debug/test builds only; real devices
+    //    register themselves and are approved by an admin).
+    if (!kReleaseMode) {
+      await db.insert(DatabaseTables.tableDevices, {
+        'device_id': 'dev-admin-workstation',
+        'device_name': 'Central Command Workstation (Admin)',
+        'model': 'Medical Outreach Terminal',
+        'hardware_fingerprint': SecurityService.generateDeviceFingerprint(brand: 'Admin', model: 'Console', serial: 'ADMIN-001'),
+        'status': AppConstants.deviceStatusApproved,
+        'registered_by_user_id': 'usr-superadmin-01',
+        'registered_by_name': 'System Administrator (Super Admin)',
+        'registered_at': now,
+        'approved_by_user_id': 'usr-superadmin-01',
+        'approved_at': now,
+        'tenant_id': 'tenant_default',
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
 
   }
 
