@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'patient_model.dart';
 
 class OcrScanResultModel {
@@ -87,6 +89,8 @@ class OcrScanResultModel {
 
   String? get patientTokenId =>
       (demographics['patientTokenId'] as String? ?? demographics['patientId'] as String?)?.trim();
+
+  String? get patientId => patientTokenId;
 
   /// Effective Anamnesis Date (falls back to intakeDate if not explicitly set)
   String? get effectiveAnamnesisDate => (anamnesisDate != null && anamnesisDate!.isNotEmpty) ? anamnesisDate : intakeDate;
@@ -600,6 +604,26 @@ class OfflineScanQueueItem {
 
   bool get hasPage1 => (page1ImageBase64 != null && page1ImageBase64!.isNotEmpty) || (page1ImagePath != null && page1ImagePath!.isNotEmpty);
   bool get hasPage2 => (page2ImageBase64 != null && page2ImageBase64!.isNotEmpty) || (page2ImagePath != null && page2ImagePath!.isNotEmpty);
+  bool get hasAnyImage => hasPage1 || hasPage2;
+  String? get patientIdHint => patientTokenHint;
+
+  Uint8List? get page1Bytes {
+    if (page1ImageBase64 == null || page1ImageBase64!.isEmpty) return null;
+    try {
+      return base64Decode(page1ImageBase64!);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Uint8List? get page2Bytes {
+    if (page2ImageBase64 == null || page2ImageBase64!.isEmpty) return null;
+    try {
+      return base64Decode(page2ImageBase64!);
+    } catch (_) {
+      return null;
+    }
+  }
 
   Map<String, dynamic> toMap() {
     return {

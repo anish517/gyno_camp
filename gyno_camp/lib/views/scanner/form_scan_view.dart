@@ -14,7 +14,6 @@ import '../../core/utils/nepali_date_helper.dart';
 import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
 import '../../models/patient_model.dart';
-import '../../repositories/ocr_repository.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';

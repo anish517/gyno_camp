@@ -486,9 +486,9 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
     try {
       await _patientRepository.deletePatient(
         patient.id,
-        userId: userId,
-        userName: userName,
-        userRole: userRole,
+        deletedByUserId: userId,
+        deletedByUserName: userName,
+        deletedByUserRole: userRole,
         deviceId: deviceId,
       );
       final targetCampId = state.loadedCampId ?? patient.campId;
@@ -512,9 +512,9 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
     try {
       await _patientRepository.deleteClinicalVisit(
         visitId,
-        userId: userId,
-        userName: userName,
-        userRole: userRole,
+        deletedByUserId: userId,
+        deletedByUserName: userName,
+        deletedByUserRole: userRole,
         deviceId: deviceId,
       );
       final targetCampId = state.loadedCampId ?? campId;
@@ -538,15 +538,14 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
   }) async {
     try {
       await _patientRepository.recordNurseSeenQuickVisit(
-        patientId: patient.id,
-        campId: patient.campId,
-        primaryNurseName: primaryNurseName,
-        attendingNurseNames: attendingNurseNames.isNotEmpty
+        patient: patient,
+        nurseName: primaryNurseName,
+        attendingNurses: attendingNurseNames.isNotEmpty
             ? attendingNurseNames
             : [primaryNurseName],
         treatmentLevel: treatmentLevel ?? patient.treatmentLevel,
         notes: notes,
-        createdByUserId: userId,
+        userId: userId,
         deviceId: deviceId,
       );
       final targetCampId = state.loadedCampId ?? patient.campId;

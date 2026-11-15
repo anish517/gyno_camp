@@ -167,6 +167,19 @@ class _FakePatientRepository implements IPatientRepository {
   @override
   Future<bool> isPatientIdTaken(String patientId) async =>
       storedPatients.any((p) => p.patientId == patientId);
+
+  @override
+  Future<void> deletePatient(String patientIdOrUuid, {required String deletedByUserId, required String deletedByUserName, required String deletedByUserRole, required String deviceId}) async {
+    storedPatients.removeWhere((p) => p.id == patientIdOrUuid || p.patientId == patientIdOrUuid);
+  }
+
+  @override
+  Future<void> deleteClinicalVisit(String visitId, {required String deletedByUserId, required String deletedByUserName, required String deletedByUserRole, required String deviceId}) async {
+    visits.removeWhere((v) => v.id == visitId);
+  }
+
+  @override
+  Future<ClinicalVisitModel> recordNurseSeenQuickVisit({required PatientModel patient, required String nurseName, List<String> attendingNurses = const [], String? treatmentLevel, String? notes, required String userId, required String deviceId}) async => throw UnimplementedError();
 }
 
 class _FakeCampViewModel extends StateNotifier<CampState> implements CampViewModel {

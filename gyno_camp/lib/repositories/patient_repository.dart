@@ -67,6 +67,8 @@ abstract class IPatientRepository {
     required PatientModel patient,
     required String nurseName,
     List<String> attendingNurses = const [],
+    String? treatmentLevel,
+    String? notes,
     required String userId,
     required String deviceId,
   });
@@ -805,6 +807,8 @@ class PatientRepository implements IPatientRepository {
     required PatientModel patient,
     required String nurseName,
     List<String> attendingNurses = const [],
+    String? treatmentLevel,
+    String? notes,
     required String userId,
     required String deviceId,
   }) async {
@@ -822,7 +826,8 @@ class PatientRepository implements IPatientRepository {
       final updatedVisit = existing.copyWith(
         primaryNurseName: nurseName.trim().isNotEmpty ? nurseName.trim() : existing.primaryNurseName,
         attendingNurseNames: mergedNurses,
-        treatmentLevel: existing.treatmentLevel ?? patient.treatmentLevel ?? 'counseling',
+        treatmentLevel: treatmentLevel ?? existing.treatmentLevel ?? patient.treatmentLevel ?? 'counseling',
+        outtakeNotes: (notes != null && notes.trim().isNotEmpty) ? notes.trim() : existing.outtakeNotes,
         outtakeDate: existing.outtakeDate ?? now,
         updatedAt: now,
       );
@@ -843,8 +848,8 @@ class PatientRepository implements IPatientRepository {
       outtakeDate: now,
       primaryNurseName: nurseName.trim(),
       attendingNurseNames: effectiveNurses,
-      treatmentLevel: patient.treatmentLevel ?? 'counseling',
-      outtakeNotes: 'Nurse consultation / triage completed.',
+      treatmentLevel: treatmentLevel ?? patient.treatmentLevel ?? 'counseling',
+      outtakeNotes: (notes != null && notes.trim().isNotEmpty) ? notes.trim() : 'Nurse consultation / triage completed.',
       createdAt: now,
       updatedAt: now,
       createdByUserId: userId,

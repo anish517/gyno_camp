@@ -134,6 +134,7 @@ void main() {
 
     test('Dual-page merge and commitVerifiedScan preserve Page 1 patientId, BS date, and update existing patientId without UNIQUE error', () async {
       final page1 = OcrScanResultModel(
+        pageNumber: 1,
         rawText: 'Page 1 text',
         demographics: {
           'firstName': 'Gita',
@@ -142,30 +143,32 @@ void main() {
           'patientId': 'KTM01-०१५',
           'intakeDate': '२०८३/०८/०१',
         },
-        obstetricHistory: const {'deliveries': 3, 'livingChildren': 2, 'abortions': 1},
+        obstetrics: const {'deliveries': 3, 'livingChildren': 2, 'abortions': 1},
         popStaging: const {},
         vitals: const {},
         diagnoses: const [],
         medications: const [],
         fieldConfidences: const {'firstName': 0.95},
         overallConfidence: 0.95,
-        patientId: 'KTM01-०१५',
         intakeDate: '२०८३/०८/०१',
+        scannedAt: DateTime.now(),
       );
       final page2 = OcrScanResultModel(
+        pageNumber: 2,
         rawText: 'Page 2 text',
         demographics: {
           'firstName': null,
           'surname': null,
           'patientId': null,
         },
-        obstetricHistory: const {},
+        obstetrics: const {},
         popStaging: const {'anteriorStage': 2, 'middleStage': 1, 'posteriorStage': 0, 'highestPopStage': 2},
         vitals: const {'systolicBp': 120, 'diastolicBp': 80},
         diagnoses: const ['cystitis'],
         medications: const ['Ciprofloxacin'],
         fieldConfidences: const {'popStaging': 0.92},
         overallConfidence: 0.92,
+        scannedAt: DateTime.now(),
       );
 
       final merged = OcrScanResultModel.merge(page1, page2);
@@ -174,7 +177,10 @@ void main() {
       expect(merged.intakeDate, '२०८३/०८/०१');
 
       // Normalize patient ID with Devanagari digits
-      final normId = PatientModel.normalizePatientId(merged.patientId!);
+      final normId = PatientModel.normalizePatientId(
+        rawInput: merged.patientId!,
+        campCode: 'KTM01',
+      );
       expect(normId, 'KTM01-0015');
 
       final saved1 = await ocrRepo.commitVerifiedScan(
@@ -208,17 +214,28 @@ void main() {
 
       // Test quick Nurse Seen and deletion of clinical visit and patient
       final nurseVisit = await patientRepo.recordNurseSeenQuickVisit(
-        patientId: saved2.id,
-        campId: 'camp-ktm-01',
-        primaryNurseName: 'Nurse Anita',
-        createdByUserId: 'usr-1',
+        patient: saved2,
+        nurseName: 'Nurse Anita',
+        userId: 'usr-1',
         deviceId: 'dev-1',
       );
       expect(nurseVisit.primaryNurseName, 'Nurse Anita');
 
-      await patientRepo.deleteClinicalVisit(nurseVisit.id);
-      await patientRepo.deletePatient(saved2.id);
-      final afterDelete = await patientRepo.getPatientById(saved2.id);
+      await patientRepo.deleteClinicalVisit(
+        nurseVisit.id,
+        deletedByUserId: 'usr-1',
+        deletedByUserName: 'Staff',
+        deletedByUserRole: 'DataTaker',
+        deviceId: 'dev-1',
+      );
+      await patientRepo.deletePatient(
+        saved2.id,
+        deletedByUserId: 'usr-1',
+        deletedByUserName: 'Staff',
+        deletedByUserRole: 'DataTaker',
+        deviceId: 'dev-1',
+      );
+      final afterDelete = await patientRepo.getPatientByPatientId(saved2.patientId);
       expect(afterDelete, isNull);
     });
   });

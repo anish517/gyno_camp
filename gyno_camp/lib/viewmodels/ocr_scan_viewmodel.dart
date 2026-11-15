@@ -189,6 +189,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     required String userRole,
     required String deviceId,
     String? patientTokenHint,
+    String? patientIdHint,
     String? intakeDateHint,
     String? examiningNurseHint,
     String? examiningDoctorHint,
@@ -206,7 +207,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         page1Path: state.page1ImagePath ?? state.page1Scan?.imagePath,
         page2Bytes: state.page2ImageBytes,
         page2Path: state.page2ImagePath ?? state.page2Scan?.imagePath,
-        patientTokenHint: patientTokenHint,
+        patientTokenHint: patientTokenHint ?? patientIdHint,
         intakeDateHint: intakeDateHint,
         examiningNurseHint: examiningNurseHint,
         examiningDoctorHint: examiningDoctorHint,
@@ -291,7 +292,12 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
   }
 
   /// Processes and auto-commits all pending offline scans when Internet connectivity is available
-  Future<int> syncAllOfflineScans() async {
+  Future<int> syncAllOfflineScans({
+    String? defaultUserId,
+    String? defaultUserName,
+    String? defaultUserRole,
+    String? defaultDeviceId,
+  }) async {
     state = state.copyWith(
       isProcessing: true,
       processingStep: 'Syncing & extracting queued offline scans...',
@@ -299,7 +305,12 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       successMessage: null,
     );
     try {
-      final count = await _repository.syncAndProcessAllOfflineScans();
+      final count = await _repository.syncAndProcessAllOfflineScans(
+        defaultUserId: defaultUserId,
+        defaultUserName: defaultUserName,
+        defaultUserRole: defaultUserRole,
+        defaultDeviceId: defaultDeviceId,
+      );
       final updatedQueue = await _repository.getOfflineScanQueue();
       if (!mounted) return count;
       state = state.copyWith(
@@ -1311,6 +1322,10 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
   }
 }
 
+final ocrRepositoryProvider = Provider<IOcrRepository>((ref) {
+  return OcrRepository();
+});
+
 final ocrScanProvider = StateNotifierProvider<OcrScanViewModel, OcrScanState>((ref) {
-  return OcrScanViewModel();
+  return OcrScanViewModel(repository: ref.watch(ocrRepositoryProvider));
 });

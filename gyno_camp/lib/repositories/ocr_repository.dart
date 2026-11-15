@@ -83,6 +83,7 @@ abstract class IOcrRepository {
     Uint8List? page2Bytes,
     String? page2Path,
     String? patientTokenHint,
+    String? patientIdHint,
     String? intakeDateHint,
     String? examiningNurseHint,
     String? examiningDoctorHint,
@@ -97,7 +98,12 @@ abstract class IOcrRepository {
   Future<int> getPendingOfflineScanCount({String? campId});
   Future<void> deleteOfflineScanQueueItem(String id);
   Future<OcrScanResultModel> extractQueuedOfflineItem(OfflineScanQueueItem item);
-  Future<int> syncAndProcessAllOfflineScans();
+  Future<int> syncAndProcessAllOfflineScans({
+    String? defaultUserId,
+    String? defaultUserName,
+    String? defaultUserRole,
+    String? defaultDeviceId,
+  });
 }
 
 class OcrRepository implements IOcrRepository {
@@ -815,6 +821,7 @@ class OcrRepository implements IOcrRepository {
     Uint8List? page2Bytes,
     String? page2Path,
     String? patientTokenHint,
+    String? patientIdHint,
     String? intakeDateHint,
     String? examiningNurseHint,
     String? examiningDoctorHint,
@@ -836,6 +843,10 @@ class OcrRepository implements IOcrRepository {
       p2Base64 = prepared.base64;
     }
 
+    final effectiveTokenHint = (patientTokenHint != null && patientTokenHint.trim().isNotEmpty)
+        ? patientTokenHint.trim()
+        : patientIdHint?.trim();
+
     final now = DateTime.now();
     final item = OfflineScanQueueItem(
       id: 'offscan-${_uuid.v4()}',
@@ -845,7 +856,7 @@ class OcrRepository implements IOcrRepository {
       page1ImagePath: page1Path,
       page2ImageBase64: p2Base64,
       page2ImagePath: page2Path,
-      patientTokenHint: patientTokenHint?.trim(),
+      patientTokenHint: effectiveTokenHint,
       intakeDateHint: intakeDateHint?.trim(),
       examiningNurseHint: examiningNurseHint?.trim(),
       examiningDoctorHint: examiningDoctorHint?.trim(),
@@ -1000,7 +1011,12 @@ class OcrRepository implements IOcrRepository {
   }
 
   @override
-  Future<int> syncAndProcessAllOfflineScans() async {
+  Future<int> syncAndProcessAllOfflineScans({
+    String? defaultUserId,
+    String? defaultUserName,
+    String? defaultUserRole,
+    String? defaultDeviceId,
+  }) async {
     final db = await _databaseService.database;
     final rows = await db.query(
       DatabaseTables.tableOfflineScanQueue,
@@ -1025,10 +1041,10 @@ class OcrRepository implements IOcrRepository {
           verifiedScan: extracted,
           campId: item.campId,
           campCode: item.campCode,
-          userId: item.createdByUserId,
-          userName: item.createdByUserName,
-          userRole: item.createdByUserRole,
-          deviceId: item.deviceId,
+          userId: item.createdByUserId.isNotEmpty ? item.createdByUserId : (defaultUserId ?? 'usr-local'),
+          userName: item.createdByUserName.isNotEmpty ? item.createdByUserName : (defaultUserName ?? 'Field Staff'),
+          userRole: item.createdByUserRole.isNotEmpty ? item.createdByUserRole : (defaultUserRole ?? 'DATA_TAKER'),
+          deviceId: item.deviceId.isNotEmpty ? item.deviceId : (defaultDeviceId ?? 'dev-local'),
           primaryDoctorName: extracted.examiningDoctor,
           attendingDoctorNames: extracted.attendingDoctors,
           primaryNurseName: extracted.examiningNurse,
