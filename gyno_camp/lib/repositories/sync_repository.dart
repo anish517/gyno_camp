@@ -53,10 +53,28 @@ class SyncRepository implements ISyncRepository {
         )) ??
         0;
 
+    int offlineScanCount = 0;
+    try {
+      offlineScanCount = Sqflite.firstIntValue(await db.rawQuery(
+            "SELECT COUNT(*) FROM ${DatabaseTables.tableOfflineScanQueue} WHERE status IN ('pending', 'failed')",
+          )) ??
+          0;
+    } catch (_) {}
+
+    int deletionCount = 0;
+    try {
+      deletionCount = Sqflite.firstIntValue(await db.rawQuery(
+            'SELECT COUNT(*) FROM ${DatabaseTables.tableDeletedEntitiesQueue}',
+          )) ??
+          0;
+    } catch (_) {}
+
     return {
       'patients': patientCount,
       'visits': visitCount,
-      'total': patientCount + visitCount,
+      'offline_scans': offlineScanCount,
+      'deletions': deletionCount,
+      'total': patientCount + visitCount + offlineScanCount + deletionCount,
     };
   }
 
@@ -123,7 +141,27 @@ class SyncRepository implements ISyncRepository {
     );
     final lookups = lookupRows.map((r) => LookupItemModel.fromMap(r)).toList();
 
-    if (patients.isEmpty && visits.isEmpty && camps.isEmpty && logs.isEmpty && lookups.isEmpty) {
+    // 6. Fetch pending deleted patient & visit IDs from tombstone queue
+    final deletedPatientIds = <String>[];
+    final deletedVisitIds = <String>[];
+    try {
+      final delRows = await db.query(DatabaseTables.tableDeletedEntitiesQueue);
+      for (final row in delRows) {
+        final id = row['id']?.toString() ?? '';
+        final type = row['entity_type']?.toString() ?? '';
+        if (id.isEmpty) continue;
+        if (type == 'patient') deletedPatientIds.add(id);
+        if (type == 'clinical_visit') deletedVisitIds.add(id);
+      }
+    } catch (_) {}
+
+    if (patients.isEmpty &&
+        visits.isEmpty &&
+        camps.isEmpty &&
+        logs.isEmpty &&
+        lookups.isEmpty &&
+        deletedPatientIds.isEmpty &&
+        deletedVisitIds.isEmpty) {
       return SyncPushResponse(
         success: true,
         serverTimestamp: DateTime.now(),
@@ -139,12 +177,14 @@ class SyncRepository implements ISyncRepository {
       clinicalVisits: visits,
       auditLogs: logs,
       lookupItems: lookups,
+      deletedPatientIds: deletedPatientIds,
+      deletedVisitIds: deletedVisitIds,
     );
 
-    // 6. Send delta to central server (single path for all platforms)
+    // 7. Send delta to central server (single path for all platforms)
     final response = await _centralApiService.pushDelta(payload);
 
-    // 7. Update local SQLite records to synced
+    // 8. Update local SQLite records to synced
     if (response.success) {
       final syncIso = response.serverTimestamp.toIso8601String();
       await db.transaction((txn) async {
@@ -166,6 +206,22 @@ class SyncRepository implements ISyncRepository {
           await txn.rawUpdate(
             'UPDATE ${DatabaseTables.tableLookupItems} SET is_synced = 1 WHERE id = ?',
             [lId],
+          );
+        }
+
+        for (final delPid in deletedPatientIds) {
+          await txn.delete(
+            DatabaseTables.tableDeletedEntitiesQueue,
+            where: 'id = ?',
+            whereArgs: [delPid],
+          );
+        }
+
+        for (final delVid in deletedVisitIds) {
+          await txn.delete(
+            DatabaseTables.tableDeletedEntitiesQueue,
+            where: 'id = ?',
+            whereArgs: [delVid],
           );
         }
       });
@@ -232,6 +288,40 @@ class SyncRepository implements ISyncRepository {
             whereArgs: [userId],
           );
         }
+
+        for (final patientId in response.deletedPatientIds) {
+          await txn.delete(
+            DatabaseTables.tableClinicalVisits,
+            where: 'patient_id = ?',
+            whereArgs: [patientId],
+          );
+          await txn.delete(
+            DatabaseTables.tablePatients,
+            where: 'id = ?',
+            whereArgs: [patientId],
+          );
+        }
+
+        for (final visitId in response.deletedVisitIds) {
+          await txn.delete(
+            DatabaseTables.tableClinicalVisits,
+            where: 'id = ?',
+            whereArgs: [visitId],
+          );
+        }
+
+        final locallyDeletedPatientIds = <String>{...response.deletedPatientIds};
+        final locallyDeletedVisitIds = <String>{...response.deletedVisitIds};
+        try {
+          final localDelRows = await txn.query(DatabaseTables.tableDeletedEntitiesQueue);
+          for (final r in localDelRows) {
+            final id = r['id']?.toString() ?? '';
+            final type = r['entity_type']?.toString() ?? '';
+            if (id.isEmpty) continue;
+            if (type == 'patient') locallyDeletedPatientIds.add(id);
+            if (type == 'clinical_visit') locallyDeletedVisitIds.add(id);
+          }
+        } catch (_) {}
 
         // 2. Read deleted camp tombstone to prevent resurrecting deleted camps
         final deletedMeta = await txn.query(
@@ -379,9 +469,10 @@ class SyncRepository implements ISyncRepository {
           }
         }
 
-        // Upsert patients from central cloud (R1 fix: guard local unsynced edits, skip deleted camps)
+        // Upsert patients from central cloud (R1 fix: guard local unsynced edits, skip deleted camps & deleted patients)
         for (final patient in response.patients) {
           if (allDeletedCampIds.contains(patient.campId)) continue;
+          if (locallyDeletedPatientIds.contains(patient.id)) continue;
 
           final unsyncedLocal = await txn.query(
             DatabaseTables.tablePatients,
@@ -422,9 +513,11 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
-        // Upsert clinical visits from central cloud (R1 fix: guard local unsynced edits, skip deleted camps)
+        // Upsert clinical visits from central cloud (R1 fix: guard local unsynced edits, skip deleted camps & deleted visits)
         for (final visit in response.clinicalVisits) {
           if (allDeletedCampIds.contains(visit.campId)) continue;
+          if (locallyDeletedVisitIds.contains(visit.id)) continue;
+          if (locallyDeletedPatientIds.contains(visit.patientId)) continue;
 
           final unsyncedLocal = await txn.query(
             DatabaseTables.tableClinicalVisits,

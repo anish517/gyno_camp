@@ -132,9 +132,15 @@ class DatabaseService {
       }
     }
 
-    // Ensure metadata table exists
+    // Ensure metadata, offline scan queue, and deleted entities queue tables exist
     try {
       await db.execute(DatabaseTables.createTableMetadata);
+    } catch (_) {}
+    try {
+      await db.execute(DatabaseTables.createTableOfflineScanQueue);
+    } catch (_) {}
+    try {
+      await db.execute(DatabaseTables.createTableDeletedEntitiesQueue);
     } catch (_) {}
 
     // Sanitize any legacy stray codes like single-letter "k" or placeholders
@@ -313,6 +319,8 @@ class DatabaseService {
     await db.execute(DatabaseTables.createTableAuditLogs);
     await db.execute(DatabaseTables.createTableLookupItems);
     await db.execute(DatabaseTables.createTableMetadata);
+    await db.execute(DatabaseTables.createTableOfflineScanQueue);
+    await db.execute(DatabaseTables.createTableDeletedEntitiesQueue);
 
     for (final indexQuery in DatabaseTables.createIndexes) {
       await db.execute(indexQuery);

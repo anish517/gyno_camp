@@ -241,7 +241,15 @@ ${page2.rawText}
       page2.outtakeDate,
     ].where((d) => d != null && d.trim().isNotEmpty).map((d) => d!.trim()).toList();
 
-    String? harmonizedIntake = page1.intakeDate ?? page2.intakeDate;
+    String? harmonizedIntake = page1.intakeDate ??
+        (page1.demographics['intakeDate'] as String?) ??
+        (page1.demographics['date'] as String?) ??
+        page2.intakeDate ??
+        (page2.demographics['intakeDate'] as String?) ??
+        (page2.demographics['date'] as String?) ??
+        page1.anamnesisDate ??
+        page2.anamnesisDate ??
+        (p2Dates.isNotEmpty ? p2Dates.first : null);
     if (harmonizedIntake != null && p2Dates.isNotEmpty) {
       final dateCounts = <String, int>{};
       for (final d in p2Dates) {
@@ -264,9 +272,16 @@ ${page2.rawText}
       }
     }
 
-
-
-    final mergedDemographics = Map<String, dynamic>.from(page1.demographics.isNotEmpty ? page1.demographics : page2.demographics);
+    final mergedDemographics = _mergeMapNullAware(page2.demographics, page1.demographics);
+    final mergedTokenId = (mergedDemographics['patientId'] as String?)?.trim().isNotEmpty == true
+        ? (mergedDemographics['patientId'] as String).trim()
+        : ((mergedDemographics['patientTokenId'] as String?)?.trim().isNotEmpty == true
+            ? (mergedDemographics['patientTokenId'] as String).trim()
+            : null);
+    if (mergedTokenId != null) {
+      mergedDemographics['patientId'] = mergedTokenId;
+      mergedDemographics['patientTokenId'] = mergedTokenId;
+    }
     if (harmonizedIntake != null) {
       mergedDemographics['intakeDate'] = harmonizedIntake;
       mergedDemographics['date'] = harmonizedIntake;
@@ -533,5 +548,106 @@ ${page2.rawText}
       result[entry.key] = value;
     }
     return result;
+  }
+}
+
+/// Represents a raw Yellow Form scan saved locally while offline, waiting for Internet connectivity
+/// to be processed via Gemini Cloud OCR and synced to the central server.
+class OfflineScanQueueItem {
+  final String id;
+  final String campId;
+  final String campCode;
+  final String? page1ImageBase64;
+  final String? page1ImagePath;
+  final String? page2ImageBase64;
+  final String? page2ImagePath;
+  final String? patientTokenHint;
+  final String? intakeDateHint;
+  final String? examiningNurseHint;
+  final String? examiningDoctorHint;
+  final String status; // 'pending', 'processing', 'completed', 'failed'
+  final String? errorMessage;
+  final String createdByUserId;
+  final String createdByUserName;
+  final String createdByUserRole;
+  final String deviceId;
+  final String tenantId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const OfflineScanQueueItem({
+    required this.id,
+    required this.campId,
+    required this.campCode,
+    this.page1ImageBase64,
+    this.page1ImagePath,
+    this.page2ImageBase64,
+    this.page2ImagePath,
+    this.patientTokenHint,
+    this.intakeDateHint,
+    this.examiningNurseHint,
+    this.examiningDoctorHint,
+    this.status = 'pending',
+    this.errorMessage,
+    required this.createdByUserId,
+    this.createdByUserName = 'Field Staff',
+    this.createdByUserRole = 'DATA_TAKER',
+    required this.deviceId,
+    this.tenantId = 'tenant_default',
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  bool get hasPage1 => (page1ImageBase64 != null && page1ImageBase64!.isNotEmpty) || (page1ImagePath != null && page1ImagePath!.isNotEmpty);
+  bool get hasPage2 => (page2ImageBase64 != null && page2ImageBase64!.isNotEmpty) || (page2ImagePath != null && page2ImagePath!.isNotEmpty);
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'camp_id': campId,
+      'camp_code': campCode,
+      'page1_image_base64': page1ImageBase64,
+      'page1_image_path': page1ImagePath,
+      'page2_image_base64': page2ImageBase64,
+      'page2_image_path': page2ImagePath,
+      'patient_token_hint': patientTokenHint,
+      'intake_date_hint': intakeDateHint,
+      'examining_nurse_hint': examiningNurseHint,
+      'examining_doctor_hint': examiningDoctorHint,
+      'status': status,
+      'error_message': errorMessage,
+      'created_by_user_id': createdByUserId,
+      'created_by_user_name': createdByUserName,
+      'created_by_user_role': createdByUserRole,
+      'device_id': deviceId,
+      'tenant_id': tenantId,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+
+  factory OfflineScanQueueItem.fromMap(Map<String, dynamic> map) {
+    return OfflineScanQueueItem(
+      id: map['id'] as String,
+      campId: map['camp_id'] as String? ?? '',
+      campCode: map['camp_code'] as String? ?? 'CAMP01',
+      page1ImageBase64: map['page1_image_base64'] as String?,
+      page1ImagePath: map['page1_image_path'] as String?,
+      page2ImageBase64: map['page2_image_base64'] as String?,
+      page2ImagePath: map['page2_image_path'] as String?,
+      patientTokenHint: map['patient_token_hint'] as String?,
+      intakeDateHint: map['intake_date_hint'] as String?,
+      examiningNurseHint: map['examining_nurse_hint'] as String?,
+      examiningDoctorHint: map['examining_doctor_hint'] as String?,
+      status: map['status'] as String? ?? 'pending',
+      errorMessage: map['error_message'] as String?,
+      createdByUserId: map['created_by_user_id'] as String? ?? 'usr-local',
+      createdByUserName: map['created_by_user_name'] as String? ?? 'Field Staff',
+      createdByUserRole: map['created_by_user_role'] as String? ?? 'DATA_TAKER',
+      deviceId: map['device_id'] as String? ?? 'dev-local',
+      tenantId: map['tenant_id'] as String? ?? 'tenant_default',
+      createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(map['updated_at'] as String? ?? '') ?? DateTime.now(),
+    );
   }
 }

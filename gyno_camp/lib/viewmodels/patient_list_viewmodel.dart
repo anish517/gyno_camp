@@ -474,6 +474,89 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
       return true;
     }).toList();
   }
+
+  /// Deletes a patient and all associated clinical visits locally and queues deletion for sync.
+  Future<bool> deletePatient({
+    required PatientModel patient,
+    required String userId,
+    required String userName,
+    required String userRole,
+    required String deviceId,
+  }) async {
+    try {
+      await _patientRepository.deletePatient(
+        patient.id,
+        userId: userId,
+        userName: userName,
+        userRole: userRole,
+        deviceId: deviceId,
+      );
+      final targetCampId = state.loadedCampId ?? patient.campId;
+      await loadPatients(targetCampId, true);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to delete patient: $e');
+      return false;
+    }
+  }
+
+  /// Deletes a single clinical visit locally and queues deletion for sync.
+  Future<bool> deleteClinicalVisit({
+    required String visitId,
+    required String campId,
+    required String userId,
+    required String userName,
+    required String userRole,
+    required String deviceId,
+  }) async {
+    try {
+      await _patientRepository.deleteClinicalVisit(
+        visitId,
+        userId: userId,
+        userName: userName,
+        userRole: userRole,
+        deviceId: deviceId,
+      );
+      final targetCampId = state.loadedCampId ?? campId;
+      await loadPatients(targetCampId, true);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to delete clinical visit: $e');
+      return false;
+    }
+  }
+
+  /// Records a quick "Nurse Seen" triage encounter without requiring a full 6-station exam.
+  Future<bool> markNurseSeen({
+    required PatientModel patient,
+    required String primaryNurseName,
+    List<String> attendingNurseNames = const [],
+    String? treatmentLevel,
+    String? notes,
+    required String userId,
+    required String deviceId,
+  }) async {
+    try {
+      await _patientRepository.recordNurseSeenQuickVisit(
+        patientId: patient.id,
+        campId: patient.campId,
+        primaryNurseName: primaryNurseName,
+        attendingNurseNames: attendingNurseNames.isNotEmpty
+            ? attendingNurseNames
+            : [primaryNurseName],
+        treatmentLevel: treatmentLevel ?? patient.treatmentLevel,
+        notes: notes,
+        createdByUserId: userId,
+        deviceId: deviceId,
+      );
+      final targetCampId = state.loadedCampId ?? patient.campId;
+      await loadPatients(targetCampId, true);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to record nurse seen: $e');
+      return false;
+    }
+  }
 }
 
 final patientListProvider = StateNotifierProvider<PatientListViewModel, PatientListState>((ref) {

@@ -8,6 +8,8 @@ class DatabaseTables {
   static const String tableAuditLogs = 'audit_logs';
   static const String tableLookupItems = 'lookup_items';
   static const String tableMetadata = 'app_metadata';
+  static const String tableOfflineScanQueue = 'offline_scan_queue';
+  static const String tableDeletedEntitiesQueue = 'deleted_entities_queue';
 
   // Users Table
   static const String createTableUsers = '''
@@ -220,6 +222,42 @@ class DatabaseTables {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    );
+  ''';
+
+  // Offline Scan Queue Table for storing scanned Yellow Form images while offline
+  static const String createTableOfflineScanQueue = '''
+    CREATE TABLE IF NOT EXISTS $tableOfflineScanQueue (
+      id TEXT PRIMARY KEY,
+      camp_id TEXT NOT NULL,
+      camp_code TEXT NOT NULL,
+      page1_image_base64 TEXT,
+      page1_image_path TEXT,
+      page2_image_base64 TEXT,
+      page2_image_path TEXT,
+      patient_token_hint TEXT,
+      intake_date_hint TEXT,
+      examining_nurse_hint TEXT,
+      examining_doctor_hint TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      error_message TEXT,
+      created_by_user_id TEXT NOT NULL,
+      created_by_user_name TEXT DEFAULT 'Field Staff',
+      created_by_user_role TEXT DEFAULT 'DATA_TAKER',
+      device_id TEXT NOT NULL,
+      tenant_id TEXT DEFAULT 'tenant_default',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  ''';
+
+  // Offline Deleted Entities Queue Table for syncing deletions when online
+  static const String createTableDeletedEntitiesQueue = '''
+    CREATE TABLE IF NOT EXISTS $tableDeletedEntitiesQueue (
+      id TEXT PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      deleted_at TEXT NOT NULL
     );
   ''';
 

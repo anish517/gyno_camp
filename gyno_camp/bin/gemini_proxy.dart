@@ -318,6 +318,8 @@ PAGE 1 (FRONT) — PATIENT REGISTRATION & ANAMNESIS:
      - "checkup (सामान्य जाँच)": [ ] routine screening, remarks
 
 PAGE 2 (BACK) — CLINICAL ASSESSMENT & EXAMINATION (STATIONS 2-6):
+0. Header (if written on Page 2 top margin/header):
+   - If a Patient Token / Registration ID or Date is written or stamped at the top of Page 2, also extract it into demographics.patientTokenId and intakeDate / examDate.
 1. Station 2: POP & Physical Examination / शारीरिक जाँच तथा पाठेघर खस्ने अवस्था:
    - "Examination Date:" -> examDate (format YYYY-MM-DD from boxes [YYYY]-[MM]-[DD] BS, e.g. 2083-07-06)
    - "uterus inside:" (2 checkboxes: [ ] yes  [ ] no -> uterusInside: true if yes is ticked, false if no)

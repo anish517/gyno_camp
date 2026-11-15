@@ -551,20 +551,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       }
     }
 
-    // Only show doctors who actually worked in this camp scope (or are currently selected)
+    // Only show doctors who actually have patient data records in this camp scope (or are currently selected)
     final activeDoctors = scopedDoctors
         .where((doc) => _getDoctorCount(doc, docSummary) > 0 || _selectedDoctor == doc)
         .toList();
-    // Fall back to assigned camp doctors only if no examinations recorded yet
-    final finalDoctors = activeDoctors.isNotEmpty
-        ? (activeDoctors..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())))
-        : (scopedDoctors.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())));
+    final finalDoctors = activeDoctors
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     if (_selectedDoctor != null && !finalDoctors.contains(_selectedDoctor)) {
       _selectedDoctor = null;
     }
     final allDoctors = finalDoctors.toSet();
 
-    // 1b. DYNAMIC NURSES: Strictly scoped to the selected camp (or visible camps if All Camps)
+    // 1b. DYNAMIC NURSES: Strictly scoped to nurses who actually have patient data records
     final scopedNurses = <String>{};
     for (final camp in relevantCamps) {
       if (camp.nurseNames.isNotEmpty) {
@@ -597,9 +595,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     final activeNurses = scopedNurses
         .where((nurse) => _getNurseCount(nurse, docSummary) > 0 || _selectedNurse == nurse)
         .toList();
-    final finalNurses = activeNurses.isNotEmpty
-        ? (activeNurses..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())))
-        : (scopedNurses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())));
+    final finalNurses = activeNurses
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     if (_selectedNurse != null && !finalNurses.contains(_selectedNurse)) {
       _selectedNurse = null;
     }

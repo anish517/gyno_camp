@@ -49,6 +49,27 @@ abstract class IPatientRepository {
   });
   Future<List<ClinicalVisitModel>> getClinicalVisits(String patientId, {String? patientUuid});
   Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId, {String? patientUuid});
+  Future<void> deletePatient(
+    String patientIdOrUuid, {
+    required String deletedByUserId,
+    required String deletedByUserName,
+    required String deletedByUserRole,
+    required String deviceId,
+  });
+  Future<void> deleteClinicalVisit(
+    String visitId, {
+    required String deletedByUserId,
+    required String deletedByUserName,
+    required String deletedByUserRole,
+    required String deviceId,
+  });
+  Future<ClinicalVisitModel> recordNurseSeenQuickVisit({
+    required PatientModel patient,
+    required String nurseName,
+    List<String> attendingNurses = const [],
+    required String userId,
+    required String deviceId,
+  });
 }
 
 class PatientRepository implements IPatientRepository {
@@ -492,7 +513,9 @@ class PatientRepository implements IPatientRepository {
     required String deviceId,
   }) async {
     final db = await _databaseService.database;
-    final visitId = visit.id.isEmpty ? _uuid.v4() : visit.id;
+    final isUpdate = visit.id.isNotEmpty;
+    final visitId = isUpdate ? visit.id : _uuid.v4();
+    final now = DateTime.now();
 
     final newVisit = visit.copyWith(
       id: visitId,
@@ -504,7 +527,8 @@ class PatientRepository implements IPatientRepository {
       attendingNurseNames: visit.attendingNurseNames.isNotEmpty
           ? visit.attendingNurseNames
           : (visit.primaryNurseName != null && visit.primaryNurseName!.trim().isNotEmpty ? [visit.primaryNurseName!.trim()] : const []),
-      createdAt: DateTime.now(),
+      createdAt: isUpdate ? visit.createdAt : now,
+      updatedAt: now,
       createdByUserId: createdByUserId,
       isSynced: false,
     );
@@ -609,5 +633,261 @@ class PatientRepository implements IPatientRepository {
     final list = await getClinicalVisits(patientId, patientUuid: patientUuid);
     if (list.isEmpty) return null;
     return list.first;
+  }
+
+  @override
+  Future<void> deletePatient(
+    String patientIdOrUuid, {
+    required String deletedByUserId,
+    required String deletedByUserName,
+    required String deletedByUserRole,
+    required String deviceId,
+  }) async {
+    final db = await _databaseService.database;
+    final rows = await db.query(
+      DatabaseTables.tablePatients,
+      where: 'id = ? OR patient_id = ? COLLATE NOCASE',
+      whereArgs: [patientIdOrUuid, patientIdOrUuid],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+
+    final patientRow = rows.first;
+    final patientUuid = patientRow['id'] as String;
+    final patientTokenId = patientRow['patient_id'] as String;
+    final campId = patientRow['camp_id'] as String? ?? '';
+    final patientName = '${patientRow['first_name'] ?? ''} ${patientRow['surname'] ?? ''}'.trim();
+
+    // Find all clinical visits for this patient to record tombstones as well
+    final visitRows = await db.query(
+      DatabaseTables.tableClinicalVisits,
+      columns: ['id'],
+      where: 'patient_id = ? COLLATE NOCASE OR patient_id = ?',
+      whereArgs: [patientTokenId, patientUuid],
+    );
+    final visitIds = visitRows.map((v) => v['id'] as String).toList();
+    final nowIso = DateTime.now().toIso8601String();
+
+    await db.transaction((txn) async {
+      await txn.delete(
+        DatabaseTables.tableClinicalVisits,
+        where: 'patient_id = ? COLLATE NOCASE OR patient_id = ?',
+        whereArgs: [patientTokenId, patientUuid],
+      );
+      await txn.delete(
+        DatabaseTables.tablePatients,
+        where: 'id = ? OR patient_id = ? COLLATE NOCASE',
+        whereArgs: [patientUuid, patientTokenId],
+      );
+
+      if (campId.isNotEmpty) {
+        await txn.rawUpdate(
+          'UPDATE ${DatabaseTables.tableCamps} SET total_patients_registered = CASE WHEN total_patients_registered > 0 THEN total_patients_registered - 1 ELSE 0 END WHERE id = ?',
+          [campId],
+        );
+      }
+
+      // Queue deletion tombstones for server sync
+      for (final idToQueue in <String>{patientUuid, patientTokenId}) {
+        await txn.insert(
+          DatabaseTables.tableDeletedEntitiesQueue,
+          {
+            'id': 'del-pat-$idToQueue',
+            'entity_type': 'patient',
+            'entity_id': idToQueue,
+            'deleted_at': nowIso,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      for (final vid in visitIds) {
+        await txn.insert(
+          DatabaseTables.tableDeletedEntitiesQueue,
+          {
+            'id': 'del-vis-$vid',
+            'entity_type': 'clinical_visit',
+            'entity_id': vid,
+            'deleted_at': nowIso,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+
+    if (_enableCentralSync) {
+      unawaited(_pushDeletionsToServer(
+        deviceId: deviceId,
+        deletedPatientIds: [patientUuid, patientTokenId],
+        deletedVisitIds: visitIds,
+      ));
+    }
+
+    await _auditRepository.logActivity(
+      userId: deletedByUserId,
+      userName: deletedByUserName,
+      userRole: deletedByUserRole,
+      action: AppConstants.auditActionPatientDelete,
+      entityType: 'Patient',
+      entityId: patientTokenId,
+      detailsJson: jsonEncode({
+        'patientUuid': patientUuid,
+        'patientId': patientTokenId,
+        'name': patientName,
+        'deletedVisitsCount': visitIds.length,
+      }),
+      deviceId: deviceId,
+    );
+  }
+
+  @override
+  Future<void> deleteClinicalVisit(
+    String visitId, {
+    required String deletedByUserId,
+    required String deletedByUserName,
+    required String deletedByUserRole,
+    required String deviceId,
+  }) async {
+    final db = await _databaseService.database;
+    final rows = await db.query(
+      DatabaseTables.tableClinicalVisits,
+      where: 'id = ?',
+      whereArgs: [visitId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+
+    final visitRow = rows.first;
+    final patientId = visitRow['patient_id'] as String? ?? '';
+    final nowIso = DateTime.now().toIso8601String();
+
+    await db.transaction((txn) async {
+      await txn.delete(
+        DatabaseTables.tableClinicalVisits,
+        where: 'id = ?',
+        whereArgs: [visitId],
+      );
+      await txn.insert(
+        DatabaseTables.tableDeletedEntitiesQueue,
+        {
+          'id': 'del-vis-$visitId',
+          'entity_type': 'clinical_visit',
+          'entity_id': visitId,
+          'deleted_at': nowIso,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+
+    if (_enableCentralSync) {
+      unawaited(_pushDeletionsToServer(
+        deviceId: deviceId,
+        deletedVisitIds: [visitId],
+      ));
+    }
+
+    await _auditRepository.logActivity(
+      userId: deletedByUserId,
+      userName: deletedByUserName,
+      userRole: deletedByUserRole,
+      action: AppConstants.auditActionClinicalVisitDelete,
+      entityType: 'ClinicalVisit',
+      entityId: visitId,
+      detailsJson: jsonEncode({
+        'visitId': visitId,
+        'patientId': patientId,
+      }),
+      deviceId: deviceId,
+    );
+  }
+
+  @override
+  Future<ClinicalVisitModel> recordNurseSeenQuickVisit({
+    required PatientModel patient,
+    required String nurseName,
+    List<String> attendingNurses = const [],
+    required String userId,
+    required String deviceId,
+  }) async {
+    final existing = await getLatestClinicalVisit(patient.patientId, patientUuid: patient.id);
+    final now = DateTime.now();
+    final effectiveNurses = attendingNurses.isNotEmpty
+        ? attendingNurses
+        : (nurseName.trim().isNotEmpty ? [nurseName.trim()] : const <String>[]);
+
+    if (existing != null) {
+      final mergedNurses = <String>{
+        ...existing.attendingNurseNames,
+        ...effectiveNurses,
+      }.where((n) => n.trim().isNotEmpty).toList();
+      final updatedVisit = existing.copyWith(
+        primaryNurseName: nurseName.trim().isNotEmpty ? nurseName.trim() : existing.primaryNurseName,
+        attendingNurseNames: mergedNurses,
+        treatmentLevel: existing.treatmentLevel ?? patient.treatmentLevel ?? 'counseling',
+        outtakeDate: existing.outtakeDate ?? now,
+        updatedAt: now,
+      );
+      return saveClinicalVisit(
+        updatedVisit,
+        createdByUserId: userId,
+        deviceId: deviceId,
+      );
+    }
+
+    final quickVisit = ClinicalVisitModel(
+      id: 'vis-${_uuid.v4()}',
+      patientId: patient.patientId,
+      campId: patient.campId,
+      tenantId: patient.tenantId,
+      visitDate: now,
+      anamnesisDate: patient.intakeDate,
+      outtakeDate: now,
+      primaryNurseName: nurseName.trim(),
+      attendingNurseNames: effectiveNurses,
+      treatmentLevel: patient.treatmentLevel ?? 'counseling',
+      outtakeNotes: 'Nurse consultation / triage completed.',
+      createdAt: now,
+      updatedAt: now,
+      createdByUserId: userId,
+    );
+    return saveClinicalVisit(
+      quickVisit,
+      createdByUserId: userId,
+      deviceId: deviceId,
+    );
+  }
+
+  Future<void> _pushDeletionsToServer({
+    required String deviceId,
+    List<String> deletedPatientIds = const [],
+    List<String> deletedVisitIds = const [],
+  }) async {
+    try {
+      final apiService = HttpCentralApiService();
+      if (!apiService.isConfigured || HttpCentralApiService.isServerCooldownActive) return;
+      final payload = SyncPushPayload(
+        deviceId: deviceId,
+        generatedAt: DateTime.now(),
+        deletedPatientIds: deletedPatientIds,
+        deletedVisitIds: deletedVisitIds,
+      );
+      final response = await apiService.pushDelta(payload);
+      if (response.success) {
+        final db = await _databaseService.database;
+        for (final pid in deletedPatientIds) {
+          await db.delete(
+            DatabaseTables.tableDeletedEntitiesQueue,
+            where: 'entity_type = ? AND entity_id = ?',
+            whereArgs: ['patient', pid],
+          );
+        }
+        for (final vid in deletedVisitIds) {
+          await db.delete(
+            DatabaseTables.tableDeletedEntitiesQueue,
+            where: 'entity_type = ? AND entity_id = ?',
+            whereArgs: ['clinical_visit', vid],
+          );
+        }
+      }
+    } catch (_) {}
   }
 }

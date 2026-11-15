@@ -1537,12 +1537,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     final sortedDoctors = sortedDoctorProfiles.map((d) => d.formattedLabel).toList();
 
     final allNurses = <String>{};
-    for (final camp in visibleCamps) {
-      for (final n in camp.nurseNames) {
-        final clean = NurseProfile.stripPrefixes(n).trim();
-        if (clean.isNotEmpty) allNurses.add(clean);
-      }
-    }
+    // Only include nurses who actually have patient data records in rawPatients (or current filter)
     for (final p in patientState.rawPatients) {
       if (p.primaryNurseName != null && p.primaryNurseName!.trim().isNotEmpty) {
         final clean = NurseProfile.stripPrefixes(p.primaryNurseName!).trim();
@@ -3179,18 +3174,104 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           case 'follow_up_slip':
             await _downloadFollowUpSlip(context, patient, activeCamp);
             break;
+          case 'nurse_seen':
+            if (isCampLocked) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Cannot update: Camp is closed and locked.')),
+              );
+              return;
+            }
+            await _showNurseSeenQuickDialog(context, patient, activeCamp, vm);
+            break;
+          case 'delete_patient':
+            if (isCampLocked) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Cannot delete: Camp is closed and locked.')),
+              );
+              return;
+            }
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: const Row(
+                  children: [
+                    Icon(Icons.delete_forever_rounded, color: AppTheme.dangerRose, size: 26),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Delete Patient Record?',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ),
+                  ],
+                ),
+                content: Text(
+                  'Are you sure you want to permanently delete ${patient.fullName} (ID: ${patient.patientId}) and all clinical visit records?',
+                  style: const TextStyle(fontSize: 13.5),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.dangerRose,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Delete Permanently'),
+                  ),
+                ],
+              ),
+            );
+            if (confirmed == true && context.mounted) {
+              final auth = ref.read(authStateProvider).currentUser;
+              final ok = await vm.deletePatient(
+                patient: patient,
+                userId: auth?.id ?? 'usr-local',
+                userName: auth?.name ?? 'Health Worker',
+                userRole: auth?.role.toDbString() ?? 'DATA_TAKER',
+                deviceId: 'dev-local',
+              );
+              if (context.mounted) {
+                ref.read(campStateProvider.notifier).loadCamps();
+                ref.read(syncStateProvider.notifier).refreshPendingCounts();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: ok ? AppTheme.primaryTeal : AppTheme.dangerRose,
+                    content: Text(
+                      ok
+                          ? 'Deleted patient record ${patient.patientId}.'
+                          : 'Failed to delete patient record.',
+                    ),
+                  ),
+                );
+              }
+            }
+            break;
         }
       },
       itemBuilder: (ctx) => [
         buildMenuHeader('CLINICAL WORKFLOW'),
-        if (hasClinical && !isCampLocked)
+        if (!isCampLocked)
           buildMenuItem(
             value: 're_exam',
             icon: Icons.assignment_outlined,
             iconColor: const Color(0xFF2563EB),
             iconBg: const Color(0xFFEFF6FF),
-            title: 'Review / Edit Clinical Exam',
+            title: hasClinical ? 'Review / Edit Clinical Exam' : 'Enter Clinical Exam (Page 2)',
             subtitle: 'Station 2–6 examination & staging',
+          ),
+        if (!isCampLocked)
+          buildMenuItem(
+            value: 'nurse_seen',
+            icon: Icons.medical_services_outlined,
+            iconColor: const Color(0xFF0D9488),
+            iconBg: const Color(0xFFCCFBF1),
+            title: 'Mark Nurse Seen (Quick Triage)',
+            subtitle: 'Record nurse consultation without full exam',
           ),
         buildMenuItem(
           value: 'history',
@@ -3210,6 +3291,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             iconBg: AppTheme.brandPurpleLight,
             title: 'Edit Registration (Page 1)',
             subtitle: 'Demographics, address & consent',
+          ),
+        if (!isCampLocked)
+          buildMenuItem(
+            value: 'delete_patient',
+            icon: Icons.delete_outline_rounded,
+            iconColor: AppTheme.dangerRose,
+            iconBg: const Color(0xFFFFF1F2),
+            title: 'Delete Patient Record',
+            subtitle: 'Permanently remove registration & visits',
           ),
         const PopupMenuDivider(height: 10),
         buildMenuHeader('EXPORTS & PRINTS'),
@@ -4230,6 +4320,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                   camp: camp,
                   orgName: orgName,
                   repo: repo,
+                  onDataModified: () {
+                    if (mounted) {
+                      _reloadCurrentList(ref.read(patientListProvider.notifier));
+                      ref.read(campStateProvider.notifier).loadCamps();
+                      ref.read(syncStateProvider.notifier).refreshPendingCounts();
+                    }
+                  },
                 ),
               ),
             ),
@@ -4237,6 +4334,152 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         );
       },
     );
+  }
+
+  Future<void> _showNurseSeenQuickDialog(
+    BuildContext context,
+    PatientModel patient,
+    CampModel? camp,
+    PatientListViewModel vm,
+  ) async {
+    final campNurses = camp?.nurseProfiles.map((n) => n.displayName).toList() ?? <String>[];
+    String selectedNurse = patient.primaryNurseName?.trim().isNotEmpty == true
+        ? patient.primaryNurseName!.trim()
+        : (campNurses.isNotEmpty ? campNurses.first : '');
+    final nurseNameCtrl = TextEditingController(text: selectedNurse);
+    final notesCtrl = TextEditingController();
+    String? selectedTriage = patient.treatmentLevel ?? 'counseling';
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.medical_services_rounded, color: Color(0xFF0D9488)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Mark Nurse Seen • ${patient.fullName}',
+                  style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Record a quick nurse consultation or triage for this patient without requiring a full 6-station examination:',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF475569)),
+                ),
+                const SizedBox(height: 12),
+                if (campNurses.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: campNurses.map((n) {
+                      final isSel = nurseNameCtrl.text.trim() == n;
+                      return ChoiceChip(
+                        label: Text(n, style: const TextStyle(fontSize: 12)),
+                        selected: isSel,
+                        onSelected: (_) {
+                          setDialogState(() {
+                            nurseNameCtrl.text = n;
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                TextField(
+                  controller: nurseNameCtrl,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    labelText: 'Examining / Triage Nurse Name *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Counseling', style: TextStyle(fontSize: 12)),
+                      selected: selectedTriage == 'counseling',
+                      onSelected: (_) => setDialogState(() => selectedTriage = 'counseling'),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Gynocheckup', style: TextStyle(fontSize: 12)),
+                      selected: selectedTriage == 'gyno_checkup',
+                      onSelected: (_) => setDialogState(() => selectedTriage = 'gyno_checkup'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    labelText: 'Optional Nurse Triage / Counseling Notes',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D9488),
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.check_circle_outline, size: 17),
+              label: const Text('Save Nurse Seen'),
+              onPressed: () {
+                if (nurseNameCtrl.text.trim().isEmpty) return;
+                Navigator.pop(ctx, true);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (saved == true && context.mounted) {
+      final auth = ref.read(authStateProvider).currentUser;
+      final ok = await vm.markNurseSeen(
+        patient: patient,
+        primaryNurseName: nurseNameCtrl.text.trim(),
+        treatmentLevel: selectedTriage,
+        notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+        userId: auth?.id ?? 'usr-local',
+        deviceId: 'dev-local',
+      );
+      if (context.mounted) {
+        ref.read(syncStateProvider.notifier).refreshPendingCounts();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: ok ? const Color(0xFF0D9488) : AppTheme.dangerRose,
+            content: Text(
+              ok
+                  ? '✅ Marked ${patient.fullName} as seen by ${nurseNameCtrl.text.trim()}.'
+                  : 'Failed to record nurse consultation.',
+            ),
+          ),
+        );
+      }
+    }
   }
 }
 

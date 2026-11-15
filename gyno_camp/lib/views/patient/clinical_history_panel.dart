@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
+import 'clinical_assessment_view.dart';
 import 'patient_registration_view.dart';
 
 class ClinicalHistoryPanel extends StatefulWidget {
@@ -13,8 +14,16 @@ class ClinicalHistoryPanel extends StatefulWidget {
   final CampModel? camp;
   final String orgName;
   final dynamic repo;
+  final VoidCallback? onDataModified;
 
-  const ClinicalHistoryPanel({super.key, required this.patient, required this.camp, required this.orgName, required this.repo});
+  const ClinicalHistoryPanel({
+    super.key,
+    required this.patient,
+    required this.camp,
+    required this.orgName,
+    required this.repo,
+    this.onDataModified,
+  });
 
   @override
   State<ClinicalHistoryPanel> createState() => _ClinicalHistoryPanelState();
@@ -298,6 +307,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
               setState(() {
                 _patient = updated;
               });
+              widget.onDataModified?.call();
             }
           },
         )
@@ -322,9 +332,50 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
               setState(() {
                 _patient = updated;
               });
+              widget.onDataModified?.call();
             }
           },
         ),
+      const SizedBox(width: 6),
+      IconButton(
+        tooltip: 'Delete Patient Record',
+        style: IconButton.styleFrom(
+          foregroundColor: AppTheme.dangerRose,
+          backgroundColor: const Color(0xFFFFF1F2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        icon: const Icon(Icons.delete_outline_rounded, size: 19),
+        onPressed: () async {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Delete Patient Record?'),
+              content: Text(
+                'Are you sure you want to permanently delete ${_patient.fullName} (ID: ${_patient.patientId}) and all associated clinical visits?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.dangerRose,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Delete Permanently'),
+                ),
+              ],
+            ),
+          );
+          if (confirmed == true && mounted) {
+            await widget.repo.deletePatient(_patient.id);
+            widget.onDataModified?.call();
+            if (mounted) Navigator.of(context).pop();
+          }
+        },
+      ),
       const SizedBox(width: 6),
       IconButton(
         icon: const Icon(Icons.close_rounded, size: 20),
@@ -505,6 +556,78 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                     ],
                   ),
                 ),
+                IconButton(
+                  tooltip: 'Edit Clinical Exam',
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(Icons.edit_outlined, size: 18, color: ac),
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ClinicalAssessmentView(
+                          patient: _patient,
+                          initialVisit: v,
+                        ),
+                      ),
+                    );
+                    if (mounted) {
+                      setState(() {
+                        _visitsFuture = widget.repo.getClinicalVisits(
+                          _patient.patientId,
+                          patientUuid: _patient.id,
+                        );
+                      });
+                      widget.onDataModified?.call();
+                    }
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Delete Clinical Exam',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 18,
+                    color: AppTheme.dangerRose,
+                  ),
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete Clinical Examination?'),
+                        content: const Text(
+                          'Are you sure you want to delete this clinical examination record? The patient registration (Page 1) will be kept.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.dangerRose,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Delete Exam'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true && mounted) {
+                      await widget.repo.deleteClinicalVisit(v.id);
+                      if (mounted) {
+                        setState(() {
+                          _visitsFuture = widget.repo.getClinicalVisits(
+                            _patient.patientId,
+                            patientUuid: _patient.id,
+                          );
+                        });
+                        widget.onDataModified?.call();
+                      }
+                    }
+                  },
+                ),
+                const SizedBox(width: 4),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ac,

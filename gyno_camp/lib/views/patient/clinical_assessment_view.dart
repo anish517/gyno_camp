@@ -19,8 +19,13 @@ import '../../viewmodels/reporting_viewmodel.dart';
 
 class ClinicalAssessmentView extends ConsumerStatefulWidget {
   final PatientModel patient;
+  final ClinicalVisitModel? initialVisit;
 
-  const ClinicalAssessmentView({super.key, required this.patient});
+  const ClinicalAssessmentView({
+    super.key,
+    required this.patient,
+    this.initialVisit,
+  });
 
   @override
   ConsumerState<ClinicalAssessmentView> createState() => _ClinicalAssessmentViewState();
@@ -142,6 +147,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
       final existing = await ref.read(clinicalAssessmentProvider.notifier).loadPatientAssessment(
         widget.patient.patientId,
         patientUuid: widget.patient.id,
+        initialVisit: widget.initialVisit,
       );
       if (existing != null && mounted) {
         _populateControllers(existing);

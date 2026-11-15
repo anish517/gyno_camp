@@ -824,6 +824,14 @@ class GynoCampSyncServer {
     final auditLogs = (data['audit_logs'] as List<dynamic>?) ?? [];
     final camps = (data['camps'] as List<dynamic>?) ?? [];
     final users = (data['users'] as List<dynamic>?) ?? [];
+    final deletedPatientIds = ((data['deleted_patient_ids'] as List<dynamic>?) ?? [])
+        .map((e) => e.toString())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final deletedVisitIds = ((data['deleted_visit_ids'] as List<dynamic>?) ?? [])
+        .map((e) => e.toString())
+        .where((s) => s.isNotEmpty)
+        .toList();
 
     final syncedPatientIds = <String>[];
     final syncedVisitIds = <String>[];
@@ -1161,8 +1169,29 @@ class GynoCampSyncServer {
                 @created_at, @created_by_user_id, @tenant_id, 1
               )
               ON CONFLICT (id) DO UPDATE SET
-                highest_pop_stage = EXCLUDED.highest_pop_stage,
+                visit_date = EXCLUDED.visit_date,
+                deliveries = EXCLUDED.deliveries,
+                living_children = EXCLUDED.living_children,
+                abortions = EXCLUDED.abortions,
                 anamnesis_json = EXCLUDED.anamnesis_json,
+                uterus_inside = EXCLUDED.uterus_inside,
+                vulva_remarks = EXCLUDED.vulva_remarks,
+                vagina_remarks = EXCLUDED.vagina_remarks,
+                cervix_remarks = EXCLUDED.cervix_remarks,
+                uterus_remarks = EXCLUDED.uterus_remarks,
+                pelvic_floor_tone = EXCLUDED.pelvic_floor_tone,
+                pop_anterior_stage = EXCLUDED.pop_anterior_stage,
+                pop_middle_stage = EXCLUDED.pop_middle_stage,
+                pop_posterior_stage = EXCLUDED.pop_posterior_stage,
+                highest_pop_stage = EXCLUDED.highest_pop_stage,
+                urine_test = EXCLUDED.urine_test,
+                pregnancy_test = EXCLUDED.pregnancy_test,
+                systolic_bp = EXCLUDED.systolic_bp,
+                diastolic_bp = EXCLUDED.diastolic_bp,
+                pulse = EXCLUDED.pulse,
+                spo2 = EXCLUDED.spo2,
+                glucose = EXCLUDED.glucose,
+                ecg_notes = EXCLUDED.ecg_notes,
                 diagnoses = EXCLUDED.diagnoses,
                 counseling = EXCLUDED.counseling,
                 medications = EXCLUDED.medications,
@@ -1260,6 +1289,69 @@ class GynoCampSyncServer {
       } else {
         syncedVisitIds.add(id);
       }
+    }
+
+    // 4b. Process Deleted Patients & Visits
+    for (final delPid in deletedPatientIds) {
+      _memPatients.remove(delPid);
+      _memVisits.removeWhere((_, v) => v['patient_id'] == delPid);
+      _memDeletedEntities[delPid] = 'patient';
+      if (_isPgConnected && _connection != null) {
+        try {
+          await _connection!.execute(
+            Sql.named('DELETE FROM clinical_visits WHERE patient_id = @id'),
+            parameters: {'id': delPid},
+          );
+          await _connection!.execute(
+            Sql.named('DELETE FROM patients WHERE id = @id'),
+            parameters: {'id': delPid},
+          );
+          await _connection!.execute(
+            Sql.named('''
+              INSERT INTO deleted_entities (id, entity_type, deleted_at)
+              VALUES (@id, 'patient', NOW())
+              ON CONFLICT (id) DO UPDATE SET entity_type = 'patient', deleted_at = NOW();
+            '''),
+            parameters: {'id': delPid},
+          );
+        } catch (e) {
+          print('Error deleting patient $delPid in push: $e');
+        }
+      }
+    }
+
+    for (final delVid in deletedVisitIds) {
+      _memVisits.remove(delVid);
+      _memDeletedEntities[delVid] = 'clinical_visit';
+      if (_isPgConnected && _connection != null) {
+        try {
+          await _connection!.execute(
+            Sql.named('DELETE FROM clinical_visits WHERE id = @id'),
+            parameters: {'id': delVid},
+          );
+          await _connection!.execute(
+            Sql.named('''
+              INSERT INTO deleted_entities (id, entity_type, deleted_at)
+              VALUES (@id, 'clinical_visit', NOW())
+              ON CONFLICT (id) DO UPDATE SET entity_type = 'clinical_visit', deleted_at = NOW();
+            '''),
+            parameters: {'id': delVid},
+          );
+        } catch (e) {
+          print('Error deleting clinical visit $delVid in push: $e');
+        }
+      }
+    }
+
+    if (_isPgConnected && _connection != null && deletedPatientIds.isNotEmpty) {
+      try {
+        await _connection!.execute('''
+          UPDATE camps 
+          SET total_patients_registered = (
+            SELECT COUNT(*) FROM patients WHERE patients.camp_id = camps.id
+          );
+        ''');
+      } catch (_) {}
     }
 
     // 5. Process Audit Logs (persisted to PostgreSQL)
@@ -1640,6 +1732,8 @@ class GynoCampSyncServer {
     final deletedCampIds = <String>[];
     final deletedUserIds = <String>[];
     final deletedLookupIds = <String>[];
+    final deletedPatientIds = <String>[];
+    final deletedVisitIds = <String>[];
 
     if (_isPgConnected && _connection != null) {
       try {
@@ -1651,6 +1745,8 @@ class GynoCampSyncServer {
           if (type == 'camp') deletedCampIds.add(id);
           if (type == 'user') deletedUserIds.add(id);
           if (type == 'lookup') deletedLookupIds.add(id);
+          if (type == 'patient') deletedPatientIds.add(id);
+          if (type == 'clinical_visit') deletedVisitIds.add(id);
         }
       } catch (e) {
         print('Error pulling deleted_entities from PG: $e');
@@ -1661,6 +1757,8 @@ class GynoCampSyncServer {
       if (type == 'camp' && !deletedCampIds.contains(id)) deletedCampIds.add(id);
       if (type == 'user' && !deletedUserIds.contains(id)) deletedUserIds.add(id);
       if (type == 'lookup' && !deletedLookupIds.contains(id)) deletedLookupIds.add(id);
+      if (type == 'patient' && !deletedPatientIds.contains(id)) deletedPatientIds.add(id);
+      if (type == 'clinical_visit' && !deletedVisitIds.contains(id)) deletedVisitIds.add(id);
     });
 
     // Merge in-memory records only if PostgreSQL is not connected
@@ -1695,6 +1793,8 @@ class GynoCampSyncServer {
       'deleted_camp_ids': deletedCampIds,
       'deleted_user_ids': deletedUserIds,
       'deleted_lookup_ids': deletedLookupIds,
+      'deleted_patient_ids': deletedPatientIds,
+      'deleted_visit_ids': deletedVisitIds,
       'message': 'Pulled ${campsList.length} camps, ${usersList.length} staff, ${patientsList.length} patients from cloud.',
     }));
     await request.response.close();
