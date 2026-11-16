@@ -14,7 +14,7 @@ typedef SseSyncCallback = void Function(Map<String, dynamic> eventData);
 class SseSyncService {
   final HttpCentralApiService _apiService;
   final SseSyncCallback? onSyncEvent;
-  final String deviceId;
+  String _deviceId;
 
   http.Client? _client;
   StreamSubscription<String>? _subscription;
@@ -28,11 +28,24 @@ class SseSyncService {
   SseSyncService({
     HttpCentralApiService? apiService,
     this.onSyncEvent,
-    this.deviceId = 'dev-field',
+    String? deviceId,
     this._clientFactory,
-  }) : _apiService = apiService ?? HttpCentralApiService();
+  })  : _apiService = apiService ?? HttpCentralApiService(),
+        _deviceId = deviceId ?? 'dev-local';
 
+  String get deviceId => _deviceId;
   bool get isConnected => _isConnected;
+
+  /// Updates the SSE client deviceId (e.g. once device registration resolves)
+  /// and reconnects if currently streaming so server excludeDeviceId matches.
+  void updateDeviceId(String newDeviceId) {
+    final trimmed = newDeviceId.trim();
+    if (trimmed.isEmpty || trimmed == _deviceId) return;
+    _deviceId = trimmed;
+    if (_isConnected && !_isDisposed) {
+      reconnect();
+    }
+  }
 
   /// Start listening for SSE events from the central server
   Future<void> connect() async {

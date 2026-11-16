@@ -1,6 +1,8 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/document_capture_service.dart';
-import '../core/services/session_service.dart';
+import '../core/services/gemini_ocr_service.dart';
 import '../models/ocr_scan_result_model.dart';
 import '../models/patient_model.dart';
 import '../repositories/ocr_repository.dart';
@@ -40,8 +42,14 @@ class OcrScanState {
   final OcrScanResultModel? page1Scan;
   final OcrScanResultModel? page2Scan;
   final OcrScanResultModel? scanResult;
+  final Uint8List? page1ImageBytes;
+  final String? page1ImagePath;
+  final Uint8List? page2ImageBytes;
+  final String? page2ImagePath;
+  final List<OfflineScanQueueItem> offlineQueue;
+  final bool isOfflineModeDetected;
   final int activeInspectionPage; // 1 = Front Page, 2 = Back Page
-  final OcrEngineMode engineMode; // auto, onlineGemini, offlineOnly
+  final OcrEngineMode engineMode; // onlineGemini
   final String? errorMessage;
   final String? successMessage;
   final PatientModel? committedPatient;
@@ -56,8 +64,14 @@ class OcrScanState {
     this.page1Scan,
     this.page2Scan,
     this.scanResult,
+    this.page1ImageBytes,
+    this.page1ImagePath,
+    this.page2ImageBytes,
+    this.page2ImagePath,
+    this.offlineQueue = const [],
+    this.isOfflineModeDetected = false,
     this.activeInspectionPage = 1,
-    this.engineMode = OcrEngineMode.auto,
+    this.engineMode = OcrEngineMode.onlineGemini,
     this.errorMessage,
     this.successMessage,
     this.committedPatient,
@@ -68,6 +82,15 @@ class OcrScanState {
 
   bool get hasPage1 => page1Scan != null;
   bool get hasPage2 => page2Scan != null;
+  bool get hasPage1Image =>
+      (page1ImageBytes != null && page1ImageBytes!.isNotEmpty) ||
+      (page1ImagePath != null && page1ImagePath!.isNotEmpty) ||
+      (page1Scan?.imagePath != null && page1Scan!.imagePath!.isNotEmpty);
+  bool get hasPage2Image =>
+      (page2ImageBytes != null && page2ImageBytes!.isNotEmpty) ||
+      (page2ImagePath != null && page2ImagePath!.isNotEmpty) ||
+      (page2Scan?.imagePath != null && page2Scan!.imagePath!.isNotEmpty);
+  bool get hasAnyCapturedImage => hasPage1Image || hasPage2Image;
   bool get isDualReady => hasPage1 && hasPage2;
   bool get hasScanResult => scanResult != null;
   bool get hasDuplicate => duplicateResult.hasDuplicate;
@@ -80,6 +103,12 @@ class OcrScanState {
     OcrScanResultModel? page1Scan,
     OcrScanResultModel? page2Scan,
     OcrScanResultModel? scanResult,
+    Uint8List? page1ImageBytes,
+    String? page1ImagePath,
+    Uint8List? page2ImageBytes,
+    String? page2ImagePath,
+    List<OfflineScanQueueItem>? offlineQueue,
+    bool? isOfflineModeDetected,
     int? activeInspectionPage,
     OcrEngineMode? engineMode,
     String? errorMessage,
@@ -100,6 +129,12 @@ class OcrScanState {
       page1Scan: clearPage1 ? null : (page1Scan ?? this.page1Scan),
       page2Scan: clearPage2 ? null : (page2Scan ?? this.page2Scan),
       scanResult: clearScanResult ? null : (scanResult ?? this.scanResult),
+      page1ImageBytes: clearPage1 ? null : (page1ImageBytes ?? this.page1ImageBytes),
+      page1ImagePath: clearPage1 ? null : (page1ImagePath ?? this.page1ImagePath),
+      page2ImageBytes: clearPage2 ? null : (page2ImageBytes ?? this.page2ImageBytes),
+      page2ImagePath: clearPage2 ? null : (page2ImagePath ?? this.page2ImagePath),
+      offlineQueue: offlineQueue ?? this.offlineQueue,
+      isOfflineModeDetected: isOfflineModeDetected ?? this.isOfflineModeDetected,
       activeInspectionPage: activeInspectionPage ?? this.activeInspectionPage,
       engineMode: engineMode ?? this.engineMode,
       errorMessage: errorMessage,
@@ -124,18 +159,177 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
   })  : _repository = repository ?? OcrRepository(),
         _patientRepository = patientRepository ?? PatientRepository(),
         _captureService = captureService ?? DocumentCaptureService(),
-        super(OcrScanState(engineMode: _loadInitialEngineMode()));
+        super(OcrScanState(engineMode: _loadInitialEngineMode())) {
+    loadOfflineQueue();
+  }
 
   static OcrEngineMode _loadInitialEngineMode() {
-    final saved = SessionService.current?.getOcrEngineMode();
-    if (saved == 'onlineGemini') return OcrEngineMode.onlineGemini;
-    if (saved == 'offlineOnly') return OcrEngineMode.offlineOnly;
-    return OcrEngineMode.auto;
+    return OcrEngineMode.onlineGemini;
   }
 
   Future<void> setEngineMode(OcrEngineMode mode) async {
-    state = state.copyWith(engineMode: mode);
-    await SessionService.current?.saveOcrEngineMode(mode.name);
+    state = state.copyWith(engineMode: OcrEngineMode.onlineGemini);
+  }
+
+  /// Loads queued offline scans from SQLite
+  Future<void> loadOfflineQueue({String? campId}) async {
+    try {
+      final items = await _repository.getOfflineScanQueue(campId: campId);
+      if (!mounted) return;
+      state = state.copyWith(offlineQueue: items);
+    } catch (_) {}
+  }
+
+  /// Saves currently captured/picked Page 1 and/or Page 2 images to local SQLite offline queue
+  Future<OfflineScanQueueItem?> saveCurrentScanOffline({
+    required String campId,
+    required String campCode,
+    required String userId,
+    required String userName,
+    required String userRole,
+    required String deviceId,
+    String? patientTokenHint,
+    String? patientIdHint,
+    String? intakeDateHint,
+    String? examiningNurseHint,
+    String? examiningDoctorHint,
+  }) async {
+    if (!state.hasAnyCapturedImage) {
+      state = state.copyWith(errorMessage: 'Please capture or select at least one Yellow Form image first.');
+      return null;
+    }
+    state = state.copyWith(isSaving: true, errorMessage: null, successMessage: null);
+    try {
+      final item = await _repository.enqueueOfflineScan(
+        campId: campId,
+        campCode: campCode,
+        page1Bytes: state.page1ImageBytes,
+        page1Path: state.page1ImagePath ?? state.page1Scan?.imagePath,
+        page2Bytes: state.page2ImageBytes,
+        page2Path: state.page2ImagePath ?? state.page2Scan?.imagePath,
+        patientTokenHint: patientTokenHint ?? patientIdHint,
+        intakeDateHint: intakeDateHint,
+        examiningNurseHint: examiningNurseHint,
+        examiningDoctorHint: examiningDoctorHint,
+        userId: userId,
+        userName: userName,
+        userRole: userRole,
+        deviceId: deviceId,
+      );
+      final updatedQueue = await _repository.getOfflineScanQueue();
+      if (!mounted) return item;
+      state = OcrScanState(
+        offlineQueue: updatedQueue,
+        successMessage: 'Offline scan saved to local storage! It will automatically extract & sync once Internet connects.',
+      );
+      return item;
+    } catch (e) {
+      if (!mounted) return null;
+      state = state.copyWith(
+        isSaving: false,
+        errorMessage: 'Failed to save offline scan locally: $e',
+      );
+      return null;
+    }
+  }
+
+  /// Deletes a queued offline scan item from SQLite
+  Future<void> deleteOfflineQueueItem(String id) async {
+    try {
+      await _repository.deleteOfflineScanQueueItem(id);
+      await loadOfflineQueue();
+    } catch (_) {}
+  }
+
+  /// Loads a queued offline scan into the preview/verification slots and attempts Gemini Cloud OCR
+  Future<bool> processSingleOfflineQueueItem(OfflineScanQueueItem item) async {
+    Uint8List? p1Bytes;
+    if (item.page1ImageBase64 != null && item.page1ImageBase64!.isNotEmpty) {
+      try {
+        p1Bytes = base64Decode(item.page1ImageBase64!);
+      } catch (_) {}
+    }
+    Uint8List? p2Bytes;
+    if (item.page2ImageBase64 != null && item.page2ImageBase64!.isNotEmpty) {
+      try {
+        p2Bytes = base64Decode(item.page2ImageBase64!);
+      } catch (_) {}
+    }
+
+    state = state.copyWith(
+      isProcessing: true,
+      processingStep: 'Processing queued offline scan via Cloud OCR...',
+      page1ImageBytes: p1Bytes,
+      page1ImagePath: item.page1ImagePath,
+      page2ImageBytes: p2Bytes,
+      page2ImagePath: item.page2ImagePath,
+      errorMessage: null,
+      successMessage: null,
+    );
+    try {
+      final extracted = await _repository.extractQueuedOfflineItem(item);
+      await _repository.deleteOfflineScanQueueItem(item.id);
+      final updatedQueue = await _repository.getOfflineScanQueue();
+      if (!mounted) return true;
+      state = state.copyWith(
+        isProcessing: false,
+        isOfflineModeDetected: false,
+        offlineQueue: updatedQueue,
+        page1Scan: item.hasPage1 ? extracted : null,
+        page2Scan: item.hasPage2 ? extracted : null,
+        scanResult: extracted,
+        successMessage: 'Queued offline scan extracted! Review & commit below.',
+      );
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      state = state.copyWith(
+        isProcessing: false,
+        errorMessage: 'Cannot process offline scan yet (check Internet connection): ${e is GeminiOcrException ? e.message : e}',
+      );
+      return false;
+    }
+  }
+
+  /// Processes and auto-commits all pending offline scans when Internet connectivity is available
+  Future<int> syncAllOfflineScans({
+    String? defaultUserId,
+    String? defaultUserName,
+    String? defaultUserRole,
+    String? defaultDeviceId,
+  }) async {
+    state = state.copyWith(
+      isProcessing: true,
+      processingStep: 'Syncing & extracting queued offline scans...',
+      errorMessage: null,
+      successMessage: null,
+    );
+    try {
+      final count = await _repository.syncAndProcessAllOfflineScans(
+        defaultUserId: defaultUserId,
+        defaultUserName: defaultUserName,
+        defaultUserRole: defaultUserRole,
+        defaultDeviceId: defaultDeviceId,
+      );
+      final updatedQueue = await _repository.getOfflineScanQueue();
+      if (!mounted) return count;
+      state = state.copyWith(
+        isProcessing: false,
+        isOfflineModeDetected: false,
+        offlineQueue: updatedQueue,
+        successMessage: count > 0
+            ? '$count offline scan(s) extracted and committed to camp database!'
+            : 'No offline scans were processed (check Internet connection).',
+      );
+      return count;
+    } catch (e) {
+      if (!mounted) return 0;
+      state = state.copyWith(
+        isProcessing: false,
+        errorMessage: 'Offline scan sync failed: $e',
+      );
+      return 0;
+    }
   }
 
   /// Loads a high-fidelity sample Yellow Form (Front page, Back page, or Full form)
@@ -189,45 +383,53 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
   /// Captures specific page (1 or 2) using edge-detecting document scanner or camera
   Future<void> capturePage(int pageNumber) async {
-    // Don't show loading spinner until the user has actually taken a photo
     state = state.copyWith(errorMessage: null);
     try {
       final photo = await _captureService.scanSingleDocumentPage();
       if (photo == null) {
         return; // user cancelled — nothing to do
       }
+      final rawBytes = await photo.readAsBytes();
       if (!mounted) return;
-      // Photo confirmed — now show the processing indicator
       state = state.copyWith(
         isProcessing: true,
+        page1ImageBytes: pageNumber == 1 ? rawBytes : state.page1ImageBytes,
+        page1ImagePath: pageNumber == 1 ? photo.path : state.page1ImagePath,
+        page2ImageBytes: pageNumber == 2 ? rawBytes : state.page2ImageBytes,
+        page2ImagePath: pageNumber == 2 ? photo.path : state.page2ImagePath,
         processingStep: 'Digitizing Page $pageNumber (${pageNumber == 1 ? "Demographics & Obstetric History" : "POP Exam & Vitals"})...',
       );
-      final result = await _repository.processImageScan(photo, pageNumber: pageNumber, engineMode: state.engineMode);
+      final result = await _repository.processImageScan(photo, pageNumber: pageNumber, engineMode: OcrEngineMode.onlineGemini);
       if (!mounted) return;
       if (pageNumber == 1) {
         state = state.copyWith(
           isProcessing: false,
+          isOfflineModeDetected: false,
           page1Scan: result,
-          // Stay on dual-slot view so user can review Slot 1 status and proceed to Slot 2
           successMessage: 'Page 1 (Front) captured successfully. Capture Page 2 or tap Review.',
         );
       } else {
         state = state.copyWith(
           isProcessing: false,
+          isOfflineModeDetected: false,
           page2Scan: result,
-          // Stay on dual-slot view so user can see both slots ready
           successMessage: 'Page 2 (Back) captured successfully. Both pages ready for review.',
         );
       }
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString();
+      final isOffline = e is GeminiOcrException || msg.contains('Cannot reach') || msg.contains('SocketException') || msg.contains('timed out');
       final friendlyMsg = msg.contains('camera_access_denied') || msg.contains('permission')
           ? 'Camera permission was denied. Please grant camera permission or use "Upload File".'
-          : 'Camera capture error: $msg';
+          : isOffline
+              ? 'Offline mode: Page $pageNumber image captured! Tap "Save Offline Scan Locally" below to store on local storage and auto-sync when Internet connects.'
+              : 'Camera capture error: $msg';
       state = state.copyWith(
         isProcessing: false,
-        errorMessage: friendlyMsg,
+        isOfflineModeDetected: isOffline ? true : state.isOfflineModeDetected,
+        errorMessage: isOffline ? null : friendlyMsg,
+        successMessage: isOffline ? friendlyMsg : state.successMessage,
       );
     }
   }
@@ -237,41 +439,50 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
   /// Picks image for specific page slot (1 or 2)
   Future<void> pickPage(int pageNumber) async {
-    // Don't show loading spinner until the user has actually chosen a file
     state = state.copyWith(errorMessage: null);
     try {
       final photo = await _captureService.pickFromGallery();
       if (photo == null) {
         return; // user cancelled — nothing to do
       }
+      final rawBytes = await photo.readAsBytes();
       if (!mounted) return;
-      // File confirmed — now show the processing indicator
       state = state.copyWith(
         isProcessing: true,
+        page1ImageBytes: pageNumber == 1 ? rawBytes : state.page1ImageBytes,
+        page1ImagePath: pageNumber == 1 ? photo.path : state.page1ImagePath,
+        page2ImageBytes: pageNumber == 2 ? rawBytes : state.page2ImageBytes,
+        page2ImagePath: pageNumber == 2 ? photo.path : state.page2ImagePath,
         processingStep: 'Digitizing Page $pageNumber (${pageNumber == 1 ? "Demographics & Obstetric History" : "POP Exam & Vitals"})...',
       );
-      final result = await _repository.processImageScan(photo, pageNumber: pageNumber, engineMode: state.engineMode);
+      final result = await _repository.processImageScan(photo, pageNumber: pageNumber, engineMode: OcrEngineMode.onlineGemini);
       if (!mounted) return;
       if (pageNumber == 1) {
         state = state.copyWith(
           isProcessing: false,
+          isOfflineModeDetected: false,
           page1Scan: result,
-          // Stay on dual-slot view so user can review Slot 1 status and proceed to Slot 2
           successMessage: 'Page 1 (Front) imported successfully. Import Page 2 or tap Review.',
         );
       } else {
         state = state.copyWith(
           isProcessing: false,
+          isOfflineModeDetected: false,
           page2Scan: result,
-          // Stay on dual-slot view so user can see both slots ready
           successMessage: 'Page 2 (Back) imported successfully. Both pages ready for review.',
         );
       }
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString();
+      final isOffline = e is GeminiOcrException || msg.contains('Cannot reach') || msg.contains('SocketException') || msg.contains('timed out');
       state = state.copyWith(
         isProcessing: false,
-        errorMessage: 'Image pick error: ${e.toString()}',
+        isOfflineModeDetected: isOffline ? true : state.isOfflineModeDetected,
+        errorMessage: isOffline ? null : 'Image pick error: $msg',
+        successMessage: isOffline
+            ? 'Offline mode: Page $pageNumber image loaded! Tap "Save Offline Scan Locally" below to store on local storage and auto-sync when Internet connects.'
+            : state.successMessage,
       );
     }
   }
@@ -281,46 +492,50 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
   /// Selects both Page 1 and Page 2 at once via multi-image picker
   Future<void> pickBothPages() async {
-    // Don't show loading spinner until the user has actually chosen files
     state = state.copyWith(errorMessage: null);
     try {
       final photos = await _captureService.pickMultipleImages();
       if (photos.isEmpty) {
         return; // user cancelled — nothing to do
       }
+      final bytes1 = await photos[0].readAsBytes();
+      final bytes2 = photos.length > 1 ? await photos[1].readAsBytes() : null;
       if (!mounted) return;
-      // Files confirmed — now show the processing indicator
       state = state.copyWith(
         isProcessing: true,
+        page1ImageBytes: bytes1,
+        page1ImagePath: photos[0].path,
+        page2ImageBytes: bytes2 ?? state.page2ImageBytes,
+        page2ImagePath: photos.length > 1 ? photos[1].path : state.page2ImagePath,
         processingStep: 'Digitizing Page 1 of 2 (Demographics & Obstetric History)...',
       );
       if (photos.length == 1) {
-        final res = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
+        final res = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: OcrEngineMode.onlineGemini);
         if (!mounted) return;
         state = state.copyWith(
           isProcessing: false,
+          isOfflineModeDetected: false,
           page1Scan: res,
           successMessage: '1 document page imported. Import Page 2 or tap Review.',
         );
         return;
       }
 
-      // Process first as Page 1, second as Page 2
-      final res1 = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
+      final res1 = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: OcrEngineMode.onlineGemini);
       if (!mounted) return;
       state = state.copyWith(
         processingStep: 'Page 1 complete! Digitizing Page 2 of 2 (POP Exam & Vitals)...',
       );
-      final res2 = await _repository.processImageScan(photos[1], pageNumber: 2, engineMode: state.engineMode);
+      final res2 = await _repository.processImageScan(photos[1], pageNumber: 2, engineMode: OcrEngineMode.onlineGemini);
       if (!mounted) return;
       state = state.copyWith(
         processingStep: 'Merging clinical stations & checking records...',
       );
-      if (!mounted) return;
       final merged = OcrScanResultModel.merge(res1, res2);
 
       state = state.copyWith(
         isProcessing: false,
+        isOfflineModeDetected: false,
         page1Scan: res1,
         page2Scan: res2,
         scanResult: merged,
@@ -328,9 +543,15 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       );
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString();
+      final isOffline = e is GeminiOcrException || msg.contains('Cannot reach') || msg.contains('SocketException') || msg.contains('timed out');
       state = state.copyWith(
         isProcessing: false,
-        errorMessage: 'Multi-image pick error: ${e.toString()}',
+        isOfflineModeDetected: isOffline ? true : state.isOfflineModeDetected,
+        errorMessage: isOffline ? null : 'Multi-image pick error: $msg',
+        successMessage: isOffline
+            ? 'Offline mode: Scanned form images loaded! Tap "Save Offline Scan Locally" below to store on local storage and auto-sync when Internet connects.'
+            : state.successMessage,
       );
     }
   }
@@ -341,38 +562,45 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     try {
       final photos = await _captureService.scanDocumentPages(pageLimit: 2);
       if (photos.isEmpty) return;
+      final bytes1 = await photos[0].readAsBytes();
+      final bytes2 = photos.length > 1 ? await photos[1].readAsBytes() : null;
       if (!mounted) return;
 
       state = state.copyWith(
         isProcessing: true,
+        page1ImageBytes: bytes1,
+        page1ImagePath: photos[0].path,
+        page2ImageBytes: bytes2 ?? state.page2ImageBytes,
+        page2ImagePath: photos.length > 1 ? photos[1].path : state.page2ImagePath,
         processingStep: 'Digitizing Page 1 of 2 (Demographics & Obstetric History)...',
       );
       if (photos.length == 1) {
-        final res = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
+        final res = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: OcrEngineMode.onlineGemini);
         if (!mounted) return;
         state = state.copyWith(
           isProcessing: false,
+          isOfflineModeDetected: false,
           page1Scan: res,
           successMessage: 'Page 1 scanned and rectified. Capture Page 2 or tap Review.',
         );
         return;
       }
 
-      final res1 = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: state.engineMode);
+      final res1 = await _repository.processImageScan(photos[0], pageNumber: 1, engineMode: OcrEngineMode.onlineGemini);
       if (!mounted) return;
       state = state.copyWith(
         processingStep: 'Page 1 complete! Digitizing Page 2 of 2 (POP Exam & Vitals)...',
       );
-      final res2 = await _repository.processImageScan(photos[1], pageNumber: 2, engineMode: state.engineMode);
+      final res2 = await _repository.processImageScan(photos[1], pageNumber: 2, engineMode: OcrEngineMode.onlineGemini);
       if (!mounted) return;
       state = state.copyWith(
         processingStep: 'Merging clinical stations & checking records...',
       );
-      if (!mounted) return;
       final merged = OcrScanResultModel.merge(res1, res2);
 
       state = state.copyWith(
         isProcessing: false,
+        isOfflineModeDetected: false,
         page1Scan: res1,
         page2Scan: res2,
         scanResult: merged,
@@ -380,9 +608,15 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       );
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString();
+      final isOffline = e is GeminiOcrException || msg.contains('Cannot reach') || msg.contains('SocketException') || msg.contains('timed out');
       state = state.copyWith(
         isProcessing: false,
-        errorMessage: 'Document scanner error: ${e.toString()}',
+        isOfflineModeDetected: isOffline ? true : state.isOfflineModeDetected,
+        errorMessage: isOffline ? null : 'Document scanner error: $msg',
+        successMessage: isOffline
+            ? 'Offline mode: Scanned form images ready! Tap "Save Offline Scan Locally" below to store on local storage and auto-sync when Internet connects.'
+            : state.successMessage,
       );
     }
   }
@@ -423,10 +657,25 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     if (state.scanResult == null) return;
     final updatedDemo = Map<String, dynamic>.from(state.scanResult!.demographics);
     updatedDemo[key] = value;
+    if (key == 'patientId' || key == 'patientTokenId') {
+      updatedDemo['patientId'] = value;
+      updatedDemo['patientTokenId'] = value;
+    }
+    String? updatedIntake = state.scanResult!.intakeDate;
+    if (key == 'intakeDate' || key == 'date') {
+      final cleanDate = value?.toString().trim();
+      updatedIntake = (cleanDate != null && cleanDate.isNotEmpty) ? cleanDate : null;
+      updatedDemo['intakeDate'] = updatedIntake;
+      updatedDemo['date'] = updatedIntake;
+    }
     state = state.copyWith(
-      scanResult: state.scanResult!.copyWith(demographics: updatedDemo),
+      scanResult: state.scanResult!.copyWith(
+        demographics: updatedDemo,
+        intakeDate: updatedIntake,
+        clearIntakeDate: (key == 'intakeDate' || key == 'date') && updatedIntake == null,
+      ),
     );
-    if (key == 'patientId') {
+    if (key == 'patientId' || key == 'patientTokenId') {
       checkPatientIdAvailability(value?.toString() ?? '', campCode: campCode);
     }
     if (campId != null && campId.isNotEmpty) {
@@ -1067,12 +1316,16 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     }
   }
 
-  /// Clears state to start a new scan
+  /// Clears state to start a new scan while keeping offlineQueue loaded
   void resetScan() {
-    state = const OcrScanState();
+    state = OcrScanState(offlineQueue: state.offlineQueue);
   }
 }
 
+final ocrRepositoryProvider = Provider<IOcrRepository>((ref) {
+  return OcrRepository();
+});
+
 final ocrScanProvider = StateNotifierProvider<OcrScanViewModel, OcrScanState>((ref) {
-  return OcrScanViewModel();
+  return OcrScanViewModel(repository: ref.watch(ocrRepositoryProvider));
 });

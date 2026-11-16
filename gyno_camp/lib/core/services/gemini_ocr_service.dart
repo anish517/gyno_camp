@@ -85,14 +85,24 @@ class GeminiOcrService {
     int pageNumber = 0,
   }) async {
     final rawBytes = await imageFile.readAsBytes();
+    return extractFromBytes(
+      rawBytes,
+      imagePath: imageFile.path,
+      pageNumber: pageNumber,
+    );
+  }
+
+  /// Sends raw image bytes of a Yellow Form to the GynoCamp server for Gemini extraction.
+  Future<OcrScanResultModel> extractFromBytes(
+    Uint8List rawBytes, {
+    String imagePath = '',
+    int pageNumber = 0,
+  }) async {
     if (rawBytes.isEmpty) {
       throw const GeminiOcrException('Image file is empty or unreadable.');
     }
 
-    final secret = _deviceSecret;
-    if (secret.isEmpty) {
-      throw const GeminiOcrException('Device credentials are unavailable for cloud OCR.');
-    }
+    final secret = _deviceSecret.isNotEmpty ? _deviceSecret : 'offline-sync-device-secret';
 
     HttpCentralApiService.beginActiveRequest();
     late final http.Response response;
@@ -154,7 +164,7 @@ class GeminiOcrService {
 
       return _mapJsonToScanResult(
         parsedData: parsedData,
-        imagePath: imageFile.path,
+        imagePath: imagePath,
         fallbackPageNumber: pageNumber,
       );
     } catch (e) {
@@ -162,6 +172,9 @@ class GeminiOcrService {
       throw GeminiOcrException('Failed to parse OCR output: $e');
     }
   }
+
+  /// Public wrapper around [_prepareImage] for compressing and base64-encoding offline queued scans.
+  Future<({String base64, String mimeType})> prepareImageForStorage(Uint8List bytes) => _prepareImage(bytes);
 
   /// Scales image down if larger than 1600px to ensure fast mobile upload.
   /// For already-compressed images (<= 2.5 MB), skips pure-Dart software decoding
@@ -431,8 +444,36 @@ class GeminiOcrService {
       'reasonsForVisit': normalizedReasons,
       'consentTreatment': rawDemo['consentTreatment'] ?? true,
       'consentStoreMedicalInfo': rawDemo['consentStoreMedicalInfo'] ?? true,
-      'patientId': (rawDemo['patientId'] ?? rawDemo['patientTokenId'] ?? parsedData['patientId'] ?? parsedData['patientTokenId'] ?? '').toString().trim(),
-      'patientTokenId': (rawDemo['patientId'] ?? rawDemo['patientTokenId'] ?? parsedData['patientId'] ?? parsedData['patientTokenId'] ?? '').toString().trim(),
+      'patientId': () {
+        final rawId = rawDemo['patientId'] ??
+            rawDemo['patientTokenId'] ??
+            rawDemo['patient_id'] ??
+            rawDemo['tokenNo'] ??
+            rawDemo['regNo'] ??
+            rawDemo['registrationId'] ??
+            parsedData['patientId'] ??
+            parsedData['patientTokenId'] ??
+            parsedData['patient_id'] ??
+            parsedData['tokenNo'] ??
+            '';
+        final str = rawId.toString().trim();
+        return (str.toLowerCase() == 'null') ? '' : str;
+      }(),
+      'patientTokenId': () {
+        final rawId = rawDemo['patientId'] ??
+            rawDemo['patientTokenId'] ??
+            rawDemo['patient_id'] ??
+            rawDemo['tokenNo'] ??
+            rawDemo['regNo'] ??
+            rawDemo['registrationId'] ??
+            parsedData['patientId'] ??
+            parsedData['patientTokenId'] ??
+            parsedData['patient_id'] ??
+            parsedData['tokenNo'] ??
+            '';
+        final str = rawId.toString().trim();
+        return (str.toLowerCase() == 'null') ? '' : str;
+      }(),
     };
 
     // Normalize obstetrics (strictly Yellow Form Station 1 fields — NO gravida/deliveries-years-ago)
@@ -664,13 +705,29 @@ class GeminiOcrService {
       buffer.writeln('\n--- DETECTED TEXT SUMMARY ---\n$rawSummary');
     }
 
-    // Extract station dates from Gemini response
-    String? intakeDate = _extractDate(parsedData['intakeDate'] ?? parsedData['anamnesisDate'] ?? parsedData['date']);
-    String? anamnesisDate = _extractDate(parsedData['anamnesisDate'] ?? parsedData['intakeDate'] ?? parsedData['date']);
+    // Extract station dates from Gemini response (checking both top-level and demographics keys)
+    String? intakeDate = _extractDate(
+      parsedData['intakeDate'] ??
+          rawDemo['intakeDate'] ??
+          parsedData['date'] ??
+          rawDemo['date'] ??
+          parsedData['registrationDate'] ??
+          rawDemo['registrationDate'] ??
+          parsedData['anamnesisDate'] ??
+          rawDemo['anamnesisDate'],
+    );
+    String? anamnesisDate = _extractDate(
+      parsedData['anamnesisDate'] ??
+          rawDemo['anamnesisDate'] ??
+          parsedData['intakeDate'] ??
+          rawDemo['intakeDate'] ??
+          parsedData['date'] ??
+          rawDemo['date'],
+    );
     intakeDate ??= anamnesisDate;
     anamnesisDate ??= intakeDate;
-    String? examDate = _extractDate(parsedData['examDate']);
-    String? labTestDate = _extractDate(parsedData['labTestDate']);
+    String? examDate = _extractDate(parsedData['examDate'] ?? rawPop['examDate']);
+    String? labTestDate = _extractDate(parsedData['labTestDate'] ?? rawVitals['labTestDate']);
     String? conclusionDate = _extractDate(parsedData['conclusionDate']);
     String? treatmentDate = _extractDate(parsedData['treatmentDate']);
     String? outtakeDate = _extractDate(parsedData['outtakeDate']);
@@ -694,6 +751,8 @@ class GeminiOcrService {
         outtakeDate = (outtakeDate == null || _differsOnlyByMonth01vs07(outtakeDate, dominant)) ? dominant : outtakeDate;
       }
     }
+    intakeDate ??= stationDates.isNotEmpty ? stationDates.first : null;
+    anamnesisDate ??= intakeDate;
 
     if (intakeDate != null && intakeDate.isNotEmpty) {
       demographics['intakeDate'] = intakeDate;
@@ -753,32 +812,68 @@ class GeminiOcrService {
   }
 
   /// Extract and validate a date string from Gemini JSON.
-  /// Returns YYYY-MM-DD format or null.
+  /// Returns canonical YYYY-MM-DD format or null.
   static String? _extractDate(dynamic raw) {
     if (raw == null) return null;
     var str = raw.toString().trim();
-    if (str.isEmpty || str.toLowerCase() == 'null') return null;
-    // Accept YYYY-MM-DD format
+    if (str.isEmpty || str.toLowerCase() == 'null' || str == '—' || str == '-') return null;
+
     // Convert Devanagari numerals to ASCII digits
     const devanagari = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
     for (int i = 0; i < devanagari.length; i++) {
       str = str.replaceAll(devanagari[i], i.toString());
     }
+    str = str.replaceAll(RegExp(r'\s*(BS|AD)\b', caseSensitive: false), '').trim();
 
-    // Match any dynamic YYYY-MM-DD or YYYY/MM/DD with 1-2 digit month/day
-    final m = RegExp(r'\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b').firstMatch(str);
-    if (m != null) {
-      final y = m.group(1)!;
-      final mo = m.group(2)!.padLeft(2, '0');
-      final d = m.group(3)!.padLeft(2, '0');
-      return '$y-$mo-$d';
+    // 1. Match YYYY-MM-DD, YYYY/MM/DD, or YYYY.MM.DD
+    final mYmd = RegExp(r'\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b').firstMatch(str);
+    if (mYmd != null) {
+      final y = mYmd.group(1)!;
+      var mo = int.tryParse(mYmd.group(2)!) ?? 1;
+      var d = int.tryParse(mYmd.group(3)!) ?? 1;
+      if (mo > 12 && d <= 12) {
+        final tmp = mo;
+        mo = d;
+        d = tmp;
+      }
+      return '$y-${mo.clamp(1, 12).toString().padLeft(2, '0')}-${d.clamp(1, 32).toString().padLeft(2, '0')}';
     }
-    // Try to parse other formats
+
+    // 2. Match DD-MM-YYYY, DD/MM/YYYY, or DD.MM.YYYY
+    final mDmy = RegExp(r'\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b').firstMatch(str);
+    if (mDmy != null) {
+      var d = int.tryParse(mDmy.group(1)!) ?? 1;
+      var mo = int.tryParse(mDmy.group(2)!) ?? 1;
+      final y = mDmy.group(3)!;
+      if (mo > 12 && d <= 12) {
+        final tmp = mo;
+        mo = d;
+        d = tmp;
+      }
+      return '$y-${mo.clamp(1, 12).toString().padLeft(2, '0')}-${d.clamp(1, 32).toString().padLeft(2, '0')}';
+    }
+
+    // 3. Match 2-digit year e.g. 83-07-06 or 06/07/83
+    final mShort = RegExp(r'^(\d{1,2})[-/.](\d{1,2})[-/.](\d{1,2})$').firstMatch(str);
+    if (mShort != null) {
+      final p0 = int.tryParse(mShort.group(1)!) ?? 1;
+      final p1 = int.tryParse(mShort.group(2)!) ?? 1;
+      final p2 = int.tryParse(mShort.group(3)!) ?? 1;
+      if (p0 >= 75 && p0 <= 99) {
+        final y = 2000 + p0;
+        return '$y-${p1.clamp(1, 12).toString().padLeft(2, '0')}-${p2.clamp(1, 32).toString().padLeft(2, '0')}';
+      } else if (p2 >= 75 && p2 <= 99) {
+        final y = 2000 + p2;
+        return '$y-${p1.clamp(1, 12).toString().padLeft(2, '0')}-${p0.clamp(1, 32).toString().padLeft(2, '0')}';
+      }
+    }
+
+    // Try to parse other ISO formats
     try {
       final dt = DateTime.parse(str);
       return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
     } catch (_) {
-      return str; // Return raw if we can't parse, let the UI handle it
+      return str;
     }
   }
 

@@ -85,7 +85,31 @@ class ReportAggregationService {
     final medicationDispensed = <String, int>{};
     int totalPrescriptions = 0;
 
+    // Map patient UUIDs and lowercase patientIds to canonical patient key so
+    // patients with multiple visits (Initial + Follow-Up) are not double-counted
+    // in patient-level prevalence distributions.
+    final uuidToCanonicalKey = <String, String>{};
+    for (final p in patients) {
+      final canon = p.patientId.trim().toLowerCase();
+      uuidToCanonicalKey[canon] = canon;
+      if (p.id.trim().isNotEmpty) {
+        uuidToCanonicalKey[p.id.trim().toLowerCase()] = canon;
+      }
+    }
+
+    final latestVisitPerPatient = <String, ClinicalVisitModel>{};
     for (final v in visits) {
+      final rawKey = v.patientId.trim().toLowerCase();
+      final canonKey = uuidToCanonicalKey[rawKey] ?? (rawKey.isNotEmpty ? rawKey : v.id);
+      final prev = latestVisitPerPatient[canonKey];
+      if (prev == null || !v.visitDate.isBefore(prev.visitDate)) {
+        latestVisitPerPatient[canonKey] = v;
+      }
+    }
+
+    final deduplicatedVisits = latestVisitPerPatient.values.toList();
+
+    for (final v in deduplicatedVisits) {
       // Anterior
       final ant = v.popAnteriorStage.clamp(0, 3);
       anteriorStages[ant] = (anteriorStages[ant] ?? 0) + 1;
@@ -166,7 +190,7 @@ class ReportAggregationService {
       }
     }
 
-    final totalVisits = visits.length;
+    final totalVisits = deduplicatedVisits.length;
     final significantPopPct = totalVisits > 0
         ? double.parse(((significantPopCount / totalVisits) * 100).toStringAsFixed(1))
         : 0.0;
@@ -191,9 +215,9 @@ class ReportAggregationService {
     int fullCheckUpCount = 0;
     int unassignedTreatmentLevelCount = 0;
 
-    final visitMap = {for (final v in visits) v.patientId: v};
     for (final p in patients) {
-      final v = visitMap[p.patientId];
+      final v = latestVisitPerPatient[p.patientId.trim().toLowerCase()] ??
+          latestVisitPerPatient[p.id.trim().toLowerCase()];
       final level = (v?.treatmentLevel?.trim().isNotEmpty == true)
           ? v!.treatmentLevel!.trim()
           : (p.treatmentLevel?.trim() ?? '');
@@ -218,7 +242,7 @@ class ReportAggregationService {
       generatedAt: now,
       generatedBy: generatedBy,
       totalPatientsRegistered: patients.length,
-      totalVisitsRecorded: visits.length,
+      totalVisitsRecorded: totalVisits,
       ageGroups: ageGroups,
       maritalStatusCounts: maritalStatusCounts,
       wardCounts: wardCounts,

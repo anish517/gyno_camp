@@ -113,6 +113,15 @@ class FakePatientRepository implements IPatientRepository {
 
   @override
   Future<bool> isPatientIdTaken(String patientId) async => false;
+
+  @override
+  Future<void> deletePatient(String patientIdOrUuid, {String deletedByUserId = 'usr-local', String deletedByUserName = 'Field Staff', String deletedByUserRole = 'DATA_TAKER', String deviceId = 'dev-local'}) async {}
+
+  @override
+  Future<void> deleteClinicalVisit(String visitId, {String deletedByUserId = 'usr-local', String deletedByUserName = 'Field Staff', String deletedByUserRole = 'DATA_TAKER', String deviceId = 'dev-local'}) async {}
+
+  @override
+  Future<ClinicalVisitModel> recordNurseSeenQuickVisit({required PatientModel patient, required String nurseName, List<String> attendingNurses = const [], String? treatmentLevel, String? notes, required String userId, required String deviceId}) async => throw UnimplementedError();
 }
 
 void main() {

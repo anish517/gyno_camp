@@ -14,6 +14,8 @@ class SyncPushPayload {
   final List<ClinicalVisitModel> clinicalVisits;
   final List<AuditLogModel> auditLogs;
   final List<LookupItemModel> lookupItems;
+  final List<String> deletedPatientIds;
+  final List<String> deletedVisitIds;
 
   const SyncPushPayload({
     required this.deviceId,
@@ -24,10 +26,26 @@ class SyncPushPayload {
     this.clinicalVisits = const [],
     this.auditLogs = const [],
     this.lookupItems = const [],
+    this.deletedPatientIds = const [],
+    this.deletedVisitIds = const [],
   });
 
-  bool get isEmpty => camps.isEmpty && patients.isEmpty && clinicalVisits.isEmpty && auditLogs.isEmpty && lookupItems.isEmpty;
-  int get totalRecords => camps.length + patients.length + clinicalVisits.length + auditLogs.length + lookupItems.length;
+  bool get isEmpty =>
+      camps.isEmpty &&
+      patients.isEmpty &&
+      clinicalVisits.isEmpty &&
+      auditLogs.isEmpty &&
+      lookupItems.isEmpty &&
+      deletedPatientIds.isEmpty &&
+      deletedVisitIds.isEmpty;
+  int get totalRecords =>
+      camps.length +
+      patients.length +
+      clinicalVisits.length +
+      auditLogs.length +
+      lookupItems.length +
+      deletedPatientIds.length +
+      deletedVisitIds.length;
 
   Map<String, dynamic> toMap() {
     return {
@@ -39,6 +57,8 @@ class SyncPushPayload {
       'clinical_visits': clinicalVisits.map((v) => v.toMap()).toList(),
       'audit_logs': auditLogs.map((a) => a.toMap()).toList(),
       'lookup_items': lookupItems.map((l) => l.toMap()).toList(),
+      'deleted_patient_ids': deletedPatientIds,
+      'deleted_visit_ids': deletedVisitIds,
     };
   }
 
@@ -65,6 +85,14 @@ class SyncPushPayload {
           [],
       lookupItems: (map['lookup_items'] as List<dynamic>?)
               ?.map((l) => LookupItemModel.fromMap(l as Map<String, dynamic>))
+              .toList() ??
+          [],
+      deletedPatientIds: (map['deleted_patient_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      deletedVisitIds: (map['deleted_visit_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
               .toList() ??
           [],
     );
@@ -130,6 +158,8 @@ class SyncPullResponse {
   final List<String> deletedCampIds;
   final List<String> deletedLookupIds;
   final List<String> deletedUserIds;
+  final List<String> deletedPatientIds;
+  final List<String> deletedVisitIds;
   final String? message;
 
   const SyncPullResponse({
@@ -143,6 +173,8 @@ class SyncPullResponse {
     this.deletedCampIds = const [],
     this.deletedLookupIds = const [],
     this.deletedUserIds = const [],
+    this.deletedPatientIds = const [],
+    this.deletedVisitIds = const [],
     this.message,
   });
 
@@ -158,6 +190,8 @@ class SyncPullResponse {
       'deleted_camp_ids': deletedCampIds,
       'deleted_lookup_ids': deletedLookupIds,
       'deleted_user_ids': deletedUserIds,
+      'deleted_patient_ids': deletedPatientIds,
+      'deleted_visit_ids': deletedVisitIds,
       'message': message,
     };
   }
@@ -195,6 +229,14 @@ class SyncPullResponse {
               .toList() ??
           [],
       deletedUserIds: (map['deleted_user_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      deletedPatientIds: (map['deleted_patient_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      deletedVisitIds: (map['deleted_visit_ids'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],

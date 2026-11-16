@@ -14,13 +14,13 @@ import '../../core/utils/nepali_date_helper.dart';
 import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
 import '../../models/patient_model.dart';
-import '../../repositories/ocr_repository.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
 import '../../viewmodels/ocr_scan_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
+import '../../viewmodels/sync_viewmodel.dart';
 import '../patient/patient_list_view.dart';
 
 /// Safely extracts complaintDetails as `Map<String, dynamic>` regardless of
@@ -64,17 +64,33 @@ class _FormScanViewState extends ConsumerState<FormScanView>
       TextEditingController();
   final TextEditingController _customMedicationController =
       TextEditingController();
+  final TextEditingController _offlineTokenHintController =
+      TextEditingController();
+  final TextEditingController _offlineDateHintController =
+      TextEditingController();
+  final TransformationController _previewTransformController =
+      TransformationController();
+  bool _showImageInPreview = true;
+  int _previewRotationQuarterTurns = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(ocrScanProvider.notifier).loadOfflineQueue();
+      }
+    });
   }
 
   @override
   void dispose() {
     _customDiagnosisController.dispose();
     _customMedicationController.dispose();
+    _offlineTokenHintController.dispose();
+    _offlineDateHintController.dispose();
+    _previewTransformController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -118,26 +134,6 @@ class _FormScanViewState extends ConsumerState<FormScanView>
           ],
         ),
         actions: [
-          // Clinical Reference Form Templates
-          PopupMenuButton<String>(
-            tooltip: 'Load Reference Form Template',
-            icon: const Icon(Icons.document_scanner),
-            onSelected: (sample) => ocrVm.loadSample(sample),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'full',
-                child: Text('📄 Complete 2-Page Yellow Form'),
-              ),
-              const PopupMenuItem(
-                value: 'page1',
-                child: Text('📋 Page 1: Demographics & History'),
-              ),
-              const PopupMenuItem(
-                value: 'page2',
-                child: Text('🩺 Page 2: POP Exam & Vitals'),
-              ),
-            ],
-          ),
           if (ocrState.hasScanResult)
             IconButton(
               tooltip: 'Clear & Retake',
@@ -306,15 +302,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        ocrState.engineMode == OcrEngineMode.onlineGemini
-                            ? (isCompact
-                                  ? 'GEMINI CLOUD OCR'
-                                  : 'GEMINI FLASH AI MULTIMODAL CLOUD OCR')
-                            : (ocrState.engineMode == OcrEngineMode.offlineOnly
-                                  ? 'OFFLINE ON-DEVICE ML KIT OCR'
-                                  : (isCompact
-                                        ? 'INTELLIGENT DUAL OCR (CLOUD + OFFLINE)'
-                                        : 'INTELLIGENT DUAL OCR (GEMINI CLOUD + OFFLINE ML KIT)')),
+                        isCompact
+                            ? 'GEMINI CLOUD OCR'
+                            : 'GEMINI FLASH AI MULTIMODAL CLOUD OCR',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: isCompact ? 10.5 : 11.5,
@@ -348,10 +338,6 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                 ),
               ),
               const SizedBox(height: 16),
-
-              // OCR Engine Selector Control
-              _buildEngineSelector(ocrState, ocrVm),
-              const SizedBox(height: 12),
 
               // Instruction Banner: Block Letters for Scan Accuracy
               Container(
@@ -400,28 +386,52 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     pageNumber: 1,
                     title: 'Page 1 (Front Page)',
                     subtitle: 'Demographics, Obstetric History & Visit Reasons',
-                    isCaptured: ocrState.hasPage1,
+                    isCaptured: ocrState.hasPage1 || ocrState.hasPage1Image,
                     ocrEngine: ocrState.page1Scan?.ocrEngine,
+                    imageBytes: ocrState.page1ImageBytes,
+                    imagePath: ocrState.page1ImagePath,
                     summaryText: ocrState.hasPage1
                         ? '${ocrState.page1Scan!.demographics["firstName"] ?? "Patient"} ${ocrState.page1Scan!.demographics["surname"] ?? ""} (${ocrState.page1Scan!.demographics["age"] ?? 35}y) • Ward ${ocrState.page1Scan!.demographics["ward"] ?? "03"}'
-                        : null,
+                        : (ocrState.hasPage1Image
+                            ? 'Page 1 image captured — ready for offline storage or cloud OCR'
+                            : null),
                     onCamera: () => ocrVm.capturePage(1),
                     onGallery: () => ocrVm.pickPage(1),
                     onClear: () => ocrVm.clearSlot(1),
+                    onPreviewImage: ocrState.hasPage1Image
+                        ? () => _showFullScreenFormPreviewDialog(
+                              context,
+                              page1Bytes: ocrState.page1ImageBytes,
+                              page2Bytes: ocrState.page2ImageBytes,
+                              initialPage: 1,
+                            )
+                        : null,
                   );
 
                   final slot2 = _buildPageSlotCard(
                     pageNumber: 2,
                     title: 'Page 2 (Back Page)',
                     subtitle: 'POP Staging, Vitals, Diagnoses & Prescriptions',
-                    isCaptured: ocrState.hasPage2,
+                    isCaptured: ocrState.hasPage2 || ocrState.hasPage2Image,
                     ocrEngine: ocrState.page2Scan?.ocrEngine,
+                    imageBytes: ocrState.page2ImageBytes,
+                    imagePath: ocrState.page2ImagePath,
                     summaryText: ocrState.hasPage2
                         ? 'BP ${ocrState.page2Scan!.vitals["systolicBp"] ?? 120}/${ocrState.page2Scan!.vitals["diastolicBp"] ?? 80} • ${ocrState.page2Scan!.diagnoses.length} Diagnoses'
-                        : null,
+                        : (ocrState.hasPage2Image
+                            ? 'Page 2 image captured — ready for offline storage or cloud OCR'
+                            : null),
                     onCamera: () => ocrVm.capturePage(2),
                     onGallery: () => ocrVm.pickPage(2),
                     onClear: () => ocrVm.clearSlot(2),
+                    onPreviewImage: ocrState.hasPage2Image
+                        ? () => _showFullScreenFormPreviewDialog(
+                              context,
+                              page1Bytes: ocrState.page1ImageBytes,
+                              page2Bytes: ocrState.page2ImageBytes,
+                              initialPage: 2,
+                            )
+                        : null,
                   );
 
                   if (isWide) {
@@ -440,7 +450,10 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   }
                 },
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
+
+              // Offline Scan Storage & Pending Queue Section
+              _buildOfflineSaveAndQueueSection(context, ocrState, ocrVm),
 
               // Primary Action: Review Captured Data
               if (ocrState.hasPage1 || ocrState.hasPage2) ...[
@@ -536,24 +549,6 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     ),
                     onPressed: () => ocrVm.pickBothPages(),
                   ),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      foregroundColor: Colors.indigo.shade800,
-                    ),
-                    icon: const Icon(Icons.assignment_outlined, size: 18),
-                    label: const Text(
-                      'Load Complete 2-Page Template',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    onPressed: () => ocrVm.loadSample('full'),
-                  ),
                 ],
               ),
               const SizedBox(height: 32),
@@ -608,9 +603,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           ),
                           const SizedBox(height: 8),
                           _buildGuidelineBullet(
-                            icon: Icons.security,
-                            title: 'Zero Cloud Leakage',
-                            desc: 'All optical extraction runs locally offline on this secured field device.',
+                            icon: Icons.cloud_sync_outlined,
+                            title: 'Offline Scan Queue',
+                            desc: 'Scans captured without Internet are stored locally and synced automatically once online.',
                           ),
                           const SizedBox(height: 8),
                           _buildGuidelineBullet(
@@ -643,9 +638,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                             children: [
                               Expanded(
                                 child: _buildGuidelineBullet(
-                                  icon: Icons.security,
-                                  title: 'Zero Cloud Leakage',
-                                  desc: 'All optical extraction runs locally offline on this secured field device.',
+                                  icon: Icons.cloud_sync_outlined,
+                                  title: 'Offline Scan Queue',
+                                  desc: 'Scans captured without Internet are stored locally and synced automatically once online.',
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -707,294 +702,443 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     );
   }
 
-  Widget _buildEngineSelector(OcrScanState ocrState, OcrScanViewModel ocrVm) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isCompact = constraints.maxWidth < 520;
+  Widget _buildOfflineSaveAndQueueSection(
+    BuildContext context,
+    OcrScanState ocrState,
+    OcrScanViewModel ocrVm,
+  ) {
+    final campState = ref.watch(campStateProvider);
+    final authState = ref.watch(authStateProvider);
+    final deviceState = ref.watch(deviceSecurityProvider);
+    final activeCamp = campState.activeCamp;
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.settings_suggest_outlined,
-                    size: 18,
-                    color: AppTheme.primaryTeal,
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'OCR Detection Engine (अप्टिकल पहिचान इन्जिन):',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryDark,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (ocrState.errorMessage != null || ocrState.isOfflineModeDetected)
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFF59E0B), width: 1.4),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.wifi_off_rounded,
+                      color: Color(0xFFD97706),
+                      size: 22,
                     ),
-                  ),
-                  if (ocrState.engineMode == OcrEngineMode.auto) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.green.shade300),
-                      ),
-                      child: const Text(
-                        '⚡ Recommended',
-                        style: TextStyle(
-                          fontSize: 10.5,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        ocrState.isOfflineModeDetected
+                            ? 'Offline Scan Ready — Save to Local Storage & Auto-Sync When Online'
+                            : 'Scan Notice',
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          fontSize: 13.5,
+                          color: Color(0xFF92400E),
                         ),
                       ),
                     ),
                   ],
-                ],
-              ),
-              const SizedBox(height: 10),
-              if (isCompact) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryTeal.withValues(alpha: 0.06),
-                    border: Border.all(
-                      color: AppTheme.primaryTeal.withValues(alpha: 0.3),
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<OcrEngineMode>(
-                      isExpanded: true,
-                      value: ocrState.engineMode,
-                      icon: const Icon(
-                        Icons.arrow_drop_down,
-                        color: AppTheme.primaryTeal,
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: OcrEngineMode.auto,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.bolt,
-                                size: 16,
-                                color: AppTheme.primaryTeal,
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '⚡ Auto (Cloud + Offline)',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: OcrEngineMode.onlineGemini,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.auto_awesome,
-                                size: 16,
-                                color: Colors.indigo,
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '✨ Gemini AI (Cloud)',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: OcrEngineMode.offlineOnly,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.phone_android,
-                                size: 16,
-                                color: Colors.teal,
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '📱 ML Kit (Offline)',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      onChanged: (newSelection) {
-                        if (newSelection != null) {
-                          ocrVm.setEngineMode(newSelection);
-                        }
-                      },
-                    ),
-                  ),
                 ),
-              ] else ...[
-                SegmentedButton<OcrEngineMode>(
-                  segments: const [
-                    ButtonSegment<OcrEngineMode>(
-                      value: OcrEngineMode.auto,
-                      icon: Icon(Icons.bolt, size: 15),
-                      label: Text(
-                        '⚡ Auto (Cloud + Offline)',
-                        style: TextStyle(fontSize: 11.5),
-                      ),
+                if (ocrState.errorMessage != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    ocrState.errorMessage!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFB45309),
                     ),
-                    ButtonSegment<OcrEngineMode>(
-                      value: OcrEngineMode.onlineGemini,
-                      icon: Icon(Icons.auto_awesome, size: 15),
-                      label: Text(
-                        '✨ Gemini AI (Cloud)',
-                        style: TextStyle(fontSize: 11.5),
-                      ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+        if (ocrState.hasAnyCapturedImage)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF86EFAC), width: 1.4),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.save_alt_rounded,
+                      color: Color(0xFF15803D),
+                      size: 20,
                     ),
-                    ButtonSegment<OcrEngineMode>(
-                      value: OcrEngineMode.offlineOnly,
-                      icon: Icon(Icons.phone_android, size: 15),
-                      label: Text(
-                        '📱 ML Kit (Offline)',
-                        style: TextStyle(fontSize: 11.5),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Save Offline Scan to Local Storage (इन्टरनेट आएपछि स्वतः सिङ्क हुनेछ)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                          color: Color(0xFF166534),
+                        ),
                       ),
                     ),
                   ],
-                  selected: {ocrState.engineMode},
-                  onSelectionChanged: (Set<OcrEngineMode> newSelection) {
-                    ocrVm.setEngineMode(newSelection.first);
-                  },
-                  style: SegmentedButton.styleFrom(
-                    selectedBackgroundColor: AppTheme.primaryTeal.withValues(
-                      alpha: 0.15,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Store captured Yellow Form image(s) on this device now. As soon as Internet reconnects, Gemini Cloud OCR will extract and sync the full patient & clinical record automatically.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF15803D)),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _offlineTokenHintController,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          filled: true,
+                          fillColor: Colors.white,
+                          labelText: 'Optional Token ID (e.g. KTM01-0012)',
+                          labelStyle: TextStyle(fontSize: 11.5),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
                     ),
-                    selectedForegroundColor: AppTheme.primaryTeal,
-                    textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _offlineDateHintController,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          filled: true,
+                          fillColor: Colors.white,
+                          labelText: 'Optional Date BS (e.g. 2083-08-01)',
+                          labelStyle: TextStyle(fontSize: 11.5),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.offline_pin_outlined, size: 19),
+                    label: const Text(
+                      'Save Scan to Local Storage (Sync After Internet Connection)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    onPressed: ocrState.isSaving
+                        ? null
+                        : () async {
+                            if (activeCamp == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Please select or open an active camp first!',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
+                            final queued = await ocrVm.saveCurrentScanOffline(
+                              campId: activeCamp.id,
+                              campCode: activeCamp.campCode,
+                              userId:
+                                  authState.currentUser?.id ?? 'usr-local',
+                              userName:
+                                  authState.currentUser?.name ?? 'Field Staff',
+                              userRole:
+                                  authState.currentUser?.role.toString() ??
+                                  'DataTaker',
+                              deviceId:
+                                  deviceState.device?.deviceId ?? 'dev-local',
+                              patientIdHint:
+                                  _offlineTokenHintController.text.trim(),
+                              intakeDateHint:
+                                  _offlineDateHintController.text.trim(),
+                            );
+                            if (queued != null && context.mounted) {
+                              _offlineTokenHintController.clear();
+                              _offlineDateHintController.clear();
+                              ref
+                                  .read(syncStateProvider.notifier)
+                                  .refreshPendingCounts();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  backgroundColor: Color(0xFF15803D),
+                                  content: Text(
+                                    '✅ Scan saved to local storage! Will auto-extract & sync when Internet is connected.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                   ),
                 ),
               ],
-            ],
-          );
-        },
-      ),
+            ),
+          ),
+
+        if (ocrState.offlineQueue.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 18),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppTheme.primaryTeal.withValues(alpha: 0.35),
+                width: 1.4,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.cloud_queue,
+                      color: AppTheme.primaryTeal,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Locally Stored Offline Scans (${ocrState.offlineQueue.length})',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: AppTheme.primaryDark,
+                        ),
+                      ),
+                    ),
+                    FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.sync, size: 16),
+                      label: const Text(
+                        'Sync & Extract All Now',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onPressed: ocrState.isProcessing
+                          ? null
+                          : () async {
+                              final count = await ocrVm.syncAllOfflineScans(
+                                defaultUserId:
+                                    authState.currentUser?.id ?? 'usr-local',
+                                defaultUserName:
+                                    authState.currentUser?.name ??
+                                    'Field Staff',
+                                defaultUserRole:
+                                    authState.currentUser?.role.toString() ??
+                                    'DataTaker',
+                                defaultDeviceId:
+                                    deviceState.device?.deviceId ?? 'dev-local',
+                              );
+                              if (context.mounted) {
+                                if (activeCamp != null) {
+                                  ref
+                                      .read(patientListProvider.notifier)
+                                      .loadPatients(activeCamp.id);
+                                }
+                                ref
+                                    .read(campStateProvider.notifier)
+                                    .loadCamps();
+                                ref
+                                    .read(syncStateProvider.notifier)
+                                    .refreshPendingCounts();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      count > 0
+                                          ? '✅ Extracted & synced $count offline scan(s)!'
+                                          : 'Could not extract scans yet — please check Internet connection.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ...ocrState.offlineQueue.map((item) {
+                  final hasP1 =
+                      item.page1Bytes != null && item.page1Bytes!.isNotEmpty;
+                  final hasP2 =
+                      item.page2Bytes != null && item.page2Bytes!.isNotEmpty;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.description_outlined,
+                          size: 20,
+                          color: AppTheme.primaryTeal,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${item.campCode} • ${hasP1 && hasP2 ? "Dual-Page (P1+P2)" : (hasP1 ? "Page 1" : "Page 2")}'
+                                '${item.patientIdHint != null && item.patientIdHint!.isNotEmpty ? " • ID: ${item.patientIdHint}" : ""}'
+                                '${item.intakeDateHint != null && item.intakeDateHint!.isNotEmpty ? " • Date: ${item.intakeDateHint}" : ""}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                              Text(
+                                'Status: ${item.status.toUpperCase()}${item.errorMessage != null ? " (${item.errorMessage})" : ""}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: item.status == 'failed'
+                                      ? Colors.red.shade700
+                                      : Colors.blueGrey,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Preview Stored Yellow Form',
+                          icon: const Icon(
+                            Icons.visibility_outlined,
+                            size: 18,
+                            color: AppTheme.primaryTeal,
+                          ),
+                          onPressed: () => _showFullScreenFormPreviewDialog(
+                            context,
+                            page1Bytes: item.page1Bytes,
+                            page2Bytes: item.page2Bytes,
+                            initialPage: hasP1 ? 1 : 2,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Extract & Commit Now',
+                          icon: const Icon(
+                            Icons.cloud_upload_outlined,
+                            size: 18,
+                            color: Colors.indigo,
+                          ),
+                          onPressed: ocrState.isProcessing
+                              ? null
+                              : () async {
+                                  final ok = await ocrVm
+                                      .processSingleOfflineQueueItem(item);
+                                  if (context.mounted) {
+                                    if (ok && activeCamp != null) {
+                                      ref
+                                          .read(patientListProvider.notifier)
+                                          .loadPatients(activeCamp.id);
+                                      ref
+                                          .read(campStateProvider.notifier)
+                                          .loadCamps();
+                                    }
+                                    ref
+                                        .read(syncStateProvider.notifier)
+                                        .refreshPendingCounts();
+                                  }
+                                },
+                        ),
+                        IconButton(
+                          tooltip: 'Delete Queued Scan',
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: Colors.red.shade600,
+                          ),
+                          onPressed: () async {
+                            await ocrVm.deleteOfflineQueueItem(item.id);
+                            ref
+                                .read(syncStateProvider.notifier)
+                                .refreshPendingCounts();
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
   Widget _buildEngineBadge(String? engine) {
-    if (engine == 'gemini_flash') {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: Colors.indigo.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.indigo.shade200),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.auto_awesome, size: 11, color: Colors.indigo.shade700),
-            const SizedBox(width: 4),
-            Text(
-              'Gemini AI',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.indigo.shade800,
-              ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.indigo.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.indigo.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.auto_awesome, size: 11, color: Colors.indigo.shade700),
+          const SizedBox(width: 4),
+          Text(
+            'Gemini AI',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Colors.indigo.shade800,
             ),
-          ],
-        ),
-      );
-    } else if (engine == 'mlkit_offline') {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: Colors.teal.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.teal.shade200),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.phone_android, size: 11, color: Colors.teal.shade700),
-            const SizedBox(width: 4),
-            Text(
-              'ML Kit Offline',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.teal.shade800,
-              ),
-            ),
-          ],
-        ),
-      );
-    } else {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: Colors.amber.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.amber.shade300),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.info_outline, size: 11, color: Colors.amber.shade800),
-            const SizedBox(width: 4),
-            Text(
-              'Simulation',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.amber.shade900,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildPageSlotCard({
@@ -1003,11 +1147,15 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     required String subtitle,
     required bool isCaptured,
     String? ocrEngine,
+    Uint8List? imageBytes,
+    String? imagePath,
     String? summaryText,
     required VoidCallback onCamera,
     required VoidCallback onGallery,
     required VoidCallback onClear,
+    VoidCallback? onPreviewImage,
   }) {
+    final hasImage = imageBytes != null && imageBytes.isNotEmpty;
     return Card(
       elevation: isCaptured ? 3 : 1,
       shape: RoundedRectangleBorder(
@@ -1130,6 +1278,67 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             ),
             const SizedBox(height: 14),
 
+            // Visual Thumbnail Preview of Scanned Yellow Form when imageBytes exist
+            if (hasImage) ...[
+              InkWell(
+                onTap: onPreviewImage,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  height: 125,
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEFCE8),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.amber.shade400),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.memory(
+                        imageBytes,
+                        fit: BoxFit.cover,
+                      ),
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.72),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.zoom_in,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Preview Yellow Form',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
             // If captured, show summary & clear button
             if (isCaptured && summaryText != null) ...[
               Container(
@@ -1161,6 +1370,17 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (onPreviewImage != null)
+                      IconButton(
+                        tooltip: 'Preview Scanned Form',
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(
+                          Icons.visibility_outlined,
+                          size: 17,
+                          color: AppTheme.primaryTeal,
+                        ),
+                        onPressed: onPreviewImage,
+                      ),
                     InkWell(
                       onTap: onClear,
                       borderRadius: BorderRadius.circular(12),
@@ -1286,6 +1506,12 @@ class _FormScanViewState extends ConsumerState<FormScanView>
               : (result.page2RawText ?? result.rawText))
         : result.rawText;
 
+    final Uint8List? activeImageBytes = activePage == 1
+        ? (ocrState.page1ImageBytes ?? ocrState.page2ImageBytes)
+        : (ocrState.page2ImageBytes ?? ocrState.page1ImageBytes);
+    final bool hasVisualImage =
+        activeImageBytes != null && activeImageBytes.isNotEmpty;
+
     return Container(
       color: Colors.grey.shade100,
       padding: const EdgeInsets.all(16.0),
@@ -1306,7 +1532,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'Document Scan Inspection',
+                        'Scanned Yellow Form Preview',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
@@ -1317,7 +1543,23 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
+              IconButton(
+                tooltip: 'Open Full-Screen Form Preview',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(
+                  Icons.open_in_full_rounded,
+                  size: 18,
+                  color: AppTheme.primaryTeal,
+                ),
+                onPressed: () => _showFullScreenFormPreviewDialog(
+                  context,
+                  page1Bytes: ocrState.page1ImageBytes,
+                  page2Bytes: ocrState.page2ImageBytes,
+                  initialPage: activePage,
+                  rawTextFallback: rawTextToShow,
+                ),
+              ),
               Chip(
                 visualDensity: VisualDensity.compact,
                 label: Text(
@@ -1338,42 +1580,262 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             Row(
               children: [
                 Expanded(
-                  child: ChoiceChip(
-                    label: const Text(
-                      '📄 Page 1 (Front: Demographics)',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                  child: Material(
+                    color: activePage == 1
+                        ? AppTheme.primaryTeal
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => ref
+                          .read(ocrScanProvider.notifier)
+                          .switchInspectionPage(1),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: activePage == 1
+                                ? AppTheme.primaryTeal
+                                : const Color(0xFF94A3B8),
+                            width: 1.3,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              activePage == 1
+                                  ? Icons.check_circle
+                                  : Icons.description_outlined,
+                              size: 15,
+                              color: activePage == 1
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Page 1 (Front: Demographics)',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: activePage == 1
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    selected: activePage == 1,
-                    selectedColor: AppTheme.primaryLight,
-                    onSelected: (_) => ref
-                        .read(ocrScanProvider.notifier)
-                        .switchInspectionPage(1),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: ChoiceChip(
-                    label: const Text(
-                      '🩺 Page 2 (Back: POP & Vitals)',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                  child: Material(
+                    color: activePage == 2
+                        ? AppTheme.primaryTeal
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => ref
+                          .read(ocrScanProvider.notifier)
+                          .switchInspectionPage(2),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: activePage == 2
+                                ? AppTheme.primaryTeal
+                                : const Color(0xFF94A3B8),
+                            width: 1.3,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              activePage == 2
+                                  ? Icons.check_circle
+                                  : Icons.medical_information_outlined,
+                              size: 15,
+                              color: activePage == 2
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Page 2 (Back: POP & Vitals)',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: activePage == 2
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    selected: activePage == 2,
-                    selectedColor: AppTheme.primaryLight,
-                    onSelected: (_) => ref
-                        .read(ocrScanProvider.notifier)
-                        .switchInspectionPage(2),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
           ],
+
+          // Image vs OCR Text Switcher + Zoom/Rotate Controls
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              children: [
+                Material(
+                  color: _showImageInPreview
+                      ? AppTheme.primaryTeal
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(7),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(7),
+                    onTap: () => setState(() => _showImageInPreview = true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(
+                          color: _showImageInPreview
+                              ? AppTheme.primaryTeal
+                              : const Color(0xFF94A3B8),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _showImageInPreview
+                                ? Icons.check_circle
+                                : Icons.image_outlined,
+                            size: 15,
+                            color: _showImageInPreview
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Form Image',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _showImageInPreview
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Material(
+                  color: !_showImageInPreview
+                      ? AppTheme.primaryTeal
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(7),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(7),
+                    onTap: () => setState(() => _showImageInPreview = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(
+                          color: !_showImageInPreview
+                              ? AppTheme.primaryTeal
+                              : const Color(0xFF94A3B8),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            !_showImageInPreview
+                                ? Icons.check_circle
+                                : Icons.subject_rounded,
+                            size: 15,
+                            color: !_showImageInPreview
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'OCR Text',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: !_showImageInPreview
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (hasVisualImage && _showImageInPreview) ...[
+                  IconButton(
+                    tooltip: 'Rotate 90°',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.rotate_right, size: 17),
+                    onPressed: () => setState(() {
+                      _previewRotationQuarterTurns =
+                          (_previewRotationQuarterTurns + 1) % 4;
+                    }),
+                  ),
+                  IconButton(
+                    tooltip: 'Reset Zoom (1:1)',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.center_focus_strong, size: 17),
+                    onPressed: () {
+                      _previewTransformController.value = Matrix4.identity();
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
 
           Expanded(
             child: Container(
@@ -1388,48 +1850,358 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   ),
                 ],
               ),
-              padding: const EdgeInsets.all(16.0),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.shade700,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        isDual
-                            ? 'PAGE $activePage OCR STREAM & METRICS CROP'
-                            : 'PAPER FORM OCR STREAM CROP',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+              clipBehavior: Clip.antiAlias,
+              child: hasVisualImage && _showImageInPreview
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        InteractiveViewer(
+                          transformationController: _previewTransformController,
+                          minScale: 0.5,
+                          maxScale: 5.0,
+                          child: Center(
+                            child: RotatedBox(
+                              quarterTurns: _previewRotationQuarterTurns,
+                              child: Image.memory(
+                                activeImageBytes,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 10,
+                          top: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade800.withValues(
+                                alpha: 0.9,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'PAGE $activePage SCANNED YELLOW FORM (PINCH / SCROLL TO ZOOM)',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade700,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                isDual
+                                    ? 'PAGE $activePage OCR STREAM & METRICS CROP'
+                                    : 'PAPER FORM OCR STREAM CROP',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SelectableText(
+                              rawTextToShow,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                height: 1.4,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    SelectableText(
-                      rawTextToShow,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                        height: 1.4,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  void _showFullScreenFormPreviewDialog(
+    BuildContext context, {
+    Uint8List? page1Bytes,
+    Uint8List? page2Bytes,
+    int initialPage = 1,
+    String? rawTextFallback,
+  }) {
+    int selectedPage = initialPage;
+    int rotationTurns = 0;
+    final transformCtrl = TransformationController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final activeBytes = selectedPage == 1
+                ? (page1Bytes ?? page2Bytes)
+                : (page2Bytes ?? page1Bytes);
+            final hasP1 = page1Bytes != null && page1Bytes.isNotEmpty;
+            final hasP2 = page2Bytes != null && page2Bytes.isNotEmpty;
+
+            return Dialog(
+              insetPadding: const EdgeInsets.all(16),
+              backgroundColor: const Color(0xFF0F172A),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 1000,
+                  maxHeight: 820,
+                ),
+                child: Column(
+                  children: [
+                    // Dialog Header
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1E293B),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(16),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.document_scanner_outlined,
+                            color: Colors.amber,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Scanned Yellow Form Preview (स्क्यान गरिएको फाराम)',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14.5,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (hasP1 && hasP2) ...[
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Material(
+                                  color: selectedPage == 1
+                                      ? Colors.amber.shade400
+                                      : const Color(0xFF334155),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      setDialogState(() {
+                                        selectedPage = 1;
+                                        transformCtrl.value =
+                                            Matrix4.identity();
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 7,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: selectedPage == 1
+                                              ? Colors.amber.shade400
+                                              : Colors.white54,
+                                          width: 1.2,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            selectedPage == 1
+                                                ? Icons.check_circle
+                                                : Icons.description_outlined,
+                                            size: 15,
+                                            color: selectedPage == 1
+                                                ? const Color(0xFF0F172A)
+                                                : Colors.white,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Page 1 (Front)',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: selectedPage == 1
+                                                  ? const Color(0xFF0F172A)
+                                                  : Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Material(
+                                  color: selectedPage == 2
+                                      ? Colors.amber.shade400
+                                      : const Color(0xFF334155),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      setDialogState(() {
+                                        selectedPage = 2;
+                                        transformCtrl.value =
+                                            Matrix4.identity();
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 7,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: selectedPage == 2
+                                              ? Colors.amber.shade400
+                                              : Colors.white54,
+                                          width: 1.2,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            selectedPage == 2
+                                                ? Icons.check_circle
+                                                : Icons.medical_information_outlined,
+                                            size: 15,
+                                            color: selectedPage == 2
+                                                ? const Color(0xFF0F172A)
+                                                : Colors.white,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Page 2 (Back)',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: selectedPage == 2
+                                                  ? const Color(0xFF0F172A)
+                                                  : Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          IconButton(
+                            tooltip: 'Rotate 90°',
+                            icon: const Icon(
+                              Icons.rotate_right,
+                              color: Colors.white70,
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                rotationTurns = (rotationTurns + 1) % 4;
+                              });
+                            },
+                          ),
+                          IconButton(
+                            tooltip: 'Reset Zoom',
+                            icon: const Icon(
+                              Icons.center_focus_strong,
+                              color: Colors.white70,
+                            ),
+                            onPressed: () {
+                              transformCtrl.value = Matrix4.identity();
+                            },
+                          ),
+                          IconButton(
+                            tooltip: 'Close Preview',
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: activeBytes != null && activeBytes.isNotEmpty
+                          ? InteractiveViewer(
+                              transformationController: transformCtrl,
+                              minScale: 0.5,
+                              maxScale: 6.0,
+                              child: Center(
+                                child: RotatedBox(
+                                  quarterTurns: rotationTurns,
+                                  child: Image.memory(
+                                    activeBytes,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Container(
+                              margin: const EdgeInsets.all(20),
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: SingleChildScrollView(
+                                child: SelectableText(
+                                  rawTextFallback ??
+                                      'No camera/file image attached for this template record.',
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 13,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1449,52 +2221,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
 
     return Column(
       children: [
-        // Simulation Warning Banner — shown when ML Kit OCR was unavailable
-        if (result.isSimulated)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            color: Colors.amber.shade100,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.orange,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'SIMULATION MODE — OCR Engine Unavailable',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.deepOrange,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Real-time OCR is only available on Android / iOS devices. '
-                        'Sample demo data is shown below. '
-                        'You MUST edit ALL fields manually before committing this record.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.orange.shade900,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-        // Top Header Bar with Return to Slots Button
+        // Top Header Bar with Return to Slots & Preview Form Buttons
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -1549,6 +2276,28 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           ],
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(Icons.visibility_outlined, size: 14),
+                    label: Text(
+                      isNarrow ? 'Preview' : 'Preview Form',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => _showFullScreenFormPreviewDialog(
+                      context,
+                      page1Bytes: ocrState.page1ImageBytes,
+                      page2Bytes: ocrState.page2ImageBytes,
+                      initialPage: ocrState.activeInspectionPage,
+                      rawTextFallback: result.rawText,
                     ),
                   ),
                   if (!isNarrow) ...[
@@ -1715,12 +2464,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           }
 
                           final resultDoc =
-                              ocrState.scanResult?.examiningDoctor ??
-                              (activeCamp.doctorNames.length == 1
-                                  ? activeCamp.doctorNames.first
-                                  : (activeCamp.doctorName.trim().isNotEmpty
-                                        ? activeCamp.doctorName.trim()
-                                        : null));
+                              ocrState.scanResult?.examiningDoctor;
                           final List<String> resultAttendingDoctors =
                               ocrState
                                       .scanResult
@@ -1728,21 +2472,20 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                       .isNotEmpty ==
                                   true
                               ? ocrState.scanResult!.attendingDoctors
-                              : (resultDoc != null
-                                    ? [resultDoc]
+                              : (resultDoc != null &&
+                                        resultDoc.trim().isNotEmpty
+                                    ? [resultDoc.trim()]
                                     : const <String>[]);
 
                           final resultNurse =
-                              ocrState.scanResult?.examiningNurse ??
-                              (activeCamp.nurseProfiles.length == 1
-                                  ? activeCamp.nurseProfiles.first.displayName
-                                  : null);
+                              ocrState.scanResult?.examiningNurse;
                           final List<String> resultAttendingNurses =
                               ocrState.scanResult?.attendingNurses.isNotEmpty ==
                                   true
                               ? ocrState.scanResult!.attendingNurses
-                              : (resultNurse != null
-                                    ? [resultNurse]
+                              : (resultNurse != null &&
+                                        resultNurse.trim().isNotEmpty
+                                    ? [resultNurse.trim()]
                                     : const <String>[]);
 
                           final savedPatient = await ocrVm.confirmAndCommit(
@@ -1767,6 +2510,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                             ref
                                 .read(patientListProvider.notifier)
                                 .loadPatients(activeCamp.id);
+                            ref
+                                .read(syncStateProvider.notifier)
+                                .refreshPendingCounts();
                             _showSuccessDialog(context, savedPatient);
                           } else if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -2132,12 +2878,22 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             ),
           ),
 
-          // ── Patient Token ID Section ──
+          // ── Patient Token ID & Registration Date Section ──
           Builder(
             builder: (context) {
               final detectedId =
-                  (demo['patientId'] as String? ??
+                  (result.patientId ??
+                          result.patientTokenId ??
+                          demo['patientId'] as String? ??
                           demo['patientTokenId'] as String? ??
+                          '')
+                      .trim();
+              final detectedDate =
+                  (result.intakeDate ??
+                          demo['intakeDate'] as String? ??
+                          demo['date'] as String? ??
+                          result.examDate ??
+                          result.anamnesisDate ??
                           '')
                       .trim();
               final isDetected = detectedId.isNotEmpty;
@@ -2239,7 +2995,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
-                      key: ValueKey('token_id_$detectedId'),
+                      key: ValueKey('token_id_${result.rawText.hashCode}'),
                       initialValue: detectedId,
                       textCapitalization: TextCapitalization.characters,
                       decoration: InputDecoration(
@@ -2274,6 +3030,79 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           val,
                           campId: campId,
                           campCode: campCode,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_month_outlined,
+                          size: 17,
+                          color: AppTheme.primaryTeal,
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Registration Date (BS) / दर्ता मिति (बि.सं.)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                        if (detectedDate.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'BS: $detectedDate',
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF15803D),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      key: ValueKey('intake_date_${result.rawText.hashCode}'),
+                      initialValue: detectedDate,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        hintText:
+                            'YYYY-MM-DD in Bikram Sambat (e.g. 2083-08-01) — defaults to today if blank',
+                        hintStyle: const TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey,
+                        ),
+                        suffixIcon: detectedDate.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 16),
+                                tooltip: 'Clear date',
+                                onPressed: () {
+                                  vm.updateStationDate('intakeDate', null);
+                                },
+                              )
+                            : null,
+                      ),
+                      onChanged: (val) {
+                        vm.updateStationDate(
+                          'intakeDate',
+                          val.trim().isEmpty ? null : val.trim(),
                         );
                       },
                     ),

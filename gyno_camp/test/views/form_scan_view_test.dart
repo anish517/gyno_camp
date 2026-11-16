@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gyno_camp/core/theme/app_theme.dart';
+import 'package:gyno_camp/viewmodels/ocr_scan_viewmodel.dart';
 import 'package:gyno_camp/views/scanner/form_scan_view.dart';
 
 void main() {
@@ -28,10 +29,10 @@ void main() {
       expect(find.text('Page 1 (Front Page)'), findsOneWidget);
       expect(find.text('Page 2 (Back Page)'), findsOneWidget);
       expect(find.text('Select Both Images at Once (Multi-Select)'), findsOneWidget);
-      expect(find.text('Load Complete 2-Page Template'), findsOneWidget);
+      expect(find.text('Load Complete 2-Page Template'), findsNothing);
     });
 
-    testWidgets('Tapping Load Complete 2-Page Template renders dual-page inspection and verification tabs', (WidgetTester tester) async {
+    testWidgets('Loading 2-Page scan result renders dual-page inspection and verification tabs', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -39,8 +40,12 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
       await tester.pumpWidget(
-        ProviderScope(
+        UncontrolledProviderScope(
+          container: container,
           child: MaterialApp(
             theme: AppTheme.lightTheme,
             home: const FormScanView(),
@@ -49,8 +54,8 @@ void main() {
       );
       await tester.pump();
 
-      // Tap complete template loader
-      await tester.tap(find.text('Load Complete 2-Page Template'));
+      // Trigger 2-page scan state via viewmodel
+      await container.read(ocrScanProvider.notifier).loadSample('full');
       await tester.pumpAndSettle();
 
       // Check inspection tabs
@@ -79,8 +84,12 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
       await tester.pumpWidget(
-        ProviderScope(
+        UncontrolledProviderScope(
+          container: container,
           child: MaterialApp(
             theme: AppTheme.lightTheme,
             home: const FormScanView(),
@@ -89,8 +98,8 @@ void main() {
       );
       await tester.pump();
 
-      // Load 2-page template
-      await tester.tap(find.text('Load Complete 2-Page Template'));
+      // Trigger 2-page scan state via viewmodel
+      await container.read(ocrScanProvider.notifier).loadSample('full');
       await tester.pumpAndSettle();
 
       // Switch to Obstetric History tab
