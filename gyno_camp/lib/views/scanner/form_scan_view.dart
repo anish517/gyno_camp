@@ -1580,52 +1580,120 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             Row(
               children: [
                 Expanded(
-                  child: ChoiceChip(
-                    showCheckmark: true,
-                    checkmarkColor: activePage == 1 ? Colors.white : AppTheme.primaryDark,
-                    backgroundColor: Colors.white,
-                    selectedColor: AppTheme.primaryTeal,
-                    side: BorderSide(
-                      color: activePage == 1 ? AppTheme.primaryTeal : Colors.grey.shade400,
-                      width: 1.2,
-                    ),
-                    label: Text(
-                      '📄 Page 1 (Front: Demographics)',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: activePage == 1 ? Colors.white : AppTheme.primaryDark,
+                  child: Material(
+                    color: activePage == 1
+                        ? AppTheme.primaryTeal
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => ref
+                          .read(ocrScanProvider.notifier)
+                          .switchInspectionPage(1),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: activePage == 1
+                                ? AppTheme.primaryTeal
+                                : const Color(0xFF94A3B8),
+                            width: 1.3,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              activePage == 1
+                                  ? Icons.check_circle
+                                  : Icons.description_outlined,
+                              size: 15,
+                              color: activePage == 1
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Page 1 (Front: Demographics)',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: activePage == 1
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    selected: activePage == 1,
-                    onSelected: (_) => ref
-                        .read(ocrScanProvider.notifier)
-                        .switchInspectionPage(1),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: ChoiceChip(
-                    showCheckmark: true,
-                    checkmarkColor: activePage == 2 ? Colors.white : AppTheme.primaryDark,
-                    backgroundColor: Colors.white,
-                    selectedColor: AppTheme.primaryTeal,
-                    side: BorderSide(
-                      color: activePage == 2 ? AppTheme.primaryTeal : Colors.grey.shade400,
-                      width: 1.2,
-                    ),
-                    label: Text(
-                      '🩺 Page 2 (Back: POP & Vitals)',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: activePage == 2 ? Colors.white : AppTheme.primaryDark,
+                  child: Material(
+                    color: activePage == 2
+                        ? AppTheme.primaryTeal
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => ref
+                          .read(ocrScanProvider.notifier)
+                          .switchInspectionPage(2),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: activePage == 2
+                                ? AppTheme.primaryTeal
+                                : const Color(0xFF94A3B8),
+                            width: 1.3,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              activePage == 2
+                                  ? Icons.check_circle
+                                  : Icons.medical_information_outlined,
+                              size: 15,
+                              color: activePage == 2
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Page 2 (Back: POP & Vitals)',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: activePage == 2
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    selected: activePage == 2,
-                    onSelected: (_) => ref
-                        .read(ocrScanProvider.notifier)
-                        .switchInspectionPage(2),
                   ),
                 ),
               ],
@@ -1636,7 +1704,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
           // Image vs OCR Text Switcher + Zoom/Rotate Controls
           Container(
             margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
@@ -1644,25 +1712,106 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             ),
             child: Row(
               children: [
-                ChoiceChip(
-                  visualDensity: VisualDensity.compact,
-                  label: const Text(
-                    '🖼️ Form Image',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                Material(
+                  color: _showImageInPreview
+                      ? AppTheme.primaryTeal
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(7),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(7),
+                    onTap: () => setState(() => _showImageInPreview = true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(
+                          color: _showImageInPreview
+                              ? AppTheme.primaryTeal
+                              : const Color(0xFF94A3B8),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _showImageInPreview
+                                ? Icons.check_circle
+                                : Icons.image_outlined,
+                            size: 15,
+                            color: _showImageInPreview
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Form Image',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _showImageInPreview
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  selected: _showImageInPreview,
-                  onSelected: (_) => setState(() => _showImageInPreview = true),
                 ),
-                const SizedBox(width: 6),
-                ChoiceChip(
-                  visualDensity: VisualDensity.compact,
-                  label: const Text(
-                    '📝 OCR Text',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                const SizedBox(width: 8),
+                Material(
+                  color: !_showImageInPreview
+                      ? AppTheme.primaryTeal
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(7),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(7),
+                    onTap: () => setState(() => _showImageInPreview = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(
+                          color: !_showImageInPreview
+                              ? AppTheme.primaryTeal
+                              : const Color(0xFF94A3B8),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            !_showImageInPreview
+                                ? Icons.check_circle
+                                : Icons.subject_rounded,
+                            size: 15,
+                            color: !_showImageInPreview
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'OCR Text',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: !_showImageInPreview
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  selected: !_showImageInPreview,
-                  onSelected: (_) =>
-                      setState(() => _showImageInPreview = false),
                 ),
                 const Spacer(),
                 if (hasVisualImage && _showImageInPreview) ...[
@@ -1860,44 +2009,123 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                             ),
                           ),
                           if (hasP1 && hasP2) ...[
-                            SegmentedButton<int>(
-                              style: SegmentedButton.styleFrom(
-                                backgroundColor: Colors.white.withValues(alpha: 0.14),
-                                foregroundColor: Colors.white,
-                                selectedBackgroundColor: Colors.amber.shade400,
-                                selectedForegroundColor: const Color(0xFF0F172A),
-                                side: const BorderSide(color: Colors.white54, width: 1.2),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              segments: const [
-                                ButtonSegment(
-                                  value: 1,
-                                  label: Text(
-                                    'Page 1 (Front)',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Material(
+                                  color: selectedPage == 1
+                                      ? Colors.amber.shade400
+                                      : const Color(0xFF334155),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      setDialogState(() {
+                                        selectedPage = 1;
+                                        transformCtrl.value =
+                                            Matrix4.identity();
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 7,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: selectedPage == 1
+                                              ? Colors.amber.shade400
+                                              : Colors.white54,
+                                          width: 1.2,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            selectedPage == 1
+                                                ? Icons.check_circle
+                                                : Icons.description_outlined,
+                                            size: 15,
+                                            color: selectedPage == 1
+                                                ? const Color(0xFF0F172A)
+                                                : Colors.white,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Page 1 (Front)',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: selectedPage == 1
+                                                  ? const Color(0xFF0F172A)
+                                                  : Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                                ButtonSegment(
-                                  value: 2,
-                                  label: Text(
-                                    'Page 2 (Back)',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
+                                const SizedBox(width: 8),
+                                Material(
+                                  color: selectedPage == 2
+                                      ? Colors.amber.shade400
+                                      : const Color(0xFF334155),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      setDialogState(() {
+                                        selectedPage = 2;
+                                        transformCtrl.value =
+                                            Matrix4.identity();
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 7,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: selectedPage == 2
+                                              ? Colors.amber.shade400
+                                              : Colors.white54,
+                                          width: 1.2,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            selectedPage == 2
+                                                ? Icons.check_circle
+                                                : Icons.medical_information_outlined,
+                                            size: 15,
+                                            color: selectedPage == 2
+                                                ? const Color(0xFF0F172A)
+                                                : Colors.white,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Page 2 (Back)',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: selectedPage == 2
+                                                  ? const Color(0xFF0F172A)
+                                                  : Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ],
-                              selected: {selectedPage},
-                              onSelectionChanged: (s) {
-                                setDialogState(() {
-                                  selectedPage = s.first;
-                                  transformCtrl.value = Matrix4.identity();
-                                });
-                              },
                             ),
                             const SizedBox(width: 8),
                           ],
