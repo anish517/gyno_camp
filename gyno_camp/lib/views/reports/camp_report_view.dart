@@ -730,21 +730,35 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     }
     final allNurses = finalNurses.toSet();
 
-    // 2. DYNAMIC DIAGNOSES: Master Data + Clinical Records (only showing diagnoses with >0 patients in camp scope)
-    final dynamicDiagnoses = <String>{};
+    // 2. DYNAMIC DIAGNOSES: Master Data + Clinical Records (case-insensitively deduplicated, >0 patients in camp scope)
+    final dynamicDiagnosesMap = <String, String>{};
     for (final m in _campDiagnoses) {
-      if (m.labelEn.trim().isNotEmpty) dynamicDiagnoses.add(m.labelEn.trim());
+      final clean = m.labelEn.trim();
+      if (clean.isNotEmpty) {
+        dynamicDiagnosesMap.putIfAbsent(clean.toLowerCase(), () => clean);
+      }
     }
     if (docSummary != null) {
-      dynamicDiagnoses.addAll(docSummary.diagnosisCounts.keys.where((d) => d.trim().isNotEmpty));
+      for (final d in docSummary.diagnosisCounts.keys) {
+        final clean = d.trim();
+        if (clean.isNotEmpty) {
+          dynamicDiagnosesMap.putIfAbsent(clean.toLowerCase(), () => clean);
+        }
+      }
       for (final v in docSummary.visits) {
-        dynamicDiagnoses.addAll(v.diagnoses.map((d) => d.trim()).where((d) => d.isNotEmpty));
+        for (final d in v.diagnoses) {
+          final clean = d.trim();
+          if (clean.isNotEmpty) {
+            dynamicDiagnosesMap.putIfAbsent(clean.toLowerCase(), () => clean);
+          }
+        }
       }
     }
     if (_selectedDiagnosis != null && _selectedDiagnosis!.trim().isNotEmpty) {
-      dynamicDiagnoses.add(_selectedDiagnosis!.trim());
+      final clean = _selectedDiagnosis!.trim();
+      dynamicDiagnosesMap.putIfAbsent(clean.toLowerCase(), () => clean);
     }
-    final sortedDiagnoses = dynamicDiagnoses
+    final sortedDiagnoses = dynamicDiagnosesMap.values
         .where((dx) => _getDiagnosisCount(dx, docSummary) > 0 || _selectedDiagnosis == dx)
         .toList()
       ..sort((a, b) {
@@ -816,16 +830,33 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _selectedTreatment = null;
     }
 
-    // 4. DYNAMIC VISIT REASONS: Master Data + Actual Patient Records + Standard Categories
+    String canonicalReasonOrComplaintKey(String raw) {
+      final k = raw.trim().toLowerCase().replaceAll('_', ' ');
+      if (k.contains('prolapse') || k.contains('hanging') || k.contains('खस्ने') || k.contains('खसेको')) return 'prolapse';
+      if (k.contains('discharge') || k.contains('itching') || k.contains('स्राव') || k.contains('चिलाउने') || k.contains('सेतो')) return 'discharge';
+      if (k.contains('urine') || k.contains('micturition') || k.contains('dysuria') || k.contains('पिसाब') || k.contains('incontinence')) return 'urine';
+      if (k.contains('stool') || k.contains('bowel') || k.contains('constipation') || k.contains('दिसा')) return 'stool';
+      if (k.contains('pain') || k.contains('backache') || k.contains('दुखाई') || k.contains('दुख्ने') || k.contains('तल्लो पेट')) return 'pain';
+      if (k.contains('menstrual') || k.contains('महिनावारी') || k.contains('bleeding')) return 'menstrual';
+      if (k.contains('infertility') || k.contains('बाँझोपन') || k.contains('निःसन्तान')) return 'infertility';
+      if (k.contains('oncology') || k.contains('cancer') || k.contains('क्यान्सर')) return 'oncology';
+      if (k.contains('checkup') || k.contains('routine') || k.contains('जाँच')) return 'checkup';
+      return k.replaceAll(RegExp(r'\s+'), ' ');
+    }
+
+    // 4. DYNAMIC VISIT REASONS: Master Data + Actual Patient Records + Standard Categories (deduplicated)
     final candidateVisitReasons = <Map<String, String>>[];
-    final seenReasonKeys = <String>{};
+    final seenReasonSemanticKeys = <String>{};
+    final seenReasonLabels = <String>{};
     for (final reason in _campVisitReasons.where((r) => r.isActive)) {
       final key = (reason.code.isNotEmpty ? reason.code : reason.labelEn).trim().toLowerCase();
-      if (seenReasonKeys.add(key)) {
-        final nepaliSuffix = reason.labelNe.trim().isNotEmpty ? ' (${reason.labelNe.trim()})' : '';
+      final nepaliSuffix = reason.labelNe.trim().isNotEmpty ? ' (${reason.labelNe.trim()})' : '';
+      final label = '${reason.labelEn.trim()}$nepaliSuffix';
+      final semKey = canonicalReasonOrComplaintKey('${reason.code} ${reason.labelEn} ${reason.labelNe}');
+      if (seenReasonSemanticKeys.add(semKey) && seenReasonLabels.add(label.toLowerCase())) {
         candidateVisitReasons.add({
           'key': key,
-          'label': '${reason.labelEn.trim()}$nepaliSuffix',
+          'label': label,
         });
       }
     }
@@ -840,7 +871,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       {'key': 'checkup', 'label': 'Routine Checkup (नियमित जाँच)'},
     ];
     for (final std in standardVisitReasons) {
-      if (seenReasonKeys.add(std['key']!)) {
+      final semKey = canonicalReasonOrComplaintKey('${std['key']} ${std['label']}');
+      if (seenReasonSemanticKeys.add(semKey) && seenReasonLabels.add(std['label']!.toLowerCase())) {
         candidateVisitReasons.add(std);
       }
     }
@@ -849,13 +881,11 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         for (final r in p.reasonsForVisit) {
           final clean = r.trim();
           final key = clean.toLowerCase();
-          if (clean.isNotEmpty && seenReasonKeys.add(key)) {
-            final alreadyMatchedByStd = candidateVisitReasons.any((existing) =>
-                _getVisitReasonCount(existing['key']!, docSummary) > 0 &&
-                (key.contains(existing['key']!) || existing['key']!.contains(key)));
-            if (!alreadyMatchedByStd) {
-              candidateVisitReasons.add({'key': key, 'label': clean});
-            }
+          final semKey = canonicalReasonOrComplaintKey(clean);
+          if (clean.isNotEmpty &&
+              seenReasonSemanticKeys.add(semKey) &&
+              seenReasonLabels.add(key)) {
+            candidateVisitReasons.add({'key': key, 'label': clean});
           }
         }
       }
@@ -873,16 +903,19 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       _selectedVisitReason = null;
     }
 
-    // 5. DYNAMIC CHIEF COMPLAINTS: Master Data + Actual Clinical Visits + Standard Categories
+    // 5. DYNAMIC CHIEF COMPLAINTS: Master Data + Actual Clinical Visits + Standard Categories (deduplicated)
     final candidateComplaints = <Map<String, String>>[];
-    final seenCompKeys = <String>{};
+    final seenCompSemanticKeys = <String>{};
+    final seenCompLabels = <String>{};
     for (final comp in _campChiefComplaints.where((c) => c.isActive)) {
       final key = (comp.code.isNotEmpty ? comp.code : comp.labelEn).trim().toLowerCase();
-      if (seenCompKeys.add(key)) {
-        final nepaliSuffix = comp.labelNe.trim().isNotEmpty ? ' (${comp.labelNe.trim()})' : '';
+      final nepaliSuffix = comp.labelNe.trim().isNotEmpty ? ' (${comp.labelNe.trim()})' : '';
+      final label = '${comp.labelEn.trim()}$nepaliSuffix';
+      final semKey = canonicalReasonOrComplaintKey('${comp.code} ${comp.labelEn} ${comp.labelNe}');
+      if (seenCompSemanticKeys.add(semKey) && seenCompLabels.add(label.toLowerCase())) {
         candidateComplaints.add({
           'key': key,
-          'label': '${comp.labelEn.trim()}$nepaliSuffix',
+          'label': label,
         });
       }
     }
@@ -897,7 +930,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       {'key': 'checkup', 'label': 'Routine Checkup (नियमित जाँच)'},
     ];
     for (final std in standardComplaints) {
-      if (seenCompKeys.add(std['key']!)) {
+      final semKey = canonicalReasonOrComplaintKey('${std['key']} ${std['label']}');
+      if (seenCompSemanticKeys.add(semKey) && seenCompLabels.add(std['label']!.toLowerCase())) {
         candidateComplaints.add(std);
       }
     }
@@ -910,13 +944,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             const [];
         for (final c in cList) {
           final key = c.toLowerCase();
-          if (seenCompKeys.add(key)) {
-            final alreadyMatchedByStd = candidateComplaints.any((existing) =>
-                _getComplaintCount(existing['key']!, docSummary) > 0 &&
-                (key.contains(existing['key']!) || existing['key']!.contains(key)));
-            if (!alreadyMatchedByStd) {
-              candidateComplaints.add({'key': key, 'label': c});
-            }
+          final semKey = canonicalReasonOrComplaintKey(c);
+          if (seenCompSemanticKeys.add(semKey) && seenCompLabels.add(key)) {
+            candidateComplaints.add({'key': key, 'label': c});
           }
         }
       }

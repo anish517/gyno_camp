@@ -5339,24 +5339,48 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       nurseCounts[nurse] = count;
     }
 
-    // 1. Visit Reason definitions (Master Data Category: visit_reason)
+    String canonicalReasonOrComplaintKey(String raw) {
+      final k = raw.trim().toLowerCase().replaceAll('_', ' ');
+      if (k.contains('prolapse') || k.contains('hanging') || k.contains('खस्ने') || k.contains('खसेको')) return 'prolapse';
+      if (k.contains('discharge') || k.contains('itching') || k.contains('स्राव') || k.contains('चिलाउने') || k.contains('सेतो')) return 'discharge';
+      if (k.contains('urine') || k.contains('micturition') || k.contains('dysuria') || k.contains('पिसाब') || k.contains('incontinence')) return 'urine';
+      if (k.contains('stool') || k.contains('bowel') || k.contains('constipation') || k.contains('दिसा')) return 'stool';
+      if (k.contains('pain') || k.contains('backache') || k.contains('दुखाई') || k.contains('दुख्ने') || k.contains('तल्लो पेट')) return 'pain';
+      if (k.contains('menstrual') || k.contains('महिनावारी') || k.contains('bleeding')) return 'menstrual';
+      if (k.contains('infertility') || k.contains('बाँझोपन') || k.contains('निःसन्तान')) return 'infertility';
+      if (k.contains('oncology') || k.contains('cancer') || k.contains('क्यान्सर')) return 'oncology';
+      if (k.contains('checkup') || k.contains('routine') || k.contains('जाँच')) return 'checkup';
+      return k.replaceAll(RegExp(r'\s+'), ' ');
+    }
+
+    // 1. Visit Reason definitions (Master Data Category: visit_reason) — deduplicated by semantic key & label
     final visitReasonDefinitions = <String, String>{};
+    final seenVisitReasonSemanticKeys = <String>{};
+    final seenVisitReasonLabels = <String>{};
     for (final item in _campVisitReasons) {
       if (item.isActive) {
         final label = item.labelNe.isNotEmpty
             ? '${item.labelEn} (${item.labelNe})'
             : item.labelEn;
-        visitReasonDefinitions[item.code] = label;
+        final semKey = canonicalReasonOrComplaintKey('${item.code} ${item.labelEn} ${item.labelNe}');
+        final normLabel = label.trim().toLowerCase();
+        if (seenVisitReasonSemanticKeys.add(semKey) && seenVisitReasonLabels.add(normLabel)) {
+          visitReasonDefinitions[item.code] = label;
+        }
       }
     }
-    // Include visit reasons actually recorded in existing camp patients
+    // Include visit reasons actually recorded in existing camp patients (only if not already covered)
     for (final p in campScopedPatients) {
       for (final r in p.reasonsForVisit) {
         final rTrim = r.trim();
         if (rTrim.isNotEmpty) {
           final rCode = rTrim.toLowerCase();
-          if (!visitReasonDefinitions.containsKey(rCode)) {
-            final label = ClinicalConstants.visitReasonOptions[rCode] ?? rTrim;
+          final label = ClinicalConstants.visitReasonOptions[rCode] ??
+              ClinicalConstants.visitReasonOptions[rCode.replaceAll('_', ' ')] ??
+              rTrim;
+          final semKey = canonicalReasonOrComplaintKey('$rCode $label');
+          final normLabel = label.trim().toLowerCase();
+          if (seenVisitReasonSemanticKeys.add(semKey) && seenVisitReasonLabels.add(normLabel)) {
             visitReasonDefinitions[rCode] = label;
           }
         }
@@ -5365,7 +5389,11 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     // Only fallback to ClinicalConstants when viewing All Camps and no visit reasons are configured
     if (_selectedCampId == 'all' && visitReasonDefinitions.isEmpty) {
       ClinicalConstants.visitReasonOptions.forEach((key, label) {
-        visitReasonDefinitions[key] = label;
+        final semKey = canonicalReasonOrComplaintKey('$key $label');
+        final normLabel = label.trim().toLowerCase();
+        if (seenVisitReasonSemanticKeys.add(semKey) && seenVisitReasonLabels.add(normLabel)) {
+          visitReasonDefinitions[key] = label;
+        }
       });
     }
     if (_selectedVisitReason != 'all' && !visitReasonDefinitions.containsKey(_selectedVisitReason)) {
@@ -5383,17 +5411,23 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       visitReasonCounts[entry.key] = count;
     }
 
-    // 2. Chief Clinical Complaint definitions (Master Data Category: chief_complaint)
+    // 2. Chief Clinical Complaint definitions (Master Data Category: chief_complaint) — deduplicated by semantic key & label
     final complaintDefinitions = <String, String>{};
+    final seenComplaintSemanticKeys = <String>{};
+    final seenComplaintLabels = <String>{};
     for (final item in _campChiefComplaints) {
       if (item.isActive) {
         final label = item.labelNe.isNotEmpty
             ? '${item.labelEn} (${item.labelNe})'
             : item.labelEn;
-        complaintDefinitions[item.code] = label;
+        final semKey = canonicalReasonOrComplaintKey('${item.code} ${item.labelEn} ${item.labelNe}');
+        final normLabel = label.trim().toLowerCase();
+        if (seenComplaintSemanticKeys.add(semKey) && seenComplaintLabels.add(normLabel)) {
+          complaintDefinitions[item.code] = label;
+        }
       }
     }
-    // Include complaints actually recorded in existing camp visits
+    // Include complaints actually recorded in existing camp visits (only if not already covered)
     for (final p in campScopedPatients) {
       final v = _patientVisits[p.patientId];
       if (v != null) {
@@ -5402,8 +5436,13 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             .where((e) => e.isNotEmpty) ?? const [];
         for (final c in complaints) {
           final cCode = c.toLowerCase();
-          if (!complaintDefinitions.containsKey(cCode)) {
-            complaintDefinitions[cCode] = c;
+          final label = ClinicalConstants.visitReasonOptions[cCode] ??
+              ClinicalConstants.visitReasonOptions[cCode.replaceAll('_', ' ')] ??
+              c;
+          final semKey = canonicalReasonOrComplaintKey('$cCode $label');
+          final normLabel = label.trim().toLowerCase();
+          if (seenComplaintSemanticKeys.add(semKey) && seenComplaintLabels.add(normLabel)) {
+            complaintDefinitions[cCode] = label;
           }
         }
       }
@@ -5539,24 +5578,35 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       }
     }
 
-    // Collect dynamic diagnoses from Master Data, visits, and summary
-    final dynamicDiagnoses = <String>{};
+    // Collect dynamic diagnoses from Master Data, visits, and summary (case-insensitively deduplicated)
+    final dynamicDiagnosesMap = <String, String>{};
     for (final item in _campDiagnoses) {
       if (item.isActive && item.labelEn.trim().isNotEmpty) {
-        dynamicDiagnoses.add(item.labelEn.trim());
+        final clean = item.labelEn.trim();
+        dynamicDiagnosesMap.putIfAbsent(clean.toLowerCase(), () => clean);
       }
     }
     for (final p in campScopedPatients) {
       final v = _patientVisits[p.patientId];
       if (v != null) {
-        dynamicDiagnoses.addAll(v.diagnoses.where((d) => d.trim().isNotEmpty));
+        for (final d in v.diagnoses) {
+          final clean = d.trim();
+          if (clean.isNotEmpty) {
+            dynamicDiagnosesMap.putIfAbsent(clean.toLowerCase(), () => clean);
+          }
+        }
       }
     }
     // Only fall back to ClinicalConstants default diagnoses when viewing All Camps and no diagnoses exist
-    if (_selectedCampId == 'all' && dynamicDiagnoses.isEmpty) {
-      dynamicDiagnoses.addAll(ClinicalConstants.defaultDiagnoses);
+    if (_selectedCampId == 'all' && dynamicDiagnosesMap.isEmpty) {
+      for (final d in ClinicalConstants.defaultDiagnoses) {
+        final clean = d.trim();
+        if (clean.isNotEmpty) {
+          dynamicDiagnosesMap.putIfAbsent(clean.toLowerCase(), () => clean);
+        }
+      }
     }
-    final sortedDiagnoses = dynamicDiagnoses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final sortedDiagnoses = dynamicDiagnosesMap.values.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     if (_selectedDiagnosis != 'all' && !sortedDiagnoses.contains(_selectedDiagnosis)) {
       _selectedDiagnosis = 'all';
     }
