@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/clinical_visit_model.dart';
 import '../../models/patient_model.dart';
+import '../../repositories/patient_repository.dart';
 import 'clinical_assessment_view.dart';
 import 'patient_registration_view.dart';
 
@@ -13,7 +14,7 @@ class ClinicalHistoryPanel extends StatefulWidget {
   final PatientModel patient;
   final CampModel? camp;
   final String orgName;
-  final dynamic repo;
+  final IPatientRepository repo;
   final VoidCallback? onDataModified;
 
   const ClinicalHistoryPanel({
@@ -370,9 +371,28 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
             ),
           );
           if (confirmed == true && mounted) {
-            await widget.repo.deletePatient(_patient.id);
-            widget.onDataModified?.call();
-            if (mounted) Navigator.of(context).pop();
+            try {
+              await widget.repo.deletePatient(_patient.id);
+              widget.onDataModified?.call();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: const Color(0xFF0D9488),
+                    content: Text('Deleted patient record ${_patient.fullName} (${_patient.patientId}).'),
+                  ),
+                );
+                Navigator.of(context).pop();
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppTheme.dangerRose,
+                    content: Text('Failed to delete patient: $e'),
+                  ),
+                );
+              }
+            }
           }
         },
       ),
@@ -614,15 +634,32 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                       ),
                     );
                     if (confirmed == true && mounted) {
-                      await widget.repo.deleteClinicalVisit(v.id);
-                      if (mounted) {
-                        setState(() {
-                          _visitsFuture = widget.repo.getClinicalVisits(
-                            _patient.patientId,
-                            patientUuid: _patient.id,
+                      try {
+                        await widget.repo.deleteClinicalVisit(v.id);
+                        if (mounted) {
+                          setState(() {
+                            _visitsFuture = widget.repo.getClinicalVisits(
+                              _patient.patientId,
+                              patientUuid: _patient.id,
+                            );
+                          });
+                          widget.onDataModified?.call();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: Color(0xFF0D9488),
+                              content: Text('Deleted clinical examination record.'),
+                            ),
                           );
-                        });
-                        widget.onDataModified?.call();
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: AppTheme.dangerRose,
+                              content: Text('Failed to delete clinical examination: $e'),
+                            ),
+                          );
+                        }
                       }
                     }
                   },

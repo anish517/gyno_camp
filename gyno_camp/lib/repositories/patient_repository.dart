@@ -51,17 +51,17 @@ abstract class IPatientRepository {
   Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId, {String? patientUuid});
   Future<void> deletePatient(
     String patientIdOrUuid, {
-    required String deletedByUserId,
-    required String deletedByUserName,
-    required String deletedByUserRole,
-    required String deviceId,
+    String deletedByUserId = 'usr-local',
+    String deletedByUserName = 'Field Staff',
+    String deletedByUserRole = 'DATA_TAKER',
+    String deviceId = 'dev-local',
   });
   Future<void> deleteClinicalVisit(
     String visitId, {
-    required String deletedByUserId,
-    required String deletedByUserName,
-    required String deletedByUserRole,
-    required String deviceId,
+    String deletedByUserId = 'usr-local',
+    String deletedByUserName = 'Field Staff',
+    String deletedByUserRole = 'DATA_TAKER',
+    String deviceId = 'dev-local',
   });
   Future<ClinicalVisitModel> recordNurseSeenQuickVisit({
     required PatientModel patient,
@@ -640,10 +640,10 @@ class PatientRepository implements IPatientRepository {
   @override
   Future<void> deletePatient(
     String patientIdOrUuid, {
-    required String deletedByUserId,
-    required String deletedByUserName,
-    required String deletedByUserRole,
-    required String deviceId,
+    String deletedByUserId = 'usr-local',
+    String deletedByUserName = 'Field Staff',
+    String deletedByUserRole = 'DATA_TAKER',
+    String deviceId = 'dev-local',
   }) async {
     final db = await _databaseService.database;
     final rows = await db.query(
@@ -744,10 +744,10 @@ class PatientRepository implements IPatientRepository {
   @override
   Future<void> deleteClinicalVisit(
     String visitId, {
-    required String deletedByUserId,
-    required String deletedByUserName,
-    required String deletedByUserRole,
-    required String deviceId,
+    String deletedByUserId = 'usr-local',
+    String deletedByUserName = 'Field Staff',
+    String deletedByUserRole = 'DATA_TAKER',
+    String deviceId = 'dev-local',
   }) async {
     final db = await _databaseService.database;
     final rows = await db.query(
