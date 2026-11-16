@@ -559,9 +559,9 @@ class PatientModel {
       pessarySize: map['pessary_size'] as String?,
       surgicalReferral: map['surgical_referral'] as String?,
       treatmentLevel: normalizeTreatmentLevel(map['treatment_level'] as String?),
-      clinicalComplaints: map['anamnesis_complaints'] != null
+      clinicalComplaints: (map['anamnesis_json'] ?? map['anamnesis_complaints']) != null
           ? (() {
-              final raw = map['anamnesis_complaints'];
+              final raw = map['anamnesis_json'] ?? map['anamnesis_complaints'];
               if (raw is String && raw.trim().isNotEmpty) {
                 try {
                   final decoded = jsonDecode(raw);

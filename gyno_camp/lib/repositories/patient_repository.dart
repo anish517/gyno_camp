@@ -375,7 +375,7 @@ class PatientRepository implements IPatientRepository {
              cv.pessary_type,
              cv.pessary_size,
              cv.surgical_referral,
-             cv.anamnesis_complaints,
+             cv.anamnesis_json,
              CASE 
                WHEN p.treatment_level IS NOT NULL AND TRIM(p.treatment_level) != '' AND LOWER(TRIM(p.treatment_level)) NOT IN ('none', 'unassigned', 'null')
                  THEN p.treatment_level
@@ -389,7 +389,7 @@ class PatientRepository implements IPatientRepository {
                cv1.primary_doctor_name, cv1.attending_doctor_names,
                cv1.primary_nurse_name, cv1.attending_nurse_names,
                cv1.medications, cv1.custom_medication, cv1.counseling,
-               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_complaints
+               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_json
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
@@ -425,7 +425,7 @@ class PatientRepository implements IPatientRepository {
              cv.pessary_type,
              cv.pessary_size,
              cv.surgical_referral,
-             cv.anamnesis_complaints,
+             cv.anamnesis_json,
              CASE 
                WHEN p.treatment_level IS NOT NULL AND TRIM(p.treatment_level) != '' AND LOWER(TRIM(p.treatment_level)) NOT IN ('none', 'unassigned', 'null')
                  THEN p.treatment_level
@@ -439,7 +439,7 @@ class PatientRepository implements IPatientRepository {
                cv1.primary_doctor_name, cv1.attending_doctor_names,
                cv1.primary_nurse_name, cv1.attending_nurse_names,
                cv1.medications, cv1.custom_medication, cv1.counseling,
-               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_complaints
+               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_json
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
@@ -477,7 +477,7 @@ class PatientRepository implements IPatientRepository {
              cv.pessary_type,
              cv.pessary_size,
              cv.surgical_referral,
-             cv.anamnesis_complaints,
+             cv.anamnesis_json,
              CASE 
                WHEN p.treatment_level IS NOT NULL AND TRIM(p.treatment_level) != '' AND LOWER(TRIM(p.treatment_level)) NOT IN ('none', 'unassigned', 'null')
                  THEN p.treatment_level
@@ -491,7 +491,7 @@ class PatientRepository implements IPatientRepository {
                cv1.primary_doctor_name, cv1.attending_doctor_names,
                cv1.primary_nurse_name, cv1.attending_nurse_names,
                cv1.medications, cv1.custom_medication, cv1.counseling,
-               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_complaints
+               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_json
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
