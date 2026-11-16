@@ -117,7 +117,7 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
           (treatmentLevelFilter != null && treatmentLevelFilter.isNotEmpty && treatmentLevelFilter != 'all');
 
       CampReportSummaryModel? newUnfiltered = state.unfilteredSummary;
-      if (!hasFilters || state.selectedCampId != campId || newUnfiltered == null) {
+      if (!hasFilters || state.selectedCampId != campId || newUnfiltered == null || startDate != null || endDate != null) {
         if (!hasFilters) {
           newUnfiltered = res;
         } else {
@@ -125,6 +125,8 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
             campId: campId,
             allowedCampIds: allowedCampIds,
             generatedBy: generatedBy,
+            startDate: startDate,
+            endDate: endDate,
           );
         }
       }

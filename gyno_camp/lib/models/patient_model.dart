@@ -58,6 +58,7 @@ class PatientModel {
   final String? pessarySize;
   final String? surgicalReferral;
   final String? treatmentLevel;
+  final List<String> clinicalComplaints;
 
   const PatientModel({
     required this.id,
@@ -106,6 +107,7 @@ class PatientModel {
     this.pessarySize,
     this.surgicalReferral,
     this.treatmentLevel,
+    this.clinicalComplaints = const [],
   });
 
   /// Normalizes consultation / treatment level to canonical keys ('counseling' or 'gyno_checkup')
@@ -237,6 +239,7 @@ class PatientModel {
     String? pessarySize,
     String? surgicalReferral,
     String? treatmentLevel,
+    List<String>? clinicalComplaints,
     bool clearTreatmentLevel = false,
   }) {
     return PatientModel(
@@ -286,6 +289,7 @@ class PatientModel {
       pessarySize: pessarySize ?? this.pessarySize,
       surgicalReferral: surgicalReferral ?? this.surgicalReferral,
       treatmentLevel: clearTreatmentLevel ? null : (normalizeTreatmentLevel(treatmentLevel) ?? normalizeTreatmentLevel(this.treatmentLevel)),
+      clinicalComplaints: clinicalComplaints ?? this.clinicalComplaints,
     );
   }
 
@@ -555,6 +559,31 @@ class PatientModel {
       pessarySize: map['pessary_size'] as String?,
       surgicalReferral: map['surgical_referral'] as String?,
       treatmentLevel: normalizeTreatmentLevel(map['treatment_level'] as String?),
+      clinicalComplaints: map['anamnesis_complaints'] != null
+          ? (() {
+              final raw = map['anamnesis_complaints'];
+              if (raw is String && raw.trim().isNotEmpty) {
+                try {
+                  final decoded = jsonDecode(raw);
+                  if (decoded is Map) {
+                    final out = <String>{};
+                    if (decoded['clinicalComplaints'] is List) {
+                      out.addAll((decoded['clinicalComplaints'] as List).map((e) => e.toString().trim()).where((s) => s.isNotEmpty));
+                    }
+                    if (decoded['reasons'] is List) {
+                      out.addAll((decoded['reasons'] as List).map((e) => e.toString().trim()).where((s) => s.isNotEmpty));
+                    }
+                    return out.toList();
+                  }
+                  if (decoded is List) {
+                    return decoded.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList();
+                  }
+                } catch (_) {}
+                return raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+              }
+              return const <String>[];
+            })()
+          : const [],
     );
   }
 }

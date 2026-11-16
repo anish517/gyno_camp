@@ -4736,6 +4736,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
             nurseFilter: _selectedNurse == 'all' ? null : _selectedNurse,
             visitReasonFilter: _selectedVisitReason == 'all' ? null : _selectedVisitReason,
             complaintFilter: _selectedComplaint == 'all' ? null : _selectedComplaint,
+            treatmentLevelFilter: _selectedTreatmentLevel == 'all' ? null : _selectedTreatmentLevel,
           );
 
       final summary = ref.read(reportingViewModelProvider).summary;
@@ -5160,20 +5161,6 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final patientAttendingMatch = p.attendingDoctorNames.any((d) => _doctorNamesMatch(d, docLower));
     if (patientPrimaryMatch || patientAttendingMatch) return true;
 
-    if (p.hasClinicalVisit || visit != null) return false;
-
-    final patientCamp = campState.camps.where((c) => c.id == p.campId).firstOrNull;
-    final campDoctors = patientCamp?.doctorNames.isNotEmpty == true
-        ? patientCamp!.doctorNames
-        : (patientCamp?.doctorName.trim().isNotEmpty == true ? [patientCamp!.doctorName.trim()] : <String>[]);
-    final cleanCampDocs = campDoctors
-        .map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim())
-        .where((d) => d.isNotEmpty)
-        .toList();
-
-    if (cleanCampDocs.length == 1 && _doctorNamesMatch(cleanCampDocs.first, docLower)) {
-      return true;
-    }
     return false;
   }
 
@@ -5253,12 +5240,6 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         ? allPatients
         : allPatients.where((p) => p.campId == _selectedCampId).toList();
 
-    // Determine current camp object
-    final selectedCampObj = _selectedCampId != 'all'
-        ? campState.camps.where((c) => c.id == _selectedCampId).firstOrNull
-        : null;
-    final relevantCamps = selectedCampObj != null ? [selectedCampObj] : visibleCamps;
-
     // Collect all dynamic doctors scoped strictly to the selected camp (or all visible camps)
     final doctorMap = <String, DoctorProfile>{};
     void addDoctorRaw(String raw) {
@@ -5275,15 +5256,6 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       }
     }
 
-    for (final camp in relevantCamps) {
-      if (camp.doctorNames.isNotEmpty) {
-        for (final d in camp.doctorNames) {
-          addDoctorRaw(d);
-        }
-      } else if (camp.doctorName.trim().isNotEmpty) {
-        addDoctorRaw(camp.doctorName);
-      }
-    }
     for (final p in campScopedPatients) {
       final v = _patientVisits[p.patientId];
       if (v != null) {
@@ -5294,6 +5266,14 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
           if (doc.trim().isNotEmpty) {
             addDoctorRaw(doc);
           }
+        }
+      }
+      if (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty) {
+        addDoctorRaw(p.primaryDoctorName!);
+      }
+      for (final doc in p.attendingDoctorNames) {
+        if (doc.trim().isNotEmpty) {
+          addDoctorRaw(doc);
         }
       }
     }
@@ -5318,13 +5298,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       doctorCounts[doc] = count;
     }
 
-    // Collect all dynamic nurses scoped strictly to the selected camp (or all visible camps)
+    // Collect all dynamic nurses scoped strictly to nurses who have patient records in the selected camp
     final allNurses = <String>{};
-    for (final camp in relevantCamps) {
-      if (camp.nurseNames.isNotEmpty) {
-        allNurses.addAll(camp.nurseNames.map((n) => NurseProfile.stripPrefixes(n).trim()).where((n) => n.isNotEmpty));
-      }
-    }
     for (final p in campScopedPatients) {
       final v = _patientVisits[p.patientId];
       if (v != null) {

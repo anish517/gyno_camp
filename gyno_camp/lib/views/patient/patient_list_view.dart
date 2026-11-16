@@ -1515,10 +1515,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           ? camp.doctorNames
           : (camp.doctorName.trim().isNotEmpty ? [camp.doctorName.trim()] : <String>[]);
       campDoctorsMap[camp.id] = docs;
-      for (final d in docs) {
-        addDoctorRaw(d);
-      }
     }
+    // Only include doctors who actually have patient data records in rawPatients (or current filter)
     for (final p in patientState.rawPatients) {
       if (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty) {
         addDoctorRaw(p.primaryDoctorName!);

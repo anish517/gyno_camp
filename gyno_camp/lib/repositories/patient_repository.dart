@@ -208,6 +208,22 @@ class PatientRepository implements IPatientRepository {
   }) async {
     final db = await _databaseService.database;
 
+    // Look up previous patient_id by UUID so if the Token ID was edited on Page 1,
+    // we also update clinical_visits.patient_id to prevent orphaned clinical visits.
+    String? oldPatientId;
+    if (patient.id.isNotEmpty) {
+      final prevRows = await db.query(
+        DatabaseTables.tablePatients,
+        columns: ['patient_id'],
+        where: 'id = ?',
+        whereArgs: [patient.id],
+        limit: 1,
+      );
+      if (prevRows.isNotEmpty) {
+        oldPatientId = prevRows.first['patient_id'] as String?;
+      }
+    }
+
     final updatedPatient = patient.copyWith(
       updatedAt: DateTime.now(),
       isSynced: false,
@@ -217,8 +233,17 @@ class PatientRepository implements IPatientRepository {
       DatabaseTables.tablePatients,
       updatedPatient.toMap(),
       where: 'id = ? OR patient_id = ? COLLATE NOCASE',
-      whereArgs: [updatedPatient.id, updatedPatient.patientId],
+      whereArgs: [updatedPatient.id, oldPatientId ?? updatedPatient.patientId],
     );
+
+    if (oldPatientId != null &&
+        oldPatientId.trim().isNotEmpty &&
+        oldPatientId.trim().toLowerCase() != updatedPatient.patientId.trim().toLowerCase()) {
+      await db.rawUpdate(
+        'UPDATE ${DatabaseTables.tableClinicalVisits} SET patient_id = ?, is_synced = 0 WHERE patient_id = ? COLLATE NOCASE OR patient_id = ?',
+        [updatedPatient.patientId.trim(), oldPatientId.trim(), updatedPatient.id],
+      );
+    }
 
     // Synchronize normalized treatment_level to clinical_visits as well if present
     final normTreatment = PatientModel.normalizeTreatmentLevel(updatedPatient.treatmentLevel);
@@ -350,6 +375,7 @@ class PatientRepository implements IPatientRepository {
              cv.pessary_type,
              cv.pessary_size,
              cv.surgical_referral,
+             cv.anamnesis_complaints,
              CASE 
                WHEN p.treatment_level IS NOT NULL AND TRIM(p.treatment_level) != '' AND LOWER(TRIM(p.treatment_level)) NOT IN ('none', 'unassigned', 'null')
                  THEN p.treatment_level
@@ -363,14 +389,14 @@ class PatientRepository implements IPatientRepository {
                cv1.primary_doctor_name, cv1.attending_doctor_names,
                cv1.primary_nurse_name, cv1.attending_nurse_names,
                cv1.medications, cv1.custom_medication, cv1.counseling,
-               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level
+               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_complaints
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
           FROM ${DatabaseTables.tableClinicalVisits} cv2
           WHERE cv2.patient_id = cv1.patient_id
         )
-      ) cv ON cv.patient_id = p.patient_id OR cv.patient_id = p.id
+      ) cv ON cv.patient_id = p.patient_id COLLATE NOCASE OR cv.patient_id = p.id
       $whereClause
       ORDER BY p.created_at DESC
     ''';
@@ -399,6 +425,7 @@ class PatientRepository implements IPatientRepository {
              cv.pessary_type,
              cv.pessary_size,
              cv.surgical_referral,
+             cv.anamnesis_complaints,
              CASE 
                WHEN p.treatment_level IS NOT NULL AND TRIM(p.treatment_level) != '' AND LOWER(TRIM(p.treatment_level)) NOT IN ('none', 'unassigned', 'null')
                  THEN p.treatment_level
@@ -412,14 +439,14 @@ class PatientRepository implements IPatientRepository {
                cv1.primary_doctor_name, cv1.attending_doctor_names,
                cv1.primary_nurse_name, cv1.attending_nurse_names,
                cv1.medications, cv1.custom_medication, cv1.counseling,
-               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level
+               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_complaints
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
           FROM ${DatabaseTables.tableClinicalVisits} cv2
           WHERE cv2.patient_id = cv1.patient_id
         )
-      ) cv ON cv.patient_id = p.patient_id OR cv.patient_id = p.id
+      ) cv ON cv.patient_id = p.patient_id COLLATE NOCASE OR cv.patient_id = p.id
       WHERE p.patient_id = ? COLLATE NOCASE OR p.id = ?
       LIMIT 1
     ''', [patientId, patientId]);
@@ -450,6 +477,7 @@ class PatientRepository implements IPatientRepository {
              cv.pessary_type,
              cv.pessary_size,
              cv.surgical_referral,
+             cv.anamnesis_complaints,
              CASE 
                WHEN p.treatment_level IS NOT NULL AND TRIM(p.treatment_level) != '' AND LOWER(TRIM(p.treatment_level)) NOT IN ('none', 'unassigned', 'null')
                  THEN p.treatment_level
@@ -463,14 +491,14 @@ class PatientRepository implements IPatientRepository {
                cv1.primary_doctor_name, cv1.attending_doctor_names,
                cv1.primary_nurse_name, cv1.attending_nurse_names,
                cv1.medications, cv1.custom_medication, cv1.counseling,
-               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level
+               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_complaints
         FROM ${DatabaseTables.tableClinicalVisits} cv1
         WHERE cv1.visit_date = (
           SELECT MAX(cv2.visit_date)
           FROM ${DatabaseTables.tableClinicalVisits} cv2
           WHERE cv2.patient_id = cv1.patient_id
         )
-      ) cv ON cv.patient_id = p.patient_id OR cv.patient_id = p.id
+      ) cv ON cv.patient_id = p.patient_id COLLATE NOCASE OR cv.patient_id = p.id
       WHERE p.camp_id = ? AND (
         LOWER(p.patient_id) LIKE ? OR
         LOWER(p.first_name) LIKE ? OR

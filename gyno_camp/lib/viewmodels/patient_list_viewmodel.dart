@@ -351,10 +351,14 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         if (p.highestPopStage?.toString() != filters.popStage) return false;
       }
 
-      // Chief complaint / Visit Reason
+      // Chief complaint / Visit Reason (checks both Page 1 reasonsForVisit and Station 1 clinicalComplaints)
       if (filters.chiefComplaint != null && filters.chiefComplaint!.trim().isNotEmpty && filters.chiefComplaint != 'all') {
         final cLower = filters.chiefComplaint!.trim().toLowerCase().replaceAll('_', ' ');
-        final matchesComplaint = p.reasonsForVisit.any((r) {
+        final allReasonsAndComplaints = <String>[
+          ...p.reasonsForVisit,
+          ...p.clinicalComplaints,
+        ];
+        final matchesComplaint = allReasonsAndComplaints.any((r) {
           final rLower = r.trim().toLowerCase().replaceAll('_', ' ');
           if (rLower == cLower) return true;
           if (rLower.contains(cLower) || cLower.contains(rLower)) return true;
@@ -435,23 +439,7 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         final primaryMatch = p.primaryDoctorName != null && docNamesMatch(p.primaryDoctorName!, docFilter);
         final attendingMatch = p.attendingDoctorNames.any((d) => docNamesMatch(d, docFilter));
 
-        if (p.hasClinicalVisit) {
-          // Patient has been examined: clinical accountability rests solely on the examining doctor
-          if (!primaryMatch && !attendingMatch) return false;
-        } else {
-          // Patient registered but not yet examined:
-          // If the camp has only a single doctor assigned, the patient belongs to that doctor's queue
-          final campDocs = (filters.campDoctorsMap[p.campId] ?? const [])
-              .map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim())
-              .where((d) => d.isNotEmpty)
-              .toList();
-
-          if (campDocs.length == 1 && docNamesMatch(campDocs.first, docFilter)) {
-            // Belongs to the solo doctor queue for this camp
-          } else {
-            return false;
-          }
-        }
+        if (!primaryMatch && !attendingMatch) return false;
       }
 
       // 5. Nurse Filter — visit-based only (no solo-doctor-queue fallback)
