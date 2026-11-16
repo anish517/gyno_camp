@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import 'package:nepali_utils/nepali_utils.dart';
 import '../core/constants/app_constants.dart';
 import '../core/constants/clinical_constants.dart';
+import '../core/database/database_service.dart';
+import '../core/database/database_tables.dart';
 import '../core/utils/nepali_date_helper.dart';
 import '../core/services/gemini_ocr_service.dart';
 import '../core/services/mlkit_ocr_service.dart';
@@ -71,9 +75,40 @@ abstract class IOcrRepository {
     String? primaryNurseName,
     List<String> attendingNurseNames = const [],
   });
+
+  Future<OfflineScanQueueItem> enqueueOfflineScan({
+    required String campId,
+    required String campCode,
+    Uint8List? page1Bytes,
+    String? page1Path,
+    Uint8List? page2Bytes,
+    String? page2Path,
+    String? patientTokenHint,
+    String? patientIdHint,
+    String? intakeDateHint,
+    String? examiningNurseHint,
+    String? examiningDoctorHint,
+    required String userId,
+    required String userName,
+    required String userRole,
+    required String deviceId,
+    String tenantId = 'tenant_default',
+  });
+
+  Future<List<OfflineScanQueueItem>> getOfflineScanQueue({String? campId});
+  Future<int> getPendingOfflineScanCount({String? campId});
+  Future<void> deleteOfflineScanQueueItem(String id);
+  Future<OcrScanResultModel> extractQueuedOfflineItem(OfflineScanQueueItem item);
+  Future<int> syncAndProcessAllOfflineScans({
+    String? defaultUserId,
+    String? defaultUserName,
+    String? defaultUserRole,
+    String? defaultDeviceId,
+  });
 }
 
 class OcrRepository implements IOcrRepository {
+  final DatabaseService _databaseService;
   final OcrFormService _ocrService;
   final IPatientRepository _patientRepository;
   final AuditRepository _auditRepository;
@@ -82,12 +117,14 @@ class OcrRepository implements IOcrRepository {
   final Uuid _uuid = const Uuid();
 
   OcrRepository({
+    DatabaseService? databaseService,
     OcrFormService? ocrService,
     IPatientRepository? patientRepository,
     AuditRepository? auditRepository,
     GeminiOcrService? geminiService,
     MlKitOcrService Function()? mlkitFactory,
-  })  : _ocrService = ocrService ?? const OcrFormService(),
+  })  : _databaseService = databaseService ?? DatabaseService(),
+        _ocrService = ocrService ?? const OcrFormService(),
         _patientRepository = patientRepository ?? PatientRepository(),
         _auditRepository = auditRepository ?? AuditRepository(),
         _geminiService = geminiService ?? GeminiOcrService(),
@@ -243,59 +280,117 @@ class OcrRepository implements IOcrRepository {
 
     // 1. Construct Patient Model
     final rawToken = (demo['patientId'] as String? ?? demo['patientTokenId'] as String? ?? '').trim();
-    final normalizedPatientId = PatientModel.normalizePatientId(
-      rawInput: rawToken,
-      campCode: campCode,
-    );
-
-    DateTime parseDateSafe(String? raw) {
-      if (raw == null || raw.trim().isEmpty) return DateTime.now();
-      try {
-        final clean = raw.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
-        final parts = clean.split(RegExp(r'[-/]'));
-        if (parts.length == 3) {
-          final y = int.tryParse(parts[0]);
-          final m = int.tryParse(parts[1]);
-          final d = int.tryParse(parts[2]);
-          if (y != null && m != null && d != null) {
-            if (y >= 2070 && y <= 2120) {
-              return NepaliDateHelper.toEnglish(NepaliDateTime(y, m, d));
-            } else {
-              return DateTime(y, m, d);
-            }
-          }
-        }
-        return DateTime.parse(clean);
-      } catch (_) {
-        return DateTime.now();
-      }
-    }
 
     DateTime? parseDateOrNull(String? raw) {
       if (raw == null || raw.trim().isEmpty) return null;
+      var clean = raw.trim();
+      if (clean.toLowerCase() == 'null' || clean == '—' || clean == '-') return null;
+      const devanagari = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+      for (int i = 0; i < devanagari.length; i++) {
+        clean = clean.replaceAll(devanagari[i], i.toString());
+      }
+      clean = clean.replaceAll(RegExp(r'\s*(BS|AD)\b', caseSensitive: false), '').trim();
       try {
-        final clean = raw.replaceAll(RegExp(r'\s*BS', caseSensitive: false), '').trim();
-        final parts = clean.split(RegExp(r'[-/]'));
+        final parts = clean.split(RegExp(r'[-/.\s]+')).where((s) => s.isNotEmpty).toList();
         if (parts.length == 3) {
-          final y = int.tryParse(parts[0]);
-          final m = int.tryParse(parts[1]);
-          final d = int.tryParse(parts[2]);
-          if (y != null && m != null && d != null) {
-            if (y >= 2070 && y <= 2120) {
-              return NepaliDateHelper.toEnglish(NepaliDateTime(y, m, d));
+          final p0 = int.tryParse(parts[0]);
+          final p1 = int.tryParse(parts[1]);
+          final p2 = int.tryParse(parts[2]);
+          if (p0 != null && p1 != null && p2 != null) {
+            int y;
+            int m;
+            int d;
+            if (p0 >= 1900) {
+              y = p0;
+              m = p1;
+              d = p2;
+            } else if (p2 >= 1900) {
+              // DD-MM-YYYY or DD/MM/YYYY
+              d = p0;
+              m = p1;
+              y = p2;
+            } else if (p0 >= 75 && p0 <= 99) {
+              y = 2000 + p0;
+              m = p1;
+              d = p2;
+            } else if (p2 >= 75 && p2 <= 99) {
+              d = p0;
+              m = p1;
+              y = 2000 + p2;
             } else {
-              return DateTime(y, m, d);
+              y = p0;
+              m = p1;
+              d = p2;
+            }
+            if (m > 12 && d <= 12) {
+              final tmp = m;
+              m = d;
+              d = tmp;
+            }
+            m = m.clamp(1, 12);
+            if (y >= 2070 && y <= 2120) {
+              for (int tryDay = d.clamp(1, 32); tryDay >= 28; tryDay--) {
+                try {
+                  return NepaliDateHelper.toEnglish(NepaliDateTime(y, m, tryDay));
+                } catch (_) {}
+              }
+              return NepaliDateHelper.toEnglish(NepaliDateTime(y, m, 1));
+            } else if (y >= 1900 && y < 2070) {
+              return DateTime(y, m, d.clamp(1, 31));
             }
           }
         }
-        return DateTime.parse(clean);
+        final iso = DateTime.tryParse(clean);
+        if (iso != null) {
+          if (iso.year >= 2070 && iso.year <= 2120) {
+            for (int tryDay = iso.day.clamp(1, 32); tryDay >= 28; tryDay--) {
+              try {
+                return NepaliDateHelper.toEnglish(NepaliDateTime(iso.year, iso.month.clamp(1, 12), tryDay));
+              } catch (_) {}
+            }
+          }
+          return iso;
+        }
+        return null;
       } catch (_) {
         return null;
       }
     }
 
-    final parsedIntake = parseDateSafe(verifiedScan.intakeDate ?? demo['intakeDate'] as String? ?? demo['date'] as String?);
-    final parsedVisit = parseDateSafe(verifiedScan.treatmentDate ?? verifiedScan.conclusionDate ?? verifiedScan.examDate ?? verifiedScan.intakeDate);
+    DateTime parseDateSafe(String? raw) {
+      return parseDateOrNull(raw) ?? DateTime.now();
+    }
+
+    final parsedIntake = parseDateSafe(
+      verifiedScan.intakeDate ??
+          demo['intakeDate'] as String? ??
+          demo['date'] as String? ??
+          verifiedScan.effectiveAnamnesisDate ??
+          verifiedScan.anamnesisDate ??
+          verifiedScan.examDate ??
+          verifiedScan.treatmentDate ??
+          verifiedScan.conclusionDate ??
+          verifiedScan.labTestDate ??
+          verifiedScan.outtakeDate,
+    );
+    final parsedVisit = parseDateSafe(
+      verifiedScan.treatmentDate ??
+          verifiedScan.conclusionDate ??
+          verifiedScan.examDate ??
+          verifiedScan.labTestDate ??
+          verifiedScan.outtakeDate ??
+          verifiedScan.effectiveAnamnesisDate ??
+          verifiedScan.anamnesisDate ??
+          verifiedScan.intakeDate ??
+          demo['intakeDate'] as String? ??
+          demo['date'] as String?,
+    );
+
+    final normalizedPatientId = PatientModel.normalizePatientId(
+      rawInput: rawToken,
+      campCode: campCode,
+      year: parsedIntake.year,
+    );
 
     final patient = PatientModel(
       id: 'pat-${_uuid.v4()}',
@@ -338,14 +433,55 @@ class OcrRepository implements IOcrRepository {
       createdByDeviceId: deviceId,
     );
 
-    // Save Patient in SQLite
-    final registeredPatient = await _patientRepository.registerPatient(
-      patient,
-      createdByUserId: userId,
-      createdByUserName: userName,
-      createdByUserRole: userRole,
-      deviceId: deviceId,
-    );
+    // Save or Update Patient in SQLite (if Patient Token ID already exists, update existing record instead of failing)
+    final existingPatient = normalizedPatientId.isNotEmpty
+        ? await _patientRepository.getPatientByPatientId(normalizedPatientId)
+        : null;
+
+    final PatientRepository? concreteRepo =
+        _patientRepository is PatientRepository ? _patientRepository : null;
+
+    final PatientModel registeredPatient;
+    if (existingPatient != null) {
+      final updated = patient.copyWith(
+        id: existingPatient.id,
+        patientId: existingPatient.patientId,
+        createdAt: existingPatient.createdAt,
+      );
+      registeredPatient = concreteRepo != null
+          ? await concreteRepo.updatePatient(
+              updated,
+              updatedByUserId: userId,
+              updatedByUserName: userName,
+              updatedByUserRole: userRole,
+              deviceId: deviceId,
+              pushToServer: false,
+            )
+          : await _patientRepository.updatePatient(
+              updated,
+              updatedByUserId: userId,
+              updatedByUserName: userName,
+              updatedByUserRole: userRole,
+              deviceId: deviceId,
+            );
+    } else {
+      registeredPatient = concreteRepo != null
+          ? await concreteRepo.registerPatient(
+              patient,
+              createdByUserId: userId,
+              createdByUserName: userName,
+              createdByUserRole: userRole,
+              deviceId: deviceId,
+              pushToServer: false,
+            )
+          : await _patientRepository.registerPatient(
+              patient,
+              createdByUserId: userId,
+              createdByUserName: userName,
+              createdByUserRole: userRole,
+              deviceId: deviceId,
+            );
+    }
 
     // 2. Construct Clinical Visit Model
     final rawComplaints = obs['clinicalComplaints'];
@@ -669,12 +805,30 @@ class OcrRepository implements IOcrRepository {
       createdByUserId: userId,
     );
 
-    // Save Clinical Visit in SQLite
-    await _patientRepository.saveClinicalVisit(
-      clinicalVisit,
-      createdByUserId: userId,
-      deviceId: deviceId,
-    );
+    // Save Clinical Visit in SQLite (deferring server push until both rows exist locally)
+    final savedVisit = concreteRepo != null
+        ? await concreteRepo.saveClinicalVisit(
+            clinicalVisit,
+            createdByUserId: userId,
+            deviceId: deviceId,
+            pushToServer: false,
+          )
+        : await _patientRepository.saveClinicalVisit(
+            clinicalVisit,
+            createdByUserId: userId,
+            deviceId: deviceId,
+          );
+
+    // Push patient + clinical visit together in one central sync payload
+    if (concreteRepo != null) {
+      unawaited(
+        concreteRepo.pushPatientAndVisitToServer(
+          patient: registeredPatient,
+          visit: savedVisit,
+          deviceId: deviceId,
+        ),
+      );
+    }
 
     // 3. Log Audit Activity with SHA-256 Chaining
     await _auditRepository.logActivity(
@@ -697,5 +851,266 @@ class OcrRepository implements IOcrRepository {
     );
 
     return registeredPatient;
+  }
+
+  @override
+  Future<OfflineScanQueueItem> enqueueOfflineScan({
+    required String campId,
+    required String campCode,
+    Uint8List? page1Bytes,
+    String? page1Path,
+    Uint8List? page2Bytes,
+    String? page2Path,
+    String? patientTokenHint,
+    String? patientIdHint,
+    String? intakeDateHint,
+    String? examiningNurseHint,
+    String? examiningDoctorHint,
+    required String userId,
+    required String userName,
+    required String userRole,
+    required String deviceId,
+    String tenantId = 'tenant_default',
+  }) async {
+    final db = await _databaseService.database;
+    String? p1Base64;
+    if (page1Bytes != null && page1Bytes.isNotEmpty) {
+      final prepared = await _geminiService.prepareImageForStorage(page1Bytes);
+      p1Base64 = prepared.base64;
+    }
+    String? p2Base64;
+    if (page2Bytes != null && page2Bytes.isNotEmpty) {
+      final prepared = await _geminiService.prepareImageForStorage(page2Bytes);
+      p2Base64 = prepared.base64;
+    }
+
+    final effectiveTokenHint = (patientTokenHint != null && patientTokenHint.trim().isNotEmpty)
+        ? patientTokenHint.trim()
+        : patientIdHint?.trim();
+
+    final now = DateTime.now();
+    final item = OfflineScanQueueItem(
+      id: 'offscan-${_uuid.v4()}',
+      campId: campId,
+      campCode: campCode,
+      page1ImageBase64: p1Base64,
+      page1ImagePath: page1Path,
+      page2ImageBase64: p2Base64,
+      page2ImagePath: page2Path,
+      patientTokenHint: effectiveTokenHint,
+      intakeDateHint: intakeDateHint?.trim(),
+      examiningNurseHint: examiningNurseHint?.trim(),
+      examiningDoctorHint: examiningDoctorHint?.trim(),
+      status: 'pending',
+      createdByUserId: userId,
+      createdByUserName: userName,
+      createdByUserRole: userRole,
+      deviceId: deviceId,
+      tenantId: tenantId,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    await db.insert(
+      DatabaseTables.tableOfflineScanQueue,
+      item.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    await _auditRepository.logActivity(
+      userId: userId,
+      userName: userName,
+      userRole: userRole,
+      action: AppConstants.auditActionOfflineScanQueued,
+      entityType: 'OfflineScanQueue',
+      entityId: item.id,
+      detailsJson: jsonEncode({
+        'campId': campId,
+        'campCode': campCode,
+        'hasPage1': item.hasPage1,
+        'hasPage2': item.hasPage2,
+        'patientTokenHint': item.patientTokenHint,
+        'intakeDateHint': item.intakeDateHint,
+      }),
+      deviceId: deviceId,
+    );
+
+    return item;
+  }
+
+  @override
+  Future<List<OfflineScanQueueItem>> getOfflineScanQueue({String? campId}) async {
+    final db = await _databaseService.database;
+    final hasCampFilter = campId != null && campId.isNotEmpty && campId != 'all';
+    final rows = await db.query(
+      DatabaseTables.tableOfflineScanQueue,
+      where: hasCampFilter ? 'camp_id = ?' : null,
+      whereArgs: hasCampFilter ? [campId] : null,
+      orderBy: 'created_at DESC',
+    );
+    return rows.map((r) => OfflineScanQueueItem.fromMap(r)).toList();
+  }
+
+  @override
+  Future<int> getPendingOfflineScanCount({String? campId}) async {
+    final db = await _databaseService.database;
+    final hasCampFilter = campId != null && campId.isNotEmpty && campId != 'all';
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery(
+        hasCampFilter
+            ? "SELECT COUNT(*) FROM ${DatabaseTables.tableOfflineScanQueue} WHERE camp_id = ? AND status IN ('pending', 'failed')"
+            : "SELECT COUNT(*) FROM ${DatabaseTables.tableOfflineScanQueue} WHERE status IN ('pending', 'failed')",
+        hasCampFilter ? [campId] : null,
+      ),
+    );
+    return count ?? 0;
+  }
+
+  @override
+  Future<void> deleteOfflineScanQueueItem(String id) async {
+    final db = await _databaseService.database;
+    await db.delete(
+      DatabaseTables.tableOfflineScanQueue,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  @override
+  Future<OcrScanResultModel> extractQueuedOfflineItem(OfflineScanQueueItem item) async {
+    OcrScanResultModel? scan1;
+    OcrScanResultModel? scan2;
+
+    if (item.page1ImageBase64 != null && item.page1ImageBase64!.isNotEmpty) {
+      final bytes1 = base64Decode(item.page1ImageBase64!);
+      scan1 = await _geminiService.extractFromBytes(
+        bytes1,
+        imagePath: item.page1ImagePath ?? 'offline_page1.jpg',
+        pageNumber: 1,
+      );
+    } else if (item.page1ImagePath != null && item.page1ImagePath!.isNotEmpty) {
+      scan1 = await _geminiService.extractFromImage(
+        XFile(item.page1ImagePath!),
+        pageNumber: 1,
+      );
+    }
+
+    if (item.page2ImageBase64 != null && item.page2ImageBase64!.isNotEmpty) {
+      final bytes2 = base64Decode(item.page2ImageBase64!);
+      scan2 = await _geminiService.extractFromBytes(
+        bytes2,
+        imagePath: item.page2ImagePath ?? 'offline_page2.jpg',
+        pageNumber: 2,
+      );
+    } else if (item.page2ImagePath != null && item.page2ImagePath!.isNotEmpty) {
+      scan2 = await _geminiService.extractFromImage(
+        XFile(item.page2ImagePath!),
+        pageNumber: 2,
+      );
+    }
+
+    OcrScanResultModel result;
+    if (scan1 != null && scan2 != null) {
+      result = OcrScanResultModel.merge(scan1, scan2);
+    } else if (scan1 != null) {
+      result = scan1;
+    } else if (scan2 != null) {
+      result = scan2;
+    } else {
+      throw const GeminiOcrException('Offline scan item contains no readable image data.');
+    }
+
+    // Apply any operator-supplied hints recorded when queued offline
+    final updatedDemo = Map<String, dynamic>.from(result.demographics);
+    String? effectiveIntake = result.intakeDate;
+    if (item.patientTokenHint != null && item.patientTokenHint!.trim().isNotEmpty) {
+      updatedDemo['patientId'] = item.patientTokenHint!.trim();
+      updatedDemo['patientTokenId'] = item.patientTokenHint!.trim();
+    }
+    if (item.intakeDateHint != null && item.intakeDateHint!.trim().isNotEmpty) {
+      effectiveIntake = item.intakeDateHint!.trim();
+      updatedDemo['intakeDate'] = effectiveIntake;
+      updatedDemo['date'] = effectiveIntake;
+    }
+
+    return result.copyWith(
+      demographics: updatedDemo,
+      intakeDate: effectiveIntake,
+      examiningNurse: (item.examiningNurseHint != null && item.examiningNurseHint!.trim().isNotEmpty)
+          ? item.examiningNurseHint!.trim()
+          : result.examiningNurse,
+      attendingNurses: (item.examiningNurseHint != null && item.examiningNurseHint!.trim().isNotEmpty)
+          ? <String>{...result.attendingNurses, item.examiningNurseHint!.trim()}.toList()
+          : result.attendingNurses,
+      examiningDoctor: (item.examiningDoctorHint != null && item.examiningDoctorHint!.trim().isNotEmpty)
+          ? item.examiningDoctorHint!.trim()
+          : result.examiningDoctor,
+      attendingDoctors: (item.examiningDoctorHint != null && item.examiningDoctorHint!.trim().isNotEmpty)
+          ? <String>{...result.attendingDoctors, item.examiningDoctorHint!.trim()}.toList()
+          : result.attendingDoctors,
+    );
+  }
+
+  @override
+  Future<int> syncAndProcessAllOfflineScans({
+    String? defaultUserId,
+    String? defaultUserName,
+    String? defaultUserRole,
+    String? defaultDeviceId,
+  }) async {
+    final db = await _databaseService.database;
+    final rows = await db.query(
+      DatabaseTables.tableOfflineScanQueue,
+      where: "status IN ('pending', 'failed')",
+      orderBy: 'created_at ASC',
+    );
+    if (rows.isEmpty) return 0;
+
+    int processedCount = 0;
+    for (final row in rows) {
+      final item = OfflineScanQueueItem.fromMap(row);
+      try {
+        await db.update(
+          DatabaseTables.tableOfflineScanQueue,
+          {'status': 'processing', 'updated_at': DateTime.now().toIso8601String()},
+          where: 'id = ?',
+          whereArgs: [item.id],
+        );
+
+        final extracted = await extractQueuedOfflineItem(item);
+        await commitVerifiedScan(
+          verifiedScan: extracted,
+          campId: item.campId,
+          campCode: item.campCode,
+          userId: item.createdByUserId.isNotEmpty ? item.createdByUserId : (defaultUserId ?? 'usr-local'),
+          userName: item.createdByUserName.isNotEmpty ? item.createdByUserName : (defaultUserName ?? 'Field Staff'),
+          userRole: item.createdByUserRole.isNotEmpty ? item.createdByUserRole : (defaultUserRole ?? 'DATA_TAKER'),
+          deviceId: item.deviceId.isNotEmpty ? item.deviceId : (defaultDeviceId ?? 'dev-local'),
+          primaryDoctorName: extracted.examiningDoctor,
+          attendingDoctorNames: extracted.attendingDoctors,
+          primaryNurseName: extracted.examiningNurse,
+          attendingNurseNames: extracted.attendingNurses,
+        );
+
+        await deleteOfflineScanQueueItem(item.id);
+        processedCount++;
+      } catch (e) {
+        await db.update(
+          DatabaseTables.tableOfflineScanQueue,
+          {
+            'status': 'failed',
+            'error_message': e.toString(),
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [item.id],
+        );
+        // Stop draining if server is unreachable so we retry on next connectivity wakeup
+        if (e is GeminiOcrException && e.message.contains('Cannot reach')) {
+          break;
+        }
+      }
+    }
+    return processedCount;
   }
 }

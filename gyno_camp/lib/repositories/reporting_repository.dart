@@ -107,24 +107,35 @@ class ReportingRepository implements IReportingRepository {
       return CampReportSummaryModel.empty(generatedBy: generatedBy);
     }
 
-    // Build date range WHERE clause
-    String? dateWhere;
+    // Build date range WHERE clause using clinical encounter dates (intake_date / visit_date)
+    // with fallback to created_at
+    String? patientDateWhere;
+    String? visitDateWhere;
     final List<dynamic> dateArgs = [];
-    if (startDate != null && endDate != null) {
-      dateWhere = 'created_at >= ? AND created_at <= ?';
-      dateArgs.addAll([startDate.toIso8601String(), endDate.copyWith(hour: 23, minute: 59, second: 59).toIso8601String()]);
-    } else if (startDate != null) {
-      dateWhere = 'created_at >= ?';
-      dateArgs.add(startDate.toIso8601String());
-    } else if (endDate != null) {
-      dateWhere = 'created_at <= ?';
-      dateArgs.add(endDate.copyWith(hour: 23, minute: 59, second: 59).toIso8601String());
+    final startIso = startDate != null
+        ? DateTime(startDate.year, startDate.month, startDate.day).toIso8601String()
+        : null;
+    final endIso = endDate != null
+        ? DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59).toIso8601String()
+        : null;
+    if (startIso != null && endIso != null) {
+      patientDateWhere = 'COALESCE(intake_date, created_at) >= ? AND COALESCE(intake_date, created_at) <= ?';
+      visitDateWhere = 'COALESCE(visit_date, created_at) >= ? AND COALESCE(visit_date, created_at) <= ?';
+      dateArgs.addAll([startIso, endIso]);
+    } else if (startIso != null) {
+      patientDateWhere = 'COALESCE(intake_date, created_at) >= ?';
+      visitDateWhere = 'COALESCE(visit_date, created_at) >= ?';
+      dateArgs.add(startIso);
+    } else if (endIso != null) {
+      patientDateWhere = 'COALESCE(intake_date, created_at) <= ?';
+      visitDateWhere = 'COALESCE(visit_date, created_at) <= ?';
+      dateArgs.add(endIso);
     }
 
     // Fetch Patients (with optional camp + date filter)
     final List<Map<String, dynamic>> patientRows;
     if (campId != null && campId != 'all') {
-      final campFilter = dateWhere != null ? 'camp_id = ? AND $dateWhere' : 'camp_id = ?';
+      final campFilter = patientDateWhere != null ? 'camp_id = ? AND $patientDateWhere' : 'camp_id = ?';
       final campArgs = [campId, ...dateArgs];
       patientRows = await db.query(
         DatabaseTables.tablePatients,
@@ -134,8 +145,8 @@ class ReportingRepository implements IReportingRepository {
       );
     } else if (allowedCampIds != null) {
       final placeholders = List.filled(allowedCampIds.length, '?').join(', ');
-      final campFilter = dateWhere != null
-          ? 'camp_id IN ($placeholders) AND $dateWhere'
+      final campFilter = patientDateWhere != null
+          ? 'camp_id IN ($placeholders) AND $patientDateWhere'
           : 'camp_id IN ($placeholders)';
       final campArgs = [...allowedCampIds, ...dateArgs];
       patientRows = await db.query(
@@ -146,7 +157,7 @@ class ReportingRepository implements IReportingRepository {
       );
     } else {
       final baseFilter = 'camp_id IN (SELECT id FROM ${DatabaseTables.tableCamps})';
-      final fullFilter = dateWhere != null ? '$baseFilter AND $dateWhere' : baseFilter;
+      final fullFilter = patientDateWhere != null ? '$baseFilter AND $patientDateWhere' : baseFilter;
       patientRows = await db.query(
         DatabaseTables.tablePatients,
         where: fullFilter,
@@ -159,7 +170,7 @@ class ReportingRepository implements IReportingRepository {
     // Fetch Clinical Visits
     final List<Map<String, dynamic>> visitRows;
     if (campId != null && campId != 'all') {
-      final visitFilter = dateWhere != null ? 'camp_id = ? AND $dateWhere' : 'camp_id = ?';
+      final visitFilter = visitDateWhere != null ? 'camp_id = ? AND $visitDateWhere' : 'camp_id = ?';
       final visitArgs = [campId, ...dateArgs];
       visitRows = await db.query(
         DatabaseTables.tableClinicalVisits,
@@ -169,8 +180,8 @@ class ReportingRepository implements IReportingRepository {
       );
     } else if (allowedCampIds != null) {
       final placeholders = List.filled(allowedCampIds.length, '?').join(', ');
-      final visitFilter = dateWhere != null
-          ? 'camp_id IN ($placeholders) AND $dateWhere'
+      final visitFilter = visitDateWhere != null
+          ? 'camp_id IN ($placeholders) AND $visitDateWhere'
           : 'camp_id IN ($placeholders)';
       final visitArgs = [...allowedCampIds, ...dateArgs];
       visitRows = await db.query(
@@ -181,7 +192,7 @@ class ReportingRepository implements IReportingRepository {
       );
     } else {
       final baseFilter = 'camp_id IN (SELECT id FROM ${DatabaseTables.tableCamps})';
-      final fullFilter = dateWhere != null ? '$baseFilter AND $dateWhere' : baseFilter;
+      final fullFilter = visitDateWhere != null ? '$baseFilter AND $visitDateWhere' : baseFilter;
       visitRows = await db.query(
         DatabaseTables.tableClinicalVisits,
         where: fullFilter,
@@ -190,6 +201,41 @@ class ReportingRepository implements IReportingRepository {
       );
     }
     List<ClinicalVisitModel> visits = visitRows.map((r) => ClinicalVisitModel.fromMap(r)).toList();
+
+    bool patientMatchesVisitIds(PatientModel p, Set<String> visitPatientKeys) {
+      return visitPatientKeys.contains(p.patientId.trim().toLowerCase()) ||
+          (p.id.trim().isNotEmpty && visitPatientKeys.contains(p.id.trim().toLowerCase()));
+    }
+
+    bool visitMatchesPatientKeys(ClinicalVisitModel v, Set<String> patientKeys) {
+      return patientKeys.contains(v.patientId.trim().toLowerCase());
+    }
+
+    ClinicalVisitModel? findLatestVisitForPatient(PatientModel p, List<ClinicalVisitModel> visitList) {
+      final pId = p.patientId.trim().toLowerCase();
+      final pUuid = p.id.trim().toLowerCase();
+      ClinicalVisitModel? latest;
+      for (final v in visitList) {
+        final vKey = v.patientId.trim().toLowerCase();
+        if (vKey == pId || (pUuid.isNotEmpty && vKey == pUuid)) {
+          if (latest == null || !v.visitDate.isBefore(latest.visitDate)) {
+            latest = v;
+          }
+        }
+      }
+      return latest;
+    }
+
+    // If a date filter was applied, keep visits whose patient matched intake_date or vice versa
+    if (startIso != null || endIso != null) {
+      final pKeys = <String>{
+        for (final p in patients) ...[
+          p.patientId.trim().toLowerCase(),
+          if (p.id.trim().isNotEmpty) p.id.trim().toLowerCase(),
+        ]
+      };
+      visits = visits.where((v) => visitMatchesPatientKeys(v, pKeys)).toList();
+    }
 
     // Apply Doctor Filter if requested
     if (doctorFilter != null && doctorFilter.trim().isNotEmpty && doctorFilter != 'all') {
@@ -206,9 +252,9 @@ class ReportingRepository implements IReportingRepository {
         return primaryMatch || attendingMatch;
       }).toList();
 
-      final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+      final matchingPatientKeys = matchingVisits.map((v) => v.patientId.trim().toLowerCase()).toSet();
       visits = matchingVisits;
-      patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
+      patients = patients.where((p) => patientMatchesVisitIds(p, matchingPatientKeys)).toList();
     }
 
     // Apply Nurse Filter if requested (visit-based only, no solo-nurse-queue fallback)
@@ -226,9 +272,9 @@ class ReportingRepository implements IReportingRepository {
         return primaryMatch || attendingMatch;
       }).toList();
 
-      final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+      final matchingPatientKeys = matchingVisits.map((v) => v.patientId.trim().toLowerCase()).toSet();
       visits = matchingVisits;
-      patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
+      patients = patients.where((p) => patientMatchesVisitIds(p, matchingPatientKeys)).toList();
     }
 
     // Apply Diagnosis Filter if requested (dynamic substring match)
@@ -240,9 +286,9 @@ class ReportingRepository implements IReportingRepository {
           return dLower == dxLower || dLower.contains(dxLower) || dxLower.contains(dLower);
         });
       }).toList();
-      final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+      final matchingPatientKeys = matchingVisits.map((v) => v.patientId.trim().toLowerCase()).toSet();
       visits = matchingVisits;
-      patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
+      patients = patients.where((p) => patientMatchesVisitIds(p, matchingPatientKeys)).toList();
     }
 
     // Apply POP Staging Filter if requested
@@ -250,14 +296,16 @@ class ReportingRepository implements IReportingRepository {
       final matchingVisits = visits.where((v) {
         if (popStageFilter == '0') return v.highestPopStage == 0;
         if (popStageFilter == '1') return v.highestPopStage == 1;
+        if (popStageFilter == '2') return v.highestPopStage == 2;
+        if (popStageFilter == '3') return v.highestPopStage == 3;
+        if (popStageFilter == '4') return v.highestPopStage == 4;
         if (popStageFilter == '2+' || popStageFilter == 'significant') return v.highestPopStage >= 2;
         if (popStageFilter == '3+') return v.highestPopStage >= 3;
-        if (popStageFilter == '4') return v.highestPopStage == 4;
         return true;
       }).toList();
-      final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+      final matchingPatientKeys = matchingVisits.map((v) => v.patientId.trim().toLowerCase()).toSet();
       visits = matchingVisits;
-      patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
+      patients = patients.where((p) => patientMatchesVisitIds(p, matchingPatientKeys)).toList();
     }
 
     // Apply Treatment Filter if requested
@@ -289,9 +337,9 @@ class ReportingRepository implements IReportingRepository {
         }
         return true;
       }).toList();
-      final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
+      final matchingPatientKeys = matchingVisits.map((v) => v.patientId.trim().toLowerCase()).toSet();
       visits = matchingVisits;
-      patients = patients.where((p) => matchingPatientIds.contains(p.patientId)).toList();
+      patients = patients.where((p) => patientMatchesVisitIds(p, matchingPatientKeys)).toList();
     }
 
     // Apply Visit Reason Filter if requested (Station 1 intake reason)
@@ -327,17 +375,21 @@ class ReportingRepository implements IReportingRepository {
         return false;
       }).toList();
 
-      final matchingPatientIds = patients.map((p) => p.patientId).toSet();
-      visits = visits.where((v) => matchingPatientIds.contains(v.patientId)).toList();
+      final matchingPatientKeys = <String>{
+        for (final p in patients) ...[
+          p.patientId.trim().toLowerCase(),
+          if (p.id.trim().isNotEmpty) p.id.trim().toLowerCase(),
+        ]
+      };
+      visits = visits.where((v) => visitMatchesPatientKeys(v, matchingPatientKeys)).toList();
     }
 
     // Apply Chief Complaint Filter if requested (Clinical Anamnesis / Exam Symptoms)
     if (complaintFilter != null && complaintFilter.trim().isNotEmpty && complaintFilter != 'all') {
       final target = complaintFilter.trim().toLowerCase();
-      final visitMap = {for (final v in visits) v.patientId: v};
 
       final matchingPatients = patients.where((p) {
-        final visit = visitMap[p.patientId];
+        final visit = findLatestVisitForPatient(p, visits);
         if (visit == null) return false;
         final anamnesis = visit.anamnesisComplaints.toString().toLowerCase();
         final clinicalComplaints = (visit.anamnesisComplaints['clinicalComplaints'] as List?)
@@ -356,8 +408,12 @@ class ReportingRepository implements IReportingRepository {
           return anamnesis.contains('urine') || anamnesis.contains('dysuria') || anamnesis.contains('पिसाब');
         } else if (target == 'problems passing stool' || target == 'stool') {
           return anamnesis.contains('stool') || anamnesis.contains('bowel') || anamnesis.contains('constipation') || anamnesis.contains('दिसा');
-        } else if (target == 'pain') {
-          return anamnesis.contains('pain') || anamnesis.contains('दुखाई') || anamnesis.contains('दुख्ने') || anamnesis.contains('तल्लो पेट');
+        } else if (target.contains('abdomen') || target.contains('abdominal') || (target.contains('तल्लो पेट') && !target.contains('कम्मर'))) {
+          return anamnesis.contains('abdomen') || anamnesis.contains('abdominal') || anamnesis.contains('तल्लो पेट');
+        } else if (target.contains('back') || target.contains('backache') || (target.contains('कम्मर') && !target.contains('तल्लो पेट'))) {
+          return anamnesis.contains('back') || anamnesis.contains('backache') || anamnesis.contains('कम्मर') || anamnesis.contains('ढाड');
+        } else if (target == 'pain' || target.contains('pain')) {
+          return anamnesis.contains('pain') || anamnesis.contains('दुखाई') || anamnesis.contains('दुख्ने') || anamnesis.contains('तल्लो पेट') || anamnesis.contains('कम्मर');
         } else if (target == 'menstrual problem' || target == 'menstrual' || target == 'menstrual_disorder') {
           return anamnesis.contains('menstrual') || anamnesis.contains('महिनावारी') || anamnesis.contains('bleeding') || anamnesis.contains('menstrual_disorder');
         } else if (target == 'infertility' || target == 'infertility_screening') {
@@ -371,18 +427,22 @@ class ReportingRepository implements IReportingRepository {
         }
       }).toList();
 
-      final matchingPatientIds = matchingPatients.map((p) => p.patientId).toSet();
+      final matchingPatientKeys = <String>{
+        for (final p in matchingPatients) ...[
+          p.patientId.trim().toLowerCase(),
+          if (p.id.trim().isNotEmpty) p.id.trim().toLowerCase(),
+        ]
+      };
       patients = matchingPatients;
-      visits = visits.where((v) => matchingPatientIds.contains(v.patientId)).toList();
+      visits = visits.where((v) => visitMatchesPatientKeys(v, matchingPatientKeys)).toList();
     }
 
     // Apply Level of Treatment Filter if requested (Council level vs Full check up vs None)
     if (treatmentLevelFilter != null && treatmentLevelFilter.trim().isNotEmpty && treatmentLevelFilter != 'all') {
       final target = treatmentLevelFilter.trim().toLowerCase();
-      final visitMap = {for (final v in visits) v.patientId: v};
 
       patients = patients.where((p) {
-        final v = visitMap[p.patientId];
+        final v = findLatestVisitForPatient(p, visits);
         final level = (v?.treatmentLevel?.trim().isNotEmpty == true)
             ? v!.treatmentLevel!.trim().toLowerCase()
             : (p.treatmentLevel?.trim().toLowerCase() ?? '');
@@ -396,8 +456,13 @@ class ReportingRepository implements IReportingRepository {
         return level == target;
       }).toList();
 
-      final matchingPatientIds = patients.map((p) => p.patientId).toSet();
-      visits = visits.where((v) => matchingPatientIds.contains(v.patientId)).toList();
+      final matchingPatientKeys = <String>{
+        for (final p in patients) ...[
+          p.patientId.trim().toLowerCase(),
+          if (p.id.trim().isNotEmpty) p.id.trim().toLowerCase(),
+        ]
+      };
+      visits = visits.where((v) => visitMatchesPatientKeys(v, matchingPatientKeys)).toList();
     }
 
     return _aggregationService.aggregate(

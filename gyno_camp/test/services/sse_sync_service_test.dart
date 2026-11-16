@@ -148,5 +148,40 @@ void main() {
       expect(sseService.isConnected, isFalse);
       await streamController.close();
     });
+
+    test('updateDeviceId updates query parameter and reconnects when connected', () async {
+      final seenDeviceIds = <String>[];
+      final controllers = <StreamController<List<int>>>[];
+
+      http.Client buildClient() {
+        return MockClient.streaming((request, bodyStream) async {
+          seenDeviceIds.add(request.url.queryParameters['deviceId'] ?? '');
+          final sc = StreamController<List<int>>();
+          controllers.add(sc);
+          return http.StreamedResponse(sc.stream, 200);
+        });
+      }
+
+      final apiService = HttpCentralApiService(baseUrl: 'http://localhost:8080');
+      final sseService = SseSyncService(
+        apiService: apiService,
+        deviceId: 'dev-local',
+        clientFactory: buildClient,
+      );
+
+      await sseService.connect();
+      expect(seenDeviceIds, ['dev-local']);
+
+      sseService.updateDeviceId('dev-registered-01');
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(sseService.deviceId, 'dev-registered-01');
+      expect(seenDeviceIds, ['dev-local', 'dev-registered-01']);
+
+      sseService.dispose();
+      for (final sc in controllers) {
+        await sc.close();
+      }
+    });
   });
 }

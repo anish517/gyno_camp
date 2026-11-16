@@ -38,7 +38,10 @@ class AppConstants {
   static const String auditActionCampClose = 'CAMP_CLOSED';
   static const String auditActionPatientRegister = 'PATIENT_REGISTERED';
   static const String auditActionPatientUpdate = 'PATIENT_UPDATED';
+  static const String auditActionPatientDelete = 'PATIENT_DELETED';
   static const String auditActionClinicalEntry = 'CLINICAL_ENTRY_SAVED';
+  static const String auditActionClinicalVisitDelete = 'CLINICAL_VISIT_DELETED';
+  static const String auditActionOfflineScanQueued = 'OFFLINE_SCAN_QUEUED';
   static const String auditActionSyncStarted = 'SYNC_STARTED';
   static const String auditActionSyncCompleted = 'SYNC_COMPLETED';
   static const String auditActionSyncUpload = 'SYNC_UPLOAD_PUSH';

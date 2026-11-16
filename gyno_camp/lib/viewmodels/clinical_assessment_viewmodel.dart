@@ -792,11 +792,20 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     );
   }
 
-  /// Loads an existing clinical visit for the patient from SQLite if present
-  Future<ClinicalVisitModel?> loadPatientAssessment(String patientId, {String? patientUuid}) async {
+  /// Loads an existing clinical visit for the patient from SQLite if present,
+  /// or populates from [initialVisit] when editing a specific encounter.
+  Future<ClinicalVisitModel?> loadPatientAssessment(
+    String patientId, {
+    String? patientUuid,
+    ClinicalVisitModel? initialVisit,
+  }) async {
     state = state.copyWith(isSaving: true, errorMessage: null);
     try {
-      final visit = await _patientRepository.getLatestClinicalVisit(patientId, patientUuid: patientUuid);
+      final visit = initialVisit ??
+          await _patientRepository.getLatestClinicalVisit(
+            patientId,
+            patientUuid: patientUuid,
+          );
       if (!mounted) return visit;
       if (visit != null) {
         state = state.copyWith(

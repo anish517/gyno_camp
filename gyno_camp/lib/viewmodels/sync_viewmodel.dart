@@ -5,11 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/central_api_service.dart';
 import '../core/services/http_central_api_service.dart';
 import '../core/services/network_connectivity_service.dart';
+import '../core/services/session_service.dart';
 import '../core/services/sse_sync_service.dart';
 import '../models/sync_payload_model.dart';
+import '../repositories/ocr_repository.dart';
 import '../repositories/sync_repository.dart';
 import 'camp_viewmodel.dart';
 import 'master_lookup_viewmodel.dart';
+import 'ocr_scan_viewmodel.dart';
 import 'patient_list_viewmodel.dart';
 
 class SyncState {
@@ -17,6 +20,7 @@ class SyncState {
   final bool isSyncing;
   final int pendingPatientsCount;
   final int pendingVisitsCount;
+  final int pendingOfflineScansCount;
   final int pendingTotalCount;
   final DateTime? lastSyncedAt;
   final String? errorMessage;
@@ -28,6 +32,7 @@ class SyncState {
     this.isSyncing = false,
     this.pendingPatientsCount = 0,
     this.pendingVisitsCount = 0,
+    this.pendingOfflineScansCount = 0,
     this.pendingTotalCount = 0,
     this.lastSyncedAt,
     this.errorMessage,
@@ -43,6 +48,7 @@ class SyncState {
     bool? isSyncing,
     int? pendingPatientsCount,
     int? pendingVisitsCount,
+    int? pendingOfflineScansCount,
     int? pendingTotalCount,
     DateTime? lastSyncedAt,
     String? errorMessage,
@@ -55,6 +61,7 @@ class SyncState {
       isSyncing: isSyncing ?? this.isSyncing,
       pendingPatientsCount: pendingPatientsCount ?? this.pendingPatientsCount,
       pendingVisitsCount: pendingVisitsCount ?? this.pendingVisitsCount,
+      pendingOfflineScansCount: pendingOfflineScansCount ?? this.pendingOfflineScansCount,
       pendingTotalCount: pendingTotalCount ?? this.pendingTotalCount,
       lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
@@ -71,7 +78,8 @@ class SyncViewModel extends StateNotifier<SyncState> {
   Timer? _periodicSyncTimer;
   final SseSyncService? _sseSyncService;
 
-  String _lastKnownDeviceId = 'dev-field';
+  String _lastKnownDeviceId =
+      SessionService.current?.getRegisteredDeviceId() ?? 'dev-local';
   String _lastKnownUserId = 'usr-sync';
 
   final Ref? ref;
@@ -148,6 +156,7 @@ class SyncViewModel extends StateNotifier<SyncState> {
       state = state.copyWith(
         pendingPatientsCount: counts['patients'] ?? 0,
         pendingVisitsCount: counts['visits'] ?? 0,
+        pendingOfflineScansCount: counts['offline_scans'] ?? 0,
         pendingTotalCount: counts['total'] ?? 0,
         lastSyncedAt: lastSync,
         history: hist,
@@ -160,9 +169,17 @@ class SyncViewModel extends StateNotifier<SyncState> {
   String get lastKnownDeviceId => _lastKnownDeviceId;
   String get lastKnownUserId => _lastKnownUserId;
 
+  void updateDeviceId(String deviceId) {
+    final clean = deviceId.trim();
+    if (clean.isEmpty || clean == _lastKnownDeviceId) return;
+    _lastKnownDeviceId = clean;
+    _sseSyncService?.updateDeviceId(clean);
+  }
+
   Future<bool> syncNow({required String deviceId, required String userId}) async {
     _lastKnownDeviceId = deviceId;
     _lastKnownUserId = userId;
+    _sseSyncService?.updateDeviceId(deviceId);
 
     if (!state.isOnline) {
       if (mounted) {
@@ -178,6 +195,25 @@ class SyncViewModel extends StateNotifier<SyncState> {
     state = state.copyWith(isSyncing: true, clearError: true);
 
     try {
+      // Process any locally queued offline Yellow Form scans first so their extracted
+      // Patient & Clinical Visit records are pushed in the same sync cycle!
+      int offlineScansSynced = 0;
+      try {
+        final ocrRepo = ref != null ? ref!.read(ocrRepositoryProvider) : OcrRepository();
+        final pendingOffline = await ocrRepo.getPendingOfflineScanCount();
+        if (pendingOffline > 0) {
+          offlineScansSynced = await ocrRepo.syncAndProcessAllOfflineScans(
+            defaultDeviceId: deviceId,
+            defaultUserId: userId,
+          );
+          if (ref != null) {
+            await ref!.read(ocrScanProvider.notifier).loadOfflineQueue();
+          }
+        }
+      } catch (e) {
+        debugPrint('[SyncVM] Offline scan queue sync note: $e');
+      }
+
       final result = await syncRepository.executeFullSyncCycle(
         deviceId: deviceId,
         userId: userId,
@@ -187,14 +223,17 @@ class SyncViewModel extends StateNotifier<SyncState> {
       final counts = await syncRepository.getPendingCounts();
 
       if (!mounted) return true;
+      final offlineNote = offlineScansSynced > 0 ? ' ($offlineScansSynced offline scans extracted)' : '';
       state = state.copyWith(
         isSyncing: false,
         pendingPatientsCount: counts['patients'] ?? 0,
         pendingVisitsCount: counts['visits'] ?? 0,
+        pendingOfflineScansCount: counts['offline_scans'] ?? 0,
         pendingTotalCount: counts['total'] ?? 0,
         lastSyncedAt: result.timestamp,
         history: hist,
-        lastSuccessMessage: 'Synced ${result.totalPushed} records uploaded, ${result.campsPulled} updates received.',
+        lastSuccessMessage:
+            'Synced ${result.totalPushed} records uploaded, ${result.campsPulled} updates received.$offlineNote',
       );
 
       // Instantly refresh UI state across all screens silently without tearing down views
@@ -267,10 +306,12 @@ final syncStateProvider = StateNotifierProvider<SyncViewModel, SyncState>((ref) 
   final net = ref.watch(networkConnectivityProvider);
 
   // Create SSE service that triggers instant sync on server events
+  final initialDeviceId =
+      SessionService.current?.getRegisteredDeviceId() ?? 'dev-local';
   late final SyncViewModel vm;
   final sseService = SseSyncService(
     apiService: HttpCentralApiService(),
-    deviceId: 'dev-field',
+    deviceId: initialDeviceId,
     onSyncEvent: (eventData) {
       debugPrint('[SyncVM] SSE event received, triggering instant sync...');
       vm.syncNow(deviceId: vm.lastKnownDeviceId, userId: vm.lastKnownUserId);

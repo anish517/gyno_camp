@@ -351,10 +351,14 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         if (p.highestPopStage?.toString() != filters.popStage) return false;
       }
 
-      // Chief complaint / Visit Reason
+      // Chief complaint / Visit Reason (checks both Page 1 reasonsForVisit and Station 1 clinicalComplaints)
       if (filters.chiefComplaint != null && filters.chiefComplaint!.trim().isNotEmpty && filters.chiefComplaint != 'all') {
         final cLower = filters.chiefComplaint!.trim().toLowerCase().replaceAll('_', ' ');
-        final matchesComplaint = p.reasonsForVisit.any((r) {
+        final allReasonsAndComplaints = <String>[
+          ...p.reasonsForVisit,
+          ...p.clinicalComplaints,
+        ];
+        final matchesComplaint = allReasonsAndComplaints.any((r) {
           final rLower = r.trim().toLowerCase().replaceAll('_', ' ');
           if (rLower == cLower) return true;
           if (rLower.contains(cLower) || cLower.contains(rLower)) return true;
@@ -370,8 +374,14 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
           if (cLower.contains('stool') || cLower.contains('bowel') || cLower.contains('दिसा')) {
             return rLower.contains('stool') || rLower.contains('bowel') || rLower.contains('constipation') || rLower.contains('दिसा');
           }
+          if (cLower.contains('abdomen') || cLower.contains('abdominal') || (cLower.contains('तल्लो पेट') && !cLower.contains('कम्मर'))) {
+            return rLower.contains('abdomen') || rLower.contains('abdominal') || rLower.contains('तल्लो पेट');
+          }
+          if (cLower.contains('back') || cLower.contains('backache') || (cLower.contains('कम्मर') && !cLower.contains('तल्लो पेट'))) {
+            return rLower.contains('back') || rLower.contains('backache') || rLower.contains('कम्मर') || rLower.contains('ढाड');
+          }
           if (cLower.contains('pain') || cLower.contains('दुखाई') || cLower.contains('दुख्ने')) {
-            return rLower.contains('pain') || rLower.contains('दुख्ने') || rLower.contains('दुखाई') || rLower.contains('तल्लो पेट');
+            return rLower.contains('pain') || rLower.contains('दुख्ने') || rLower.contains('दुखाई') || rLower.contains('तल्लो पेट') || rLower.contains('कम्मर');
           }
           if (cLower.contains('menstrual') || cLower.contains('महिनावारी') || cLower.contains('bleeding')) {
             return rLower.contains('menstrual') || rLower.contains('महिनावारी') || rLower.contains('bleeding');
@@ -435,23 +445,7 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         final primaryMatch = p.primaryDoctorName != null && docNamesMatch(p.primaryDoctorName!, docFilter);
         final attendingMatch = p.attendingDoctorNames.any((d) => docNamesMatch(d, docFilter));
 
-        if (p.hasClinicalVisit) {
-          // Patient has been examined: clinical accountability rests solely on the examining doctor
-          if (!primaryMatch && !attendingMatch) return false;
-        } else {
-          // Patient registered but not yet examined:
-          // If the camp has only a single doctor assigned, the patient belongs to that doctor's queue
-          final campDocs = (filters.campDoctorsMap[p.campId] ?? const [])
-              .map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim())
-              .where((d) => d.isNotEmpty)
-              .toList();
-
-          if (campDocs.length == 1 && docNamesMatch(campDocs.first, docFilter)) {
-            // Belongs to the solo doctor queue for this camp
-          } else {
-            return false;
-          }
-        }
+        if (!primaryMatch && !attendingMatch) return false;
       }
 
       // 5. Nurse Filter — visit-based only (no solo-doctor-queue fallback)
@@ -473,6 +467,88 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
 
       return true;
     }).toList();
+  }
+
+  /// Deletes a patient and all associated clinical visits locally and queues deletion for sync.
+  Future<bool> deletePatient({
+    required PatientModel patient,
+    required String userId,
+    required String userName,
+    required String userRole,
+    required String deviceId,
+  }) async {
+    try {
+      await _patientRepository.deletePatient(
+        patient.id,
+        deletedByUserId: userId,
+        deletedByUserName: userName,
+        deletedByUserRole: userRole,
+        deviceId: deviceId,
+      );
+      final targetCampId = state.loadedCampId ?? patient.campId;
+      await loadPatients(targetCampId, true);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to delete patient: $e');
+      return false;
+    }
+  }
+
+  /// Deletes a single clinical visit locally and queues deletion for sync.
+  Future<bool> deleteClinicalVisit({
+    required String visitId,
+    required String campId,
+    required String userId,
+    required String userName,
+    required String userRole,
+    required String deviceId,
+  }) async {
+    try {
+      await _patientRepository.deleteClinicalVisit(
+        visitId,
+        deletedByUserId: userId,
+        deletedByUserName: userName,
+        deletedByUserRole: userRole,
+        deviceId: deviceId,
+      );
+      final targetCampId = state.loadedCampId ?? campId;
+      await loadPatients(targetCampId, true);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to delete clinical visit: $e');
+      return false;
+    }
+  }
+
+  /// Records a quick "Nurse Seen" triage encounter without requiring a full 6-station exam.
+  Future<bool> markNurseSeen({
+    required PatientModel patient,
+    required String primaryNurseName,
+    List<String> attendingNurseNames = const [],
+    String? treatmentLevel,
+    String? notes,
+    required String userId,
+    required String deviceId,
+  }) async {
+    try {
+      await _patientRepository.recordNurseSeenQuickVisit(
+        patient: patient,
+        nurseName: primaryNurseName,
+        attendingNurses: attendingNurseNames.isNotEmpty
+            ? attendingNurseNames
+            : [primaryNurseName],
+        treatmentLevel: treatmentLevel ?? patient.treatmentLevel,
+        notes: notes,
+        userId: userId,
+        deviceId: deviceId,
+      );
+      final targetCampId = state.loadedCampId ?? patient.campId;
+      await loadPatients(targetCampId, true);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to record nurse seen: $e');
+      return false;
+    }
   }
 }
 
