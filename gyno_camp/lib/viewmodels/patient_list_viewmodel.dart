@@ -374,8 +374,14 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
           if (cLower.contains('stool') || cLower.contains('bowel') || cLower.contains('दिसा')) {
             return rLower.contains('stool') || rLower.contains('bowel') || rLower.contains('constipation') || rLower.contains('दिसा');
           }
+          if (cLower.contains('abdomen') || cLower.contains('abdominal') || (cLower.contains('तल्लो पेट') && !cLower.contains('कम्मर'))) {
+            return rLower.contains('abdomen') || rLower.contains('abdominal') || rLower.contains('तल्लो पेट');
+          }
+          if (cLower.contains('back') || cLower.contains('backache') || (cLower.contains('कम्मर') && !cLower.contains('तल्लो पेट'))) {
+            return rLower.contains('back') || rLower.contains('backache') || rLower.contains('कम्मर') || rLower.contains('ढाड');
+          }
           if (cLower.contains('pain') || cLower.contains('दुखाई') || cLower.contains('दुख्ने')) {
-            return rLower.contains('pain') || rLower.contains('दुख्ने') || rLower.contains('दुखाई') || rLower.contains('तल्लो पेट');
+            return rLower.contains('pain') || rLower.contains('दुख्ने') || rLower.contains('दुखाई') || rLower.contains('तल्लो पेट') || rLower.contains('कम्मर');
           }
           if (cLower.contains('menstrual') || cLower.contains('महिनावारी') || cLower.contains('bleeding')) {
             return rLower.contains('menstrual') || rLower.contains('महिनावारी') || rLower.contains('bleeding');

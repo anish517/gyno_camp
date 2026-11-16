@@ -5079,8 +5079,14 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     if (keyNorm.contains('stool') || keyNorm.contains('bowel') || keyNorm.contains('constipation') || keyNorm.contains('दिसा')) {
       return anamnesis.contains('stool') || anamnesis.contains('bowel') || anamnesis.contains('constipation') || anamnesis.contains('दिसा');
     }
-    if (keyNorm.contains('pain') || keyNorm.contains('backache') || keyNorm.contains('दुखाई') || keyNorm.contains('दुख्ने') || keyNorm.contains('तल्लो पेट')) {
-      return anamnesis.contains('pain') || anamnesis.contains('backache') || anamnesis.contains('दुखाई') || anamnesis.contains('दुख्ने') || anamnesis.contains('तल्लो पेट');
+    if (keyNorm.contains('abdomen') || keyNorm.contains('abdominal') || (keyNorm.contains('तल्लो पेट') && !keyNorm.contains('कम्मर'))) {
+      return anamnesis.contains('abdomen') || anamnesis.contains('abdominal') || anamnesis.contains('तल्लो पेट');
+    }
+    if (keyNorm.contains('back') || keyNorm.contains('backache') || (keyNorm.contains('कम्मर') && !keyNorm.contains('तल्लो पेट'))) {
+      return anamnesis.contains('back') || anamnesis.contains('backache') || anamnesis.contains('कम्मर') || anamnesis.contains('ढाड');
+    }
+    if (keyNorm.contains('pain') || keyNorm.contains('दुखाई') || keyNorm.contains('दुख्ने')) {
+      return anamnesis.contains('pain') || anamnesis.contains('backache') || anamnesis.contains('दुखाई') || anamnesis.contains('दुख्ने') || anamnesis.contains('तल्लो पेट') || anamnesis.contains('कम्मर');
     }
     if (keyNorm.contains('menstrual') || keyNorm.contains('महिनावारी') || keyNorm.contains('bleeding')) {
       return anamnesis.contains('menstrual') || anamnesis.contains('महिनावारी') || anamnesis.contains('bleeding');
@@ -5345,9 +5351,13 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       if (k.contains('discharge') || k.contains('itching') || k.contains('स्राव') || k.contains('चिलाउने') || k.contains('सेतो')) return 'discharge';
       if (k.contains('urine') || k.contains('micturition') || k.contains('dysuria') || k.contains('पिसाब') || k.contains('incontinence')) return 'urine';
       if (k.contains('stool') || k.contains('bowel') || k.contains('constipation') || k.contains('दिसा')) return 'stool';
-      if (k.contains('pain') || k.contains('backache') || k.contains('दुखाई') || k.contains('दुख्ने') || k.contains('तल्लो पेट')) return 'pain';
+      final hasAbdomen = k.contains('abdomen') || k.contains('abdominal') || k.contains('तल्लो पेट');
+      final hasBack = k.contains('back') || k.contains('backache') || k.contains('कम्मर') || k.contains('ढाड');
+      if (hasAbdomen && !hasBack) return 'lower_abdomen_pain';
+      if (hasBack && !hasAbdomen) return 'lower_back_pain';
+      if (k.contains('pain') || k.contains('दुखाई') || k.contains('दुख्ने') || (hasAbdomen && hasBack)) return 'pain';
       if (k.contains('menstrual') || k.contains('महिनावारी') || k.contains('bleeding')) return 'menstrual';
-      if (k.contains('infertility') || k.contains('बाँझोपन') || k.contains('निःसन्तान')) return 'infertility';
+      if (k.contains('infertility') || k.contains('बाँझोपन') || k.contains('निःसन्तान') || k.contains('निसन्तान')) return 'infertility';
       if (k.contains('oncology') || k.contains('cancer') || k.contains('क्यान्सर')) return 'oncology';
       if (k.contains('checkup') || k.contains('routine') || k.contains('जाँच')) return 'checkup';
       return k.replaceAll(RegExp(r'\s+'), ' ');

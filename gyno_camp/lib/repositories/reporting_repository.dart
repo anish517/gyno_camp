@@ -408,8 +408,12 @@ class ReportingRepository implements IReportingRepository {
           return anamnesis.contains('urine') || anamnesis.contains('dysuria') || anamnesis.contains('पिसाब');
         } else if (target == 'problems passing stool' || target == 'stool') {
           return anamnesis.contains('stool') || anamnesis.contains('bowel') || anamnesis.contains('constipation') || anamnesis.contains('दिसा');
-        } else if (target == 'pain') {
-          return anamnesis.contains('pain') || anamnesis.contains('दुखाई') || anamnesis.contains('दुख्ने') || anamnesis.contains('तल्लो पेट');
+        } else if (target.contains('abdomen') || target.contains('abdominal') || (target.contains('तल्लो पेट') && !target.contains('कम्मर'))) {
+          return anamnesis.contains('abdomen') || anamnesis.contains('abdominal') || anamnesis.contains('तल्लो पेट');
+        } else if (target.contains('back') || target.contains('backache') || (target.contains('कम्मर') && !target.contains('तल्लो पेट'))) {
+          return anamnesis.contains('back') || anamnesis.contains('backache') || anamnesis.contains('कम्मर') || anamnesis.contains('ढाड');
+        } else if (target == 'pain' || target.contains('pain')) {
+          return anamnesis.contains('pain') || anamnesis.contains('दुखाई') || anamnesis.contains('दुख्ने') || anamnesis.contains('तल्लो पेट') || anamnesis.contains('कम्मर');
         } else if (target == 'menstrual problem' || target == 'menstrual' || target == 'menstrual_disorder') {
           return anamnesis.contains('menstrual') || anamnesis.contains('महिनावारी') || anamnesis.contains('bleeding') || anamnesis.contains('menstrual_disorder');
         } else if (target == 'infertility' || target == 'infertility_screening') {

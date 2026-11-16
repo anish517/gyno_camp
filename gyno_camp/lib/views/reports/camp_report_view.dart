@@ -545,8 +545,12 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         return anamnesis.contains('urine') || anamnesis.contains('dysuria') || anamnesis.contains('पिसाब');
       } else if (target == 'problems passing stool' || target == 'stool') {
         return anamnesis.contains('stool') || anamnesis.contains('bowel') || anamnesis.contains('constipation') || anamnesis.contains('दिसा');
-      } else if (target == 'pain') {
-        return anamnesis.contains('pain') || anamnesis.contains('दुखाई') || anamnesis.contains('दुख्ने') || anamnesis.contains('तल्लो पेट');
+      } else if (target.contains('abdomen') || target.contains('abdominal') || (target.contains('तल्लो पेट') && !target.contains('कम्मर'))) {
+        return anamnesis.contains('abdomen') || anamnesis.contains('abdominal') || anamnesis.contains('तल्लो पेट');
+      } else if (target.contains('back') || target.contains('backache') || (target.contains('कम्मर') && !target.contains('तल्लो पेट'))) {
+        return anamnesis.contains('back') || anamnesis.contains('backache') || anamnesis.contains('कम्मर') || anamnesis.contains('ढाड');
+      } else if (target == 'pain' || target.contains('pain')) {
+        return anamnesis.contains('pain') || anamnesis.contains('दुखाई') || anamnesis.contains('दुख्ने') || anamnesis.contains('तल्लो पेट') || anamnesis.contains('कम्मर');
       } else if (target == 'menstrual problem' || target == 'menstrual' || target == 'menstrual_disorder') {
         return anamnesis.contains('menstrual') || anamnesis.contains('महिनावारी') || anamnesis.contains('bleeding') || anamnesis.contains('menstrual_disorder');
       } else if (target == 'infertility' || target == 'infertility_screening') {
@@ -836,9 +840,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       if (k.contains('discharge') || k.contains('itching') || k.contains('स्राव') || k.contains('चिलाउने') || k.contains('सेतो')) return 'discharge';
       if (k.contains('urine') || k.contains('micturition') || k.contains('dysuria') || k.contains('पिसाब') || k.contains('incontinence')) return 'urine';
       if (k.contains('stool') || k.contains('bowel') || k.contains('constipation') || k.contains('दिसा')) return 'stool';
-      if (k.contains('pain') || k.contains('backache') || k.contains('दुखाई') || k.contains('दुख्ने') || k.contains('तल्लो पेट')) return 'pain';
+      final hasAbdomen = k.contains('abdomen') || k.contains('abdominal') || k.contains('तल्लो पेट');
+      final hasBack = k.contains('back') || k.contains('backache') || k.contains('कम्मर') || k.contains('ढाड');
+      if (hasAbdomen && !hasBack) return 'lower_abdomen_pain';
+      if (hasBack && !hasAbdomen) return 'lower_back_pain';
+      if (k.contains('pain') || k.contains('दुखाई') || k.contains('दुख्ने') || (hasAbdomen && hasBack)) return 'pain';
       if (k.contains('menstrual') || k.contains('महिनावारी') || k.contains('bleeding')) return 'menstrual';
-      if (k.contains('infertility') || k.contains('बाँझोपन') || k.contains('निःसन्तान')) return 'infertility';
+      if (k.contains('infertility') || k.contains('बाँझोपन') || k.contains('निःसन्तान') || k.contains('निसन्तान')) return 'infertility';
       if (k.contains('oncology') || k.contains('cancer') || k.contains('क्यान्सर')) return 'oncology';
       if (k.contains('checkup') || k.contains('routine') || k.contains('जाँच')) return 'checkup';
       return k.replaceAll(RegExp(r'\s+'), ' ');
@@ -924,7 +932,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       {'key': 'discharge', 'label': 'Discharge / Itching (स्राव/चिलाउने)'},
       {'key': 'urine', 'label': 'Urinary Difficulties (पिसाब समस्या)'},
       {'key': 'stool', 'label': 'Bowel / Constipation (दिसा समस्या)'},
-      {'key': 'pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुखाई)'},
+      {'key': 'lower_abdomen_pain', 'label': 'Lower Abdominal Pain (तल्लो पेट दुखाई)'},
+      {'key': 'lower_back_pain', 'label': 'Lower Back Pain (कम्मर दुख्ने)'},
       {'key': 'menstrual', 'label': 'Menstrual Disorder (महिनावारी)'},
       {'key': 'infertility', 'label': 'Infertility Screening (बाँझोपन)'},
       {'key': 'checkup', 'label': 'Routine Checkup (नियमित जाँच)'},
