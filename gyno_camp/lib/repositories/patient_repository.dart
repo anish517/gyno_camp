@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
+import '../core/services/central_api_service.dart';
 import '../core/services/duplicate_detection_service.dart';
 import '../core/services/http_central_api_service.dart';
 import '../models/clinical_visit_model.dart';
@@ -77,12 +78,14 @@ abstract class IPatientRepository {
 class PatientRepository implements IPatientRepository {
   final DatabaseService _databaseService;
   final AuditRepository _auditRepository;
+  final ICentralApiService? _centralApiService;
   final bool _enableCentralSync;
   final Uuid _uuid = const Uuid();
 
   PatientRepository({
     DatabaseService? databaseService,
     AuditRepository? auditRepository,
+    this._centralApiService,
     this._enableCentralSync = true,
   })  : _databaseService = databaseService ?? DatabaseService(),
         _auditRepository = auditRepository ?? AuditRepository();
@@ -109,6 +112,7 @@ class PatientRepository implements IPatientRepository {
     required String createdByUserName,
     required String createdByUserRole,
     required String deviceId,
+    bool pushToServer = true,
   }) async {
     final db = await _databaseService.database;
 
@@ -174,8 +178,10 @@ class PatientRepository implements IPatientRepository {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
 
-    // Auto-push to central server immediately (fire-and-forget)
-    if (_enableCentralSync) unawaited(_pushPatientToServer(newPatient));
+    // Auto-push to central server immediately (fire-and-forget) unless batched by caller
+    if (_enableCentralSync && pushToServer) {
+      unawaited(_pushSyncDelta(deviceId: deviceId, patients: [newPatient]));
+    }
 
     // Increment camp patient count
     await db.rawUpdate(
@@ -205,6 +211,7 @@ class PatientRepository implements IPatientRepository {
     required String updatedByUserName,
     required String updatedByUserRole,
     required String deviceId,
+    bool pushToServer = true,
   }) async {
     final db = await _databaseService.database;
 
@@ -254,8 +261,10 @@ class PatientRepository implements IPatientRepository {
       );
     }
 
-    // Auto-push updated patient to central server immediately (fire-and-forget)
-    if (_enableCentralSync) unawaited(_pushPatientToServer(updatedPatient));
+    // Auto-push updated patient to central server immediately (fire-and-forget) unless batched
+    if (_enableCentralSync && pushToServer) {
+      unawaited(_pushSyncDelta(deviceId: deviceId, patients: [updatedPatient]));
+    }
 
     // Audit log update
     await _auditRepository.logActivity(
@@ -284,53 +293,61 @@ class PatientRepository implements IPatientRepository {
     return updatedPatient;
   }
 
-  /// Fire-and-forget: push a single patient to the central sync server.
-  /// Marks is_synced=1 in local SQLite on success. Silent on failure.
-  Future<void> _pushPatientToServer(PatientModel patient) async {
-    try {
-      final apiService = HttpCentralApiService();
-      if (!apiService.isConfigured || HttpCentralApiService.isServerCooldownActive) return;
-      final payload = SyncPushPayload(
-        deviceId: patient.createdByDeviceId,
-        generatedAt: DateTime.now(),
-        patients: [patient],
-      );
-      final response = await apiService.pushDelta(payload);
-      if (response.success && response.syncedPatientIds.contains(patient.id)) {
-        final db = await _databaseService.database;
-        await db.rawUpdate(
-          'UPDATE ${DatabaseTables.tablePatients} SET is_synced = 1, synced_at = ? WHERE id = ?',
-          [DateTime.now().toIso8601String(), patient.id],
-        );
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[PatientRepo] Fire-and-forget patient push failed: $e');
-      }
-    }
+  /// Pushes a patient and its clinical visit together in one central sync payload
+  /// so remote listeners never pull a patient without its committed visit.
+  Future<void> pushPatientAndVisitToServer({
+    required PatientModel patient,
+    required ClinicalVisitModel visit,
+    required String deviceId,
+  }) async {
+    if (!_enableCentralSync) return;
+    await _pushSyncDelta(
+      deviceId: deviceId,
+      patients: [patient],
+      clinicalVisits: [visit],
+    );
   }
 
-  /// Fire-and-forget: push a single clinical visit to the central sync server.
-  Future<void> _pushVisitToServer(ClinicalVisitModel visit) async {
+  /// Fire-and-forget / batched push of patients and/or clinical visits to central sync.
+  /// Marks synced rows with `is_synced = 1` in local SQLite on success.
+  Future<void> _pushSyncDelta({
+    required String deviceId,
+    List<PatientModel> patients = const [],
+    List<ClinicalVisitModel> clinicalVisits = const [],
+  }) async {
+    if (patients.isEmpty && clinicalVisits.isEmpty) return;
     try {
-      final apiService = HttpCentralApiService();
-      if (!apiService.isConfigured || HttpCentralApiService.isServerCooldownActive) return;
+      final apiService = _centralApiService ?? HttpCentralApiService();
+      if (_centralApiService == null) {
+        final httpApi = apiService as HttpCentralApiService;
+        if (!httpApi.isConfigured || HttpCentralApiService.isServerCooldownActive) return;
+      }
       final payload = SyncPushPayload(
-        deviceId: visit.createdByUserId.isNotEmpty ? visit.createdByUserId : 'unknown-device',
+        deviceId: deviceId,
         generatedAt: DateTime.now(),
-        clinicalVisits: [visit],
+        patients: patients,
+        clinicalVisits: clinicalVisits,
       );
       final response = await apiService.pushDelta(payload);
-      if (response.success && response.syncedVisitIds.contains(visit.id)) {
+      if (response.success) {
         final db = await _databaseService.database;
-        await db.rawUpdate(
-          'UPDATE ${DatabaseTables.tableClinicalVisits} SET is_synced = 1 WHERE id = ?',
-          [visit.id],
-        );
+        final syncedAtIso = DateTime.now().toIso8601String();
+        for (final patientId in response.syncedPatientIds) {
+          await db.rawUpdate(
+            'UPDATE ${DatabaseTables.tablePatients} SET is_synced = 1, synced_at = ? WHERE id = ?',
+            [syncedAtIso, patientId],
+          );
+        }
+        for (final visitId in response.syncedVisitIds) {
+          await db.rawUpdate(
+            'UPDATE ${DatabaseTables.tableClinicalVisits} SET is_synced = 1 WHERE id = ?',
+            [visitId],
+          );
+        }
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[PatientRepo] Fire-and-forget visit push failed: $e');
+        debugPrint('[PatientRepo] Fire-and-forget central push failed: $e');
       }
     }
   }
@@ -541,6 +558,7 @@ class PatientRepository implements IPatientRepository {
     ClinicalVisitModel visit, {
     required String createdByUserId,
     required String deviceId,
+    bool pushToServer = true,
   }) async {
     final db = await _databaseService.database;
     final isUpdate = visit.id.isNotEmpty;
@@ -577,8 +595,10 @@ class PatientRepository implements IPatientRepository {
       );
     }
 
-    // Auto-push to central server immediately (fire-and-forget)
-    if (_enableCentralSync) unawaited(_pushVisitToServer(newVisit));
+    // Auto-push to central server immediately (fire-and-forget) unless batched by caller
+    if (_enableCentralSync && pushToServer) {
+      unawaited(_pushSyncDelta(deviceId: deviceId, clinicalVisits: [newVisit]));
+    }
 
     final detailMap = {
       'patientId': newVisit.patientId,
@@ -717,19 +737,18 @@ class PatientRepository implements IPatientRepository {
         );
       }
 
-      // Queue deletion tombstones for server sync
-      for (final idToQueue in <String>{patientUuid, patientTokenId}) {
-        await txn.insert(
-          DatabaseTables.tableDeletedEntitiesQueue,
-          {
-            'id': 'del-pat-$idToQueue',
-            'entity_type': 'patient',
-            'entity_id': idToQueue,
-            'deleted_at': nowIso,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
+      // Queue deletion tombstones for server sync using immutable UUIDs only
+      // (never tombstone reusable human Token IDs like GC-...-00047).
+      await txn.insert(
+        DatabaseTables.tableDeletedEntitiesQueue,
+        {
+          'id': 'del-pat-$patientUuid',
+          'entity_type': 'patient',
+          'entity_id': patientUuid,
+          'deleted_at': nowIso,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
       for (final vid in visitIds) {
         await txn.insert(
           DatabaseTables.tableDeletedEntitiesQueue,
@@ -747,7 +766,7 @@ class PatientRepository implements IPatientRepository {
     if (_enableCentralSync) {
       unawaited(_pushDeletionsToServer(
         deviceId: deviceId,
-        deletedPatientIds: [patientUuid, patientTokenId],
+        deletedPatientIds: [patientUuid],
         deletedVisitIds: visitIds,
       ));
     }
@@ -895,8 +914,11 @@ class PatientRepository implements IPatientRepository {
     List<String> deletedVisitIds = const [],
   }) async {
     try {
-      final apiService = HttpCentralApiService();
-      if (!apiService.isConfigured || HttpCentralApiService.isServerCooldownActive) return;
+      final apiService = _centralApiService ?? HttpCentralApiService();
+      if (_centralApiService == null) {
+        final httpApi = apiService as HttpCentralApiService;
+        if (!httpApi.isConfigured || HttpCentralApiService.isServerCooldownActive) return;
+      }
       final payload = SyncPushPayload(
         deviceId: deviceId,
         generatedAt: DateTime.now(),

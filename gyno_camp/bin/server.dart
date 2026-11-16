@@ -445,6 +445,16 @@ class GynoCampSyncServer {
       // Auto-cleanup any orphaned patients or clinical visits in PostgreSQL
       await _connection!.execute('DELETE FROM patients WHERE camp_id NOT IN (SELECT id FROM camps);');
       await _connection!.execute('DELETE FROM clinical_visits WHERE camp_id NOT IN (SELECT id FROM camps);');
+      // Purge stale Token-ID tombstones or tombstones matching currently active patients/visits
+      await _connection!.execute('''
+        DELETE FROM deleted_entities
+        WHERE (entity_type = 'patient' AND (
+            id LIKE 'GC-%'
+            OR id IN (SELECT id FROM patients)
+            OR id IN (SELECT patient_id FROM patients)
+          ))
+           OR (entity_type = 'clinical_visit' AND id IN (SELECT id FROM clinical_visits));
+      ''');
       await _seedDefaultLookupsIfEmpty();
       await _purgeNonStandardLookupsFromPostgres();
       print('✓ Verified and initialized all PostgreSQL schema tables.');
@@ -1032,7 +1042,12 @@ class GynoCampSyncServer {
     for (final p in patients) {
       final map = p as Map<String, dynamic>;
       final id = map['id']?.toString() ?? '';
+      final patientTokenId = map['patient_id']?.toString() ?? '';
       _memPatients[id] = map;
+      _memDeletedEntities.remove(id);
+      if (patientTokenId.isNotEmpty) {
+        _memDeletedEntities.remove(patientTokenId);
+      }
 
       if (_isPgConnected && _connection != null) {
         try {
@@ -1113,6 +1128,10 @@ class GynoCampSyncServer {
               'treatment_level': map['treatment_level'],
             },
           );
+          await _connection!.execute(
+            Sql.named("DELETE FROM deleted_entities WHERE entity_type = 'patient' AND (id = @id OR id = @patient_id);"),
+            parameters: {'id': id, 'patient_id': patientTokenId},
+          );
           syncedPatientIds.add(id);
         } catch (e) {
           print('Error inserting patient $id: $e');
@@ -1141,6 +1160,7 @@ class GynoCampSyncServer {
       final map = v as Map<String, dynamic>;
       final id = map['id']?.toString() ?? '';
       _memVisits[id] = map;
+      _memDeletedEntities.remove(id);
 
       if (_isPgConnected && _connection != null) {
         try {
@@ -1287,6 +1307,10 @@ class GynoCampSyncServer {
               'outtake_date': map['outtake_date'],
             },
           );
+          await _connection!.execute(
+            Sql.named("DELETE FROM deleted_entities WHERE entity_type = 'clinical_visit' AND id = @id;"),
+            parameters: {'id': id},
+          );
           syncedVisitIds.add(id);
         } catch (e) {
           print('Error inserting clinical visit $id: $e');
@@ -1298,27 +1322,58 @@ class GynoCampSyncServer {
 
     // 4b. Process Deleted Patients & Visits
     for (final delPid in deletedPatientIds) {
-      _memPatients.remove(delPid);
-      _memVisits.removeWhere((_, v) => v['patient_id'] == delPid);
-      _memDeletedEntities[delPid] = 'patient';
+      final isTokenId = delPid.toUpperCase().startsWith('GC-');
+      final memPat = _memPatients[delPid];
+      final memTokenId = memPat?['patient_id']?.toString();
+      if (!isTokenId) {
+        _memPatients.remove(delPid);
+        _memVisits.removeWhere((_, v) =>
+            v['patient_id'] == delPid ||
+            (memTokenId != null && memTokenId.isNotEmpty && v['patient_id'] == memTokenId));
+        _memDeletedEntities[delPid] = 'patient';
+      } else {
+        final hasActiveOwner = _memPatients.values.any(
+          (p) => (p['patient_id']?.toString() ?? '').toLowerCase() == delPid.toLowerCase(),
+        );
+        if (!hasActiveOwner) {
+          _memVisits.removeWhere((_, v) => v['patient_id'] == delPid);
+        }
+      }
       if (_isPgConnected && _connection != null) {
         try {
-          await _connection!.execute(
-            Sql.named('DELETE FROM clinical_visits WHERE patient_id = @id'),
-            parameters: {'id': delPid},
-          );
-          await _connection!.execute(
-            Sql.named('DELETE FROM patients WHERE id = @id'),
-            parameters: {'id': delPid},
-          );
-          await _connection!.execute(
-            Sql.named('''
-              INSERT INTO deleted_entities (id, entity_type, deleted_at)
-              VALUES (@id, 'patient', NOW())
-              ON CONFLICT (id) DO UPDATE SET entity_type = 'patient', deleted_at = NOW();
-            '''),
-            parameters: {'id': delPid},
-          );
+          if (!isTokenId) {
+            final existingRows = await _connection!.execute(
+              Sql.named('SELECT patient_id FROM patients WHERE id = @id LIMIT 1;'),
+              parameters: {'id': delPid},
+            );
+            final pgTokenId = existingRows.isNotEmpty ? existingRows.first[0]?.toString() : null;
+            await _connection!.execute(
+              Sql.named('DELETE FROM clinical_visits WHERE patient_id = @id OR (@token_id IS NOT NULL AND LOWER(patient_id) = LOWER(@token_id));'),
+              parameters: {'id': delPid, 'token_id': pgTokenId},
+            );
+            await _connection!.execute(
+              Sql.named('DELETE FROM patients WHERE id = @id;'),
+              parameters: {'id': delPid},
+            );
+            await _connection!.execute(
+              Sql.named('''
+                INSERT INTO deleted_entities (id, entity_type, deleted_at)
+                VALUES (@id, 'patient', NOW())
+                ON CONFLICT (id) DO UPDATE SET entity_type = 'patient', deleted_at = NOW();
+              '''),
+              parameters: {'id': delPid},
+            );
+          } else {
+            // Never persist reusable GC-* Token IDs into deleted_entities
+            await _connection!.execute(
+              Sql.named('''
+                DELETE FROM clinical_visits
+                WHERE LOWER(patient_id) = LOWER(@id)
+                  AND NOT EXISTS (SELECT 1 FROM patients p WHERE LOWER(p.patient_id) = LOWER(@id));
+              '''),
+              parameters: {'id': delPid},
+            );
+          }
         } catch (e) {
           print('Error deleting patient $delPid in push: $e');
         }
@@ -1750,7 +1805,7 @@ class GynoCampSyncServer {
           if (type == 'camp') deletedCampIds.add(id);
           if (type == 'user') deletedUserIds.add(id);
           if (type == 'lookup') deletedLookupIds.add(id);
-          if (type == 'patient') deletedPatientIds.add(id);
+          if (type == 'patient' && !id.toUpperCase().startsWith('GC-')) deletedPatientIds.add(id);
           if (type == 'clinical_visit') deletedVisitIds.add(id);
         }
       } catch (e) {
@@ -1762,7 +1817,7 @@ class GynoCampSyncServer {
       if (type == 'camp' && !deletedCampIds.contains(id)) deletedCampIds.add(id);
       if (type == 'user' && !deletedUserIds.contains(id)) deletedUserIds.add(id);
       if (type == 'lookup' && !deletedLookupIds.contains(id)) deletedLookupIds.add(id);
-      if (type == 'patient' && !deletedPatientIds.contains(id)) deletedPatientIds.add(id);
+      if (type == 'patient' && !id.toUpperCase().startsWith('GC-') && !deletedPatientIds.contains(id)) deletedPatientIds.add(id);
       if (type == 'clinical_visit' && !deletedVisitIds.contains(id)) deletedVisitIds.add(id);
     });
 

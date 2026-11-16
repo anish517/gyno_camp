@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/central_api_service.dart';
 import '../core/services/http_central_api_service.dart';
 import '../core/services/network_connectivity_service.dart';
+import '../core/services/session_service.dart';
 import '../core/services/sse_sync_service.dart';
 import '../models/sync_payload_model.dart';
 import '../repositories/ocr_repository.dart';
@@ -77,7 +78,8 @@ class SyncViewModel extends StateNotifier<SyncState> {
   Timer? _periodicSyncTimer;
   final SseSyncService? _sseSyncService;
 
-  String _lastKnownDeviceId = 'dev-field';
+  String _lastKnownDeviceId =
+      SessionService.current?.getRegisteredDeviceId() ?? 'dev-local';
   String _lastKnownUserId = 'usr-sync';
 
   final Ref? ref;
@@ -167,9 +169,17 @@ class SyncViewModel extends StateNotifier<SyncState> {
   String get lastKnownDeviceId => _lastKnownDeviceId;
   String get lastKnownUserId => _lastKnownUserId;
 
+  void updateDeviceId(String deviceId) {
+    final clean = deviceId.trim();
+    if (clean.isEmpty || clean == _lastKnownDeviceId) return;
+    _lastKnownDeviceId = clean;
+    _sseSyncService?.updateDeviceId(clean);
+  }
+
   Future<bool> syncNow({required String deviceId, required String userId}) async {
     _lastKnownDeviceId = deviceId;
     _lastKnownUserId = userId;
+    _sseSyncService?.updateDeviceId(deviceId);
 
     if (!state.isOnline) {
       if (mounted) {
@@ -296,10 +306,12 @@ final syncStateProvider = StateNotifierProvider<SyncViewModel, SyncState>((ref) 
   final net = ref.watch(networkConnectivityProvider);
 
   // Create SSE service that triggers instant sync on server events
+  final initialDeviceId =
+      SessionService.current?.getRegisteredDeviceId() ?? 'dev-local';
   late final SyncViewModel vm;
   final sseService = SseSyncService(
     apiService: HttpCentralApiService(),
-    deviceId: 'dev-field',
+    deviceId: initialDeviceId,
     onSyncEvent: (eventData) {
       debugPrint('[SyncVM] SSE event received, triggering instant sync...');
       vm.syncNow(deviceId: vm.lastKnownDeviceId, userId: vm.lastKnownUserId);

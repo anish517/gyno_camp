@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
@@ -437,27 +438,49 @@ class OcrRepository implements IOcrRepository {
         ? await _patientRepository.getPatientByPatientId(normalizedPatientId)
         : null;
 
+    final PatientRepository? concreteRepo =
+        _patientRepository is PatientRepository ? _patientRepository : null;
+
     final PatientModel registeredPatient;
     if (existingPatient != null) {
-      registeredPatient = await _patientRepository.updatePatient(
-        patient.copyWith(
-          id: existingPatient.id,
-          patientId: existingPatient.patientId,
-          createdAt: existingPatient.createdAt,
-        ),
-        updatedByUserId: userId,
-        updatedByUserName: userName,
-        updatedByUserRole: userRole,
-        deviceId: deviceId,
+      final updated = patient.copyWith(
+        id: existingPatient.id,
+        patientId: existingPatient.patientId,
+        createdAt: existingPatient.createdAt,
       );
+      registeredPatient = concreteRepo != null
+          ? await concreteRepo.updatePatient(
+              updated,
+              updatedByUserId: userId,
+              updatedByUserName: userName,
+              updatedByUserRole: userRole,
+              deviceId: deviceId,
+              pushToServer: false,
+            )
+          : await _patientRepository.updatePatient(
+              updated,
+              updatedByUserId: userId,
+              updatedByUserName: userName,
+              updatedByUserRole: userRole,
+              deviceId: deviceId,
+            );
     } else {
-      registeredPatient = await _patientRepository.registerPatient(
-        patient,
-        createdByUserId: userId,
-        createdByUserName: userName,
-        createdByUserRole: userRole,
-        deviceId: deviceId,
-      );
+      registeredPatient = concreteRepo != null
+          ? await concreteRepo.registerPatient(
+              patient,
+              createdByUserId: userId,
+              createdByUserName: userName,
+              createdByUserRole: userRole,
+              deviceId: deviceId,
+              pushToServer: false,
+            )
+          : await _patientRepository.registerPatient(
+              patient,
+              createdByUserId: userId,
+              createdByUserName: userName,
+              createdByUserRole: userRole,
+              deviceId: deviceId,
+            );
     }
 
     // 2. Construct Clinical Visit Model
@@ -782,12 +805,30 @@ class OcrRepository implements IOcrRepository {
       createdByUserId: userId,
     );
 
-    // Save Clinical Visit in SQLite
-    await _patientRepository.saveClinicalVisit(
-      clinicalVisit,
-      createdByUserId: userId,
-      deviceId: deviceId,
-    );
+    // Save Clinical Visit in SQLite (deferring server push until both rows exist locally)
+    final savedVisit = concreteRepo != null
+        ? await concreteRepo.saveClinicalVisit(
+            clinicalVisit,
+            createdByUserId: userId,
+            deviceId: deviceId,
+            pushToServer: false,
+          )
+        : await _patientRepository.saveClinicalVisit(
+            clinicalVisit,
+            createdByUserId: userId,
+            deviceId: deviceId,
+          );
+
+    // Push patient + clinical visit together in one central sync payload
+    if (concreteRepo != null) {
+      unawaited(
+        concreteRepo.pushPatientAndVisitToServer(
+          patient: registeredPatient,
+          visit: savedVisit,
+          deviceId: deviceId,
+        ),
+      );
+    }
 
     // 3. Log Audit Activity with SHA-256 Chaining
     await _auditRepository.logActivity(

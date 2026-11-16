@@ -147,10 +147,24 @@ class SyncRepository implements ISyncRepository {
     try {
       final delRows = await db.query(DatabaseTables.tableDeletedEntitiesQueue);
       for (final row in delRows) {
-        final id = row['id']?.toString() ?? '';
+        final id = (row['entity_id']?.toString().isNotEmpty == true)
+            ? row['entity_id']!.toString()
+            : (row['id']?.toString() ?? '');
         final type = row['entity_type']?.toString() ?? '';
         if (id.isEmpty) continue;
-        if (type == 'patient') deletedPatientIds.add(id);
+        if (type == 'patient') {
+          // Never push legacy Token-ID tombstones if an active patient uses that Token ID
+          final activeMatch = await db.query(
+            DatabaseTables.tablePatients,
+            columns: ['id'],
+            where: 'patient_id = ? COLLATE NOCASE',
+            whereArgs: [id],
+            limit: 1,
+          );
+          if (activeMatch.isEmpty && !id.toUpperCase().startsWith('GC-')) {
+            deletedPatientIds.add(id);
+          }
+        }
         if (type == 'clinical_visit') deletedVisitIds.add(id);
       }
     } catch (_) {}
@@ -212,16 +226,16 @@ class SyncRepository implements ISyncRepository {
         for (final delPid in deletedPatientIds) {
           await txn.delete(
             DatabaseTables.tableDeletedEntitiesQueue,
-            where: 'id = ?',
-            whereArgs: [delPid],
+            where: 'entity_id = ? OR id = ?',
+            whereArgs: [delPid, delPid],
           );
         }
 
         for (final delVid in deletedVisitIds) {
           await txn.delete(
             DatabaseTables.tableDeletedEntitiesQueue,
-            where: 'id = ?',
-            whereArgs: [delVid],
+            where: 'entity_id = ? OR id = ?',
+            whereArgs: [delVid, delVid],
           );
         }
       });
@@ -290,16 +304,45 @@ class SyncRepository implements ISyncRepository {
         }
 
         for (final patientId in response.deletedPatientIds) {
-          await txn.delete(
-            DatabaseTables.tableClinicalVisits,
-            where: 'patient_id = ?',
-            whereArgs: [patientId],
-          );
-          await txn.delete(
+          final matchingPatients = await txn.query(
             DatabaseTables.tablePatients,
+            columns: ['id', 'patient_id'],
             where: 'id = ?',
             whereArgs: [patientId],
           );
+          if (matchingPatients.isNotEmpty) {
+            for (final row in matchingPatients) {
+              final tokenId = row['patient_id']?.toString() ?? '';
+              if (tokenId.isNotEmpty) {
+                await txn.delete(
+                  DatabaseTables.tableClinicalVisits,
+                  where: 'patient_id = ? COLLATE NOCASE',
+                  whereArgs: [tokenId],
+                );
+              }
+            }
+            await txn.delete(
+              DatabaseTables.tableClinicalVisits,
+              where: 'patient_id = ?',
+              whereArgs: [patientId],
+            );
+            await txn.delete(
+              DatabaseTables.tablePatients,
+              where: 'id = ?',
+              whereArgs: [patientId],
+            );
+          } else {
+            // Only purge visits if no active patient row owns that patient_id under another UUID.
+            await txn.rawDelete(
+              'DELETE FROM ${DatabaseTables.tableClinicalVisits} '
+              'WHERE patient_id = ? AND NOT EXISTS ('
+              '  SELECT 1 FROM ${DatabaseTables.tablePatients} p '
+              '  WHERE p.patient_id = ${DatabaseTables.tableClinicalVisits}.patient_id COLLATE NOCASE '
+              '    AND p.id != ?'
+              ')',
+              [patientId, patientId],
+            );
+          }
         }
 
         for (final visitId in response.deletedVisitIds) {
@@ -315,7 +358,9 @@ class SyncRepository implements ISyncRepository {
         try {
           final localDelRows = await txn.query(DatabaseTables.tableDeletedEntitiesQueue);
           for (final r in localDelRows) {
-            final id = r['id']?.toString() ?? '';
+            final id = (r['entity_id']?.toString().isNotEmpty == true)
+                ? r['entity_id']!.toString()
+                : (r['id']?.toString() ?? '');
             final type = r['entity_type']?.toString() ?? '';
             if (id.isEmpty) continue;
             if (type == 'patient') locallyDeletedPatientIds.add(id);
@@ -513,11 +558,27 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
+        // Track active patient Token IDs after upserts so legacy Token-ID tombstones
+        // cannot suppress clinical visits for a newly re-registered patient.
+        final activeTokenIds = <String>{};
+        final activeTokenRows = await txn.query(
+          DatabaseTables.tablePatients,
+          columns: ['patient_id'],
+        );
+        for (final r in activeTokenRows) {
+          final pid = r['patient_id']?.toString().trim().toLowerCase() ?? '';
+          if (pid.isNotEmpty) activeTokenIds.add(pid);
+        }
+
         // Upsert clinical visits from central cloud (R1 fix: guard local unsynced edits, skip deleted camps & deleted visits)
         for (final visit in response.clinicalVisits) {
           if (allDeletedCampIds.contains(visit.campId)) continue;
           if (locallyDeletedVisitIds.contains(visit.id)) continue;
-          if (locallyDeletedPatientIds.contains(visit.patientId)) continue;
+          final visitTokenLower = visit.patientId.trim().toLowerCase();
+          if (locallyDeletedPatientIds.contains(visit.patientId) &&
+              !activeTokenIds.contains(visitTokenLower)) {
+            continue;
+          }
 
           final unsyncedLocal = await txn.query(
             DatabaseTables.tableClinicalVisits,

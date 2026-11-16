@@ -71,6 +71,7 @@ class SessionService {
   static const String _keyDeviceInstallToken = 'gynocamp_device_install_token';
   static const String _keyOcrEngineMode = 'gynocamp_ocr_engine_mode';
   static const String _keyDeviceSecret = 'gynocamp_device_secret';
+  static const String _keyRegisteredDeviceId = 'gynocamp_registered_device_id';
   static const String _keyCentralServerUrl = 'gynocamp_central_server_url';
 
   static SessionService? _instance;
@@ -197,6 +198,14 @@ class SessionService {
     }
     return secret;
   }
+
+  // Registered Device ID (used to align SSE excludeDeviceId with pushes)
+  Future<void> saveRegisteredDeviceId(String deviceId) async {
+    if (_prefs == null || deviceId.trim().isEmpty) return;
+    await _prefs.setString(_keyRegisteredDeviceId, deviceId.trim());
+  }
+
+  String? getRegisteredDeviceId() => _prefs?.getString(_keyRegisteredDeviceId);
 
   // Central Server URL (REST on port 8080)
   Future<void> saveCentralServerUrl(String url) async {

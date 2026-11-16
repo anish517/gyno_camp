@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/security/security_service.dart';
+import '../core/services/session_service.dart';
 import '../models/device_model.dart';
 import '../repositories/device_security_repository.dart';
 import 'device_management_viewmodel.dart';
+import 'sync_viewmodel.dart';
 
 class DeviceSecurityState {
   final DeviceModel? device;
@@ -119,6 +121,15 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
     super.dispose();
   }
 
+  void _syncRegisteredDeviceId(DeviceModel? dev) {
+    final id = dev?.deviceId.trim();
+    if (id == null || id.isEmpty) return;
+    SessionService.current?.saveRegisteredDeviceId(id);
+    try {
+      _ref?.read(syncStateProvider.notifier).updateDeviceId(id);
+    } catch (_) {}
+  }
+
   Future<void> checkCurrentDevice({bool silent = false}) async {
     if (!silent) {
       state = state.copyWith(isChecking: true, clearError: true);
@@ -126,6 +137,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
     try {
       final dev = await _repository.getDeviceByFingerprint(state.hardwareFingerprint);
       if (!mounted) return;
+      _syncRegisteredDeviceId(dev);
       final isLocked = dev?.isApproved == true && (dev?.hasPinSet == true);
 
       // If silent poll and data is completely unchanged, skip re-emitting state
@@ -176,6 +188,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
       );
 
       if (!mounted) return true;
+      _syncRegisteredDeviceId(result.device);
       state = state.copyWith(
         device: result.device,
         latestOtp: result.plainOtp,
@@ -206,6 +219,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
       if (success) {
         final updated = await _repository.getDeviceById(state.device!.deviceId);
         if (!mounted) return true;
+        _syncRegisteredDeviceId(updated);
         state = state.copyWith(
           device: updated,
           isChecking: false,
@@ -246,6 +260,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
       if (success) {
         final updated = await _repository.getDeviceById(state.device!.deviceId);
         if (!mounted) return true;
+        _syncRegisteredDeviceId(updated);
         state = state.copyWith(
           device: updated,
           isChecking: false,
@@ -292,6 +307,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
       if (!mounted) return false;
       if (existing?.status == DeviceActivationStatus.revoked) return false;
       if (existing?.isApproved == true) {
+        _syncRegisteredDeviceId(existing);
         if (state.device != existing) state = state.copyWith(device: existing);
         _adminDeviceEnsured.add(adminUserId);
         return true;
@@ -318,6 +334,7 @@ class DeviceSecurityViewModel extends StateNotifier<DeviceSecurityState> {
 
       final updated = await _repository.getDeviceById(deviceId);
       if (!mounted) return approved;
+      _syncRegisteredDeviceId(updated);
       state = state.copyWith(device: updated, isInitialized: true, clearError: true);
       _adminDeviceEnsured.add(adminUserId);
       _stopPollingApproval();
