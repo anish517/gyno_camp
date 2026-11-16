@@ -134,26 +134,6 @@ class _FormScanViewState extends ConsumerState<FormScanView>
           ],
         ),
         actions: [
-          // Clinical Reference Form Templates
-          PopupMenuButton<String>(
-            tooltip: 'Load Reference Form Template',
-            icon: const Icon(Icons.document_scanner),
-            onSelected: (sample) => ocrVm.loadSample(sample),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'full',
-                child: Text('📄 Complete 2-Page Yellow Form'),
-              ),
-              const PopupMenuItem(
-                value: 'page1',
-                child: Text('📋 Page 1: Demographics & History'),
-              ),
-              const PopupMenuItem(
-                value: 'page2',
-                child: Text('🩺 Page 2: POP Exam & Vitals'),
-              ),
-            ],
-          ),
           if (ocrState.hasScanResult)
             IconButton(
               tooltip: 'Clear & Retake',
@@ -568,24 +548,6 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                     onPressed: () => ocrVm.pickBothPages(),
-                  ),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      foregroundColor: Colors.indigo.shade800,
-                    ),
-                    icon: const Icon(Icons.assignment_outlined, size: 18),
-                    label: const Text(
-                      'Load Complete 2-Page Template',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    onPressed: () => ocrVm.loadSample('full'),
                   ),
                 ],
               ),
