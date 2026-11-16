@@ -1581,15 +1581,23 @@ class _FormScanViewState extends ConsumerState<FormScanView>
               children: [
                 Expanded(
                   child: ChoiceChip(
-                    label: const Text(
+                    showCheckmark: true,
+                    checkmarkColor: activePage == 1 ? Colors.white : AppTheme.primaryDark,
+                    backgroundColor: Colors.white,
+                    selectedColor: AppTheme.primaryTeal,
+                    side: BorderSide(
+                      color: activePage == 1 ? AppTheme.primaryTeal : Colors.grey.shade400,
+                      width: 1.2,
+                    ),
+                    label: Text(
                       '📄 Page 1 (Front: Demographics)',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.bold,
+                        color: activePage == 1 ? Colors.white : AppTheme.primaryDark,
                       ),
                     ),
                     selected: activePage == 1,
-                    selectedColor: AppTheme.primaryLight,
                     onSelected: (_) => ref
                         .read(ocrScanProvider.notifier)
                         .switchInspectionPage(1),
@@ -1598,15 +1606,23 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                 const SizedBox(width: 8),
                 Expanded(
                   child: ChoiceChip(
-                    label: const Text(
+                    showCheckmark: true,
+                    checkmarkColor: activePage == 2 ? Colors.white : AppTheme.primaryDark,
+                    backgroundColor: Colors.white,
+                    selectedColor: AppTheme.primaryTeal,
+                    side: BorderSide(
+                      color: activePage == 2 ? AppTheme.primaryTeal : Colors.grey.shade400,
+                      width: 1.2,
+                    ),
+                    label: Text(
                       '🩺 Page 2 (Back: POP & Vitals)',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.bold,
+                        color: activePage == 2 ? Colors.white : AppTheme.primaryDark,
                       ),
                     ),
                     selected: activePage == 2,
-                    selectedColor: AppTheme.primaryLight,
                     onSelected: (_) => ref
                         .read(ocrScanProvider.notifier)
                         .switchInspectionPage(2),
@@ -1845,19 +1861,33 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           ),
                           if (hasP1 && hasP2) ...[
                             SegmentedButton<int>(
+                              style: SegmentedButton.styleFrom(
+                                backgroundColor: Colors.white.withValues(alpha: 0.14),
+                                foregroundColor: Colors.white,
+                                selectedBackgroundColor: Colors.amber.shade400,
+                                selectedForegroundColor: const Color(0xFF0F172A),
+                                side: const BorderSide(color: Colors.white54, width: 1.2),
+                                visualDensity: VisualDensity.compact,
+                              ),
                               segments: const [
                                 ButtonSegment(
                                   value: 1,
                                   label: Text(
                                     'Page 1 (Front)',
-                                    style: TextStyle(fontSize: 11.5),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                                 ButtonSegment(
                                   value: 2,
                                   label: Text(
                                     'Page 2 (Back)',
-                                    style: TextStyle(fontSize: 11.5),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
