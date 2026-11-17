@@ -197,6 +197,7 @@ class PdfReportService {
     await _ensureFontLoaded();
     for (final s in _nePending.toList()) {
       try {
+        final double fontPx = s.size * _neScale;
         final tp =
             fp.TextPainter(
               text: fp.TextSpan(
@@ -209,10 +210,9 @@ class PdfReportService {
                     'Segoe UI',
                     'sans-serif',
                   ],
-                  fontSize: s.size * _neScale,
+                  fontSize: fontPx,
                   fontWeight: s.bold ? fp.FontWeight.w700 : fp.FontWeight.w400,
                   color: fp.Color(s.color),
-                  height: 1.15,
                 ),
               ),
               textDirection: ui.TextDirection.ltr,
@@ -222,17 +222,86 @@ class PdfReportService {
                   : double.infinity,
             );
 
-        final rec = ui.PictureRecorder();
-        tp.paint(ui.Canvas(rec), ui.Offset.zero);
-        final width = tp.width.ceil().clamp(1, 4000);
-        final height = tp.height.ceil().clamp(1, 4000);
-        final image = await rec.endRecording().toImage(width, height);
-        final data = await image.toByteData(format: ui.ImageByteFormat.png);
+        // Paint on a padded canvas so Devanagari ascenders (ि, ी, ै, ो, ँ, ं, र्)
+        // and descenders / overhangs (ु, ू, ्) are never clipped at edges.
+        final double pad = (fontPx * 0.45).ceilToDouble().clamp(8.0, 48.0);
+        final rawW = (tp.width + 2 * pad).ceil().clamp(1, 4000);
+        final rawH = (tp.height + 2 * pad).ceil().clamp(1, 4000);
+        final rawRec = ui.PictureRecorder();
+        tp.paint(ui.Canvas(rawRec), ui.Offset(pad, pad));
+        final rawImg = await rawRec.endRecording().toImage(rawW, rawH);
+
+        final double baseShift = (fontPx * 0.08).floorToDouble();
+        double cropLeft = pad;
+        double cropTop = pad - baseShift;
+        double cropRight = (pad + tp.width).ceilToDouble();
+        double cropBottom = (pad + tp.height - baseShift).ceilToDouble();
+
+        final rgba = await rawImg.toByteData(format: ui.ImageByteFormat.rawRgba);
+        if (rgba != null) {
+          final px = rgba.buffer.asUint8List();
+          int minX = rawW, minY = rawH, maxX = -1, maxY = -1;
+          for (int y = 0; y < rawH; y++) {
+            final rowOffset = y * rawW * 4;
+            for (int x = 0; x < rawW; x++) {
+              if (px[rowOffset + x * 4 + 3] > 0) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+              }
+            }
+          }
+          if (maxX >= minX && maxY >= minY) {
+            if (minX - 2 < cropLeft) {
+              cropLeft = (minX - 2).floorToDouble().clamp(0.0, rawW - 1.0);
+            }
+            if (maxX + 2 > cropRight) {
+              cropRight = (maxX + 2)
+                  .ceilToDouble()
+                  .clamp(cropLeft + 1.0, rawW.toDouble());
+            }
+            if (minY - 2 < cropTop) {
+              cropTop = (minY - 2).floorToDouble().clamp(0.0, rawH - 1.0);
+            }
+            if (maxY + 2 > cropBottom) {
+              cropBottom = (maxY + 2)
+                  .ceilToDouble()
+                  .clamp(cropTop + 1.0, rawH.toDouble());
+            }
+          }
+        } else {
+          cropLeft = (pad - (fontPx * 0.12)).clamp(0.0, rawW - 1.0);
+          cropRight = (pad + tp.width + (fontPx * 0.25))
+              .clamp(cropLeft + 1.0, rawW.toDouble());
+          cropTop = (pad - (fontPx * 0.16)).clamp(0.0, rawH - 1.0);
+          cropBottom = (pad + tp.height + (fontPx * 0.12))
+              .clamp(cropTop + 1.0, rawH.toDouble());
+        }
+
+        final finalW = (cropRight - cropLeft).ceil().clamp(1, 4000);
+        final finalH = (cropBottom - cropTop).ceil().clamp(1, 4000);
+        final cropRec = ui.PictureRecorder();
+        ui.Canvas(cropRec).drawImageRect(
+          rawImg,
+          ui.Rect.fromLTWH(
+            cropLeft,
+            cropTop,
+            finalW.toDouble(),
+            finalH.toDouble(),
+          ),
+          ui.Rect.fromLTWH(0, 0, finalW.toDouble(), finalH.toDouble()),
+          ui.Paint(),
+        );
+        final finalImg = await cropRec.endRecording().toImage(finalW, finalH);
+        final data = await finalImg.toByteData(format: ui.ImageByteFormat.png);
+        rawImg.dispose();
+        finalImg.dispose();
         if (data != null) {
           _neCache[s] = (
             img: pw.MemoryImage(data.buffer.asUint8List()),
-            w: tp.width / _neScale,
-            h: tp.height / _neScale,
+            w: finalW / _neScale,
+            h: finalH / _neScale,
           );
         }
       } catch (_) {}
