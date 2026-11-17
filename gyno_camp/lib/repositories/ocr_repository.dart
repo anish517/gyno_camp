@@ -716,9 +716,18 @@ class OcrRepository implements IOcrRepository {
     anamnesisMap['clinicalComplaints'] = syncedClinicalComplaints.toList();
 
     final defaultMedsLow = ClinicalConstants.defaultMedications.map((m) => m.toLowerCase()).toSet();
-    final nonDefaultMeds = verifiedScan.medications
-        .where((m) => !defaultMedsLow.contains(m.toLowerCase().trim()) && m.toLowerCase().trim() != 'ring pessary')
-        .toList();
+    final formularyMeds = <String>[];
+    final nonDefaultMeds = <String>[];
+    for (final rawMed in verifiedScan.medications) {
+      final clean = rawMed.trim();
+      if (clean.isEmpty) continue;
+      final low = clean.toLowerCase();
+      if (defaultMedsLow.contains(low) || low == 'ring pessary') {
+        formularyMeds.add(clean);
+      } else {
+        nonDefaultMeds.add(clean);
+      }
+    }
 
     final clinicalVisit = ClinicalVisitModel(
       id: 'vis-${_uuid.v4()}',
@@ -773,7 +782,7 @@ class OcrRepository implements IOcrRepository {
       }(),
       diagnoses: verifiedScan.diagnoses,
       counseling: verifiedScan.counseling,
-      medications: verifiedScan.medications,
+      medications: formularyMeds,
       customMedication: nonDefaultMeds.isNotEmpty ? nonDefaultMeds.join(', ') : null,
       pessaryType: verifiedScan.pessaryType ??
           ((verifiedScan.ringPessary || pop['ringPessary'] == true)

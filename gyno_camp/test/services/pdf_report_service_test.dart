@@ -763,7 +763,8 @@ void main() {
         vaginaRemarks: 'atrophic, mild erosion',
         highestPopStage: 3,
         diagnoses: const ['stress incontinence'],
-        medications: const ['estradiol crème'],
+        medications: const ['estradiol crème', 'Calcium + Vit D3'],
+        customMedication: 'Calcium + Vit D3',
         createdByUserId: 'u1',
         createdAt: DateTime(2026, 7, 26),
       );
@@ -788,6 +789,13 @@ void main() {
         expect(pdfText, contains('Conclusion Date: 2083-04-14 BS'));
         expect(pdfText, contains('Treatment Date: 2083-04-15 BS'));
         expect(pdfText, contains('Outtake Date: 2083-04-16 BS'));
+        expect(pdfText, contains('Prescribed Medications'));
+        expect(pdfText, contains('Other Medications'));
+        expect('Calcium + Vit D3'.allMatches(pdfText).length, equals(1));
+        expect(pdfText, isNot(contains('Prescribed Formulary')));
+        expect(pdfText, isNot(contains('Special Prescriptions')));
+        expect(pdfText, isNot(contains('Other Prescriptions')));
+        expect(pdfText, isNot(contains('Rx:')));
         expect(pdfText, isNot(contains('2083-04-01 BS')));
       }
     });

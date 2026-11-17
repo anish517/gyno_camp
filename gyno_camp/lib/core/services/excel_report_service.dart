@@ -278,10 +278,7 @@ class ExcelReportService {
           ? p.campCode
           : (p.patientId.split('-').length >= 2 ? p.patientId.split('-')[1] : summary.campCode);
 
-      final allMeds = <String>[
-        if (v != null) ...v.medications.where((m) => m.trim().isNotEmpty),
-        if (v?.customMedication != null && v!.customMedication!.trim().isNotEmpty) v.customMedication!.trim(),
-      ];
+      final allMeds = v != null ? v.uniqueAllMedications : const <String>[];
       final medsStr = allMeds.isNotEmpty ? allMeds.join(', ') : 'None';
 
       final pessaryStr = v?.pessaryType != null && v!.pessaryType!.trim().isNotEmpty

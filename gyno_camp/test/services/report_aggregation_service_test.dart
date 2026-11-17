@@ -59,6 +59,7 @@ void main() {
       int highestPop = 0,
       List<String> diagnoses = const [],
       List<String> medications = const [],
+      String? customMedication,
       int? systolicBp,
       int? diastolicBp,
       int? glucose,
@@ -81,6 +82,7 @@ void main() {
         highestPopStage: highestPop,
         diagnoses: diagnoses,
         medications: medications,
+        customMedication: customMedication,
         systolicBp: systolicBp,
         diastolicBp: diastolicBp,
         glucose: glucose,
@@ -248,6 +250,27 @@ void main() {
       expect(summary.medicationDispensedCounts['Metronidazole 400mg'], 1);
       expect(summary.medicationDispensedCounts['Ibuprofen 400mg'], 1);
       expect(summary.totalPrescriptionsCount, 4);
+    });
+
+    test('deduplicates customMedication overlapping with medications list when aggregating pharmacy counts', () {
+      final visits = [
+        createVisit(
+          id: 'v-dup',
+          patientId: 'PID-DUP',
+          medications: ['estradiol crème', 'Calcium + Vit D3'],
+          customMedication: 'Calcium + Vit D3',
+        ),
+      ];
+
+      final summary = aggregationService.aggregate(
+        camp: camp,
+        patients: [],
+        visits: visits,
+      );
+
+      expect(summary.medicationDispensedCounts['estradiol crème'], 1);
+      expect(summary.medicationDispensedCounts['Calcium + Vit D3'], 1);
+      expect(summary.totalPrescriptionsCount, 2);
     });
   });
 }

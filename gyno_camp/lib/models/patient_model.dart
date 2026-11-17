@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../core/constants/clinical_constants.dart';
 import '../core/utils/nepali_date_helper.dart';
 import 'nurse_profile.dart';
 
@@ -142,11 +143,7 @@ class PatientModel {
 
   /// Aggregated list of treatments, medications, pessary fittings, and counseling
   List<String> get treatments {
-    final list = <String>[];
-    if (medications.isNotEmpty) list.addAll(medications);
-    if (customMedication != null && customMedication!.trim().isNotEmpty) {
-      list.add(customMedication!.trim());
-    }
+    final list = ClinicalConstants.combineUniqueMedications(medications, customMedication);
     if (pessarySize != null && pessarySize!.trim().isNotEmpty) {
       list.add('Pessary: ${pessaryType ?? "Ring"} $pessarySize');
     } else if (pessaryType != null && pessaryType!.trim().isNotEmpty) {

@@ -201,6 +201,15 @@ class ClinicalVisitModel {
         if (outtakeDate != null) (label: '6. Outtake', date: outtakeDate!),
       ];
 
+  String? get normalizedCustomMedication =>
+      ClinicalConstants.normalizeCustomMedication(customMedication);
+
+  List<String> get deduplicatedFormularyMedications =>
+      ClinicalConstants.deduplicateFormularyMedications(medications, customMedication);
+
+  List<String> get uniqueAllMedications =>
+      ClinicalConstants.combineUniqueMedications(medications, customMedication);
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

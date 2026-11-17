@@ -267,5 +267,57 @@ class ClinicalConstants {
     'pain':                     'pain (तल्लो पेट / कम्मर दुखाई)',
     'checkup':                  'checkup (सामान्य जाँच)',
   };
+
+  /// Returns a trimmed [customMedication] string, or null when blank.
+  static String? normalizeCustomMedication(String? raw) {
+    final clean = raw?.trim();
+    return (clean != null && clean.isNotEmpty) ? clean : null;
+  }
+
+  static Set<String> _splitCustomMedicationTokens(String raw) {
+    final full = raw.trim().toLowerCase();
+    if (full.isEmpty) return const {};
+    final tokens = <String>{full};
+    for (final part in raw.split(RegExp(r'[,;\n]+'))) {
+      final clean = part.trim().toLowerCase();
+      if (clean.isNotEmpty) tokens.add(clean);
+    }
+    return tokens;
+  }
+
+  /// Returns [medications] deduplicated case-insensitively and excluding any entry
+  /// already present in [customMedication].
+  static List<String> deduplicateFormularyMedications(
+    List<String> medications,
+    String? customMedication,
+  ) {
+    final customClean = normalizeCustomMedication(customMedication);
+    final customTokens = customClean != null
+        ? _splitCustomMedicationTokens(customClean)
+        : const <String>{};
+    final seen = <String>{};
+    final result = <String>[];
+    for (final m in medications) {
+      final clean = m.trim();
+      if (clean.isEmpty) continue;
+      final low = clean.toLowerCase();
+      if (customTokens.contains(low)) continue;
+      if (seen.add(low)) result.add(clean);
+    }
+    return result;
+  }
+
+  /// Combines formulary [medications] and [customMedication] without duplicates.
+  static List<String> combineUniqueMedications(
+    List<String> medications,
+    String? customMedication,
+  ) {
+    final result = <String>[...deduplicateFormularyMedications(medications, customMedication)];
+    final customClean = normalizeCustomMedication(customMedication);
+    if (customClean != null) {
+      result.add(customClean);
+    }
+    return result;
+  }
 }
 

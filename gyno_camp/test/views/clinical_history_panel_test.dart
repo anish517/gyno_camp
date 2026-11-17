@@ -62,7 +62,8 @@ void main() {
       treatmentDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 15)),
       outtakeDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 16)),
       diagnoses: const ['stress incontinence'],
-      medications: const ['estradiol crème'],
+      medications: const ['estradiol crème', 'Calcium + Vit D3'],
+      customMedication: 'Calcium + Vit D3',
       createdByUserId: 'u1',
       createdAt: DateTime(2026, 7, 26),
     );
@@ -94,6 +95,10 @@ void main() {
     expect(find.textContaining('4. Conclusion: 2083-04-14 BS'), findsOneWidget);
     expect(find.textContaining('5. Treatment: 2083-04-15 BS'), findsOneWidget);
     expect(find.textContaining('6. Outtake: 2083-04-16 BS'), findsOneWidget);
+    expect(find.text('estradiol crème'), findsOneWidget);
+    expect(find.text('Calcium + Vit D3'), findsNothing);
+    expect(find.text('Other Medication: Calcium + Vit D3'), findsOneWidget);
+    expect(find.textContaining('Rx:'), findsNothing);
   });
 
   testWidgets('ClinicalHistoryPanel mobile layout renders Encounter and Profile tabs without overflow', (tester) async {

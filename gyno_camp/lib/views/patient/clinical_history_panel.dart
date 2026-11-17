@@ -915,7 +915,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                 ],
 
                 // 5. Prescriptions & Treatments (Station 5)
-                if (v.medications.isNotEmpty || v.customMedication?.isNotEmpty == true) ...[
+                if (v.uniqueAllMedications.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -926,7 +926,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                           spacing: 4,
                           runSpacing: 4,
                           children: [
-                            ...v.medications.map((m) => Container(
+                            ...v.deduplicatedFormularyMedications.map((m) => Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF0F9FF),
@@ -935,7 +935,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                               ),
                               child: Text(m, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF0C4A6E))),
                             )),
-                            if (v.customMedication?.isNotEmpty == true)
+                            if (v.normalizedCustomMedication != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
@@ -943,7 +943,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                                   borderRadius: BorderRadius.circular(4),
                                   border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
                                 ),
-                                child: Text('Rx: ${v.customMedication}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
+                                child: Text('Other Medication: ${v.normalizedCustomMedication}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
                               ),
                           ],
                         ),

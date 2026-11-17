@@ -1227,13 +1227,9 @@ class PdfReportService {
                             ? p.patientId.split('-')[1]
                             : summary.campCode);
 
-                  final allMeds = <String>[
-                    if (v != null)
-                      ...v.medications.where((m) => m.trim().isNotEmpty),
-                    if (v?.customMedication != null &&
-                        v!.customMedication!.trim().isNotEmpty)
-                      v.customMedication!.trim(),
-                  ];
+                  final allMeds = v != null
+                      ? v.uniqueAllMedications
+                      : const <String>[];
                   final medsStr = allMeds.isNotEmpty
                       ? allMeds.join(', ')
                       : 'None';
@@ -1581,14 +1577,17 @@ class PdfReportService {
           (visit != null && visit.medications.isNotEmpty)
           ? visit.medications
           : patient.medications;
-      final effectiveMedications = rawMedications
-          .where((m) => m.trim().isNotEmpty && !ReportAggregationService.isDosageInstruction(m))
-          .toList();
-      final effectiveCustomMed =
-          (visit?.customMedication != null &&
-              visit!.customMedication!.isNotEmpty)
-          ? visit.customMedication
-          : patient.customMedication;
+      final effectiveCustomMed = ClinicalConstants.normalizeCustomMedication(
+        (visit?.customMedication != null &&
+                visit!.customMedication!.trim().isNotEmpty)
+            ? visit.customMedication
+            : patient.customMedication,
+      );
+      final effectiveMedications =
+          ClinicalConstants.deduplicateFormularyMedications(
+            rawMedications,
+            effectiveCustomMed,
+          ).where((m) => !ReportAggregationService.isDosageInstruction(m)).toList();
       final effectiveCounseling =
           (visit?.counseling != null && visit!.counseling.isNotEmpty)
           ? visit.counseling
@@ -2166,7 +2165,7 @@ class PdfReportService {
                   ),
                   pw.SizedBox(height: 3),
                   _buildPdfField(
-                    'Prescribed Formulary',
+                    'Prescribed Medications',
                     effectiveMedications.isNotEmpty
                         ? effectiveMedications.join(' | ')
                         : 'None Dispensed',
@@ -2174,7 +2173,7 @@ class PdfReportService {
                   if (effectiveCustomMed != null &&
                       effectiveCustomMed.isNotEmpty) ...[
                     pw.SizedBox(height: 2),
-                    _buildPdfField('Special Prescriptions', effectiveCustomMed),
+                    _buildPdfField('Other Medications', effectiveCustomMed),
                   ],
                   if (effectivePessarySize != null &&
                       effectivePessarySize.isNotEmpty) ...[
@@ -3272,19 +3271,19 @@ class PdfReportService {
                   _buildPdfField(
                     'Prescribed Medications',
                     () {
-                      final filtered = visit.medications
-                          .where((m) => m.trim().isNotEmpty && !ReportAggregationService.isDosageInstruction(m))
+                      final filtered = visit.deduplicatedFormularyMedications
+                          .where((m) => !ReportAggregationService.isDosageInstruction(m))
                           .toList();
                       return filtered.isNotEmpty
                           ? filtered.join(' | ')
                           : 'None dispensed';
                     }(),
                   ),
-                  if (visit.customMedication?.isNotEmpty == true) ...[
+                  if (visit.normalizedCustomMedication != null) ...[
                     pw.SizedBox(height: 2),
                     _buildPdfField(
-                      'Other Prescriptions',
-                      sanitizeText(visit.customMedication!),
+                      'Other Medications',
+                      sanitizeText(visit.normalizedCustomMedication!),
                     ),
                   ],
                   if (visit.pessaryType != null) ...[

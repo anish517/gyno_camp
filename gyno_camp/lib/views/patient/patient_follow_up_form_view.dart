@@ -1228,8 +1228,7 @@ class _PatientFollowUpFormViewState
                 ],
 
                 // Prescriptions & Treatments (Station 5)
-                if (v.medications.isNotEmpty ||
-                    v.customMedication?.isNotEmpty == true) ...[
+                if (v.uniqueAllMedications.isNotEmpty) ...[
                   const SizedBox(height: 5),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1247,7 +1246,7 @@ class _PatientFollowUpFormViewState
                           spacing: 4,
                           runSpacing: 4,
                           children: [
-                            ...v.medications.map(
+                            ...v.deduplicatedFormularyMedications.map(
                               (m) => Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 5,
@@ -1271,7 +1270,7 @@ class _PatientFollowUpFormViewState
                                 ),
                               ),
                             ),
-                            if (v.customMedication?.isNotEmpty == true)
+                            if (v.normalizedCustomMedication != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 5,
@@ -1286,7 +1285,7 @@ class _PatientFollowUpFormViewState
                                   ),
                                 ),
                                 child: Text(
-                                  'Rx: ${v.customMedication}',
+                                  'Other Medication: ${v.normalizedCustomMedication}',
                                   style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,

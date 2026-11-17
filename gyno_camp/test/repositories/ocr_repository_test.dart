@@ -271,7 +271,7 @@ void main() {
         popStaging: const {'anteriorStage': 2, 'middleStage': 3, 'posteriorStage': 1, 'highestPopStage': 3},
         vitals: const {'systolicBp': 138, 'diastolicBp': 86, 'pulseRate': 78, 'spo2': 97, 'bloodGlucose': 112},
         diagnoses: const ['stress incontinence', 'weak pelvic floor muscle'],
-        medications: const ['estradiol crème'],
+        medications: const ['estradiol crème', 'Calcium + Vit D3'],
         intakeDate: '2083-04-10',
         anamnesisDate: '2083-04-11',
         examDate: '2083-04-12',
@@ -306,6 +306,8 @@ void main() {
       expect(NepaliLocalizationService.formatBsDateOnly(reloadedVisit.conclusionDate!), '2083-04-14 BS');
       expect(NepaliLocalizationService.formatBsDateOnly(reloadedVisit.treatmentDate!), '2083-04-15 BS');
       expect(NepaliLocalizationService.formatBsDateOnly(reloadedVisit.outtakeDate!), '2083-04-16 BS');
+      expect(reloadedVisit.medications, equals(['estradiol crème']));
+      expect(reloadedVisit.customMedication, equals('Calcium + Vit D3'));
     });
 
     test('UTC TIMESTAMPTZ strings preserve Nepal calendar day across model fromMap and toNepali', () {

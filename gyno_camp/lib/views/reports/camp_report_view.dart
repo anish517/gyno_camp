@@ -5177,15 +5177,11 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.dangerRose),
                 ),
               ),
-            if (visit.medications.isNotEmpty || (visit.customMedication != null && visit.customMedication!.trim().isNotEmpty))
+            if (visit.uniqueAllMedications.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  '• Medications: ${[
-                    ...visit.medications,
-                    if (visit.customMedication != null && visit.customMedication!.trim().isNotEmpty)
-                      visit.customMedication!.trim(),
-                  ].join(", ")}',
+                  '• Medications: ${visit.uniqueAllMedications.join(", ")}',
                   style: const TextStyle(fontSize: 12),
                 ),
               ),

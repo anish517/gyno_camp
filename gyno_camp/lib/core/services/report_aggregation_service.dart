@@ -173,18 +173,10 @@ class ReportAggregationService {
         followUpDestinations[dest] = (followUpDestinations[dest] ?? 0) + 1;
       }
 
-      // Medications
-      for (final med in v.medications) {
-        final cleanMed = med.trim();
-        if (cleanMed.isNotEmpty && !isDosageInstruction(cleanMed)) {
+      // Medications (deduplicated so customMedication copied from OCR never double-counts)
+      for (final cleanMed in v.uniqueAllMedications) {
+        if (!isDosageInstruction(cleanMed)) {
           medicationDispensed[cleanMed] = (medicationDispensed[cleanMed] ?? 0) + 1;
-          totalPrescriptions++;
-        }
-      }
-      if (v.customMedication != null && v.customMedication!.trim().isNotEmpty) {
-        final custom = v.customMedication!.trim();
-        if (!isDosageInstruction(custom)) {
-          medicationDispensed[custom] = (medicationDispensed[custom] ?? 0) + 1;
           totalPrescriptions++;
         }
       }
