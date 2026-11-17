@@ -1312,7 +1312,7 @@ class _PatientFollowUpFormViewState
                     children: [
                       if (v.pessarySize?.isNotEmpty == true)
                         _tb(
-                          'Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.pessarySize}',
+                          'Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.formattedPessarySize}',
                           AppTheme.primaryTeal,
                         ),
                       if (v.surgeryDone)

@@ -1239,7 +1239,7 @@ class PdfReportService {
                           v!.pessaryType!.trim().isNotEmpty
                       ? (v.pessarySize != null &&
                                 v.pessarySize!.trim().isNotEmpty
-                            ? '${v.pessaryType!.trim()} (${v.pessarySize!.trim()})'
+                            ? '${v.pessaryType!.trim()} (${v.formattedPessarySize})'
                             : v.pessaryType!.trim())
                       : '-';
 
@@ -1608,11 +1608,11 @@ class PdfReportService {
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+          margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           build: (context) => [
             // 1. EXECUTIVE CLINICAL DOSSIER HEADER
             pw.Container(
-              padding: const pw.EdgeInsets.all(10),
+              padding: const pw.EdgeInsets.all(7),
               decoration: pw.BoxDecoration(
                 color: lightBgColor,
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
@@ -1625,7 +1625,7 @@ class PdfReportService {
                   if (logoImage != null)
                     pw.Padding(
                       padding: const pw.EdgeInsets.only(right: 10),
-                      child: pw.Image(logoImage, width: 44, height: 44),
+                      child: pw.Image(logoImage, width: 40, height: 40),
                     ),
                   pw.Expanded(
                     child: pw.Column(
@@ -1675,8 +1675,8 @@ class PdfReportService {
                       pw.BarcodeWidget(
                         barcode: pw.Barcode.qrCode(),
                         data: patient.patientId,
-                        width: 44,
-                        height: 44,
+                        width: 40,
+                        height: 40,
                       ),
                       pw.SizedBox(height: 2),
                       pw.Text(
@@ -1699,7 +1699,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 8),
+            pw.SizedBox(height: 5),
 
             // 2. PATIENT DEMOGRAPHICS & INTAKE PROFILE
             _buildPdfSectionHeader(
@@ -1708,9 +1708,9 @@ class PdfReportService {
               date: NepaliLocalizationService.formatDualCalendarDate(patient.intakeDate),
               dateLabel: 'Intake Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: borderGray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -1803,7 +1803,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 7),
+            pw.SizedBox(height: 4.5),
 
             // 3. STRUCTURED YELLOW FORM CLINICAL ANAMNESIS
             _buildPdfSectionHeader(
@@ -1812,9 +1812,9 @@ class PdfReportService {
               date: visit?.anamnesisDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.anamnesisDate!) : null,
               dateLabel: 'Anamnesis Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: borderGray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -1892,7 +1892,7 @@ class PdfReportService {
                       }).toList(),
                     ),
             ),
-            pw.SizedBox(height: 7),
+            pw.SizedBox(height: 4.5),
 
             // 4. OBSTETRIC HISTORY & PHYSICAL EXAMINATION
             _buildPdfSectionHeader(
@@ -1901,9 +1901,9 @@ class PdfReportService {
               date: visit?.examDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.examDate!) : null,
               dateLabel: 'Exam Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: borderGray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -1984,7 +1984,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 7),
+            pw.SizedBox(height: 4.5),
 
             // 5. CLINICAL VITALS & SCREENING LABS
             _buildPdfSectionHeader(
@@ -1993,9 +1993,9 @@ class PdfReportService {
               date: visit?.labTestDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.labTestDate!) : null,
               dateLabel: 'Lab Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: borderGray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -2080,7 +2080,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 7),
+            pw.SizedBox(height: 4.5),
 
             // 5. POP STAGING MATRIX
             _buildPdfSectionHeader(
@@ -2089,9 +2089,9 @@ class PdfReportService {
               date: visit?.conclusionDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.conclusionDate!) : null,
               dateLabel: 'Conclusion Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 color: (visit?.highestPopStage ?? 0) >= 2
                     ? lightBgColor
@@ -2137,7 +2137,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 7),
+            pw.SizedBox(height: 4.5),
 
             // 7. DIAGNOSES & TREATMENT FORMULARY
             _buildPdfSectionHeader(
@@ -2146,9 +2146,9 @@ class PdfReportService {
               date: visit?.treatmentDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.treatmentDate!) : null,
               dateLabel: 'Treatment Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: borderGray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -2180,7 +2180,7 @@ class PdfReportService {
                     pw.SizedBox(height: 2),
                     _buildPdfField(
                       'Ring Pessary Fitted',
-                      '${effectivePessaryType ?? "Ring Pessary"} (Size: $effectivePessarySize)',
+                      '${effectivePessaryType ?? "Ring Pessary"} (Size: ${ClinicalConstants.formatPessarySize(effectivePessarySize)})',
                       isBold: true,
                     ),
                   ],
@@ -2194,7 +2194,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 7),
+            pw.SizedBox(height: 4.5),
 
             // 8. DISCHARGE, SURGICAL REFERRAL & CONTINUITY OF CARE
             _buildPdfSectionHeader(
@@ -2203,9 +2203,9 @@ class PdfReportService {
               date: visit?.outtakeDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit!.outtakeDate!) : null,
               dateLabel: 'Outtake Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: borderGray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -2267,18 +2267,18 @@ class PdfReportService {
               ),
             ),
             if (allVisits != null && allVisits.isNotEmpty) ...[
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 6),
               _buildPdfSectionHeader(
                 '8. LONGITUDINAL CLINICAL ENCOUNTERS & FOLLOW-UP TIMELINE (${allVisits.length} RECORDED)',
                 primaryColor,
               ),
-              pw.SizedBox(height: 4),
+              pw.SizedBox(height: 2.5),
               ...allVisits.map((v) {
                 final isFollowUp = v.isFollowUp;
                 final dateFormatted = dateFormatter.format(v.visitDate);
                 return pw.Container(
-                  margin: const pw.EdgeInsets.only(bottom: 5),
-                  padding: const pw.EdgeInsets.all(6),
+                  margin: const pw.EdgeInsets.only(bottom: 3.5),
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                   decoration: pw.BoxDecoration(
                     color: isFollowUp
                         ? PdfColor.fromHex('F8FAFC')
@@ -2339,7 +2339,7 @@ class PdfReportService {
                               v.pessarySize!.isNotEmpty)
                             pw.Text(
                               sanitizeText(
-                                'Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.pessarySize}',
+                                'Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.formattedPessarySize}',
                               ),
                               style: pw.TextStyle(
                                 fontSize: 8.5,
@@ -2368,11 +2368,11 @@ class PdfReportService {
                           ),
                         ),
                       ],
-                      if (v.medications.isNotEmpty) ...[
+                      if (v.uniqueAllMedications.isNotEmpty) ...[
                         pw.SizedBox(height: 1.5),
                         pw.Text(
                           sanitizeText(
-                            'Medications: ${v.medications.join(", ")}',
+                            'Medications: ${v.uniqueAllMedications.join(", ")}',
                           ),
                           style: const pw.TextStyle(
                             fontSize: 7.5,
@@ -2399,7 +2399,7 @@ class PdfReportService {
                 );
               }),
             ],
-            pw.SizedBox(height: 14),
+            pw.SizedBox(height: 8),
 
             // 9. CRYPTOGRAPHIC VERIFICATION & PHYSICIAN ATTESTATION FOOTER
             pw.Row(
@@ -2510,7 +2510,7 @@ class PdfReportService {
 
   pw.Widget _buildPdfSectionHeader(String title, PdfColor color, {String? date, String? dateLabel}) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: pw.BoxDecoration(
         color: PdfColor.fromHex('F5F3FF'),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -2666,11 +2666,11 @@ class PdfReportService {
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           build: (ctx) => [
             // ── Header ───────────────────────────────────────────────────────
             pw.Container(
-              padding: const pw.EdgeInsets.all(10),
+              padding: const pw.EdgeInsets.all(7),
               decoration: pw.BoxDecoration(
                 color: encounterBg,
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
@@ -2684,7 +2684,7 @@ class PdfReportService {
                   if (logoImage != null)
                     pw.Padding(
                       padding: const pw.EdgeInsets.only(right: 10),
-                      child: pw.Image(logoImage, width: 48, height: 48),
+                      child: pw.Image(logoImage, width: 42, height: 42),
                     ),
                   pw.Expanded(
                     child: pw.Column(
@@ -2732,10 +2732,10 @@ class PdfReportService {
                       pw.BarcodeWidget(
                         barcode: pw.Barcode.qrCode(),
                         data: '${patient.patientId}|$visitDate',
-                        width: 62,
-                        height: 62,
+                        width: 44,
+                        height: 44,
                       ),
-                      pw.SizedBox(height: 3),
+                      pw.SizedBox(height: 2),
                       pw.Text(
                         'ENCOUNTER-${patient.patientId}',
                         style: pw.TextStyle(
@@ -2756,7 +2756,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 8),
+            pw.SizedBox(height: 5),
 
             // ── Patient Demographics ─────────────────────────────────────────
             _buildPdfSectionHeader(
@@ -2765,9 +2765,9 @@ class PdfReportService {
               date: NepaliLocalizationService.formatDualCalendarDate(patient.intakeDate),
               dateLabel: 'Intake Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: gray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -2870,7 +2870,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 7),
+            pw.SizedBox(height: 4.5),
 
             // ── Chief Complaints & Reasons to Visit ──────────────────────────
             _buildPdfSectionHeader(
@@ -2879,9 +2879,9 @@ class PdfReportService {
               date: visit.anamnesisDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.anamnesisDate!) : null,
               dateLabel: 'Anamnesis Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: gray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -2983,7 +2983,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 7),
+            pw.SizedBox(height: 4.5),
 
             // ── Obstetric History ────────────────────────────────────────────
             if (visit.deliveries != null ||
@@ -2999,9 +2999,9 @@ class PdfReportService {
                 date: visit.examDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.examDate!) : null,
                 dateLabel: 'Exam Date',
               ),
-              pw.SizedBox(height: 3),
+              pw.SizedBox(height: 2),
               pw.Container(
-                padding: const pw.EdgeInsets.all(7),
+                padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
                 decoration: pw.BoxDecoration(
                   border: pw.Border.all(color: gray, width: 0.8),
                   borderRadius: const pw.BorderRadius.all(
@@ -3090,7 +3090,7 @@ class PdfReportService {
                   ],
                 ),
               ),
-              pw.SizedBox(height: 7),
+              pw.SizedBox(height: 4.5),
             ],
 
             // ── Clinical Vitals ──────────────────────────────────────────────
@@ -3100,9 +3100,9 @@ class PdfReportService {
               date: visit.labTestDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.labTestDate!) : null,
               dateLabel: 'Lab Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: gray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -3188,7 +3188,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 7),
+            pw.SizedBox(height: 4.5),
 
             // ── POP Staging ──────────────────────────────────────────────────
             _buildPdfSectionHeader(
@@ -3197,9 +3197,9 @@ class PdfReportService {
               date: visit.conclusionDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.conclusionDate!) : null,
               dateLabel: 'Conclusion Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 color: visit.highestPopStage >= 2 ? lightBg : PdfColors.white,
                 border: pw.Border.all(
@@ -3241,7 +3241,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 7),
+            pw.SizedBox(height: 4.5),
 
             // ── Diagnoses & Treatment ────────────────────────────────────────
             _buildPdfSectionHeader(
@@ -3250,9 +3250,9 @@ class PdfReportService {
               date: visit.treatmentDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.treatmentDate!) : null,
               dateLabel: 'Treatment Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: gray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -3290,7 +3290,7 @@ class PdfReportService {
                     pw.SizedBox(height: 2),
                     _buildPdfField(
                       'Ring Pessary',
-                      '${sanitizeText(visit.pessaryType!)} (${visit.pessarySize ?? "Standard"} mm)',
+                      '${sanitizeText(visit.pessaryType!)} (${ClinicalConstants.formatPessarySize(visit.pessarySize)})',
                       isBold: true,
                     ),
                   ],
@@ -3312,7 +3312,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 7),
+            pw.SizedBox(height: 4.5),
 
             // ── Continuity of Care ────────────────────────────────────────────
             _buildPdfSectionHeader(
@@ -3321,9 +3321,9 @@ class PdfReportService {
               date: visit.outtakeDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.outtakeDate!) : null,
               dateLabel: 'Outtake Date',
             ),
-            pw.SizedBox(height: 3),
+            pw.SizedBox(height: 2),
             pw.Container(
-              padding: const pw.EdgeInsets.all(7),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: gray, width: 0.8),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -3385,7 +3385,7 @@ class PdfReportService {
                 ],
               ),
             ),
-            pw.SizedBox(height: 14),
+            pw.SizedBox(height: 7),
 
             // ── Attestation Footer ────────────────────────────────────────────
             pw.Row(
@@ -7321,7 +7321,11 @@ class PdfReportService {
                     alignment: pw.Alignment.bottomCenter,
                     padding: const pw.EdgeInsets.only(bottom: 1.0),
                     child: pw.Text(
-                      visit?.pessarySize ?? '',
+                      ClinicalConstants.formatPessarySize(
+                        visit?.pessarySize,
+                        includeUnit: false,
+                        fallback: '',
+                      ),
                       style: pw.TextStyle(fontSize: 8.2, color: primary),
                     ),
                   ),

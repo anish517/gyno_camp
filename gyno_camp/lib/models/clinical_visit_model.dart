@@ -210,6 +210,8 @@ class ClinicalVisitModel {
   List<String> get uniqueAllMedications =>
       ClinicalConstants.combineUniqueMedications(medications, customMedication);
 
+  String get formattedPessarySize => ClinicalConstants.formatPessarySize(pessarySize);
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

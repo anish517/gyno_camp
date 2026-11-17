@@ -760,11 +760,39 @@ void main() {
         deliveries: 6,
         livingChildren: 5,
         abortions: 1,
+        anamnesisComplaints: const {
+          'somethingHanging': {'duration': '> 5 years', 'remarks': 'after 5th delivery, heavy farm work'},
+          'urineProblems': {'duration': '> 1 year', 'subtype': 'stress', 'remarks': 'leaks on cough'},
+          'lowerBackPain': {'duration': '> 1 year', 'remarks': 'worse in evening'},
+        },
+        uterusInside: false,
+        pelvicFloorTone: 'weak',
         vaginaRemarks: 'atrophic, mild erosion',
+        cervixRemarks: 'descended to introitus',
+        uterusRemarks: 'descended, mobile',
+        popAnteriorStage: 2,
+        popMiddleStage: 3,
+        popPosteriorStage: 1,
         highestPopStage: 3,
-        diagnoses: const ['stress incontinence'],
+        systolicBp: 138,
+        diastolicBp: 86,
+        pulse: 78,
+        spo2: 97,
+        glucose: 112,
+        urineTest: 'normal',
+        pregnancyTest: 'neg',
+        ecgNotes: 'Normal Sinus',
+        diagnoses: const ['stress incontinence', 'weak pelvic floor muscle', 'Cystocele gr 2', 'uterine prolapse gr 3'],
         medications: const ['estradiol crème', 'Calcium + Vit D3'],
         customMedication: 'Calcium + Vit D3',
+        pessaryType: 'ring with support',
+        pessarySize: '70mm',
+        counseling: const ['weak pelvic floor', 'POP', 'stress incontinence'],
+        followUpNeeded: true,
+        followUpDestination: 'Health Post',
+        outtakeNotes: 'Ring pessary w/ support 70mm fitted, tolerated well. Kegel exercise taught. Review in 6 wks at Dhankuta Health Post.',
+        attendingDoctorNames: const ['Dr. A. Sharma|15432'],
+        attendingNurseNames: const ['S. Dahal|2487'],
         createdByUserId: 'u1',
         createdAt: DateTime(2026, 7, 26),
       );
@@ -772,6 +800,7 @@ void main() {
       final dossierBytes = await pdfService.generateIndividualPatientPdf(
         patient: patient,
         visit: visit,
+        allVisits: [visit],
         camp: camp,
       );
       final slipBytes = await pdfService.generateFollowUpEncounterSlipPdf(
@@ -779,6 +808,9 @@ void main() {
         visit: visit,
         camp: camp,
       );
+
+      expect(RegExp(r'/Type\s*/Page\b').allMatches(latin1.decode(dossierBytes)).length, equals(1));
+      expect(RegExp(r'/Type\s*/Page\b').allMatches(latin1.decode(slipBytes)).length, equals(1));
 
       for (final pdfText in [decodePdfText(dossierBytes), decodePdfText(slipBytes)]) {
         expect(pdfText, contains('Visit Date (Treatment Date): 2083-04-15 BS'));
@@ -791,13 +823,18 @@ void main() {
         expect(pdfText, contains('Outtake Date: 2083-04-16 BS'));
         expect(pdfText, contains('Prescribed Medications'));
         expect(pdfText, contains('Other Medications'));
-        expect('Calcium + Vit D3'.allMatches(pdfText).length, equals(1));
+        expect(pdfText, contains('70mm'));
+        expect(pdfText, isNot(contains('70mm mm')));
+        expect(pdfText, isNot(contains('mm mm')));
+        expect('Calcium + Vit D3'.allMatches(pdfText).length, greaterThanOrEqualTo(1));
         expect(pdfText, isNot(contains('Prescribed Formulary')));
         expect(pdfText, isNot(contains('Special Prescriptions')));
         expect(pdfText, isNot(contains('Other Prescriptions')));
         expect(pdfText, isNot(contains('Rx:')));
         expect(pdfText, isNot(contains('2083-04-01 BS')));
       }
+      // Single-visit Encounter Slip has no Section 8, so Calcium + Vit D3 appears strictly once.
+      expect('Calcium + Vit D3'.allMatches(decodePdfText(slipBytes)).length, equals(1));
     });
   });
 }

@@ -145,7 +145,7 @@ class PatientModel {
   List<String> get treatments {
     final list = ClinicalConstants.combineUniqueMedications(medications, customMedication);
     if (pessarySize != null && pessarySize!.trim().isNotEmpty) {
-      list.add('Pessary: ${pessaryType ?? "Ring"} $pessarySize');
+      list.add('Pessary: ${pessaryType ?? "Ring"} ${ClinicalConstants.formatPessarySize(pessarySize)}');
     } else if (pessaryType != null && pessaryType!.trim().isNotEmpty) {
       list.add('Pessary: $pessaryType');
     }

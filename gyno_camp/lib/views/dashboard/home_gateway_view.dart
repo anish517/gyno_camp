@@ -9036,16 +9036,16 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
                         const SizedBox(height: 10),
 
                         _buildInfoGrid([
-                          {'label': 'Pessary Fitted', 'val': v?.pessaryType != null ? '${v!.pessaryType} (${v.pessarySize ?? ""})' : 'None'},
+                          {'label': 'Pessary Fitted', 'val': v?.pessaryType != null ? '${v!.pessaryType} (${v.pessarySize?.trim().isNotEmpty == true ? v.formattedPessarySize : ""})' : 'None'},
                           {'label': 'Surgical Referral', 'val': v?.surgicalReferral ?? 'None'},
                           {'label': 'Follow-Up', 'val': v?.followUpDestination ?? 'Health Post'},
                         ]),
 
-                        if (v != null && v.medications.isNotEmpty) ...[
+                        if (v != null && v.uniqueAllMedications.isNotEmpty) ...[
                           const SizedBox(height: 10),
                           const Text('Dispensed Medications:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
                           const SizedBox(height: 4),
-                          ...v.medications.map((m) => Text('• $m', style: const TextStyle(fontSize: 12, color: Color(0xFF475569)))),
+                          ...v.uniqueAllMedications.map((m) => Text('• $m', style: const TextStyle(fontSize: 12, color: Color(0xFF475569)))),
                         ],
                       ],
                     ),

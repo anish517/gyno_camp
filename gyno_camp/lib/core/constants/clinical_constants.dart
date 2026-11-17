@@ -319,5 +319,21 @@ class ClinicalConstants {
     }
     return result;
   }
+
+  /// Formats a ring pessary size consistently without duplicate `'mm'` suffixes.
+  static String formatPessarySize(
+    String? rawSize, {
+    bool includeUnit = true,
+    String fallback = 'Standard',
+  }) {
+    final clean = rawSize?.trim() ?? '';
+    if (clean.isEmpty) return fallback;
+    final match = RegExp(r'^(\d+(?:\.\d+)?)\s*(?:mm)?$', caseSensitive: false).firstMatch(clean);
+    if (match != null) {
+      final numPart = match.group(1)!;
+      return includeUnit ? '${numPart}mm' : numPart;
+    }
+    return clean;
+  }
 }
 

@@ -5165,7 +5165,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  '• Ring Pessary: ${visit.pessaryType} (Size: ${visit.pessarySize ?? "Standard"})',
+                  '• Ring Pessary: ${visit.pessaryType} (Size: ${visit.formattedPessarySize})',
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               ),

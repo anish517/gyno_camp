@@ -960,7 +960,7 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                     runSpacing: 5,
                     children: [
                       if (v.pessarySize?.isNotEmpty == true)
-                        _tb('Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.pessarySize}', AppTheme.primaryTeal),
+                        _tb('Pessary: ${v.pessaryType ?? "Ring"} Sz ${v.formattedPessarySize}', AppTheme.primaryTeal),
                       if (v.surgeryDone)
                         _tb('Surgery: ${v.surgeryType ?? "Done"}', AppTheme.successGreen),
                       if (v.surgicalReferral?.isNotEmpty == true)

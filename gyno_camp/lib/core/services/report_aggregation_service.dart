@@ -149,8 +149,9 @@ class ReportAggregationService {
 
       // Pessaries
       if (v.pessaryType != null && v.pessaryType!.trim().isNotEmpty) {
-        final label = v.pessarySize != null && v.pessarySize!.trim().isNotEmpty
-            ? '${v.pessaryType!.trim()} (${v.pessarySize!.trim()})'
+        final hasSize = v.pessarySize != null && v.pessarySize!.trim().isNotEmpty;
+        final label = hasSize
+            ? '${v.pessaryType!.trim()} (${v.formattedPessarySize})'
             : v.pessaryType!.trim();
         pessaryCounts[label] = (pessaryCounts[label] ?? 0) + 1;
         totalPessaries++;

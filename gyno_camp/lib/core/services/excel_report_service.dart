@@ -283,7 +283,7 @@ class ExcelReportService {
 
       final pessaryStr = v?.pessaryType != null && v!.pessaryType!.trim().isNotEmpty
           ? (v.pessarySize != null && v.pessarySize!.trim().isNotEmpty
-              ? '${v.pessaryType!.trim()} (${v.pessarySize!.trim()})'
+              ? '${v.pessaryType!.trim()} (${v.formattedPessarySize})'
               : v.pessaryType!.trim())
           : 'None';
 
