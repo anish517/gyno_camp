@@ -261,10 +261,9 @@ CRITICAL RULES:
     - Look carefully at the second box in the month pair [0][X].
     - In handwritten Nepali dates, digit '7' has a distinct horizontal top bar extending across to the right before descending down at an angle. If there is a horizontal top stroke spanning across the box, it is digit '7' (Month 07 = Kartik / कार्तिक, the primary autumn camp season), NEVER '1'!
     - Digit '1' is a single vertical or slightly slanted stroke without a horizontal top bar.
-  * CROSS-STATION ENCOUNTER CONSISTENCY:
-    - On a single patient Yellow Form encounter, all stations occur on the SAME camp date!
-    - Page 1 "Date / मिति" (intakeDate) and Page 2 dates ("Examination Date", "Lab test Date", "Conclusion Date", "Treatment Date", "Outtake Date") share the exact same date (e.g. 2083-07-06).
-    - If multiple station dates agree on a month (e.g., month 07), ensure all station dates reflect this confirmed month.
+  * STATION DATES & MONTH CONSISTENCY:
+    - Read each section's segmented [YYYY] - [MM] - [DD] BS boxes independently — do NOT copy Page 1 "Date / मिति" (intakeDate) into Station 1 "Anamnesis Date:" (anamnesisDate) or Page 2 dates when different days are written (e.g. 2083-07-19 vs 2083-07-20).
+    - Apply the 01 vs 07 month stroke check consistently across Page 1 ("Date / मिति" -> intakeDate, "Anamnesis Date:" -> anamnesisDate) and Page 2 ("Examination Date" -> examDate, "Lab test Date" -> labTestDate, "Conclusion Date" -> conclusionDate, "Treatment Date" -> treatmentDate, "Outtake Date" -> outtakeDate) when stations share the same month.
 
 FORM STRUCTURE BY PAGE:
 
@@ -303,6 +302,7 @@ PAGE 1 (FRONT) — PATIENT REGISTRATION & ANAMNESIS:
      - "Consent for Treatment / उपचारको लागि सहमति:" [ ] YES [ ] NO -> consentTreatment: bool
      - "Consent for Storage / स्वास्थ्य विवरण सहमति:" [ ] YES [ ] NO -> consentStoreMedicalInfo: bool
 4. Station 1: Anamnesis & Obstetric History / पहिलो स्टेशन: विगत तथा प्रसूति विवरण (ON PAGE 1 FRONT):
+   - "Anamnesis Date:" -> anamnesisDate (format YYYY-MM-DD from boxes [YYYY]-[MM]-[DD] BS at the top of Station 1 on Page 1, e.g. 2083-07-20; read its own boxes independently from Page 1 header Date)
    - "NR deliveries:" [ ] (deliveries)
    - "NR living children:" [ ] (livingChildren)
    - "NR abortion:" [ ] (abortions)
@@ -375,6 +375,7 @@ Extract the information accurately into this EXACT JSON structure:
   "pageNumber": ${pageNumber == 0 ? '1 or 2' : pageNumber},
   "treatmentLevel": "counseling or gyno_checkup or null (from Level of Treatment checkbox on Page 1)",
   "intakeDate": "Date from Page 1 header in YYYY-MM-DD format or null",
+  "anamnesisDate": "Anamnesis Date from Station 1 on Page 1 in YYYY-MM-DD format or null",
   "examDate": "Examination Date from Page 2 header in YYYY-MM-DD format or null",
   "labTestDate": "Lab/Station 3 date in YYYY-MM-DD format or null",
   "conclusionDate": "Conclusion/Station 4 date in YYYY-MM-DD format or null",

@@ -2382,9 +2382,13 @@ class OcrFormService {
     }
 
     // ── Station Dates (Page 1 Intake, Station 2 Exam, Station 3 Labs, Station 4 Conclusion, Station 5 Treatment, Station 6 Outtake) ──
-    String? extractDateForLabel(List<String> labels) {
+    String? extractDateForLabel(
+      List<String> labels, {
+      List<String> excludeSubstrings = const [],
+    }) {
       for (final line in lines) {
         final low = line.toLowerCase();
+        if (excludeSubstrings.any((ex) => low.contains(ex))) continue;
         for (final l in labels) {
           final lLow = l.toLowerCase();
           final idx = low.indexOf(lLow);
@@ -2398,8 +2402,30 @@ class OcrFormService {
       return null;
     }
 
+    const stationDatePrefixes = [
+      'anamnesis date',
+      'examination date',
+      'exam date',
+      'lab test date',
+      'conclusion date',
+      'treatment date',
+      'outtake date',
+      'विगत मिति',
+      'जाँच मिति',
+      'प्रयोगशाला मिति',
+      'निष्कर्ष मिति',
+      'निदान मिति',
+      'उपचार मिति',
+      'डिस्चार्ज मिति',
+    ];
     final rawAnamnesisDate = extractDateForLabel(['anamnesis date:', 'anamnesis date', 'विगत मिति']);
-    final parsedIntakeDate = extractDateForLabel(['intake date:', 'intake date', 'registration date:', 'registration date', 'दर्ता मिति:', 'दर्ता मिति', 'date:', 'date', 'मिति:', 'मिति']) ??
+    final parsedIntakeDate = extractDateForLabel(
+          ['intake date:', 'intake date', 'registration date:', 'registration date', 'दर्ता मिति:', 'दर्ता मिति'],
+        ) ??
+        extractDateForLabel(
+          ['date:', 'date', 'मिति:', 'मिति'],
+          excludeSubstrings: stationDatePrefixes,
+        ) ??
         _extractDynamicDate(text);
     final effectiveIntake = parsedIntakeDate?.trim() ?? rawAnamnesisDate?.trim();
     final effectiveAnamnesis = rawAnamnesisDate?.trim() ?? parsedIntakeDate?.trim();

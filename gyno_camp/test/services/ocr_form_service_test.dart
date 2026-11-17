@@ -318,6 +318,31 @@ ECG Notes: ST elevation in V1-V3, sinus tachycardia
       expect(res.vitals['ecg'], equals('Abnormal'));
       expect(res.vitals['ecgNotes'], contains('ST elevation'));
     });
+
+    test('Distinguishes Page 1 header Date from Station 1 Anamnesis Date without substring collision', () {
+      const page1WithDistinctDates = '''
+Date: / मिति: 2 0 8 3 - 0 7 - 1 9 BS
+First Name: PABITRA
+Surname: MAGAR
+STATION 1: ANAMNESIS & OBSTETRIC HISTORY
+Anamnesis Date: 2 0 8 3 - 0 7 - 2 0 BS NR deliveries: 2
+''';
+      final res = service.parseFormText(page1WithDistinctDates, pageNumber: 1);
+      expect(res.intakeDate, '2083-07-19');
+      expect(res.anamnesisDate, '2083-07-20');
+      expect(res.effectiveAnamnesisDate, '2083-07-20');
+
+      const page1SplitHeaderLine = '''
+Date: / मिति:
+2 0 8 3 - 0 7 - 1 9 BS
+First Name: PABITRA
+STATION 1: ANAMNESIS & OBSTETRIC HISTORY
+Anamnesis Date: 2 0 8 3 - 0 7 - 2 0 BS
+''';
+      final resSplit = service.parseFormText(page1SplitHeaderLine, pageNumber: 1);
+      expect(resSplit.intakeDate, '2083-07-19');
+      expect(resSplit.anamnesisDate, '2083-07-20');
+    });
   });
 }
 

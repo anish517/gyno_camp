@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:gyno_camp/core/constants/app_constants.dart';
 import 'package:gyno_camp/core/services/gemini_ocr_service.dart';
+import 'package:gyno_camp/models/ocr_scan_result_model.dart';
 import 'package:gyno_camp/repositories/audit_repository.dart';
 import 'package:gyno_camp/repositories/ocr_repository.dart';
 import 'package:gyno_camp/repositories/patient_repository.dart';
@@ -219,6 +220,92 @@ void main() {
       expect(result.followUpDestination, 'GynaeSupport Nurse in 2 weeks');
       expect(result.overallConfidence, greaterThanOrEqualTo(0.90));
       expect(result.rawText, contains('GEMINI FLASH CLOUD OCR'));
+    });
+
+    test('preserves distinct intakeDate and anamnesisDate across single-page and merged scans', () async {
+      final sampleBytes = File('test_samples/sample_yellow_form_filled_page1.jpg').readAsBytesSync();
+      final p1Service = buildService(MockClient((_) async => proxyOk({
+        'pageNumber': 1,
+        'intakeDate': '2083-07-19',
+        'anamnesisDate': '2083-07-20',
+        'demographics': {'firstName': 'PABITRA', 'surname': 'MAGAR'},
+        'obstetrics': {'deliveries': 2, 'livingChildren': 2, 'abortions': 0},
+      })));
+      final p2Service = buildService(MockClient((_) async => proxyOk({
+        'pageNumber': 2,
+        'examDate': '2083-07-21',
+        'labTestDate': '2083-07-22',
+        'conclusionDate': '2083-07-23',
+        'treatmentDate': '2083-07-24',
+        'outtakeDate': '2083-07-25',
+      })));
+
+      final p1 = await p1Service.extractFromBytes(sampleBytes, pageNumber: 1);
+      final p2 = await p2Service.extractFromBytes(sampleBytes, pageNumber: 2);
+      expect(p1.intakeDate, '2083-07-19');
+      expect(p1.anamnesisDate, '2083-07-20');
+      expect(p1.effectiveAnamnesisDate, '2083-07-20');
+      expect(p1.demographics['anamnesisDate'], '2083-07-20');
+      expect(p1.rawText, contains('Anamnesis Date: 2083-07-20 BS'));
+
+      final merged = OcrScanResultModel.merge(p1, p2);
+      expect(merged.intakeDate, '2083-07-19');
+      expect(merged.anamnesisDate, '2083-07-20');
+      expect(merged.effectiveAnamnesisDate, '2083-07-20');
+      expect(merged.demographics['anamnesisDate'], '2083-07-20');
+      expect(merged.examDate, '2083-07-21');
+      expect(merged.labTestDate, '2083-07-22');
+      expect(merged.conclusionDate, '2083-07-23');
+      expect(merged.treatmentDate, '2083-07-24');
+      expect(merged.outtakeDate, '2083-07-25');
+    });
+
+    test('reads anamnesisDate nested inside obstetrics and falls back to harmonized intake on blank anamnesis', () async {
+      final sampleBytes = File('test_samples/sample_yellow_form_filled_page1.jpg').readAsBytesSync();
+      final nestedService = buildService(MockClient((_) async => proxyOk({
+        'pageNumber': 1,
+        'intakeDate': '2083-07-19',
+        'obstetrics': {'anamnesisDate': '2083-07-20'},
+      })));
+      final nested = await nestedService.extractFromBytes(sampleBytes, pageNumber: 1);
+      expect(nested.intakeDate, '2083-07-19');
+      expect(nested.anamnesisDate, '2083-07-20');
+
+      final p1MisreadMonthNoAnamnesis = OcrScanResultModel(
+        pageNumber: 1,
+        demographics: const {'intakeDate': '2083-01-19'},
+        obstetrics: const {},
+        vitals: const {},
+        popStaging: const {},
+        diagnoses: const [],
+        medications: const [],
+        intakeDate: '2083-01-19',
+        anamnesisDate: null,
+        fieldConfidences: const {},
+        overallConfidence: 0.9,
+        rawText: '',
+        scannedAt: DateTime(2026, 11, 17),
+      );
+      final p2ConfirmedKartik = OcrScanResultModel(
+        pageNumber: 2,
+        demographics: const {},
+        obstetrics: const {},
+        vitals: const {},
+        popStaging: const {},
+        diagnoses: const [],
+        medications: const [],
+        examDate: '2083-07-19',
+        labTestDate: '2083-07-19',
+        conclusionDate: '2083-07-19',
+        fieldConfidences: const {},
+        overallConfidence: 0.9,
+        rawText: '',
+        scannedAt: DateTime(2026, 11, 17),
+      );
+      final mergedFallback = OcrScanResultModel.merge(p1MisreadMonthNoAnamnesis, p2ConfirmedKartik);
+      expect(mergedFallback.intakeDate, '2083-07-19');
+      expect(mergedFallback.anamnesisDate, '2083-07-19');
+      expect(mergedFallback.demographics['anamnesisDate'], '2083-07-19');
     });
 
     test('throws GeminiOcrException with server message on HTTP error status', () async {

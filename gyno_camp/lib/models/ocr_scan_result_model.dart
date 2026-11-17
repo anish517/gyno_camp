@@ -290,6 +290,18 @@ ${page2.rawText}
       mergedDemographics['intakeDate'] = harmonizedIntake;
       mergedDemographics['date'] = harmonizedIntake;
     }
+    String? nonEmptyStr(dynamic v) {
+      final s = v?.toString().trim();
+      return (s != null && s.isNotEmpty) ? s : null;
+    }
+    final resolvedAnamnesis = nonEmptyStr(page1.anamnesisDate) ??
+        nonEmptyStr(page1.demographics['anamnesisDate']) ??
+        nonEmptyStr(page2.anamnesisDate) ??
+        nonEmptyStr(page2.demographics['anamnesisDate']) ??
+        harmonizedIntake;
+    if (resolvedAnamnesis != null) {
+      mergedDemographics['anamnesisDate'] = resolvedAnamnesis;
+    }
 
     return OcrScanResultModel(
       pageNumber: 0, // 0 = Full Combined Intake
@@ -348,7 +360,7 @@ ${page2.rawText}
           : (page2.treatmentLevel ?? page1.treatmentLevel)),
       clinicalNotes: page2.clinicalNotes ?? page1.clinicalNotes,
       intakeDate: harmonizedIntake,
-      anamnesisDate: page1.effectiveAnamnesisDate ?? page1.anamnesisDate ?? page1.intakeDate ?? page2.anamnesisDate ?? harmonizedIntake,
+      anamnesisDate: resolvedAnamnesis,
       examDate: page2.examDate ?? page1.examDate,
       treatmentDate: page2.treatmentDate ?? page1.treatmentDate,
       conclusionDate: page2.conclusionDate ?? page1.conclusionDate,

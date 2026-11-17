@@ -207,5 +207,15 @@ void main() {
       expect(proxy.buildPrompt(1), contains('Target Page: Page 1'));
       expect(proxy.buildPrompt(1), contains('"pageNumber": 1,'));
     });
+
+    test('prompt explicitly extracts Anamnesis Date independently from Intake Date', () {
+      final proxy = _proxy(MockClient((_) async => _geminiOk('{}')));
+      for (final page in [0, 1]) {
+        final prompt = proxy.buildPrompt(page);
+        expect(prompt, contains('"Anamnesis Date:" -> anamnesisDate'));
+        expect(prompt, contains('"anamnesisDate":'));
+        expect(prompt, contains('do NOT copy Page 1 "Date / मिति" (intakeDate) into Station 1 "Anamnesis Date:"'));
+      }
+    });
   });
 }

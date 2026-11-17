@@ -705,27 +705,21 @@ class GeminiOcrService {
       buffer.writeln('\n--- DETECTED TEXT SUMMARY ---\n$rawSummary');
     }
 
-    // Extract station dates from Gemini response (checking both top-level and demographics keys)
+    // Extract station dates from Gemini response (checking both top-level and section maps)
     String? intakeDate = _extractDate(
       parsedData['intakeDate'] ??
           rawDemo['intakeDate'] ??
           parsedData['date'] ??
           rawDemo['date'] ??
           parsedData['registrationDate'] ??
-          rawDemo['registrationDate'] ??
-          parsedData['anamnesisDate'] ??
-          rawDemo['anamnesisDate'],
+          rawDemo['registrationDate'],
     );
     String? anamnesisDate = _extractDate(
       parsedData['anamnesisDate'] ??
-          rawDemo['anamnesisDate'] ??
-          parsedData['intakeDate'] ??
-          rawDemo['intakeDate'] ??
-          parsedData['date'] ??
-          rawDemo['date'],
+          rawObs['anamnesisDate'] ??
+          rawDemo['anamnesisDate'],
     );
     intakeDate ??= anamnesisDate;
-    anamnesisDate ??= intakeDate;
     String? examDate = _extractDate(parsedData['examDate'] ?? rawPop['examDate']);
     String? labTestDate = _extractDate(parsedData['labTestDate'] ?? rawVitals['labTestDate']);
     String? conclusionDate = _extractDate(parsedData['conclusionDate']);
@@ -744,6 +738,9 @@ class GeminiOcrService {
       }
       final dominant = counts.entries.reduce((a, b) => a.value > b.value ? a : b).key;
       if ((counts[dominant] ?? 0) >= 2) {
+        if (anamnesisDate != null && _differsOnlyByMonth01vs07(anamnesisDate, dominant)) {
+          anamnesisDate = dominant;
+        }
         examDate = (examDate == null || _differsOnlyByMonth01vs07(examDate, dominant)) ? dominant : examDate;
         labTestDate = (labTestDate == null || _differsOnlyByMonth01vs07(labTestDate, dominant)) ? dominant : labTestDate;
         conclusionDate = (conclusionDate == null || _differsOnlyByMonth01vs07(conclusionDate, dominant)) ? dominant : conclusionDate;
@@ -761,6 +758,7 @@ class GeminiOcrService {
     }
     if (anamnesisDate != null && anamnesisDate.isNotEmpty) {
       demographics['anamnesisDate'] = anamnesisDate;
+      buffer.writeln('Anamnesis Date: $anamnesisDate BS');
     }
 
     // Extract clinical notes from Station 6
