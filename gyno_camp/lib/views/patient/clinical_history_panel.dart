@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 import '../../core/services/file_download_helper.dart';
+import '../../core/services/nepali_localization_service.dart';
 import '../../core/services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
@@ -256,9 +257,12 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                   children: [
                     const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
                     const SizedBox(width: 2),
-                    Text(
-                      '${p.district.isNotEmpty ? p.district : "District N/A"}, Ward ${p.ward}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                    Flexible(
+                      child: Text(
+                        '${p.district.isNotEmpty ? p.district : "District N/A"}, Ward ${p.ward}',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -268,9 +272,12 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                   children: [
                     const Icon(Icons.cake_outlined, size: 12, color: Color(0xFF64748B)),
                     const SizedBox(width: 2),
-                    Text(
-                      'Age ${p.age}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                    Flexible(
+                      child: Text(
+                        'Age ${p.age}',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -417,6 +424,11 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
         decoration: BoxDecoration(color: AppTheme.primaryTeal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
         child: Text(p.patientId, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal)))),
       const SizedBox(height: 12), const Divider(color: Color(0xFFE2E8F0)), const SizedBox(height: 6),
+      _infoRow(
+        Icons.event_available_rounded,
+        'Intake Date',
+        NepaliLocalizationService.formatDualCalendarDate(p.intakeDate),
+      ),
       _infoRow(Icons.cake_rounded, 'Age', '${p.age} yrs'),
       _infoRow(Icons.favorite_rounded, 'Marital', p.maritalStatus),
       _infoRow(Icons.location_on_rounded, 'Address', 'Ward ${p.ward}, ${p.municipality}'),
@@ -442,7 +454,12 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
       const SizedBox(height: 10), const Divider(color: Color(0xFFE2E8F0)), const SizedBox(height: 6),
       Row(
         children: [
-          const Text('Obstetric History (प्रसूति विवरण)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+          const Flexible(
+            child: Text(
+              'Obstetric History (प्रसूति विवरण)',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+            ),
+          ),
           const SizedBox(width: 4),
           Tooltip(
             message: 'P: Parity/Deliveries (सुत्केरी संख्या)\nL: Living Children (जीवित सन्तान)\nA: Abortions/Losses (गर्भपतन)',
@@ -493,7 +510,24 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
           _statBadge('${visits.length}', 'Visits'),
           _statBadge('${visits.where((v) => v.isFollowUp).length}', 'FU'),
-          if (visits.isNotEmpty) _statBadge(sd.format(visits.first.visitDate), '1st'),
+          if (visits.isNotEmpty)
+            Flexible(
+              child: () {
+                final firstVisit = visits.first;
+                final src = firstVisit.visitDateSourceLabel(intakeDate: p.intakeDate);
+                final shortSrc = src?.replaceFirst(' Date', '');
+                final label = shortSrc != null
+                    ? '1st Visit ($shortSrc)\n${sd.format(firstVisit.visitDate)}'
+                    : '1st Visit\n${sd.format(firstVisit.visitDate)}';
+                return Tooltip(
+                  message: '${src ?? 'Visit Date'}: ${NepaliLocalizationService.formatDualCalendarDate(firstVisit.visitDate)}',
+                  child: _statBadge(
+                    NepaliLocalizationService.formatBsDateOnly(firstVisit.visitDate),
+                    label,
+                  ),
+                );
+              }(),
+            ),
         ])),
     ])),
   );
@@ -572,7 +606,14 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                         isF ? 'Follow-Up Visit #$i' : 'Primary Camp Examination (Initial)',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: ac),
                       ),
-                      Text(fmt.format(v.visitDate), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      () {
+                        final visitSource = v.visitDateSourceLabel(intakeDate: _patient.intakeDate);
+                        final datePrefix = visitSource != null ? 'Visit Date ($visitSource)' : 'Visit Date';
+                        return Text(
+                          '$datePrefix: ${NepaliLocalizationService.formatDualCalendarDate(v.visitDate)}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
+                        );
+                      }(),
                     ],
                   ),
                 ),
@@ -687,6 +728,40 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (v.recordedStationDates.isNotEmpty) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Station Dates (BS / AD):',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                        ),
+                        const SizedBox(height: 5),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: v.recordedStationDates
+                              .map(
+                                (entry) => _pb(
+                                  entry.label,
+                                  NepaliLocalizationService.formatDualCalendarDate(entry.date),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 // 1. Obstetric History & Pelvic Floor Exam (Station 2)
                 if (v.deliveries != null || v.livingChildren != null || v.abortions != null || v.vulvaRemarks != null || v.cervixRemarks != null || v.vaginaRemarks != null || v.uterusRemarks != null || !v.uterusInside) ...[
                   Container(
@@ -1103,8 +1178,8 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
   ]);
 
   Widget _statBadge(String val, String lbl) => Column(children: [
-    Text(val, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal)),
-    Text(lbl, style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
+    Text(val, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal)),
+    Text(lbl, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
   ]);
 
   Widget _vc(String lbl, String val) => RichText(text: TextSpan(style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)), children: [

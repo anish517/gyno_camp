@@ -780,6 +780,7 @@ void main() {
       );
 
       for (final pdfText in [decodePdfText(dossierBytes), decodePdfText(slipBytes)]) {
+        expect(pdfText, contains('Visit Date (Treatment Date): 2083-04-15 BS'));
         expect(pdfText, contains('Intake Date: 2083-04-10 BS'));
         expect(pdfText, contains('Anamnesis Date: 2083-04-11 BS'));
         expect(pdfText, contains('Exam Date: 2083-04-12 BS'));

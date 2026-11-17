@@ -164,6 +164,43 @@ class ClinicalVisitModel {
   String get consultationLabel => isCounseling ? 'Counseling' : (isGynocheckup ? 'Gynocheckup' : 'Unassigned');
   String get treatmentLabel => consultationLabel;
 
+  /// Returns the station/stage name matching [visitDate] (e.g. 'Treatment Date',
+  /// 'Conclusion Date', 'Follow-Up Date'), or null if [visitDate] is custom.
+  String? visitDateSourceLabel({DateTime? intakeDate}) {
+    bool sameDay(DateTime a, DateTime b) {
+      final na = NepaliDateHelper.normalizeNepalCalendarDate(a);
+      final nb = NepaliDateHelper.normalizeNepalCalendarDate(b);
+      return na.year == nb.year && na.month == nb.month && na.day == nb.day;
+    }
+
+    if (isFollowUp) return 'Follow-Up Date';
+    final candidates = <(String, DateTime?)>[
+      ('Treatment Date', treatmentDate),
+      ('Conclusion Date', conclusionDate),
+      ('Exam Date', examDate),
+      ('Lab Date', labTestDate),
+      ('Outtake Date', outtakeDate),
+      ('Anamnesis Date', anamnesisDate),
+      ('Intake Date', intakeDate),
+    ];
+    for (final (label, dt) in candidates) {
+      if (dt != null && sameDay(visitDate, dt)) {
+        return label;
+      }
+    }
+    return null;
+  }
+
+  /// Ordered list of all populated station dates on this visit.
+  List<({String label, DateTime date})> get recordedStationDates => [
+        if (anamnesisDate != null) (label: '1. Anamnesis', date: anamnesisDate!),
+        if (examDate != null) (label: '2. Exam', date: examDate!),
+        if (labTestDate != null) (label: '3. Lab Test', date: labTestDate!),
+        if (conclusionDate != null) (label: '4. Conclusion', date: conclusionDate!),
+        if (treatmentDate != null) (label: '5. Treatment', date: treatmentDate!),
+        if (outtakeDate != null) (label: '6. Outtake', date: outtakeDate!),
+      ];
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

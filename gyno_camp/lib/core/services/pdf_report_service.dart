@@ -1538,8 +1538,8 @@ class PdfReportService {
       final alertRed = PdfColor.fromHex('BE123C');
       final warningAmber = PdfColor.fromHex('B45309');
 
-      final visitDateFormatted = visit?.visitDate != null
-          ? 'Visit Date: ${NepaliLocalizationService.formatDualCalendarDate(visit!.visitDate)}'
+      final visitDateFormatted = visit != null
+          ? _formatVisitHeaderDate(visit, patient)
           : 'Intake Date: ${NepaliLocalizationService.formatDualCalendarDate(patient.intakeDate)}';
 
       // Interpret Blood Pressure
@@ -2503,6 +2503,12 @@ class PdfReportService {
     });
   }
 
+  String _formatVisitHeaderDate(ClinicalVisitModel visit, PatientModel patient) {
+    final src = visit.visitDateSourceLabel(intakeDate: patient.intakeDate);
+    final label = src != null ? 'Visit Date ($src)' : 'Visit Date';
+    return '$label: ${NepaliLocalizationService.formatDualCalendarDate(visit.visitDate)}';
+  }
+
   pw.Widget _buildPdfSectionHeader(String title, PdfColor color, {String? date, String? dateLabel}) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -2740,7 +2746,7 @@ class PdfReportService {
                         ),
                       ),
                       pw.Text(
-                        'Visit Date: ${NepaliLocalizationService.formatDualCalendarDate(visit.visitDate)}',
+                        _formatVisitHeaderDate(visit, patient),
                         style: const pw.TextStyle(
                           fontSize: 7,
                           color: PdfColors.grey600,
