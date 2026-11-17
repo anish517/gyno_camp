@@ -34,19 +34,48 @@ class NepaliDateHelper {
     'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'
   ];
 
+  /// Converts UTC timestamps to Nepal Standard Time (UTC+05:45) calendar wall-clock
+  /// components while leaving local calendar DateTimes unchanged.
+  static DateTime normalizeNepalCalendarDate(DateTime dt) {
+    final wall = dt.isUtc ? dt.add(const Duration(hours: 5, minutes: 45)) : dt;
+    return DateTime(
+      wall.year,
+      wall.month,
+      wall.day,
+      wall.hour,
+      wall.minute,
+      wall.second,
+      wall.millisecond,
+      wall.microsecond,
+    );
+  }
+
+  /// Parses stored ISO / PostgreSQL TIMESTAMPTZ calendar dates safely without
+  /// losing a day to UTC timezone offsets.
+  static DateTime? parseStoredCalendarDate(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is DateTime) return normalizeNepalCalendarDate(raw);
+    final str = raw.toString().trim();
+    if (str.isEmpty) return null;
+    final parsed = DateTime.tryParse(str);
+    if (parsed == null) return null;
+    return normalizeNepalCalendarDate(parsed);
+  }
+
   static NepaliDateTime toNepali(DateTime dt) {
-    final targetDate = DateTime(dt.year, dt.month, dt.day);
+    final wall = normalizeNepalCalendarDate(dt);
+    final targetDate = DateTime(wall.year, wall.month, wall.day);
     // Anchor at 12:00 Nepal Time (06:15 UTC) on the calendar date so device timezone
     // offsets never shift the calendar day.
     var np = DateTime.utc(
-      dt.year,
-      dt.month,
-      dt.day,
+      wall.year,
+      wall.month,
+      wall.day,
       6,
       15,
-      dt.second,
-      dt.millisecond,
-      dt.microsecond,
+      wall.second,
+      wall.millisecond,
+      wall.microsecond,
     ).toNepaliDateTime();
 
     // Guard against nepali_utils-3.0.8's Windows "Nepal Standard Time" (+05:45) +1 day
@@ -59,7 +88,7 @@ class NepaliDateHelper {
         .difference(DateTime.utc(roundTrip.year, roundTrip.month, roundTrip.day))
         .inDays;
     if (diffDays != 0) {
-      final adjusted = DateTime.utc(dt.year, dt.month, dt.day, 6, 15)
+      final adjusted = DateTime.utc(wall.year, wall.month, wall.day, 6, 15)
           .add(Duration(days: diffDays));
       np = adjusted.toNepaliDateTime();
     }
@@ -67,11 +96,11 @@ class NepaliDateHelper {
       np.year,
       np.month,
       np.day,
-      dt.hour,
-      dt.minute,
-      dt.second,
-      dt.millisecond,
-      dt.microsecond,
+      wall.hour,
+      wall.minute,
+      wall.second,
+      wall.millisecond,
+      wall.microsecond,
     );
   }
 

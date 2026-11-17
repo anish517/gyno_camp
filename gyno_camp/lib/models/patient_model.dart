@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../core/utils/nepali_date_helper.dart';
 import 'nurse_profile.dart';
 
 class PatientModel {
@@ -474,7 +475,7 @@ class PatientModel {
       patientId: map['patient_id'] as String,
       campId: map['camp_id'] as String,
       campCode: map['camp_code'] as String? ?? '',
-      intakeDate: DateTime.tryParse(map['intake_date'] as String? ?? '') ?? DateTime.now(),
+      intakeDate: NepaliDateHelper.parseStoredCalendarDate(map['intake_date']) ?? DateTime.now(),
       firstName: map['first_name'] as String,
       surname: map['surname'] as String,
       age: map['age'] as int,

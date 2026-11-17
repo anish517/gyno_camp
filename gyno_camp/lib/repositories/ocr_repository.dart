@@ -259,6 +259,88 @@ class OcrRepository implements IOcrRepository {
     return OcrScanResultModel.merge(scan1, scan2);
   }
 
+  /// Parses form/OCR BS (years 2070..2120) or AD date strings into Gregorian AD DateTimes.
+  /// Clamps out-of-range BS days against the actual month length instead of resetting to day 1.
+  @visibleForTesting
+  static DateTime? parseFormDateOrNull(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    var clean = raw.trim();
+    if (clean.toLowerCase() == 'null' || clean == '—' || clean == '-') return null;
+    const devanagari = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+    for (int i = 0; i < devanagari.length; i++) {
+      clean = clean.replaceAll(devanagari[i], i.toString());
+    }
+    clean = clean.replaceAll(RegExp(r'\s*(BS|AD)\b', caseSensitive: false), '').trim();
+
+    DateTime? bsToAdSafe(int year, int month, int day) {
+      final safeMonth = month.clamp(1, 12);
+      final maxDays = NepaliDateHelper.getDaysInBsMonth(year, safeMonth).clamp(1, 32);
+      for (int tryDay = day.clamp(1, maxDays); tryDay >= 1; tryDay--) {
+        try {
+          return NepaliDateHelper.toEnglish(NepaliDateTime(year, safeMonth, tryDay));
+        } catch (_) {}
+      }
+      return null;
+    }
+
+    try {
+      final parts = clean.split(RegExp(r'[-/.\s]+')).where((s) => s.isNotEmpty).toList();
+      if (parts.length == 3) {
+        final p0 = int.tryParse(parts[0]);
+        final p1 = int.tryParse(parts[1]);
+        final p2 = int.tryParse(parts[2]);
+        if (p0 != null && p1 != null && p2 != null) {
+          int y;
+          int m;
+          int d;
+          if (p0 >= 1900) {
+            y = p0;
+            m = p1;
+            d = p2;
+          } else if (p2 >= 1900) {
+            // DD-MM-YYYY or DD/MM/YYYY
+            d = p0;
+            m = p1;
+            y = p2;
+          } else if (p0 >= 75 && p0 <= 99) {
+            y = 2000 + p0;
+            m = p1;
+            d = p2;
+          } else if (p2 >= 75 && p2 <= 99) {
+            d = p0;
+            m = p1;
+            y = 2000 + p2;
+          } else {
+            y = p0;
+            m = p1;
+            d = p2;
+          }
+          if (m > 12 && d <= 12) {
+            final tmp = m;
+            m = d;
+            d = tmp;
+          }
+          m = m.clamp(1, 12);
+          if (y >= 2070 && y <= 2120) {
+            return bsToAdSafe(y, m, d);
+          } else if (y >= 1900 && y < 2070) {
+            return DateTime(y, m, d.clamp(1, 31));
+          }
+        }
+      }
+      final iso = DateTime.tryParse(clean);
+      if (iso != null) {
+        if (iso.year >= 2070 && iso.year <= 2120) {
+          return bsToAdSafe(iso.year, iso.month, iso.day) ?? iso;
+        }
+        return iso;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Future<PatientModel> commitVerifiedScan({
     required OcrScanResultModel verifiedScan,
@@ -281,81 +363,7 @@ class OcrRepository implements IOcrRepository {
     // 1. Construct Patient Model
     final rawToken = (demo['patientId'] as String? ?? demo['patientTokenId'] as String? ?? '').trim();
 
-    DateTime? parseDateOrNull(String? raw) {
-      if (raw == null || raw.trim().isEmpty) return null;
-      var clean = raw.trim();
-      if (clean.toLowerCase() == 'null' || clean == '—' || clean == '-') return null;
-      const devanagari = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
-      for (int i = 0; i < devanagari.length; i++) {
-        clean = clean.replaceAll(devanagari[i], i.toString());
-      }
-      clean = clean.replaceAll(RegExp(r'\s*(BS|AD)\b', caseSensitive: false), '').trim();
-      try {
-        final parts = clean.split(RegExp(r'[-/.\s]+')).where((s) => s.isNotEmpty).toList();
-        if (parts.length == 3) {
-          final p0 = int.tryParse(parts[0]);
-          final p1 = int.tryParse(parts[1]);
-          final p2 = int.tryParse(parts[2]);
-          if (p0 != null && p1 != null && p2 != null) {
-            int y;
-            int m;
-            int d;
-            if (p0 >= 1900) {
-              y = p0;
-              m = p1;
-              d = p2;
-            } else if (p2 >= 1900) {
-              // DD-MM-YYYY or DD/MM/YYYY
-              d = p0;
-              m = p1;
-              y = p2;
-            } else if (p0 >= 75 && p0 <= 99) {
-              y = 2000 + p0;
-              m = p1;
-              d = p2;
-            } else if (p2 >= 75 && p2 <= 99) {
-              d = p0;
-              m = p1;
-              y = 2000 + p2;
-            } else {
-              y = p0;
-              m = p1;
-              d = p2;
-            }
-            if (m > 12 && d <= 12) {
-              final tmp = m;
-              m = d;
-              d = tmp;
-            }
-            m = m.clamp(1, 12);
-            if (y >= 2070 && y <= 2120) {
-              for (int tryDay = d.clamp(1, 32); tryDay >= 28; tryDay--) {
-                try {
-                  return NepaliDateHelper.toEnglish(NepaliDateTime(y, m, tryDay));
-                } catch (_) {}
-              }
-              return NepaliDateHelper.toEnglish(NepaliDateTime(y, m, 1));
-            } else if (y >= 1900 && y < 2070) {
-              return DateTime(y, m, d.clamp(1, 31));
-            }
-          }
-        }
-        final iso = DateTime.tryParse(clean);
-        if (iso != null) {
-          if (iso.year >= 2070 && iso.year <= 2120) {
-            for (int tryDay = iso.day.clamp(1, 32); tryDay >= 28; tryDay--) {
-              try {
-                return NepaliDateHelper.toEnglish(NepaliDateTime(iso.year, iso.month.clamp(1, 12), tryDay));
-              } catch (_) {}
-            }
-          }
-          return iso;
-        }
-        return null;
-      } catch (_) {
-        return null;
-      }
-    }
+    DateTime? parseDateOrNull(String? raw) => parseFormDateOrNull(raw);
 
     DateTime parseDateSafe(String? raw) {
       return parseDateOrNull(raw) ?? DateTime.now();

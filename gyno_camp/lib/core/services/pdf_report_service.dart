@@ -1706,7 +1706,8 @@ class PdfReportService {
             _buildPdfSectionHeader(
               '1. PATIENT DEMOGRAPHICS & SOCIAL INTAKE',
               primaryColor,
-
+              date: NepaliLocalizationService.formatDualCalendarDate(patient.intakeDate),
+              dateLabel: 'Intake Date',
             ),
             pw.SizedBox(height: 3),
             pw.Container(
@@ -2753,7 +2754,12 @@ class PdfReportService {
             pw.SizedBox(height: 8),
 
             // ── Patient Demographics ─────────────────────────────────────────
-            _buildPdfSectionHeader('1. PATIENT IDENTITY', encounterColor),
+            _buildPdfSectionHeader(
+              '1. PATIENT IDENTITY',
+              encounterColor,
+              date: NepaliLocalizationService.formatDualCalendarDate(patient.intakeDate),
+              dateLabel: 'Intake Date',
+            ),
             pw.SizedBox(height: 3),
             pw.Container(
               padding: const pw.EdgeInsets.all(7),
@@ -2980,7 +2986,8 @@ class PdfReportService {
                 visit.cervixRemarks != null ||
                 visit.vaginaRemarks != null ||
                 visit.vulvaRemarks != null ||
-                visit.uterusRemarks != null) ...[
+                visit.uterusRemarks != null ||
+                visit.examDate != null) ...[
               _buildPdfSectionHeader(
                 '3. OBSTETRIC HISTORY & EXAMINATION',
                 encounterColor,

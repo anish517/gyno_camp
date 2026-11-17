@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gyno_camp/core/constants/clinical_constants.dart';
 import 'package:gyno_camp/core/services/pdf_report_service.dart';
 import 'package:gyno_camp/core/services/report_aggregation_service.dart';
+import 'package:gyno_camp/core/utils/nepali_date_helper.dart';
+import 'package:nepali_utils/nepali_utils.dart';
 import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/camp_report_summary_model.dart';
 import 'package:gyno_camp/models/clinical_visit_model.dart';
@@ -692,6 +694,101 @@ void main() {
 
       expect(bytes, isNotEmpty);
       expect(utf8.decode(bytes.sublist(0, 5)), equals('%PDF-'));
+    });
+
+    test('Dossier and Encounter Slip render distinct Intake and all 6 Station BS dates accurately', () async {
+      String decodePdfText(List<int> pdfBytes) {
+        final raw = String.fromCharCodes(pdfBytes);
+        final tokens = <String>[];
+        for (final m in RegExp(r'stream[\r\n]+(.*?)[\r\n]+endstream', dotAll: true).allMatches(raw)) {
+          try {
+            final decompressed = String.fromCharCodes(zlib.decode(m.group(1)!.codeUnits));
+            for (final tj in RegExp(r'\[\(((?:\\.|[^\\)])*)\)\]TJ').allMatches(decompressed)) {
+              tokens.add(
+                tj
+                    .group(1)!
+                    .replaceAll(r'\(', '(')
+                    .replaceAll(r'\)', ')')
+                    .replaceAll(r'\\', r'\'),
+              );
+            }
+          } catch (_) {}
+        }
+        return tokens.join(' ');
+      }
+
+      final camp = CampModel(
+        id: 'camp-dates',
+        campCode: '0007',
+        name: 'Dhankuta Camp',
+        district: 'Dhankuta',
+        municipality: 'Dhankuta',
+        ward: '05',
+        venue: 'Hosp Hall',
+        startDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 10)),
+        endDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 16)),
+        createdAt: DateTime(2026, 7, 26),
+      );
+      final patient = PatientModel(
+        id: 'pat-dates',
+        patientId: 'GC-0007-2026-00112',
+        campId: camp.id,
+        campCode: camp.campCode,
+        intakeDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 10)),
+        firstName: 'KAMALA',
+        surname: 'RAI',
+        age: 58,
+        mobile: '9842167305',
+        ward: '05',
+        district: 'Dhankuta',
+        municipality: 'Dhankuta',
+        createdByUserId: 'u1',
+        createdByDeviceId: 'd1',
+        createdAt: DateTime(2026, 7, 26),
+      );
+      final visit = ClinicalVisitModel(
+        id: 'vis-dates',
+        patientId: patient.patientId,
+        campId: camp.id,
+        visitDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 15)),
+        anamnesisDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 11)),
+        examDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 12)),
+        labTestDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 13)),
+        conclusionDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 14)),
+        treatmentDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 15)),
+        outtakeDate: NepaliDateHelper.toEnglish(NepaliDateTime(2083, 4, 16)),
+        deliveries: 6,
+        livingChildren: 5,
+        abortions: 1,
+        vaginaRemarks: 'atrophic, mild erosion',
+        highestPopStage: 3,
+        diagnoses: const ['stress incontinence'],
+        medications: const ['estradiol crème'],
+        createdByUserId: 'u1',
+        createdAt: DateTime(2026, 7, 26),
+      );
+
+      final dossierBytes = await pdfService.generateIndividualPatientPdf(
+        patient: patient,
+        visit: visit,
+        camp: camp,
+      );
+      final slipBytes = await pdfService.generateFollowUpEncounterSlipPdf(
+        patient: patient,
+        visit: visit,
+        camp: camp,
+      );
+
+      for (final pdfText in [decodePdfText(dossierBytes), decodePdfText(slipBytes)]) {
+        expect(pdfText, contains('Intake Date: 2083-04-10 BS'));
+        expect(pdfText, contains('Anamnesis Date: 2083-04-11 BS'));
+        expect(pdfText, contains('Exam Date: 2083-04-12 BS'));
+        expect(pdfText, contains('Lab Date: 2083-04-13 BS'));
+        expect(pdfText, contains('Conclusion Date: 2083-04-14 BS'));
+        expect(pdfText, contains('Treatment Date: 2083-04-15 BS'));
+        expect(pdfText, contains('Outtake Date: 2083-04-16 BS'));
+        expect(pdfText, isNot(contains('2083-04-01 BS')));
+      }
     });
   });
 }

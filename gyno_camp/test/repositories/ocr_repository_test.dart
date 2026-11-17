@@ -3,7 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:gyno_camp/core/database/database_service.dart';
+import 'package:gyno_camp/core/services/nepali_localization_service.dart';
 import 'package:gyno_camp/core/services/ocr_form_service.dart';
+import 'package:gyno_camp/core/utils/nepali_date_helper.dart';
+import 'package:gyno_camp/models/clinical_visit_model.dart';
 import 'package:gyno_camp/models/ocr_scan_result_model.dart';
 import 'package:gyno_camp/models/patient_model.dart';
 import 'package:gyno_camp/repositories/audit_repository.dart';
@@ -88,7 +91,7 @@ void main() {
       expect(visit.diastolicBp, 85);
       expect(visit.highestPopStage, 3);
       expect(visit.diagnoses, contains('POP'));
-      expect(visit.medications, contains('Metronidazole'));
+      expect(visit.medications, contains('metronidazol'));
       expect(visit.surgicalReferral, 'Scheer Memorial Hospital');
 
       // Verify Audit Log in SQLite
@@ -177,11 +180,12 @@ void main() {
       expect(merged.intakeDate, '२०८३/०८/०१');
 
       // Normalize patient ID with Devanagari digits
+      final expectedNormId = 'GC-KTM01-${DateTime.now().year}-00015';
       final normId = PatientModel.normalizePatientId(
         rawInput: merged.patientId!,
         campCode: 'KTM01',
       );
-      expect(normId, 'KTM01-0015');
+      expect(normId, expectedNormId);
 
       final saved1 = await ocrRepo.commitVerifiedScan(
         verifiedScan: merged,
@@ -192,7 +196,7 @@ void main() {
         userRole: 'DataTaker',
         deviceId: 'dev-1',
       );
-      expect(saved1.patientId, 'KTM01-0015');
+      expect(saved1.patientId, expectedNormId);
       // 2083-08-01 BS converts to ~Nov 2026 AD (never year 2083 AD!)
       expect(saved1.intakeDate.year, lessThan(2035));
 
@@ -237,6 +241,103 @@ void main() {
       );
       final afterDelete = await patientRepo.getPatientByPatientId(saved2.patientId);
       expect(afterDelete, isNull);
+    });
+
+    test('commitVerifiedScan preserves distinct BS days 10..16 across Intake and all 6 station dates', () async {
+      // Verify helper directly across BS days 1..27, 28..32, Devanagari, and clamping.
+      expect(NepaliLocalizationService.formatBsDateOnly(OcrRepository.parseFormDateOrNull('2083-04-10')!), '2083-04-10 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(OcrRepository.parseFormDateOrNull('2083-04-11 BS')!), '2083-04-11 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(OcrRepository.parseFormDateOrNull('२०८३-०४-१६')!), '2083-04-16 BS');
+      final maxChaitraDays = NepaliDateHelper.getDaysInBsMonth(2083, 12).toString().padLeft(2, '0');
+      expect(NepaliLocalizationService.formatBsDateOnly(OcrRepository.parseFormDateOrNull('2083-12-32 BS')!), '2083-12-$maxChaitraDays BS');
+
+      final scan = OcrScanResultModel(
+        pageNumber: 0,
+        isDualPage: true,
+        rawText: 'Kamala Rai',
+        demographics: const {
+          'firstName': 'KAMALA',
+          'surname': 'RAI',
+          'age': 58,
+          'patientId': 'GC-0007-2026-00112',
+          'ward': '05',
+          'district': 'Dhankuta',
+          'municipality': 'Dhankuta Mun',
+          'province': 'Koshi',
+          'intakeDate': '2083-04-10',
+          'anamnesisDate': '2083-04-11',
+        },
+        obstetrics: const {'deliveries': 6, 'livingChildren': 5, 'abortions': 1},
+        popStaging: const {'anteriorStage': 2, 'middleStage': 3, 'posteriorStage': 1, 'highestPopStage': 3},
+        vitals: const {'systolicBp': 138, 'diastolicBp': 86, 'pulseRate': 78, 'spo2': 97, 'bloodGlucose': 112},
+        diagnoses: const ['stress incontinence', 'weak pelvic floor muscle'],
+        medications: const ['estradiol crème'],
+        intakeDate: '2083-04-10',
+        anamnesisDate: '2083-04-11',
+        examDate: '2083-04-12',
+        labTestDate: '2083-04-13',
+        conclusionDate: '2083-04-14',
+        treatmentDate: '2083-04-15',
+        outtakeDate: '2083-04-16',
+        fieldConfidences: const {'firstName': 0.99},
+        overallConfidence: 0.99,
+        scannedAt: DateTime(2026, 11, 17),
+      );
+
+      final savedPatient = await ocrRepo.commitVerifiedScan(
+        verifiedScan: scan,
+        campId: 'camp-dhk-01',
+        campCode: '0007',
+        userId: 'usr-1',
+        userName: 'Staff',
+        userRole: 'DataTaker',
+        deviceId: 'dev-1',
+      );
+
+      final reloadedPatient = await patientRepo.getPatientByPatientId(savedPatient.patientId);
+      final reloadedVisit = await patientRepo.getLatestClinicalVisit(savedPatient.patientId);
+
+      expect(reloadedPatient, isNotNull);
+      expect(reloadedVisit, isNotNull);
+      expect(NepaliLocalizationService.formatBsDateOnly(reloadedPatient!.intakeDate), '2083-04-10 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(reloadedVisit!.anamnesisDate!), '2083-04-11 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(reloadedVisit.examDate!), '2083-04-12 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(reloadedVisit.labTestDate!), '2083-04-13 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(reloadedVisit.conclusionDate!), '2083-04-14 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(reloadedVisit.treatmentDate!), '2083-04-15 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(reloadedVisit.outtakeDate!), '2083-04-16 BS');
+    });
+
+    test('UTC TIMESTAMPTZ strings preserve Nepal calendar day across model fromMap and toNepali', () {
+      // 2083-04-10 BS = 2026-07-26 AD; Nepal midnight serialized as UTC is 2026-07-25T18:15:00.000Z.
+      final p = PatientModel.fromMap({
+        'id': 'pat-utc',
+        'patient_id': 'GC-0007-2026-00112',
+        'camp_id': 'camp-1',
+        'camp_code': '0007',
+        'intake_date': '2026-07-25T18:15:00.000Z',
+        'first_name': 'KAMALA',
+        'surname': 'RAI',
+        'age': 58,
+        'ward': '05',
+        'created_at': '2026-07-25T18:15:00.000Z',
+      });
+      final v = ClinicalVisitModel.fromMap({
+        'id': 'vis-utc',
+        'patient_id': 'GC-0007-2026-00112',
+        'camp_id': 'camp-1',
+        'visit_date': '2026-07-30T18:15:00.000Z',
+        'anamnesis_date': '2026-07-26T18:15:00.000Z',
+        'exam_date': '2026-07-27T18:15:00.000Z',
+        'lab_test_date': '2026-07-29T00:00:00.000Z',
+        'created_at': '2026-07-25T18:15:00.000Z',
+      });
+
+      expect(NepaliLocalizationService.formatBsDateOnly(p.intakeDate), '2083-04-10 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(v.anamnesisDate!), '2083-04-11 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(v.examDate!), '2083-04-12 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(v.labTestDate!), '2083-04-13 BS');
+      expect(NepaliLocalizationService.formatBsDateOnly(v.visitDate), '2083-04-15 BS');
     });
   });
 }

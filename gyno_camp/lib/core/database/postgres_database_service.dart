@@ -274,6 +274,7 @@ class PostgresDatabaseService {
       await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS nurse_names TEXT DEFAULT '';");
       await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_nurse_on_forms INTEGER DEFAULT 1;");
       await conn.execute("ALTER TABLE patients ADD COLUMN IF NOT EXISTS province TEXT DEFAULT 'Bagmati';");
+      await conn.execute("ALTER TABLE patients ADD COLUMN IF NOT EXISTS treatment_level TEXT;");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS is_follow_up INTEGER DEFAULT 0;");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS follow_up_notes TEXT;");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS surgery_done INTEGER DEFAULT 0;");
@@ -282,6 +283,13 @@ class PostgresDatabaseService {
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS primary_doctor_name TEXT DEFAULT '';");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS attending_nurse_names TEXT DEFAULT '';");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS primary_nurse_name TEXT DEFAULT '';");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS treatment_level TEXT;");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS anamnesis_date TEXT;");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS exam_date TEXT;");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS lab_test_date TEXT;");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS conclusion_date TEXT;");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS treatment_date TEXT;");
+      await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS outtake_date TEXT;");
     } catch (_) {}
 
     // Audit Logs table
@@ -473,79 +481,7 @@ class PostgresDatabaseService {
       // 3. Sync Patients
       final localPatients = await localDb.query(DatabaseTables.tablePatients);
       for (final p in localPatients) {
-        await conn.execute(
-          Sql.named('''
-            INSERT INTO patients (
-              id, patient_id, camp_id, camp_code, intake_date, first_name, surname, age,
-              spouse_or_father_name, relationship_type, mobile, province, district, municipality, ward,
-              contact_person, contact_mobile, marital_status, marital_age, reasons_for_visit,
-              consent_treatment, consent_store_medical_info, created_at, updated_at,
-              created_by_user_id, created_by_device_id, tenant_id, is_synced, synced_at
-            ) VALUES (
-              @id, @patient_id, @camp_id, @camp_code, @intake_date, @first_name, @surname, @age,
-              @spouse_or_father_name, @relationship_type, @mobile, @province, @district, @municipality, @ward,
-              @contact_person, @contact_mobile, @marital_status, @marital_age, @reasons_for_visit,
-              @consent_treatment, @consent_store_medical_info, @created_at, @updated_at,
-              @created_by_user_id, @created_by_device_id, @tenant_id, 1, @synced_at
-            )
-            ON CONFLICT (id) DO UPDATE SET
-              first_name = EXCLUDED.first_name,
-              surname = EXCLUDED.surname,
-              age = EXCLUDED.age,
-              spouse_or_father_name = EXCLUDED.spouse_or_father_name,
-              relationship_type = EXCLUDED.relationship_type,
-              mobile = EXCLUDED.mobile,
-              province = EXCLUDED.province,
-              district = EXCLUDED.district,
-              municipality = EXCLUDED.municipality,
-              ward = EXCLUDED.ward,
-              contact_person = EXCLUDED.contact_person,
-              contact_mobile = EXCLUDED.contact_mobile,
-              marital_status = EXCLUDED.marital_status,
-              marital_age = EXCLUDED.marital_age,
-              reasons_for_visit = EXCLUDED.reasons_for_visit,
-              consent_treatment = EXCLUDED.consent_treatment,
-              consent_store_medical_info = EXCLUDED.consent_store_medical_info,
-              updated_at = EXCLUDED.updated_at,
-              is_synced = 1,
-              synced_at = EXCLUDED.synced_at;
-          '''),
-          parameters: {
-            'id': p['id']?.toString() ?? '',
-            'patient_id': p['patient_id']?.toString() ?? '',
-            'camp_id': p['camp_id']?.toString() ?? '',
-            'camp_code': p['camp_code']?.toString() ?? '',
-            'intake_date': p['intake_date']?.toString() ?? '',
-            'first_name': p['first_name']?.toString() ?? '',
-            'surname': p['surname']?.toString() ?? '',
-            'age': p['age'] is int ? p['age'] : 0,
-            'spouse_or_father_name': p['spouse_or_father_name']?.toString(),
-            'relationship_type': p['relationship_type']?.toString(),
-            'mobile': p['mobile']?.toString() ?? '',
-            'province': p['province']?.toString() ?? 'Bagmati',
-            'district': p['district']?.toString(),
-            'municipality': p['municipality']?.toString(),
-            'ward': p['ward']?.toString() ?? '',
-            'contact_person': p['contact_person']?.toString(),
-            'contact_mobile': p['contact_mobile']?.toString(),
-            'marital_status': p['marital_status']?.toString(),
-            'marital_age': p['marital_age'] is int ? p['marital_age'] : null,
-            'reasons_for_visit': p['reasons_for_visit']?.toString(),
-            'consent_treatment': p['consent_treatment'] is int
-                ? p['consent_treatment']
-                : 1,
-            'consent_store_medical_info': p['consent_store_medical_info'] is int
-                ? p['consent_store_medical_info']
-                : 1,
-            'created_at':
-                p['created_at']?.toString() ?? DateTime.now().toIso8601String(),
-            'updated_at': p['updated_at']?.toString(),
-            'created_by_user_id': p['created_by_user_id']?.toString() ?? '',
-            'created_by_device_id': p['created_by_device_id']?.toString() ?? '',
-            'tenant_id': p['tenant_id']?.toString() ?? 'tenant_default',
-            'synced_at': DateTime.now().toIso8601String(),
-          },
-        );
+        await _upsertPatientRow(conn, p);
 
         // Mark synced in local SQLite
         await localDb.update(
@@ -575,6 +511,8 @@ class PostgresDatabaseService {
               is_follow_up, follow_up_notes, surgery_done, surgery_type,
               attending_doctor_names, primary_doctor_name,
               attending_nurse_names, primary_nurse_name,
+              treatment_level,
+              anamnesis_date, exam_date, lab_test_date, conclusion_date, treatment_date, outtake_date,
               created_at, updated_at, created_by_user_id, tenant_id, is_synced
             ) VALUES (
               @id, @patient_id, @camp_id, @visit_date, @deliveries, @living_children, @abortions,
@@ -587,9 +525,12 @@ class PostgresDatabaseService {
               @is_follow_up, @follow_up_notes, @surgery_done, @surgery_type,
               @attending_doctor_names, @primary_doctor_name,
               @attending_nurse_names, @primary_nurse_name,
+              @treatment_level,
+              @anamnesis_date, @exam_date, @lab_test_date, @conclusion_date, @treatment_date, @outtake_date,
               @created_at, @updated_at, @created_by_user_id, @tenant_id, 1
             )
             ON CONFLICT (id) DO UPDATE SET
+              visit_date = EXCLUDED.visit_date,
               deliveries = EXCLUDED.deliveries,
               living_children = EXCLUDED.living_children,
               abortions = EXCLUDED.abortions,
@@ -630,6 +571,13 @@ class PostgresDatabaseService {
               primary_doctor_name = EXCLUDED.primary_doctor_name,
               attending_nurse_names = EXCLUDED.attending_nurse_names,
               primary_nurse_name = EXCLUDED.primary_nurse_name,
+              treatment_level = COALESCE(NULLIF(EXCLUDED.treatment_level, ''), clinical_visits.treatment_level),
+              anamnesis_date = COALESCE(EXCLUDED.anamnesis_date, clinical_visits.anamnesis_date),
+              exam_date = COALESCE(EXCLUDED.exam_date, clinical_visits.exam_date),
+              lab_test_date = COALESCE(EXCLUDED.lab_test_date, clinical_visits.lab_test_date),
+              conclusion_date = COALESCE(EXCLUDED.conclusion_date, clinical_visits.conclusion_date),
+              treatment_date = COALESCE(EXCLUDED.treatment_date, clinical_visits.treatment_date),
+              outtake_date = COALESCE(EXCLUDED.outtake_date, clinical_visits.outtake_date),
               updated_at = EXCLUDED.updated_at,
               is_synced = 1;
           '''),
@@ -690,6 +638,13 @@ class PostgresDatabaseService {
             'primary_doctor_name': v['primary_doctor_name']?.toString() ?? '',
             'attending_nurse_names': v['attending_nurse_names']?.toString() ?? '',
             'primary_nurse_name': v['primary_nurse_name']?.toString() ?? '',
+            'treatment_level': v['treatment_level']?.toString(),
+            'anamnesis_date': v['anamnesis_date']?.toString(),
+            'exam_date': v['exam_date']?.toString(),
+            'lab_test_date': v['lab_test_date']?.toString(),
+            'conclusion_date': v['conclusion_date']?.toString(),
+            'treatment_date': v['treatment_date']?.toString(),
+            'outtake_date': v['outtake_date']?.toString(),
             'created_at':
                 v['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': v['updated_at']?.toString(),
@@ -727,28 +682,24 @@ class PostgresDatabaseService {
     }
   }
 
-  /// Direct insert/update patient to PostgreSQL
-  Future<void> directSavePatient(
-    Map<String, dynamic> p, {
-    PostgresConfig? config,
-  }) async {
-    final conn = await getConnection(config: config);
+  Future<void> _upsertPatientRow(Connection conn, Map<String, dynamic> p) async {
     await conn.execute(
       Sql.named('''
         INSERT INTO patients (
           id, patient_id, camp_id, camp_code, intake_date, first_name, surname, age,
           spouse_or_father_name, relationship_type, mobile, province, district, municipality, ward,
           contact_person, contact_mobile, marital_status, marital_age, reasons_for_visit,
-          consent_treatment, consent_store_medical_info, created_at, updated_at,
+          consent_treatment, consent_store_medical_info, treatment_level, created_at, updated_at,
           created_by_user_id, created_by_device_id, tenant_id, is_synced, synced_at
         ) VALUES (
           @id, @patient_id, @camp_id, @camp_code, @intake_date, @first_name, @surname, @age,
           @spouse_or_father_name, @relationship_type, @mobile, @province, @district, @municipality, @ward,
           @contact_person, @contact_mobile, @marital_status, @marital_age, @reasons_for_visit,
-          @consent_treatment, @consent_store_medical_info, @created_at, @updated_at,
+          @consent_treatment, @consent_store_medical_info, @treatment_level, @created_at, @updated_at,
           @created_by_user_id, @created_by_device_id, @tenant_id, 1, @synced_at
         )
         ON CONFLICT (id) DO UPDATE SET
+          intake_date = EXCLUDED.intake_date,
           first_name = EXCLUDED.first_name,
           surname = EXCLUDED.surname,
           age = EXCLUDED.age,
@@ -766,6 +717,7 @@ class PostgresDatabaseService {
           reasons_for_visit = EXCLUDED.reasons_for_visit,
           consent_treatment = EXCLUDED.consent_treatment,
           consent_store_medical_info = EXCLUDED.consent_store_medical_info,
+          treatment_level = COALESCE(NULLIF(EXCLUDED.treatment_level, ''), patients.treatment_level),
           updated_at = EXCLUDED.updated_at,
           is_synced = 1,
           synced_at = EXCLUDED.synced_at;
@@ -797,6 +749,7 @@ class PostgresDatabaseService {
         'consent_store_medical_info': p['consent_store_medical_info'] is int
             ? p['consent_store_medical_info']
             : 1,
+        'treatment_level': p['treatment_level']?.toString(),
         'created_at':
             p['created_at']?.toString() ?? DateTime.now().toIso8601String(),
         'updated_at': p['updated_at']?.toString(),
@@ -806,5 +759,14 @@ class PostgresDatabaseService {
         'synced_at': DateTime.now().toIso8601String(),
       },
     );
+  }
+
+  /// Direct insert/update patient to PostgreSQL
+  Future<void> directSavePatient(
+    Map<String, dynamic> p, {
+    PostgresConfig? config,
+  }) async {
+    final conn = await getConnection(config: config);
+    await _upsertPatientRow(conn, p);
   }
 }

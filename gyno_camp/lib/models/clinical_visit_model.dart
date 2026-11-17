@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../core/constants/clinical_constants.dart';
+import '../core/utils/nepali_date_helper.dart';
 import 'nurse_profile.dart';
 import 'patient_model.dart';
 
@@ -236,13 +237,13 @@ class ClinicalVisitModel {
       id: map['id'] as String,
       patientId: map['patient_id'] as String,
       campId: map['camp_id'] as String,
-      visitDate: DateTime.tryParse(map['visit_date'] as String? ?? '') ?? DateTime.now(),
-      anamnesisDate: map['anamnesis_date'] != null ? DateTime.tryParse(map['anamnesis_date'] as String) : null,
-      examDate: map['exam_date'] != null ? DateTime.tryParse(map['exam_date'] as String) : null,
-      labTestDate: map['lab_test_date'] != null ? DateTime.tryParse(map['lab_test_date'] as String) : null,
-      conclusionDate: map['conclusion_date'] != null ? DateTime.tryParse(map['conclusion_date'] as String) : null,
-      treatmentDate: map['treatment_date'] != null ? DateTime.tryParse(map['treatment_date'] as String) : null,
-      outtakeDate: map['outtake_date'] != null ? DateTime.tryParse(map['outtake_date'] as String) : null,
+      visitDate: NepaliDateHelper.parseStoredCalendarDate(map['visit_date']) ?? DateTime.now(),
+      anamnesisDate: NepaliDateHelper.parseStoredCalendarDate(map['anamnesis_date']),
+      examDate: NepaliDateHelper.parseStoredCalendarDate(map['exam_date']),
+      labTestDate: NepaliDateHelper.parseStoredCalendarDate(map['lab_test_date']),
+      conclusionDate: NepaliDateHelper.parseStoredCalendarDate(map['conclusion_date']),
+      treatmentDate: NepaliDateHelper.parseStoredCalendarDate(map['treatment_date']),
+      outtakeDate: NepaliDateHelper.parseStoredCalendarDate(map['outtake_date']),
       deliveries: map['deliveries'] as int?,
       livingChildren: map['living_children'] as int?,
       abortions: map['abortions'] as int?,

@@ -8651,7 +8651,8 @@ class _FormScanViewState extends ConsumerState<FormScanView>
           '${selectedYear.toString().padLeft(4, '0')}-${selectedMonth.toString().padLeft(2, '0')}-${selectedDay.toString().padLeft(2, '0')}',
     );
 
-    bool applyToAll = true;
+    // Only modify the edited station by default so distinct station dates are preserved.
+    bool applyToAll = false;
 
     showDialog(
       context: context,
