@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/organization_provider.dart';
