@@ -105,6 +105,12 @@ void main() {
       expect(find.text('Auto-Detect Role'), findsOneWidget);
       expect(find.text('Sign In to GynoCamp'), findsOneWidget);
 
+      // Mobile header renders the actual WFWSN circular brand logo asset
+      final logoFinder = find.byWidgetPredicate(
+        (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/WFWSNPrimaryCircle.jpg',
+      );
+      expect(logoFinder, findsOneWidget);
+
       // Verify no quick fill testing credentials leak into UI
       expect(find.text('Admin (Dr. Aarav)'), findsNothing);
       expect(find.text('Quick Profiles (Testing):'), findsNothing);

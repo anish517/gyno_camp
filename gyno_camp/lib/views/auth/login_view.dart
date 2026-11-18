@@ -664,24 +664,46 @@ class _LoginViewState extends ConsumerState<LoginView> {
               // Mobile Header
               Center(
                 child: Container(
-                  width: 60,
-                  height: 60,
+                  width: 68,
+                  height: 68,
+                  padding: const EdgeInsets.all(2.5),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.brandPurple, AppTheme.brandMagenta],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
                     shape: BoxShape.circle,
+                    color: Colors.white,
+                    border: Border.all(
+                      color: const Color(0xFF81005D).withValues(alpha: 0.28),
+                      width: 2.0,
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.brandPurple.withValues(alpha: 0.28),
+                        color: AppTheme.brandPurple.withValues(alpha: 0.22),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.medical_services_rounded, size: 30, color: Colors.white),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/WFWSNPrimaryCircle.jpg',
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.medium,
+                      errorBuilder: (ctx, err, stack) => Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [AppTheme.brandPurple, AppTheme.brandMagenta],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.medical_services_rounded,
+                          size: 30,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),

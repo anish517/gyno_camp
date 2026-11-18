@@ -353,6 +353,46 @@ void main() {
       expect(find.text('SECURE ROOT SESSION ACTIVE'), findsNothing);
       expect(find.text('Clinical Stations (Field Workstation Workflow)'), findsNothing);
     });
+
+    testWidgets('wraps dashboard scroll view in RefreshIndicator with AlwaysScrollableScrollPhysics', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final dataTaker = const UserModel(
+        id: 'u1',
+        name: 'Anish Tiwari',
+        email: 'anish@gynocamp.org',
+        phone: '9841000001',
+        role: UserRole.dataTaker,
+        assignedCampIds: ['camp-1'],
+        isActive: true,
+      );
+      final fakeRepo = FakeCampRepoForHome();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            campRepositoryProvider.overrideWithValue(fakeRepo),
+            syncStateProvider.overrideWith((ref) => _FakeSyncViewModel()),
+            deviceSecurityProvider.overrideWith((ref) => _FakeDeviceSecurityViewModel()),
+            authStateProvider.overrideWith((ref) => AuthViewModel(FakeAuthRepositorySimple(dataTaker))),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: const HomeGatewayView(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RefreshIndicator), findsOneWidget);
+      final scrollViews = tester.widgetList<SingleChildScrollView>(find.byType(SingleChildScrollView));
+      expect(
+        scrollViews.any((s) => s.physics is AlwaysScrollableScrollPhysics),
+        isTrue,
+      );
+    });
   });
 }
 

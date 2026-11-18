@@ -471,10 +471,22 @@ class HomeGatewayView extends ConsumerWidget {
         ],
       ),
       body: switch (user.isSuperAdmin ? UserRole.superAdmin : user.role) {
-        UserRole.superAdmin => _buildSuperAdminDashboard(context, ref),
-        UserRole.staff => _buildStaffCoordinatorDashboard(context, ref),
+        UserRole.superAdmin => RefreshIndicator(
+            color: AppTheme.brandPurple,
+            onRefresh: () => _handleDashboardRefresh(ref),
+            child: _buildSuperAdminDashboard(context, ref),
+          ),
+        UserRole.staff => RefreshIndicator(
+            color: AppTheme.brandPurple,
+            onRefresh: () => _handleDashboardRefresh(ref),
+            child: _buildStaffCoordinatorDashboard(context, ref),
+          ),
         UserRole.dataAnalyst => _buildDataAnalystDashboard(context, ref),
-        UserRole.dataTaker => _buildDataTakerDashboard(context, ref),
+        UserRole.dataTaker => RefreshIndicator(
+            color: AppTheme.brandPurple,
+            onRefresh: () => _handleDashboardRefresh(ref),
+            child: _buildDataTakerDashboard(context, ref),
+          ),
       },
     );
   }
@@ -490,6 +502,40 @@ class HomeGatewayView extends ConsumerWidget {
           ? 'Now working as ${role.displayNameEn}'
           : (ref.read(authStateProvider).errorMessage ?? 'Could not switch to ${role.displayNameEn}')),
     ));
+  }
+
+  /// Pull-to-refresh handler for HomeGatewayView dashboards.
+  /// Synchronizes deltas with the central server and reloads active camp,
+  /// patient roster, lookup formulary, staff directory, and device state.
+  Future<void> _handleDashboardRefresh(WidgetRef ref) async {
+    final user = ref.read(authStateProvider).currentUser;
+    final deviceId = ref.read(deviceSecurityProvider).device?.deviceId ?? 'dev-local';
+    final userId = user?.id ?? 'usr-sync';
+
+    try {
+      await ref.read(syncStateProvider.notifier).syncNow(
+            deviceId: deviceId,
+            userId: userId,
+          );
+    } catch (_) {}
+
+    try {
+      await ref.read(campStateProvider.notifier).loadCamps(silent: true);
+      final isSuperAdmin = user != null && (user.isSuperAdmin || user.role == UserRole.superAdmin);
+      final activeCamp = isSuperAdmin
+          ? (ref.read(userActiveCampProvider) ?? ref.read(campStateProvider).activeCamp)
+          : ref.read(userActiveCampProvider);
+      if (activeCamp != null) {
+        await ref.read(patientListProvider.notifier).loadPatients(activeCamp.id, true);
+      }
+      await ref.read(masterLookupProvider.notifier).loadAll(silent: true);
+      ref.invalidate(allUsersProvider);
+      await ref.read(deviceSecurityProvider.notifier).checkCurrentDevice(silent: true);
+      if (isSuperAdmin) {
+        await ref.read(deviceManagementProvider.notifier).loadDevices();
+        await ref.read(auditLogProvider.notifier).loadRecentLogs();
+      }
+    } catch (_) {}
   }
 
   Future<void> _showSignOutDialog(
@@ -699,6 +745,7 @@ class HomeGatewayView extends ConsumerWidget {
         : <UserModel>[];
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
       child: Center(
         child: ConstrainedBox(
@@ -1185,6 +1232,7 @@ class HomeGatewayView extends ConsumerWidget {
 
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
       child: Center(
         child: ConstrainedBox(
@@ -3138,6 +3186,7 @@ class HomeGatewayView extends ConsumerWidget {
     final syncedCount = (totalRegistered - pendingSync).clamp(0, totalRegistered);
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20.0),
       child: Center(
         child: ConstrainedBox(
@@ -5823,22 +5872,40 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       }
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 1. EXECUTIVE COMMAND HEADER
-              _buildExecutiveCommandHeader(
-                user: user,
-                campState: campState,
-                visibleCamps: visibleCamps,
-                currentCampName: campDisplayName,
-                deviceState: deviceState,
-              ),
+    return RefreshIndicator(
+      color: AppTheme.brandPurple,
+      onRefresh: () async {
+        final deviceId = ref.read(deviceSecurityProvider).device?.deviceId ?? 'dev-local';
+        final userId = user?.id ?? 'usr-sync';
+        try {
+          await ref.read(syncStateProvider.notifier).syncNow(
+                deviceId: deviceId,
+                userId: userId,
+              );
+        } catch (_) {}
+        try {
+          await ref.read(campStateProvider.notifier).loadCamps(silent: true);
+          await ref.read(masterLookupProvider.notifier).loadAll(silent: true);
+        } catch (_) {}
+        await _fetchDataForCamp(_selectedCampId);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1. EXECUTIVE COMMAND HEADER
+                _buildExecutiveCommandHeader(
+                  user: user,
+                  campState: campState,
+                  visibleCamps: visibleCamps,
+                  currentCampName: campDisplayName,
+                  deviceState: deviceState,
+                ),
 
               const SizedBox(height: 18),
 
@@ -6003,7 +6070,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   // ==========================================

@@ -452,6 +452,7 @@ void main() {
       expect(find.text('Recent Station Intakes'), findsOneWidget);
       expect(find.text('Camp Clinical Summary & Lead Handover'), findsOneWidget);
       expect(find.text('Camp Summary'), findsOneWidget);
+      expect(find.byType(RefreshIndicator), findsOneWidget);
     });
 
     testWidgets('renders cleanly on desktop viewport (1280x1000)', (tester) async {
