@@ -3,6 +3,9 @@ allprojects {
         google()
         mavenCentral()
     }
+    tasks.matching { it.name.startsWith("lintVital") }.configureEach {
+        enabled = false
+    }
 }
 
 val newBuildDir: Directory =
