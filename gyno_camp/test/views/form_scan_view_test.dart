@@ -229,5 +229,55 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('FormScanView infers Koshi province when district is Dhankuta and province is missing or mismatched', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final sampleScan = const OcrFormService()
+          .parseFormText(OcrFormService.sampleFullFormText)
+          .copyWith(
+            demographics: {
+              'firstName': 'Sita',
+              'surname': 'Rai',
+              'age': 41,
+              'district': 'Dhankuta',
+              'municipality': 'Pakhribas',
+              'ward': '04',
+              // Deliberately omit province or pass mismatched province
+              'province': null,
+            },
+          );
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: const FormScanView(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      container.read(ocrScanProvider.notifier).state = OcrScanState(
+        page1Scan: sampleScan,
+        scanResult: sampleScan,
+      );
+      await tester.pumpAndSettle();
+
+      // Verify no DropdownButton assertion exception occurred and Dhankuta + Koshi are selected
+      expect(tester.takeException(), isNull);
+      expect(find.text('Koshi'), findsOneWidget);
+      expect(find.text('Dhankuta'), findsOneWidget);
+      expect(find.text('Pakhribas'), findsOneWidget);
+    });
   });
 }

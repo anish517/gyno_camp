@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import 'package:nepali_utils/nepali_utils.dart';
 import '../core/constants/app_constants.dart';
 import '../core/constants/clinical_constants.dart';
+import '../core/constants/nepal_geodata.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
 import '../core/utils/nepali_date_helper.dart';
@@ -448,7 +449,19 @@ class OcrRepository implements IOcrRepository {
       contactMobile: demo['contactMobile'] as String?,
       // Marriage age — parsed from 'Age at Marriage' field on form
       maritalAge: demo['maritalAge'] as int?,
-      province: (demo['province'] as String?)?.trim() ?? 'Bagmati',
+      province: () {
+        final rawProv = (demo['province'] as String?)?.trim() ?? '';
+        final rawDist = (demo['district'] as String?)?.trim() ?? '';
+        if (rawProv.isNotEmpty &&
+            (rawDist.isEmpty ||
+                NepalGeodata.districtsFor(rawProv)
+                    .any((d) => d.toLowerCase() == rawDist.toLowerCase()))) {
+          return rawProv;
+        }
+        return rawDist.isNotEmpty
+            ? NepalGeodata.provinceOf(rawDist)
+            : (rawProv.isNotEmpty ? rawProv : 'Bagmati');
+      }(),
       district: (demo['district'] as String? ?? 'Kathmandu'),
       municipality: (demo['municipality'] as String? ?? 'Ward 03'),
       ward: (demo['ward'] as String? ?? '03').padLeft(2, '0'),

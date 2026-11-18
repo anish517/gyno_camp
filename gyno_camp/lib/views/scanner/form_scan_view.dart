@@ -2988,24 +2988,46 @@ class _FormScanViewState extends ConsumerState<FormScanView>
   }) {
     final demo = result.demographics;
 
-    final rawProv = demo['province']?.toString().trim() ?? '';
-    final validProvince = ClinicalConstants.nepalProvinces.firstWhere(
-      (p) => p.toLowerCase() == rawProv.toLowerCase(),
-      orElse: () => 'Bagmati',
-    );
-    final districtList = NepalGeodata.districtsFor(validProvince);
     final rawDist = demo['district']?.toString().trim() ?? '';
-    final validDistrict = districtList.firstWhere(
-      (d) =>
-          d.toLowerCase() == rawDist.toLowerCase() ||
-          rawDist.toLowerCase().contains(d.toLowerCase()),
-      orElse: () {
-        for (final d in NepalGeodata.allDistricts) {
-          if (d.toLowerCase() == rawDist.toLowerCase()) return d;
+    String? matchedGlobalDistrict;
+    if (rawDist.isNotEmpty) {
+      for (final d in NepalGeodata.allDistricts) {
+        if (d.toLowerCase() == rawDist.toLowerCase() ||
+            rawDist.toLowerCase().contains(d.toLowerCase())) {
+          matchedGlobalDistrict = d;
+          break;
         }
-        return districtList.isNotEmpty ? districtList.first : '';
-      },
-    );
+      }
+    }
+
+    final rawProv = demo['province']?.toString().trim() ?? '';
+    String? matchedProvince;
+    if (rawProv.isNotEmpty) {
+      for (final p in ClinicalConstants.nepalProvinces) {
+        if (p.toLowerCase() == rawProv.toLowerCase() ||
+            rawProv.toLowerCase().contains(p.toLowerCase())) {
+          matchedProvince = p;
+          break;
+        }
+      }
+    }
+
+    // If a valid Nepal district was scanned (e.g. 'Dhankuta') and either no province
+    // was set or the province doesn't contain that district, automatically infer the
+    // correct province ('Koshi') so the District DropdownButton always contains validDistrict.
+    final validProvince = (matchedGlobalDistrict != null &&
+            (matchedProvince == null ||
+                !NepalGeodata.districtsFor(matchedProvince)
+                    .contains(matchedGlobalDistrict)))
+        ? NepalGeodata.provinceOf(matchedGlobalDistrict)
+        : (matchedProvince ?? 'Bagmati');
+
+    final districtList =
+        NepalGeodata.districtsFor(validProvince).toSet().toList();
+    final validDistrict = (matchedGlobalDistrict != null &&
+            districtList.contains(matchedGlobalDistrict))
+        ? matchedGlobalDistrict
+        : (districtList.isNotEmpty ? districtList.first : '');
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -3801,18 +3823,25 @@ class _FormScanViewState extends ConsumerState<FormScanView>
               final isNarrow = constraints.maxWidth < 550;
               final palikaField = Builder(
                 builder: (context) {
-                  final palikas = NepalGeodata.palikasFor(
+                  final rawPalikas = NepalGeodata.palikasFor(
                     validDistrict,
                     extraPalikas:
                         demo['municipality'] != null &&
-                            demo['municipality'].toString().isNotEmpty
-                        ? [demo['municipality'].toString()]
+                            demo['municipality'].toString().trim().isNotEmpty
+                        ? [demo['municipality'].toString().trim()]
                         : null,
                   );
+                  final seenLower = <String>{};
+                  final palikas = <String>[];
+                  for (final p in rawPalikas) {
+                    if (seenLower.add(p.toLowerCase())) {
+                      palikas.add(p);
+                    }
+                  }
                   final currentPalika = palikas.firstWhere(
                     (p) =>
                         p.toLowerCase() ==
-                        demo['municipality']?.toString().toLowerCase(),
+                        demo['municipality']?.toString().trim().toLowerCase(),
                     orElse: () => palikas.isNotEmpty ? palikas.first : '',
                   );
                   return DropdownButtonFormField<String>(
