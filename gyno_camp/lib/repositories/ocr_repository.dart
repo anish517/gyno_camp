@@ -74,6 +74,15 @@ abstract class IOcrRepository {
     List<String> attendingDoctorNames = const [],
     String? primaryNurseName,
     List<String> attendingNurseNames = const [],
+    String? existingPatientUuid,
+    String? existingVisitId,
+    String? archiveItemId,
+    Uint8List? page1ImageBytes,
+    String? page1ImagePath,
+    Uint8List? page2ImageBytes,
+    String? page2ImagePath,
+    String reviewStatus = 'verified',
+    bool preservePhotoArchive = true,
   });
 
   Future<OfflineScanQueueItem> enqueueOfflineScan({
@@ -96,8 +105,13 @@ abstract class IOcrRepository {
   });
 
   Future<List<OfflineScanQueueItem>> getOfflineScanQueue({String? campId});
+  Future<List<OfflineScanQueueItem>> getScanPhotoArchiveForPatient({
+    String? patientUuid,
+    String? patientId,
+  });
   Future<int> getPendingOfflineScanCount({String? campId});
   Future<void> deleteOfflineScanQueueItem(String id);
+  Future<void> deleteScanPhoto(String id, {int? pageNumber});
   Future<OcrScanResultModel> extractQueuedOfflineItem(OfflineScanQueueItem item);
   Future<int> syncAndProcessAllOfflineScans({
     String? defaultUserId,
@@ -354,6 +368,15 @@ class OcrRepository implements IOcrRepository {
     List<String> attendingDoctorNames = const [],
     String? primaryNurseName,
     List<String> attendingNurseNames = const [],
+    String? existingPatientUuid,
+    String? existingVisitId,
+    String? archiveItemId,
+    Uint8List? page1ImageBytes,
+    String? page1ImagePath,
+    Uint8List? page2ImageBytes,
+    String? page2ImagePath,
+    String reviewStatus = 'verified',
+    bool preservePhotoArchive = true,
   }) async {
     final demo = verifiedScan.demographics;
     final obs = verifiedScan.obstetrics;
@@ -441,8 +464,21 @@ class OcrRepository implements IOcrRepository {
       createdByDeviceId: deviceId,
     );
 
-    // Save or Update Patient in SQLite (if Patient Token ID already exists, update existing record instead of failing)
-    final existingPatient = normalizedPatientId.isNotEmpty
+    // Save or Update Patient in SQLite (if reviewing an existing committed patient or Token ID already exists, update existing record in-place)
+    PatientModel? existingPatient;
+    if (existingPatientUuid != null && existingPatientUuid.trim().isNotEmpty) {
+      final db = await DatabaseService().database;
+      final rows = await db.query(
+        DatabaseTables.tablePatients,
+        where: 'id = ?',
+        whereArgs: [existingPatientUuid.trim()],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        existingPatient = PatientModel.fromMap(rows.first);
+      }
+    }
+    existingPatient ??= normalizedPatientId.isNotEmpty
         ? await _patientRepository.getPatientByPatientId(normalizedPatientId)
         : null;
 
@@ -453,7 +489,7 @@ class OcrRepository implements IOcrRepository {
     if (existingPatient != null) {
       final updated = patient.copyWith(
         id: existingPatient.id,
-        patientId: existingPatient.patientId,
+        patientId: normalizedPatientId.isNotEmpty ? normalizedPatientId : existingPatient.patientId,
         createdAt: existingPatient.createdAt,
       );
       registeredPatient = concreteRepo != null
@@ -729,8 +765,23 @@ class OcrRepository implements IOcrRepository {
       }
     }
 
+    String resolvedVisitId = 'vis-${_uuid.v4()}';
+    if (existingVisitId != null && existingVisitId.trim().isNotEmpty) {
+      resolvedVisitId = existingVisitId.trim();
+    } else if (existingPatient != null &&
+        ((archiveItemId != null && archiveItemId.trim().isNotEmpty) ||
+            (existingPatientUuid != null && existingPatientUuid.trim().isNotEmpty))) {
+      final latestVisit = await _patientRepository.getLatestClinicalVisit(
+        registeredPatient.patientId,
+        patientUuid: registeredPatient.id,
+      );
+      if (latestVisit != null && latestVisit.id.isNotEmpty) {
+        resolvedVisitId = latestVisit.id;
+      }
+    }
+
     final clinicalVisit = ClinicalVisitModel(
-      id: 'vis-${_uuid.v4()}',
+      id: resolvedVisitId,
       patientId: registeredPatient.patientId,
       campId: campId,
       tenantId: registeredPatient.tenantId,
@@ -847,6 +898,29 @@ class OcrRepository implements IOcrRepository {
       );
     }
 
+    // 2b. Persist or update the scanned Yellow Form photos (Page 1 & Page 2) in local archive
+    // so staff can review and correct extracted fields later or delete the photos when done.
+    try {
+      await _persistCommittedScanPhotoArchive(
+        archiveItemId: archiveItemId,
+        verifiedScan: verifiedScan,
+        registeredPatient: registeredPatient,
+        savedVisit: savedVisit,
+        campId: campId,
+        campCode: campCode,
+        userId: userId,
+        userName: userName,
+        userRole: userRole,
+        deviceId: deviceId,
+        page1ImageBytes: page1ImageBytes,
+        page1ImagePath: page1ImagePath ?? verifiedScan.page1ImagePath ?? verifiedScan.imagePath,
+        page2ImageBytes: page2ImageBytes,
+        page2ImagePath: page2ImagePath ?? verifiedScan.page2ImagePath,
+        reviewStatus: reviewStatus,
+        preservePhotoArchive: preservePhotoArchive,
+      );
+    } catch (_) {}
+
     // 3. Log Audit Activity with SHA-256 Chaining
     await _auditRepository.logActivity(
       userId: userId,
@@ -955,6 +1029,111 @@ class OcrRepository implements IOcrRepository {
     return item;
   }
 
+  Future<void> _persistCommittedScanPhotoArchive({
+    String? archiveItemId,
+    required OcrScanResultModel verifiedScan,
+    required PatientModel registeredPatient,
+    required ClinicalVisitModel savedVisit,
+    required String campId,
+    required String campCode,
+    required String userId,
+    required String userName,
+    required String userRole,
+    required String deviceId,
+    Uint8List? page1ImageBytes,
+    String? page1ImagePath,
+    Uint8List? page2ImageBytes,
+    String? page2ImagePath,
+    required String reviewStatus,
+    required bool preservePhotoArchive,
+  }) async {
+    final db = await _databaseService.database;
+    final nowIso = DateTime.now().toIso8601String();
+    final extractedJsonStr = jsonEncode(verifiedScan.toMap());
+
+    String? p1Base64;
+    if (page1ImageBytes != null && page1ImageBytes.isNotEmpty) {
+      final prepared = await _geminiService.prepareImageForStorage(page1ImageBytes);
+      p1Base64 = prepared.base64;
+    }
+    String? p2Base64;
+    if (page2ImageBytes != null && page2ImageBytes.isNotEmpty) {
+      final prepared = await _geminiService.prepareImageForStorage(page2ImageBytes);
+      p2Base64 = prepared.base64;
+    }
+
+    if (archiveItemId != null && archiveItemId.trim().isNotEmpty) {
+      final updateMap = <String, dynamic>{
+        'status': 'completed',
+        'review_status': reviewStatus,
+        'error_message': null,
+        'committed_patient_uuid': registeredPatient.id,
+        'committed_patient_id': registeredPatient.patientId,
+        'committed_patient_name': registeredPatient.fullName,
+        'committed_visit_id': savedVisit.id,
+        'patient_token_hint': registeredPatient.patientId,
+        'extracted_json': extractedJsonStr,
+        'updated_at': nowIso,
+      };
+      if (p1Base64 != null) updateMap['page1_image_base64'] = p1Base64;
+      if (page1ImagePath != null && page1ImagePath.trim().isNotEmpty) {
+        updateMap['page1_image_path'] = page1ImagePath.trim();
+      }
+      if (p2Base64 != null) updateMap['page2_image_base64'] = p2Base64;
+      if (page2ImagePath != null && page2ImagePath.trim().isNotEmpty) {
+        updateMap['page2_image_path'] = page2ImagePath.trim();
+      }
+      await db.update(
+        DatabaseTables.tableOfflineScanQueue,
+        updateMap,
+        where: 'id = ?',
+        whereArgs: [archiveItemId.trim()],
+      );
+      return;
+    }
+
+    if (!preservePhotoArchive) return;
+    final hasAnyPhoto = (p1Base64 != null && p1Base64.isNotEmpty) ||
+        (p2Base64 != null && p2Base64.isNotEmpty) ||
+        (page1ImagePath != null && page1ImagePath.trim().isNotEmpty) ||
+        (page2ImagePath != null && page2ImagePath.trim().isNotEmpty);
+    if (!hasAnyPhoto) return;
+
+    final now = DateTime.now();
+    final archiveItem = OfflineScanQueueItem(
+      id: 'scanarch-${registeredPatient.id}',
+      campId: campId,
+      campCode: campCode,
+      page1ImageBase64: p1Base64,
+      page1ImagePath: page1ImagePath,
+      page2ImageBase64: p2Base64,
+      page2ImagePath: page2ImagePath,
+      patientTokenHint: registeredPatient.patientId,
+      intakeDateHint: verifiedScan.intakeDate,
+      examiningNurseHint: savedVisit.primaryNurseName,
+      examiningDoctorHint: savedVisit.primaryDoctorName,
+      status: 'completed',
+      reviewStatus: reviewStatus,
+      committedPatientUuid: registeredPatient.id,
+      committedPatientId: registeredPatient.patientId,
+      committedPatientName: registeredPatient.fullName,
+      committedVisitId: savedVisit.id,
+      extractedJson: extractedJsonStr,
+      createdByUserId: userId,
+      createdByUserName: userName,
+      createdByUserRole: userRole,
+      deviceId: deviceId,
+      tenantId: registeredPatient.tenantId,
+      createdAt: now,
+      updatedAt: now,
+    );
+    await db.insert(
+      DatabaseTables.tableOfflineScanQueue,
+      archiveItem.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   @override
   Future<List<OfflineScanQueueItem>> getOfflineScanQueue({String? campId}) async {
     final db = await _databaseService.database;
@@ -963,9 +1142,41 @@ class OcrRepository implements IOcrRepository {
       DatabaseTables.tableOfflineScanQueue,
       where: hasCampFilter ? 'camp_id = ?' : null,
       whereArgs: hasCampFilter ? [campId] : null,
-      orderBy: 'created_at DESC',
+      orderBy: 'updated_at DESC, created_at DESC',
     );
     return rows.map((r) => OfflineScanQueueItem.fromMap(r)).toList();
+  }
+
+  @override
+  Future<List<OfflineScanQueueItem>> getScanPhotoArchiveForPatient({
+    String? patientUuid,
+    String? patientId,
+  }) async {
+    final db = await _databaseService.database;
+    final cleanUuid = patientUuid?.trim() ?? '';
+    final cleanPid = patientId?.trim() ?? '';
+    if (cleanUuid.isEmpty && cleanPid.isEmpty) return const [];
+
+    final conditions = <String>[];
+    final args = <Object?>[];
+    if (cleanUuid.isNotEmpty) {
+      conditions.add('(committed_patient_uuid = ? OR id = ?)');
+      args.addAll([cleanUuid, 'scanarch-$cleanUuid']);
+    }
+    if (cleanPid.isNotEmpty) {
+      conditions.add('(LOWER(committed_patient_id) = LOWER(?) OR LOWER(patient_token_hint) = LOWER(?))');
+      args.addAll([cleanPid, cleanPid]);
+    }
+    final rows = await db.query(
+      DatabaseTables.tableOfflineScanQueue,
+      where: conditions.join(' OR '),
+      whereArgs: args,
+      orderBy: 'updated_at DESC, created_at DESC',
+    );
+    return rows
+        .map((r) => OfflineScanQueueItem.fromMap(r))
+        .where((item) => item.hasAnyImage)
+        .toList();
   }
 
   @override
@@ -988,6 +1199,46 @@ class OcrRepository implements IOcrRepository {
     final db = await _databaseService.database;
     await db.delete(
       DatabaseTables.tableOfflineScanQueue,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  @override
+  Future<void> deleteScanPhoto(String id, {int? pageNumber}) async {
+    if (pageNumber == null) {
+      await deleteOfflineScanQueueItem(id);
+      return;
+    }
+    final db = await _databaseService.database;
+    final rows = await db.query(
+      DatabaseTables.tableOfflineScanQueue,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+
+    final existing = OfflineScanQueueItem.fromMap(rows.first);
+    final clearPage1 = pageNumber == 1;
+    final clearPage2 = pageNumber == 2;
+    final remainingHasPage1 = !clearPage1 && existing.hasPage1;
+    final remainingHasPage2 = !clearPage2 && existing.hasPage2;
+
+    if (!remainingHasPage1 && !remainingHasPage2) {
+      await deleteOfflineScanQueueItem(id);
+      return;
+    }
+
+    await db.update(
+      DatabaseTables.tableOfflineScanQueue,
+      {
+        if (clearPage1) 'page1_image_base64': null,
+        if (clearPage1) 'page1_image_path': null,
+        if (clearPage2) 'page2_image_base64': null,
+        if (clearPage2) 'page2_image_path': null,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -1107,9 +1358,10 @@ class OcrRepository implements IOcrRepository {
           attendingDoctorNames: extracted.attendingDoctors,
           primaryNurseName: extracted.examiningNurse,
           attendingNurseNames: extracted.attendingNurses,
+          archiveItemId: item.id,
+          reviewStatus: 'needs_review',
         );
 
-        await deleteOfflineScanQueueItem(item.id);
         processedCount++;
       } catch (e) {
         await db.update(

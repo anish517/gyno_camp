@@ -110,7 +110,26 @@ class DatabaseService {
         {'name': 'is_synced', 'def': 'is_synced INTEGER DEFAULT 0'},
         {'name': 'updated_at', 'def': 'updated_at TEXT'},
       ],
+      DatabaseTables.tableOfflineScanQueue: [
+        {'name': 'review_status', 'def': "review_status TEXT DEFAULT 'pending'"},
+        {'name': 'committed_patient_uuid', 'def': 'committed_patient_uuid TEXT'},
+        {'name': 'committed_patient_id', 'def': 'committed_patient_id TEXT'},
+        {'name': 'committed_patient_name', 'def': 'committed_patient_name TEXT'},
+        {'name': 'committed_visit_id', 'def': 'committed_visit_id TEXT'},
+        {'name': 'extracted_json', 'def': 'extracted_json TEXT'},
+      ],
     };
+
+    // Ensure metadata, offline scan queue, and deleted entities queue tables exist before column migrations
+    try {
+      await db.execute(DatabaseTables.createTableMetadata);
+    } catch (_) {}
+    try {
+      await db.execute(DatabaseTables.createTableOfflineScanQueue);
+    } catch (_) {}
+    try {
+      await db.execute(DatabaseTables.createTableDeletedEntitiesQueue);
+    } catch (_) {}
 
     for (final entry in columnsByTable.entries) {
       final table = entry.key;

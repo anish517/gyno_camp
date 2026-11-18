@@ -904,7 +904,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             ),
           ),
 
-        if (ocrState.offlineQueue.isNotEmpty)
+        if (ocrState.pendingOfflineQueue.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(bottom: 18),
             padding: const EdgeInsets.all(16),
@@ -936,7 +936,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Locally Stored Offline Scans (${ocrState.offlineQueue.length})',
+                        'Locally Stored Offline Scans (${ocrState.pendingOfflineQueue.length})',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -987,7 +987,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                   SnackBar(
                                     content: Text(
                                       count > 0
-                                          ? '✅ Extracted & synced $count offline scan(s)!'
+                                          ? '✅ Extracted & synced $count offline scan(s)! Photos retained below for review & correction.'
                                           : 'Could not extract scans yet — please check Internet connection.',
                                     ),
                                   ),
@@ -998,7 +998,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   ],
                 ),
                 const SizedBox(height: 10),
-                ...ocrState.offlineQueue.map((item) {
+                ...ocrState.pendingOfflineQueue.map((item) {
                   final hasP1 =
                       item.page1Bytes != null && item.page1Bytes!.isNotEmpty;
                   final hasP2 =
@@ -1103,6 +1103,292 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                 .read(syncStateProvider.notifier)
                                 .refreshPendingCounts();
                           },
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+
+        if (ocrState.completedScanArchive.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 18),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppTheme.primaryTeal.withValues(alpha: 0.35),
+                width: 1.4,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.photo_library_outlined,
+                      color: AppTheme.primaryTeal,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Scanned Form Photos — Review & Correction (${ocrState.completedScanArchive.length})',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: AppTheme.primaryDark,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Retained Page 1 & Page 2 scan photos for post-sync clinical verification, correction, or photo cleanup.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Colors.blueGrey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ...ocrState.completedScanArchive.map((item) {
+                  final p1Bytes = item.page1Bytes;
+                  final p2Bytes = item.page2Bytes;
+                  final hasP1 = p1Bytes != null && p1Bytes.isNotEmpty;
+                  final hasP2 = p2Bytes != null && p2Bytes.isNotEmpty;
+                  final patientTitle =
+                      (item.committedPatientName != null &&
+                          item.committedPatientName!.trim().isNotEmpty)
+                      ? item.committedPatientName!.trim()
+                      : 'Committed Patient Record';
+                  final patientToken =
+                      (item.committedPatientId != null &&
+                          item.committedPatientId!.trim().isNotEmpty)
+                      ? item.committedPatientId!.trim()
+                      : (item.patientIdHint ?? item.campCode);
+                  final pageSummary = hasP1 && hasP2
+                      ? 'Dual-Page (P1+P2)'
+                      : (hasP1 ? 'Page 1 Only' : 'Page 2 Only');
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: item.needsReview
+                          ? const Color(0xFFFFFBEB)
+                          : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: item.needsReview
+                            ? Colors.amber.shade300
+                            : Colors.grey.shade200,
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        InkWell(
+                          onTap: () => _showFullScreenFormPreviewDialog(
+                            context,
+                            page1Bytes: p1Bytes,
+                            page2Bytes: p2Bytes,
+                            initialPage: hasP1 ? 1 : 2,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (hasP1)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Image.memory(
+                                    p1Bytes,
+                                    width: 38,
+                                    height: 48,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => Container(
+                                      width: 38,
+                                      height: 48,
+                                      color: Colors.grey.shade200,
+                                      child: const Icon(
+                                        Icons.image_outlined,
+                                        size: 18,
+                                        color: AppTheme.primaryTeal,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              if (hasP1 && hasP2) const SizedBox(width: 4),
+                              if (hasP2)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Image.memory(
+                                    p2Bytes,
+                                    width: 38,
+                                    height: 48,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => Container(
+                                      width: 38,
+                                      height: 48,
+                                      color: Colors.grey.shade200,
+                                      child: const Icon(
+                                        Icons.image_outlined,
+                                        size: 18,
+                                        color: AppTheme.primaryTeal,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    patientTitle,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryTeal.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Text(
+                                      patientToken,
+                                      style: const TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryDark,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: item.needsReview
+                                          ? Colors.amber.shade100
+                                          : Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Text(
+                                      item.needsReview
+                                          ? 'AUTO-SAVED • NEEDS REVIEW'
+                                          : 'VERIFIED',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: item.needsReview
+                                            ? Colors.amber.shade900
+                                            : Colors.green.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${item.campCode} • $pageSummary',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Colors.blueGrey.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Preview Stored Yellow Form Photo',
+                          icon: const Icon(
+                            Icons.visibility_outlined,
+                            size: 18,
+                            color: AppTheme.primaryTeal,
+                          ),
+                          onPressed: () => _showFullScreenFormPreviewDialog(
+                            context,
+                            page1Bytes: p1Bytes,
+                            page2Bytes: p2Bytes,
+                            initialPage: hasP1 ? 1 : 2,
+                          ),
+                        ),
+                        FilledButton.tonalIcon(
+                          style: FilledButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.fact_check_outlined,
+                            size: 15,
+                          ),
+                          label: const Text(
+                            'Review & Correct',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: ocrState.isProcessing
+                              ? null
+                              : () async {
+                                  await ocrVm.openArchivedScanForReview(item);
+                                },
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: 'Delete Stored Scan Photo',
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: Colors.red.shade600,
+                          ),
+                          onPressed: () => _showDeleteScanPhotoDialog(
+                            context,
+                            ocrVm,
+                            item,
+                          ),
                         ),
                       ],
                     ),
@@ -1491,6 +1777,115 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     );
   }
 
+  Future<void> _showDeleteScanPhotoDialog(
+    BuildContext context,
+    OcrScanViewModel ocrVm,
+    OfflineScanQueueItem item,
+  ) async {
+    final hasP1 = item.hasPage1;
+    final hasP2 = item.hasPage2;
+    final patientLabel =
+        (item.committedPatientName != null &&
+            item.committedPatientName!.trim().isNotEmpty)
+        ? '${item.committedPatientName} (${item.committedPatientId ?? item.campCode})'
+        : (item.committedPatientId ?? item.patientIdHint ?? item.campCode);
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.hide_image_outlined, color: AppTheme.dangerRose),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Delete Stored Scan Photo?',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Choose which stored Yellow Form scan photo(s) to remove for $patientLabel.',
+              style: const TextStyle(fontSize: 13.5),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade300),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.verified_user_outlined,
+                    size: 18,
+                    color: Color(0xFF15803D),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'The committed patient and clinical visit record in the database will NOT be deleted.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF166534),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Cancel'),
+          ),
+          if (hasP1 && hasP2) ...[
+            OutlinedButton.icon(
+              icon: const Icon(Icons.filter_1_rounded, size: 16),
+              label: const Text('Delete Page 1 Photo'),
+              onPressed: () async {
+                Navigator.of(dialogCtx).pop();
+                await ocrVm.deleteScanPhoto(item.id, pageNumber: 1);
+              },
+            ),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.filter_2_rounded, size: 16),
+              label: const Text('Delete Page 2 Photo'),
+              onPressed: () async {
+                Navigator.of(dialogCtx).pop();
+                await ocrVm.deleteScanPhoto(item.id, pageNumber: 2);
+              },
+            ),
+          ],
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerRose,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.delete_forever_outlined, size: 16),
+            label: Text(
+              hasP1 && hasP2 ? 'Delete Both Photos' : 'Delete Stored Photo',
+            ),
+            onPressed: () async {
+              Navigator.of(dialogCtx).pop();
+              await ocrVm.deleteScanPhoto(item.id);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==========================================
   // LEFT PANE: DUAL-DOCUMENT PREVIEW & INSPECTION
   // ==========================================
@@ -1518,6 +1913,36 @@ class _FormScanViewState extends ConsumerState<FormScanView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (ocrState.isReviewingCommittedScan)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF93C5FD)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.fact_check_outlined,
+                    size: 16,
+                    color: Color(0xFF1D4ED8),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'REVIEW & CORRECTION MODE • Saving updates the existing patient & clinical visit record in-place.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E3A8A),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1544,6 +1969,25 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                 ),
               ),
               const SizedBox(width: 6),
+              if (ocrState.activeArchiveItemId != null && hasVisualImage)
+                IconButton(
+                  tooltip:
+                      'Delete Page $activePage Photo (Keeps Patient Record)',
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    size: 18,
+                    color: Colors.red.shade600,
+                  ),
+                  onPressed: () async {
+                    await ref
+                        .read(ocrScanProvider.notifier)
+                        .deleteScanPhoto(
+                          ocrState.activeArchiveItemId!,
+                          pageNumber: activePage,
+                        );
+                  },
+                ),
               IconButton(
                 tooltip: 'Open Full-Screen Form Preview',
                 visualDensity: VisualDensity.compact,

@@ -225,7 +225,7 @@ class DatabaseTables {
     );
   ''';
 
-  // Offline Scan Queue Table for storing scanned Yellow Form images while offline
+  // Offline Scan Queue Table for storing scanned Yellow Form images while offline and for post-sync review/correction
   static const String createTableOfflineScanQueue = '''
     CREATE TABLE IF NOT EXISTS $tableOfflineScanQueue (
       id TEXT PRIMARY KEY,
@@ -240,7 +240,13 @@ class DatabaseTables {
       examining_nurse_hint TEXT,
       examining_doctor_hint TEXT,
       status TEXT NOT NULL DEFAULT 'pending',
+      review_status TEXT DEFAULT 'pending',
       error_message TEXT,
+      committed_patient_uuid TEXT,
+      committed_patient_id TEXT,
+      committed_patient_name TEXT,
+      committed_visit_id TEXT,
+      extracted_json TEXT,
       created_by_user_id TEXT NOT NULL,
       created_by_user_name TEXT DEFAULT 'Field Staff',
       created_by_user_role TEXT DEFAULT 'DATA_TAKER',

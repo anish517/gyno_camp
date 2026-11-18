@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 import '../../core/services/file_download_helper.dart';
@@ -7,12 +9,16 @@ import '../../core/services/session_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/clinical_visit_model.dart';
+import '../../models/ocr_scan_result_model.dart';
 import '../../models/patient_model.dart';
+import '../../repositories/ocr_repository.dart';
 import '../../repositories/patient_repository.dart';
+import '../../viewmodels/ocr_scan_viewmodel.dart';
+import '../scanner/form_scan_view.dart';
 import 'clinical_assessment_view.dart';
 import 'patient_registration_view.dart';
 
-class ClinicalHistoryPanel extends StatefulWidget {
+class ClinicalHistoryPanel extends ConsumerStatefulWidget {
   final PatientModel patient;
   final CampModel? camp;
   final String orgName;
@@ -29,11 +35,13 @@ class ClinicalHistoryPanel extends StatefulWidget {
   });
 
   @override
-  State<ClinicalHistoryPanel> createState() => _ClinicalHistoryPanelState();
+  ConsumerState<ClinicalHistoryPanel> createState() => _ClinicalHistoryPanelState();
 }
 
-class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
+class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
   late Future<List<ClinicalVisitModel>> _visitsFuture;
+  late Future<List<OfflineScanQueueItem>> _scanPhotosFuture;
+  final IOcrRepository _ocrRepo = OcrRepository();
   late PatientModel _patient;
   final Set<int> _dlIdx = {};
   bool _dlDossier = false;
@@ -44,6 +52,19 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
     super.initState();
     _patient = widget.patient;
     _visitsFuture = widget.repo.getClinicalVisits(_patient.patientId, patientUuid: _patient.id);
+    _scanPhotosFuture = _ocrRepo.getScanPhotoArchiveForPatient(
+      patientUuid: _patient.id,
+      patientId: _patient.patientId,
+    );
+  }
+
+  void _refreshScanPhotos() {
+    setState(() {
+      _scanPhotosFuture = _ocrRepo.getScanPhotoArchiveForPatient(
+        patientUuid: _patient.id,
+        patientId: _patient.patientId,
+      );
+    });
   }
 
   Future<void> _dlSlip(ClinicalVisitModel v, int i) async {
@@ -533,8 +554,303 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
               }(),
             ),
         ])),
+      _buildScanPhotosSection(),
     ])),
   );
+
+  Widget _buildScanPhotosSection() {
+    return FutureBuilder<List<OfflineScanQueueItem>>(
+      future: _scanPhotosFuture,
+      builder: (context, snap) {
+        final items = snap.data ?? const <OfflineScanQueueItem>[];
+        if (items.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 12),
+            const Divider(color: Color(0xFFE2E8F0)),
+            const SizedBox(height: 6),
+            const Row(
+              children: [
+                Icon(Icons.photo_library_outlined, size: 14, color: AppTheme.primaryTeal),
+                SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'Scanned Yellow Form Photos',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ...items.map((item) {
+              final p1 = item.page1Bytes;
+              final p2 = item.page2Bytes;
+              final hasP1 = p1 != null && p1.isNotEmpty;
+              final hasP2 = p2 != null && p2.isNotEmpty;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: item.needsReview ? const Color(0xFFFFFBEB) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: item.needsReview ? Colors.amber.shade300 : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (hasP1)
+                          InkWell(
+                            onTap: () => _showArchivedFormPreviewDialog(p1, p2, initialPage: 1),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(5),
+                              child: Image.memory(
+                                p1,
+                                width: 36,
+                                height: 46,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => const Icon(Icons.image_outlined, size: 22),
+                              ),
+                            ),
+                          ),
+                        if (hasP1 && hasP2) const SizedBox(width: 6),
+                        if (hasP2)
+                          InkWell(
+                            onTap: () => _showArchivedFormPreviewDialog(p1, p2, initialPage: 2),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(5),
+                              child: Image.memory(
+                                p2,
+                                width: 36,
+                                height: 46,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => const Icon(Icons.image_outlined, size: 22),
+                              ),
+                            ),
+                          ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                hasP1 && hasP2
+                                    ? 'Page 1 & Page 2'
+                                    : (hasP1 ? 'Page 1 Only' : 'Page 2 Only'),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: item.needsReview ? Colors.amber.shade100 : Colors.green.shade100,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  item.needsReview ? 'NEEDS REVIEW' : 'VERIFIED',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: item.needsReview ? Colors.amber.shade900 : Colors.green.shade900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            ),
+                            icon: const Icon(Icons.fact_check_outlined, size: 13),
+                            label: const Text(
+                              'Review & Correct',
+                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () async {
+                              await ref
+                                  .read(ocrScanProvider.notifier)
+                                  .openArchivedScanForReview(item);
+                              if (!context.mounted) return;
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const FormScanView()),
+                              );
+                              if (mounted) {
+                                final refreshedPatient = await widget.repo.getPatientByPatientId(
+                                  _patient.patientId,
+                                );
+                                setState(() {
+                                  if (refreshedPatient != null) {
+                                    _patient = refreshedPatient;
+                                  }
+                                  _visitsFuture = widget.repo.getClinicalVisits(
+                                    _patient.patientId,
+                                    patientUuid: _patient.id,
+                                  );
+                                });
+                                _refreshScanPhotos();
+                                widget.onDataModified?.call();
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: 'Delete Stored Scan Photo (Keeps Patient Record)',
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.delete_outline, size: 16, color: AppTheme.dangerRose),
+                          onPressed: () => _confirmDeletePatientScanPhoto(item),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showArchivedFormPreviewDialog(
+    Uint8List? p1Bytes,
+    Uint8List? p2Bytes, {
+    int initialPage = 1,
+  }) async {
+    int currentPage = initialPage;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final activeBytes = currentPage == 1 ? (p1Bytes ?? p2Bytes) : (p2Bytes ?? p1Bytes);
+          return Dialog(
+            insetPadding: const EdgeInsets.all(16),
+            child: Container(
+              width: 720,
+              height: 640,
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.photo_library_outlined, color: AppTheme.primaryTeal),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Scanned Yellow Form — ${_patient.fullName} (${_patient.patientId})',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (p1Bytes != null && p2Bytes != null) ...[
+                        ChoiceChip(
+                          label: const Text('Page 1'),
+                          selected: currentPage == 1,
+                          onSelected: (_) => setDialogState(() => currentPage = 1),
+                        ),
+                        const SizedBox(width: 6),
+                        ChoiceChip(
+                          label: const Text('Page 2'),
+                          selected: currentPage == 2,
+                          onSelected: (_) => setDialogState(() => currentPage = 2),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: activeBytes != null
+                        ? InteractiveViewer(
+                            minScale: 0.7,
+                            maxScale: 5.0,
+                            child: Center(child: Image.memory(activeBytes, fit: BoxFit.contain)),
+                          )
+                        : const Center(child: Text('No image data available')),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmDeletePatientScanPhoto(OfflineScanQueueItem item) async {
+    final hasP1 = item.hasPage1;
+    final hasP2 = item.hasPage2;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Stored Scan Photo?'),
+        content: const Text(
+          'This removes only the stored Yellow Form photo(s) to free storage. The patient and clinical visit record in the database will NOT be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          if (hasP1 && hasP2) ...[
+            OutlinedButton(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                await ref.read(ocrScanProvider.notifier).deleteScanPhoto(item.id, pageNumber: 1);
+                _refreshScanPhotos();
+              },
+              child: const Text('Delete Page 1 Photo'),
+            ),
+            OutlinedButton(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                await ref.read(ocrScanProvider.notifier).deleteScanPhoto(item.id, pageNumber: 2);
+                _refreshScanPhotos();
+              },
+              child: const Text('Delete Page 2 Photo'),
+            ),
+          ],
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerRose,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await ref.read(ocrScanProvider.notifier).deleteScanPhoto(item.id);
+              _refreshScanPhotos();
+            },
+            child: Text(hasP1 && hasP2 ? 'Delete Both Photos' : 'Delete Photo'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _timeline(List<ClinicalVisitModel> visits, DateFormat fmt, {bool isMobile = false}) {
     if (visits.isEmpty) {

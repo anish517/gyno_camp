@@ -479,6 +479,80 @@ ${page2.rawText}
     };
   }
 
+  factory OcrScanResultModel.fromMap(Map<String, dynamic> map) {
+    List<String> parseStringList(dynamic raw) {
+      if (raw is List) {
+        return raw.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList();
+      }
+      if (raw is String && raw.trim().isNotEmpty) {
+        return raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+      }
+      return const [];
+    }
+
+    Map<String, double> parseConfidences(dynamic raw) {
+      if (raw is Map) {
+        final out = <String, double>{};
+        raw.forEach((k, v) {
+          if (v is num) out[k.toString()] = v.toDouble();
+        });
+        return out;
+      }
+      return {};
+    }
+
+    return OcrScanResultModel(
+      pageNumber: (map['pageNumber'] as num?)?.toInt() ?? 0,
+      imagePath: map['imagePath'] as String?,
+      page1ImagePath: map['page1ImagePath'] as String?,
+      page2ImagePath: map['page2ImagePath'] as String?,
+      page1RawText: map['page1RawText'] as String?,
+      page2RawText: map['page2RawText'] as String?,
+      isDualPage: map['isDualPage'] == true || map['isDualPage'] == 1,
+      isSimulated: map['isSimulated'] == true || map['isSimulated'] == 1,
+      ocrEngine: map['ocrEngine'] as String? ?? 'gemini_flash',
+      demographics: map['demographics'] is Map
+          ? Map<String, dynamic>.from(map['demographics'] as Map)
+          : {},
+      obstetrics: map['obstetrics'] is Map
+          ? Map<String, dynamic>.from(map['obstetrics'] as Map)
+          : {},
+      vitals: map['vitals'] is Map
+          ? Map<String, dynamic>.from(map['vitals'] as Map)
+          : {},
+      popStaging: map['popStaging'] is Map
+          ? Map<String, dynamic>.from(map['popStaging'] as Map)
+          : {},
+      diagnoses: parseStringList(map['diagnoses']),
+      counseling: parseStringList(map['counseling']),
+      medications: parseStringList(map['medications']),
+      surgicalReferral: map['surgicalReferral'] as String?,
+      followUpDestination: map['followUpDestination'] as String?,
+      surgeryDone: map['surgeryDone'] == true || map['surgeryDone'] == 1,
+      surgeryType: map['surgeryType'] as String?,
+      ringPessary: map['ringPessary'] == true || map['ringPessary'] == 1,
+      pessaryType: map['pessaryType'] as String?,
+      ringPessarySize: (map['ringPessarySize'] as num?)?.toInt(),
+      examiningDoctor: map['examiningDoctor'] as String?,
+      attendingDoctors: parseStringList(map['attendingDoctors']),
+      examiningNurse: map['examiningNurse'] as String?,
+      attendingNurses: parseStringList(map['attendingNurses']),
+      treatmentLevel: map['treatmentLevel'] as String?,
+      clinicalNotes: map['clinicalNotes'] as String?,
+      intakeDate: map['intakeDate'] as String?,
+      anamnesisDate: map['anamnesisDate'] as String?,
+      examDate: map['examDate'] as String?,
+      treatmentDate: map['treatmentDate'] as String?,
+      conclusionDate: map['conclusionDate'] as String?,
+      labTestDate: map['labTestDate'] as String?,
+      outtakeDate: map['outtakeDate'] as String?,
+      fieldConfidences: parseConfidences(map['fieldConfidences']),
+      overallConfidence: (map['overallConfidence'] as num?)?.toDouble() ?? 0.9,
+      rawText: map['rawText'] as String? ?? '',
+      scannedAt: DateTime.tryParse(map['scannedAt'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+
   factory OcrScanResultModel.empty() {
     return OcrScanResultModel(
       pageNumber: 0,
@@ -582,7 +656,13 @@ class OfflineScanQueueItem {
   final String? examiningNurseHint;
   final String? examiningDoctorHint;
   final String status; // 'pending', 'processing', 'completed', 'failed'
+  final String reviewStatus; // 'pending', 'needs_review', 'verified'
   final String? errorMessage;
+  final String? committedPatientUuid;
+  final String? committedPatientId;
+  final String? committedPatientName;
+  final String? committedVisitId;
+  final String? extractedJson;
   final String createdByUserId;
   final String createdByUserName;
   final String createdByUserRole;
@@ -604,7 +684,13 @@ class OfflineScanQueueItem {
     this.examiningNurseHint,
     this.examiningDoctorHint,
     this.status = 'pending',
+    this.reviewStatus = 'pending',
     this.errorMessage,
+    this.committedPatientUuid,
+    this.committedPatientId,
+    this.committedPatientName,
+    this.committedVisitId,
+    this.extractedJson,
     required this.createdByUserId,
     this.createdByUserName = 'Field Staff',
     this.createdByUserRole = 'DATA_TAKER',
@@ -617,7 +703,23 @@ class OfflineScanQueueItem {
   bool get hasPage1 => (page1ImageBase64 != null && page1ImageBase64!.isNotEmpty) || (page1ImagePath != null && page1ImagePath!.isNotEmpty);
   bool get hasPage2 => (page2ImageBase64 != null && page2ImageBase64!.isNotEmpty) || (page2ImagePath != null && page2ImagePath!.isNotEmpty);
   bool get hasAnyImage => hasPage1 || hasPage2;
-  String? get patientIdHint => patientTokenHint;
+  bool get isCompleted => status == 'completed';
+  bool get isPendingOrFailed => status == 'pending' || status == 'failed' || status == 'processing';
+  bool get needsReview => reviewStatus == 'needs_review';
+  bool get isVerified => reviewStatus == 'verified';
+  String? get patientIdHint =>
+      (committedPatientId != null && committedPatientId!.isNotEmpty) ? committedPatientId : patientTokenHint;
+
+  OcrScanResultModel? get parsedExtractedResult {
+    if (extractedJson == null || extractedJson!.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(extractedJson!);
+      if (decoded is Map<String, dynamic>) {
+        return OcrScanResultModel.fromMap(decoded);
+      }
+    } catch (_) {}
+    return null;
+  }
 
   Uint8List? get page1Bytes {
     if (page1ImageBase64 == null || page1ImageBase64!.isEmpty) return null;
@@ -651,7 +753,13 @@ class OfflineScanQueueItem {
       'examining_nurse_hint': examiningNurseHint,
       'examining_doctor_hint': examiningDoctorHint,
       'status': status,
+      'review_status': reviewStatus,
       'error_message': errorMessage,
+      'committed_patient_uuid': committedPatientUuid,
+      'committed_patient_id': committedPatientId,
+      'committed_patient_name': committedPatientName,
+      'committed_visit_id': committedVisitId,
+      'extracted_json': extractedJson,
       'created_by_user_id': createdByUserId,
       'created_by_user_name': createdByUserName,
       'created_by_user_role': createdByUserRole,
@@ -676,7 +784,14 @@ class OfflineScanQueueItem {
       examiningNurseHint: map['examining_nurse_hint'] as String?,
       examiningDoctorHint: map['examining_doctor_hint'] as String?,
       status: map['status'] as String? ?? 'pending',
+      reviewStatus: map['review_status'] as String? ??
+          ((map['status'] as String?) == 'completed' ? 'needs_review' : 'pending'),
       errorMessage: map['error_message'] as String?,
+      committedPatientUuid: map['committed_patient_uuid'] as String?,
+      committedPatientId: map['committed_patient_id'] as String?,
+      committedPatientName: map['committed_patient_name'] as String?,
+      committedVisitId: map['committed_visit_id'] as String?,
+      extractedJson: map['extracted_json'] as String?,
       createdByUserId: map['created_by_user_id'] as String? ?? 'usr-local',
       createdByUserName: map['created_by_user_name'] as String? ?? 'Field Staff',
       createdByUserRole: map['created_by_user_role'] as String? ?? 'DATA_TAKER',

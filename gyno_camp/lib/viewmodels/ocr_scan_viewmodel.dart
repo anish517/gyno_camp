@@ -56,6 +56,9 @@ class OcrScanState {
   final DuplicateCheckResult duplicateResult;
   final bool isPatientIdConflict;
   final String? patientIdConflictReason;
+  final String? activeArchiveItemId;
+  final String? reviewingPatientUuid;
+  final String? reviewingVisitId;
 
   const OcrScanState({
     this.isProcessing = false,
@@ -78,6 +81,9 @@ class OcrScanState {
     this.duplicateResult = const DuplicateCheckResult.none(),
     this.isPatientIdConflict = false,
     this.patientIdConflictReason,
+    this.activeArchiveItemId,
+    this.reviewingPatientUuid,
+    this.reviewingVisitId,
   });
 
   bool get hasPage1 => page1Scan != null;
@@ -94,6 +100,16 @@ class OcrScanState {
   bool get isDualReady => hasPage1 && hasPage2;
   bool get hasScanResult => scanResult != null;
   bool get hasDuplicate => duplicateResult.hasDuplicate;
+  List<OfflineScanQueueItem> get pendingOfflineQueue =>
+      offlineQueue.where((i) => i.isPendingOrFailed).toList();
+  List<OfflineScanQueueItem> get completedScanArchive =>
+      offlineQueue.where((i) => i.isCompleted && i.hasAnyImage).toList();
+  bool get isReviewingCommittedScan =>
+      (reviewingPatientUuid != null && reviewingPatientUuid!.isNotEmpty) ||
+      (activeArchiveItemId != null &&
+          offlineQueue.any(
+            (i) => i.id == activeArchiveItemId && i.isCompleted,
+          ));
 
   OcrScanState copyWith({
     bool? isProcessing,
@@ -117,9 +133,15 @@ class OcrScanState {
     DuplicateCheckResult? duplicateResult,
     bool? isPatientIdConflict,
     String? patientIdConflictReason,
+    String? activeArchiveItemId,
+    String? reviewingPatientUuid,
+    String? reviewingVisitId,
+    bool clearReviewContext = false,
     bool clearPatientIdConflict = false,
     bool clearPage1 = false,
     bool clearPage2 = false,
+    bool clearPage1Image = false,
+    bool clearPage2Image = false,
     bool clearScanResult = false,
   }) {
     return OcrScanState(
@@ -129,10 +151,10 @@ class OcrScanState {
       page1Scan: clearPage1 ? null : (page1Scan ?? this.page1Scan),
       page2Scan: clearPage2 ? null : (page2Scan ?? this.page2Scan),
       scanResult: clearScanResult ? null : (scanResult ?? this.scanResult),
-      page1ImageBytes: clearPage1 ? null : (page1ImageBytes ?? this.page1ImageBytes),
-      page1ImagePath: clearPage1 ? null : (page1ImagePath ?? this.page1ImagePath),
-      page2ImageBytes: clearPage2 ? null : (page2ImageBytes ?? this.page2ImageBytes),
-      page2ImagePath: clearPage2 ? null : (page2ImagePath ?? this.page2ImagePath),
+      page1ImageBytes: (clearPage1 || clearPage1Image) ? null : (page1ImageBytes ?? this.page1ImageBytes),
+      page1ImagePath: (clearPage1 || clearPage1Image) ? null : (page1ImagePath ?? this.page1ImagePath),
+      page2ImageBytes: (clearPage2 || clearPage2Image) ? null : (page2ImageBytes ?? this.page2ImageBytes),
+      page2ImagePath: (clearPage2 || clearPage2Image) ? null : (page2ImagePath ?? this.page2ImagePath),
       offlineQueue: offlineQueue ?? this.offlineQueue,
       isOfflineModeDetected: isOfflineModeDetected ?? this.isOfflineModeDetected,
       activeInspectionPage: activeInspectionPage ?? this.activeInspectionPage,
@@ -143,6 +165,9 @@ class OcrScanState {
       duplicateResult: duplicateResult ?? this.duplicateResult,
       isPatientIdConflict: clearPatientIdConflict ? false : (isPatientIdConflict ?? this.isPatientIdConflict),
       patientIdConflictReason: clearPatientIdConflict ? null : (patientIdConflictReason ?? this.patientIdConflictReason),
+      activeArchiveItemId: clearReviewContext ? null : (activeArchiveItemId ?? this.activeArchiveItemId),
+      reviewingPatientUuid: clearReviewContext ? null : (reviewingPatientUuid ?? this.reviewingPatientUuid),
+      reviewingVisitId: clearReviewContext ? null : (reviewingVisitId ?? this.reviewingVisitId),
     );
   }
 }
@@ -241,6 +266,103 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     } catch (_) {}
   }
 
+  /// Granularly deletes Page 1, Page 2, or all stored Yellow Form photos for a scan
+  /// without deleting the committed patient or clinical visit record.
+  Future<void> deleteScanPhoto(String id, {int? pageNumber}) async {
+    try {
+      await _repository.deleteScanPhoto(id, pageNumber: pageNumber);
+      final updatedQueue = await _repository.getOfflineScanQueue();
+      if (!mounted) return;
+      if (state.activeArchiveItemId == id) {
+        if (pageNumber == 1) {
+          state = state.copyWith(
+            offlineQueue: updatedQueue,
+            clearPage1Image: true,
+            activeInspectionPage: state.hasPage2Image ? 2 : 1,
+            successMessage:
+                'Page 1 photo deleted. The patient & visit record remains intact.',
+          );
+          return;
+        } else if (pageNumber == 2) {
+          state = state.copyWith(
+            offlineQueue: updatedQueue,
+            clearPage2Image: true,
+            activeInspectionPage: state.hasPage1Image ? 1 : 2,
+            successMessage:
+                'Page 2 photo deleted. The patient & visit record remains intact.',
+          );
+          return;
+        } else {
+          state = state.copyWith(
+            offlineQueue: updatedQueue,
+            clearPage1Image: true,
+            clearPage2Image: true,
+            successMessage:
+                'All stored scan photos deleted. The patient & visit record remains intact.',
+          );
+          return;
+        }
+      }
+      state = state.copyWith(
+        offlineQueue: updatedQueue,
+        successMessage: pageNumber != null
+            ? 'Page $pageNumber photo deleted. The committed patient record remains intact.'
+            : 'Scanned form photo(s) deleted. The committed patient record remains intact.',
+      );
+    } catch (_) {}
+  }
+
+  /// Opens an already-committed or archived Yellow Form scan (Page 1 & Page 2 photos +
+  /// cached extracted fields) in split-screen mode for review and correction.
+  Future<bool> openArchivedScanForReview(OfflineScanQueueItem item) async {
+    final p1Bytes = item.page1Bytes;
+    final p2Bytes = item.page2Bytes;
+    final cachedResult = item.parsedExtractedResult;
+
+    if (cachedResult != null) {
+      String? resolvedPatientUuid = item.committedPatientUuid;
+      String? resolvedVisitId = item.committedVisitId;
+
+      if (resolvedVisitId == null || resolvedVisitId.isEmpty) {
+        try {
+          final latestVisit = await _patientRepository.getLatestClinicalVisit(
+            item.committedPatientId ?? item.patientIdHint ?? '',
+            patientUuid: resolvedPatientUuid,
+          );
+          resolvedVisitId = latestVisit?.id;
+        } catch (_) {}
+      }
+
+      if (!mounted) return true;
+      state = state.copyWith(
+        isProcessing: false,
+        isOfflineModeDetected: false,
+        page1ImageBytes: p1Bytes,
+        page1ImagePath: item.page1ImagePath,
+        page2ImageBytes: p2Bytes,
+        page2ImagePath: item.page2ImagePath,
+        clearPage1Image: p1Bytes == null || p1Bytes.isEmpty,
+        clearPage2Image: p2Bytes == null || p2Bytes.isEmpty,
+        page1Scan: item.hasPage1 ? cachedResult : null,
+        page2Scan: item.hasPage2 ? cachedResult : null,
+        clearPage1: !item.hasPage1,
+        clearPage2: !item.hasPage2,
+        scanResult: cachedResult,
+        activeInspectionPage: item.hasPage1 ? 1 : 2,
+        activeArchiveItemId: item.id,
+        reviewingPatientUuid: resolvedPatientUuid,
+        reviewingVisitId: resolvedVisitId,
+        clearPatientIdConflict: true,
+        errorMessage: null,
+        successMessage:
+            'Loaded stored Yellow Form scan for review & correction. Saving will update the existing patient record.',
+      );
+      return true;
+    }
+
+    return processSingleOfflineQueueItem(item);
+  }
+
   /// Loads a queued offline scan into the preview/verification slots and attempts Gemini Cloud OCR
   Future<bool> processSingleOfflineQueueItem(OfflineScanQueueItem item) async {
     Uint8List? p1Bytes;
@@ -263,12 +385,14 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       page1ImagePath: item.page1ImagePath,
       page2ImageBytes: p2Bytes,
       page2ImagePath: item.page2ImagePath,
+      activeArchiveItemId: item.id,
+      reviewingPatientUuid: item.committedPatientUuid,
+      reviewingVisitId: item.committedVisitId,
       errorMessage: null,
       successMessage: null,
     );
     try {
       final extracted = await _repository.extractQueuedOfflineItem(item);
-      await _repository.deleteOfflineScanQueueItem(item.id);
       final updatedQueue = await _repository.getOfflineScanQueue();
       if (!mounted) return true;
       state = state.copyWith(
@@ -278,6 +402,9 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         page1Scan: item.hasPage1 ? extracted : null,
         page2Scan: item.hasPage2 ? extracted : null,
         scanResult: extracted,
+        activeArchiveItemId: item.id,
+        reviewingPatientUuid: item.committedPatientUuid,
+        reviewingVisitId: item.committedVisitId,
         successMessage: 'Queued offline scan extracted! Review & commit below.',
       );
       return true;
@@ -695,7 +822,14 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       campCode: campCode ?? '',
     );
     final target = normalized.isNotEmpty ? normalized : clean;
-    final isTaken = await _patientRepository.isPatientIdTaken(target);
+    final existing = await _patientRepository.getPatientByPatientId(target);
+    if (!mounted) return;
+    final isOwnRecord = existing != null &&
+        state.reviewingPatientUuid != null &&
+        state.reviewingPatientUuid!.isNotEmpty &&
+        existing.id == state.reviewingPatientUuid;
+    final isTaken = !isOwnRecord &&
+        (existing != null || await _patientRepository.isPatientIdTaken(target));
     if (!mounted) return;
     if (isTaken) {
       state = state.copyWith(
@@ -1297,12 +1431,24 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         attendingDoctorNames: effectiveAttending,
         primaryNurseName: effectiveNurse,
         attendingNurseNames: effectiveAttendingNurses,
+        existingPatientUuid: state.reviewingPatientUuid,
+        existingVisitId: state.reviewingVisitId,
+        archiveItemId: state.activeArchiveItemId,
+        page1ImageBytes: state.page1ImageBytes,
+        page1ImagePath: state.page1ImagePath ?? state.page1Scan?.imagePath,
+        page2ImageBytes: state.page2ImageBytes,
+        page2ImagePath: state.page2ImagePath ?? state.page2Scan?.imagePath,
+        reviewStatus: 'verified',
+        preservePhotoArchive: true,
       );
 
+      final updatedQueue = await _repository.getOfflineScanQueue();
       if (!mounted) return savedPatient;
       state = state.copyWith(
         isSaving: false,
+        offlineQueue: updatedQueue,
         committedPatient: savedPatient,
+        reviewingPatientUuid: savedPatient.id,
         successMessage: 'Patient ${savedPatient.patientId} verified & saved directly to local database!',
       );
       return savedPatient;

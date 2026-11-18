@@ -341,5 +341,136 @@ void main() {
       expect(NepaliLocalizationService.formatBsDateOnly(v.labTestDate!), '2083-04-13 BS');
       expect(NepaliLocalizationService.formatBsDateOnly(v.visitDate), '2083-04-15 BS');
     });
+
+    test('Retains Page 1 & Page 2 scan photos after commit/auto-sync, supports in-place review & correction, and deletes photos without deleting patient record', () async {
+      final dummyPage1 = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, 10, 20, 30, 40]);
+      final dummyPage2 = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, 50, 60, 70, 80]);
+
+      // 1. Enqueue an offline dual-page scan
+      final queued = await ocrRepo.enqueueOfflineScan(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        page1Bytes: dummyPage1,
+        page2Bytes: dummyPage2,
+        patientIdHint: 'KTM01-0099',
+        intakeDateHint: '2083-08-01',
+        userId: 'usr-datataker-01',
+        userName: 'Sita Sharma',
+        userRole: 'DataTaker',
+        deviceId: 'dev-tab-01',
+      );
+      expect(await ocrRepo.getPendingOfflineScanCount(), 1);
+
+      // 2. Simulate auto-sync commit (status -> completed, reviewStatus -> needs_review, photos retained)
+      final initialScan = await ocrRepo.processTextScan(OcrFormService.sampleFullFormText);
+      final autoCommittedPatient = await ocrRepo.commitVerifiedScan(
+        verifiedScan: initialScan.copyWith(
+          demographics: {
+            ...initialScan.demographics,
+            'patientId': 'KTM01-0099',
+            'firstName': 'Saraswati',
+            'surname': 'Adhikari',
+          },
+        ),
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        userId: 'usr-datataker-01',
+        userName: 'Sita Sharma',
+        userRole: 'DataTaker',
+        deviceId: 'dev-tab-01',
+        archiveItemId: queued.id,
+        reviewStatus: 'needs_review',
+      );
+
+      // Pending offline scan count drops to 0 because status is now 'completed'
+      expect(await ocrRepo.getPendingOfflineScanCount(), 0);
+
+      // However, the scan photo archive is retained for review & correction!
+      final patientPhotos = await ocrRepo.getScanPhotoArchiveForPatient(
+        patientUuid: autoCommittedPatient.id,
+        patientId: autoCommittedPatient.patientId,
+      );
+      expect(patientPhotos.length, 1);
+      final archivedItem = patientPhotos.first;
+      expect(archivedItem.id, queued.id);
+      expect(archivedItem.isCompleted, isTrue);
+      expect(archivedItem.needsReview, isTrue);
+      expect(archivedItem.hasPage1, isTrue);
+      expect(archivedItem.hasPage2, isTrue);
+      expect(archivedItem.committedPatientUuid, autoCommittedPatient.id);
+      expect(archivedItem.committedVisitId, isNotNull);
+      expect(archivedItem.parsedExtractedResult, isNotNull);
+      expect(archivedItem.parsedExtractedResult!.demographics['firstName'], 'Saraswati');
+
+      // 3. Staff reviews & corrects the auto-saved record in split-screen mode
+      final correctedScan = archivedItem.parsedExtractedResult!.copyWith(
+        demographics: {
+          ...archivedItem.parsedExtractedResult!.demographics,
+          'firstName': 'Saraswati Devi',
+          'age': 49,
+        },
+        vitals: {
+          ...archivedItem.parsedExtractedResult!.vitals,
+          'systolicBp': 142,
+        },
+      );
+      final updatedPatient = await ocrRepo.commitVerifiedScan(
+        verifiedScan: correctedScan,
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        userId: 'usr-datataker-01',
+        userName: 'Sita Sharma',
+        userRole: 'DataTaker',
+        deviceId: 'dev-tab-01',
+        existingPatientUuid: archivedItem.committedPatientUuid,
+        existingVisitId: archivedItem.committedVisitId,
+        archiveItemId: archivedItem.id,
+        reviewStatus: 'verified',
+      );
+
+      // Verify existing patient & clinical visit were updated in-place (no duplicate visit created!)
+      expect(updatedPatient.id, autoCommittedPatient.id);
+      expect(updatedPatient.firstName, 'Saraswati Devi');
+      expect(updatedPatient.age, 49);
+
+      final visits = await patientRepo.getClinicalVisits(
+        updatedPatient.patientId,
+        patientUuid: updatedPatient.id,
+      );
+      expect(visits.length, 1);
+      expect(visits.first.id, archivedItem.committedVisitId);
+      expect(visits.first.systolicBp, 142);
+
+      final verifiedPhotos = await ocrRepo.getScanPhotoArchiveForPatient(
+        patientUuid: updatedPatient.id,
+      );
+      expect(verifiedPhotos.first.isVerified, isTrue);
+
+      // 4. Delete Page 1 photo only -> Page 2 photo remains, patient & visit remain intact
+      await ocrRepo.deleteScanPhoto(archivedItem.id, pageNumber: 1);
+      final afterP1Delete = await ocrRepo.getScanPhotoArchiveForPatient(
+        patientUuid: updatedPatient.id,
+      );
+      expect(afterP1Delete.length, 1);
+      expect(afterP1Delete.first.hasPage1, isFalse);
+      expect(afterP1Delete.first.hasPage2, isTrue);
+
+      // 5. Delete remaining photos -> archive removed, patient & visit STILL remain intact in SQLite
+      await ocrRepo.deleteScanPhoto(archivedItem.id);
+      final afterAllPhotosDelete = await ocrRepo.getScanPhotoArchiveForPatient(
+        patientUuid: updatedPatient.id,
+      );
+      expect(afterAllPhotosDelete, isEmpty);
+
+      final intactPatient = await patientRepo.getPatientByPatientId(updatedPatient.patientId);
+      final intactVisits = await patientRepo.getClinicalVisits(
+        updatedPatient.patientId,
+        patientUuid: updatedPatient.id,
+      );
+      expect(intactPatient, isNotNull);
+      expect(intactPatient!.firstName, 'Saraswati Devi');
+      expect(intactVisits.length, 1);
+      expect(intactVisits.first.systolicBp, 142);
+    });
   });
 }
