@@ -243,13 +243,26 @@ class PatientRepository implements IPatientRepository {
       whereArgs: [updatedPatient.id, oldPatientId ?? updatedPatient.patientId],
     );
 
-    if (oldPatientId != null &&
+    final tokenChanged = oldPatientId != null &&
         oldPatientId.trim().isNotEmpty &&
-        oldPatientId.trim().toLowerCase() != updatedPatient.patientId.trim().toLowerCase()) {
+        oldPatientId.trim().toLowerCase() != updatedPatient.patientId.trim().toLowerCase();
+
+    if (tokenChanged) {
       await db.rawUpdate(
         'UPDATE ${DatabaseTables.tableClinicalVisits} SET patient_id = ?, is_synced = 0 WHERE patient_id = ? COLLATE NOCASE OR patient_id = ?',
         [updatedPatient.patientId.trim(), oldPatientId.trim(), updatedPatient.id],
       );
+      try {
+        await db.rawUpdate(
+          'UPDATE ${DatabaseTables.tableOfflineScanQueue} SET committed_patient_id = ?, patient_token_hint = ? WHERE committed_patient_uuid = ? OR LOWER(committed_patient_id) = LOWER(?)',
+          [
+            updatedPatient.patientId.trim(),
+            updatedPatient.patientId.trim(),
+            updatedPatient.id,
+            oldPatientId.trim(),
+          ],
+        );
+      } catch (_) {}
     }
 
     // Synchronize normalized treatment_level to clinical_visits as well if present
@@ -261,9 +274,21 @@ class PatientRepository implements IPatientRepository {
       );
     }
 
-    // Auto-push updated patient to central server immediately (fire-and-forget) unless batched
+    // Auto-push updated patient (and its clinical visits if Token ID changed) to central server immediately
     if (_enableCentralSync && pushToServer) {
-      unawaited(_pushSyncDelta(deviceId: deviceId, patients: [updatedPatient]));
+      final visitsToPush = tokenChanged
+          ? await getClinicalVisits(
+              updatedPatient.patientId,
+              patientUuid: updatedPatient.id,
+            )
+          : const <ClinicalVisitModel>[];
+      unawaited(
+        _pushSyncDelta(
+          deviceId: deviceId,
+          patients: [updatedPatient],
+          clinicalVisits: visitsToPush,
+        ),
+      );
     }
 
     // Audit log update

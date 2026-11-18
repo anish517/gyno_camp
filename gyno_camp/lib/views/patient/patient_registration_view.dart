@@ -415,6 +415,16 @@ class _PatientRegistrationViewState
         );
 
         navigator.pop(updated);
+      } else {
+        final err = ref.read(patientRegistrationProvider).errorMessage ??
+            'Failed to update patient details.';
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(err),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
       return;
     }

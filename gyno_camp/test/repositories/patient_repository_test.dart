@@ -7,6 +7,7 @@ import 'package:gyno_camp/models/clinical_visit_model.dart';
 import 'package:gyno_camp/models/patient_model.dart';
 import 'package:gyno_camp/repositories/audit_repository.dart';
 import 'package:gyno_camp/repositories/patient_repository.dart';
+import 'package:gyno_camp/viewmodels/patient_registration_viewmodel.dart';
 
 void main() {
   setUpAll(() {
@@ -246,6 +247,70 @@ void main() {
       // Verify audit log
       final audit = await auditRepo.getRecentLogs();
       expect(audit.any((l) => l.action == AppConstants.auditActionClinicalEntry), isTrue);
+    });
+
+    test('PatientRegistrationViewModel.submitUpdate updates edited patientId and cascades to clinical_visits', () async {
+      final initialPatient = await patientRepo.registerPatient(
+        PatientModel(
+          id: 'pat-edit-token-1',
+          patientId: 'GC-0007-2026-00012',
+          campId: 'camp-ktm-01',
+          campCode: '0007',
+          intakeDate: DateTime(2026, 7, 31),
+          firstName: 'KAMALA',
+          surname: 'SSSS',
+          age: 50,
+          mobile: '9841234567',
+          ward: '05',
+          reasonsForVisit: const ['checkup'],
+          createdAt: DateTime.now(),
+          createdByUserId: 'usr-1',
+          createdByDeviceId: 'dev-1',
+        ),
+        createdByUserId: 'usr-1',
+        createdByUserName: 'Staff',
+        createdByUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+
+      await patientRepo.saveClinicalVisit(
+        ClinicalVisitModel(
+          id: 'vis-edit-token-1',
+          patientId: initialPatient.patientId,
+          campId: 'camp-ktm-01',
+          visitDate: DateTime(2026, 7, 31),
+          createdAt: DateTime.now(),
+          createdByUserId: 'usr-1',
+        ),
+        createdByUserId: 'usr-1',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+
+      final vm = PatientRegistrationViewModel(patientRepo);
+      vm.loadPatientForEditing(initialPatient);
+      vm.updateField(patientId: 'GC-0007-2026-00099');
+
+      final updated = await vm.submitUpdate(
+        originalPatient: initialPatient,
+        staffUserId: 'usr-1',
+        staffUserName: 'Staff',
+        staffUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+      );
+
+      expect(updated, isNotNull);
+      expect(updated!.id, 'pat-edit-token-1');
+      expect(updated.patientId, 'GC-0007-2026-00099');
+
+      final reloadedPatient = await patientRepo.getPatientByPatientId('GC-0007-2026-00099');
+      expect(reloadedPatient, isNotNull);
+      expect(reloadedPatient!.id, 'pat-edit-token-1');
+
+      final visits = await patientRepo.getClinicalVisits('GC-0007-2026-00099');
+      expect(visits.length, 1);
+      expect(visits.first.patientId, 'GC-0007-2026-00099');
     });
   });
 }

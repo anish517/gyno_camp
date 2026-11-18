@@ -399,7 +399,33 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
     state = state.copyWith(isSubmitting: true, errorMessage: null);
 
     try {
+      final rawInputId = state.patientId?.trim() ?? '';
+      final normalizedId = rawInputId.isNotEmpty
+          ? PatientModel.normalizePatientId(
+              rawInput: rawInputId,
+              campCode: originalPatient.campCode,
+            )
+          : originalPatient.patientId;
+      final effectivePatientId =
+          normalizedId.isNotEmpty ? normalizedId : originalPatient.patientId;
+
+      if (effectivePatientId.toLowerCase() !=
+          originalPatient.patientId.trim().toLowerCase()) {
+        final existingOwner =
+            await _patientRepository.getPatientByPatientId(effectivePatientId);
+        if (existingOwner != null && existingOwner.id != originalPatient.id) {
+          if (!mounted) return null;
+          state = state.copyWith(
+            isSubmitting: false,
+            errorMessage:
+                'Patient Token ID "$effectivePatientId" is already assigned to ${existingOwner.fullName}.',
+          );
+          return null;
+        }
+      }
+
       final updatedPatient = originalPatient.copyWith(
+        patientId: effectivePatientId,
         intakeDate: state.intakeDate ?? originalPatient.intakeDate,
         firstName: state.firstName.trim().toUpperCase(),
         surname: state.surname.trim().toUpperCase(),
