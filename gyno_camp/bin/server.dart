@@ -423,6 +423,9 @@ class GynoCampSyncServer {
       await _connection!.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS record_hash TEXT DEFAULT '';");
       await _connection!.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS previous_hash TEXT;");
       await _connection!.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_patient_id ON patients(patient_id);');
+      // Drop legacy restrictive fk_visits_patient constraint (which lacked ON UPDATE/DELETE CASCADE
+      // and blocked Token ID updates on patients with error 23503).
+      await _connection!.execute('ALTER TABLE clinical_visits DROP CONSTRAINT IF EXISTS fk_visits_patient;');
       await _connection!.execute("UPDATE users SET role = 'SUPER_ADMIN' WHERE id = 'usr-superadmin-01' OR LOWER(email) = 'admin@gynocamp.org';");
       // Auto-migrate legacy organization names in PostgreSQL to unified tenant identity
       await _connection!.execute('''
@@ -444,9 +447,9 @@ class GynoCampSyncServer {
       ''');
       // Purge any zombie camps that were previously deleted (recorded in deleted_entities)
       await _connection!.execute("DELETE FROM camps WHERE id IN (SELECT id FROM deleted_entities WHERE entity_type = 'camp');");
-      // Auto-cleanup any orphaned patients or clinical visits in PostgreSQL
-      await _connection!.execute('DELETE FROM patients WHERE camp_id NOT IN (SELECT id FROM camps);');
+      // Auto-cleanup any orphaned clinical visits first, then orphaned patients in PostgreSQL
       await _connection!.execute('DELETE FROM clinical_visits WHERE camp_id NOT IN (SELECT id FROM camps);');
+      await _connection!.execute('DELETE FROM patients WHERE camp_id NOT IN (SELECT id FROM camps);');
       // Purge stale Token-ID tombstones or tombstones matching currently active patients/visits
       await _connection!.execute('''
         DELETE FROM deleted_entities
@@ -1081,6 +1084,28 @@ class GynoCampSyncServer {
 
       if (_isPgConnected && _connection != null) {
         try {
+          final effectivePatientTokenId =
+              (patientTokenId.isNotEmpty ? patientTokenId : id);
+
+          // Check if this patient UUID previously had a different Token ID (patient_id)
+          // so we can cascade the Token ID change to clinical_visits and avoid FK 23503 errors.
+          String? previousPatientTokenId;
+          final prevRows = await _connection!.execute(
+            Sql.named('SELECT patient_id FROM patients WHERE id = @id LIMIT 1;'),
+            parameters: {'id': id},
+          );
+          if (prevRows.isNotEmpty) {
+            previousPatientTokenId = prevRows.first[0]?.toString();
+          }
+
+          if (previousPatientTokenId != null &&
+              previousPatientTokenId.isNotEmpty &&
+              previousPatientTokenId != effectivePatientTokenId) {
+            await _connection!.execute(
+              'ALTER TABLE clinical_visits DROP CONSTRAINT IF EXISTS fk_visits_patient;',
+            );
+          }
+
           await _connection!.execute(
             Sql.named('''
               INSERT INTO patients (
@@ -1126,7 +1151,7 @@ class GynoCampSyncServer {
             '''),
             parameters: {
               'id': id,
-              'patient_id': map['patient_id'] ?? id,
+              'patient_id': effectivePatientTokenId,
               'camp_id': map['camp_id'] ?? '',
               'camp_code': map['camp_code'] ?? 'KTM01',
               'intake_date': map['intake_date'] ?? DateTime.now().toIso8601String(),
@@ -1158,9 +1183,28 @@ class GynoCampSyncServer {
               'treatment_level': map['treatment_level'],
             },
           );
+
+          // Cascade any Token ID (patient_id) update to clinical_visits so visits stay linked
+          if (previousPatientTokenId != null &&
+              previousPatientTokenId.isNotEmpty &&
+              previousPatientTokenId != effectivePatientTokenId) {
+            await _connection!.execute(
+              Sql.named('''
+                UPDATE clinical_visits
+                SET patient_id = @new_pid, updated_at = NOW()
+                WHERE patient_id = @old_pid OR patient_id = @id;
+              '''),
+              parameters: {
+                'new_pid': effectivePatientTokenId,
+                'old_pid': previousPatientTokenId,
+                'id': id,
+              },
+            );
+          }
+
           await _connection!.execute(
             Sql.named("DELETE FROM deleted_entities WHERE entity_type = 'patient' AND (id = @id OR id = @patient_id);"),
-            parameters: {'id': id, 'patient_id': patientTokenId},
+            parameters: {'id': id, 'patient_id': effectivePatientTokenId},
           );
           syncedPatientIds.add(id);
         } catch (e) {
@@ -1224,6 +1268,8 @@ class GynoCampSyncServer {
                 @created_at, @created_by_user_id, @tenant_id, 1
               )
               ON CONFLICT (id) DO UPDATE SET
+                patient_id = EXCLUDED.patient_id,
+                camp_id = EXCLUDED.camp_id,
                 visit_date = EXCLUDED.visit_date,
                 deliveries = EXCLUDED.deliveries,
                 living_children = EXCLUDED.living_children,
