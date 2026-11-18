@@ -100,6 +100,8 @@ class SyncRepository implements ISyncRepository {
     final visits = visitRows.map((r) => ClinicalVisitModel.fromMap(r)).toList();
 
     // 3. Fetch modified camps since last sync (R2 & R4 fix: avoid pushing full camp table every cycle)
+    // Exclude any locally or remotely tombstoned camp IDs so deleted camps are never pushed back.
+    final deletedCampIds = await _databaseService.getDeletedCampIds(db);
     final List<CampModel> camps;
     if (lastSynced != null) {
       final iso = lastSynced.toIso8601String();
@@ -108,10 +110,16 @@ class SyncRepository implements ISyncRepository {
         where: 'updated_at > ? OR created_at > ?',
         whereArgs: [iso, iso],
       );
-      camps = campRows.map((r) => CampModel.fromMap(r)).toList();
+      camps = campRows
+          .map((r) => CampModel.fromMap(r))
+          .where((c) => !deletedCampIds.contains(c.id))
+          .toList();
     } else {
       final campRows = await db.query(DatabaseTables.tableCamps);
-      camps = campRows.map((r) => CampModel.fromMap(r)).toList();
+      camps = campRows
+          .map((r) => CampModel.fromMap(r))
+          .where((c) => !deletedCampIds.contains(c.id))
+          .toList();
     }
 
     // 4. Fetch recent unsynced audit logs since last sync (R5 fix)
@@ -365,19 +373,19 @@ class SyncRepository implements ISyncRepository {
           }
         } catch (_) {}
 
-        // 2. Read deleted camp tombstone to prevent resurrecting deleted camps
-        final deletedMeta = await txn.query(
-          DatabaseTables.tableMetadata,
-          where: "key = 'deleted_camp_ids'",
+        // 2. Persist remotely deleted camp IDs into local deleted_camp_ids tombstone metadata
+        // so background GET /api/camps syncs can never re-insert a deleted camp.
+        final allDeletedCampIds = await _databaseService.addDeletedCampIds(
+          txn,
+          response.deletedCampIds,
         );
-        final tombstonedCampIds = <String>{};
-        if (deletedMeta.isNotEmpty) {
-          final val = deletedMeta.first['value'] as String? ?? '';
-          tombstonedCampIds.addAll(
-            val.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty),
+        for (final campId in allDeletedCampIds) {
+          await txn.delete(
+            DatabaseTables.tableCamps,
+            where: 'id = ?',
+            whereArgs: [campId],
           );
         }
-        final allDeletedCampIds = <String>{...tombstonedCampIds, ...response.deletedCampIds};
 
         // Upsert camps (skipping any tombstoned / locally deleted camps)
         for (final camp in response.camps) {
@@ -485,11 +493,41 @@ class SyncRepository implements ISyncRepository {
             // pullDelta would also see localIsNewer=true and keep blocking the new password.
             // Let the server's updated_at stand as the authoritative timestamp.
           }
+          if (allDeletedCampIds.isNotEmpty) {
+            final cleanedCamps = (userMap['assigned_camp_ids']?.toString() ?? '')
+                .split(',')
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty && !allDeletedCampIds.contains(s))
+                .join(',');
+            userMap['assigned_camp_ids'] = cleanedCamps;
+          }
           await txn.insert(
             DatabaseTables.tableUsers,
             userMap,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
+        }
+
+        if (allDeletedCampIds.isNotEmpty) {
+          final allLocalUsers = await txn.query(
+            DatabaseTables.tableUsers,
+            columns: ['id', 'assigned_camp_ids'],
+          );
+          for (final uRow in allLocalUsers) {
+            final uid = uRow['id']?.toString() ?? '';
+            final raw = uRow['assigned_camp_ids']?.toString() ?? '';
+            if (uid.isEmpty || raw.isEmpty) continue;
+            final parts = raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+            final filtered = parts.where((s) => !allDeletedCampIds.contains(s)).toList();
+            if (filtered.length != parts.length) {
+              await txn.update(
+                DatabaseTables.tableUsers,
+                {'assigned_camp_ids': filtered.join(',')},
+                where: 'id = ?',
+                whereArgs: [uid],
+              );
+            }
+          }
         }
 
         final pullSyncIso = DateTime.now().toIso8601String();

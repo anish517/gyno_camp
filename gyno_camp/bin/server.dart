@@ -442,6 +442,8 @@ class GynoCampSyncServer {
         WHERE organization_name = 'Nepal Health Outreach Network'
            OR organization_name = 'Community Health Outreach Mission';
       ''');
+      // Purge any zombie camps that were previously deleted (recorded in deleted_entities)
+      await _connection!.execute("DELETE FROM camps WHERE id IN (SELECT id FROM deleted_entities WHERE entity_type = 'camp');");
       // Auto-cleanup any orphaned patients or clinical visits in PostgreSQL
       await _connection!.execute('DELETE FROM patients WHERE camp_id NOT IN (SELECT id FROM camps);');
       await _connection!.execute('DELETE FROM clinical_visits WHERE camp_id NOT IN (SELECT id FROM camps);');
@@ -905,12 +907,34 @@ class GynoCampSyncServer {
       }
     }
 
-    // 1. Process Camps
+    // 1. Process Camps (never resurrect a camp deleted through the API)
+    final deletedCampIds = camps.isEmpty ? <String>{} : await _deletedIds('camp');
     for (final c in camps) {
       final map = c as Map<String, dynamic>;
       final id = map['id']?.toString() ?? '';
+      if (id.isEmpty || deletedCampIds.contains(id)) {
+        print('! Ignoring pushed camp $id: it was deleted on the central server.');
+        continue;
+      }
       final status = (map['status']?.toString() ?? 'DRAFT').toUpperCase();
       map['status'] = status;
+
+      final previousStored = _memCamps[id];
+      final utcNow = DateTime.now().toUtc().toIso8601String();
+      final incomingUpdatedAt = map['updated_at']?.toString();
+      final effectiveUpdatedAt = (incomingUpdatedAt != null && incomingUpdatedAt.isNotEmpty)
+          ? incomingUpdatedAt
+          : (map['created_at']?.toString() ?? utcNow);
+      if (previousStored != null) {
+        final storedUpdated = DateTime.tryParse(previousStored['updated_at']?.toString() ?? '')?.toUtc();
+        final incomingUpdated = DateTime.tryParse(effectiveUpdatedAt)?.toUtc();
+        if (storedUpdated != null &&
+            incomingUpdated != null &&
+            storedUpdated.isAfter(incomingUpdated)) {
+          continue;
+        }
+      }
+      map['updated_at'] = effectiveUpdatedAt;
       _memCamps[id] = map;
 
       // Multi-camp support: Do not auto-close other camps on the server.
@@ -949,7 +973,9 @@ class GynoCampSyncServer {
                 show_doctor_on_forms = EXCLUDED.show_doctor_on_forms,
                 nurse_names = EXCLUDED.nurse_names,
                 show_nurse_on_forms = EXCLUDED.show_nurse_on_forms,
-                updated_at = COALESCE(EXCLUDED.updated_at, NOW());
+                updated_at = COALESCE(EXCLUDED.updated_at, NOW())
+              WHERE camps.updated_at IS NULL
+                 OR EXCLUDED.updated_at::timestamptz >= camps.updated_at;
             '''),
             parameters: {
               'id': id,
@@ -960,8 +986,8 @@ class GynoCampSyncServer {
               'municipality': map['municipality'],
               'ward': map['ward'],
               'venue': map['venue'],
-              'start_date': map['start_date'] ?? DateTime.now().toUtc().toIso8601String(),
-              'end_date': map['end_date'] ?? DateTime.now().toUtc().toIso8601String(),
+              'start_date': map['start_date'] ?? utcNow,
+              'end_date': map['end_date'] ?? utcNow,
               'status': (map['status']?.toString() ?? 'DRAFT').toUpperCase(),
               'assigned_staff_ids': map['assigned_staff_ids'],
               'total_patients_registered': map['total_patients_registered'] ?? 0,
@@ -976,8 +1002,8 @@ class GynoCampSyncServer {
               'show_nurse_on_forms': (map['show_nurse_on_forms'] is bool)
                   ? (map['show_nurse_on_forms'] == true ? 1 : 0)
                   : (map['show_nurse_on_forms'] ?? 1),
-              'created_at': map['created_at'] ?? DateTime.now().toUtc().toIso8601String(),
-              'updated_at': map['updated_at'] ?? DateTime.now().toUtc().toIso8601String(),
+              'created_at': map['created_at'] ?? utcNow,
+              'updated_at': effectiveUpdatedAt,
             },
           );
         } catch (e) {
@@ -1433,7 +1459,7 @@ class GynoCampSyncServer {
 
     if (_isPgConnected && _connection != null) {
       try {
-        // Camps
+        // Camps (never return camps recorded as deleted in deleted_entities)
         String campSql = '''
           SELECT id, camp_code, name, district, municipality, ward, venue,
                  start_date, end_date, status, assigned_staff_ids, total_patients_registered,
@@ -1441,7 +1467,9 @@ class GynoCampSyncServer {
                  show_doctor_on_forms, nurse_names, show_nurse_on_forms
           FROM camps
         ''';
-        final campConditions = <String>[];
+        final campConditions = <String>[
+          "id NOT IN (SELECT id FROM deleted_entities WHERE entity_type = 'camp')",
+        ];
         final campParams = <String, dynamic>{};
         if (hasTenant) {
           campConditions.add("(tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global')");
@@ -1757,7 +1785,17 @@ class GynoCampSyncServer {
     // Merge in-memory records only if PostgreSQL is not connected
     if (!_isPgConnected) {
       if (campsList.isEmpty) {
-        campsList.addAll(hasTenant ? _memCamps.values.where((c) => c['tenant_id'] == tenantId || c['tenant_id'] == 'tenant_default' || c['tenant_id'] == 'global') : _memCamps.values);
+        final activeMemCamps = _memCamps.values.where(
+          (c) => !deletedCampIds.contains(c['id']?.toString() ?? ''),
+        );
+        campsList.addAll(
+          hasTenant
+              ? activeMemCamps.where((c) =>
+                  c['tenant_id'] == tenantId ||
+                  c['tenant_id'] == 'tenant_default' ||
+                  c['tenant_id'] == 'global')
+              : activeMemCamps,
+        );
       }
       if (usersList.isEmpty) {
         usersList.addAll(hasTenant ? _memUsers.values.where((u) => u['tenant_id'] == tenantId || u['tenant_id'] == 'tenant_default' || u['tenant_id'] == 'global') : _memUsers.values);
@@ -1803,10 +1841,11 @@ class GynoCampSyncServer {
             'start_date, end_date, status, assigned_staff_ids, total_patients_registered, '
             'tenant_id, organization_name, created_at, updated_at, province, doctor_name, doctor_names, '
             'show_doctor_on_forms, nurse_names, show_nurse_on_forms '
-            'FROM camps ';
+            'FROM camps '
+            "WHERE id NOT IN (SELECT id FROM deleted_entities WHERE entity_type = 'camp') ";
         final params = <String, dynamic>{};
         if (hasTenant) {
-          sql += "WHERE (tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global') ";
+          sql += "AND (tenant_id = @tenant_id OR tenant_id = 'tenant_default' OR tenant_id = 'global') ";
           params['tenant_id'] = tenantId;
         }
         sql += 'ORDER BY updated_at DESC NULLS LAST, created_at DESC;';
@@ -1846,7 +1885,17 @@ class GynoCampSyncServer {
       }
     }
     if (!_isPgConnected && list.isEmpty) {
-      list.addAll(hasTenant ? _memCamps.values.where((c) => c['tenant_id'] == tenantId || c['tenant_id'] == 'tenant_default' || c['tenant_id'] == 'global') : _memCamps.values);
+      final activeMemCamps = _memCamps.values.where(
+        (c) => _memDeletedEntities[c['id']?.toString() ?? ''] != 'camp',
+      );
+      list.addAll(
+        hasTenant
+            ? activeMemCamps.where((c) =>
+                c['tenant_id'] == tenantId ||
+                c['tenant_id'] == 'tenant_default' ||
+                c['tenant_id'] == 'global')
+            : activeMemCamps,
+      );
     }
 
     request.response.statusCode = HttpStatus.ok;
@@ -1859,6 +1908,22 @@ class GynoCampSyncServer {
     final map = jsonDecode(body) as Map<String, dynamic>;
     final id = map['id']?.toString() ?? 'camp-${DateTime.now().millisecondsSinceEpoch}';
     map['id'] = id;
+    if ((await _deletedIds('camp')).contains(id)) {
+      _memCamps.remove(id);
+      if (_isPgConnected && _connection != null) {
+        try {
+          await _connection!.execute(
+            Sql.named('DELETE FROM camps WHERE id = @id;'),
+            parameters: {'id': id},
+          );
+        } catch (_) {}
+      }
+      print('! Ignoring POST /api/camps for deleted camp $id.');
+      request.response.statusCode = HttpStatus.gone;
+      request.response.write(jsonEncode({'error': 'Camp $id was deleted and cannot be re-created.'}));
+      await request.response.close();
+      return;
+    }
     final status = (map['status']?.toString() ?? 'DRAFT').toUpperCase();
     map['status'] = status;
 
@@ -1960,7 +2025,7 @@ class GynoCampSyncServer {
                 ? (map['show_nurse_on_forms'] == true ? 1 : 0)
                 : (map['show_nurse_on_forms'] ?? 1),
             'created_at': map['created_at'] ?? utcNow,
-            'updated_at': utcNow,
+            'updated_at': effectiveUpdatedAt,
           },
         );
 
@@ -2036,6 +2101,14 @@ class GynoCampSyncServer {
       _memDeletedEntities[id] = 'camp';
       _memPatients.removeWhere((_, p) => p['camp_id'] == id);
       _memVisits.removeWhere((_, v) => v['camp_id'] == id);
+      for (final u in _memUsers.values) {
+        final rawCamps = (u['assigned_camp_ids']?.toString() ?? '')
+            .split(',')
+            .map((c) => c.trim())
+            .where((c) => c.isNotEmpty && c != id)
+            .toList();
+        u['assigned_camp_ids'] = rawCamps.join(',');
+      }
       if (_isPgConnected && _connection != null) {
         try {
           // Delete related records first to satisfy foreign key constraints
@@ -2052,9 +2125,28 @@ class GynoCampSyncServer {
             parameters: {'id': id},
           );
           await _connection!.execute(
-            Sql.named("INSERT INTO deleted_entities (id, entity_type, deleted_at) VALUES (@id, 'camp', NOW()) ON CONFLICT (id) DO NOTHING;"),
+            Sql.named('''
+              INSERT INTO deleted_entities (id, entity_type, deleted_at)
+              VALUES (@id, 'camp', NOW())
+              ON CONFLICT (id) DO UPDATE SET entity_type = 'camp', deleted_at = NOW();
+            '''),
             parameters: {'id': id},
           );
+          final userRows = await _connection!.execute('SELECT id, assigned_camp_ids FROM users;');
+          for (final uRow in userRows) {
+            final uId = uRow[0]?.toString() ?? '';
+            final rawCamps = (uRow[1]?.toString() ?? '')
+                .split(',')
+                .map((c) => c.trim())
+                .where((c) => c.isNotEmpty)
+                .toList();
+            if (rawCamps.remove(id)) {
+              await _connection!.execute(
+                Sql.named('UPDATE users SET assigned_camp_ids = @camps, updated_at = NOW() WHERE id = @id;'),
+                parameters: {'camps': rawCamps.join(','), 'id': uId},
+              );
+            }
+          }
           // Auto-cleanup any orphaned patients or clinical visits in PG
           await _connection!.execute('DELETE FROM patients WHERE camp_id NOT IN (SELECT id FROM camps);');
           await _connection!.execute('DELETE FROM clinical_visits WHERE camp_id NOT IN (SELECT id FROM camps);');

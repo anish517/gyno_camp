@@ -673,4 +673,65 @@ class DatabaseService {
       );
     }
   }
+
+  /// Reads all tombstoned deleted camp IDs from `sync_metadata` (`deleted_camp_ids`).
+  Future<Set<String>> getDeletedCampIds(DatabaseExecutor executor) async {
+    try {
+      final meta = await executor.query(
+        DatabaseTables.tableMetadata,
+        where: "key = 'deleted_camp_ids'",
+      );
+      if (meta.isNotEmpty) {
+        final val = meta.first['value'] as String? ?? '';
+        return val.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+      }
+    } catch (e) {
+      debugPrint('[DatabaseService] Error reading deleted_camp_ids: $e');
+    }
+    return {};
+  }
+
+  /// Merges [campIds] into `sync_metadata` (`deleted_camp_ids`) and returns the full set.
+  Future<Set<String>> addDeletedCampIds(
+    DatabaseExecutor executor,
+    Iterable<String> campIds,
+  ) async {
+    final existing = await getDeletedCampIds(executor);
+    final cleaned = campIds.map((s) => s.trim()).where((s) => s.isNotEmpty);
+    if (cleaned.isEmpty) return existing;
+    existing.addAll(cleaned);
+    try {
+      await executor.insert(
+        DatabaseTables.tableMetadata,
+        {
+          'key': 'deleted_camp_ids',
+          'value': existing.join(','),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      debugPrint('[DatabaseService] Error saving deleted_camp_ids: $e');
+    }
+    return existing;
+  }
+
+  /// Removes a single [campId] from `sync_metadata` (`deleted_camp_ids`).
+  Future<void> removeDeletedCampId(DatabaseExecutor executor, String campId) async {
+    try {
+      final existing = await getDeletedCampIds(executor);
+      if (!existing.remove(campId.trim())) return;
+      await executor.insert(
+        DatabaseTables.tableMetadata,
+        {
+          'key': 'deleted_camp_ids',
+          'value': existing.join(','),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      debugPrint('[DatabaseService] Error clearing deleted_camp_ids: $e');
+    }
+  }
 }

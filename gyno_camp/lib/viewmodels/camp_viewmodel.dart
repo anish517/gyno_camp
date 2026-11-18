@@ -139,22 +139,12 @@ class CampViewModel extends StateNotifier<CampState> {
         deviceId: deviceId,
       );
       if (!mounted) return false;
-      final updatedList = [created, ...state.camps];
-      final currentActive = (state.activeCamp != null && state.activeCamp!.status == CampStatus.open)
-          ? state.activeCamp
-          : null;
-      final newActive = created.status == CampStatus.open ? created : currentActive;
-      state = state.copyWith(
-        camps: updatedList,
-        isLoading: false,
-        selectedCamp: created,
-        activeCamp: newActive,
-        clearActiveCamp: newActive == null,
-      );
       if (created.status == CampStatus.open) {
         await SessionService.current?.saveActiveCampId(created.id);
-      } else if (newActive == null) {
-        await SessionService.current?.clearActiveCampId();
+      }
+      await loadCamps();
+      if (mounted) {
+        state = state.copyWith(selectedCamp: created);
       }
       return true;
     } catch (e) {
