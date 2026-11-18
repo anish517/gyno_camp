@@ -1442,7 +1442,10 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         preservePhotoArchive: true,
       );
 
-      final updatedQueue = await _repository.getOfflineScanQueue();
+      List<OfflineScanQueueItem> updatedQueue = state.offlineQueue;
+      try {
+        updatedQueue = await _repository.getOfflineScanQueue();
+      } catch (_) {}
       if (!mounted) return savedPatient;
       state = state.copyWith(
         isSaving: false,

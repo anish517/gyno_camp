@@ -1147,17 +1147,112 @@ class OcrRepository implements IOcrRepository {
     );
   }
 
+  /// Reads a potentially large TEXT column (such as Base64 scan images) in 800 KB
+  /// SUBSTR chunks so it NEVER exceeds Android's 2 MB SQLite CursorWindow limit,
+  /// even for legacy uncompressed multi-megabyte rows already stored on disk.
+  Future<String?> _readChunkedTextColumn(
+    Database db,
+    String rowId,
+    String columnName,
+    int totalLen,
+  ) async {
+    if (totalLen <= 0) return null;
+    const int chunkSize = 800000;
+    if (totalLen <= chunkSize) {
+      final rows = await db.rawQuery(
+        'SELECT $columnName AS val FROM ${DatabaseTables.tableOfflineScanQueue} WHERE id = ? LIMIT 1',
+        [rowId],
+      );
+      if (rows.isEmpty) return null;
+      return rows.first['val'] as String?;
+    }
+
+    final buffer = StringBuffer();
+    int offset = 1; // SQLite SUBSTR is 1-indexed
+    while (offset <= totalLen) {
+      final rows = await db.rawQuery(
+        'SELECT SUBSTR($columnName, ?, ?) AS chunk FROM ${DatabaseTables.tableOfflineScanQueue} WHERE id = ? LIMIT 1',
+        [offset, chunkSize, rowId],
+      );
+      if (rows.isEmpty) break;
+      final chunk = rows.first['chunk'] as String?;
+      if (chunk == null || chunk.isEmpty) break;
+      buffer.write(chunk);
+      offset += chunkSize;
+    }
+    final result = buffer.toString();
+    return result.isNotEmpty ? result : null;
+  }
+
+  /// Queries `offline_scan_queue` without `SELECT *` so large Base64 image columns
+  /// never overflow Android's 2 MB SQLite CursorWindow.
+  Future<List<OfflineScanQueueItem>> _queryOfflineScanItems(
+    Database db, {
+    String? where,
+    List<Object?>? whereArgs,
+    String orderBy = 'updated_at DESC, created_at DESC',
+    int? limit,
+  }) async {
+    final whereClause = (where != null && where.trim().isNotEmpty)
+        ? 'WHERE $where'
+        : '';
+    final limitClause = limit != null ? 'LIMIT $limit' : '';
+    final metaRows = await db.rawQuery(
+      '''
+      SELECT id, camp_id, camp_code, page1_image_path, page2_image_path,
+             patient_token_hint, intake_date_hint, examining_nurse_hint, examining_doctor_hint,
+             status, review_status, error_message,
+             committed_patient_uuid, committed_patient_id, committed_patient_name, committed_visit_id,
+             extracted_json, created_by_user_id, created_by_user_name, created_by_user_role,
+             device_id, tenant_id, created_at, updated_at,
+             LENGTH(page1_image_base64) AS p1_len,
+             LENGTH(page2_image_base64) AS p2_len
+      FROM ${DatabaseTables.tableOfflineScanQueue}
+      $whereClause
+      ORDER BY $orderBy
+      $limitClause
+      ''',
+      whereArgs,
+    );
+
+    final items = <OfflineScanQueueItem>[];
+    for (final meta in metaRows) {
+      final rowId = meta['id'] as String? ?? '';
+      if (rowId.isEmpty) continue;
+      final p1Len = (meta['p1_len'] as num?)?.toInt() ?? 0;
+      final p2Len = (meta['p2_len'] as num?)?.toInt() ?? 0;
+
+      final p1Base64 = await _readChunkedTextColumn(
+        db,
+        rowId,
+        'page1_image_base64',
+        p1Len,
+      );
+      final p2Base64 = await _readChunkedTextColumn(
+        db,
+        rowId,
+        'page2_image_base64',
+        p2Len,
+      );
+
+      final fullMap = Map<String, dynamic>.from(meta)
+        ..['page1_image_base64'] = p1Base64
+        ..['page2_image_base64'] = p2Base64;
+      items.add(OfflineScanQueueItem.fromMap(fullMap));
+    }
+    return items;
+  }
+
   @override
   Future<List<OfflineScanQueueItem>> getOfflineScanQueue({String? campId}) async {
     final db = await _databaseService.database;
     final hasCampFilter = campId != null && campId.isNotEmpty && campId != 'all';
-    final rows = await db.query(
-      DatabaseTables.tableOfflineScanQueue,
+    return _queryOfflineScanItems(
+      db,
       where: hasCampFilter ? 'camp_id = ?' : null,
       whereArgs: hasCampFilter ? [campId] : null,
       orderBy: 'updated_at DESC, created_at DESC',
     );
-    return rows.map((r) => OfflineScanQueueItem.fromMap(r)).toList();
   }
 
   @override
@@ -1180,16 +1275,13 @@ class OcrRepository implements IOcrRepository {
       conditions.add('(LOWER(committed_patient_id) = LOWER(?) OR LOWER(patient_token_hint) = LOWER(?))');
       args.addAll([cleanPid, cleanPid]);
     }
-    final rows = await db.query(
-      DatabaseTables.tableOfflineScanQueue,
+    final items = await _queryOfflineScanItems(
+      db,
       where: conditions.join(' OR '),
       whereArgs: args,
       orderBy: 'updated_at DESC, created_at DESC',
     );
-    return rows
-        .map((r) => OfflineScanQueueItem.fromMap(r))
-        .where((item) => item.hasAnyImage)
-        .toList();
+    return items.where((item) => item.hasAnyImage).toList();
   }
 
   @override
@@ -1224,19 +1316,28 @@ class OcrRepository implements IOcrRepository {
       return;
     }
     final db = await _databaseService.database;
-    final rows = await db.query(
-      DatabaseTables.tableOfflineScanQueue,
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
+    final rows = await db.rawQuery(
+      '''
+      SELECT id, page1_image_path, page2_image_path,
+             LENGTH(page1_image_base64) AS p1_len,
+             LENGTH(page2_image_base64) AS p2_len
+      FROM ${DatabaseTables.tableOfflineScanQueue}
+      WHERE id = ?
+      LIMIT 1
+      ''',
+      [id],
     );
     if (rows.isEmpty) return;
 
-    final existing = OfflineScanQueueItem.fromMap(rows.first);
+    final row = rows.first;
+    final hasP1 = ((row['p1_len'] as num?)?.toInt() ?? 0) > 0 ||
+        ((row['page1_image_path'] as String?)?.trim().isNotEmpty ?? false);
+    final hasP2 = ((row['p2_len'] as num?)?.toInt() ?? 0) > 0 ||
+        ((row['page2_image_path'] as String?)?.trim().isNotEmpty ?? false);
     final clearPage1 = pageNumber == 1;
     final clearPage2 = pageNumber == 2;
-    final remainingHasPage1 = !clearPage1 && existing.hasPage1;
-    final remainingHasPage2 = !clearPage2 && existing.hasPage2;
+    final remainingHasPage1 = !clearPage1 && hasP1;
+    final remainingHasPage2 = !clearPage2 && hasP2;
 
     if (!remainingHasPage1 && !remainingHasPage2) {
       await deleteOfflineScanQueueItem(id);
@@ -1340,16 +1441,15 @@ class OcrRepository implements IOcrRepository {
     String? defaultDeviceId,
   }) async {
     final db = await _databaseService.database;
-    final rows = await db.query(
-      DatabaseTables.tableOfflineScanQueue,
+    final items = await _queryOfflineScanItems(
+      db,
       where: "status IN ('pending', 'failed')",
       orderBy: 'created_at ASC',
     );
-    if (rows.isEmpty) return 0;
+    if (items.isEmpty) return 0;
 
     int processedCount = 0;
-    for (final row in rows) {
-      final item = OfflineScanQueueItem.fromMap(row);
+    for (final item in items) {
       try {
         await db.update(
           DatabaseTables.tableOfflineScanQueue,

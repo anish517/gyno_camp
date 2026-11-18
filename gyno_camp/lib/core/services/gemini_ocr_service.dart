@@ -173,8 +173,42 @@ class GeminiOcrService {
     }
   }
 
-  /// Public wrapper around [_prepareImage] for compressing and base64-encoding offline queued scans.
-  Future<({String base64, String mimeType})> prepareImageForStorage(Uint8List bytes) => _prepareImage(bytes);
+  /// Public helper for compressing and base64-encoding scan images for local SQLite storage.
+  /// Ensures each page stays well below Android's 2 MB SQLite CursorWindow limit.
+  Future<({String base64, String mimeType})> prepareImageForStorage(Uint8List bytes) async {
+    final isPng = bytes.length > 4 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47;
+    final defaultMime = isPng ? 'image/png' : 'image/jpeg';
+
+    // If already compact (<= 350 KB raw -> ~465 KB base64), store directly.
+    if (bytes.length <= 350000) {
+      return (base64: base64Encode(bytes), mimeType: defaultMime);
+    }
+
+    if (!kIsWeb) {
+      try {
+        final compressed = await compute(_compressForSqliteStorageIsolate, bytes);
+        if (compressed != null && compressed.isNotEmpty) {
+          return (base64: base64Encode(compressed), mimeType: 'image/jpeg');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[GeminiOCR] SQLite storage compression failed: $e');
+        }
+      }
+    } else {
+      await Future<void>.delayed(Duration.zero);
+      final compressed = _compressForSqliteStorageIsolate(bytes);
+      if (compressed != null && compressed.isNotEmpty) {
+        return (base64: base64Encode(compressed), mimeType: 'image/jpeg');
+      }
+    }
+
+    return _prepareImage(bytes);
+  }
 
   /// Scales image down if larger than 1600px to ensure fast mobile upload.
   /// For already-compressed images (<= 2.5 MB), skips pure-Dart software decoding
@@ -912,4 +946,28 @@ Uint8List? _resizeImageIsolate(Uint8List bytes) {
     }
   } catch (_) {}
   return null;
+}
+
+/// Compresses scan images (including PNG screenshots or high-res camera photos)
+/// into compact JPEG bytes (~150–350 KB) so Base64 strings never exceed Android's
+/// 2 MB SQLite CursorWindow limit.
+Uint8List? _compressForSqliteStorageIsolate(Uint8List bytes) {
+  try {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return null;
+    final img.Image target = (decoded.width > 1400 || decoded.height > 1400)
+        ? img.copyResize(
+            decoded,
+            width: decoded.width > decoded.height ? 1400 : null,
+            height: decoded.height >= decoded.width ? 1400 : null,
+          )
+        : decoded;
+    var jpg = Uint8List.fromList(img.encodeJpg(target, quality: 75));
+    if (jpg.length > 500000) {
+      jpg = Uint8List.fromList(img.encodeJpg(target, quality: 58));
+    }
+    return jpg;
+  } catch (_) {
+    return null;
+  }
 }

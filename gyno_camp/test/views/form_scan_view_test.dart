@@ -279,5 +279,51 @@ void main() {
       expect(find.text('Dhankuta'), findsOneWidget);
       expect(find.text('Pakhribas'), findsOneWidget);
     });
+
+    testWidgets('Full-screen dual-page form preview dialog does not overflow on 360px mobile screen', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      const valid1x1PngBase64 =
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      final pngBytes = base64Decode(valid1x1PngBase64);
+      final sampleScan = const OcrFormService()
+          .parseFormText(OcrFormService.sampleFullFormText);
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: const FormScanView(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      container.read(ocrScanProvider.notifier).state = OcrScanState(
+        page1Scan: sampleScan,
+        page2Scan: sampleScan,
+        scanResult: sampleScan,
+        page1ImageBytes: pngBytes,
+        page2ImageBytes: pngBytes,
+      );
+      await tester.pumpAndSettle();
+
+      // Tap Preview button on mobile verification header
+      await tester.tap(find.text('Preview'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Page 1 (Front)'), findsOneWidget);
+      expect(find.text('Page 2 (Back)'), findsOneWidget);
+    });
   });
 }

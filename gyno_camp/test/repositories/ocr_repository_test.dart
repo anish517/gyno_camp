@@ -472,5 +472,38 @@ void main() {
       expect(intactVisits.length, 1);
       expect(intactVisits.first.systolicBp, 142);
     });
+
+    test('getOfflineScanQueue reads multi-megabyte legacy Base64 images in SUBSTR chunks without CursorWindow overflow', () async {
+      // Insert a legacy > 2.2 MB Base64 row directly into SQLite to simulate an existing oversized row on Android
+      final hugeP1Base64 = 'A' * 1200000;
+      final hugeP2Base64 = 'B' * 1200000;
+      final nowIso = DateTime.now().toIso8601String();
+      await testDb.insert('offline_scan_queue', {
+        'id': 'legacy-huge-row',
+        'camp_id': 'camp-ktm-01',
+        'camp_code': 'KTM01',
+        'page1_image_base64': hugeP1Base64,
+        'page2_image_base64': hugeP2Base64,
+        'status': 'completed',
+        'review_status': 'needs_review',
+        'committed_patient_uuid': 'pat-huge',
+        'committed_patient_id': 'GC-KTM01-2026-00999',
+        'committed_patient_name': 'Oversized Photo Patient',
+        'created_by_user_id': 'usr-1',
+        'created_by_user_name': 'Staff',
+        'created_by_user_role': 'DataTaker',
+        'device_id': 'dev-1',
+        'tenant_id': 'tenant_default',
+        'created_at': nowIso,
+        'updated_at': nowIso,
+      });
+
+      final queue = await ocrRepo.getOfflineScanQueue(campId: 'camp-ktm-01');
+      expect(queue.length, 1);
+      expect(queue.first.page1ImageBase64?.length, 1200000);
+      expect(queue.first.page2ImageBase64?.length, 1200000);
+      expect(queue.first.page1ImageBase64, hugeP1Base64);
+      expect(queue.first.page2ImageBase64, hugeP2Base64);
+    });
   });
 }

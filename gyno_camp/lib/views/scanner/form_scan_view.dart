@@ -1204,10 +1204,10 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                             : Colors.grey.shade200,
                       ),
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        InkWell(
+                    child: LayoutBuilder(
+                      builder: (context, itemBox) {
+                        final isNarrowCard = itemBox.maxWidth < 520;
+                        final thumbnailsWidget = InkWell(
                           onTap: () => _showFullScreenFormPreviewDialog(
                             context,
                             page1Bytes: p1Bytes,
@@ -1261,136 +1261,175 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                 ),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Text(
-                                    patientTitle,
+                        );
+
+                        final detailsWidget = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  patientTitle,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryTeal.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(
+                                    patientToken,
                                     style: const TextStyle(
+                                      fontSize: 10.5,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: Color(0xFF0F172A),
+                                      color: AppTheme.primaryDark,
                                     ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryTeal.withValues(
-                                        alpha: 0.1,
-                                      ),
-                                      borderRadius: BorderRadius.circular(5),
-                                    ),
-                                    child: Text(
-                                      patientToken,
-                                      style: const TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.primaryDark,
-                                      ),
-                                    ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
+                                  decoration: BoxDecoration(
+                                    color: item.needsReview
+                                        ? Colors.amber.shade100
+                                        : Colors.green.shade100,
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(
+                                    item.needsReview
+                                        ? 'AUTO-SAVED • NEEDS REVIEW'
+                                        : 'VERIFIED',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w800,
                                       color: item.needsReview
-                                          ? Colors.amber.shade100
-                                          : Colors.green.shade100,
-                                      borderRadius: BorderRadius.circular(5),
-                                    ),
-                                    child: Text(
-                                      item.needsReview
-                                          ? 'AUTO-SAVED • NEEDS REVIEW'
-                                          : 'VERIFIED',
-                                      style: TextStyle(
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: item.needsReview
-                                            ? Colors.amber.shade900
-                                            : Colors.green.shade900,
-                                      ),
+                                          ? Colors.amber.shade900
+                                          : Colors.green.shade900,
                                     ),
                                   ),
-                                ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${item.campCode} • $pageSummary',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Colors.blueGrey.shade700,
                               ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '${item.campCode} • $pageSummary',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: Colors.blueGrey.shade700,
+                            ),
+                          ],
+                        );
+
+                        final actionsRow = Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Preview Stored Yellow Form Photo',
+                              icon: const Icon(
+                                Icons.visibility_outlined,
+                                size: 18,
+                                color: AppTheme.primaryTeal,
+                              ),
+                              onPressed: () => _showFullScreenFormPreviewDialog(
+                                context,
+                                page1Bytes: p1Bytes,
+                                page2Bytes: p2Bytes,
+                                initialPage: hasP1 ? 1 : 2,
+                              ),
+                            ),
+                            FilledButton.tonalIcon(
+                              style: FilledButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
                                 ),
                               ),
+                              icon: const Icon(
+                                Icons.fact_check_outlined,
+                                size: 15,
+                              ),
+                              label: const Text(
+                                'Review & Correct',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              onPressed: ocrState.isProcessing
+                                  ? null
+                                  : () async {
+                                      await ocrVm.openArchivedScanForReview(
+                                        item,
+                                      );
+                                    },
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Delete Stored Scan Photo',
+                              icon: Icon(
+                                Icons.delete_outline,
+                                size: 18,
+                                color: Colors.red.shade600,
+                              ),
+                              onPressed: () => _showDeleteScanPhotoDialog(
+                                context,
+                                ocrVm,
+                                item,
+                              ),
+                            ),
+                          ],
+                        );
+
+                        if (isNarrowCard) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  thumbnailsWidget,
+                                  const SizedBox(width: 10),
+                                  Expanded(child: detailsWidget),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: actionsRow,
+                              ),
                             ],
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: 'Preview Stored Yellow Form Photo',
-                          icon: const Icon(
-                            Icons.visibility_outlined,
-                            size: 18,
-                            color: AppTheme.primaryTeal,
-                          ),
-                          onPressed: () => _showFullScreenFormPreviewDialog(
-                            context,
-                            page1Bytes: p1Bytes,
-                            page2Bytes: p2Bytes,
-                            initialPage: hasP1 ? 1 : 2,
-                          ),
-                        ),
-                        FilledButton.tonalIcon(
-                          style: FilledButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                          ),
-                          icon: const Icon(
-                            Icons.fact_check_outlined,
-                            size: 15,
-                          ),
-                          label: const Text(
-                            'Review & Correct',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: ocrState.isProcessing
-                              ? null
-                              : () async {
-                                  await ocrVm.openArchivedScanForReview(item);
-                                },
-                        ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          tooltip: 'Delete Stored Scan Photo',
-                          icon: Icon(
-                            Icons.delete_outline,
-                            size: 18,
-                            color: Colors.red.shade600,
-                          ),
-                          onPressed: () => _showDeleteScanPhotoDialog(
-                            context,
-                            ocrVm,
-                            item,
-                          ),
-                        ),
-                      ],
+                          );
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            thumbnailsWidget,
+                            const SizedBox(width: 12),
+                            Expanded(child: detailsWidget),
+                            actionsRow,
+                          ],
+                        );
+                      },
                     ),
                   );
                 }),
@@ -2424,8 +2463,8 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     // Dialog Header
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                        horizontal: 12,
+                        vertical: 10,
                       ),
                       decoration: const BoxDecoration(
                         color: Color(0xFF1E293B),
@@ -2433,173 +2472,206 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           top: Radius.circular(16),
                         ),
                       ),
-                      child: Row(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
-                            Icons.document_scanner_outlined,
-                            color: Colors.amber,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: Text(
-                              'Scanned Yellow Form Preview (स्क्यान गरिएको फाराम)',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14.5,
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.document_scanner_outlined,
+                                color: Colors.amber,
+                                size: 20,
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Scanned Yellow Form Preview (स्क्यान गरिएको फाराम)',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13.5,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                tooltip: 'Rotate 90°',
+                                icon: const Icon(
+                                  Icons.rotate_right,
+                                  color: Colors.white70,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  setDialogState(() {
+                                    rotationTurns = (rotationTurns + 1) % 4;
+                                  });
+                                },
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                tooltip: 'Reset Zoom',
+                                icon: const Icon(
+                                  Icons.center_focus_strong,
+                                  color: Colors.white70,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  transformCtrl.value = Matrix4.identity();
+                                },
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                tooltip: 'Close Preview',
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                onPressed: () => Navigator.pop(ctx),
+                              ),
+                            ],
                           ),
                           if (hasP1 && hasP2) ...[
+                            const SizedBox(height: 8),
                             Row(
-                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Material(
-                                  color: selectedPage == 1
-                                      ? Colors.amber.shade400
-                                      : const Color(0xFF334155),
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: InkWell(
+                                Expanded(
+                                  child: Material(
+                                    color: selectedPage == 1
+                                        ? Colors.amber.shade400
+                                        : const Color(0xFF334155),
                                     borderRadius: BorderRadius.circular(8),
-                                    onTap: () {
-                                      setDialogState(() {
-                                        selectedPage = 1;
-                                        transformCtrl.value =
-                                            Matrix4.identity();
-                                      });
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 7,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: selectedPage == 1
-                                              ? Colors.amber.shade400
-                                              : Colors.white54,
-                                          width: 1.2,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: () {
+                                        setDialogState(() {
+                                          selectedPage = 1;
+                                          transformCtrl.value =
+                                              Matrix4.identity();
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 7,
                                         ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            selectedPage == 1
-                                                ? Icons.check_circle
-                                                : Icons.description_outlined,
-                                            size: 15,
-                                            color: selectedPage == 1
-                                                ? const Color(0xFF0F172A)
-                                                : Colors.white,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
                                           ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            'Page 1 (Front)',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
+                                          border: Border.all(
+                                            color: selectedPage == 1
+                                                ? Colors.amber.shade400
+                                                : Colors.white54,
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              selectedPage == 1
+                                                  ? Icons.check_circle
+                                                  : Icons.description_outlined,
+                                              size: 15,
                                               color: selectedPage == 1
                                                   ? const Color(0xFF0F172A)
                                                   : Colors.white,
                                             ),
-                                          ),
-                                        ],
+                                            const SizedBox(width: 6),
+                                            Flexible(
+                                              child: Text(
+                                                'Page 1 (Front)',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: selectedPage == 1
+                                                      ? const Color(0xFF0F172A)
+                                                      : Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Material(
-                                  color: selectedPage == 2
-                                      ? Colors.amber.shade400
-                                      : const Color(0xFF334155),
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: InkWell(
+                                Expanded(
+                                  child: Material(
+                                    color: selectedPage == 2
+                                        ? Colors.amber.shade400
+                                        : const Color(0xFF334155),
                                     borderRadius: BorderRadius.circular(8),
-                                    onTap: () {
-                                      setDialogState(() {
-                                        selectedPage = 2;
-                                        transformCtrl.value =
-                                            Matrix4.identity();
-                                      });
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 7,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: selectedPage == 2
-                                              ? Colors.amber.shade400
-                                              : Colors.white54,
-                                          width: 1.2,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: () {
+                                        setDialogState(() {
+                                          selectedPage = 2;
+                                          transformCtrl.value =
+                                              Matrix4.identity();
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 7,
                                         ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            selectedPage == 2
-                                                ? Icons.check_circle
-                                                : Icons.medical_information_outlined,
-                                            size: 15,
-                                            color: selectedPage == 2
-                                                ? const Color(0xFF0F172A)
-                                                : Colors.white,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
                                           ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            'Page 2 (Back)',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
+                                          border: Border.all(
+                                            color: selectedPage == 2
+                                                ? Colors.amber.shade400
+                                                : Colors.white54,
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              selectedPage == 2
+                                                  ? Icons.check_circle
+                                                  : Icons
+                                                        .medical_information_outlined,
+                                              size: 15,
                                               color: selectedPage == 2
                                                   ? const Color(0xFF0F172A)
                                                   : Colors.white,
                                             ),
-                                          ),
-                                        ],
+                                            const SizedBox(width: 6),
+                                            Flexible(
+                                              child: Text(
+                                                'Page 2 (Back)',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: selectedPage == 2
+                                                      ? const Color(0xFF0F172A)
+                                                      : Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(width: 8),
                           ],
-                          IconButton(
-                            tooltip: 'Rotate 90°',
-                            icon: const Icon(
-                              Icons.rotate_right,
-                              color: Colors.white70,
-                            ),
-                            onPressed: () {
-                              setDialogState(() {
-                                rotationTurns = (rotationTurns + 1) % 4;
-                              });
-                            },
-                          ),
-                          IconButton(
-                            tooltip: 'Reset Zoom',
-                            icon: const Icon(
-                              Icons.center_focus_strong,
-                              color: Colors.white70,
-                            ),
-                            onPressed: () {
-                              transformCtrl.value = Matrix4.identity();
-                            },
-                          ),
-                          IconButton(
-                            tooltip: 'Close Preview',
-                            icon: const Icon(Icons.close, color: Colors.white),
-                            onPressed: () => Navigator.pop(ctx),
-                          ),
                         ],
                       ),
                     ),

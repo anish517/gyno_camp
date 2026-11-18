@@ -759,30 +759,40 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
                       Expanded(
                         child: Text(
                           'Scanned Yellow Form — ${_patient.fullName} (${_patient.patientId})',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (p1Bytes != null && p2Bytes != null) ...[
-                        ChoiceChip(
-                          label: const Text('Page 1'),
-                          selected: currentPage == 1,
-                          onSelected: (_) => setDialogState(() => currentPage = 1),
-                        ),
-                        const SizedBox(width: 6),
-                        ChoiceChip(
-                          label: const Text('Page 2'),
-                          selected: currentPage == 2,
-                          onSelected: (_) => setDialogState(() => currentPage = 2),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
                       IconButton(
+                        visualDensity: VisualDensity.compact,
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.of(ctx).pop(),
                       ),
                     ],
                   ),
+                  if (p1Bytes != null && p2Bytes != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Center(child: Text('Page 1 (Front)')),
+                            selected: currentPage == 1,
+                            onSelected: (_) => setDialogState(() => currentPage = 1),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Center(child: Text('Page 2 (Back)')),
+                            selected: currentPage == 2,
+                            onSelected: (_) => setDialogState(() => currentPage = 2),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const Divider(),
                   Expanded(
                     child: activeBytes != null
