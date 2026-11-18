@@ -780,17 +780,16 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     final dynamicTreatments = <Map<String, String>>[
       {'key': 'pessary', 'label': 'Pessary Fitted (रिङ पेसरी)'},
       {'key': 'surgery', 'label': 'Surgical Referral (शल्यक्रिया)'},
-      {'key': 'counseling', 'label': 'Pelvic Floor Exercises (कौन्सिलिङ)'},
+      {'key': 'counseling', 'label': 'Specific Counseling (विशेष परामर्श)'},
       {'key': 'medications', 'label': 'All Medications Dispensed (औषधि)'},
     ];
     final seenMedKeys = <String>{};
     for (final med in _campMedicines) {
       final key = 'med:${med.labelEn.trim().toLowerCase()}';
       if ((_getTreatmentCount(key, docSummary) > 0 || _selectedTreatment == key) && seenMedKeys.add(key)) {
-        final nepaliSuffix = med.labelNe.trim().isNotEmpty ? ' (${med.labelNe.trim()})' : '';
         dynamicTreatments.add({
           'key': key,
-          'label': 'Rx: ${med.labelEn.trim()}$nepaliSuffix',
+          'label': 'Rx: ${med.bilingualLabel}',
         });
       }
     }
@@ -811,10 +810,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     for (final hosp in _campReferralHospitals) {
       final key = 'hosp:${hosp.labelEn.trim().toLowerCase()}';
       if ((_getTreatmentCount(key, docSummary) > 0 || _selectedTreatment == key) && seenHospKeys.add(key)) {
-        final nepaliSuffix = hosp.labelNe.trim().isNotEmpty ? ' (${hosp.labelNe.trim()})' : '';
         dynamicTreatments.add({
           'key': key,
-          'label': 'Ref: ${hosp.labelEn.trim()}$nepaliSuffix',
+          'label': 'Ref: ${hosp.bilingualLabel}',
         });
       }
     }
@@ -859,8 +857,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     final seenReasonLabels = <String>{};
     for (final reason in _campVisitReasons.where((r) => r.isActive)) {
       final key = (reason.code.isNotEmpty ? reason.code : reason.labelEn).trim().toLowerCase();
-      final nepaliSuffix = reason.labelNe.trim().isNotEmpty ? ' (${reason.labelNe.trim()})' : '';
-      final label = '${reason.labelEn.trim()}$nepaliSuffix';
+      final label = reason.bilingualLabel;
       final semKey = canonicalReasonOrComplaintKey('${reason.code} ${reason.labelEn} ${reason.labelNe}');
       if (seenReasonSemanticKeys.add(semKey) && seenReasonLabels.add(label.toLowerCase())) {
         candidateVisitReasons.add({
@@ -918,8 +915,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     final seenCompLabels = <String>{};
     for (final comp in _campChiefComplaints.where((c) => c.isActive)) {
       final key = (comp.code.isNotEmpty ? comp.code : comp.labelEn).trim().toLowerCase();
-      final nepaliSuffix = comp.labelNe.trim().isNotEmpty ? ' (${comp.labelNe.trim()})' : '';
-      final label = '${comp.labelEn.trim()}$nepaliSuffix';
+      final label = comp.bilingualLabel;
       final semKey = canonicalReasonOrComplaintKey('${comp.code} ${comp.labelEn} ${comp.labelNe}');
       if (seenCompSemanticKeys.add(semKey) && seenCompLabels.add(label.toLowerCase())) {
         candidateComplaints.add({
@@ -3945,7 +3941,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                 child: Text('- ${e.key}: ${e.value}', style: const TextStyle(fontSize: 12)),
               )),
         const SizedBox(height: 4),
-        Text('• Pelvic Floor Exercises: ${summary.pelvicFloorCounselingCount} counseled'),
+        Text('• Specific Counseling: ${summary.pelvicFloorCounselingCount} counseled'),
         const SizedBox(height: 4),
         Text('• Surgical Referrals: ${summary.totalSurgicalReferrals} patients'),
         if (summary.surgicalReferralCounts.isNotEmpty)

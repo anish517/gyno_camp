@@ -936,5 +936,112 @@ void main() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
+
+    testWidgets('Treatment Modality dropdown includes recorded custom medications and avoids duplicate labelNe parentheses', (tester) async {
+      tester.view.physicalSize = const Size(1200, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final patientRepo = _FakePatientRepository();
+      final reportingRepo = _FakeReportingRepository();
+      final lookupRepo = _FakeLookupRepository();
+
+      lookupRepo.items = const [
+        LookupItemModel(
+          id: 'med-estradiol',
+          category: 'medicine',
+          code: 'estradiol_creme',
+          labelEn: 'estradiol crème',
+          labelNe: 'estradiol crème',
+          isActive: true,
+        ),
+      ];
+
+      final kamala = PatientModel(
+        id: 'pat-kamala',
+        patientId: 'GC-0007-2026-00012',
+        campId: 'camp-1',
+        campCode: 'CAMP-SIN-01',
+        intakeDate: DateTime(2026, 7, 26),
+        firstName: 'Kamala',
+        surname: 'Rai',
+        age: 58,
+        mobile: '9842167305',
+        district: 'Dhankuta',
+        province: 'Koshi',
+        municipality: 'Dhankuta Mun',
+        ward: '05',
+        medications: const ['estradiol crème'],
+        customMedication: 'Calcium + Vit D3',
+        highestPopStage: 3,
+        hasClinicalVisit: true,
+        createdAt: DateTime(2026, 7, 26),
+        createdByUserId: 'user-1',
+        createdByDeviceId: 'dev-1',
+      );
+      patientRepo.storedPatients = [kamala];
+
+      reportingRepo.customSummary = CampReportSummaryModel(
+        campId: camp1.id,
+        campCode: camp1.campCode,
+        campName: camp1.name,
+        district: camp1.district,
+        municipality: camp1.municipality,
+        venue: camp1.venue,
+        startDate: camp1.startDate,
+        endDate: camp1.endDate,
+        generatedAt: DateTime(2026, 7, 31),
+        generatedBy: 'Data Analyst',
+        totalPatientsRegistered: 1,
+        totalVisitsRecorded: 1,
+        ageGroups: const {'51-65': 1},
+        maritalStatusCounts: const {'married': 1},
+        wardCounts: const {'05': 1},
+        anteriorStages: const {0: 0, 1: 0, 2: 1, 3: 0},
+        middleStages: const {0: 0, 1: 0, 2: 0, 3: 1, 4: 0},
+        posteriorStages: const {0: 0, 1: 1, 2: 0, 3: 0},
+        highestPopStages: const {0: 0, 1: 0, 2: 0, 3: 1, 4: 0},
+        significantPopCount: 1,
+        significantPopPercentage: 100.0,
+        diagnosisCounts: const {},
+        hypertensionCount: 0,
+        hyperglycemiaCount: 0,
+        urinePositiveCount: 0,
+        pregnancyPositiveCount: 0,
+        pessaryCounts: const {},
+        totalPessariesInserted: 0,
+        pelvicFloorCounselingCount: 0,
+        surgicalReferralCounts: const {},
+        totalSurgicalReferrals: 0,
+        followUpDestinationCounts: const {},
+        medicationDispensedCounts: const {'estradiol crème': 1, 'Calcium + Vit D3': 1},
+        totalPrescriptionsCount: 2,
+        patients: [kamala],
+        visits: const [],
+      );
+
+      await tester.pumpWidget(createTestWidget(
+        child: const DataAnalystWorkstationPage(),
+        patientRepo: patientRepo,
+        reportingRepo: reportingRepo,
+        lookupRepo: lookupRepo,
+      ));
+      await tester.pumpAndSettle();
+
+      final treatmentDropdown = find.byKey(const ValueKey('treat_filter_all'));
+      expect(treatmentDropdown, findsOneWidget);
+      await tester.ensureVisible(treatmentDropdown);
+      await tester.tap(treatmentDropdown);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Specific Counseling (विशेष परामर्श)'), findsWidgets);
+      expect(find.text('Counseling / Physiotherapy (परामर्श)'), findsNothing);
+      expect(find.text('Rx: Calcium + Vit D3'), findsWidgets);
+      expect(find.text('Rx: estradiol crème'), findsWidgets);
+      expect(find.textContaining('estradiol crème (estradiol crème)'), findsNothing);
+    });
   });
 }

@@ -986,7 +986,7 @@ class PdfReportService {
                         '${summary.totalPessariesInserted} patients',
                       ),
                       _buildDetailBullet(
-                        'Pelvic Floor Exercises',
+                        'Specific Counseling',
                         '${summary.pelvicFloorCounselingCount} counseled',
                       ),
                       _buildDetailBullet(

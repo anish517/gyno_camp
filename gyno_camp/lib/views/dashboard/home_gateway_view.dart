@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/database_service.dart';
 import '../../core/providers/organization_provider.dart';
 import '../../core/services/file_download_helper.dart';
+import '../../core/services/report_aggregation_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/audit_log_model.dart';
 import '../../models/user_model.dart';
@@ -5107,27 +5108,35 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
   bool _matchesTreatment(PatientModel p, ClinicalVisitModel? visit, String treatmentKey) {
     if (treatmentKey == 'all') return true;
+    final pessaryType = visit != null ? visit.pessaryType : p.pessaryType;
+    final pessarySize = visit != null ? visit.pessarySize : p.pessarySize;
+    final surgicalReferral = visit != null ? visit.surgicalReferral : p.surgicalReferral;
+    final surgeryDone = p.surgeryDone == true || (visit?.surgeryDone == true);
+    final counselingList = visit != null ? visit.counseling : p.counseling;
+    final meds = visit != null ? visit.medications : p.medications;
+    final customMed = visit != null ? visit.customMedication : p.customMedication;
+
     switch (treatmentKey) {
       case 'pessary':
-        return visit != null && ((visit.pessaryType != null && visit.pessaryType!.trim().isNotEmpty) || (visit.pessarySize != null && visit.pessarySize!.trim().isNotEmpty));
+        return (pessaryType != null && pessaryType.trim().isNotEmpty) ||
+            (pessarySize != null && pessarySize.trim().isNotEmpty);
       case 'surgery':
-        return p.surgeryDone == true || (visit != null && (visit.surgeryDone == true || (visit.surgicalReferral != null && visit.surgicalReferral!.trim().isNotEmpty)));
+        return surgeryDone ||
+            (surgicalReferral != null && surgicalReferral.trim().isNotEmpty);
       case 'counseling':
-        return visit != null && visit.counseling.isNotEmpty;
+        return counselingList.isNotEmpty;
       case 'medications':
-        return visit != null && (visit.medications.isNotEmpty || (visit.customMedication != null && visit.customMedication!.trim().isNotEmpty));
+        return meds.isNotEmpty || (customMed != null && customMed.trim().isNotEmpty);
       default:
         if (treatmentKey.startsWith('med:')) {
-          if (visit == null) return false;
           final targetMed = treatmentKey.substring(4).toLowerCase().trim();
-          final hasStandard = visit.medications.any((m) => m.toLowerCase().contains(targetMed));
-          final hasCustom = visit.customMedication?.toLowerCase().contains(targetMed) ?? false;
+          final hasStandard = meds.any((m) => m.toLowerCase().contains(targetMed));
+          final hasCustom = customMed?.toLowerCase().contains(targetMed) ?? false;
           return hasStandard || hasCustom;
         }
         if (treatmentKey.startsWith('hosp:')) {
-          if (visit == null) return false;
           final targetHosp = treatmentKey.substring(5).toLowerCase().trim();
-          return visit.surgicalReferral?.toLowerCase().contains(targetHosp) ?? false;
+          return surgicalReferral?.toLowerCase().contains(targetHosp) ?? false;
         }
         return true;
     }
@@ -5370,9 +5379,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final seenVisitReasonLabels = <String>{};
     for (final item in _campVisitReasons) {
       if (item.isActive) {
-        final label = item.labelNe.isNotEmpty
-            ? '${item.labelEn} (${item.labelNe})'
-            : item.labelEn;
+        final label = item.bilingualLabel;
         final semKey = canonicalReasonOrComplaintKey('${item.code} ${item.labelEn} ${item.labelNe}');
         final normLabel = label.trim().toLowerCase();
         if (seenVisitReasonSemanticKeys.add(semKey) && seenVisitReasonLabels.add(normLabel)) {
@@ -5428,9 +5435,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final seenComplaintLabels = <String>{};
     for (final item in _campChiefComplaints) {
       if (item.isActive) {
-        final label = item.labelNe.isNotEmpty
-            ? '${item.labelEn} (${item.labelNe})'
-            : item.labelEn;
+        final label = item.bilingualLabel;
         final semKey = canonicalReasonOrComplaintKey('${item.code} ${item.labelEn} ${item.labelNe}');
         final normLabel = label.trim().toLowerCase();
         if (seenComplaintSemanticKeys.add(semKey) && seenComplaintLabels.add(normLabel)) {
@@ -5474,31 +5479,61 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       complaintCounts[entry.key] = count;
     }
 
-    // Treatment modality definitions (Standard + Camp-specific Medicines & Referral Hospitals)
+    // Treatment modality definitions (Standard + Master Catalog + Recorded Custom Treatments)
     final treatmentDefinitions = <String, String>{
       'pessary': 'Pessary Fitted (रिङ पेसरी)',
       'surgery': 'Surgical Candidate / Done (शल्यक्रिया)',
-      'counseling': 'Counseling / Physiotherapy (परामर्श)',
+      'counseling': 'Specific Counseling (विशेष परामर्श)',
       'medications': 'All Medications Prescribed (औषधी)',
     };
+    void addRecordedTreatment(String keyPrefix, String displayPrefix, String rawName) {
+      final clean = rawName.trim();
+      if (clean.isEmpty) return;
+      final key = '$keyPrefix${clean.toLowerCase()}';
+      treatmentDefinitions.putIfAbsent(key, () => '$displayPrefix$clean');
+    }
+
     for (final med in _campMedicines) {
       final name = med.labelEn.trim();
       if (name.isNotEmpty) {
-        final key = 'med:${name.toLowerCase()}';
-        if (!treatmentDefinitions.containsKey(key)) {
-          final nepaliSuffix = med.labelNe.trim().isNotEmpty ? ' (${med.labelNe.trim()})' : '';
-          treatmentDefinitions[key] = 'Rx: $name$nepaliSuffix';
+        treatmentDefinitions.putIfAbsent('med:${name.toLowerCase()}', () => 'Rx: ${med.bilingualLabel}');
+      }
+    }
+    if (summary != null) {
+      for (final medName in summary.medicationDispensedCounts.keys) {
+        if (!ReportAggregationService.isDosageInstruction(medName)) {
+          addRecordedTreatment('med:', 'Rx: ', medName);
         }
       }
     }
+    for (final p in campScopedPatients) {
+      final v = _patientVisits[p.patientId];
+      final meds = v != null
+          ? v.uniqueAllMedications
+          : ClinicalConstants.combineUniqueMedications(p.medications, p.customMedication);
+      for (final m in meds) {
+        if (!ReportAggregationService.isDosageInstruction(m)) {
+          addRecordedTreatment('med:', 'Rx: ', m);
+        }
+      }
+    }
+
     for (final hosp in _campReferralHospitals) {
       final name = hosp.labelEn.trim();
       if (name.isNotEmpty) {
-        final key = 'hosp:${name.toLowerCase()}';
-        if (!treatmentDefinitions.containsKey(key)) {
-          final nepaliSuffix = hosp.labelNe.trim().isNotEmpty ? ' (${hosp.labelNe.trim()})' : '';
-          treatmentDefinitions[key] = 'Ref: $name$nepaliSuffix';
-        }
+        treatmentDefinitions.putIfAbsent('hosp:${name.toLowerCase()}', () => 'Ref: ${hosp.bilingualLabel}');
+      }
+    }
+    if (summary != null) {
+      for (final hospName in summary.surgicalReferralCounts.keys) {
+        addRecordedTreatment('hosp:', 'Ref: ', hospName);
+      }
+    }
+    for (final p in campScopedPatients) {
+      final v = _patientVisits[p.patientId];
+      final refHosp = v != null ? v.surgicalReferral : p.surgicalReferral;
+      if (refHosp != null) {
+        addRecordedTreatment('hosp:', 'Ref: ', refHosp);
       }
     }
     if (_selectedTreatment != 'all' && !treatmentDefinitions.containsKey(_selectedTreatment)) {
@@ -8042,12 +8077,25 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     } else {
       for (final p in patients) {
         final v = _patientVisits[p.patientId];
-        if (v != null) {
-          if (v.surgicalReferral != null && v.surgicalReferral!.isNotEmpty) surgicalCount++;
-          if (v.pessaryType != null && v.pessaryType!.isNotEmpty) pessaryCount++;
-          if (v.medications.isNotEmpty) prescriptionCount++;
-          if (v.counseling.isNotEmpty) counselingCount++;
+        final refHosp = v != null ? v.surgicalReferral : p.surgicalReferral;
+        final pesType = v != null ? v.pessaryType : p.pessaryType;
+        final pesSize = v != null ? v.pessarySize : p.pessarySize;
+        final counselingList = v != null ? v.counseling : p.counseling;
+        final meds = v != null
+            ? v.uniqueAllMedications
+            : ClinicalConstants.combineUniqueMedications(p.medications, p.customMedication);
+
+        if ((p.surgeryDone == true) ||
+            (v?.surgeryDone == true) ||
+            (refHosp != null && refHosp.trim().isNotEmpty)) {
+          surgicalCount++;
         }
+        if ((pesType != null && pesType.trim().isNotEmpty) ||
+            (pesSize != null && pesSize.trim().isNotEmpty)) {
+          pessaryCount++;
+        }
+        prescriptionCount += meds.where((m) => !ReportAggregationService.isDosageInstruction(m)).length;
+        if (counselingList.isNotEmpty) counselingCount++;
       }
     }
 
@@ -8115,9 +8163,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     color: AppTheme.brandPurple,
                   ),
                   _buildModalityCard(
-                    title: 'Pelvic Floor Training',
+                    title: 'Specific Counseling',
                     count: '$counselingCount',
-                    desc: 'Kegel & Lifestyle Guidance',
+                    desc: 'Pelvic Floor, POP & Incontinence Guidance',
                     icon: Icons.fitness_center_rounded,
                     color: const Color(0xFF3B82F6),
                   ),

@@ -27,6 +27,17 @@ class LookupItemModel {
     this.excludedCampIds = const [],
   });
 
+  /// Returns `'labelEn (labelNe)'` when [labelNe] is non-empty and differs
+  /// case-insensitively from [labelEn], otherwise returns trimmed [labelEn].
+  String get bilingualLabel {
+    final en = labelEn.trim();
+    final ne = labelNe.trim();
+    if (ne.isEmpty || ne.toLowerCase() == en.toLowerCase()) {
+      return en;
+    }
+    return '$en ($ne)';
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

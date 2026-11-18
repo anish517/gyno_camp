@@ -6,6 +6,7 @@ import 'package:gyno_camp/core/theme/app_theme.dart';
 import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/camp_report_summary_model.dart';
 import 'package:gyno_camp/models/clinical_visit_model.dart';
+import 'package:gyno_camp/models/lookup_item_model.dart';
 import 'package:gyno_camp/models/patient_model.dart';
 import 'package:gyno_camp/repositories/reporting_repository.dart';
 import 'package:gyno_camp/viewmodels/reporting_viewmodel.dart';
@@ -107,6 +108,34 @@ void main() {
     expect(find.text('St 4: 0'), findsOneWidget);
   });
 
+  test('LookupItemModel.bilingualLabel omits duplicate Nepali labels matching labelEn', () {
+    const identicalMed = LookupItemModel(
+      id: 'med-2',
+      category: 'medicine',
+      code: 'estradiol_creme',
+      labelEn: 'estradiol crème',
+      labelNe: 'Estradiol Crème',
+    );
+    const blankNe = LookupItemModel(
+      id: 'med-custom',
+      category: 'medicine',
+      code: 'calcium',
+      labelEn: 'Calcium + Vit D3',
+      labelNe: '   ',
+    );
+    const bilingual = LookupItemModel(
+      id: 'diag-1',
+      category: 'diagnosis',
+      code: 'pop',
+      labelEn: 'Pelvic Organ Prolapse',
+      labelNe: 'आङ खस्ने',
+    );
+
+    expect(identicalMed.bilingualLabel, 'estradiol crème');
+    expect(blankNe.bilingualLabel, 'Calcium + Vit D3');
+    expect(bilingual.bilingualLabel, 'Pelvic Organ Prolapse (आङ खस्ने)');
+  });
+
   testWidgets('CampReportView shows Highest stage filter label and per-compartment Stage pills in POP Staging tab', (tester) async {
     tester.view.physicalSize = const Size(1280, 1000);
     tester.view.devicePixelRatio = 1.0;
@@ -168,6 +197,10 @@ void main() {
 
     expect(find.text('POP Prolapse Stage (Highest):'), findsOneWidget);
     expect(find.text('All POP Stages (Highest)'), findsOneWidget);
+
+    await tester.tap(find.text('Treatment'));
+    await tester.pumpAndSettle();
+    expect(find.text('• Specific Counseling: 1 counseled'), findsOneWidget);
 
     await tester.tap(find.text('POP Staging'));
     await tester.pumpAndSettle();

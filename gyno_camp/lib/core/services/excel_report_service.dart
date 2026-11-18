@@ -72,7 +72,7 @@ class ExcelReportService {
       TextCellValue('Fitted on-site'),
     ]);
     summarySheet.appendRow([
-      TextCellValue('Pelvic Floor Exercises Counseled'),
+      TextCellValue('Specific Counseling'),
       IntCellValue(summary.pelvicFloorCounselingCount),
       TextCellValue('Patients instructed'),
     ]);
