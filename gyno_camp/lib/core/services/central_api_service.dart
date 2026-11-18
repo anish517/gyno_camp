@@ -158,6 +158,26 @@ class CentralApiService implements ICentralApiService {
       syncedAuditLogIds.add(log.id);
     }
 
+    // Process Deleted Patients & Visits
+    final confirmedDeletedPatientIds = <String>[];
+    for (final delPid in payload.deletedPatientIds) {
+      final matched = _serverPatients.where((p) => p.id == delPid).toList();
+      final tokenIds = matched.map((p) => p.patientId.toLowerCase()).toSet();
+      _serverPatients.removeWhere((p) => p.id == delPid);
+      _serverVisits.removeWhere(
+        (v) =>
+            v.patientId == delPid ||
+            tokenIds.contains(v.patientId.toLowerCase()),
+      );
+      confirmedDeletedPatientIds.add(delPid);
+    }
+
+    final confirmedDeletedVisitIds = <String>[];
+    for (final delVid in payload.deletedVisitIds) {
+      _serverVisits.removeWhere((v) => v.id == delVid);
+      confirmedDeletedVisitIds.add(delVid);
+    }
+
     return SyncPushResponse(
       success: true,
       serverTimestamp: serverTime,
@@ -165,6 +185,8 @@ class CentralApiService implements ICentralApiService {
       syncedVisitIds: syncedVisitIds,
       syncedAuditLogIds: syncedAuditLogIds,
       conflictEntityIds: conflictIds,
+      deletedPatientIds: confirmedDeletedPatientIds,
+      deletedVisitIds: confirmedDeletedVisitIds,
       message: 'Successfully processed ${syncedPatientIds.length} patients and ${syncedVisitIds.length} visits.',
     );
   }

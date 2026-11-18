@@ -655,4 +655,22 @@ class DatabaseService {
 
     return restoredCounts;
   }
+
+  /// Removes locally queued deletion tombstones that the server confirmed deleting.
+  /// Falls back to [pushedIds] when [confirmedIds] is null (legacy mock/server compatibility).
+  Future<void> purgeConfirmedDeletedTombstones(
+    DatabaseExecutor executor, {
+    required String entityType,
+    required List<String> pushedIds,
+    required List<String>? confirmedIds,
+  }) async {
+    final idsToRemove = confirmedIds ?? pushedIds;
+    for (final id in idsToRemove) {
+      await executor.delete(
+        DatabaseTables.tableDeletedEntitiesQueue,
+        where: 'entity_type = ? AND (entity_id = ? OR id = ?)',
+        whereArgs: [entityType, id, id],
+      );
+    }
+  }
 }

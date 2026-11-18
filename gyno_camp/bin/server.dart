@@ -754,6 +754,10 @@ class GynoCampSyncServer {
         await _handlePostCamp(request);
       } else if (request.method == 'DELETE' && path == '/api/camps') {
         await _handleDeleteCamp(request);
+      } else if (request.method == 'DELETE' && path == '/api/patients') {
+        await _handleDeletePatient(request);
+      } else if (request.method == 'DELETE' && path == '/api/clinical_visits') {
+        await _handleDeleteClinicalVisit(request);
       } else if (request.method == 'DELETE' && path == '/api/lookups') {
         await _handleDeleteLookup(request);
       } else if (request.method == 'GET' && path == '/api/users') {
@@ -1321,97 +1325,22 @@ class GynoCampSyncServer {
     }
 
     // 4b. Process Deleted Patients & Visits
+    final confirmedDeletedPatientIds = <String>[];
     for (final delPid in deletedPatientIds) {
-      final isTokenId = delPid.toUpperCase().startsWith('GC-');
-      final memPat = _memPatients[delPid];
-      final memTokenId = memPat?['patient_id']?.toString();
-      if (!isTokenId) {
-        _memPatients.remove(delPid);
-        _memVisits.removeWhere((_, v) =>
-            v['patient_id'] == delPid ||
-            (memTokenId != null && memTokenId.isNotEmpty && v['patient_id'] == memTokenId));
-        _memDeletedEntities[delPid] = 'patient';
-      } else {
-        final hasActiveOwner = _memPatients.values.any(
-          (p) => (p['patient_id']?.toString() ?? '').toLowerCase() == delPid.toLowerCase(),
-        );
-        if (!hasActiveOwner) {
-          _memVisits.removeWhere((_, v) => v['patient_id'] == delPid);
-        }
-      }
-      if (_isPgConnected && _connection != null) {
-        try {
-          if (!isTokenId) {
-            final existingRows = await _connection!.execute(
-              Sql.named('SELECT patient_id FROM patients WHERE id = @id LIMIT 1;'),
-              parameters: {'id': delPid},
-            );
-            final pgTokenId = existingRows.isNotEmpty ? existingRows.first[0]?.toString() : null;
-            await _connection!.execute(
-              Sql.named('DELETE FROM clinical_visits WHERE patient_id = @id OR (@token_id IS NOT NULL AND LOWER(patient_id) = LOWER(@token_id));'),
-              parameters: {'id': delPid, 'token_id': pgTokenId},
-            );
-            await _connection!.execute(
-              Sql.named('DELETE FROM patients WHERE id = @id;'),
-              parameters: {'id': delPid},
-            );
-            await _connection!.execute(
-              Sql.named('''
-                INSERT INTO deleted_entities (id, entity_type, deleted_at)
-                VALUES (@id, 'patient', NOW())
-                ON CONFLICT (id) DO UPDATE SET entity_type = 'patient', deleted_at = NOW();
-              '''),
-              parameters: {'id': delPid},
-            );
-          } else {
-            // Never persist reusable GC-* Token IDs into deleted_entities
-            await _connection!.execute(
-              Sql.named('''
-                DELETE FROM clinical_visits
-                WHERE LOWER(patient_id) = LOWER(@id)
-                  AND NOT EXISTS (SELECT 1 FROM patients p WHERE LOWER(p.patient_id) = LOWER(@id));
-              '''),
-              parameters: {'id': delPid},
-            );
-          }
-        } catch (e) {
-          print('Error deleting patient $delPid in push: $e');
-        }
+      if (await _deletePatientById(delPid)) {
+        confirmedDeletedPatientIds.add(delPid);
       }
     }
 
+    final confirmedDeletedVisitIds = <String>[];
     for (final delVid in deletedVisitIds) {
-      _memVisits.remove(delVid);
-      _memDeletedEntities[delVid] = 'clinical_visit';
-      if (_isPgConnected && _connection != null) {
-        try {
-          await _connection!.execute(
-            Sql.named('DELETE FROM clinical_visits WHERE id = @id'),
-            parameters: {'id': delVid},
-          );
-          await _connection!.execute(
-            Sql.named('''
-              INSERT INTO deleted_entities (id, entity_type, deleted_at)
-              VALUES (@id, 'clinical_visit', NOW())
-              ON CONFLICT (id) DO UPDATE SET entity_type = 'clinical_visit', deleted_at = NOW();
-            '''),
-            parameters: {'id': delVid},
-          );
-        } catch (e) {
-          print('Error deleting clinical visit $delVid in push: $e');
-        }
+      if (await _deleteVisitById(delVid)) {
+        confirmedDeletedVisitIds.add(delVid);
       }
     }
 
-    if (_isPgConnected && _connection != null && deletedPatientIds.isNotEmpty) {
-      try {
-        await _connection!.execute('''
-          UPDATE camps 
-          SET total_patients_registered = (
-            SELECT COUNT(*) FROM patients WHERE patients.camp_id = camps.id
-          );
-        ''');
-      } catch (_) {}
+    if (confirmedDeletedPatientIds.isNotEmpty) {
+      await _recalculateCampPatientCounts();
     }
 
     // 5. Process Audit Logs (persisted to PostgreSQL)
@@ -1465,6 +1394,8 @@ class GynoCampSyncServer {
       'synced_visit_ids': syncedVisitIds,
       'synced_audit_log_ids': syncedAuditLogIds,
       'synced_lookup_ids': syncedLookupIds,
+      'deleted_patient_ids': confirmedDeletedPatientIds,
+      'deleted_visit_ids': confirmedDeletedVisitIds,
       'conflict_entity_ids': [],
       'message': 'Successfully committed ${syncedPatientIds.length} patients, ${syncedVisitIds.length} visits, and ${syncedLookupIds.length} lookups to central cloud.',
     }));
@@ -1476,6 +1407,8 @@ class GynoCampSyncServer {
       'action': 'push',
       'patients': syncedPatientIds.length,
       'visits': syncedVisitIds.length,
+      'deleted_patients': confirmedDeletedPatientIds.length,
+      'deleted_visits': confirmedDeletedVisitIds.length,
       'camps': camps.length,
       'timestamp': DateTime.now().toIso8601String(),
     }, excludeDeviceId: pushDeviceId);
@@ -2347,6 +2280,176 @@ class GynoCampSyncServer {
     request.response.write(jsonEncode({'success': true, 'deleted_lookup_id': id}));
     await request.response.close();
     _broadcastSseEvent('sync_update', {'action': 'lookup_delete', 'lookup_id': id, 'timestamp': DateTime.now().toIso8601String()});
+  }
+
+  /// Deletes a patient (and associated clinical visits + tombstone) in both
+  /// in-memory store and PostgreSQL. Returns false only if PostgreSQL deletion fails.
+  Future<bool> _deletePatientById(String delPid) async {
+    if (delPid.isEmpty) return false;
+    final isTokenId = delPid.toUpperCase().startsWith('GC-');
+    final memPat = _memPatients[delPid];
+    final memTokenId = memPat?['patient_id']?.toString();
+
+    if (_isPgConnected && _connection != null) {
+      try {
+        final existingRows = await _connection!.execute(
+          Sql.named('SELECT patient_id FROM patients WHERE id = @id LIMIT 1;'),
+          parameters: {'id': delPid},
+        );
+        final pgTokenId = existingRows.isNotEmpty ? existingRows.first[0]?.toString() : null;
+        if (existingRows.isNotEmpty || !isTokenId) {
+          if (pgTokenId != null && pgTokenId.isNotEmpty) {
+            await _connection!.execute(
+              Sql.named('DELETE FROM clinical_visits WHERE patient_id = @id OR LOWER(patient_id) = LOWER(@token_id);'),
+              parameters: {'id': delPid, 'token_id': pgTokenId},
+            );
+          } else {
+            await _connection!.execute(
+              Sql.named('DELETE FROM clinical_visits WHERE patient_id = @id;'),
+              parameters: {'id': delPid},
+            );
+          }
+          await _connection!.execute(
+            Sql.named('DELETE FROM patients WHERE id = @id;'),
+            parameters: {'id': delPid},
+          );
+          if (!isTokenId) {
+            await _connection!.execute(
+              Sql.named('''
+                INSERT INTO deleted_entities (id, entity_type, deleted_at)
+                VALUES (@id, 'patient', NOW())
+                ON CONFLICT (id) DO UPDATE SET entity_type = 'patient', deleted_at = NOW();
+              '''),
+              parameters: {'id': delPid},
+            );
+          }
+        } else {
+          // Never persist reusable GC-* Token IDs into deleted_entities
+          await _connection!.execute(
+            Sql.named('''
+              DELETE FROM clinical_visits
+              WHERE LOWER(patient_id) = LOWER(@id)
+                AND NOT EXISTS (SELECT 1 FROM patients p WHERE LOWER(p.patient_id) = LOWER(@id));
+            '''),
+            parameters: {'id': delPid},
+          );
+        }
+      } catch (e) {
+        print('Error deleting patient $delPid: $e');
+        return false;
+      }
+    }
+
+    if (memPat != null || !isTokenId) {
+      _memPatients.remove(delPid);
+      _memVisits.removeWhere((_, v) =>
+          v['patient_id'] == delPid ||
+          (memTokenId != null && memTokenId.isNotEmpty && v['patient_id'] == memTokenId));
+      if (!isTokenId) {
+        _memDeletedEntities[delPid] = 'patient';
+      }
+    } else {
+      final hasActiveOwner = _memPatients.values.any(
+        (p) => (p['patient_id']?.toString() ?? '').toLowerCase() == delPid.toLowerCase(),
+      );
+      if (!hasActiveOwner) {
+        _memVisits.removeWhere(
+          (_, v) => (v['patient_id']?.toString() ?? '').toLowerCase() == delPid.toLowerCase(),
+        );
+      }
+    }
+    return true;
+  }
+
+  /// Deletes a clinical visit and records its tombstone in both memory and PostgreSQL.
+  Future<bool> _deleteVisitById(String delVid) async {
+    if (delVid.isEmpty) return false;
+    if (_isPgConnected && _connection != null) {
+      try {
+        await _connection!.execute(
+          Sql.named('DELETE FROM clinical_visits WHERE id = @id;'),
+          parameters: {'id': delVid},
+        );
+        await _connection!.execute(
+          Sql.named('''
+            INSERT INTO deleted_entities (id, entity_type, deleted_at)
+            VALUES (@id, 'clinical_visit', NOW())
+            ON CONFLICT (id) DO UPDATE SET entity_type = 'clinical_visit', deleted_at = NOW();
+          '''),
+          parameters: {'id': delVid},
+        );
+      } catch (e) {
+        print('Error deleting clinical visit $delVid: $e');
+        return false;
+      }
+    }
+    _memVisits.remove(delVid);
+    _memDeletedEntities[delVid] = 'clinical_visit';
+    return true;
+  }
+
+  Future<void> _recalculateCampPatientCounts() async {
+    if (_isPgConnected && _connection != null) {
+      try {
+        await _connection!.execute('''
+          UPDATE camps 
+          SET total_patients_registered = (
+            SELECT COUNT(*) FROM patients WHERE patients.camp_id = camps.id
+          );
+        ''');
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _handleDeletePatient(HttpRequest request) async {
+    final id = request.uri.queryParameters['id']?.trim() ?? '';
+    if (id.isEmpty) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'error': 'Missing patient id'}));
+      await request.response.close();
+      return;
+    }
+    final ok = await _deletePatientById(id);
+    if (!ok) {
+      request.response.statusCode = HttpStatus.internalServerError;
+      request.response.write(jsonEncode({'success': false, 'error': 'Failed to delete patient'}));
+      await request.response.close();
+      return;
+    }
+    await _recalculateCampPatientCounts();
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode({'success': true, 'deleted_patient_id': id}));
+    await request.response.close();
+    _broadcastSseEvent('sync_update', {
+      'action': 'patient_delete',
+      'patient_id': id,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> _handleDeleteClinicalVisit(HttpRequest request) async {
+    final id = request.uri.queryParameters['id']?.trim() ?? '';
+    if (id.isEmpty) {
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.write(jsonEncode({'error': 'Missing clinical visit id'}));
+      await request.response.close();
+      return;
+    }
+    final ok = await _deleteVisitById(id);
+    if (!ok) {
+      request.response.statusCode = HttpStatus.internalServerError;
+      request.response.write(jsonEncode({'success': false, 'error': 'Failed to delete clinical visit'}));
+      await request.response.close();
+      return;
+    }
+    request.response.statusCode = HttpStatus.ok;
+    request.response.write(jsonEncode({'success': true, 'deleted_visit_id': id}));
+    await request.response.close();
+    _broadcastSseEvent('sync_update', {
+      'action': 'visit_delete',
+      'visit_id': id,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<void> _handleRenameTenant(HttpRequest request) async {

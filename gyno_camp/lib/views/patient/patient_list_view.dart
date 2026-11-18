@@ -15,6 +15,7 @@ import '../../core/providers/organization_provider.dart';
 import '../../core/services/document_capture_service.dart';
 import '../../core/services/file_download_helper.dart';
 import '../../core/services/pdf_report_service.dart';
+import '../../core/services/session_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/patient_model.dart';
@@ -3231,7 +3232,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 userId: auth?.id ?? 'usr-local',
                 userName: auth?.name ?? 'Health Worker',
                 userRole: auth?.role.toDbString() ?? 'DATA_TAKER',
-                deviceId: 'dev-local',
+                deviceId: SessionService.current?.getRegisteredDeviceId() ?? 'dev-local',
               );
               if (context.mounted) {
                 ref.read(campStateProvider.notifier).loadCamps();

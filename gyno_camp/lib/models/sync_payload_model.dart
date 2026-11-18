@@ -107,6 +107,8 @@ class SyncPushResponse {
   final List<String> syncedAuditLogIds;
   final List<String> syncedLookupIds;
   final List<String> conflictEntityIds;
+  final List<String>? deletedPatientIds;
+  final List<String>? deletedVisitIds;
   final String? message;
 
   const SyncPushResponse({
@@ -117,6 +119,8 @@ class SyncPushResponse {
     this.syncedAuditLogIds = const [],
     this.syncedLookupIds = const [],
     this.conflictEntityIds = const [],
+    this.deletedPatientIds,
+    this.deletedVisitIds,
     this.message,
   });
 
@@ -129,6 +133,8 @@ class SyncPushResponse {
       'synced_audit_log_ids': syncedAuditLogIds,
       'synced_lookup_ids': syncedLookupIds,
       'conflict_entity_ids': conflictEntityIds,
+      if (deletedPatientIds != null) 'deleted_patient_ids': deletedPatientIds,
+      if (deletedVisitIds != null) 'deleted_visit_ids': deletedVisitIds,
       'message': message,
     };
   }
@@ -142,6 +148,12 @@ class SyncPushResponse {
       syncedAuditLogIds: List<String>.from(map['synced_audit_log_ids'] as List? ?? []),
       syncedLookupIds: List<String>.from(map['synced_lookup_ids'] as List? ?? []),
       conflictEntityIds: List<String>.from(map['conflict_entity_ids'] as List? ?? []),
+      deletedPatientIds: map['deleted_patient_ids'] != null
+          ? List<String>.from(map['deleted_patient_ids'] as List)
+          : null,
+      deletedVisitIds: map['deleted_visit_ids'] != null
+          ? List<String>.from(map['deleted_visit_ids'] as List)
+          : null,
       message: map['message'] as String?,
     );
   }

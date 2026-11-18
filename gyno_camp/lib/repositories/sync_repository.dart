@@ -223,21 +223,18 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
-        for (final delPid in deletedPatientIds) {
-          await txn.delete(
-            DatabaseTables.tableDeletedEntitiesQueue,
-            where: 'entity_id = ? OR id = ?',
-            whereArgs: [delPid, delPid],
-          );
-        }
-
-        for (final delVid in deletedVisitIds) {
-          await txn.delete(
-            DatabaseTables.tableDeletedEntitiesQueue,
-            where: 'entity_id = ? OR id = ?',
-            whereArgs: [delVid, delVid],
-          );
-        }
+        await _databaseService.purgeConfirmedDeletedTombstones(
+          txn,
+          entityType: 'patient',
+          pushedIds: deletedPatientIds,
+          confirmedIds: response.deletedPatientIds,
+        );
+        await _databaseService.purgeConfirmedDeletedTombstones(
+          txn,
+          entityType: 'clinical_visit',
+          pushedIds: deletedVisitIds,
+          confirmedIds: response.deletedVisitIds,
+        );
       });
 
       // 8. Audit log

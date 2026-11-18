@@ -764,11 +764,11 @@ class PatientRepository implements IPatientRepository {
     });
 
     if (_enableCentralSync) {
-      unawaited(_pushDeletionsToServer(
+      await _pushDeletionsToServer(
         deviceId: deviceId,
         deletedPatientIds: [patientUuid],
         deletedVisitIds: visitIds,
-      ));
+      );
     }
 
     await _auditRepository.logActivity(
@@ -828,10 +828,10 @@ class PatientRepository implements IPatientRepository {
     });
 
     if (_enableCentralSync) {
-      unawaited(_pushDeletionsToServer(
+      await _pushDeletionsToServer(
         deviceId: deviceId,
         deletedVisitIds: [visitId],
-      ));
+      );
     }
 
     await _auditRepository.logActivity(
@@ -928,20 +928,18 @@ class PatientRepository implements IPatientRepository {
       final response = await apiService.pushDelta(payload);
       if (response.success) {
         final db = await _databaseService.database;
-        for (final pid in deletedPatientIds) {
-          await db.delete(
-            DatabaseTables.tableDeletedEntitiesQueue,
-            where: 'entity_type = ? AND entity_id = ?',
-            whereArgs: ['patient', pid],
-          );
-        }
-        for (final vid in deletedVisitIds) {
-          await db.delete(
-            DatabaseTables.tableDeletedEntitiesQueue,
-            where: 'entity_type = ? AND entity_id = ?',
-            whereArgs: ['clinical_visit', vid],
-          );
-        }
+        await _databaseService.purgeConfirmedDeletedTombstones(
+          db,
+          entityType: 'patient',
+          pushedIds: deletedPatientIds,
+          confirmedIds: response.deletedPatientIds,
+        );
+        await _databaseService.purgeConfirmedDeletedTombstones(
+          db,
+          entityType: 'clinical_visit',
+          pushedIds: deletedVisitIds,
+          confirmedIds: response.deletedVisitIds,
+        );
       }
     } catch (_) {}
   }

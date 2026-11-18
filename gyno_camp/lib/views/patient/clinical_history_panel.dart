@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../core/services/file_download_helper.dart';
 import '../../core/services/nepali_localization_service.dart';
 import '../../core/services/pdf_report_service.dart';
+import '../../core/services/session_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/clinical_visit_model.dart';
@@ -379,7 +380,10 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
           );
           if (confirmed == true && mounted) {
             try {
-              await widget.repo.deletePatient(_patient.id);
+              await widget.repo.deletePatient(
+                _patient.id,
+                deviceId: SessionService.current?.getRegisteredDeviceId() ?? 'dev-local',
+              );
               widget.onDataModified?.call();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -676,7 +680,10 @@ class _ClinicalHistoryPanelState extends State<ClinicalHistoryPanel> {
                     );
                     if (confirmed == true && mounted) {
                       try {
-                        await widget.repo.deleteClinicalVisit(v.id);
+                        await widget.repo.deleteClinicalVisit(
+                          v.id,
+                          deviceId: SessionService.current?.getRegisteredDeviceId() ?? 'dev-local',
+                        );
                         if (mounted) {
                           setState(() {
                             _visitsFuture = widget.repo.getClinicalVisits(
