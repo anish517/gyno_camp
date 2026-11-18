@@ -16,6 +16,7 @@ import '../../viewmodels/master_lookup_viewmodel.dart';
 import '../../viewmodels/reporting_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
+import '../shared/pop_compartment_stage_pills.dart';
 
 class CampReportView extends ConsumerStatefulWidget {
   final String? initialCampId;
@@ -2100,7 +2101,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                 Icon(Icons.straighten_outlined, color: AppTheme.primaryTeal, size: 16),
                 SizedBox(width: 6),
                 Expanded(
-                  child: Text('POP Prolapse Stage:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+                  child: Text('POP Prolapse Stage (Highest):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
                 ),
               ],
             ),
@@ -2117,13 +2118,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   value: _selectedPopStage,
                   isDense: true,
                   isExpanded: true,
-                  hint: const Text('All POP Stages', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  hint: const Text('All POP Stages (Highest)', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
                     DropdownMenuItem<String?>(
                       value: null,
                       child: Row(
                         children: [
-                          const Expanded(child: Text('All POP Stages', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                          const Expanded(child: Text('All POP Stages (Highest)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
@@ -2820,12 +2821,12 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   value: ['0', '1', '2', '3', '4', '2+', '3+'].contains(_selectedPopStage) ? _selectedPopStage : null,
                   isDense: true,
                   isExpanded: true,
-                  hint: const Text('All POP Stages', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  hint: const Text('All POP Stages (Highest)', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
                     DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        'All POP Stages ($totalExamined)',
+                        'All POP Stages (Highest) ($totalExamined)',
                         style: const TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -3787,7 +3788,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         }),
         const Divider(height: 24),
         const Text(
-          'Compartment Prolapse Frequency (Stage >= 1)',
+          'Compartment Prolapse Breakdown (Station 2)',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
         const SizedBox(height: 10),
@@ -3797,6 +3798,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               (summary.anteriorStages[2] ?? 0) +
               (summary.anteriorStages[3] ?? 0),
           totalVisits: summary.totalVisitsRecorded,
+          stageCounts: summary.anteriorStages,
+          maxStage: 3,
           color: AppTheme.accentCyan,
           icon: Icons.vertical_align_top,
         ),
@@ -3808,6 +3811,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               (summary.middleStages[3] ?? 0) +
               (summary.middleStages[4] ?? 0),
           totalVisits: summary.totalVisitsRecorded,
+          stageCounts: summary.middleStages,
+          maxStage: 4,
           color: AppTheme.warningAmber,
           icon: Icons.vertical_align_center,
         ),
@@ -3818,6 +3823,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
               (summary.posteriorStages[2] ?? 0) +
               (summary.posteriorStages[3] ?? 0),
           totalVisits: summary.totalVisitsRecorded,
+          stageCounts: summary.posteriorStages,
+          maxStage: 3,
           color: AppTheme.primaryTeal,
           icon: Icons.vertical_align_bottom,
         ),
@@ -3829,10 +3836,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     required String label,
     required int count,
     required int totalVisits,
+    required Map<int, int> stageCounts,
+    required int maxStage,
     required Color color,
     required IconData icon,
   }) {
     final pct = totalVisits > 0 ? (count / totalVisits * 100).toStringAsFixed(1) : '0.0';
+    final countText = count == 1 ? '1 case' : '$count cases';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -3840,27 +3850,38 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-              overflow: TextOverflow.ellipsis,
-            ),
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$countText ($pct%)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: color),
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '$count cases ($pct%)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: color),
-            ),
+          const SizedBox(height: 6),
+          PopCompartmentStagePills(
+            stageCounts: stageCounts,
+            maxStage: maxStage,
+            spacing: 6,
           ),
         ],
       ),

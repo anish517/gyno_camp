@@ -2285,7 +2285,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           key: const ValueKey('pop_stage_dropdown'),
                           initialValue: filters.popStage ?? 'all',
                           decoration: const InputDecoration(
-                            labelText: 'POP Staging (आङ खस्ने अवस्था)',
+                            labelText: 'POP Staging (आङ खस्ने अवस्था · Highest)',
                             prefixIcon: Icon(Icons.straighten_outlined, size: 18),
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),

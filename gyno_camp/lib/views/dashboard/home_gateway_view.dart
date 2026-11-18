@@ -23,6 +23,7 @@ import '../patient/clinical_assessment_view.dart';
 import '../patient/patient_list_view.dart';
 import '../patient/patient_registration_view.dart';
 import '../shared/blank_form_download_dialog.dart';
+import '../shared/pop_compartment_stage_pills.dart';
 import '../../models/camp_model.dart';
 import '../../models/camp_report_summary_model.dart';
 import '../../models/clinical_visit_model.dart';
@@ -6460,7 +6461,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       items: [
         DropdownMenuItem(
           value: 'all',
-          child: buildOptionRow('All POP Stages', campScopedPatientsCount, isBold: true),
+          child: buildOptionRow('All POP Stages (Highest)', campScopedPatientsCount, isBold: true),
         ),
         DropdownMenuItem(
           value: '0',
@@ -7317,21 +7318,39 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       }
     }
 
-    int antCount = 0, midCount = 0, postCount = 0;
-    if (summary != null && summary.totalVisitsRecorded > 0) {
-      antCount = (summary.anteriorStages.values.fold<int>(0, (a, b) => a + b) - (summary.anteriorStages[0] ?? 0));
-      midCount = (summary.middleStages.values.fold<int>(0, (a, b) => a + b) - (summary.middleStages[0] ?? 0));
-      postCount = (summary.posteriorStages.values.fold<int>(0, (a, b) => a + b) - (summary.posteriorStages[0] ?? 0));
+    final antStages = <int, int>{0: 0, 1: 0, 2: 0, 3: 0};
+    final midStages = <int, int>{0: 0, 1: 0, 2: 0, 3: 0, 4: 0};
+    final postStages = <int, int>{0: 0, 1: 0, 2: 0, 3: 0};
+
+    if (summary != null &&
+        summary.totalVisitsRecorded > 0 &&
+        (summary.anteriorStages.isNotEmpty ||
+            summary.middleStages.isNotEmpty ||
+            summary.posteriorStages.isNotEmpty)) {
+      for (final s in [0, 1, 2, 3]) {
+        antStages[s] = summary.anteriorStages[s] ?? 0;
+        postStages[s] = summary.posteriorStages[s] ?? 0;
+      }
+      for (final s in [0, 1, 2, 3, 4]) {
+        midStages[s] = summary.middleStages[s] ?? 0;
+      }
     } else {
       for (final p in patients) {
         final v = _patientVisits[p.patientId];
         if (v != null) {
-          if (v.popAnteriorStage > 0) antCount++;
-          if (v.popMiddleStage > 0) midCount++;
-          if (v.popPosteriorStage > 0) postCount++;
+          final a = v.popAnteriorStage.clamp(0, 3);
+          final m = v.popMiddleStage.clamp(0, 4);
+          final post = v.popPosteriorStage.clamp(0, 3);
+          antStages[a] = (antStages[a] ?? 0) + 1;
+          midStages[m] = (midStages[m] ?? 0) + 1;
+          postStages[post] = (postStages[post] ?? 0) + 1;
         }
       }
     }
+
+    final int antCount = (antStages[1] ?? 0) + (antStages[2] ?? 0) + (antStages[3] ?? 0);
+    final int midCount = (midStages[1] ?? 0) + (midStages[2] ?? 0) + (midStages[3] ?? 0) + (midStages[4] ?? 0);
+    final int postCount = (postStages[1] ?? 0) + (postStages[2] ?? 0) + (postStages[3] ?? 0);
 
     final significant = st2 + st3 + st4;
     final sigPct = totalExams > 0 ? (significant / totalExams * 100).toStringAsFixed(1) : '0.0';
@@ -7522,74 +7541,114 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFCBD5E1)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Anterior Wall (अगाडिको भित्ति)', style: TextStyle(fontSize: 10, color: Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 2),
-                              Text('$antCount Cases', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                              const Text('Cystocele', style: TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8))),
-                            ],
-                          ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cards = [
+                        _buildStation2CompartmentCard(
+                          title: 'Anterior Wall (अगाडिको भित्ति)',
+                          subtitle: 'Cystocele',
+                          activeCount: antCount,
+                          stageCounts: antStages,
+                          maxStage: 3,
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFCBD5E1)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Apical Compartment (शीर्ष/मध्य भाग)', style: TextStyle(fontSize: 10, color: Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 2),
-                              Text('$midCount Cases', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                              const Text('Uterine Prolapse', style: TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8))),
-                            ],
-                          ),
+                        _buildStation2CompartmentCard(
+                          title: 'Apical Compartment (शीर्ष/मध्य भाग)',
+                          subtitle: 'Uterine Prolapse',
+                          activeCount: midCount,
+                          stageCounts: midStages,
+                          maxStage: 4,
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFCBD5E1)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Posterior Wall (पछाडिको भित्ति)', style: TextStyle(fontSize: 10, color: Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 2),
-                              Text('$postCount Cases', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                              const Text('Rectocele', style: TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8))),
-                            ],
-                          ),
+                        _buildStation2CompartmentCard(
+                          title: 'Posterior Wall (पछाडिको भित्ति)',
+                          subtitle: 'Rectocele',
+                          activeCount: postCount,
+                          stageCounts: postStages,
+                          maxStage: 3,
                         ),
-                      ),
-                    ],
+                      ];
+
+                      if (constraints.maxWidth < 520) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            cards[0],
+                            const SizedBox(height: 6),
+                            cards[1],
+                            const SizedBox(height: 6),
+                            cards[2],
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: cards[0]),
+                          const SizedBox(width: 6),
+                          Expanded(child: cards[1]),
+                          const SizedBox(width: 6),
+                          Expanded(child: cards[2]),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStation2CompartmentCard({
+    required String title,
+    required String subtitle,
+    required int activeCount,
+    required Map<int, int> stageCounts,
+    required int maxStage,
+  }) {
+    final caseLabel = activeCount == 1 ? '1 Case' : '$activeCount Cases';
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Text(
+                caseLabel,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          PopCompartmentStagePills(
+            stageCounts: stageCounts,
+            maxStage: maxStage,
+          ),
+        ],
       ),
     );
   }
