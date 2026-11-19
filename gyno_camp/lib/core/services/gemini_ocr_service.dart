@@ -174,7 +174,10 @@ class GeminiOcrService {
   }
 
   /// Public helper for compressing and base64-encoding scan images for local SQLite storage.
-  /// Ensures each page stays well below Android's 2 MB SQLite CursorWindow limit.
+  /// On Android/iOS/Desktop (native isolates), compresses > 350 KB images off the UI thread
+  /// so each page stays well below Android's 2 MB SQLite CursorWindow limit.
+  /// On Flutter Web (no native isolates and no Android CursorWindow limit), skips pure-Dart
+  /// software decode/re-encode so the browser main thread never freezes on commit.
   Future<({String base64, String mimeType})> prepareImageForStorage(Uint8List bytes) async {
     final isPng = bytes.length > 4 &&
         bytes[0] == 0x89 &&
@@ -183,31 +186,27 @@ class GeminiOcrService {
         bytes[3] == 0x47;
     final defaultMime = isPng ? 'image/png' : 'image/jpeg';
 
-    // If already compact (<= 350 KB raw -> ~465 KB base64), store directly.
-    if (bytes.length <= 350000) {
+    // Fast path: on Web (single-threaded JS, no Android 2MB CursorWindow limit) or
+    // when already compact (<= 750 KB raw -> safely read via 800 KB SUBSTR chunks on Android),
+    // encode directly (< 2 ms) without blocking commit.
+    if (kIsWeb || bytes.length <= 750000) {
       return (base64: base64Encode(bytes), mimeType: defaultMime);
     }
 
-    if (!kIsWeb) {
-      try {
-        final compressed = await compute(_compressForSqliteStorageIsolate, bytes);
-        if (compressed != null && compressed.isNotEmpty) {
-          return (base64: base64Encode(compressed), mimeType: 'image/jpeg');
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('[GeminiOCR] SQLite storage compression failed: $e');
-        }
-      }
-    } else {
-      await Future<void>.delayed(Duration.zero);
-      final compressed = _compressForSqliteStorageIsolate(bytes);
+    try {
+      final compressed = await compute(_compressForSqliteStorageIsolate, bytes)
+          .timeout(const Duration(seconds: 6), onTimeout: () => null);
       if (compressed != null && compressed.isNotEmpty) {
         return (base64: base64Encode(compressed), mimeType: 'image/jpeg');
       }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[GeminiOCR] SQLite storage compression failed: $e');
+      }
     }
 
-    return _prepareImage(bytes);
+    // Fallback: encode directly (Android SQLite reader safely streams >800KB values via SUBSTR chunks)
+    return (base64: base64Encode(bytes), mimeType: defaultMime);
   }
 
   /// Scales image down if larger than 1600px to ensure fast mobile upload.

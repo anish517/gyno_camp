@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1442,18 +1443,14 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         preservePhotoArchive: true,
       );
 
-      List<OfflineScanQueueItem> updatedQueue = state.offlineQueue;
-      try {
-        updatedQueue = await _repository.getOfflineScanQueue();
-      } catch (_) {}
       if (!mounted) return savedPatient;
       state = state.copyWith(
         isSaving: false,
-        offlineQueue: updatedQueue,
         committedPatient: savedPatient,
         reviewingPatientUuid: savedPatient.id,
         successMessage: 'Patient ${savedPatient.patientId} verified & saved directly to local database!',
       );
+      unawaited(loadOfflineQueue());
       return savedPatient;
     } catch (e) {
       if (!mounted) return null;

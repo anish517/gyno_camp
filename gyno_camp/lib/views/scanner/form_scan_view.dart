@@ -3031,10 +3031,13 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                 .refreshPendingCounts();
                             _showSuccessDialog(context, savedPatient);
                           } else if (context.mounted) {
+                            final latestError =
+                                ref.read(ocrScanProvider).errorMessage;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  ocrState.errorMessage ?? 'Failed to commit scanned form. Please verify required fields.',
+                                  latestError ??
+                                      'Failed to commit scanned form. Please verify required fields.',
                                 ),
                                 backgroundColor: Colors.red[700],
                               ),

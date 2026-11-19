@@ -1064,16 +1064,22 @@ class OcrRepository implements IOcrRepository {
     final nowIso = DateTime.now().toIso8601String();
     final extractedJsonStr = jsonEncode(verifiedScan.toMap());
 
-    String? p1Base64;
-    if (page1ImageBytes != null && page1ImageBytes.isNotEmpty) {
-      final prepared = await _geminiService.prepareImageForStorage(page1ImageBytes);
-      p1Base64 = prepared.base64;
-    }
-    String? p2Base64;
-    if (page2ImageBytes != null && page2ImageBytes.isNotEmpty) {
-      final prepared = await _geminiService.prepareImageForStorage(page2ImageBytes);
-      p2Base64 = prepared.base64;
-    }
+    // Prepare Page 1 & Page 2 in parallel so multi-megabyte Android camera photos
+    // compress concurrently across background isolates instead of sequentially.
+    final preparedPages = await Future.wait<String?>([
+      (page1ImageBytes != null && page1ImageBytes.isNotEmpty)
+          ? _geminiService
+              .prepareImageForStorage(page1ImageBytes)
+              .then((p) => p.base64)
+          : Future<String?>.value(null),
+      (page2ImageBytes != null && page2ImageBytes.isNotEmpty)
+          ? _geminiService
+              .prepareImageForStorage(page2ImageBytes)
+              .then((p) => p.base64)
+          : Future<String?>.value(null),
+    ]);
+    final String? p1Base64 = preparedPages[0];
+    final String? p2Base64 = preparedPages[1];
 
     if (archiveItemId != null && archiveItemId.trim().isNotEmpty) {
       final updateMap = <String, dynamic>{
@@ -1184,8 +1190,11 @@ class OcrRepository implements IOcrRepository {
     return result.isNotEmpty ? result : null;
   }
 
-  /// Queries `offline_scan_queue` without `SELECT *` so large Base64 image columns
-  /// never overflow Android's 2 MB SQLite CursorWindow.
+  /// Queries `offline_scan_queue` safely across all platforms.
+  /// On Web (no Android 2 MB CursorWindow limit), uses a single query to minimize
+  /// Web Worker IPC round-trips. On native platforms (Android/iOS/Desktop), reads
+  /// large Base64 image columns in 800 KB SUBSTR chunks so Android's 2 MB
+  /// SQLite CursorWindow never overflows.
   Future<List<OfflineScanQueueItem>> _queryOfflineScanItems(
     Database db, {
     String? where,
@@ -1193,6 +1202,17 @@ class OcrRepository implements IOcrRepository {
     String orderBy = 'updated_at DESC, created_at DESC',
     int? limit,
   }) async {
+    if (kIsWeb) {
+      final rows = await db.query(
+        DatabaseTables.tableOfflineScanQueue,
+        where: where,
+        whereArgs: whereArgs,
+        orderBy: orderBy,
+        limit: limit,
+      );
+      return rows.map((r) => OfflineScanQueueItem.fromMap(r)).toList();
+    }
+
     final whereClause = (where != null && where.trim().isNotEmpty)
         ? 'WHERE $where'
         : '';
