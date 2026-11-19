@@ -114,14 +114,46 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     final authState = ref.watch(authStateProvider);
     final deviceState = ref.watch(deviceSecurityProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 68,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
-        bottom: AppTheme.brandAppBarBottomLine,
-        iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
+    void handleBackNavigation() {
+      if (ocrState.hasScanResult) {
+        ocrVm.returnToCaptureSlots();
+      } else {
+        if (ocrState.isReviewingCommittedScan) {
+          ocrVm.resetScan();
+        }
+        Navigator.of(context).maybePop();
+      }
+    }
+
+    final showLeadingBack =
+        ocrState.hasScanResult || Navigator.of(context).canPop();
+
+    return PopScope(
+      canPop: !ocrState.hasScanResult,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (ocrState.hasScanResult) {
+          ocrVm.returnToCaptureSlots();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          toolbarHeight: 68,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
+          bottom: AppTheme.brandAppBarBottomLine,
+          iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
+          leading: showLeadingBack
+              ? IconButton(
+                  key: const ValueKey('form_scan_appbar_back_btn'),
+                  tooltip: ocrState.hasScanResult
+                      ? 'Back to Scan & Auto-Fill'
+                      : 'Back to Dashboard',
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: handleBackNavigation,
+                )
+              : null,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -271,6 +303,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                 }
               },
             ),
+      ),
     );
   }
 

@@ -765,8 +765,16 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     }
   }
 
-  /// Returns from verification pane to the dual-slot capture screen without losing captured scans
+  /// Returns from verification pane to the dual-slot capture screen.
+  /// When exiting Review & Correction Mode for an already-committed archived scan,
+  /// resets the review state cleanly so Page 1 & Page 2 slots return empty for a new scan.
+  /// During an active uncommitted capture, preserves captured slots so the user can
+  /// upload or retake the other page without losing work.
   void returnToCaptureSlots() {
+    if (state.isReviewingCommittedScan) {
+      resetScan();
+      return;
+    }
     state = state.copyWith(clearScanResult: true);
   }
 

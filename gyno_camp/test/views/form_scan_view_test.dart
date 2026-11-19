@@ -585,5 +585,108 @@ void main() {
         expect(find.text('Showing 10 of 12 scanned forms'), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'AppBar back button steps back from Review & Correction Mode to clean Scan & Auto-Fill screen first, then returns to Dashboard on second press',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1280, 1000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        const valid1x1PngBase64 =
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        final sampleScan = const OcrFormService()
+            .parseFormText(OcrFormService.sampleFullFormText);
+        final archivedItem = OfflineScanQueueItem(
+          id: 'scanarch-back-001',
+          campId: 'camp-1234',
+          campCode: '1234',
+          page1ImageBase64: valid1x1PngBase64,
+          page2ImageBase64: valid1x1PngBase64,
+          status: 'completed',
+          reviewStatus: 'reviewed',
+          committedPatientUuid: 'pat-back-001',
+          committedPatientId: 'GC-0007-2026-0012',
+          committedPatientName: 'KAMALA RAI',
+          committedVisitId: 'vis-back-001',
+          extractedJson: jsonEncode(sampleScan.toMap()),
+          createdAt: DateTime(2026, 11, 19),
+          updatedAt: DateTime(2026, 11, 19),
+          createdByUserId: 'usr-1',
+          createdByUserName: 'Staff',
+          createdByUserRole: 'DataTaker',
+          deviceId: 'dev-1',
+        );
+
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: Builder(
+                builder: (ctx) => Scaffold(
+                  body: Center(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          ctx,
+                          MaterialPageRoute(
+                            builder: (_) => const FormScanView(),
+                          ),
+                        );
+                      },
+                      child: const Text('Dashboard Launch Scanner'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Open FormScanView from Dashboard
+        await tester.tap(find.text('Dashboard Launch Scanner'));
+        await tester.pumpAndSettle();
+
+        // Populate archived scan photo and open Review & Correction Mode
+        container.read(ocrScanProvider.notifier).state = OcrScanState(
+          offlineQueue: [archivedItem],
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Review & Correct'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            'REVIEW & CORRECTION MODE • Saving updates the existing patient & clinical visit record in-place.',
+          ),
+          findsOneWidget,
+        );
+
+        // 1st tap on top-left AppBar back arrow must return to Scan & Auto-Fill
+        // (NOT pop straight to Dashboard) and clear review slots cleanly.
+        await tester.tap(find.byKey(const ValueKey('form_scan_appbar_back_btn')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Scan & Auto-Fill Yellow Form'), findsOneWidget);
+        expect(find.text('Dashboard Launch Scanner'), findsNothing);
+        expect(find.text('Slot Empty'), findsNWidgets(2));
+        expect(container.read(ocrScanProvider).isReviewingCommittedScan, isFalse);
+
+        // 2nd tap on top-left AppBar back arrow now returns to Dashboard.
+        await tester.tap(find.byKey(const ValueKey('form_scan_appbar_back_btn')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Dashboard Launch Scanner'), findsOneWidget);
+      },
+    );
   });
 }
