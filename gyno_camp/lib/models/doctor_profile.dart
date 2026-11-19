@@ -40,9 +40,9 @@ class DoctorProfile {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return const DoctorProfile(name: '');
 
-    // Try structured NMC patterns: "... (NMC: 14256)" or "... [NMC 14256]"
+    // Try structured NMC patterns: "... (NMC: 14256)" or "... [NMC 2222/3333]"
     final match = RegExp(
-      r'^(.*?)\s*[\(\[]\s*NMC[:\s#]*\s*(\w+)\s*[\)\]]?\s*$',
+      r'^(.*?)\s*[\(\[]\s*NMC[:\s#]*\s*([\w\/-]+)\s*[\)\]]?\s*$',
       caseSensitive: false,
     ).firstMatch(trimmed);
 
@@ -55,7 +55,7 @@ class DoctorProfile {
 
     // Try inline NMC without brackets: "Sita Sharma NMC 14256" or "Ramesh Karki - NMC 9988"
     final inlineMatch = RegExp(
-      r'^(.*?)\s*[-–—:]*\s*NMC[:\s#]*\s*(\w+)\s*$',
+      r'^(.*?)\s*[-–—:]*\s*NMC[:\s#]*\s*([\w\/-]+)\s*$',
       caseSensitive: false,
     ).firstMatch(trimmed);
 
@@ -101,13 +101,75 @@ class DoctorProfile {
         .trim();
   }
 
-  @override
-  bool operator ==(Object other) =>
-      other is DoctorProfile &&
-      name.toLowerCase().trim() == other.name.toLowerCase().trim();
+  /// Canonical deduplication/matching key that ignores "Dr." prefix, "(NMC: ...)"
+  /// suffix, periods/dots (so "A. Sharma", "A.Sharma", and "A Sharma" match),
+  /// extra whitespace, and letter case.
+  static String canonicalKey(String raw) {
+    final parsed = parse(raw);
+    return _canonicalizeName(parsed.name);
+  }
+
+  String get canonicalNameKey => _canonicalizeName(name);
+
+  static String _canonicalizeName(String rawName) {
+    return rawName
+        .replaceAll('.', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toLowerCase();
+  }
+
+  /// Returns the preferred display variant when merging two entries for the same
+  /// doctor (e.g., prefers an entry with an NMC number, then punctuated initials
+  /// like "A. Sharma" over "A Sharma", then mixed-case over all-lower/all-upper).
+  static DoctorProfile pickPreferred(
+    DoctorProfile existing,
+    DoctorProfile candidate,
+  ) {
+    if (!existing.hasNmc && candidate.hasNmc) return candidate;
+    if (existing.hasNmc && !candidate.hasNmc) return existing;
+
+    final existingHasDot = existing.name.contains('.');
+    final candidateHasDot = candidate.name.contains('.');
+    if (!existingHasDot && candidateHasDot) return candidate;
+    if (existingHasDot && !candidateHasDot) return existing;
+
+    final existingMixed = existing.name != existing.name.toLowerCase() &&
+        existing.name != existing.name.toUpperCase();
+    final candidateMixed = candidate.name != candidate.name.toLowerCase() &&
+        candidate.name != candidate.name.toUpperCase();
+    if (!existingMixed && candidateMixed) return candidate;
+    return existing;
+  }
+
+  /// Canonical doctor name comparison used across filters, reports, and rosters.
+  /// Matches punctuation/spacing variants ("Dr. A Sharma" == "Dr. A. Sharma")
+  /// while respecting distinct NMC numbers when both sides carry one.
+  static bool namesMatch(String a, String b) {
+    final docA = parse(a);
+    final docB = parse(b);
+    final keyA = docA.isValid
+        ? docA.canonicalNameKey
+        : _canonicalizeName(_stripDrPrefix(a));
+    final keyB = docB.isValid
+        ? docB.canonicalNameKey
+        : _canonicalizeName(_stripDrPrefix(b));
+    if (keyA.isEmpty || keyB.isEmpty) return false;
+    if (keyA == keyB || keyA.contains(keyB) || keyB.contains(keyA)) {
+      if (docA.hasNmc && docB.hasNmc) {
+        return docA.nmcNumber.toLowerCase() == docB.nmcNumber.toLowerCase();
+      }
+      return true;
+    }
+    return false;
+  }
 
   @override
-  int get hashCode => name.toLowerCase().trim().hashCode;
+  bool operator ==(Object other) =>
+      other is DoctorProfile && canonicalNameKey == other.canonicalNameKey;
+
+  @override
+  int get hashCode => canonicalNameKey.hashCode;
 
   @override
   String toString() => formattedLabel;

@@ -273,19 +273,14 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   // ── Dynamic Filter Counts ───────────────────────────────────────────────
   int _getNurseCount(String nurse, CampReportSummaryModel? summary) {
     if (summary == null) return 0;
-    bool nurseMatch(String a, String b) {
-      final cleanA = NurseProfile.stripPrefixes(a).trim().toLowerCase();
-      final cleanB = NurseProfile.stripPrefixes(b).trim().toLowerCase();
-      return cleanA.isNotEmpty && cleanB.isNotEmpty && (cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA));
-    }
     // Decision 5: Visit-based only
     final matchingVisits = summary.visits.where((v) =>
-        (v.primaryNurseName != null && nurseMatch(v.primaryNurseName!, nurse)) ||
-        v.attendingNurseNames.any((n) => nurseMatch(n, nurse)));
+        (v.primaryNurseName != null && NurseProfile.namesMatch(v.primaryNurseName!, nurse)) ||
+        v.attendingNurseNames.any((n) => NurseProfile.namesMatch(n, nurse)));
     final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
     final matchingFromPatients = summary.patients.where((p) =>
-        (p.primaryNurseName != null && nurseMatch(p.primaryNurseName!, nurse)) ||
-        p.attendingNurseNames.any((n) => nurseMatch(n, nurse))).map((p) => p.patientId);
+        (p.primaryNurseName != null && NurseProfile.namesMatch(p.primaryNurseName!, nurse)) ||
+        p.attendingNurseNames.any((n) => NurseProfile.namesMatch(n, nurse))).map((p) => p.patientId);
     matchingPatientIds.addAll(matchingFromPatients);
     return matchingPatientIds.length;
   }
@@ -293,17 +288,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   // ── Dynamic Filter Counts ───────────────────────────────────────────────
   int _getDoctorCount(String doc, CampReportSummaryModel? summary) {
     if (summary == null) return 0;
-    bool docMatch(String a, String b) {
-      final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-      final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-      return cleanA.isNotEmpty && cleanB.isNotEmpty && (cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA));
-    }
     final matchingVisits = summary.visits.where((v) =>
-        (v.primaryDoctorName != null && docMatch(v.primaryDoctorName!, doc)) ||
-        v.attendingDoctorNames.any((d) => docMatch(d, doc)));
+        (v.primaryDoctorName != null && DoctorProfile.namesMatch(v.primaryDoctorName!, doc)) ||
+        v.attendingDoctorNames.any((d) => DoctorProfile.namesMatch(d, doc)));
     final matchingPatientIds = matchingVisits.map((v) => v.patientId).toSet();
     final matchingFromPatients = summary.patients.where((p) =>
-        p.primaryDoctorName != null && docMatch(p.primaryDoctorName!, doc)).map((p) => p.patientId);
+        (p.primaryDoctorName != null && DoctorProfile.namesMatch(p.primaryDoctorName!, doc)) ||
+        p.attendingDoctorNames.any((d) => DoctorProfile.namesMatch(d, doc))).map((p) => p.patientId);
     matchingPatientIds.addAll(matchingFromPatients);
     return matchingPatientIds.length;
   }
@@ -697,87 +688,118 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         : null;
     final relevantCamps = selectedCampObj != null ? [selectedCampObj] : visibleCamps;
 
-    // 1. DYNAMIC DOCTORS: Strictly scoped to the selected camp (or visible camps if All Camps)
-    final scopedDoctors = <String>{};
+    // 1. DYNAMIC DOCTORS: Strictly scoped to the selected camp (or visible camps if All Camps),
+    // canonically deduplicated so punctuation/spacing/NMC variants like "Dr. A Sharma" &
+    // "Dr. A. Sharma" merge into a single entry.
+    final doctorMap = <String, DoctorProfile>{};
+    void addDoctorRaw(String raw) {
+      final parsed = DoctorProfile.parse(raw);
+      if (!parsed.isValid) return;
+      final key = parsed.canonicalNameKey;
+      if (key.isEmpty) return;
+      final existing = doctorMap[key];
+      doctorMap[key] = existing == null
+          ? parsed
+          : DoctorProfile.pickPreferred(existing, parsed);
+    }
+
     for (final camp in relevantCamps) {
       if (camp.doctorNames.isNotEmpty) {
-        scopedDoctors.addAll(camp.doctorNames.map((d) => d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim()).where((d) => d.isNotEmpty));
+        for (final d in camp.doctorNames) {
+          addDoctorRaw(d);
+        }
       } else if (camp.doctorName.trim().isNotEmpty) {
-        scopedDoctors.add(camp.doctorName.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim());
+        addDoctorRaw(camp.doctorName);
       }
     }
     final docSummary = reportState.unfilteredSummary ?? reportState.summary;
     if (docSummary != null) {
       for (final v in docSummary.visits) {
         if (v.primaryDoctorName != null && v.primaryDoctorName!.trim().isNotEmpty) {
-          final clean = v.primaryDoctorName!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-          if (clean.isNotEmpty) scopedDoctors.add(clean);
+          addDoctorRaw(v.primaryDoctorName!);
         }
         for (final d in v.attendingDoctorNames) {
-          final clean = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-          if (clean.isNotEmpty) scopedDoctors.add(clean);
+          addDoctorRaw(d);
         }
       }
       for (final p in docSummary.patients) {
         if (p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty) {
-          final clean = p.primaryDoctorName!.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-          if (clean.isNotEmpty) scopedDoctors.add(clean);
+          addDoctorRaw(p.primaryDoctorName!);
         }
         for (final d in p.attendingDoctorNames) {
-          final clean = d.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim();
-          if (clean.isNotEmpty) scopedDoctors.add(clean);
+          addDoctorRaw(d);
         }
       }
     }
 
     // Only show doctors who actually have patient data records in this camp scope (or are currently selected)
-    final activeDoctors = scopedDoctors
-        .where((doc) => _getDoctorCount(doc, docSummary) > 0 || _selectedDoctor == doc)
+    final activeDoctors = doctorMap.values
+        .map((d) => d.formattedLabel)
+        .where((doc) =>
+            _getDoctorCount(doc, docSummary) > 0 ||
+            (_selectedDoctor != null && DoctorProfile.namesMatch(doc, _selectedDoctor!)))
         .toList();
     final finalDoctors = activeDoctors
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     if (_selectedDoctor != null && !finalDoctors.contains(_selectedDoctor)) {
-      _selectedDoctor = null;
+      final matchedDoc = finalDoctors
+          .where((d) => DoctorProfile.namesMatch(d, _selectedDoctor!))
+          .firstOrNull;
+      _selectedDoctor = matchedDoc;
     }
     final allDoctors = finalDoctors.toSet();
 
-    // 1b. DYNAMIC NURSES: Strictly scoped to nurses who actually have patient data records
-    final scopedNurses = <String>{};
+    // 1b. DYNAMIC NURSES: Strictly scoped to nurses who actually have patient data records,
+    // canonically deduplicated across punctuation/spacing/prefix variants.
+    final nurseMap = <String, NurseProfile>{};
+    void addNurseRaw(String raw) {
+      final parsed = NurseProfile.parse(raw);
+      if (!parsed.isValid) return;
+      final key = parsed.canonicalNameKey;
+      if (key.isEmpty) return;
+      final existing = nurseMap[key];
+      nurseMap[key] = existing == null
+          ? parsed
+          : NurseProfile.pickPreferred(existing, parsed);
+    }
+
     for (final camp in relevantCamps) {
-      if (camp.nurseNames.isNotEmpty) {
-        scopedNurses.addAll(camp.nurseNames.map((n) => NurseProfile.stripPrefixes(n).trim()).where((n) => n.isNotEmpty));
+      for (final n in camp.nurseNames) {
+        addNurseRaw(n);
       }
     }
     if (docSummary != null) {
       for (final v in docSummary.visits) {
         if (v.primaryNurseName != null && v.primaryNurseName!.trim().isNotEmpty) {
-          final clean = NurseProfile.stripPrefixes(v.primaryNurseName!).trim();
-          if (clean.isNotEmpty) scopedNurses.add(clean);
+          addNurseRaw(v.primaryNurseName!);
         }
         for (final n in v.attendingNurseNames) {
-          final clean = NurseProfile.stripPrefixes(n).trim();
-          if (clean.isNotEmpty) scopedNurses.add(clean);
+          addNurseRaw(n);
         }
       }
       for (final p in docSummary.patients) {
         if (p.primaryNurseName != null && p.primaryNurseName!.trim().isNotEmpty) {
-          final clean = NurseProfile.stripPrefixes(p.primaryNurseName!).trim();
-          if (clean.isNotEmpty) scopedNurses.add(clean);
+          addNurseRaw(p.primaryNurseName!);
         }
         for (final n in p.attendingNurseNames) {
-          final clean = NurseProfile.stripPrefixes(n).trim();
-          if (clean.isNotEmpty) scopedNurses.add(clean);
+          addNurseRaw(n);
         }
       }
     }
 
-    final activeNurses = scopedNurses
-        .where((nurse) => _getNurseCount(nurse, docSummary) > 0 || _selectedNurse == nurse)
+    final activeNurses = nurseMap.values
+        .map((n) => n.formattedLabel)
+        .where((nurse) =>
+            _getNurseCount(nurse, docSummary) > 0 ||
+            (_selectedNurse != null && NurseProfile.namesMatch(nurse, _selectedNurse!)))
         .toList();
     final finalNurses = activeNurses
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     if (_selectedNurse != null && !finalNurses.contains(_selectedNurse)) {
-      _selectedNurse = null;
+      final matchedNurse = finalNurses
+          .where((n) => NurseProfile.namesMatch(n, _selectedNurse!))
+          .firstOrNull;
+      _selectedNurse = matchedNurse;
     }
     final allNurses = finalNurses.toSet();
 

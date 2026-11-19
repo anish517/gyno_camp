@@ -455,29 +455,8 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
       // 4. Doctor Filter — match strictly by attending/primary doctor when visit exists
       if (filters.doctor != null && filters.doctor != 'all' && filters.doctor!.trim().isNotEmpty) {
         final docFilter = filters.doctor!;
-
-        bool docNamesMatch(String a, String b) {
-          final docA = DoctorProfile.parse(a);
-          final docB = DoctorProfile.parse(b);
-          if (!docA.isValid || !docB.isValid) {
-            final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-            final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-            if (cleanA.isEmpty || cleanB.isEmpty) return false;
-            return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
-          }
-          final nameA = docA.name.toLowerCase().trim();
-          final nameB = docB.name.toLowerCase().trim();
-          if (nameA == nameB || nameA.contains(nameB) || nameB.contains(nameA)) {
-            if (docA.hasNmc && docB.hasNmc) {
-              return docA.nmcNumber == docB.nmcNumber;
-            }
-            return true;
-          }
-          return false;
-        }
-
-        final primaryMatch = p.primaryDoctorName != null && docNamesMatch(p.primaryDoctorName!, docFilter);
-        final attendingMatch = p.attendingDoctorNames.any((d) => docNamesMatch(d, docFilter));
+        final primaryMatch = p.primaryDoctorName != null && DoctorProfile.namesMatch(p.primaryDoctorName!, docFilter);
+        final attendingMatch = p.attendingDoctorNames.any((d) => DoctorProfile.namesMatch(d, docFilter));
 
         if (!primaryMatch && !attendingMatch) return false;
       }
@@ -485,16 +464,8 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
       // 5. Nurse Filter — visit-based only (no solo-doctor-queue fallback)
       if (filters.nurse != null && filters.nurse != 'all' && filters.nurse!.trim().isNotEmpty) {
         final nurseFilter = filters.nurse!;
-
-        bool nurseNamesMatch(String a, String b) {
-          final cleanA = NurseProfile.stripPrefixes(a).toLowerCase();
-          final cleanB = NurseProfile.stripPrefixes(b).toLowerCase();
-          if (cleanA.isEmpty || cleanB.isEmpty) return false;
-          return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
-        }
-
-        final primaryMatch = p.primaryNurseName != null && nurseNamesMatch(p.primaryNurseName!, nurseFilter);
-        final attendingMatch = p.attendingNurseNames.any((n) => nurseNamesMatch(n, nurseFilter));
+        final primaryMatch = p.primaryNurseName != null && NurseProfile.namesMatch(p.primaryNurseName!, nurseFilter);
+        final attendingMatch = p.attendingNurseNames.any((n) => NurseProfile.namesMatch(n, nurseFilter));
 
         if (!primaryMatch && !attendingMatch) return false;
       }

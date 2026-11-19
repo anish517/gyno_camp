@@ -90,13 +90,70 @@ class NurseProfile {
         .trim();
   }
 
-  @override
-  bool operator ==(Object other) =>
-      other is NurseProfile &&
-      name.toLowerCase().trim() == other.name.toLowerCase().trim();
+  /// Canonical deduplication/matching key ignoring prefixes ("Nurse"/"Sister"),
+  /// NNC suffixes, periods (so "S. Shrestha" and "S Shrestha" merge), extra
+  /// whitespace, and letter case.
+  static String canonicalKey(String raw) {
+    final parsed = parse(raw);
+    return _canonicalizeName(parsed.name);
+  }
+
+  String get canonicalNameKey => _canonicalizeName(name);
+
+  static String _canonicalizeName(String rawName) {
+    return rawName
+        .replaceAll('.', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toLowerCase();
+  }
+
+  static NurseProfile pickPreferred(
+    NurseProfile existing,
+    NurseProfile candidate,
+  ) {
+    if (!existing.hasRegistration && candidate.hasRegistration) return candidate;
+    if (existing.hasRegistration && !candidate.hasRegistration) return existing;
+
+    final existingHasDot = existing.name.contains('.');
+    final candidateHasDot = candidate.name.contains('.');
+    if (!existingHasDot && candidateHasDot) return candidate;
+    if (existingHasDot && !candidateHasDot) return existing;
+
+    final existingMixed = existing.name != existing.name.toLowerCase() &&
+        existing.name != existing.name.toUpperCase();
+    final candidateMixed = candidate.name != candidate.name.toLowerCase() &&
+        candidate.name != candidate.name.toUpperCase();
+    if (!existingMixed && candidateMixed) return candidate;
+    return existing;
+  }
+
+  static bool namesMatch(String a, String b) {
+    final nurseA = parse(a);
+    final nurseB = parse(b);
+    final keyA = nurseA.isValid
+        ? nurseA.canonicalNameKey
+        : _canonicalizeName(_stripPrefix(a));
+    final keyB = nurseB.isValid
+        ? nurseB.canonicalNameKey
+        : _canonicalizeName(_stripPrefix(b));
+    if (keyA.isEmpty || keyB.isEmpty) return false;
+    if (keyA == keyB || keyA.contains(keyB) || keyB.contains(keyA)) {
+      if (nurseA.hasRegistration && nurseB.hasRegistration) {
+        return nurseA.registrationNumber.toLowerCase() ==
+            nurseB.registrationNumber.toLowerCase();
+      }
+      return true;
+    }
+    return false;
+  }
 
   @override
-  int get hashCode => name.toLowerCase().trim().hashCode;
+  bool operator ==(Object other) =>
+      other is NurseProfile && canonicalNameKey == other.canonicalNameKey;
+
+  @override
+  int get hashCode => canonicalNameKey.hashCode;
 
   @override
   String toString() => formattedLabel;

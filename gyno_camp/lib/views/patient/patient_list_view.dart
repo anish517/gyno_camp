@@ -1501,13 +1501,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       if (trimmed.isEmpty) return;
       final parsed = DoctorProfile.parse(trimmed);
       if (!parsed.isValid) return;
-      final key = parsed.name.toLowerCase().trim();
+      final key = parsed.canonicalNameKey;
+      if (key.isEmpty) return;
       final existing = doctorMap[key];
-      if (existing == null) {
-        doctorMap[key] = parsed;
-      } else if (!existing.hasNmc && parsed.hasNmc) {
-        doctorMap[key] = parsed;
-      }
+      doctorMap[key] = existing == null
+          ? parsed
+          : DoctorProfile.pickPreferred(existing, parsed);
     }
 
     final campDoctorsMap = <String, List<String>>{};
@@ -1535,23 +1534,31 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
     final sortedDoctors = sortedDoctorProfiles.map((d) => d.formattedLabel).toList();
 
-    final allNurses = <String>{};
+    final nurseMap = <String, NurseProfile>{};
+    void addNurseRaw(String raw) {
+      final parsed = NurseProfile.parse(raw);
+      if (!parsed.isValid) return;
+      final key = parsed.canonicalNameKey;
+      if (key.isEmpty) return;
+      final existing = nurseMap[key];
+      nurseMap[key] = existing == null
+          ? parsed
+          : NurseProfile.pickPreferred(existing, parsed);
+    }
     // Only include nurses who actually have patient data records in rawPatients (or current filter)
     for (final p in patientState.rawPatients) {
       if (p.primaryNurseName != null && p.primaryNurseName!.trim().isNotEmpty) {
-        final clean = NurseProfile.stripPrefixes(p.primaryNurseName!).trim();
-        if (clean.isNotEmpty) allNurses.add(clean);
+        addNurseRaw(p.primaryNurseName!);
       }
       for (final nurse in p.attendingNurseNames) {
-        final clean = NurseProfile.stripPrefixes(nurse).trim();
-        if (clean.isNotEmpty) allNurses.add(clean);
+        if (nurse.trim().isNotEmpty) addNurseRaw(nurse);
       }
     }
     if (filters.nurse != null && filters.nurse != 'all' && filters.nurse!.trim().isNotEmpty) {
-      final clean = NurseProfile.stripPrefixes(filters.nurse!).trim();
-      if (clean.isNotEmpty) allNurses.add(clean);
+      addNurseRaw(filters.nurse!);
     }
-    final sortedNurses = allNurses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final sortedNurses = nurseMap.values.map((n) => n.formattedLabel).toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     // Dynamic Diagnoses: active camp lookups + patient records + current filter (NO hardcoded static defaults)
     final activeDiagnoses = ref.watch(activeDiagnosesProvider);
@@ -2153,10 +2160,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                         final selectedDoc = (filters.doctor != null && filters.doctor != 'all' && filters.doctor!.trim().isNotEmpty)
                             ? sortedDoctors.where((d) {
                                 if (d == filters.doctor) return true;
-                                final pA = DoctorProfile.parse(d);
-                                final pB = DoctorProfile.parse(filters.doctor!);
-                                if (pA.hasNmc && pB.hasNmc) return pA.nmcNumber == pB.nmcNumber;
-                                return pA.name.toLowerCase().trim() == pB.name.toLowerCase().trim();
+                                return DoctorProfile.namesMatch(d, filters.doctor!);
                               }).firstOrNull
                             : null;
 

@@ -5201,64 +5201,39 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     }
   }
 
-  bool _doctorNamesMatch(String a, String b) {
-    final docA = DoctorProfile.parse(a);
-    final docB = DoctorProfile.parse(b);
-    if (!docA.isValid || !docB.isValid) {
-      final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-      final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-      if (cleanA.isEmpty || cleanB.isEmpty) return false;
-      return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
-    }
-    final nameA = docA.name.toLowerCase().trim();
-    final nameB = docB.name.toLowerCase().trim();
-    if (nameA == nameB || nameA.contains(nameB) || nameB.contains(nameA)) {
-      if (docA.hasNmc && docB.hasNmc) {
-        return docA.nmcNumber == docB.nmcNumber;
-      }
-      return true;
-    }
-    return false;
-  }
+  bool _doctorNamesMatch(String a, String b) => DoctorProfile.namesMatch(a, b);
 
   bool _matchesDoctor(PatientModel p, ClinicalVisitModel? visit, String docName, CampState campState) {
     if (docName == 'all') return true;
-    final docLower = docName.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-    if (docLower.isEmpty) return false;
+    if (DoctorProfile.canonicalKey(docName).isEmpty) return false;
 
     if (visit != null) {
-      final primaryMatch = visit.primaryDoctorName != null && _doctorNamesMatch(visit.primaryDoctorName!, docLower);
-      final attendingMatch = visit.attendingDoctorNames.any((d) => _doctorNamesMatch(d, docLower));
+      final primaryMatch = visit.primaryDoctorName != null && _doctorNamesMatch(visit.primaryDoctorName!, docName);
+      final attendingMatch = visit.attendingDoctorNames.any((d) => _doctorNamesMatch(d, docName));
       if (primaryMatch || attendingMatch) return true;
     }
 
-    final patientPrimaryMatch = p.primaryDoctorName != null && _doctorNamesMatch(p.primaryDoctorName!, docLower);
-    final patientAttendingMatch = p.attendingDoctorNames.any((d) => _doctorNamesMatch(d, docLower));
+    final patientPrimaryMatch = p.primaryDoctorName != null && _doctorNamesMatch(p.primaryDoctorName!, docName);
+    final patientAttendingMatch = p.attendingDoctorNames.any((d) => _doctorNamesMatch(d, docName));
     if (patientPrimaryMatch || patientAttendingMatch) return true;
 
     return false;
   }
 
-  bool _nurseNamesMatch(String a, String b) {
-    final cleanA = NurseProfile.stripPrefixes(a).trim().toLowerCase();
-    final cleanB = NurseProfile.stripPrefixes(b).trim().toLowerCase();
-    if (cleanA.isEmpty || cleanB.isEmpty) return false;
-    return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
-  }
+  bool _nurseNamesMatch(String a, String b) => NurseProfile.namesMatch(a, b);
 
   bool _matchesNurse(PatientModel p, ClinicalVisitModel? visit, String nurseName) {
     if (nurseName == 'all') return true;
-    final nurseLower = NurseProfile.stripPrefixes(nurseName).trim().toLowerCase();
-    if (nurseLower.isEmpty) return false;
+    if (NurseProfile.canonicalKey(nurseName).isEmpty) return false;
 
     if (visit != null) {
-      final primaryMatch = visit.primaryNurseName != null && _nurseNamesMatch(visit.primaryNurseName!, nurseLower);
-      final attendingMatch = visit.attendingNurseNames.any((n) => _nurseNamesMatch(n, nurseLower));
+      final primaryMatch = visit.primaryNurseName != null && _nurseNamesMatch(visit.primaryNurseName!, nurseName);
+      final attendingMatch = visit.attendingNurseNames.any((n) => _nurseNamesMatch(n, nurseName));
       if (primaryMatch || attendingMatch) return true;
     }
 
-    final patientPrimaryMatch = p.primaryNurseName != null && _nurseNamesMatch(p.primaryNurseName!, nurseLower);
-    final patientAttendingMatch = p.attendingNurseNames.any((n) => _nurseNamesMatch(n, nurseLower));
+    final patientPrimaryMatch = p.primaryNurseName != null && _nurseNamesMatch(p.primaryNurseName!, nurseName);
+    final patientAttendingMatch = p.attendingNurseNames.any((n) => _nurseNamesMatch(n, nurseName));
     if (patientPrimaryMatch || patientAttendingMatch) return true;
 
     // Decision 5: Visit-based accountability only (no solo-nurse fallback)
@@ -5322,13 +5297,12 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       if (trimmed.isEmpty) return;
       final parsed = DoctorProfile.parse(trimmed);
       if (!parsed.isValid) return;
-      final key = parsed.name.toLowerCase().trim();
+      final key = parsed.canonicalNameKey;
+      if (key.isEmpty) return;
       final existing = doctorMap[key];
-      if (existing == null) {
-        doctorMap[key] = parsed;
-      } else if (!existing.hasNmc && parsed.hasNmc) {
-        doctorMap[key] = parsed;
-      }
+      doctorMap[key] = existing == null
+          ? parsed
+          : DoctorProfile.pickPreferred(existing, parsed);
     }
 
     for (final p in campScopedPatients) {
@@ -5374,31 +5348,41 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     }
 
     // Collect all dynamic nurses scoped strictly to nurses who have patient records in the selected camp
-    final allNurses = <String>{};
+    final nurseMap = <String, NurseProfile>{};
+    void addNurseRaw(String raw) {
+      final parsed = NurseProfile.parse(raw);
+      if (!parsed.isValid) return;
+      final key = parsed.canonicalNameKey;
+      if (key.isEmpty) return;
+      final existing = nurseMap[key];
+      nurseMap[key] = existing == null
+          ? parsed
+          : NurseProfile.pickPreferred(existing, parsed);
+    }
     for (final p in campScopedPatients) {
       final v = _patientVisits[p.patientId];
       if (v != null) {
         if (v.primaryNurseName != null && v.primaryNurseName!.trim().isNotEmpty) {
-          final clean = NurseProfile.stripPrefixes(v.primaryNurseName!).trim();
-          if (clean.isNotEmpty) allNurses.add(clean);
+          addNurseRaw(v.primaryNurseName!);
         }
         for (final n in v.attendingNurseNames) {
-          final clean = NurseProfile.stripPrefixes(n).trim();
-          if (clean.isNotEmpty) allNurses.add(clean);
+          addNurseRaw(n);
         }
       }
       if (p.primaryNurseName != null && p.primaryNurseName!.trim().isNotEmpty) {
-        final clean = NurseProfile.stripPrefixes(p.primaryNurseName!).trim();
-        if (clean.isNotEmpty) allNurses.add(clean);
+        addNurseRaw(p.primaryNurseName!);
       }
       for (final n in p.attendingNurseNames) {
-        final clean = NurseProfile.stripPrefixes(n).trim();
-        if (clean.isNotEmpty) allNurses.add(clean);
+        addNurseRaw(n);
       }
     }
-    final sortedNurses = allNurses.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final sortedNurses = nurseMap.values.map((n) => n.formattedLabel).toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     if (_selectedNurse != 'all' && !sortedNurses.contains(_selectedNurse)) {
-      _selectedNurse = 'all';
+      final matchingNurse = sortedNurses
+          .where((n) => _nurseNamesMatch(n, _selectedNurse))
+          .firstOrNull;
+      _selectedNurse = matchingNurse ?? 'all';
     }
 
     // Compute live patient counts per nurse in the camp scope

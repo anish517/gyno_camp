@@ -11,6 +11,7 @@ import '../../core/services/clinical_validation_service.dart';
 import '../../core/services/nepali_localization_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/nepali_date_helper.dart';
+import '../../models/doctor_profile.dart';
 import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
 import '../../models/patient_model.dart';
@@ -2984,30 +2985,74 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                             if (proceed != true) return;
                           }
 
-                          final resultDoc =
+                          String canonicalizeCampDoctor(String raw) {
+                            final trimmed = raw.trim();
+                            if (trimmed.isEmpty) return '';
+                            final match = activeCamp.doctorProfiles
+                                .where((d) => DoctorProfile.namesMatch(d.formattedLabel, trimmed))
+                                .firstOrNull;
+                            return match?.toStorageString() ?? trimmed;
+                          }
+
+                          String canonicalizeCampNurse(String raw) {
+                            final trimmed = raw.trim();
+                            if (trimmed.isEmpty) return '';
+                            final match = activeCamp.nurseProfiles
+                                .where((n) => NurseProfile.namesMatch(n.formattedLabel, trimmed))
+                                .firstOrNull;
+                            return match?.toStorageString() ?? trimmed;
+                          }
+
+                          final rawResultDoc =
                               ocrState.scanResult?.examiningDoctor;
-                          final List<String> resultAttendingDoctors =
+                          final resultDoc = (rawResultDoc != null &&
+                                  rawResultDoc.trim().isNotEmpty)
+                              ? canonicalizeCampDoctor(rawResultDoc)
+                              : null;
+                          final rawAttendingDoctors =
                               ocrState
                                       .scanResult
                                       ?.attendingDoctors
                                       .isNotEmpty ==
                                   true
                               ? ocrState.scanResult!.attendingDoctors
-                              : (resultDoc != null &&
-                                        resultDoc.trim().isNotEmpty
-                                    ? [resultDoc.trim()]
+                              : (resultDoc != null && resultDoc.isNotEmpty
+                                    ? [resultDoc]
                                     : const <String>[]);
+                          final dedupedDoctors = <String, String>{};
+                          for (final d in rawAttendingDoctors) {
+                            final resolved = canonicalizeCampDoctor(d);
+                            final key = DoctorProfile.canonicalKey(resolved);
+                            if (resolved.isNotEmpty && key.isNotEmpty) {
+                              dedupedDoctors.putIfAbsent(key, () => resolved);
+                            }
+                          }
+                          final List<String> resultAttendingDoctors =
+                              dedupedDoctors.values.toList();
 
-                          final resultNurse =
+                          final rawResultNurse =
                               ocrState.scanResult?.examiningNurse;
-                          final List<String> resultAttendingNurses =
+                          final resultNurse = (rawResultNurse != null &&
+                                  rawResultNurse.trim().isNotEmpty)
+                              ? canonicalizeCampNurse(rawResultNurse)
+                              : null;
+                          final rawAttendingNurses =
                               ocrState.scanResult?.attendingNurses.isNotEmpty ==
                                   true
                               ? ocrState.scanResult!.attendingNurses
-                              : (resultNurse != null &&
-                                        resultNurse.trim().isNotEmpty
-                                    ? [resultNurse.trim()]
+                              : (resultNurse != null && resultNurse.isNotEmpty
+                                    ? [resultNurse]
                                     : const <String>[]);
+                          final dedupedNurses = <String, String>{};
+                          for (final n in rawAttendingNurses) {
+                            final resolved = canonicalizeCampNurse(n);
+                            final key = NurseProfile.canonicalKey(resolved);
+                            if (resolved.isNotEmpty && key.isNotEmpty) {
+                              dedupedNurses.putIfAbsent(key, () => resolved);
+                            }
+                          }
+                          final List<String> resultAttendingNurses =
+                              dedupedNurses.values.toList();
 
                           final savedPatient = await ocrVm.confirmAndCommit(
                             campId: activeCamp.id,

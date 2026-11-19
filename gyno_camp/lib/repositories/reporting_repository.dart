@@ -239,16 +239,9 @@ class ReportingRepository implements IReportingRepository {
 
     // Apply Doctor Filter if requested
     if (doctorFilter != null && doctorFilter.trim().isNotEmpty && doctorFilter != 'all') {
-      bool docNamesMatch(String a, String b) {
-        final cleanA = a.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-        final cleanB = b.replaceAll(RegExp(r'^(Dr\.?\s*)+', caseSensitive: false), '').trim().toLowerCase();
-        if (cleanA.isEmpty || cleanB.isEmpty) return false;
-        return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
-      }
-
       final matchingVisits = visits.where((v) {
-        final primaryMatch = v.primaryDoctorName != null && docNamesMatch(v.primaryDoctorName!, doctorFilter);
-        final attendingMatch = v.attendingDoctorNames.any((d) => docNamesMatch(d, doctorFilter));
+        final primaryMatch = v.primaryDoctorName != null && DoctorProfile.namesMatch(v.primaryDoctorName!, doctorFilter);
+        final attendingMatch = v.attendingDoctorNames.any((d) => DoctorProfile.namesMatch(d, doctorFilter));
         return primaryMatch || attendingMatch;
       }).toList();
 
@@ -259,16 +252,9 @@ class ReportingRepository implements IReportingRepository {
 
     // Apply Nurse Filter if requested (visit-based only, no solo-nurse-queue fallback)
     if (nurseFilter != null && nurseFilter.trim().isNotEmpty && nurseFilter != 'all') {
-      bool nurseNamesMatch(String a, String b) {
-        final cleanA = NurseProfile.stripPrefixes(a).toLowerCase().trim();
-        final cleanB = NurseProfile.stripPrefixes(b).toLowerCase().trim();
-        if (cleanA.isEmpty || cleanB.isEmpty) return false;
-        return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
-      }
-
       final matchingVisits = visits.where((v) {
-        final primaryMatch = v.primaryNurseName != null && nurseNamesMatch(v.primaryNurseName!, nurseFilter);
-        final attendingMatch = v.attendingNurseNames.any((n) => nurseNamesMatch(n, nurseFilter));
+        final primaryMatch = v.primaryNurseName != null && NurseProfile.namesMatch(v.primaryNurseName!, nurseFilter);
+        final attendingMatch = v.attendingNurseNames.any((n) => NurseProfile.namesMatch(n, nurseFilter));
         return primaryMatch || attendingMatch;
       }).toList();
 
