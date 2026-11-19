@@ -210,26 +210,29 @@ class SyncRepository implements ISyncRepository {
     if (response.success) {
       final syncIso = response.serverTimestamp.toIso8601String();
       await db.transaction((txn) async {
+        final batch = txn.batch();
         for (final pId in response.syncedPatientIds) {
-          await txn.rawUpdate(
+          batch.rawUpdate(
             'UPDATE ${DatabaseTables.tablePatients} SET is_synced = 1, synced_at = ? WHERE id = ?',
             [syncIso, pId],
           );
         }
 
         for (final vId in response.syncedVisitIds) {
-          await txn.rawUpdate(
+          batch.rawUpdate(
             'UPDATE ${DatabaseTables.tableClinicalVisits} SET is_synced = 1 WHERE id = ?',
             [vId],
           );
         }
 
         for (final lId in response.syncedLookupIds) {
-          await txn.rawUpdate(
+          batch.rawUpdate(
             'UPDATE ${DatabaseTables.tableLookupItems} SET is_synced = 1 WHERE id = ?',
             [lId],
           );
         }
+
+        await batch.commit(noResult: true);
 
         await _databaseService.purgeConfirmedDeletedTombstones(
           txn,
@@ -272,92 +275,27 @@ class SyncRepository implements ISyncRepository {
     );
 
     if (response.success) {
+      String? syncedOrgName;
+      for (final user in response.users) {
+        if (user.tenantName.isNotEmpty &&
+            !AppConstants.isLegacyDefaultOrganization(user.tenantName)) {
+          syncedOrgName = user.tenantName;
+          break;
+        }
+      }
+      if (syncedOrgName != null) {
+        await SessionService.current?.saveOrganizationName(syncedOrgName);
+      }
+
       await db.transaction((txn) async {
-        // 1. Process entity deletions from central server
-        for (final campId in response.deletedCampIds) {
-          await txn.delete(
-            DatabaseTables.tableCamps,
-            where: 'id = ?',
-            whereArgs: [campId],
-          );
-          await txn.delete(
-            DatabaseTables.tablePatients,
-            where: 'camp_id = ?',
-            whereArgs: [campId],
-          );
-          await txn.delete(
-            DatabaseTables.tableClinicalVisits,
-            where: 'camp_id = ?',
-            whereArgs: [campId],
-          );
-        }
+        // 1. Persist remotely deleted camp IDs into local deleted_camp_ids tombstone metadata
+        final allDeletedCampIds = await _databaseService.addDeletedCampIds(
+          txn,
+          response.deletedCampIds,
+        );
 
-        for (final lookupId in response.deletedLookupIds) {
-          await txn.delete(
-            DatabaseTables.tableLookupItems,
-            where: 'id = ?',
-            whereArgs: [lookupId],
-          );
-        }
-
-        for (final userId in response.deletedUserIds) {
-          await txn.delete(
-            DatabaseTables.tableUsers,
-            where: 'id = ?',
-            whereArgs: [userId],
-          );
-        }
-
-        for (final patientId in response.deletedPatientIds) {
-          final matchingPatients = await txn.query(
-            DatabaseTables.tablePatients,
-            columns: ['id', 'patient_id'],
-            where: 'id = ?',
-            whereArgs: [patientId],
-          );
-          if (matchingPatients.isNotEmpty) {
-            for (final row in matchingPatients) {
-              final tokenId = row['patient_id']?.toString() ?? '';
-              if (tokenId.isNotEmpty) {
-                await txn.delete(
-                  DatabaseTables.tableClinicalVisits,
-                  where: 'patient_id = ? COLLATE NOCASE',
-                  whereArgs: [tokenId],
-                );
-              }
-            }
-            await txn.delete(
-              DatabaseTables.tableClinicalVisits,
-              where: 'patient_id = ?',
-              whereArgs: [patientId],
-            );
-            await txn.delete(
-              DatabaseTables.tablePatients,
-              where: 'id = ?',
-              whereArgs: [patientId],
-            );
-          } else {
-            // Only purge visits if no active patient row owns that patient_id under another UUID.
-            await txn.rawDelete(
-              'DELETE FROM ${DatabaseTables.tableClinicalVisits} '
-              'WHERE patient_id = ? AND NOT EXISTS ('
-              '  SELECT 1 FROM ${DatabaseTables.tablePatients} p '
-              '  WHERE p.patient_id = ${DatabaseTables.tableClinicalVisits}.patient_id COLLATE NOCASE '
-              '    AND p.id != ?'
-              ')',
-              [patientId, patientId],
-            );
-          }
-        }
-
-        for (final visitId in response.deletedVisitIds) {
-          await txn.delete(
-            DatabaseTables.tableClinicalVisits,
-            where: 'id = ?',
-            whereArgs: [visitId],
-          );
-        }
-
+        // Pre-load local state in single bulk queries instead of N per-row queries
+        // to avoid 10s SQLite Web Worker transaction lock warnings on Flutter Web.
         final locallyDeletedPatientIds = <String>{...response.deletedPatientIds};
         final locallyDeletedVisitIds = <String>{...response.deletedVisitIds};
         try {
@@ -373,52 +311,151 @@ class SyncRepository implements ISyncRepository {
           }
         } catch (_) {}
 
-        // 2. Persist remotely deleted camp IDs into local deleted_camp_ids tombstone metadata
-        // so background GET /api/camps syncs can never re-insert a deleted camp.
-        final allDeletedCampIds = await _databaseService.addDeletedCampIds(
-          txn,
-          response.deletedCampIds,
+        final existingCampRows = await txn.query(DatabaseTables.tableCamps);
+        final existingCampsById = <String, Map<String, Object?>>{
+          for (final r in existingCampRows)
+            if (r['id'] != null) r['id'].toString(): r,
+        };
+
+        final existingUserRows = await txn.query(
+          DatabaseTables.tableUsers,
+          columns: ['id', 'password_hash', 'pin_hash', 'updated_at', 'assigned_camp_ids'],
         );
+        final existingUsersById = <String, Map<String, Object?>>{
+          for (final r in existingUserRows)
+            if (r['id'] != null) r['id'].toString(): r,
+        };
+
+        final existingPatientRows = await txn.query(
+          DatabaseTables.tablePatients,
+          columns: ['id', 'patient_id', 'is_synced', 'treatment_level'],
+        );
+        final existingPatientsById = <String, Map<String, Object?>>{
+          for (final r in existingPatientRows)
+            if (r['id'] != null) r['id'].toString(): r,
+        };
+
+        final existingVisitRows = await txn.query(
+          DatabaseTables.tableClinicalVisits,
+          columns: ['id', 'is_synced', 'treatment_level'],
+        );
+        final existingVisitsById = <String, Map<String, Object?>>{
+          for (final r in existingVisitRows)
+            if (r['id'] != null) r['id'].toString(): r,
+        };
+
+        final batch = txn.batch();
+
+        // Process entity deletions from central server
+        for (final campId in response.deletedCampIds) {
+          batch.delete(
+            DatabaseTables.tableCamps,
+            where: 'id = ?',
+            whereArgs: [campId],
+          );
+          batch.delete(
+            DatabaseTables.tablePatients,
+            where: 'camp_id = ?',
+            whereArgs: [campId],
+          );
+          batch.delete(
+            DatabaseTables.tableClinicalVisits,
+            where: 'camp_id = ?',
+            whereArgs: [campId],
+          );
+        }
+
         for (final campId in allDeletedCampIds) {
-          await txn.delete(
+          batch.delete(
             DatabaseTables.tableCamps,
             where: 'id = ?',
             whereArgs: [campId],
           );
         }
 
-        // Upsert camps (skipping any tombstoned / locally deleted camps)
+        for (final lookupId in response.deletedLookupIds) {
+          batch.delete(
+            DatabaseTables.tableLookupItems,
+            where: 'id = ?',
+            whereArgs: [lookupId],
+          );
+        }
+
+        for (final userId in response.deletedUserIds) {
+          batch.delete(
+            DatabaseTables.tableUsers,
+            where: 'id = ?',
+            whereArgs: [userId],
+          );
+        }
+
+        for (final patientId in response.deletedPatientIds) {
+          final matchingRow = existingPatientsById[patientId];
+          if (matchingRow != null) {
+            final tokenId = matchingRow['patient_id']?.toString() ?? '';
+            if (tokenId.isNotEmpty) {
+              batch.delete(
+                DatabaseTables.tableClinicalVisits,
+                where: 'patient_id = ? COLLATE NOCASE',
+                whereArgs: [tokenId],
+              );
+            }
+            batch.delete(
+              DatabaseTables.tableClinicalVisits,
+              where: 'patient_id = ?',
+              whereArgs: [patientId],
+            );
+            batch.delete(
+              DatabaseTables.tablePatients,
+              where: 'id = ?',
+              whereArgs: [patientId],
+            );
+            existingPatientsById.remove(patientId);
+          } else {
+            batch.rawDelete(
+              'DELETE FROM ${DatabaseTables.tableClinicalVisits} '
+              'WHERE patient_id = ? AND NOT EXISTS ('
+              '  SELECT 1 FROM ${DatabaseTables.tablePatients} p '
+              '  WHERE p.patient_id = ${DatabaseTables.tableClinicalVisits}.patient_id COLLATE NOCASE '
+              '    AND p.id != ?'
+              ')',
+              [patientId, patientId],
+            );
+          }
+        }
+
+        for (final visitId in response.deletedVisitIds) {
+          batch.delete(
+            DatabaseTables.tableClinicalVisits,
+            where: 'id = ?',
+            whereArgs: [visitId],
+          );
+          existingVisitsById.remove(visitId);
+        }
+
+        // 2. Upsert camps (skipping any tombstoned / locally deleted camps)
         for (final camp in response.camps) {
           if (allDeletedCampIds.contains(camp.id)) continue;
-          final existing = await txn.query(
-            DatabaseTables.tableCamps,
-            where: 'id = ?',
-            whereArgs: [camp.id],
-            limit: 1,
-          );
-          if (existing.isEmpty) {
-            await txn.insert(
+          final existingMap = existingCampsById[camp.id];
+          if (existingMap == null) {
+            batch.insert(
               DatabaseTables.tableCamps,
               camp.toMap(),
               conflictAlgorithm: ConflictAlgorithm.replace,
             );
           } else {
-            final local = CampModel.fromMap(existing.first);
+            final local = CampModel.fromMap(existingMap);
             final localUpdated = (local.updatedAt ?? local.createdAt).toUtc();
             final incomingUpdated = (camp.updatedAt ?? camp.createdAt).toUtc();
-            // Guard 1: Never resurrect a locally CLOSED or ARCHIVED camp back to OPEN from background pullDelta!
-            // When a camp is closed locally, it must remain closed unless explicitly opened by a user action.
             if ((local.status == CampStatus.closed || local.status == CampStatus.archived) &&
                 camp.status == CampStatus.open) {
               continue;
             }
-            // Guard 2: Never downgrade an active OPEN camp to CLOSED from background pullDelta
             if (local.status == CampStatus.open && camp.status != CampStatus.open) {
               continue;
             }
-            // Only update local SQLite if the pulled central camp is strictly newer
             if (incomingUpdated.isAfter(localUpdated)) {
-              await txn.update(
+              batch.update(
                 DatabaseTables.tableCamps,
                 camp.toMap(),
                 where: 'id = ?',
@@ -432,7 +469,7 @@ class SyncRepository implements ISyncRepository {
         for (final item in response.lookupItems) {
           final itemMap = item.toMap();
           itemMap['is_synced'] = 1;
-          await txn.insert(
+          batch.insert(
             DatabaseTables.tableLookupItems,
             itemMap,
             conflictAlgorithm: ConflictAlgorithm.replace,
@@ -440,58 +477,26 @@ class SyncRepository implements ISyncRepository {
         }
 
         // 4. Upsert users with server-authoritative credential preservation.
-        // ── KEY RULE: Server ALWAYS wins when it has a non-empty hash. ──────────────────
-        // Do NOT use a localIsNewer timestamp guard for passwords/PINs. Other local writes
-        // (e.g. updateTenantOrganizationName) stamp ALL users' updated_at = NOW_LOCAL,
-        // which makes the local record appear "newer" even when it isn't. This blocked
-        // cross-device password resets (Chrome → Android/Opera) from propagating via SSE.
-        // The correct rule (matching _upsertUserPreservingCredentials in auth_repository):
-        //   • Server hash empty  → keep local (server has no hash yet)
-        //   • Server hash present → server wins unconditionally
+        final updatedUserIdsInPull = <String>{};
         for (final user in response.users) {
-          final existingRows = await txn.query(
-            DatabaseTables.tableUsers,
-            columns: ['password_hash', 'pin_hash', 'updated_at'],
-            where: 'id = ?',
-            whereArgs: [user.id],
-            limit: 1,
-          );
+          updatedUserIdsInPull.add(user.id);
+          final existing = existingUsersById[user.id];
           final userMap = user.toMap();
-          if (existingRows.isNotEmpty) {
-            final existing = existingRows.first;
+          if (existing != null) {
             final localPass = existing['password_hash']?.toString();
             final localPin = existing['pin_hash']?.toString();
 
-            final incomingPassEmpty = userMap['password_hash'] == null || userMap['password_hash'].toString().isEmpty;
-            final incomingPinEmpty = userMap['pin_hash'] == null || userMap['pin_hash'].toString().isEmpty;
+            final incomingPassEmpty =
+                userMap['password_hash'] == null || userMap['password_hash'].toString().isEmpty;
+            final incomingPinEmpty =
+                userMap['pin_hash'] == null || userMap['pin_hash'].toString().isEmpty;
 
-            // ── Password resolution ──────────────────────────────────────────────────────
-            // Server wins when it has a real (non-empty) hash.
-            // We never use a timestamp-based localIsNewer check for passwords because
-            // local writes (org rename, etc.) can bump updated_at without changing the
-            // password, making the local row look "newer" and blocking cross-device
-            // password changes (admin sets new password on Chrome → Android keeps old hash).
-            if (incomingPassEmpty) {
-              // Server has no hash yet — keep local to preserve self-set passwords
-              if (localPass != null && localPass.isNotEmpty) {
-                userMap['password_hash'] = localPass;
-              }
+            if (incomingPassEmpty && localPass != null && localPass.isNotEmpty) {
+              userMap['password_hash'] = localPass;
             }
-            // else: server hash wins — always. Covers all admin password resets.
-
-            // ── PIN resolution ──────────────────────────────────────────────────────────
-            // Same rule: server wins when it has a real non-empty PIN hash.
-            if (incomingPinEmpty) {
-              if (localPin != null && localPin.isNotEmpty) {
-                userMap['pin_hash'] = localPin;
-              }
+            if (incomingPinEmpty && localPin != null && localPin.isNotEmpty) {
+              userMap['pin_hash'] = localPin;
             }
-            // else: server pin wins — always.
-
-            // ── updated_at: never revert to localUpdatedAt ──────────────────────────────
-            // Reverting to localUpdatedAt was a cascading bug: once reverted, every future
-            // pullDelta would also see localIsNewer=true and keep blocking the new password.
-            // Let the server's updated_at stand as the authoritative timestamp.
           }
           if (allDeletedCampIds.isNotEmpty) {
             final cleanedCamps = (userMap['assigned_camp_ids']?.toString() ?? '')
@@ -501,7 +506,7 @@ class SyncRepository implements ISyncRepository {
                 .join(',');
             userMap['assigned_camp_ids'] = cleanedCamps;
           }
-          await txn.insert(
+          batch.insert(
             DatabaseTables.tableUsers,
             userMap,
             conflictAlgorithm: ConflictAlgorithm.replace,
@@ -509,18 +514,15 @@ class SyncRepository implements ISyncRepository {
         }
 
         if (allDeletedCampIds.isNotEmpty) {
-          final allLocalUsers = await txn.query(
-            DatabaseTables.tableUsers,
-            columns: ['id', 'assigned_camp_ids'],
-          );
-          for (final uRow in allLocalUsers) {
+          for (final uRow in existingUserRows) {
             final uid = uRow['id']?.toString() ?? '';
+            if (uid.isEmpty || updatedUserIdsInPull.contains(uid)) continue;
             final raw = uRow['assigned_camp_ids']?.toString() ?? '';
-            if (uid.isEmpty || raw.isEmpty) continue;
+            if (raw.isEmpty) continue;
             final parts = raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
             final filtered = parts.where((s) => !allDeletedCampIds.contains(s)).toList();
             if (filtered.length != parts.length) {
-              await txn.update(
+              batch.update(
                 DatabaseTables.tableUsers,
                 {'assigned_camp_ids': filtered.join(',')},
                 where: 'id = ?',
@@ -531,37 +533,32 @@ class SyncRepository implements ISyncRepository {
         }
 
         final pullSyncIso = DateTime.now().toIso8601String();
-
-        // Synchronize organization name from pulled users/camps to local storage
-        for (final user in response.users) {
-          if (user.tenantName.isNotEmpty && !AppConstants.isLegacyDefaultOrganization(user.tenantName)) {
-            await SessionService.current?.saveOrganizationName(user.tenantName);
-            await txn.insert(
-              DatabaseTables.tableMetadata,
-              {
-                'key': 'organization_name',
-                'value': user.tenantName,
-                'updated_at': pullSyncIso,
-              },
-              conflictAlgorithm: ConflictAlgorithm.replace,
-            );
-            break;
-          }
+        if (syncedOrgName != null) {
+          batch.insert(
+            DatabaseTables.tableMetadata,
+            {
+              'key': 'organization_name',
+              'value': syncedOrgName,
+              'updated_at': pullSyncIso,
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
         }
 
-        // Upsert patients from central cloud (R1 fix: guard local unsynced edits, skip deleted camps & deleted patients)
+        // Track active patient Token IDs after upserts
+        final activeTokenIds = <String>{
+          for (final r in existingPatientsById.values)
+            if ((r['patient_id']?.toString().trim().isNotEmpty ?? false))
+              r['patient_id']!.toString().trim().toLowerCase(),
+        };
+
+        // 5. Upsert patients from central cloud (R1 fix: guard local unsynced edits, skip deleted camps & deleted patients)
         for (final patient in response.patients) {
           if (allDeletedCampIds.contains(patient.campId)) continue;
           if (locallyDeletedPatientIds.contains(patient.id)) continue;
 
-          final unsyncedLocal = await txn.query(
-            DatabaseTables.tablePatients,
-            columns: ['id'],
-            where: 'id = ? AND is_synced = 0',
-            whereArgs: [patient.id],
-            limit: 1,
-          );
-          if (unsyncedLocal.isNotEmpty) {
+          final existingPat = existingPatientsById[patient.id];
+          if (existingPat != null && (existingPat['is_synced'] as int? ?? 1) == 0) {
             // Local record has unsynced modifications: do not overwrite with remote copy
             continue;
           }
@@ -571,41 +568,26 @@ class SyncRepository implements ISyncRepository {
           patientMap['synced_at'] = pullSyncIso;
 
           // Preserve existing local treatment_level if incoming remote copy has null/empty
-          if (patientMap['treatment_level'] == null || (patientMap['treatment_level'] as String).trim().isEmpty) {
-            final existingRows = await txn.query(
-              DatabaseTables.tablePatients,
-              columns: ['treatment_level'],
-              where: 'id = ?',
-              whereArgs: [patient.id],
-              limit: 1,
-            );
-            if (existingRows.isNotEmpty &&
-                existingRows.first['treatment_level'] != null &&
-                (existingRows.first['treatment_level'] as String).trim().isNotEmpty) {
-              patientMap['treatment_level'] = existingRows.first['treatment_level'];
+          if (patientMap['treatment_level'] == null ||
+              (patientMap['treatment_level'] as String).trim().isEmpty) {
+            final localTl = existingPat?['treatment_level']?.toString().trim();
+            if (localTl != null && localTl.isNotEmpty) {
+              patientMap['treatment_level'] = localTl;
             }
           }
 
-          await txn.insert(
+          if (patient.patientId.trim().isNotEmpty) {
+            activeTokenIds.add(patient.patientId.trim().toLowerCase());
+          }
+
+          batch.insert(
             DatabaseTables.tablePatients,
             patientMap,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
 
-        // Track active patient Token IDs after upserts so legacy Token-ID tombstones
-        // cannot suppress clinical visits for a newly re-registered patient.
-        final activeTokenIds = <String>{};
-        final activeTokenRows = await txn.query(
-          DatabaseTables.tablePatients,
-          columns: ['patient_id'],
-        );
-        for (final r in activeTokenRows) {
-          final pid = r['patient_id']?.toString().trim().toLowerCase() ?? '';
-          if (pid.isNotEmpty) activeTokenIds.add(pid);
-        }
-
-        // Upsert clinical visits from central cloud (R1 fix: guard local unsynced edits, skip deleted camps & deleted visits)
+        // 6. Upsert clinical visits from central cloud (R1 fix: guard local unsynced edits, skip deleted camps & deleted visits)
         for (final visit in response.clinicalVisits) {
           if (allDeletedCampIds.contains(visit.campId)) continue;
           if (locallyDeletedVisitIds.contains(visit.id)) continue;
@@ -615,14 +597,8 @@ class SyncRepository implements ISyncRepository {
             continue;
           }
 
-          final unsyncedLocal = await txn.query(
-            DatabaseTables.tableClinicalVisits,
-            columns: ['id'],
-            where: 'id = ? AND is_synced = 0',
-            whereArgs: [visit.id],
-            limit: 1,
-          );
-          if (unsyncedLocal.isNotEmpty) {
+          final existingVis = existingVisitsById[visit.id];
+          if (existingVis != null && (existingVis['is_synced'] as int? ?? 1) == 0) {
             // Local visit has unsynced modifications: do not overwrite with remote copy
             continue;
           }
@@ -631,22 +607,15 @@ class SyncRepository implements ISyncRepository {
           visitMap['is_synced'] = 1;
 
           // Preserve existing local treatment_level if incoming remote copy has null/empty
-          if (visitMap['treatment_level'] == null || (visitMap['treatment_level'] as String).trim().isEmpty) {
-            final existingRows = await txn.query(
-              DatabaseTables.tableClinicalVisits,
-              columns: ['treatment_level'],
-              where: 'id = ?',
-              whereArgs: [visit.id],
-              limit: 1,
-            );
-            if (existingRows.isNotEmpty &&
-                existingRows.first['treatment_level'] != null &&
-                (existingRows.first['treatment_level'] as String).trim().isNotEmpty) {
-              visitMap['treatment_level'] = existingRows.first['treatment_level'];
+          if (visitMap['treatment_level'] == null ||
+              (visitMap['treatment_level'] as String).trim().isEmpty) {
+            final localTl = existingVis?['treatment_level']?.toString().trim();
+            if (localTl != null && localTl.isNotEmpty) {
+              visitMap['treatment_level'] = localTl;
             }
           }
 
-          await txn.insert(
+          batch.insert(
             DatabaseTables.tableClinicalVisits,
             visitMap,
             conflictAlgorithm: ConflictAlgorithm.replace,
@@ -654,12 +623,14 @@ class SyncRepository implements ISyncRepository {
         }
 
         // Cascade purge any orphaned records whose camps were deleted
-        await txn.rawDelete(
+        batch.rawDelete(
           'DELETE FROM ${DatabaseTables.tablePatients} WHERE camp_id NOT IN (SELECT id FROM ${DatabaseTables.tableCamps})',
         );
-        await txn.rawDelete(
+        batch.rawDelete(
           'DELETE FROM ${DatabaseTables.tableClinicalVisits} WHERE camp_id NOT IN (SELECT id FROM ${DatabaseTables.tableCamps})',
         );
+
+        await batch.commit(noResult: true);
       });
 
       await _auditRepository.logActivity(
