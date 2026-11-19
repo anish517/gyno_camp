@@ -84,12 +84,10 @@ class HomeGatewayView extends ConsumerWidget {
         : ref.watch(userActiveCampProvider);
 
     final patientState = ref.watch(patientListProvider);
-    if (activeCamp != null && !patientState.hasLoaded) {
+    if (activeCamp != null &&
+        (!patientState.hasLoaded || patientState.loadedCampId != activeCamp.id)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final currentPState = ref.read(patientListProvider);
-        if (!currentPState.hasLoaded) {
-          ref.read(patientListProvider.notifier).loadPatients(activeCamp.id, true);
-        }
+        ref.read(patientListProvider.notifier).ensureCampLoaded(activeCamp.id);
       });
     }
 
@@ -711,6 +709,8 @@ class HomeGatewayView extends ConsumerWidget {
               if (context.mounted) {
                 Navigator.of(context).popUntil((route) => route.isFirst);
               }
+              ref.read(patientListProvider.notifier).reset();
+              ref.read(reportingViewModelProvider.notifier).reset();
               await ref.read(authStateProvider.notifier).logout(
                     deviceId: deviceState.device?.deviceId ?? 'dev-local',
                   );
@@ -1226,9 +1226,12 @@ class HomeGatewayView extends ConsumerWidget {
     final deviceMgmt = ref.watch(deviceManagementProvider);
     final auditLogs = ref.watch(auditLogProvider);
     final patientState = ref.watch(patientListProvider);
-    final activeCampPatients = campState.hasActiveCamp
-        ? patientState.patients.where((p) => p.campId == campState.activeCamp!.id).toList()
+    final superAdminSourcePatients = patientState.rawPatients.isNotEmpty
+        ? patientState.rawPatients
         : patientState.patients;
+    final activeCampPatients = campState.hasActiveCamp
+        ? superAdminSourcePatients.where((p) => p.campId == campState.activeCamp!.id).toList()
+        : superAdminSourcePatients;
 
 
     return SingleChildScrollView(
@@ -3175,9 +3178,12 @@ class HomeGatewayView extends ConsumerWidget {
 
 
 
-    final activeCampPatients = userCamp != null
-        ? patientState.patients.where((p) => p.campId == userCamp.id).toList()
+    final dataTakerSourcePatients = patientState.rawPatients.isNotEmpty
+        ? patientState.rawPatients
         : patientState.patients;
+    final activeCampPatients = userCamp != null
+        ? dataTakerSourcePatients.where((p) => p.campId == userCamp.id).toList()
+        : dataTakerSourcePatients;
     final recentPatients = activeCampPatients.take(4).toList();
     final now = DateTime.now();
     final sessionTime = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
@@ -3987,11 +3993,15 @@ class HomeGatewayView extends ConsumerWidget {
                             icon: const Icon(Icons.summarize_rounded, size: 18),
                             label: const Text('Camp Summary', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                             onPressed: () {
+                              final staffCampId = userCamp?.id ??
+                                  (user?.assignedCampIds.isNotEmpty == true
+                                      ? user!.assignedCampIds.first
+                                      : null);
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => CampReportView(
-                                    initialCampId: campState.activeCamp?.id,
+                                    initialCampId: staffCampId,
                                   ),
                                 ),
                               );

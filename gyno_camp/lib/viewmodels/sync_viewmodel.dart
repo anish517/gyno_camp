@@ -8,8 +8,10 @@ import '../core/services/network_connectivity_service.dart';
 import '../core/services/session_service.dart';
 import '../core/services/sse_sync_service.dart';
 import '../models/sync_payload_model.dart';
+import '../models/user_model.dart';
 import '../repositories/ocr_repository.dart';
 import '../repositories/sync_repository.dart';
+import 'auth_viewmodel.dart';
 import 'camp_viewmodel.dart';
 import 'master_lookup_viewmodel.dart';
 import 'ocr_scan_viewmodel.dart';
@@ -243,11 +245,37 @@ class SyncViewModel extends StateNotifier<SyncState> {
           await r.read(campStateProvider.notifier).loadCamps(silent: true);
           final patientState = r.read(patientListProvider);
           final currentFilterCampId = patientState.filters.campId;
-          final activeCampId = r.read(userActiveCampProvider)?.id ??
-              r.read(campStateProvider).activeCamp?.id;
-          final campToReload = (currentFilterCampId != null && currentFilterCampId.isNotEmpty)
+          final user = r.read(authStateProvider).currentUser;
+          final isSuperAdmin = user != null &&
+              (user.isSuperAdmin || user.role == UserRole.superAdmin);
+          final visibleCampIds = !isSuperAdmin && user != null
+              ? r
+                  .read(campStateProvider)
+                  .camps
+                  .where((c) =>
+                      c.isStaffAssigned(user.id) ||
+                      user.assignedCampIds.contains(c.id))
+                  .map((c) => c.id)
+                  .toSet()
+              : null;
+          final activeCampId = isSuperAdmin
+              ? (r.read(userActiveCampProvider)?.id ??
+                  r.read(campStateProvider).activeCamp?.id)
+              : r.read(userActiveCampProvider)?.id;
+
+          final isFilterValid = currentFilterCampId != null &&
+              currentFilterCampId.isNotEmpty &&
+              (isSuperAdmin ||
+                  (currentFilterCampId != 'all' &&
+                      (visibleCampIds?.contains(currentFilterCampId) ?? false)));
+          final isLoadedValid = patientState.loadedCampId != null &&
+              patientState.loadedCampId!.isNotEmpty &&
+              (isSuperAdmin ||
+                  (visibleCampIds?.contains(patientState.loadedCampId!) ?? false));
+
+          final campToReload = isFilterValid
               ? currentFilterCampId
-              : (patientState.loadedCampId ?? activeCampId);
+              : (isLoadedValid ? patientState.loadedCampId : activeCampId);
 
           if (campToReload != null) {
             await r.read(patientListProvider.notifier).loadPatients(campToReload, true);

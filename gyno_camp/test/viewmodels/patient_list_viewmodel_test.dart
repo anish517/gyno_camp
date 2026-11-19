@@ -223,5 +223,49 @@ void main() {
       expect(vm.state.patients.length, 1);
       expect(vm.state.patients.first.campId, 'camp-B');
     });
+
+    test('loadPatients(null) clears loadedCampId back to null', () async {
+      await patientRepo.registerPatient(
+        _makePatient(id: 'p1', patientId: 'GC-KTM-2026-00001', campId: 'camp-A'),
+        createdByUserId: 'usr-1', createdByUserName: 'N', createdByUserRole: 'DATA_TAKER', deviceId: 'dev-1',
+      );
+
+      await vm.loadPatients('camp-A');
+      expect(vm.state.loadedCampId, 'camp-A');
+
+      await vm.loadPatients(null);
+      expect(vm.state.hasLoaded, isTrue);
+      expect(vm.state.loadedCampId, isNull);
+    });
+
+    test('ensureCampLoaded reloads when previously loaded for a different camp and resets cleanly', () async {
+      await patientRepo.registerPatient(
+        _makePatient(id: 'p1', patientId: 'GC-KTM-2026-00001', campId: 'camp-122'),
+        createdByUserId: 'usr-1', createdByUserName: 'N', createdByUserRole: 'DATA_TAKER', deviceId: 'dev-1',
+      );
+      await patientRepo.registerPatient(
+        _makePatient(id: 'p2', patientId: 'GC-BKT-2026-00001', campId: 'camp-2222', firstName: 'Laxmi', surname: 'Bhandari', mobile: '9841000002'),
+        createdByUserId: 'usr-1', createdByUserName: 'N', createdByUserRole: 'DATA_TAKER', deviceId: 'dev-1',
+      );
+
+      // Simulate stale cross-session/cross-screen state loaded for camp-2222
+      await vm.loadPatients('camp-2222');
+      expect(vm.state.hasLoaded, isTrue);
+      expect(vm.state.loadedCampId, 'camp-2222');
+      expect(vm.state.patients.first.campId, 'camp-2222');
+
+      // ensureCampLoaded for camp-122 must detect loadedCampId mismatch and reload camp-122
+      await vm.ensureCampLoaded('camp-122');
+      expect(vm.state.loadedCampId, 'camp-122');
+      expect(vm.state.rawPatients.length, 1);
+      expect(vm.state.rawPatients.first.campId, 'camp-122');
+
+      // reset clears all stale state
+      vm.reset();
+      expect(vm.state.hasLoaded, isFalse);
+      expect(vm.state.loadedCampId, isNull);
+      expect(vm.state.patients, isEmpty);
+      expect(vm.state.rawPatients, isEmpty);
+    });
   });
 }

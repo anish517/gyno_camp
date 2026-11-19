@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/device_security_viewmodel.dart';
+import '../../viewmodels/patient_list_viewmodel.dart';
+import '../../viewmodels/reporting_viewmodel.dart';
 import '../auth/login_view.dart';
 import '../dashboard/home_gateway_view.dart';
 import '../security/app_lock_pin_view.dart';
@@ -13,6 +15,18 @@ class SecurityGatewayView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Clear camp-scoped patient & reporting caches whenever the signed-in user
+    // changes (sign-out or account switch) so stale cross-user camp data never
+    // renders 0 patients or leaks another camp's numbers on the dashboard/reports.
+    ref.listen<AuthState>(authStateProvider, (previous, next) {
+      final prevUserId = previous?.currentUser?.id;
+      final nextUserId = next.currentUser?.id;
+      if (prevUserId != nextUserId) {
+        ref.read(patientListProvider.notifier).reset();
+        ref.read(reportingViewModelProvider.notifier).reset();
+      }
+    });
+
     final deviceState = ref.watch(deviceSecurityProvider);
     final authState = ref.watch(authStateProvider);
 

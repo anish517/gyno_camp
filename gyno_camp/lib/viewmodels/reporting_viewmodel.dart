@@ -322,6 +322,11 @@ class ReportingViewModel extends StateNotifier<ReportingState> {
   void clearFeedback() {
     state = state.copyWith(clearFeedback: true);
   }
+
+  /// Clears stale report summary and camp selection on sign-out / account switch.
+  void reset() {
+    state = const ReportingState();
+  }
 }
 
 // Providers

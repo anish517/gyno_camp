@@ -161,6 +161,7 @@ class PatientListState {
     bool? isLoading,
     bool? hasLoaded,
     String? loadedCampId,
+    bool clearLoadedCampId = false,
     String? errorMessage,
     String? searchQuery,
     List<PatientModel>? rawPatients,
@@ -170,7 +171,7 @@ class PatientListState {
     return PatientListState(
       isLoading: isLoading ?? this.isLoading,
       hasLoaded: hasLoaded ?? this.hasLoaded,
-      loadedCampId: loadedCampId ?? this.loadedCampId,
+      loadedCampId: clearLoadedCampId ? null : (loadedCampId ?? this.loadedCampId),
       errorMessage: errorMessage,
       searchQuery: searchQuery ?? this.searchQuery,
       rawPatients: rawPatients ?? this.rawPatients,
@@ -182,12 +183,38 @@ class PatientListState {
 
 class PatientListViewModel extends StateNotifier<PatientListState> {
   final IPatientRepository _patientRepository;
+  int _loadRequestId = 0;
+  bool _isFetching = false;
+  String? _inFlightCampId;
 
   PatientListViewModel(this._patientRepository) : super(const PatientListState());
+
+  /// Resets in-memory patient list, camp scope, search query, and filters
+  /// (used on sign-out / account switch so stale cross-user camp data never leaks).
+  void reset() {
+    _loadRequestId++;
+    _isFetching = false;
+    _inFlightCampId = null;
+    state = const PatientListState();
+  }
+
+  /// Ensures patients for [campId] are loaded without firing duplicate concurrent
+  /// SQLite queries if a load for the exact same camp is already in flight.
+  Future<void> ensureCampLoaded(String campId) async {
+    final clean = campId.trim();
+    if (clean.isEmpty) return;
+    if (state.hasLoaded && state.loadedCampId == clean) return;
+    if (_isFetching && _inFlightCampId == clean) return;
+    await loadPatients(clean, true);
+  }
 
   Future<void> loadPatients([String? campId, bool silent = false]) async {
     final cleanCampId = (campId == null || campId == 'all' || campId.trim().isEmpty) ? null : campId.trim();
     final isDifferentCamp = cleanCampId != state.loadedCampId;
+    final requestId = ++_loadRequestId;
+    _isFetching = true;
+    _inFlightCampId = cleanCampId;
+
     final updatedFilters = cleanCampId != null
         ? state.filters.copyWith(campId: cleanCampId)
         : (campId == 'all' || (campId == null && state.filters.campId == 'all')
@@ -206,24 +233,31 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
     }
     try {
       final list = await _patientRepository.getPatientsByCamp(cleanCampId);
-      if (!mounted) return;
+      if (!mounted || requestId != _loadRequestId) return;
       final filtered = _filterList(list, state.searchQuery, updatedFilters);
       state = state.copyWith(
         isLoading: false,
         hasLoaded: true,
         loadedCampId: cleanCampId,
+        clearLoadedCampId: cleanCampId == null,
         rawPatients: list,
         patients: filtered,
         filters: updatedFilters,
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || requestId != _loadRequestId) return;
       state = state.copyWith(
         isLoading: false,
         hasLoaded: true,
         loadedCampId: cleanCampId,
+        clearLoadedCampId: cleanCampId == null,
         errorMessage: 'Failed to load patients: $e',
       );
+    } finally {
+      if (requestId == _loadRequestId) {
+        _isFetching = false;
+        _inFlightCampId = null;
+      }
     }
   }
 
