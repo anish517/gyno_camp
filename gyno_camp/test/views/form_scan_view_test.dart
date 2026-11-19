@@ -405,5 +405,185 @@ void main() {
       expect(find.text('Camp: 2222 • Women for Women Sodesi'), findsOneWidget);
       expect(find.textContaining('new official testing'), findsNothing);
     });
+
+    testWidgets(
+      'Review & Verify Complete Dual-Page Intake button appears immediately below Save Offline Scan and above Scanned Form Photos archive',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1280, 1400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        const valid1x1PngBase64 =
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        final pngBytes = base64Decode(valid1x1PngBase64);
+        final sampleScan = const OcrFormService()
+            .parseFormText(OcrFormService.sampleFullFormText);
+
+        final archivedItems = List.generate(
+          25,
+          (i) => OfflineScanQueueItem(
+            id: 'scan-${i + 1}',
+            campId: 'camp-2222',
+            campCode: '2222',
+            page1ImageBase64: valid1x1PngBase64,
+            page2ImageBase64: valid1x1PngBase64,
+            status: 'completed',
+            committedPatientUuid: 'uuid-${i + 1}',
+            committedPatientId: 'GC-2222-2026-${(i + 1).toString().padLeft(5, '0')}',
+            committedPatientName: 'Patient Sample ${i + 1}',
+            reviewStatus: i % 3 == 0 ? 'needs_review' : 'reviewed',
+            createdAt: DateTime(2026, 11, 19, 10, i),
+            updatedAt: DateTime(2026, 11, 19, 10, i),
+            createdByUserId: 'usr-1',
+            createdByUserName: 'Staff',
+            createdByUserRole: 'DataTaker',
+            deviceId: 'dev-1',
+          ),
+        );
+
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: const FormScanView(),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        container.read(ocrScanProvider.notifier).state = OcrScanState(
+          page1Scan: sampleScan,
+          page2Scan: sampleScan,
+          page1ImageBytes: pngBytes,
+          page2ImageBytes: pngBytes,
+          offlineQueue: archivedItems,
+        );
+        await tester.pumpAndSettle();
+
+        final saveOfflineBtn = find.text(
+          'Save Scan to Local Storage (Sync After Internet Connection)',
+        );
+        final reviewDualBtn = find.text(
+          'Review & Verify Complete Dual-Page Intake (दुवै पाना रुजु गर्नुहोस्)',
+        );
+        final scanBothBtn = find.text('Scan Both Pages (Edge Detect & OMR)');
+        final archiveHeader = find.text(
+          'Scanned Form Photos — Review & Correction (25)',
+        );
+
+        expect(saveOfflineBtn, findsOneWidget);
+        expect(reviewDualBtn, findsOneWidget);
+        expect(scanBothBtn, findsOneWidget);
+        expect(archiveHeader, findsOneWidget);
+
+        // Verify exact vertical order:
+        // Save Offline Scan -> Review & Verify Dual-Page -> Scan Both Pages -> Scanned Form Photos Archive
+        final saveY = tester.getTopLeft(saveOfflineBtn).dy;
+        final reviewY = tester.getTopLeft(reviewDualBtn).dy;
+        final scanBothY = tester.getTopLeft(scanBothBtn).dy;
+        final archiveY = tester.getTopLeft(archiveHeader).dy;
+
+        expect(saveY, lessThan(reviewY));
+        expect(reviewY, lessThan(scanBothY));
+        expect(scanBothY, lessThan(archiveY));
+
+        // Verify pagination caps initial archive rendering at 10 items
+        expect(find.text('Showing 10 of 25 scanned forms'), findsOneWidget);
+        expect(find.text('Patient Sample 1'), findsOneWidget);
+        expect(find.text('Patient Sample 10'), findsOneWidget);
+        expect(find.text('Patient Sample 15'), findsNothing);
+
+        // Load More reveals the remaining items
+        final loadMoreBtn = find.byKey(const ValueKey('archive_load_more_btn'));
+        await tester.ensureVisible(loadMoreBtn);
+        await tester.tap(loadMoreBtn);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Showing 25 of 25 scanned forms'), findsOneWidget);
+        expect(find.text('Patient Sample 25'), findsOneWidget);
+
+        // Search filters archive down cleanly by patient name/token
+        final searchField = find.byKey(const ValueKey('archive_search_field'));
+        await tester.ensureVisible(searchField);
+        await tester.enterText(searchField, 'Patient Sample 23');
+        await tester.pumpAndSettle();
+
+        expect(find.text('GC-2222-2026-00023'), findsOneWidget);
+        expect(find.text('Patient Sample 1'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'FormScanView capture layout with Save Offline, Review Dual-Page, and paginated archive has zero overflow on 360px mobile screen',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(360, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        const valid1x1PngBase64 =
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        final pngBytes = base64Decode(valid1x1PngBase64);
+        final sampleScan = const OcrFormService()
+            .parseFormText(OcrFormService.sampleFullFormText);
+
+        final archivedItems = List.generate(
+          12,
+          (i) => OfflineScanQueueItem(
+            id: 'mob-scan-${i + 1}',
+            campId: 'camp-2222',
+            campCode: '2222',
+            page1ImageBase64: valid1x1PngBase64,
+            status: 'completed',
+            committedPatientUuid: 'mob-uuid-${i + 1}',
+            committedPatientId: 'GC-2222-2026-${(i + 1).toString().padLeft(5, '0')}',
+            committedPatientName: 'Mobile Patient ${i + 1}',
+            reviewStatus: i == 0 ? 'needs_review' : 'reviewed',
+            createdAt: DateTime(2026, 11, 19, 10, i),
+            updatedAt: DateTime(2026, 11, 19, 10, i),
+            createdByUserId: 'usr-1',
+            createdByUserName: 'Staff',
+            createdByUserRole: 'DataTaker',
+            deviceId: 'dev-1',
+          ),
+        );
+
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: const FormScanView(),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        container.read(ocrScanProvider.notifier).state = OcrScanState(
+          page1Scan: sampleScan,
+          page2Scan: sampleScan,
+          page1ImageBytes: pngBytes,
+          page2ImageBytes: pngBytes,
+          offlineQueue: archivedItems,
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Showing 10 of 12 scanned forms'), findsOneWidget);
+      },
+    );
   });
 }

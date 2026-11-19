@@ -69,10 +69,17 @@ class _FormScanViewState extends ConsumerState<FormScanView>
       TextEditingController();
   final TextEditingController _offlineDateHintController =
       TextEditingController();
+  final TextEditingController _archiveSearchController =
+      TextEditingController();
   final TransformationController _previewTransformController =
       TransformationController();
   bool _showImageInPreview = true;
   int _previewRotationQuarterTurns = 0;
+  String _archiveSearchQuery = '';
+  bool _archiveNeedsReviewOnly = false;
+  bool _isArchiveExpanded = true;
+  int _archiveVisibleCount = 10;
+  int _pendingQueueVisibleCount = 10;
 
   @override
   void initState() {
@@ -92,6 +99,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     _customMedicationController.dispose();
     _offlineTokenHintController.dispose();
     _offlineDateHintController.dispose();
+    _archiveSearchController.dispose();
     _previewTransformController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -459,10 +467,10 @@ class _FormScanViewState extends ConsumerState<FormScanView>
               ),
               const SizedBox(height: 18),
 
-              // Offline Scan Storage & Pending Queue Section
-              _buildOfflineSaveAndQueueSection(context, ocrState, ocrVm),
+              // Offline Notice & Save to Local Storage Card (stays above primary Review CTA)
+              _buildOfflineNoticeAndSaveCard(context, ocrState, ocrVm),
 
-              // Primary Action: Review Captured Data
+              // Primary Action: Review Captured Data (immediately below Save Offline Scan)
               if (ocrState.hasPage1 || ocrState.hasPage2) ...[
                 SizedBox(
                   width: double.infinity,
@@ -558,7 +566,13 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 22),
+
+              // Growing Offline Pending Queue & Retained Scanned Form Photos Archive
+              // Placed below primary review/capture actions so 250+ scans never push
+              // the Review & Verify button off-screen.
+              _buildOfflineQueueAndArchiveSection(context, ocrState, ocrVm),
+              const SizedBox(height: 14),
 
               // Enterprise Clinical Guidance Card
               Container(
@@ -709,7 +723,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     );
   }
 
-  Widget _buildOfflineSaveAndQueueSection(
+  Widget _buildOfflineNoticeAndSaveCard(
     BuildContext context,
     OcrScanState ocrState,
     OcrScanViewModel ocrVm,
@@ -718,10 +732,16 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     final deviceState = ref.watch(deviceSecurityProvider);
     final activeCamp = ref.watch(userActiveCampProvider);
 
+    final showNotice =
+        ocrState.errorMessage != null || ocrState.isOfflineModeDetected;
+    if (!showNotice && !ocrState.hasAnyCapturedImage) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (ocrState.errorMessage != null || ocrState.isOfflineModeDetected)
+        if (showNotice)
           Container(
             margin: const EdgeInsets.only(bottom: 14),
             padding: const EdgeInsets.all(14),
@@ -909,8 +929,47 @@ class _FormScanViewState extends ConsumerState<FormScanView>
               ],
             ),
           ),
+      ],
+    );
+  }
 
-        if (ocrState.pendingOfflineQueue.isNotEmpty)
+  Widget _buildOfflineQueueAndArchiveSection(
+    BuildContext context,
+    OcrScanState ocrState,
+    OcrScanViewModel ocrVm,
+  ) {
+    if (ocrState.pendingOfflineQueue.isEmpty &&
+        ocrState.completedScanArchive.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final authState = ref.watch(authStateProvider);
+    final deviceState = ref.watch(deviceSecurityProvider);
+    final activeCamp = ref.watch(userActiveCampProvider);
+
+    final pendingList = ocrState.pendingOfflineQueue;
+    final visiblePending = pendingList.take(_pendingQueueVisibleCount).toList();
+
+    final allArchive = ocrState.completedScanArchive;
+    final needsReviewCount = allArchive.where((e) => e.needsReview).length;
+    final queryLower = _archiveSearchQuery.trim().toLowerCase();
+    final filteredArchive = allArchive.where((item) {
+      if (_archiveNeedsReviewOnly && !item.needsReview) return false;
+      if (queryLower.isEmpty) return true;
+      final name = (item.committedPatientName ?? '').toLowerCase();
+      final token =
+          (item.committedPatientId ?? item.patientIdHint ?? '').toLowerCase();
+      final camp = item.campCode.toLowerCase();
+      return name.contains(queryLower) ||
+          token.contains(queryLower) ||
+          camp.contains(queryLower);
+    }).toList();
+    final visibleArchive = filteredArchive.take(_archiveVisibleCount).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (pendingList.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(bottom: 18),
             padding: const EdgeInsets.all(16),
@@ -942,7 +1001,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Locally Stored Offline Scans (${ocrState.pendingOfflineQueue.length})',
+                        'Locally Stored Offline Scans (${pendingList.length})',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -1004,7 +1063,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   ],
                 ),
                 const SizedBox(height: 10),
-                ...ocrState.pendingOfflineQueue.map((item) {
+                ...visiblePending.map((item) {
                   final hasP1 =
                       item.page1Bytes != null && item.page1Bytes!.isNotEmpty;
                   final hasP2 =
@@ -1114,11 +1173,51 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     ),
                   );
                 }),
+                if (pendingList.length > _pendingQueueVisibleCount ||
+                    _pendingQueueVisibleCount > 10)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Showing ${visiblePending.length} of ${pendingList.length} pending scans',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Colors.blueGrey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_pendingQueueVisibleCount > 10)
+                              TextButton(
+                                onPressed: () => setState(
+                                  () => _pendingQueueVisibleCount = 10,
+                                ),
+                                child: const Text('Show Less'),
+                              ),
+                            if (pendingList.length > _pendingQueueVisibleCount)
+                              OutlinedButton(
+                                onPressed: () => setState(
+                                  () => _pendingQueueVisibleCount += 20,
+                                ),
+                                child: const Text('Load More (+20)'),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
 
-        if (ocrState.completedScanArchive.isNotEmpty)
+        if (allArchive.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(bottom: 18),
             padding: const EdgeInsets.all(16),
@@ -1140,41 +1239,157 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.photo_library_outlined,
-                      color: AppTheme.primaryTeal,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Scanned Form Photos — Review & Correction (${ocrState.completedScanArchive.length})',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: AppTheme.primaryDark,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Retained Page 1 & Page 2 scan photos for post-sync clinical verification, correction, or photo cleanup.',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: Colors.blueGrey.shade600,
-                            ),
-                          ),
-                        ],
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () =>
+                      setState(() => _isArchiveExpanded = !_isArchiveExpanded),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.photo_library_outlined,
+                        color: AppTheme.primaryTeal,
+                        size: 20,
                       ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Scanned Form Photos — Review & Correction (${allArchive.length})',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: AppTheme.primaryDark,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Retained Page 1 & Page 2 scan photos for post-sync clinical verification, correction, or photo cleanup.',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Colors.blueGrey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: _isArchiveExpanded
+                            ? 'Collapse Scanned Form Photos'
+                            : 'Expand Scanned Form Photos',
+                        icon: Icon(
+                          _isArchiveExpanded
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
+                          color: AppTheme.primaryDark,
+                        ),
+                        onPressed: () => setState(
+                          () => _isArchiveExpanded = !_isArchiveExpanded,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_isArchiveExpanded) ...[
+                  if (allArchive.length > 5) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: 200,
+                            maxWidth: 360,
+                          ),
+                          child: TextField(
+                            key: const ValueKey('archive_search_field'),
+                            controller: _archiveSearchController,
+                            onChanged: (value) => setState(() {
+                              _archiveSearchQuery = value;
+                              _archiveVisibleCount = 10;
+                            }),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              prefixIcon: const Icon(
+                                Icons.search_rounded,
+                                size: 18,
+                                color: AppTheme.primaryTeal,
+                              ),
+                              suffixIcon: _archiveSearchQuery.isNotEmpty
+                                  ? IconButton(
+                                      tooltip: 'Clear Search',
+                                      icon: const Icon(Icons.close, size: 16),
+                                      onPressed: () {
+                                        _archiveSearchController.clear();
+                                        setState(() {
+                                          _archiveSearchQuery = '';
+                                          _archiveVisibleCount = 10;
+                                        });
+                                      },
+                                    )
+                                  : null,
+                              hintText: 'Search patient name, Token ID, or camp...',
+                              hintStyle: const TextStyle(fontSize: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                        ),
+                        ChoiceChip(
+                          label: Text(
+                            'All (${allArchive.length})',
+                            style: const TextStyle(fontSize: 11.5),
+                          ),
+                          selected: !_archiveNeedsReviewOnly,
+                          onSelected: (_) => setState(() {
+                            _archiveNeedsReviewOnly = false;
+                            _archiveVisibleCount = 10;
+                          }),
+                        ),
+                        if (needsReviewCount > 0)
+                          ChoiceChip(
+                            label: Text(
+                              'Needs Review ($needsReviewCount)',
+                              style: const TextStyle(fontSize: 11.5),
+                            ),
+                            selected: _archiveNeedsReviewOnly,
+                            onSelected: (_) => setState(() {
+                              _archiveNeedsReviewOnly = true;
+                              _archiveVisibleCount = 10;
+                            }),
+                          ),
+                      ],
                     ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                ...ocrState.completedScanArchive.map((item) {
+                  const SizedBox(height: 12),
+                  if (visibleArchive.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Center(
+                        child: Text(
+                          'No matching scanned form photos found.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: Colors.blueGrey.shade600,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    ...visibleArchive.map((item) {
                   final p1Bytes = item.page1Bytes;
                   final p2Bytes = item.page2Bytes;
                   final hasP1 = p1Bytes != null && p1Bytes.isNotEmpty;
@@ -1342,8 +1557,11 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           ],
                         );
 
-                        final actionsRow = Row(
-                          mainAxisSize: MainAxisSize.min,
+                        final actionsRow = Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          alignment: WrapAlignment.end,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             IconButton(
                               visualDensity: VisualDensity.compact,
@@ -1387,7 +1605,6 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                       );
                                     },
                             ),
-                            const SizedBox(width: 4),
                             IconButton(
                               visualDensity: VisualDensity.compact,
                               tooltip: 'Delete Stored Scan Photo',
@@ -1439,6 +1656,47 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     ),
                   );
                 }),
+                  if (filteredArchive.length > _archiveVisibleCount ||
+                      _archiveVisibleCount > 10)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        alignment: WrapAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Showing ${visibleArchive.length} of ${filteredArchive.length} scanned forms',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Colors.blueGrey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_archiveVisibleCount > 10)
+                                TextButton(
+                                  onPressed: () =>
+                                      setState(() => _archiveVisibleCount = 10),
+                                  child: const Text('Show Less'),
+                                ),
+                              if (filteredArchive.length > _archiveVisibleCount)
+                                OutlinedButton(
+                                  key: const ValueKey('archive_load_more_btn'),
+                                  onPressed: () => setState(
+                                    () => _archiveVisibleCount += 20,
+                                  ),
+                                  child: const Text('Load More (+20)'),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ],
             ),
           ),
