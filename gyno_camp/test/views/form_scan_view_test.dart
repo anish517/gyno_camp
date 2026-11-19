@@ -4,7 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gyno_camp/core/services/ocr_form_service.dart';
 import 'package:gyno_camp/core/theme/app_theme.dart';
+import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/ocr_scan_result_model.dart';
+import 'package:gyno_camp/models/user_model.dart';
+import 'package:gyno_camp/viewmodels/auth_viewmodel.dart';
+import 'package:gyno_camp/viewmodels/camp_viewmodel.dart';
 import 'package:gyno_camp/viewmodels/ocr_scan_viewmodel.dart';
 import 'package:gyno_camp/views/scanner/form_scan_view.dart';
 
@@ -324,6 +328,82 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Page 1 (Front)'), findsOneWidget);
       expect(find.text('Page 2 (Back)'), findsOneWidget);
+    });
+
+    testWidgets('FormScanView targets staff assigned open camp (2222) instead of newer unassigned global activeCamp (122)', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final assignedCamp = CampModel(
+        id: 'camp-2222',
+        campCode: '2222',
+        name: 'Women for Women Sodesi',
+        district: 'Bhojpur',
+        municipality: 'Aamchok',
+        ward: '05',
+        venue: 'Chitwan Medical College',
+        startDate: DateTime(2026, 11, 17),
+        endDate: DateTime(2026, 12, 14),
+        status: CampStatus.open,
+        assignedStaffIds: const ['usr-anish'],
+        doctorNames: const ['Dr. Anish Tiwari'],
+        createdAt: DateTime(2026, 11, 17),
+      );
+      final newerUnassignedCamp = CampModel(
+        id: 'camp-122',
+        campCode: '122',
+        name: 'new official testing',
+        district: 'Kathmandu',
+        municipality: 'Budhanilkantha',
+        ward: '01',
+        venue: 'Health Post',
+        startDate: DateTime(2026, 11, 19),
+        endDate: DateTime(2026, 11, 21),
+        status: CampStatus.open,
+        assignedStaffIds: const [],
+        doctorNames: const ['Dr. Wrong Camp'],
+        createdAt: DateTime(2026, 11, 19),
+      );
+      final staffUser = UserModel(
+        id: 'usr-anish',
+        name: 'Anish Tiwari',
+        email: 'anish@gynocamp.org',
+        phone: '9841000000',
+        role: UserRole.dataTaker,
+        assignedCampIds: const ['camp-2222'],
+      );
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      container.read(authStateProvider.notifier).state = AuthState(
+        currentUser: staffUser,
+      );
+      container.read(campStateProvider.notifier).state = CampState(
+        camps: [newerUnassignedCamp, assignedCamp],
+        activeCamp: newerUnassignedCamp, // Global activeCamp is the newer camp 122!
+      );
+
+      expect(container.read(userActiveCampProvider)?.id, 'camp-2222');
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: const FormScanView(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // AppBar MUST display the staff-assigned camp 2222, NOT 122
+      expect(find.text('Camp: 2222 • Women for Women Sodesi'), findsOneWidget);
+      expect(find.textContaining('new official testing'), findsNothing);
     });
   });
 }

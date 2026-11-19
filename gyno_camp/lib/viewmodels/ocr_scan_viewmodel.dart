@@ -177,6 +177,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
   final IOcrRepository _repository;
   final IPatientRepository _patientRepository;
   final DocumentCaptureService _captureService;
+  String? _scopedCampId;
 
   OcrScanViewModel({
     IOcrRepository? repository,
@@ -197,10 +198,13 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     state = state.copyWith(engineMode: OcrEngineMode.onlineGemini);
   }
 
-  /// Loads queued offline scans from SQLite
+  /// Loads queued offline scans from SQLite (scoped to [campId] when supplied).
   Future<void> loadOfflineQueue({String? campId}) async {
+    if (campId != null) {
+      _scopedCampId = campId.isEmpty ? null : campId;
+    }
     try {
-      final items = await _repository.getOfflineScanQueue(campId: campId);
+      final items = await _repository.getOfflineScanQueue(campId: _scopedCampId);
       if (!mounted) return;
       state = state.copyWith(offlineQueue: items);
     } catch (_) {}
@@ -242,7 +246,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         userRole: userRole,
         deviceId: deviceId,
       );
-      final updatedQueue = await _repository.getOfflineScanQueue();
+      final updatedQueue = await _repository.getOfflineScanQueue(campId: _scopedCampId ?? campId);
       if (!mounted) return item;
       state = OcrScanState(
         offlineQueue: updatedQueue,
@@ -272,7 +276,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
   Future<void> deleteScanPhoto(String id, {int? pageNumber}) async {
     try {
       await _repository.deleteScanPhoto(id, pageNumber: pageNumber);
-      final updatedQueue = await _repository.getOfflineScanQueue();
+      final updatedQueue = await _repository.getOfflineScanQueue(campId: _scopedCampId);
       if (!mounted) return;
       if (state.activeArchiveItemId == id) {
         if (pageNumber == 1) {
@@ -394,7 +398,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     );
     try {
       final extracted = await _repository.extractQueuedOfflineItem(item);
-      final updatedQueue = await _repository.getOfflineScanQueue();
+      final updatedQueue = await _repository.getOfflineScanQueue(campId: _scopedCampId);
       if (!mounted) return true;
       state = state.copyWith(
         isProcessing: false,
@@ -439,7 +443,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         defaultUserRole: defaultUserRole,
         defaultDeviceId: defaultDeviceId,
       );
-      final updatedQueue = await _repository.getOfflineScanQueue();
+      final updatedQueue = await _repository.getOfflineScanQueue(campId: _scopedCampId);
       if (!mounted) return count;
       state = state.copyWith(
         isProcessing: false,
@@ -1450,7 +1454,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         reviewingPatientUuid: savedPatient.id,
         successMessage: 'Patient ${savedPatient.patientId} verified & saved directly to local database!',
       );
-      unawaited(loadOfflineQueue());
+      unawaited(loadOfflineQueue(campId: campId));
       return savedPatient;
     } catch (e) {
       if (!mounted) return null;

@@ -89,7 +89,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
           ? campState.camps.where((c) => c.isStaffAssigned(user.id) || user.assignedCampIds.contains(c.id)).toList()
           : campState.camps;
       final visibleCampIds = visibleCamps.map((c) => c.id).toList();
-      final activeCamp = campState.activeCamp ?? (visibleCamps.isNotEmpty ? visibleCamps.first : null);
+      final activeCamp = ref.read(userActiveCampProvider) ??
+          (visibleCamps.isNotEmpty ? visibleCamps.first : campState.activeCamp);
       final targetCampId = widget.initialCampId ?? activeCamp?.id;
       final isAll = targetCampId == null || targetCampId == 'all';
       final allowedCampIds = isAll ? (!isSuperAdmin ? visibleCampIds : null) : [targetCampId];
@@ -596,11 +597,13 @@ class _CampReportViewState extends ConsumerState<CampReportView>
             patient.patientId,
             patientUuid: patient.id,
           );
-      final targetCamp = campState.selectedCamp ??
+      final targetCamp = campState.camps
+              .where((c) => c.id == patient.campId)
+              .firstOrNull ??
+          ref.read(userActiveCampProvider) ??
+          campState.selectedCamp ??
           campState.activeCamp ??
-          (campState.camps.isNotEmpty
-              ? campState.camps.firstWhere((c) => c.id == patient.campId, orElse: () => campState.camps.first)
-              : null);
+          (campState.camps.isNotEmpty ? campState.camps.first : null);
 
       final saved = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(
             patient: patient,

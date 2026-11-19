@@ -364,15 +364,15 @@ final userActiveCampProvider = Provider<CampModel?>((ref) {
   // No camps loaded yet
   if (!campState.hasActiveCamp && campState.camps.isEmpty) return null;
 
-  // Privileged roles see the global active camp without restriction
-  final isPrivileged = user == null ||
+  // Privileged roles (SuperAdmin / DataAnalyst) see the global active camp without restriction.
+  // Staff Coordinators with explicit camp assignments default to their assigned camp first.
+  final isGlobalAdmin = user == null ||
       user.isSuperAdmin ||
-      user.role == UserRole.staff ||
       user.role == UserRole.dataAnalyst;
 
-  if (isPrivileged) return campState.activeCamp;
+  if (isGlobalAdmin) return campState.activeCamp;
 
-  // Data Taker: filter to open camps they are assigned to
+  // Data Taker / assigned Staff: filter to open camps they are assigned to
   final assignedOpenCamps = campState.camps
       .where((c) =>
           c.status == CampStatus.open &&
@@ -380,7 +380,9 @@ final userActiveCampProvider = Provider<CampModel?>((ref) {
               user.assignedCampIds.contains(c.id)))
       .toList();
 
-  if (assignedOpenCamps.isEmpty) return null;
+  if (assignedOpenCamps.isEmpty) {
+    return user.role == UserRole.staff ? campState.activeCamp : null;
+  }
 
   // Honour session-saved camp ID if it is still in the assigned list
   final savedId = SessionService.current?.getSavedActiveCampId();

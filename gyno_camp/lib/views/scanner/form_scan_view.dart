@@ -79,7 +79,8 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     _tabController = TabController(length: 5, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(ocrScanProvider.notifier).loadOfflineQueue();
+        final userCampId = ref.read(userActiveCampProvider)?.id;
+        ref.read(ocrScanProvider.notifier).loadOfflineQueue(campId: userCampId);
       }
     });
   }
@@ -100,6 +101,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     final ocrState = ref.watch(ocrScanProvider);
     final ocrVm = ref.read(ocrScanProvider.notifier);
     final campState = ref.watch(campStateProvider);
+    final userActiveCamp = ref.watch(userActiveCampProvider);
     final authState = ref.watch(authStateProvider);
     final deviceState = ref.watch(deviceSecurityProvider);
 
@@ -111,10 +113,10 @@ class _FormScanViewState extends ConsumerState<FormScanView>
         flexibleSpace: AppTheme.brandAppBarFlexibleSpace,
         bottom: AppTheme.brandAppBarBottomLine,
         iconTheme: const IconThemeData(color: Color(0xFF1E0A38)),
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Scan & Auto-Fill (फाराम स्क्यान)',
               style: TextStyle(
                 fontSize: 17.5,
@@ -124,11 +126,15 @@ class _FormScanViewState extends ConsumerState<FormScanView>
               ),
             ),
             Text(
-              'OCR & OMR Split-Screen Verification',
-              style: TextStyle(
+              userActiveCamp != null
+                  ? 'Camp: ${userActiveCamp.campCode} • ${userActiveCamp.name}'
+                  : 'OCR & OMR Split-Screen Verification',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
                 fontSize: 11,
                 color: Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -707,10 +713,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     OcrScanState ocrState,
     OcrScanViewModel ocrVm,
   ) {
-    final campState = ref.watch(campStateProvider);
     final authState = ref.watch(authStateProvider);
     final deviceState = ref.watch(deviceSecurityProvider);
-    final activeCamp = campState.activeCamp;
+    final activeCamp = ref.watch(userActiveCampProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2865,8 +2870,8 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                 result,
                 ocrVm,
                 ocrState,
-                campState.activeCamp?.id,
-                campCode: campState.activeCamp?.campCode,
+                ref.watch(userActiveCampProvider)?.id,
+                campCode: ref.watch(userActiveCampProvider)?.campCode,
               ),
               _buildObstetricsTab(result, ocrVm),
               _buildPopStagingTab(result, ocrVm),
@@ -2920,7 +2925,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   onPressed: ocrState.isSaving
                       ? null
                       : () async {
-                          final activeCamp = campState.activeCamp;
+                          final activeCamp = ref.read(userActiveCampProvider);
                           if (activeCamp == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -7798,9 +7803,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   const SizedBox(height: 10),
                   Builder(
                     builder: (context) {
-                      final activeCamp = ref
-                          .watch(campStateProvider)
-                          .activeCamp;
+                      final activeCamp = ref.watch(userActiveCampProvider);
                       final List<String> campDoctors =
                           activeCamp?.doctorNames.isNotEmpty == true
                           ? activeCamp!.doctorNames
@@ -7996,9 +7999,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   const SizedBox(height: 10),
                   Builder(
                     builder: (context) {
-                      final activeCamp = ref
-                          .watch(campStateProvider)
-                          .activeCamp;
+                      final activeCamp = ref.watch(userActiveCampProvider);
                       final List<NurseProfile> campNurses =
                           activeCamp?.nurseProfiles ?? <NurseProfile>[];
 

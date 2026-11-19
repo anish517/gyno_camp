@@ -652,7 +652,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                         // Camp Scope Selector (Universal vs Specific Camp)
                         _buildCampScopeSelector(
                           visibleCamps,
-                          campState.activeCamp,
+                          ref.watch(userActiveCampProvider) ?? campState.activeCamp,
                           isNarrow,
                           isPrivileged: isPrivileged,
                         ),

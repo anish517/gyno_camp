@@ -287,7 +287,12 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 ),
               );
 
-              final activeCamp = ref.read(campStateProvider).activeCamp;
+              final campState = ref.read(campStateProvider);
+              final activeCamp = campState.camps
+                      .where((c) => c.id == widget.patient.campId)
+                      .firstOrNull ??
+                  ref.read(userActiveCampProvider) ??
+                  campState.activeCamp;
               final complaintsMap = Map<String, dynamic>.from(state.complaints);
               if (complaintsMap.isEmpty && state.savedVisit?.anamnesisComplaints != null) {
                 complaintsMap.addAll(state.savedVisit!.anamnesisComplaints);
