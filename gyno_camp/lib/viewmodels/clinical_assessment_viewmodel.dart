@@ -155,14 +155,21 @@ class ClinicalAssessmentState {
   ClinicalAssessmentState copyWith({
     int? currentStationIndex,
     int? deliveries,
+    bool clearDeliveries = false,
     int? livingChildren,
+    bool clearLivingChildren = false,
     int? abortions,
+    bool clearAbortions = false,
     Map<String, dynamic>? complaints,
     bool? uterusInside,
     String? vulvaRemarks,
+    bool clearVulvaRemarks = false,
     String? vaginaRemarks,
+    bool clearVaginaRemarks = false,
     String? cervixRemarks,
+    bool clearCervixRemarks = false,
     String? uterusRemarks,
+    bool clearUterusRemarks = false,
     String? pelvicFloorTone,
     int? popAnteriorStage,
     int? popMiddleStage,
@@ -171,11 +178,17 @@ class ClinicalAssessmentState {
     String? urineTest,
     String? pregnancyTest,
     int? systolicBp,
+    bool clearSystolicBp = false,
     int? diastolicBp,
+    bool clearDiastolicBp = false,
     int? pulse,
+    bool clearPulse = false,
     int? spo2,
+    bool clearSpo2 = false,
     int? glucose,
+    bool clearGlucose = false,
     String? ecgNotes,
+    bool clearEcgNotes = false,
     ValidationResult? systolicValidation,
     ValidationResult? diastolicValidation,
     ValidationResult? pulseValidation,
@@ -187,22 +200,31 @@ class ClinicalAssessmentState {
     bool clearTreatmentLevel = false,
     List<String>? selectedCounseling,
     String? pessaryType,
+    bool clearPessaryType = false,
     String? pessarySize,
+    bool clearPessarySize = false,
     String? surgicalReferral,
+    bool clearSurgicalReferral = false,
     List<String>? selectedMedications,
     String? customMedication,
+    bool clearCustomMedication = false,
     bool? followUpNeeded,
     String? followUpDestination,
+    bool clearFollowUpDestination = false,
     String? outtakeNotes,
+    bool clearOuttakeNotes = false,
     bool? isFollowUp,
     String? followUpNotes,
+    bool clearFollowUpNotes = false,
     bool? surgeryDone,
     String? surgeryType,
     bool clearSurgeryType = false,
     List<String>? attendingDoctorNames,
     String? primaryDoctorName,
+    bool clearPrimaryDoctorName = false,
     List<String>? attendingNurseNames,
     String? primaryNurseName,
+    bool clearPrimaryNurseName = false,
     bool? isSaving,
     String? errorMessage,
     ClinicalVisitModel? savedVisit,
@@ -233,15 +255,15 @@ class ClinicalAssessmentState {
       conclusionDate: clearConclusionDate ? null : (conclusionDate ?? this.conclusionDate),
       treatmentDate: clearTreatmentDate ? null : (treatmentDate ?? this.treatmentDate),
       outtakeDate: clearOuttakeDate ? null : (outtakeDate ?? this.outtakeDate),
-      deliveries: deliveries ?? this.deliveries,
-      livingChildren: livingChildren ?? this.livingChildren,
-      abortions: abortions ?? this.abortions,
+      deliveries: clearDeliveries ? null : (deliveries ?? this.deliveries),
+      livingChildren: clearLivingChildren ? null : (livingChildren ?? this.livingChildren),
+      abortions: clearAbortions ? null : (abortions ?? this.abortions),
       complaints: complaints ?? this.complaints,
       uterusInside: uterusInside ?? this.uterusInside,
-      vulvaRemarks: vulvaRemarks ?? this.vulvaRemarks,
-      vaginaRemarks: vaginaRemarks ?? this.vaginaRemarks,
-      cervixRemarks: cervixRemarks ?? this.cervixRemarks,
-      uterusRemarks: uterusRemarks ?? this.uterusRemarks,
+      vulvaRemarks: clearVulvaRemarks ? null : (vulvaRemarks ?? this.vulvaRemarks),
+      vaginaRemarks: clearVaginaRemarks ? null : (vaginaRemarks ?? this.vaginaRemarks),
+      cervixRemarks: clearCervixRemarks ? null : (cervixRemarks ?? this.cervixRemarks),
+      uterusRemarks: clearUterusRemarks ? null : (uterusRemarks ?? this.uterusRemarks),
       pelvicFloorTone: pelvicFloorTone ?? this.pelvicFloorTone,
       popAnteriorStage: popAnteriorStage ?? this.popAnteriorStage,
       popMiddleStage: popMiddleStage ?? this.popMiddleStage,
@@ -249,12 +271,12 @@ class ClinicalAssessmentState {
       highestPopStage: highestPopStage ?? this.highestPopStage,
       urineTest: urineTest ?? this.urineTest,
       pregnancyTest: pregnancyTest ?? this.pregnancyTest,
-      systolicBp: systolicBp ?? this.systolicBp,
-      diastolicBp: diastolicBp ?? this.diastolicBp,
-      pulse: pulse ?? this.pulse,
-      spo2: spo2 ?? this.spo2,
-      glucose: glucose ?? this.glucose,
-      ecgNotes: ecgNotes ?? this.ecgNotes,
+      systolicBp: clearSystolicBp ? null : (systolicBp ?? this.systolicBp),
+      diastolicBp: clearDiastolicBp ? null : (diastolicBp ?? this.diastolicBp),
+      pulse: clearPulse ? null : (pulse ?? this.pulse),
+      spo2: clearSpo2 ? null : (spo2 ?? this.spo2),
+      glucose: clearGlucose ? null : (glucose ?? this.glucose),
+      ecgNotes: clearEcgNotes ? null : (ecgNotes ?? this.ecgNotes),
       systolicValidation: systolicValidation ?? this.systolicValidation,
       diastolicValidation: diastolicValidation ?? this.diastolicValidation,
       pulseValidation: pulseValidation ?? this.pulseValidation,
@@ -264,22 +286,22 @@ class ClinicalAssessmentState {
       selectedDiagnoses: selectedDiagnoses ?? this.selectedDiagnoses,
       treatmentLevel: clearTreatmentLevel ? null : (treatmentLevel ?? this.treatmentLevel),
       selectedCounseling: selectedCounseling ?? this.selectedCounseling,
-      pessaryType: pessaryType ?? this.pessaryType,
-      pessarySize: pessarySize ?? this.pessarySize,
-      surgicalReferral: surgicalReferral ?? this.surgicalReferral,
+      pessaryType: clearPessaryType ? null : (pessaryType ?? this.pessaryType),
+      pessarySize: clearPessarySize ? null : (pessarySize ?? this.pessarySize),
+      surgicalReferral: clearSurgicalReferral ? null : (surgicalReferral ?? this.surgicalReferral),
       selectedMedications: selectedMedications ?? this.selectedMedications,
-      customMedication: customMedication ?? this.customMedication,
+      customMedication: clearCustomMedication ? null : (customMedication ?? this.customMedication),
       followUpNeeded: followUpNeeded ?? this.followUpNeeded,
-      followUpDestination: followUpDestination ?? this.followUpDestination,
-      outtakeNotes: outtakeNotes ?? this.outtakeNotes,
+      followUpDestination: clearFollowUpDestination ? null : (followUpDestination ?? this.followUpDestination),
+      outtakeNotes: clearOuttakeNotes ? null : (outtakeNotes ?? this.outtakeNotes),
       isFollowUp: isFollowUp ?? this.isFollowUp,
-      followUpNotes: followUpNotes ?? this.followUpNotes,
+      followUpNotes: clearFollowUpNotes ? null : (followUpNotes ?? this.followUpNotes),
       surgeryDone: surgeryDone ?? this.surgeryDone,
       surgeryType: clearSurgeryType ? null : (surgeryType ?? this.surgeryType),
       attendingDoctorNames: attendingDoctorNames ?? this.attendingDoctorNames,
-      primaryDoctorName: primaryDoctorName ?? this.primaryDoctorName,
+      primaryDoctorName: clearPrimaryDoctorName ? null : (primaryDoctorName ?? this.primaryDoctorName),
       attendingNurseNames: attendingNurseNames ?? this.attendingNurseNames,
-      primaryNurseName: primaryNurseName ?? this.primaryNurseName,
+      primaryNurseName: clearPrimaryNurseName ? null : (primaryNurseName ?? this.primaryNurseName),
       isSaving: isSaving ?? this.isSaving,
       errorMessage: errorMessage,
       savedVisit: clearSaved ? null : (savedVisit ?? this.savedVisit),
@@ -387,10 +409,17 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
   }
 
   // --- Station 1: Obstetric History ---
-  void setObstetricHistory({int? deliveries, int? livingChildren, int? abortions}) {
-    final newDeliv = deliveries ?? state.deliveries;
-    final newLiving = livingChildren ?? state.livingChildren;
-    final newAbort = abortions ?? state.abortions;
+  void setObstetricHistory({
+    int? deliveries,
+    bool clearDeliveries = false,
+    int? livingChildren,
+    bool clearLivingChildren = false,
+    int? abortions,
+    bool clearAbortions = false,
+  }) {
+    final newDeliv = clearDeliveries ? null : (deliveries ?? state.deliveries);
+    final newLiving = clearLivingChildren ? null : (livingChildren ?? state.livingChildren);
+    final newAbort = clearAbortions ? null : (abortions ?? state.abortions);
 
     final obsValidation = ClinicalValidationService.validateObstetricCounts(
       deliveries: newDeliv,
@@ -400,8 +429,11 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
 
     state = state.copyWith(
       deliveries: newDeliv,
+      clearDeliveries: clearDeliveries,
       livingChildren: newLiving,
+      clearLivingChildren: clearLivingChildren,
       abortions: newAbort,
+      clearAbortions: clearAbortions,
       obstetricValidation: obsValidation,
     );
   }
@@ -675,19 +707,25 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
   // --- Station 3: Vitals & Lab (Real-time Validation) ---
   void setVitals({
     int? systolic,
+    bool clearSystolic = false,
     int? diastolic,
+    bool clearDiastolic = false,
     int? pulse,
+    bool clearPulse = false,
     int? spo2,
+    bool clearSpo2 = false,
     int? glucose,
+    bool clearGlucose = false,
     String? urineTest,
     String? pregnancyTest,
     String? ecgNotes,
+    bool clearEcgNotes = false,
   }) {
-    final s = systolic ?? state.systolicBp;
-    final d = diastolic ?? state.diastolicBp;
-    final p = pulse ?? state.pulse;
-    final o = spo2 ?? state.spo2;
-    final g = glucose ?? state.glucose;
+    final s = clearSystolic ? null : (systolic ?? state.systolicBp);
+    final d = clearDiastolic ? null : (diastolic ?? state.diastolicBp);
+    final p = clearPulse ? null : (pulse ?? state.pulse);
+    final o = clearSpo2 ? null : (spo2 ?? state.spo2);
+    final g = clearGlucose ? null : (glucose ?? state.glucose);
 
     final sysVal = ClinicalValidationService.validateSystolicBp(s);
     final diaVal = ClinicalValidationService.validateDiastolicBp(d, systolic: s);
@@ -697,13 +735,19 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
 
     state = state.copyWith(
       systolicBp: s,
+      clearSystolicBp: clearSystolic,
       diastolicBp: d,
+      clearDiastolicBp: clearDiastolic,
       pulse: p,
+      clearPulse: clearPulse,
       spo2: o,
+      clearSpo2: clearSpo2,
       glucose: g,
+      clearGlucose: clearGlucose,
       urineTest: urineTest ?? state.urineTest,
       pregnancyTest: pregnancyTest ?? state.pregnancyTest,
-      ecgNotes: ecgNotes ?? state.ecgNotes,
+      ecgNotes: clearEcgNotes ? null : (ecgNotes ?? state.ecgNotes),
+      clearEcgNotes: clearEcgNotes,
       systolicValidation: sysVal,
       diastolicValidation: diaVal,
       pulseValidation: pulVal,
@@ -741,12 +785,27 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     state = state.copyWith(selectedCounseling: list);
   }
 
-  void setPessary({String? type, String? size}) {
-    state = state.copyWith(pessaryType: type, pessarySize: size);
+  void setPessary({
+    String? type,
+    bool clearType = false,
+    String? size,
+    bool clearSize = false,
+  }) {
+    state = state.copyWith(
+      pessaryType: type,
+      clearPessaryType: clearType,
+      pessarySize: size,
+      clearPessarySize: clearSize,
+    );
   }
 
   void setSurgicalReferral(String? hospital) {
-    state = state.copyWith(surgicalReferral: hospital);
+    final trimmed = hospital?.trim();
+    final isBlank = trimmed == null || trimmed.isEmpty;
+    state = state.copyWith(
+      surgicalReferral: isBlank ? null : trimmed,
+      clearSurgicalReferral: isBlank,
+    );
   }
 
   void toggleMedication(String med) {
@@ -760,22 +819,28 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
   }
 
   void setCustomMedication(String text) {
-    state = state.copyWith(customMedication: text);
+    state = state.copyWith(
+      customMedication: text.trim().isEmpty ? null : text,
+      clearCustomMedication: text.trim().isEmpty,
+    );
   }
 
   // --- Station 6: Outtake & Follow-up ---
   void setOuttake({
     bool? followUpNeeded,
     String? destination,
+    bool clearDestination = false,
     String? notes,
     bool? isFollowUp,
     String? followUpNotes,
     bool? surgeryDone,
     String? surgeryType,
   }) {
+    final shouldClearDest = clearDestination || followUpNeeded == false;
     state = state.copyWith(
       followUpNeeded: followUpNeeded,
-      followUpDestination: destination,
+      followUpDestination: shouldClearDest ? null : destination,
+      clearFollowUpDestination: shouldClearDest,
       outtakeNotes: notes,
       isFollowUp: isFollowUp,
       followUpNotes: followUpNotes,
@@ -794,12 +859,15 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
 
   /// Loads an existing clinical visit for the patient from SQLite if present,
   /// or populates from [initialVisit] when editing a specific encounter.
+  /// Always resets previous patient state cleanly so nullable fields (such as
+  /// vitals or surgicalReferral) never leak from a previously viewed patient.
   Future<ClinicalVisitModel?> loadPatientAssessment(
     String patientId, {
     String? patientUuid,
     ClinicalVisitModel? initialVisit,
   }) async {
-    state = state.copyWith(isSaving: true, errorMessage: null);
+    // Immediately reset state before async fetch to prevent any stale cross-patient values.
+    state = const ClinicalAssessmentState(isSaving: true);
     try {
       final visit = initialVisit ??
           await _patientRepository.getLatestClinicalVisit(
@@ -808,7 +876,11 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
           );
       if (!mounted) return visit;
       if (visit != null) {
-        state = state.copyWith(
+        final cleanRef = visit.surgicalReferral?.trim();
+        final cleanPessaryType = visit.pessaryType?.trim();
+        final cleanPessarySize = visit.pessarySize?.trim();
+        state = ClinicalAssessmentState(
+          currentStationIndex: 0,
           existingVisitId: visit.id,
           visitDate: visit.visitDate,
           anamnesisDate: visit.anamnesisDate,
@@ -833,18 +905,18 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
           highestPopStage: visit.highestPopStage,
           urineTest: visit.urineTest ?? 'normal',
           pregnancyTest: visit.pregnancyTest ?? 'neg',
-          systolicBp: visit.systolicBp,
-          diastolicBp: visit.diastolicBp,
-          pulse: visit.pulse,
-          spo2: visit.spo2,
-          glucose: visit.glucose,
+          systolicBp: (visit.systolicBp != null && visit.systolicBp! > 0) ? visit.systolicBp : null,
+          diastolicBp: (visit.diastolicBp != null && visit.diastolicBp! > 0) ? visit.diastolicBp : null,
+          pulse: (visit.pulse != null && visit.pulse! > 0) ? visit.pulse : null,
+          spo2: (visit.spo2 != null && visit.spo2! > 0) ? visit.spo2 : null,
+          glucose: (visit.glucose != null && visit.glucose! > 0) ? visit.glucose : null,
           ecgNotes: visit.ecgNotes,
           selectedDiagnoses: visit.diagnoses,
           treatmentLevel: visit.treatmentLevel,
           selectedCounseling: visit.counseling,
-          pessaryType: visit.pessaryType,
-          pessarySize: visit.pessarySize,
-          surgicalReferral: visit.surgicalReferral,
+          pessaryType: (cleanPessaryType != null && cleanPessaryType.isNotEmpty) ? cleanPessaryType : null,
+          pessarySize: (cleanPessarySize != null && cleanPessarySize.isNotEmpty) ? cleanPessarySize : null,
+          surgicalReferral: (cleanRef != null && cleanRef.isNotEmpty) ? cleanRef : null,
           selectedMedications: visit.medications,
           customMedication: visit.customMedication,
           followUpNeeded: visit.followUpNeeded,
@@ -860,19 +932,22 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
           primaryNurseName: visit.primaryNurseName,
           isSaving: false,
           savedVisit: visit,
-          systolicValidation: visit.systolicBp != null
+          systolicValidation: (visit.systolicBp != null && visit.systolicBp! > 0)
               ? ClinicalValidationService.validateSystolicBp(visit.systolicBp)
               : const ValidationResult.normal(),
-          diastolicValidation: visit.diastolicBp != null
-              ? ClinicalValidationService.validateDiastolicBp(visit.diastolicBp, systolic: visit.systolicBp)
+          diastolicValidation: (visit.diastolicBp != null && visit.diastolicBp! > 0)
+              ? ClinicalValidationService.validateDiastolicBp(
+                  visit.diastolicBp,
+                  systolic: (visit.systolicBp != null && visit.systolicBp! > 0) ? visit.systolicBp : null,
+                )
               : const ValidationResult.normal(),
-          pulseValidation: visit.pulse != null
+          pulseValidation: (visit.pulse != null && visit.pulse! > 0)
               ? ClinicalValidationService.validatePulse(visit.pulse)
               : const ValidationResult.normal(),
-          spo2Validation: visit.spo2 != null
+          spo2Validation: (visit.spo2 != null && visit.spo2! > 0)
               ? ClinicalValidationService.validateSpO2(visit.spo2)
               : const ValidationResult.normal(),
-          glucoseValidation: visit.glucose != null
+          glucoseValidation: (visit.glucose != null && visit.glucose! > 0)
               ? ClinicalValidationService.validateGlucose(visit.glucose)
               : const ValidationResult.normal(),
           obstetricValidation: (visit.deliveries != null && visit.livingChildren != null)
@@ -890,7 +965,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
       }
     } catch (e) {
       if (!mounted) return null;
-      state = state.copyWith(
+      state = ClinicalAssessmentState(
         isSaving: false,
         errorMessage: 'Failed to load existing visit: $e',
       );

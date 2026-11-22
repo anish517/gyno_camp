@@ -2022,11 +2022,11 @@ class OcrFormService {
 
       // ── Referrals (Exact Yellow Form Station 5 Referral Options + Legacy Surgical Referral: line) ──
       final refLines = [...s5Lines, ...s6Lines];
-      if (isOptionSelectedIn(refLines, ['scheer memorial', 'scheer'])) {
+      if (isOptionSelectedIn(s5Lines, ['scheer memorial', 'scheer'])) {
         surgicalReferral = 'Scheer Memorial Hospital';
-      } else if (isOptionSelectedIn(refLines, ['model hosp', 'model hospital', 'model'])) {
+      } else if (isOptionSelectedIn(s5Lines, ['model hosp', 'model hospital'])) {
         surgicalReferral = 'Model Hospital';
-      } else if (isOptionSelectedIn(refLines, ['loc government', 'local government', 'loc gov', 'local gov', 'सरकारी'])) {
+      } else if (isOptionSelectedIn(s5Lines, ['loc government', 'local government', 'loc gov', 'local gov', 'सरकारी'])) {
         surgicalReferral = 'Local Government Hospital';
       } else {
         for (final rl in refLines) {

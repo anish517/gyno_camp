@@ -267,5 +267,25 @@ void main() {
       expect(vm.state.patients, isEmpty);
       expect(vm.state.rawPatients, isEmpty);
     });
+
+    test('loadPatients with clearSearch=true clears stale searchQuery from previous visit', () async {
+      await patientRepo.registerPatient(
+        _makePatient(id: 'p1', patientId: 'GC-KTM-2026-00001', firstName: 'Sita', surname: 'Tamang'),
+        createdByUserId: 'usr-1', createdByUserName: 'N', createdByUserRole: 'DATA_TAKER', deviceId: 'dev-1',
+      );
+      await patientRepo.registerPatient(
+        _makePatient(id: 'p2', patientId: 'GC-KTM-2026-00002', firstName: 'Kamala', surname: 'Rai', mobile: '9841000002'),
+        createdByUserId: 'usr-1', createdByUserName: 'N', createdByUserRole: 'DATA_TAKER', deviceId: 'dev-1',
+      );
+
+      await vm.search('camp-1', 'Kamala');
+      expect(vm.state.searchQuery, 'Kamala');
+      expect(vm.state.patients.length, 1);
+
+      // Re-entering PatientListView without initialQuery calls loadPatients(campId, false, true)
+      await vm.loadPatients('camp-1', false, true);
+      expect(vm.state.searchQuery, '');
+      expect(vm.state.patients.length, 2);
+    });
   });
 }

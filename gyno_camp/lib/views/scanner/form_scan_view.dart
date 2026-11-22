@@ -465,7 +465,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     imageBytes: ocrState.page2ImageBytes,
                     imagePath: ocrState.page2ImagePath,
                     summaryText: ocrState.hasPage2
-                        ? 'BP ${ocrState.page2Scan!.vitals["systolicBp"] ?? 120}/${ocrState.page2Scan!.vitals["diastolicBp"] ?? 80} • ${ocrState.page2Scan!.diagnoses.length} Diagnoses'
+                        ? '${(ocrState.page2Scan!.vitals["systolicBp"] != null && ocrState.page2Scan!.vitals["diastolicBp"] != null) ? "BP ${ocrState.page2Scan!.vitals["systolicBp"]}/${ocrState.page2Scan!.vitals["diastolicBp"]}" : "Vitals not recorded"} • ${ocrState.page2Scan!.diagnoses.length} Diagnoses'
                         : (ocrState.hasPage2Image
                             ? 'Page 2 image captured — ready for offline storage or cloud OCR'
                             : null),
@@ -6055,11 +6055,27 @@ class _FormScanViewState extends ConsumerState<FormScanView>
   ) {
     final vitals = result.vitals;
 
-    final sys = vitals['systolicBp'] as int? ?? 120;
-    final dia = vitals['diastolicBp'] as int? ?? 80;
-    final pulse = vitals['pulseRate'] as int? ?? 78;
-    final spo2 = vitals['spo2'] as int? ?? 98;
-    final glucose = vitals['bloodGlucose'] as int? ?? 110;
+    final int? sys = () {
+      final v = (vitals['systolicBp'] as num?)?.toInt();
+      return (v != null && v > 0) ? v : null;
+    }();
+    final int? dia = () {
+      final v = (vitals['diastolicBp'] as num?)?.toInt();
+      return (v != null && v > 0) ? v : null;
+    }();
+    final int? pulse = () {
+      final v = ((vitals['pulseRate'] ?? vitals['pulse']) as num?)?.toInt();
+      return (v != null && v > 0) ? v : null;
+    }();
+    final int? spo2 = () {
+      final v = (vitals['spo2'] as num?)?.toInt();
+      return (v != null && v > 0) ? v : null;
+    }();
+    final int? glucose = () {
+      final v = ((vitals['bloodGlucose'] ?? vitals['glucose']) as num?)?.toInt();
+      return (v != null && v > 0) ? v : null;
+    }();
+    final bool hasBp = sys != null || dia != null;
 
     final bpStatus = ClinicalValidationService.validateSystolicBp(sys);
     final bpDiaStatus = ClinicalValidationService.validateDiastolicBp(
@@ -6156,21 +6172,27 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                       ),
                       Chip(
                         visualDensity: VisualDensity.compact,
-                        backgroundColor: bpSeverity == ValidationSeverity.normal
+                        backgroundColor: !hasBp
+                            ? Colors.grey.shade200
+                            : bpSeverity == ValidationSeverity.normal
                             ? AppTheme.successGreen.withValues(alpha: 0.15)
                             : bpSeverity == ValidationSeverity.warning
                             ? AppTheme.warningAmber.withValues(alpha: 0.2)
                             : AppTheme.dangerRose.withValues(alpha: 0.2),
                         label: Text(
-                          bpSeverity == ValidationSeverity.normal
-                              ? 'Normal ($sys/$dia)'
+                          !hasBp
+                              ? 'Not Recorded'
+                              : bpSeverity == ValidationSeverity.normal
+                              ? 'Normal (${sys ?? "—"}/${dia ?? "—"})'
                               : bpSeverity == ValidationSeverity.warning
-                              ? 'Warning ($sys/$dia)'
-                              : 'Alert ($sys/$dia)',
+                              ? 'Warning (${sys ?? "—"}/${dia ?? "—"})'
+                              : 'Alert (${sys ?? "—"}/${dia ?? "—"})',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: bpSeverity == ValidationSeverity.normal
+                            color: !hasBp
+                                ? const Color(0xFF64748B)
+                                : bpSeverity == ValidationSeverity.normal
                                 ? AppTheme.successGreen
                                 : bpSeverity == ValidationSeverity.warning
                                 ? Colors.amber.shade900
@@ -6196,7 +6218,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                         key: ValueKey(
                           'vital_sys_${result.scannedAt.millisecondsSinceEpoch}',
                         ),
-                        initialValue: '$sys',
+                        initialValue: sys != null ? '$sys' : '',
                         keyboardType: TextInputType.number,
                         style: const TextStyle(
                           fontSize: 16,
@@ -6206,6 +6228,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           labelText: isNarrow
                               ? 'Systolic'
                               : 'Systolic (सिस्टोलिक)',
+                          hintText: '—',
                           suffixText: 'mmHg',
                           suffixStyle: const TextStyle(
                             fontSize: 13,
@@ -6226,7 +6249,12 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           ),
                         ),
                         onChanged: (val) {
-                          final parsed = int.tryParse(val.trim());
+                          final trimmed = val.trim();
+                          if (trimmed.isEmpty) {
+                            vm.updateVital('systolicBp', null);
+                            return;
+                          }
+                          final parsed = int.tryParse(trimmed);
                           if (parsed != null) {
                             vm.updateVital('systolicBp', parsed);
                           }
@@ -6236,7 +6264,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                         key: ValueKey(
                           'vital_dia_${result.scannedAt.millisecondsSinceEpoch}',
                         ),
-                        initialValue: '$dia',
+                        initialValue: dia != null ? '$dia' : '',
                         keyboardType: TextInputType.number,
                         style: const TextStyle(
                           fontSize: 16,
@@ -6246,6 +6274,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           labelText: isNarrow
                               ? 'Diastolic'
                               : 'Diastolic (डायस्टोलिक)',
+                          hintText: '—',
                           suffixText: 'mmHg',
                           suffixStyle: const TextStyle(
                             fontSize: 13,
@@ -6266,7 +6295,12 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           ),
                         ),
                         onChanged: (val) {
-                          final parsed = int.tryParse(val.trim());
+                          final trimmed = val.trim();
+                          if (trimmed.isEmpty) {
+                            vm.updateVital('diastolicBp', null);
+                            return;
+                          }
+                          final parsed = int.tryParse(trimmed);
                           if (parsed != null) {
                             vm.updateVital('diastolicBp', parsed);
                           }
@@ -6390,8 +6424,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color:
-                                  pulseStatus.severity ==
+                              color: pulse == null
+                                  ? Colors.grey.shade200
+                                  : pulseStatus.severity ==
                                       ValidationSeverity.normal
                                   ? AppTheme.successGreen.withValues(
                                       alpha: 0.15,
@@ -6399,14 +6434,17 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                   : Colors.amber.shade100,
                             ),
                             child: Text(
-                              pulseStatus.severity == ValidationSeverity.normal
+                              pulse == null
+                                  ? 'Not Recorded'
+                                  : pulseStatus.severity == ValidationSeverity.normal
                                   ? 'Normal'
                                   : 'Alert',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color:
-                                    pulseStatus.severity ==
+                                color: pulse == null
+                                    ? const Color(0xFF64748B)
+                                    : pulseStatus.severity ==
                                         ValidationSeverity.normal
                                     ? AppTheme.successGreen
                                     : Colors.amber.shade900,
@@ -6420,10 +6458,11 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                         key: ValueKey(
                           'vital_pulse_${result.scannedAt.millisecondsSinceEpoch}',
                         ),
-                        initialValue: '$pulse',
+                        initialValue: pulse != null ? '$pulse' : '',
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
                           labelText: 'नाडी (bpm)',
+                          hintText: '—',
                           suffixText: 'bpm',
                           border: OutlineInputBorder(),
                           isDense: true,
@@ -6433,7 +6472,12 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           ),
                         ),
                         onChanged: (val) {
-                          final parsed = int.tryParse(val.trim());
+                          final trimmed = val.trim();
+                          if (trimmed.isEmpty) {
+                            vm.updateVital('pulseRate', null);
+                            return;
+                          }
+                          final parsed = int.tryParse(trimmed);
                           if (parsed != null) {
                             vm.updateVital('pulseRate', parsed);
                           }
@@ -6494,8 +6538,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color:
-                                  spo2Status.severity ==
+                              color: spo2 == null
+                                  ? Colors.grey.shade200
+                                  : spo2Status.severity ==
                                       ValidationSeverity.normal
                                   ? AppTheme.successGreen.withValues(
                                       alpha: 0.15,
@@ -6503,14 +6548,17 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                   : Colors.amber.shade100,
                             ),
                             child: Text(
-                              spo2Status.severity == ValidationSeverity.normal
+                              spo2 == null
+                                  ? 'Not Recorded'
+                                  : spo2Status.severity == ValidationSeverity.normal
                                   ? 'Normal'
                                   : 'Hypoxia',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color:
-                                    spo2Status.severity ==
+                                color: spo2 == null
+                                    ? const Color(0xFF64748B)
+                                    : spo2Status.severity ==
                                         ValidationSeverity.normal
                                     ? AppTheme.successGreen
                                     : Colors.amber.shade900,
@@ -6524,10 +6572,11 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                         key: ValueKey(
                           'vital_spo2_${result.scannedAt.millisecondsSinceEpoch}',
                         ),
-                        initialValue: '$spo2',
+                        initialValue: spo2 != null ? '$spo2' : '',
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
                           labelText: 'अक्सिजन (%)',
+                          hintText: '—',
                           suffixText: '%',
                           border: OutlineInputBorder(),
                           isDense: true,
@@ -6537,7 +6586,12 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           ),
                         ),
                         onChanged: (val) {
-                          final parsed = int.tryParse(val.trim());
+                          final trimmed = val.trim();
+                          if (trimmed.isEmpty) {
+                            vm.updateVital('spo2', null);
+                            return;
+                          }
+                          final parsed = int.tryParse(trimmed);
                           if (parsed != null) {
                             vm.updateVital('spo2', parsed);
                           }
@@ -6617,22 +6671,26 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color:
-                              glucoseStatus.severity ==
+                          color: glucose == null
+                              ? Colors.grey.shade200
+                              : glucoseStatus.severity ==
                                   ValidationSeverity.normal
                               ? AppTheme.successGreen.withValues(alpha: 0.15)
                               : Colors.amber.shade100,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          glucoseStatus.severity == ValidationSeverity.normal
+                          glucose == null
+                              ? 'Not Recorded'
+                              : glucoseStatus.severity == ValidationSeverity.normal
                               ? 'Normal ($glucose mg/dL)'
                               : 'Abnormal ($glucose mg/dL)',
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
-                            color:
-                                glucoseStatus.severity ==
+                            color: glucose == null
+                                ? const Color(0xFF64748B)
+                                : glucoseStatus.severity ==
                                     ValidationSeverity.normal
                                 ? AppTheme.successGreen
                                 : Colors.amber.shade900,
@@ -6646,10 +6704,11 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     key: ValueKey(
                       'vital_glucose_${result.scannedAt.millisecondsSinceEpoch}',
                     ),
-                    initialValue: '$glucose',
+                    initialValue: glucose != null ? '$glucose' : '',
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
                       labelText: 'Random Blood Glucose (रक्त ग्लुकोज)',
+                      hintText: '—',
                       suffixText: 'mg/dL',
                       border: OutlineInputBorder(),
                       isDense: true,
@@ -6659,7 +6718,12 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                       ),
                     ),
                     onChanged: (val) {
-                      final parsed = int.tryParse(val.trim());
+                      final trimmed = val.trim();
+                      if (trimmed.isEmpty) {
+                        vm.updateVital('bloodGlucose', null);
+                        return;
+                      }
+                      final parsed = int.tryParse(trimmed);
                       if (parsed != null) {
                         vm.updateVital('bloodGlucose', parsed);
                       }

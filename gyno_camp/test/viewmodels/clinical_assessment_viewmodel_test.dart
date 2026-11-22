@@ -181,5 +181,65 @@ void main() {
       vm.toggleAttendingNurse('Maya BK');
       expect(vm.state.attendingNurseNames, ['Gita Rai', 'Maya BK']);
     });
+
+    test('loadPatientAssessment does not leak surgicalReferral or vitals across patients', () async {
+      // Save Patient A visit with Model Hosp + vitals
+      vm.setVitals(systolic: 120, diastolic: 80, pulse: 78, spo2: 98, glucose: 110);
+      vm.setSurgicalReferral('Model Hosp');
+      vm.setPessary(type: 'ring', size: '70');
+      await vm.submitAssessment(
+        patientId: 'GC-KTM-2026-00010',
+        campId: 'camp-ktm-01',
+        staffUserId: 'usr-doc',
+        deviceId: 'dev-1',
+      );
+
+      // Save Patient B visit with NO vitals and NO surgical referral
+      vm.reset();
+      await vm.submitAssessment(
+        patientId: 'GC-KTM-2026-00011',
+        campId: 'camp-ktm-01',
+        staffUserId: 'usr-doc',
+        deviceId: 'dev-1',
+      );
+
+      // Load Patient A first, then switch to Patient B
+      await vm.loadPatientAssessment('GC-KTM-2026-00010');
+      expect(vm.state.surgicalReferral, 'Model Hosp');
+      expect(vm.state.systolicBp, 120);
+
+      await vm.loadPatientAssessment('GC-KTM-2026-00011');
+      expect(vm.state.surgicalReferral, isNull);
+      expect(vm.state.pessaryType, isNull);
+      expect(vm.state.systolicBp, isNull);
+      expect(vm.state.diastolicBp, isNull);
+      expect(vm.state.pulse, isNull);
+      expect(vm.state.spo2, isNull);
+      expect(vm.state.glucose, isNull);
+    });
+
+    test('Clearing vitals and surgical referral resets state values to null', () {
+      vm.setVitals(systolic: 120, diastolic: 80, pulse: 78, spo2: 98, glucose: 110);
+      vm.setSurgicalReferral('Model Hosp');
+      expect(vm.state.systolicBp, 120);
+      expect(vm.state.surgicalReferral, 'Model Hosp');
+
+      vm.setVitals(
+        clearSystolic: true,
+        clearDiastolic: true,
+        clearPulse: true,
+        clearSpo2: true,
+        clearGlucose: true,
+      );
+      vm.setSurgicalReferral(null);
+
+      expect(vm.state.systolicBp, isNull);
+      expect(vm.state.diastolicBp, isNull);
+      expect(vm.state.pulse, isNull);
+      expect(vm.state.spo2, isNull);
+      expect(vm.state.glucose, isNull);
+      expect(vm.state.areVitalsValid, isTrue);
+      expect(vm.state.surgicalReferral, isNull);
+    });
   });
 }

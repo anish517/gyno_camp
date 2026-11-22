@@ -149,29 +149,58 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         patientUuid: widget.patient.id,
         initialVisit: widget.initialVisit,
       );
-      if (existing != null && mounted) {
-        _populateControllers(existing);
+      if (mounted) {
+        if (existing != null) {
+          _populateControllers(existing);
+        } else {
+          _clearControllers();
+        }
       }
     });
   }
 
+  void _clearControllers() {
+    _deliveriesController.clear();
+    _livingChildrenController.clear();
+    _abortionsController.clear();
+    _systolicController.clear();
+    _diastolicController.clear();
+    _pulseController.clear();
+    _spo2Controller.clear();
+    _glucoseController.clear();
+    _ecgController.clear();
+    _vulvaRemarksController.clear();
+    _vaginaRemarksController.clear();
+    _cervixRemarksController.clear();
+    _uterusRemarksController.clear();
+    _pessarySizeController.clear();
+    _customMedController.clear();
+    _outtakeNotesController.clear();
+    _customFollowUpHospitalController.clear();
+    for (final c in _complaintRemarksControllers.values) {
+      c.clear();
+    }
+    setState(() {});
+  }
+
   void _populateControllers(ClinicalVisitModel visit) {
-    if (visit.deliveries != null) _deliveriesController.text = visit.deliveries.toString();
-    if (visit.livingChildren != null) _livingChildrenController.text = visit.livingChildren.toString();
-    if (visit.abortions != null) _abortionsController.text = visit.abortions.toString();
-    if (visit.systolicBp != null) _systolicController.text = visit.systolicBp.toString();
-    if (visit.diastolicBp != null) _diastolicController.text = visit.diastolicBp.toString();
-    if (visit.pulse != null) _pulseController.text = visit.pulse.toString();
-    if (visit.spo2 != null) _spo2Controller.text = visit.spo2.toString();
-    if (visit.glucose != null) _glucoseController.text = visit.glucose.toString();
-    if (visit.ecgNotes != null && visit.ecgNotes!.isNotEmpty) _ecgController.text = visit.ecgNotes!;
-    if (visit.vulvaRemarks != null && visit.vulvaRemarks!.isNotEmpty) _vulvaRemarksController.text = visit.vulvaRemarks!;
-    if (visit.vaginaRemarks != null && visit.vaginaRemarks!.isNotEmpty) _vaginaRemarksController.text = visit.vaginaRemarks!;
-    if (visit.cervixRemarks != null && visit.cervixRemarks!.isNotEmpty) _cervixRemarksController.text = visit.cervixRemarks!;
-    if (visit.uterusRemarks != null && visit.uterusRemarks!.isNotEmpty) _uterusRemarksController.text = visit.uterusRemarks!;
-    if (visit.pessarySize != null && visit.pessarySize!.isNotEmpty) _pessarySizeController.text = visit.pessarySize!;
-    if (visit.customMedication != null && visit.customMedication!.isNotEmpty) _customMedController.text = visit.customMedication!;
-    if (visit.outtakeNotes != null && visit.outtakeNotes!.isNotEmpty) _outtakeNotesController.text = visit.outtakeNotes!;
+    _deliveriesController.text = visit.deliveries?.toString() ?? '';
+    _livingChildrenController.text = visit.livingChildren?.toString() ?? '';
+    _abortionsController.text = visit.abortions?.toString() ?? '';
+    _systolicController.text = (visit.systolicBp != null && visit.systolicBp! > 0) ? visit.systolicBp.toString() : '';
+    _diastolicController.text = (visit.diastolicBp != null && visit.diastolicBp! > 0) ? visit.diastolicBp.toString() : '';
+    _pulseController.text = (visit.pulse != null && visit.pulse! > 0) ? visit.pulse.toString() : '';
+    _spo2Controller.text = (visit.spo2 != null && visit.spo2! > 0) ? visit.spo2.toString() : '';
+    _glucoseController.text = (visit.glucose != null && visit.glucose! > 0) ? visit.glucose.toString() : '';
+    _ecgController.text = visit.ecgNotes ?? '';
+    _vulvaRemarksController.text = visit.vulvaRemarks ?? '';
+    _vaginaRemarksController.text = visit.vaginaRemarks ?? '';
+    _cervixRemarksController.text = visit.cervixRemarks ?? '';
+    _uterusRemarksController.text = visit.uterusRemarks ?? '';
+    _pessarySizeController.text = visit.pessarySize ?? '';
+    _customMedController.text = visit.customMedication ?? '';
+    _outtakeNotesController.text = visit.outtakeNotes ?? '';
+    _customFollowUpHospitalController.clear();
     final partnerHospitals = ref.read(masterLookupProvider).activeReferralHospitals
         .map((h) => h.labelEn)
         .where((h) => h != 'Health Post' && h != 'GynaeSupport Nurse' && h != 'Other')
@@ -182,6 +211,9 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         visit.followUpDestination != 'GynaeSupport Nurse' &&
         !partnerHospitals.contains(visit.followUpDestination)) {
       _customFollowUpHospitalController.text = visit.followUpDestination!;
+    }
+    for (final c in _complaintRemarksControllers.values) {
+      c.clear();
     }
     final existingComplaints = visit.anamnesisComplaints;
     for (final entry in existingComplaints.entries) {
@@ -812,7 +844,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                               hintText: '0–20',
                               prefixIcon: Icon(Icons.pregnant_woman_rounded),
                             ),
-                            onChanged: (val) => vm.setObstetricHistory(deliveries: int.tryParse(val)),
+                            onChanged: (val) => vm.setObstetricHistory(
+                              deliveries: int.tryParse(val.trim()),
+                              clearDeliveries: val.trim().isEmpty,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           TextField(
@@ -824,7 +859,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                               hintText: 'Count',
                               prefixIcon: Icon(Icons.family_restroom_rounded),
                             ),
-                            onChanged: (val) => vm.setObstetricHistory(livingChildren: int.tryParse(val)),
+                            onChanged: (val) => vm.setObstetricHistory(
+                              livingChildren: int.tryParse(val.trim()),
+                              clearLivingChildren: val.trim().isEmpty,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           TextField(
@@ -836,7 +874,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                               hintText: 'Count',
                               prefixIcon: Icon(Icons.remove_circle_outline_rounded),
                             ),
-                            onChanged: (val) => vm.setObstetricHistory(abortions: int.tryParse(val)),
+                            onChanged: (val) => vm.setObstetricHistory(
+                              abortions: int.tryParse(val.trim()),
+                              clearAbortions: val.trim().isEmpty,
+                            ),
                           ),
                         ],
                       );
@@ -853,7 +894,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                               hintText: '0–20',
                               prefixIcon: Icon(Icons.pregnant_woman_rounded),
                             ),
-                            onChanged: (val) => vm.setObstetricHistory(deliveries: int.tryParse(val)),
+                            onChanged: (val) => vm.setObstetricHistory(
+                              deliveries: int.tryParse(val.trim()),
+                              clearDeliveries: val.trim().isEmpty,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -867,7 +911,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                               hintText: 'Count',
                               prefixIcon: Icon(Icons.family_restroom_rounded),
                             ),
-                            onChanged: (val) => vm.setObstetricHistory(livingChildren: int.tryParse(val)),
+                            onChanged: (val) => vm.setObstetricHistory(
+                              livingChildren: int.tryParse(val.trim()),
+                              clearLivingChildren: val.trim().isEmpty,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -881,7 +928,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                               hintText: 'Count',
                               prefixIcon: Icon(Icons.remove_circle_outline_rounded),
                             ),
-                            onChanged: (val) => vm.setObstetricHistory(abortions: int.tryParse(val)),
+                            onChanged: (val) => vm.setObstetricHistory(
+                              abortions: int.tryParse(val.trim()),
+                              clearAbortions: val.trim().isEmpty,
+                            ),
                           ),
                         ),
                       ],
@@ -1798,10 +1848,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: 'Systolic BP (सिस्टोलिक)',
+                  hintText: '—',
                   suffixText: 'mmHg',
-                  prefixIcon: _getValidationIcon(state.systolicValidation),
+                  prefixIcon: _getValidationIcon(state.systolicValidation, hasValue: state.systolicBp != null),
                 ),
-                onChanged: (val) => vm.setVitals(systolic: int.tryParse(val)),
+                onChanged: (val) => vm.setVitals(
+                  systolic: int.tryParse(val.trim()),
+                  clearSystolic: val.trim().isEmpty,
+                ),
               ),
               _buildValidationMessage(state.systolicValidation),
               const SizedBox(height: 12),
@@ -1811,10 +1865,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: 'Diastolic BP (डायस्टोलिक)',
+                  hintText: '—',
                   suffixText: 'mmHg',
-                  prefixIcon: _getValidationIcon(state.diastolicValidation),
+                  prefixIcon: _getValidationIcon(state.diastolicValidation, hasValue: state.diastolicBp != null),
                 ),
-                onChanged: (val) => vm.setVitals(diastolic: int.tryParse(val)),
+                onChanged: (val) => vm.setVitals(
+                  diastolic: int.tryParse(val.trim()),
+                  clearDiastolic: val.trim().isEmpty,
+                ),
               ),
               _buildValidationMessage(state.diastolicValidation),
             ] else ...[
@@ -1827,10 +1885,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'Systolic BP (सिस्टोलिक)',
+                        hintText: '—',
                         suffixText: 'mmHg',
-                        prefixIcon: _getValidationIcon(state.systolicValidation),
+                        prefixIcon: _getValidationIcon(state.systolicValidation, hasValue: state.systolicBp != null),
                       ),
-                      onChanged: (val) => vm.setVitals(systolic: int.tryParse(val)),
+                      onChanged: (val) => vm.setVitals(
+                        systolic: int.tryParse(val.trim()),
+                        clearSystolic: val.trim().isEmpty,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1841,10 +1903,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'Diastolic BP (डायस्टोलिक)',
+                        hintText: '—',
                         suffixText: 'mmHg',
-                        prefixIcon: _getValidationIcon(state.diastolicValidation),
+                        prefixIcon: _getValidationIcon(state.diastolicValidation, hasValue: state.diastolicBp != null),
                       ),
-                      onChanged: (val) => vm.setVitals(diastolic: int.tryParse(val)),
+                      onChanged: (val) => vm.setVitals(
+                        diastolic: int.tryParse(val.trim()),
+                        clearDiastolic: val.trim().isEmpty,
+                      ),
                     ),
                   ),
                 ],
@@ -1862,10 +1928,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: 'Pulse (नाडी गति)',
+                  hintText: '—',
                   suffixText: 'bpm',
-                  prefixIcon: _getValidationIcon(state.pulseValidation),
+                  prefixIcon: _getValidationIcon(state.pulseValidation, hasValue: state.pulse != null),
                 ),
-                onChanged: (val) => vm.setVitals(pulse: int.tryParse(val)),
+                onChanged: (val) => vm.setVitals(
+                  pulse: int.tryParse(val.trim()),
+                  clearPulse: val.trim().isEmpty,
+                ),
               ),
               _buildValidationMessage(state.pulseValidation),
               const SizedBox(height: 12),
@@ -1875,10 +1945,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: 'SpO2 (अक्सिजन)',
+                  hintText: '—',
                   suffixText: '%',
-                  prefixIcon: _getValidationIcon(state.spo2Validation),
+                  prefixIcon: _getValidationIcon(state.spo2Validation, hasValue: state.spo2 != null),
                 ),
-                onChanged: (val) => vm.setVitals(spo2: int.tryParse(val)),
+                onChanged: (val) => vm.setVitals(
+                  spo2: int.tryParse(val.trim()),
+                  clearSpo2: val.trim().isEmpty,
+                ),
               ),
               _buildValidationMessage(state.spo2Validation),
             ] else ...[
@@ -1891,10 +1965,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'Pulse (नाडी गति)',
+                        hintText: '—',
                         suffixText: 'bpm',
-                        prefixIcon: _getValidationIcon(state.pulseValidation),
+                        prefixIcon: _getValidationIcon(state.pulseValidation, hasValue: state.pulse != null),
                       ),
-                      onChanged: (val) => vm.setVitals(pulse: int.tryParse(val)),
+                      onChanged: (val) => vm.setVitals(
+                        pulse: int.tryParse(val.trim()),
+                        clearPulse: val.trim().isEmpty,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1905,10 +1983,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'SpO2 (अक्सिजन)',
+                        hintText: '—',
                         suffixText: '%',
-                        prefixIcon: _getValidationIcon(state.spo2Validation),
+                        prefixIcon: _getValidationIcon(state.spo2Validation, hasValue: state.spo2 != null),
                       ),
-                      onChanged: (val) => vm.setVitals(spo2: int.tryParse(val)),
+                      onChanged: (val) => vm.setVitals(
+                        spo2: int.tryParse(val.trim()),
+                        clearSpo2: val.trim().isEmpty,
+                      ),
                     ),
                   ),
                 ],
@@ -1925,10 +2007,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
                 labelText: 'Blood Glucose (रक्त ग्लुकोज)',
+                hintText: '—',
                 suffixText: 'mg/dL',
-                prefixIcon: _getValidationIcon(state.glucoseValidation),
+                prefixIcon: _getValidationIcon(state.glucoseValidation, hasValue: state.glucose != null),
               ),
-              onChanged: (val) => vm.setVitals(glucose: int.tryParse(val)),
+              onChanged: (val) => vm.setVitals(
+                glucose: int.tryParse(val.trim()),
+                clearGlucose: val.trim().isEmpty,
+              ),
             ),
             _buildValidationMessage(state.glucoseValidation),
             const SizedBox(height: 16),
@@ -1992,7 +2078,11 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                               } else {
                                 _ecgController.clear();
                               }
-                              vm.setVitals(ecgNotes: _ecgController.text.trim().isNotEmpty ? _ecgController.text.trim() : null);
+                              final trimmed = _ecgController.text.trim();
+                              vm.setVitals(
+                                ecgNotes: trimmed.isNotEmpty ? trimmed : null,
+                                clearEcgNotes: trimmed.isEmpty,
+                              );
                             });
                           },
                         );
@@ -2013,7 +2103,13 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                                     : 'Select status above, then add details...',
                         prefixIcon: const Icon(Icons.edit_note_rounded),
                       ),
-                      onChanged: (val) => vm.setVitals(ecgNotes: val.trim().isNotEmpty ? val.trim() : null),
+                      onChanged: (val) {
+                        final trimmed = val.trim();
+                        vm.setVitals(
+                          ecgNotes: trimmed.isNotEmpty ? trimmed : null,
+                          clearEcgNotes: trimmed.isEmpty,
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -2025,9 +2121,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
     );
   }
 
-  Widget _getValidationIcon(ValidationResult result) {
+  Widget _getValidationIcon(ValidationResult result, {bool hasValue = true}) {
     if (result.isError) return const Icon(Icons.cancel, color: AppTheme.dangerRose);
     if (result.isWarning) return const Icon(Icons.warning, color: AppTheme.warningAmber);
+    if (!hasValue) return const Icon(Icons.radio_button_unchecked, color: Color(0xFF94A3B8), size: 20);
     return const Icon(Icons.check_circle, color: AppTheme.successGreen);
   }
 
@@ -2212,50 +2309,51 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
         LayoutBuilder(
           builder: (context, constraints) {
             final isMobile = constraints.maxWidth < 500;
+            final pessaryOptions = const ['ring', 'ring with support', 'ring with knob'];
+            final selectedPessaryType =
+                pessaryOptions.contains(state.pessaryType) ? state.pessaryType : null;
+            final pessaryDropdown = DropdownButtonFormField<String?>(
+              key: ValueKey('pessary_type_$selectedPessaryType'),
+              isExpanded: true,
+              initialValue: selectedPessaryType,
+              decoration: const InputDecoration(labelText: 'Pessary Type'),
+              items: [
+                if (selectedPessaryType != null)
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(
+                      'None / Clear (खाली राख्नुहोस्)',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ...pessaryOptions.map((t) {
+                  return DropdownMenuItem<String?>(value: t, child: Text(t, style: const TextStyle(fontSize: 12)));
+                }),
+              ],
+              onChanged: (val) => vm.setPessary(type: val, clearType: val == null),
+            );
+            final pessarySizeField = TextField(
+              controller: _pessarySizeController,
+              decoration: const InputDecoration(labelText: 'Size (साइज mm)'),
+              onChanged: (val) => vm.setPessary(
+                size: val.trim().isEmpty ? null : val,
+                clearSize: val.trim().isEmpty,
+              ),
+            );
             if (isMobile) {
               return Column(
                 children: [
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: state.pessaryType,
-                    decoration: const InputDecoration(labelText: 'Pessary Type'),
-                    items: ['ring', 'ring with support', 'ring with knob'].map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12)));
-                    }).toList(),
-                    onChanged: (val) => vm.setPessary(type: val),
-                  ),
+                  pessaryDropdown,
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: _pessarySizeController,
-                    decoration: const InputDecoration(labelText: 'Size (साइज mm)'),
-                    onChanged: (val) => vm.setPessary(size: val),
-                  ),
+                  pessarySizeField,
                 ],
               );
             }
             return Row(
               children: [
-                Expanded(
-                  flex: 3,
-                  child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: state.pessaryType,
-                    decoration: const InputDecoration(labelText: 'Pessary Type'),
-                    items: ['ring', 'ring with support', 'ring with knob'].map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12)));
-                    }).toList(),
-                    onChanged: (val) => vm.setPessary(type: val),
-                  ),
-                ),
+                Expanded(flex: 3, child: pessaryDropdown),
                 const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: _pessarySizeController,
-                    decoration: const InputDecoration(labelText: 'Size (साइज mm)'),
-                    onChanged: (val) => vm.setPessary(size: val),
-                  ),
-                ),
+                Expanded(flex: 2, child: pessarySizeField),
               ],
             );
           },
@@ -2264,18 +2362,36 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
 
         const Text('Referral for Surgery (शल्यक्रिया सिफारिस)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          key: ValueKey('surgical_referral_${state.surgicalReferral}'),
-          isExpanded: true,
-          initialValue: hospitalsList.contains(state.surgicalReferral) ? state.surgicalReferral : null,
-          decoration: InputDecoration(
-            labelText: 'Surgical Referral Hospital (शल्यक्रिया सिफारिस अस्पताल)',
-            hintText: hospitalsList.isEmpty ? 'No partner hospitals configured' : 'Select referral hospital',
-          ),
-          items: hospitalsList.map((h) {
-            return DropdownMenuItem(value: h, child: Text(h));
-          }).toList(),
-          onChanged: hospitalsList.isEmpty ? null : (val) => vm.setSurgicalReferral(val),
+        Builder(
+          builder: (context) {
+            final selectedReferral = (state.surgicalReferral != null &&
+                    hospitalsList.contains(state.surgicalReferral!.trim()))
+                ? state.surgicalReferral!.trim()
+                : null;
+            return DropdownButtonFormField<String?>(
+              key: ValueKey('surgical_referral_$selectedReferral'),
+              isExpanded: true,
+              initialValue: selectedReferral,
+              decoration: InputDecoration(
+                labelText: 'Surgical Referral Hospital (शल्यक्रिया सिफारिस अस्पताल)',
+                hintText: hospitalsList.isEmpty ? 'No partner hospitals configured' : 'Select referral hospital',
+              ),
+              items: [
+                if (selectedReferral != null)
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(
+                      'None / Clear Referral (कुनै सिफारिस छैन)',
+                      style: TextStyle(color: Color(0xFF64748B), fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ...hospitalsList.map((h) {
+                  return DropdownMenuItem<String?>(value: h, child: Text(h));
+                }),
+              ],
+              onChanged: hospitalsList.isEmpty ? null : (val) => vm.setSurgicalReferral(val),
+            );
+          },
         ),
         const SizedBox(height: 18),
 

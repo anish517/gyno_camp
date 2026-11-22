@@ -19,7 +19,8 @@ import 'package:gyno_camp/views/patient/patient_list_view.dart';
 import 'package:gyno_camp/views/patient/patient_registration_view.dart';
 import 'package:gyno_camp/viewmodels/sync_viewmodel.dart';
 
-class _FakeSyncViewModel extends StateNotifier<SyncState> implements SyncViewModel {
+class _FakeSyncViewModel extends StateNotifier<SyncState>
+    implements SyncViewModel {
   _FakeSyncViewModel() : super(const SyncState(isOnline: false));
 
   @override
@@ -28,36 +29,97 @@ class _FakeSyncViewModel extends StateNotifier<SyncState> implements SyncViewMod
 
 class _FakeLookupRepository implements ILookupRepository {
   List<LookupItemModel> items = [
-    const LookupItemModel(id: 'd1', category: 'diagnosis', code: 'candid', labelEn: 'Candid Infection', labelNe: 'कन्डिडा', isActive: true),
-    const LookupItemModel(id: 'm1', category: 'medicine', code: 'metronidazole', labelEn: 'Metronidazole 400mg', labelNe: 'मेट्रोनिडाजोल', isActive: true),
-    const LookupItemModel(id: 'h1', category: 'referral_hospital', code: 'bpkihs', labelEn: 'B.P. Koirala Institute of Health Sciences', labelNe: 'बीपी कोइराला स्वास्थ्य विज्ञान प्रतिष्ठान', isActive: true),
+    const LookupItemModel(
+      id: 'd1',
+      category: 'diagnosis',
+      code: 'candid',
+      labelEn: 'Candid Infection',
+      labelNe: 'कन्डिडा',
+      isActive: true,
+    ),
+    const LookupItemModel(
+      id: 'm1',
+      category: 'medicine',
+      code: 'metronidazole',
+      labelEn: 'Metronidazole 400mg',
+      labelNe: 'मेट्रोनिडाजोल',
+      isActive: true,
+    ),
+    const LookupItemModel(
+      id: 'h1',
+      category: 'referral_hospital',
+      code: 'bpkihs',
+      labelEn: 'B.P. Koirala Institute of Health Sciences',
+      labelNe: 'बीपी कोइराला स्वास्थ्य विज्ञान प्रतिष्ठान',
+      isActive: true,
+    ),
   ];
 
   @override
-  Future<List<LookupItemModel>> getAllItems({String? campId, String? tenantId}) async => items;
+  Future<List<LookupItemModel>> getAllItems({
+    String? campId,
+    String? tenantId,
+  }) async => items;
 
   @override
-  Future<List<LookupItemModel>> getItemsByCategory(String category, {String? campId, String? tenantId, List<String>? allowedCampIds, bool activeOnly = false}) async {
-    return items.where((i) => i.category == category && (!activeOnly || i.isActive)).toList();
+  Future<List<LookupItemModel>> getItemsByCategory(
+    String category, {
+    String? campId,
+    String? tenantId,
+    List<String>? allowedCampIds,
+    bool activeOnly = false,
+  }) async {
+    return items
+        .where((i) => i.category == category && (!activeOnly || i.isActive))
+        .toList();
   }
 
   @override
-  Future<LookupItemModel> addItem(LookupItemModel item, {required String userId, required String userName, required String deviceId}) async {
+  Future<LookupItemModel> addItem(
+    LookupItemModel item, {
+    required String userId,
+    required String userName,
+    required String deviceId,
+  }) async {
     items.add(item);
     return item;
   }
 
   @override
-  Future<LookupItemModel> updateItem(LookupItemModel item, {required String userId, required String userName, required String deviceId}) async => item;
+  Future<LookupItemModel> updateItem(
+    LookupItemModel item, {
+    required String userId,
+    required String userName,
+    required String deviceId,
+  }) async => item;
 
   @override
-  Future<bool> toggleItemStatus(String id, bool isActive, {String? campId, required String userId, required String userName, required String deviceId}) async => true;
+  Future<bool> toggleItemStatus(
+    String id,
+    bool isActive, {
+    String? campId,
+    required String userId,
+    required String userName,
+    required String deviceId,
+  }) async => true;
 
   @override
-  Future<bool> deleteItem(String id, {String? campId, required String userId, required String userName, required String deviceId}) async => true;
+  Future<bool> deleteItem(
+    String id, {
+    String? campId,
+    required String userId,
+    required String userName,
+    required String deviceId,
+  }) async => true;
 
   @override
-  Future<bool> restoreItemToCamp(String id, {required String campId, required String userId, required String userName, required String deviceId}) async => true;
+  Future<bool> restoreItemToCamp(
+    String id, {
+    required String campId,
+    required String userId,
+    required String userName,
+    required String deviceId,
+  }) async => true;
 
   @override
   Future<void> ensureDefaultsSeeded({String? tenantId}) async {}
@@ -93,7 +155,9 @@ class _FakePatientRepository implements IPatientRepository {
     required String updatedByUserRole,
     required String deviceId,
   }) async {
-    final idx = storedPatients.indexWhere((p) => p.id == patient.id || p.patientId == patient.patientId);
+    final idx = storedPatients.indexWhere(
+      (p) => p.id == patient.id || p.patientId == patient.patientId,
+    );
     if (idx != -1) {
       storedPatients[idx] = patient;
     } else {
@@ -103,7 +167,10 @@ class _FakePatientRepository implements IPatientRepository {
   }
 
   @override
-  Future<List<PatientModel>> getPatientsByCamp([String? campId, List<String>? allowedCampIds]) async => storedPatients;
+  Future<List<PatientModel>> getPatientsByCamp([
+    String? campId,
+    List<String>? allowedCampIds,
+  ]) async => storedPatients;
 
   @override
   Future<PatientModel?> getPatientByPatientId(String patientId) async {
@@ -115,13 +182,19 @@ class _FakePatientRepository implements IPatientRepository {
   }
 
   @override
-  Future<List<PatientModel>> searchPatients({required String campId, required String query}) async {
+  Future<List<PatientModel>> searchPatients({
+    required String campId,
+    required String query,
+  }) async {
     final q = query.toLowerCase();
-    return storedPatients.where((p) =>
-      p.patientId.toLowerCase().contains(q) ||
-      p.fullName.toLowerCase().contains(q) ||
-      p.mobile.contains(q)
-    ).toList();
+    return storedPatients
+        .where(
+          (p) =>
+              p.patientId.toLowerCase().contains(q) ||
+              p.fullName.toLowerCase().contains(q) ||
+              p.mobile.contains(q),
+        )
+        .toList();
   }
 
   @override
@@ -147,37 +220,66 @@ class _FakePatientRepository implements IPatientRepository {
   }
 
   @override
-  Future<List<ClinicalVisitModel>> getClinicalVisits(String patientId, {String? patientUuid}) async =>
-      lastSavedVisit != null ? [lastSavedVisit!] : [];
+  Future<List<ClinicalVisitModel>> getClinicalVisits(
+    String patientId, {
+    String? patientUuid,
+  }) async => lastSavedVisit != null ? [lastSavedVisit!] : [];
 
   @override
-  Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId, {String? patientUuid}) async =>
-      lastSavedVisit;
+  Future<ClinicalVisitModel?> getLatestClinicalVisit(
+    String patientId, {
+    String? patientUuid,
+  }) async => lastSavedVisit;
 
   @override
   Future<bool> isPatientIdTaken(String patientId) async =>
       storedPatients.any((p) => p.patientId == patientId);
 
   @override
-  Future<void> deletePatient(String patientIdOrUuid, {String deletedByUserId = 'usr-local', String deletedByUserName = 'Field Staff', String deletedByUserRole = 'DATA_TAKER', String deviceId = 'dev-local'}) async {
-    storedPatients.removeWhere((p) => p.id == patientIdOrUuid || p.patientId == patientIdOrUuid);
+  Future<void> deletePatient(
+    String patientIdOrUuid, {
+    String deletedByUserId = 'usr-local',
+    String deletedByUserName = 'Field Staff',
+    String deletedByUserRole = 'DATA_TAKER',
+    String deviceId = 'dev-local',
+  }) async {
+    storedPatients.removeWhere(
+      (p) => p.id == patientIdOrUuid || p.patientId == patientIdOrUuid,
+    );
   }
 
   @override
-  Future<void> deleteClinicalVisit(String visitId, {String deletedByUserId = 'usr-local', String deletedByUserName = 'Field Staff', String deletedByUserRole = 'DATA_TAKER', String deviceId = 'dev-local'}) async {}
+  Future<void> deleteClinicalVisit(
+    String visitId, {
+    String deletedByUserId = 'usr-local',
+    String deletedByUserName = 'Field Staff',
+    String deletedByUserRole = 'DATA_TAKER',
+    String deviceId = 'dev-local',
+  }) async {}
 
   @override
-  Future<ClinicalVisitModel> recordNurseSeenQuickVisit({required PatientModel patient, required String nurseName, List<String> attendingNurses = const [], String? treatmentLevel, String? notes, required String userId, required String deviceId}) async => throw UnimplementedError();
+  Future<ClinicalVisitModel> recordNurseSeenQuickVisit({
+    required PatientModel patient,
+    required String nurseName,
+    List<String> attendingNurses = const [],
+    String? treatmentLevel,
+    String? notes,
+    required String userId,
+    required String deviceId,
+  }) async => throw UnimplementedError();
 }
 
-class _FakeCampViewModel extends StateNotifier<CampState> implements CampViewModel {
-  _FakeCampViewModel(CampModel camp) : super(CampState(activeCamp: camp, camps: [camp]));
+class _FakeCampViewModel extends StateNotifier<CampState>
+    implements CampViewModel {
+  _FakeCampViewModel(CampModel camp)
+    : super(CampState(activeCamp: camp, camps: [camp]));
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _FakeAuthViewModel extends StateNotifier<AuthState> implements AuthViewModel {
+class _FakeAuthViewModel extends StateNotifier<AuthState>
+    implements AuthViewModel {
   _FakeAuthViewModel(UserModel user) : super(AuthState(currentUser: user));
 
   @override
@@ -246,307 +348,439 @@ void main() {
       fakeLookupRepo = _FakeLookupRepository();
     });
 
-    testWidgets('PatientFollowUpSlipModal renders cleanly on narrow mobile (360x640) without overflow', (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'PatientFollowUpSlipModal renders cleanly on narrow mobile (360x640) without overflow',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      FlutterErrorDetails? capturedDetails;
-      final originalOnError = FlutterError.onError;
-      FlutterError.onError = (details) {
-        capturedDetails = details;
-      };
+        FlutterErrorDetails? capturedDetails;
+        final originalOnError = FlutterError.onError;
+        FlutterError.onError = (details) {
+          capturedDetails = details;
+        };
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: PatientFollowUpSlipModal(
-              patient: samplePatient,
-              camp: sampleCamp,
-              organizationName: 'Bir Hospital Gyno Outreach',
-              showProceedButton: true,
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: PatientFollowUpSlipModal(
+                patient: samplePatient,
+                camp: sampleCamp,
+                organizationName: 'Bir Hospital Gyno Outreach',
+                showProceedButton: true,
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      FlutterError.onError = originalOnError;
+        );
+        await tester.pumpAndSettle();
+        FlutterError.onError = originalOnError;
 
-      expect(capturedDetails, isNull);
-      expect(find.text('PATIENT FOLLOW-UP TOKEN SLIP'), findsOneWidget);
-      expect(find.text('GC-KTM01-2026-00042'), findsWidgets);
-      expect(find.text('Copy'), findsOneWidget);
-      expect(find.text('Print PDF Slip'), findsOneWidget);
-      expect(find.text('Station 2 Chart'), findsOneWidget);
+        expect(capturedDetails, isNull);
+        expect(find.text('PATIENT FOLLOW-UP TOKEN SLIP'), findsOneWidget);
+        expect(find.text('GC-KTM01-2026-00042'), findsWidgets);
+        expect(find.text('Copy'), findsOneWidget);
+        expect(find.text('Print PDF Slip'), findsOneWidget);
+        expect(find.text('Station 2 Chart'), findsOneWidget);
 
-      // Verify Copy Button tap
-      await tester.tap(find.text('Copy'));
-      await tester.pump();
-      expect(find.textContaining('Copied patient token ID'), findsOneWidget);
-    });
+        // Verify Copy Button tap
+        await tester.tap(find.text('Copy'));
+        await tester.pump();
+        expect(find.textContaining('Copied patient token ID'), findsOneWidget);
+      },
+    );
 
-    testWidgets('PatientRegistrationView renders on mobile (360x640) and desktop (1024x768) without overflow', (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'PatientRegistrationView renders on mobile (360x640) and desktop (1024x768) without overflow',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      FlutterErrorDetails? capturedDetails2;
-      final originalOnError = FlutterError.onError;
-      FlutterError.onError = (details) {
-        capturedDetails2 = details;
-      };
+        FlutterErrorDetails? capturedDetails2;
+        final originalOnError = FlutterError.onError;
+        FlutterError.onError = (details) {
+          capturedDetails2 = details;
+        };
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            patientRepositoryProvider.overrideWithValue(fakePatientRepo),
-            campStateProvider.overrideWith((ref) => _FakeCampViewModel(sampleCamp)),
-            authStateProvider.overrideWith((ref) => _FakeAuthViewModel(sampleUser)),
-          ],
-          child: const MaterialApp(
-            home: PatientRegistrationView(),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+              campStateProvider.overrideWith(
+                (ref) => _FakeCampViewModel(sampleCamp),
+              ),
+              authStateProvider.overrideWith(
+                (ref) => _FakeAuthViewModel(sampleUser),
+              ),
+            ],
+            child: const MaterialApp(home: PatientRegistrationView()),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      FlutterError.onError = originalOnError;
+        );
+        await tester.pumpAndSettle();
+        FlutterError.onError = originalOnError;
 
-      expect(capturedDetails2, isNull);
-      expect(find.text('Patient Registration (दर्ता)'), findsOneWidget);
-      expect(find.text('Demographics'), findsOneWidget);
-      expect(find.textContaining('First Name * (पहिलो नाम)'), findsOneWidget);
+        expect(capturedDetails2, isNull);
+        expect(find.text('Patient Registration (दर्ता)'), findsOneWidget);
+        expect(find.text('Demographics'), findsOneWidget);
+        expect(find.textContaining('First Name * (पहिलो नाम)'), findsOneWidget);
 
-      // Verify Desktop layout transition
-      tester.view.physicalSize = const Size(1024, 768);
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(find.text('Register Patient & Start Clinical Form (Station 1 → 2)'), findsOneWidget);
-    });
+        // Verify Desktop layout transition
+        tester.view.physicalSize = const Size(1024, 768);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(
+          find.text('Register Patient & Start Clinical Form (Station 1 → 2)'),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets('Block letter grid shows immediate ACTIVE indication upon click before typing text', (tester) async {
-      tester.view.physicalSize = const Size(1024, 768);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'Block letter grid shows immediate ACTIVE indication upon click before typing text',
+      (tester) async {
+        tester.view.physicalSize = const Size(1024, 768);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            patientRepositoryProvider.overrideWithValue(fakePatientRepo),
-            campStateProvider.overrideWith((ref) => _FakeCampViewModel(sampleCamp)),
-            authStateProvider.overrideWith((ref) => _FakeAuthViewModel(sampleUser)),
-          ],
-          child: const MaterialApp(
-            home: PatientRegistrationView(),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+              campStateProvider.overrideWith(
+                (ref) => _FakeCampViewModel(sampleCamp),
+              ),
+              authStateProvider.overrideWith(
+                (ref) => _FakeAuthViewModel(sampleUser),
+              ),
+            ],
+            child: const MaterialApp(home: PatientRegistrationView()),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      // Before tap, no ACTIVE indicator
-      expect(find.text('ACTIVE'), findsNothing);
+        // Before tap, no ACTIVE indicator
+        expect(find.text('ACTIVE'), findsNothing);
 
-      // Tap on the First Name block grid
-      final firstNameFinder = find.textContaining('First Name * (पहिलो नाम)');
-      expect(firstNameFinder, findsOneWidget);
-      await tester.tap(firstNameFinder);
-      await tester.pump();
+        // Tap on the First Name block grid
+        final firstNameFinder = find.textContaining('First Name * (पहिलो नाम)');
+        expect(firstNameFinder, findsOneWidget);
+        await tester.tap(firstNameFinder);
+        await tester.pump();
 
-      // Immediately after tap (without typing any text yet), ACTIVE badge is displayed!
-      expect(find.text('ACTIVE'), findsOneWidget);
+        // Immediately after tap (without typing any text yet), ACTIVE badge is displayed!
+        expect(find.text('ACTIVE'), findsOneWidget);
 
-      // Enter text
-      await tester.enterText(find.byType(TextField).first, 'SITA');
-      await tester.pump();
+        // Enter text
+        await tester.enterText(find.byType(TextField).first, 'SITA');
+        await tester.pump();
 
-      // Characters are rendered in boxes
-      expect(find.text('S'), findsOneWidget);
-      expect(find.text('I'), findsOneWidget);
-      expect(find.text('T'), findsOneWidget);
-      expect(find.text('A'), findsOneWidget);
-    });
+        // Characters are rendered in boxes
+        expect(find.text('S'), findsOneWidget);
+        expect(find.text('I'), findsOneWidget);
+        expect(find.text('T'), findsOneWidget);
+        expect(find.text('A'), findsOneWidget);
+      },
+    );
 
-    testWidgets('Father/Husband long full name renders with 24-box full width, char count and scroll buttons without clipping', (tester) async {
-      tester.view.physicalSize = const Size(1024, 768);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'Father/Husband long full name renders with 24-box full width, char count and scroll buttons without clipping',
+      (tester) async {
+        tester.view.physicalSize = const Size(1024, 768);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            patientRepositoryProvider.overrideWithValue(fakePatientRepo),
-            campStateProvider.overrideWith((ref) => _FakeCampViewModel(sampleCamp)),
-            authStateProvider.overrideWith((ref) => _FakeAuthViewModel(sampleUser)),
-          ],
-          child: const MaterialApp(
-            home: PatientRegistrationView(),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+              campStateProvider.overrideWith(
+                (ref) => _FakeCampViewModel(sampleCamp),
+              ),
+              authStateProvider.overrideWith(
+                (ref) => _FakeAuthViewModel(sampleUser),
+              ),
+            ],
+            child: const MaterialApp(home: PatientRegistrationView()),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      final husbandFieldFinder = find.textContaining("Husband's Name");
-      expect(husbandFieldFinder, findsOneWidget);
+        final husbandFieldFinder = find.textContaining("Husband's Name");
+        expect(husbandFieldFinder, findsOneWidget);
 
-      await tester.ensureVisible(husbandFieldFinder);
-      await tester.pumpAndSettle();
+        await tester.ensureVisible(husbandFieldFinder);
+        await tester.pumpAndSettle();
 
-      // Tap the husband field to focus
-      await tester.tap(husbandFieldFinder);
-      await tester.pump();
+        // Tap the husband field to focus
+        await tester.tap(husbandFieldFinder);
+        await tester.pump();
 
-      // Enter 'DANDA PANI TIWARI' into focused text input
-      tester.testTextInput.enterText('DANDA PANI TIWARI');
-      await tester.pump();
+        // Enter 'DANDA PANI TIWARI' into focused text input
+        tester.testTextInput.enterText('DANDA PANI TIWARI');
+        await tester.pump();
 
-      // Verify character count badge appears
-      expect(find.text('(17 chars)'), findsOneWidget);
+        // Verify character count badge appears
+        expect(find.text('(17 chars)'), findsOneWidget);
 
-      // Verify characters of full name are rendered
-      expect(find.text('W'), findsOneWidget);
-      expect(find.text('R'), findsOneWidget);
+        // Verify characters of full name are rendered
+        expect(find.text('W'), findsOneWidget);
+        expect(find.text('R'), findsOneWidget);
 
-      // Scroll buttons exist since total boxes (24) > 12
-      expect(find.byIcon(Icons.chevron_left), findsWidgets);
-      expect(find.byIcon(Icons.chevron_right), findsWidgets);
+        // Scroll buttons exist since total boxes (24) > 12
+        expect(find.byIcon(Icons.chevron_left), findsWidgets);
+        expect(find.byIcon(Icons.chevron_right), findsWidgets);
 
-      // Tap right scroll chevron button
-      await tester.tap(find.byIcon(Icons.chevron_right).last, warnIfMissed: false);
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
+        // Tap right scroll chevron button
+        await tester.tap(
+          find.byIcon(Icons.chevron_right).last,
+          warnIfMissed: false,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
 
-    testWidgets('PatientListView renders on mobile (360x640) without overflow and with responsive stats and actions', (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'PatientListView renders on mobile (360x640) without overflow and with responsive stats and actions',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            patientRepositoryProvider.overrideWithValue(fakePatientRepo),
-            campStateProvider.overrideWith((ref) => _FakeCampViewModel(sampleCamp)),
-            authStateProvider.overrideWith((ref) => _FakeAuthViewModel(sampleUser)),
-            syncStateProvider.overrideWith((ref) => _FakeSyncViewModel()),
-          ],
-          child: const MaterialApp(
-            home: PatientListView(),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+              campStateProvider.overrideWith(
+                (ref) => _FakeCampViewModel(sampleCamp),
+              ),
+              authStateProvider.overrideWith(
+                (ref) => _FakeAuthViewModel(sampleUser),
+              ),
+              syncStateProvider.overrideWith((ref) => _FakeSyncViewModel()),
+            ],
+            child: const MaterialApp(home: PatientListView()),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
-      expect(find.text('Camp Patient Roll'), findsOneWidget);
-      expect(find.text('Scan QR / Barcode'), findsOneWidget);
-      expect(find.textContaining('Total: 1 Registered'), findsOneWidget);
-      expect(find.text('Suntali Tamang'), findsOneWidget);
-      expect(find.text('Slip / QR'), findsOneWidget);
-      expect(find.text('Clinical Intake'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expect(find.text('Camp Patient Roll'), findsOneWidget);
+        expect(find.text('Scan QR / Barcode'), findsOneWidget);
+        expect(find.textContaining('Total: 1 Registered'), findsOneWidget);
+        expect(find.text('Suntali Tamang'), findsOneWidget);
+        expect(find.text('Slip / QR'), findsOneWidget);
+        expect(find.text('Clinical Intake'), findsOneWidget);
 
-      // Verify Desktop transition
-      tester.view.physicalSize = const Size(1280, 800);
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
+        // Verify Desktop transition
+        tester.view.physicalSize = const Size(1280, 800);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
 
-    testWidgets('ClinicalAssessmentView renders all stations on mobile (360x640) without overflow', (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'PatientListView mobile search works cleanly with soft keyboard open without overflow or crash',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          tester.view.resetViewInsets();
+        });
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            patientRepositoryProvider.overrideWithValue(fakePatientRepo),
-            lookupRepositoryProvider.overrideWithValue(fakeLookupRepo),
-            campStateProvider.overrideWith((ref) => _FakeCampViewModel(sampleCamp)),
-            authStateProvider.overrideWith((ref) => _FakeAuthViewModel(sampleUser)),
-          ],
-          child: MaterialApp(
-            home: ClinicalAssessmentView(patient: samplePatient),
+        final secondPatient = samplePatient.copyWith(
+          id: 'pat-resp-02',
+          patientId: 'GC-KTM01-2026-00043',
+          firstName: 'Kamala',
+          surname: 'Rai',
+          mobile: '9841999888',
+        );
+        fakePatientRepo.storedPatients = [samplePatient, secondPatient];
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+              campStateProvider.overrideWith(
+                (ref) => _FakeCampViewModel(sampleCamp),
+              ),
+              authStateProvider.overrideWith(
+                (ref) => _FakeAuthViewModel(sampleUser),
+              ),
+              syncStateProvider.overrideWith((ref) => _FakeSyncViewModel()),
+            ],
+            child: const MaterialApp(home: PatientListView()),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final dynamic error4_1 = tester.takeException();
-      if (error4_1 != null) {
-        debugPrint('TEST 4_1 ERROR: $error4_1');
-      }
-      expect(error4_1, isNull);
-      expect(find.textContaining('Clinical Intake • Suntali Tamang'), findsOneWidget);
-      expect(find.text('1. Anamnesis'), findsOneWidget);
-      expect(find.text('Obstetric History (सुत्केरी तथा गर्भ विवरण)'), findsOneWidget);
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
 
-      FlutterErrorDetails? capturedDetails4_2;
-      final originalOnError4 = FlutterError.onError;
-      FlutterError.onError = (details) {
-        capturedDetails4_2 = details;
-      };
+        // Search for Kamala while keyboard occupies 300px of the 640px mobile viewport
+        final searchField = find.byKey(
+          const ValueKey('patient_list_search_field'),
+        );
+        expect(searchField, findsOneWidget);
+        await tester.enterText(searchField, 'Kamala');
+        await tester.pumpAndSettle();
 
-      // Navigate to Station 2
-      await tester.tap(find.text('2. Exam & POP'));
-      await tester.pumpAndSettle();
-      FlutterError.onError = originalOnError4;
+        expect(tester.takeException(), isNull);
+        expect(find.text('Kamala Rai'), findsOneWidget);
+        expect(find.text('Suntali Tamang'), findsNothing);
 
-      expect(capturedDetails4_2, isNull);
-      expect(find.text('Uterus Inside (पाठेघर भित्रै छ?)'), findsOneWidget);
-      expect(find.text('POP STAGING (Pelvic Organ Prolapse)'), findsOneWidget);
+        // Clear search via Clear button and dismiss keyboard to see full restored list
+        await tester.tap(find.byTooltip('Clear Search'));
+        tester.view.resetViewInsets();
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.textContaining('Total: 2 Registered'), findsOneWidget);
+        expect(find.text('Suntali Tamang'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('Kamala Rai'),
+          200,
+          scrollable: find.byType(Scrollable).last,
+        );
+        expect(find.text('Kamala Rai'), findsOneWidget);
 
-      // Navigate to Station 3
-      FlutterErrorDetails? capturedDetails4_3;
-      final originalOnError4_3 = FlutterError.onError;
-      FlutterError.onError = (details) {
-        capturedDetails4_3 = details;
-      };
+        // Verify More menu shows "(Page 2)" on Review / Edit Clinical Exam
+        fakePatientRepo.storedPatients = [
+          samplePatient.copyWith(hasClinicalVisit: true),
+        ];
+        await tester.tap(find.byTooltip('Refresh Patient List'));
+        await tester.pumpAndSettle();
+        final moreBtn = find.byIcon(Icons.more_horiz_rounded).first;
+        await tester.ensureVisible(moreBtn);
+        await tester.pumpAndSettle();
+        await tester.tap(moreBtn);
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Review / Edit Clinical Exam (Page 2)'),
+          findsOneWidget,
+        );
+        expect(find.text('Edit Registration (Page 1)'), findsOneWidget);
+      },
+    );
 
-      await tester.ensureVisible(find.text('3. Vitals & Lab'));
-      await tester.tap(find.text('3. Vitals & Lab'));
-      await tester.pumpAndSettle();
-      FlutterError.onError = originalOnError4_3;
+    testWidgets(
+      'ClinicalAssessmentView renders all stations on mobile (360x640) without overflow',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      expect(capturedDetails4_3, isNull);
-      expect(find.text('Rapid Point-of-Care Tests (प्रयोगशाला जाँच)'), findsOneWidget);
-      expect(find.text('Systolic BP (सिस्टोलिक)'), findsOneWidget);
-
-      // Navigate to Station 5
-      await tester.ensureVisible(find.text('5. Treatment'));
-      await tester.tap(find.text('5. Treatment'));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(find.text('Ring Pessary Fitting (रिङ पेसरी)'), findsOneWidget);
-
-      // Navigate to Station 6 (Outtake)
-      await tester.ensureVisible(find.text('6. Outtake'));
-      await tester.tap(find.text('6. Outtake'));
-      await tester.pumpAndSettle();
-      final err6 = tester.takeException();
-      if (err6 != null) {
-        debugPrint('STATION 6 ERROR: $err6');
-        if (err6 is FlutterError) {
-          debugPrint('STATION 6 DETAILS: ${err6.diagnostics}');
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+              lookupRepositoryProvider.overrideWithValue(fakeLookupRepo),
+              campStateProvider.overrideWith(
+                (ref) => _FakeCampViewModel(sampleCamp),
+              ),
+              authStateProvider.overrideWith(
+                (ref) => _FakeAuthViewModel(sampleUser),
+              ),
+            ],
+            child: MaterialApp(
+              home: ClinicalAssessmentView(patient: samplePatient),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final dynamic error4_1 = tester.takeException();
+        if (error4_1 != null) {
+          debugPrint('TEST 4_1 ERROR: $error4_1');
         }
-      }
-      expect(err6, isNull);
-      expect(find.text('Follow-Up Plan (पुनः जाँच योजना)'), findsOneWidget);
-      expect(find.textContaining('Save Record'), findsOneWidget);
-    });
+        expect(error4_1, isNull);
+        expect(
+          find.textContaining('Clinical Intake • Suntali Tamang'),
+          findsOneWidget,
+        );
+        expect(find.text('1. Anamnesis'), findsOneWidget);
+        expect(
+          find.text('Obstetric History (सुत्केरी तथा गर्भ विवरण)'),
+          findsOneWidget,
+        );
+
+        FlutterErrorDetails? capturedDetails4_2;
+        final originalOnError4 = FlutterError.onError;
+        FlutterError.onError = (details) {
+          capturedDetails4_2 = details;
+        };
+
+        // Navigate to Station 2
+        await tester.tap(find.text('2. Exam & POP'));
+        await tester.pumpAndSettle();
+        FlutterError.onError = originalOnError4;
+
+        expect(capturedDetails4_2, isNull);
+        expect(find.text('Uterus Inside (पाठेघर भित्रै छ?)'), findsOneWidget);
+        expect(
+          find.text('POP STAGING (Pelvic Organ Prolapse)'),
+          findsOneWidget,
+        );
+
+        // Navigate to Station 3
+        FlutterErrorDetails? capturedDetails4_3;
+        final originalOnError4_3 = FlutterError.onError;
+        FlutterError.onError = (details) {
+          capturedDetails4_3 = details;
+        };
+
+        await tester.ensureVisible(find.text('3. Vitals & Lab'));
+        await tester.tap(find.text('3. Vitals & Lab'));
+        await tester.pumpAndSettle();
+        FlutterError.onError = originalOnError4_3;
+
+        expect(capturedDetails4_3, isNull);
+        expect(
+          find.text('Rapid Point-of-Care Tests (प्रयोगशाला जाँच)'),
+          findsOneWidget,
+        );
+        expect(find.text('Systolic BP (सिस्टोलिक)'), findsOneWidget);
+
+        // Navigate to Station 5
+        await tester.ensureVisible(find.text('5. Treatment'));
+        await tester.tap(find.text('5. Treatment'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.text('Ring Pessary Fitting (रिङ पेसरी)'), findsOneWidget);
+
+        // Navigate to Station 6 (Outtake)
+        await tester.ensureVisible(find.text('6. Outtake'));
+        await tester.tap(find.text('6. Outtake'));
+        await tester.pumpAndSettle();
+        final err6 = tester.takeException();
+        if (err6 != null) {
+          debugPrint('STATION 6 ERROR: $err6');
+          if (err6 is FlutterError) {
+            debugPrint('STATION 6 DETAILS: ${err6.diagnostics}');
+          }
+        }
+        expect(err6, isNull);
+        expect(find.text('Follow-Up Plan (पुनः जाँच योजना)'), findsOneWidget);
+        expect(find.textContaining('Save Record'), findsOneWidget);
+      },
+    );
   });
 }

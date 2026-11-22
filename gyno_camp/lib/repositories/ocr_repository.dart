@@ -826,11 +826,26 @@ class OcrRepository implements IOcrRepository {
         final p = pop['posteriorStage'] as int? ?? 0;
         return [a, m, p].reduce((x, y) => x > y ? x : y);
       }(),
-      systolicBp: vitals['systolicBp'] as int? ?? 120,
-      diastolicBp: vitals['diastolicBp'] as int? ?? 80,
-      pulse: vitals['pulseRate'] as int? ?? 78,
-      spo2: vitals['spo2'] as int? ?? 98,
-      glucose: vitals['bloodGlucose'] as int? ?? 110,
+      systolicBp: () {
+        final v = (vitals['systolicBp'] as num?)?.toInt();
+        return (v != null && v > 0) ? v : null;
+      }(),
+      diastolicBp: () {
+        final v = (vitals['diastolicBp'] as num?)?.toInt();
+        return (v != null && v > 0) ? v : null;
+      }(),
+      pulse: () {
+        final v = ((vitals['pulseRate'] ?? vitals['pulse']) as num?)?.toInt();
+        return (v != null && v > 0) ? v : null;
+      }(),
+      spo2: () {
+        final v = (vitals['spo2'] as num?)?.toInt();
+        return (v != null && v > 0) ? v : null;
+      }(),
+      glucose: () {
+        final v = ((vitals['bloodGlucose'] ?? vitals['glucose']) as num?)?.toInt();
+        return (v != null && v > 0) ? v : null;
+      }(),
       urineTest: vitals['urineTest'] as String? ?? 'normal',
       pregnancyTest: vitals['pregnancyTest'] as String? ?? 'neg',
       ecgNotes: () {

@@ -208,7 +208,11 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
     await loadPatients(clean, true);
   }
 
-  Future<void> loadPatients([String? campId, bool silent = false]) async {
+  Future<void> loadPatients([
+    String? campId,
+    bool silent = false,
+    bool clearSearch = false,
+  ]) async {
     final cleanCampId = (campId == null || campId == 'all' || campId.trim().isEmpty) ? null : campId.trim();
     final isDifferentCamp = cleanCampId != state.loadedCampId;
     final requestId = ++_loadRequestId;
@@ -220,26 +224,32 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
         : (campId == 'all' || (campId == null && state.filters.campId == 'all')
             ? state.filters.copyWith(campId: 'all')
             : state.filters);
+    final effectiveQuery = clearSearch ? '' : state.searchQuery;
 
     if (!silent) {
       state = state.copyWith(
         isLoading: true,
         errorMessage: null,
+        searchQuery: effectiveQuery,
         // Clear stale patients if switching to a different camp to prevent 3 -> 1 flash
         patients: isDifferentCamp ? const [] : state.patients,
         rawPatients: isDifferentCamp ? const [] : state.rawPatients,
         filters: updatedFilters,
       );
+    } else if (clearSearch && state.searchQuery.isNotEmpty) {
+      state = state.copyWith(searchQuery: '');
     }
     try {
       final list = await _patientRepository.getPatientsByCamp(cleanCampId);
       if (!mounted || requestId != _loadRequestId) return;
-      final filtered = _filterList(list, state.searchQuery, updatedFilters);
+      final latestQuery = clearSearch ? '' : state.searchQuery;
+      final filtered = _filterList(list, latestQuery, updatedFilters);
       state = state.copyWith(
         isLoading: false,
         hasLoaded: true,
         loadedCampId: cleanCampId,
         clearLoadedCampId: cleanCampId == null,
+        searchQuery: latestQuery,
         rawPatients: list,
         patients: filtered,
         filters: updatedFilters,
@@ -263,15 +273,22 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
 
   Future<void> search(String? campId, String query) async {
     final cleanCampId = (campId == null || campId == 'all' || campId.trim().isEmpty) ? null : campId.trim();
-    if (state.rawPatients.isEmpty || cleanCampId != state.loadedCampId) {
-      await loadPatients(campId);
-    }
-    if (!mounted) return;
-    final filtered = _filterList(state.rawPatients, query, state.filters);
+    final needsLoad = !state.hasLoaded || cleanCampId != state.loadedCampId;
+
+    // Immediately record the latest search query and filter current in-memory list
+    // so rapid keystrokes on mobile never race or drop characters.
+    final immediateFiltered = _filterList(state.rawPatients, query, state.filters);
     state = state.copyWith(
       searchQuery: query,
-      patients: filtered,
+      patients: immediateFiltered,
     );
+
+    if (needsLoad) {
+      await loadPatients(campId);
+      if (!mounted) return;
+      final filtered = _filterList(state.rawPatients, state.searchQuery, state.filters);
+      state = state.copyWith(patients: filtered);
+    }
   }
 
   void updateFilters(PatientFilterCriteria newFilters) {
@@ -314,7 +331,8 @@ class PatientListViewModel extends StateNotifier<PatientListState> {
             p.mobile.contains(q) ||
             p.ward.toLowerCase().contains(q) ||
             p.district.toLowerCase().contains(q) ||
-            p.municipality.toLowerCase().contains(q);
+            p.municipality.toLowerCase().contains(q) ||
+            (p.spouseOrFatherName?.toLowerCase().contains(q) ?? false);
         if (!matchesQuery) return false;
       }
 

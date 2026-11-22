@@ -505,5 +505,51 @@ void main() {
       expect(queue.first.page1ImageBase64, hugeP1Base64);
       expect(queue.first.page2ImageBase64, hugeP2Base64);
     });
+
+    test('commitVerifiedScan preserves null vitals when not recorded instead of injecting 120/80/78/98/110', () async {
+      final scanWithoutVitals = OcrScanResultModel(
+        pageNumber: 1,
+        isDualPage: false,
+        rawText: 'Page 1 only scan with no vitals',
+        demographics: const {
+          'firstName': 'Bina',
+          'surname': 'Gurung',
+          'age': 39,
+          'ward': '02',
+          'district': 'Kathmandu',
+          'municipality': 'Budhanilkantha',
+        },
+        obstetrics: const {'deliveries': 2, 'livingChildren': 2, 'abortions': 0},
+        popStaging: const {},
+        vitals: const {},
+        diagnoses: const [],
+        medications: const [],
+        fieldConfidences: const {'firstName': 0.95},
+        overallConfidence: 0.95,
+        scannedAt: DateTime.now(),
+      );
+
+      final savedPatient = await ocrRepo.commitVerifiedScan(
+        verifiedScan: scanWithoutVitals,
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        userId: 'usr-1',
+        userName: 'Staff',
+        userRole: 'DataTaker',
+        deviceId: 'dev-1',
+      );
+
+      final visit = await patientRepo.getLatestClinicalVisit(
+        savedPatient.patientId,
+        patientUuid: savedPatient.id,
+      );
+      expect(visit, isNotNull);
+      expect(visit!.systolicBp, isNull);
+      expect(visit.diastolicBp, isNull);
+      expect(visit.pulse, isNull);
+      expect(visit.spo2, isNull);
+      expect(visit.glucose, isNull);
+      expect(visit.surgicalReferral, isNull);
+    });
   });
 }

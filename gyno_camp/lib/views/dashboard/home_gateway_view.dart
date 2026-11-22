@@ -3464,95 +3464,15 @@ class HomeGatewayView extends ConsumerWidget {
               ),
               const SizedBox(height: 18),
 
-              // 2. Fast Patient Search & Triage Bar (Live Search)
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                color: Colors.white,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 4.0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search_rounded, color: AppTheme.primaryTeal, size: 22),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          decoration: const InputDecoration(
-                            hintText: 'Search by Name, Mobile, or Patient ID (e.g. GC-KTM-...)...',
-                            hintStyle: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                            border: InputBorder.none,
-                          ),
-                          onChanged: (query) {
-                            // Live search: navigate with query as soon as user types 3+ chars
-                            final effectiveStaffCampId = userCamp?.id ??
-                                (user?.assignedCampIds.isNotEmpty == true
-                                    ? user!.assignedCampIds.first
-                                    : null);
-                            if (query.trim().length >= 3 && (campState.hasActiveCamp || effectiveStaffCampId != null)) {
-                              // Debounce via postFrameCallback to avoid navigating mid-keystroke
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (query.trim().length >= 3) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => PatientListView(
-                                        initialQuery: query.trim(),
-                                        campId: effectiveStaffCampId,
-                                      ),
-                                    ),
-                                  );
-                                }
-                              });
-                            }
-                          },
-                          onSubmitted: (query) {
-                            final effectiveStaffCampId = userCamp?.id ??
-                                (user?.assignedCampIds.isNotEmpty == true
-                                    ? user!.assignedCampIds.first
-                                    : null);
-                            if (query.trim().isNotEmpty && (campState.hasActiveCamp || effectiveStaffCampId != null)) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => PatientListView(
-                                    initialQuery: query,
-                                    campId: effectiveStaffCampId,
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryTeal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        onPressed: () {
-                          final effectiveStaffCampId = userCamp?.id ??
-                              (user?.assignedCampIds.isNotEmpty == true
-                                  ? user!.assignedCampIds.first
-                                  : null);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => PatientListView(campId: effectiveStaffCampId),
-                            ),
-                          );
-                        },
-                        child: const Text('Patient Roll', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                ),
+              // 2. Fast Patient Search & Triage Bar
+              _DashboardPatientSearchBar(
+                canSearch: campState.hasActiveCamp ||
+                    userCamp != null ||
+                    (user?.assignedCampIds.isNotEmpty ?? false),
+                effectiveCampId: userCamp?.id ??
+                    (user?.assignedCampIds.isNotEmpty == true
+                        ? user!.assignedCampIds.first
+                        : null),
               ),
               const SizedBox(height: 22),
 
@@ -9332,6 +9252,117 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DashboardPatientSearchBar extends StatefulWidget {
+  final bool canSearch;
+  final String? effectiveCampId;
+
+  const _DashboardPatientSearchBar({
+    required this.canSearch,
+    required this.effectiveCampId,
+  });
+
+  @override
+  State<_DashboardPatientSearchBar> createState() =>
+      _DashboardPatientSearchBarState();
+}
+
+class _DashboardPatientSearchBarState extends State<_DashboardPatientSearchBar> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _openPatientRoll({String? query}) {
+    final trimmed = query?.trim();
+    FocusScope.of(context).unfocus();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PatientListView(
+          initialQuery: (trimmed != null && trimmed.isNotEmpty) ? trimmed : null,
+          campId: widget.effectiveCampId,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasQuery = _controller.text.trim().isNotEmpty;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+        child: Row(
+          children: [
+            const Icon(Icons.search_rounded, color: AppTheme.primaryTeal, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                key: const ValueKey('dashboard_patient_search_field'),
+                controller: _controller,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Search Name, Mobile, or Patient ID...',
+                  hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                  border: InputBorder.none,
+                  suffixIcon: hasQuery
+                      ? IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF94A3B8)),
+                          tooltip: 'Clear Search',
+                          onPressed: () {
+                            _controller.clear();
+                            setState(() {});
+                          },
+                        )
+                      : null,
+                ),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (query) {
+                  if (query.trim().isNotEmpty && widget.canSearch) {
+                    _openPatientRoll(query: query);
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 6),
+            ElevatedButton(
+              key: const ValueKey('dashboard_patient_search_btn'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryTeal,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () {
+                if (hasQuery && widget.canSearch) {
+                  _openPatientRoll(query: _controller.text);
+                } else {
+                  _openPatientRoll();
+                }
+              },
+              child: Text(
+                hasQuery ? 'Search' : 'Patient Roll',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

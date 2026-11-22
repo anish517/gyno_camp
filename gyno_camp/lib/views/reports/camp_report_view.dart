@@ -4382,7 +4382,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     )
                   : patients.isEmpty
                       ? Center(
-                          child: Padding(
+                          child: SingleChildScrollView(
                             padding: const EdgeInsets.all(20.0),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -4409,6 +4409,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                           ),
                         )
                       : ListView.builder(
+                          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           itemCount: patients.length,
                           itemBuilder: (context, index) {

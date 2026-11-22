@@ -22,7 +22,6 @@ import '../../models/patient_model.dart';
 import '../../models/user_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
-import '../../viewmodels/clinical_assessment_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
 import '../../viewmodels/patient_list_viewmodel.dart';
 import '../../viewmodels/patient_registration_viewmodel.dart';
@@ -88,12 +87,16 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       ref.read(masterLookupProvider.notifier).setCampScope(targetCampId);
       if (widget.initialQuery != null &&
           widget.initialQuery!.trim().isNotEmpty) {
-        _searchController.text = widget.initialQuery!.trim();
+        final q = widget.initialQuery!.trim();
+        _searchController.text = q;
         ref
             .read(patientListProvider.notifier)
-            .search(targetCampId, widget.initialQuery!.trim());
+            .search(targetCampId, q);
       } else {
-        ref.read(patientListProvider.notifier).loadPatients(targetCampId);
+        _searchController.clear();
+        ref
+            .read(patientListProvider.notifier)
+            .loadPatients(targetCampId, false, true);
       }
     });
   }
@@ -422,9 +425,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 }
 
                 // Mobile / Tablet Stacked Layout (< 900px)
+                final isKeyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 100;
                 return Column(
                   children: [
-                    // Search & Filter Header
+                    // Search & Filter Header (collapses secondary buttons while typing on mobile)
                     _buildSearchAndActionHeader(
                       effectiveCampId: effectiveCampId,
                       isAllCamps: isAllCamps,
@@ -434,10 +438,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       isWide: viewportConstraints.maxWidth >= 700,
                       isDesktop: false,
                       campState: campState,
+                      isKeyboardOpen: isKeyboardOpen,
                     ),
 
-                    // Patient Roll Statistics Bar (Includes active filter pills & Reset All)
-                    _buildStatisticsBar(patientState, vm, isWide: false),
+                    // Patient Roll Statistics Bar (hide while keyboard is open on mobile to keep search results visible)
+                    if (!isKeyboardOpen)
+                      _buildStatisticsBar(patientState, vm, isWide: false),
 
                     // Patient Cards List (100% full height on mobile)
                     Expanded(
@@ -465,9 +471,14 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     required bool isWide,
     required bool isDesktop,
     required CampState campState,
+    bool isKeyboardOpen = false,
   }) {
+    final hasSearchText =
+        _searchController.text.isNotEmpty || patientState.searchQuery.isNotEmpty;
     final searchField = TextField(
+      key: const ValueKey('patient_list_search_field'),
       controller: _searchController,
+      textInputAction: TextInputAction.search,
       decoration: InputDecoration(
         hintText: 'Search by Patient ID, Name, Phone, Ward, District...',
         hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5),
@@ -476,12 +487,13 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           child: Icon(Icons.search_rounded, color: AppTheme.primaryTeal, size: 20),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        suffixIcon: _searchController.text.isNotEmpty
+        suffixIcon: hasSearchText
             ? IconButton(
                 icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF94A3B8)),
                 tooltip: 'Clear Search',
                 onPressed: () {
                   _searchController.clear();
+                  setState(() {});
                   vm.search(isAllCamps ? 'all' : effectiveCampId, '');
                 },
               )
@@ -502,7 +514,11 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           borderSide: const BorderSide(color: AppTheme.primaryTeal, width: 1.8),
         ),
       ),
-      onChanged: (val) => vm.search(isAllCamps ? 'all' : effectiveCampId, val),
+      onChanged: (val) {
+        setState(() {});
+        vm.search(isAllCamps ? 'all' : effectiveCampId, val);
+      },
+      onSubmitted: (_) => FocusScope.of(context).unfocus(),
     );
 
     final filterButton = OutlinedButton.icon(
@@ -609,19 +625,21 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           : Column(
               children: [
                 searchField,
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(child: filterButton),
-                    const SizedBox(width: 8),
-                    Expanded(child: scanButton),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: blankFormsButton,
-                ),
+                if (!isKeyboardOpen) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(child: filterButton),
+                      const SizedBox(width: 8),
+                      Expanded(child: scanButton),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: blankFormsButton,
+                  ),
+                ],
               ],
             ),
     );
@@ -784,6 +802,30 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final availableWidth = constraints.maxWidth;
+                    final isMobileLayout = availableWidth < 700;
+
+                    if (isMobileLayout) {
+                      return ListView.separated(
+                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 88),
+                        itemCount: patientState.patients.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final patient = patientState.patients[index];
+                          return _buildTableRow(
+                            context: context,
+                            patient: patient,
+                            activeCamp: effectiveCamp,
+                            vm: vm,
+                            campState: campState,
+                            isEven: index.isEven,
+                            isMobileCard: true,
+                          );
+                        },
+                      );
+                    }
+
                     final double horizontalPadding = availableWidth >= 1200
                         ? 24.0
                         : (availableWidth >= 800 ? 18.0 : 12.0);
@@ -792,6 +834,10 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                     final double effectiveTableWidth = contentWidth > minTableWidth
                         ? contentWidth
                         : minTableWidth;
+                    final double? clampedTableHeight = constraints.maxHeight.isFinite
+                        ? (constraints.maxHeight - 28).clamp(0.0, double.infinity)
+                        : null;
+                    final bool showHeader = clampedTableHeight == null || clampedTableHeight >= 96;
 
                     return Padding(
                       padding: EdgeInsets.symmetric(
@@ -817,15 +863,14 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                           physics: const BouncingScrollPhysics(),
                           child: SizedBox(
                             width: effectiveTableWidth,
-                            height: constraints.maxHeight.isFinite
-                                ? (constraints.maxHeight - 28)
-                                : null,
+                            height: clampedTableHeight,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                _buildTableHeader(),
+                                if (showHeader) _buildTableHeader(),
                                 Expanded(
                                   child: ListView.separated(
+                                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                                     physics: const AlwaysScrollableScrollPhysics(),
                                     itemCount: patientState.patients.length,
                                     separatorBuilder: (_, _) => const Divider(
@@ -2758,6 +2803,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     required PatientListViewModel vm,
     required CampState campState,
     required bool isEven,
+    bool isMobileCard = false,
   }) {
     // CAMP LOCK CHECK: check if this patient's specific camp is closed/archived
     // EXCEPTION: Super Admin can always access and edit regardless of camp status.
@@ -3153,8 +3199,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             break;
           case 'pdf_summary':
             final visit = await ref
-                .read(clinicalAssessmentProvider.notifier)
-                .loadPatientAssessment(patient.patientId, patientUuid: patient.id);
+                .read(patientRepositoryProvider)
+                .getLatestClinicalVisit(patient.patientId, patientUuid: patient.id);
             final auth = ref.read(authStateProvider).currentUser;
             final saved = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(
                   patient: patient,
@@ -3264,7 +3310,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             icon: Icons.assignment_outlined,
             iconColor: const Color(0xFF2563EB),
             iconBg: const Color(0xFFEFF6FF),
-            title: hasClinical ? 'Review / Edit Clinical Exam' : 'Enter Clinical Exam (Page 2)',
+            title: hasClinical ? 'Review / Edit Clinical Exam (Page 2)' : 'Enter Clinical Exam (Page 2)',
             subtitle: 'Station 2–6 examination & staging',
           ),
         if (!isCampLocked)
@@ -3324,6 +3370,192 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         ),
       ],
     );
+
+    if (isMobileCard) {
+      return Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _showClinicalHistoryPanel(context, patient, activeCamp),
+          splashColor: AppTheme.primaryTeal.withValues(alpha: 0.05),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFCBD5E1), width: 1.0),
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(color: statusColor, width: 4),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            tokenIdBadge,
+                            statusPill,
+                            if (isCampLocked) campLockedBadge,
+                          ],
+                        ),
+                      ),
+                      moreMenu,
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    patient.fullName,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: -0.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 5,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Age ${patient.age}y',
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                        ),
+                      ),
+                      if (maritalStr != 'N/A')
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            maritalStr,
+                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
+                          ),
+                        ),
+                      wardBadge,
+                      if (patient.isCounseling)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.35)),
+                          ),
+                          child: const Text(
+                            'Counseling',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF7C3AED)),
+                          ),
+                        ),
+                      if (patient.isGynocheckup)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0D9488).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFF0D9488).withValues(alpha: 0.35)),
+                          ),
+                          child: const Text(
+                            'Gynocheckup',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF0D9488)),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: [
+                      if (hasPhone)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.phone_outlined, size: 12, color: Color(0xFF64748B)),
+                            const SizedBox(width: 4),
+                            Text(
+                              patient.mobile,
+                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      if (hasGuardian)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isFather ? Icons.escalator_warning_outlined : Icons.people_outline,
+                              size: 12,
+                              color: const Color(0xFF64748B),
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                '$familyLabel: $guardianName',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              locationStr,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      chartCue,
+                      slipBtn,
+                      primaryCta,
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Material(
       color: isEven ? Colors.white : const Color(0xFFFBFDFF),
@@ -4214,8 +4446,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     setState(() => _downloadingSlipPatientId = patient.patientId);
     try {
       final visit = await ref
-          .read(clinicalAssessmentProvider.notifier)
-          .loadPatientAssessment(patient.patientId, patientUuid: patient.id);
+          .read(patientRepositoryProvider)
+          .getLatestClinicalVisit(patient.patientId, patientUuid: patient.id);
 
       final effectiveOrg = ref.read(effectiveOrganizationProvider);
       final orgName = (camp?.organizationName.isNotEmpty == true &&

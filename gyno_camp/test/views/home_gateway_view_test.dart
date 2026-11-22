@@ -393,6 +393,48 @@ void main() {
         isTrue,
       );
     });
+
+    testWidgets('Data Taker search bar does not auto-navigate mid-keystroke on mobile and searches only on submit/tap', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final dataTaker = const UserModel(
+        id: 'u1',
+        name: 'Anish Tiwari',
+        email: 'anish@gynocamp.org',
+        phone: '9841000001',
+        role: UserRole.dataTaker,
+        assignedCampIds: ['camp-1'],
+        isActive: true,
+      );
+      final fakeRepo = FakeCampRepoForHome();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            campRepositoryProvider.overrideWithValue(fakeRepo),
+            syncStateProvider.overrideWith((ref) => _FakeSyncViewModel()),
+            deviceSecurityProvider.overrideWith((ref) => _FakeDeviceSecurityViewModel()),
+            authStateProvider.overrideWith((ref) => AuthViewModel(FakeAuthRepositorySimple(dataTaker))),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: const HomeGatewayView(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final searchField = find.byKey(const ValueKey('dashboard_patient_search_field'));
+      expect(searchField, findsOneWidget);
+
+      // Typing 6 characters must NOT auto-push PatientListView mid-typing
+      await tester.enterText(searchField, 'Kamala');
+      await tester.pumpAndSettle();
+      expect(find.text('Camp Patient Roll'), findsNothing);
+      expect(find.text('Search'), findsOneWidget);
+    });
   });
 }
 
