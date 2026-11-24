@@ -173,11 +173,11 @@ class OcrRepository implements IOcrRepository {
     if (engineMode == OcrEngineMode.onlineGemini || engineMode == OcrEngineMode.auto) {
       try {
         if (kDebugMode) {
-          debugPrint('[OcrRepo] 🌐 Attempting Gemini Flash OCR for page $detectedPage (Mode: $engineMode)...');
+          debugPrint('[OcrRepo] 🌐 Attempting server OCR for page $detectedPage...');
         }
         final geminiResult = await _geminiService.extractFromImage(imageFile, pageNumber: detectedPage);
         if (kDebugMode) {
-          debugPrint('[OcrRepo] ✅ Gemini Flash extraction succeeded for page $detectedPage');
+          debugPrint('[OcrRepo] ✅ Server OCR extraction succeeded for page $detectedPage');
           debugPrint('[OcrRepo] Demographics: ${geminiResult.demographics["firstName"]} ${geminiResult.demographics["surname"]}');
         }
         return geminiResult;
@@ -185,13 +185,13 @@ class OcrRepository implements IOcrRepository {
         if (engineMode == OcrEngineMode.onlineGemini) {
           // Strict online mode: propagate failure to user
           if (kDebugMode) {
-            debugPrint('[OcrRepo] ❌ Gemini Flash OCR failed in strict online mode: $e');
+            debugPrint('[OcrRepo] ❌ Server OCR failed in strict online mode: $e');
           }
           rethrow;
         }
-        // Auto mode: log warning and smoothly fall back to On-Device ML Kit
+        // Auto mode: log warning and smoothly fall back to On-Device OCR
         if (kDebugMode) {
-          debugPrint('[OcrRepo] ⚠️ Gemini Flash failed in AUTO mode: $e. Falling back to On-Device ML Kit.');
+          debugPrint('[OcrRepo] ⚠️ Server OCR failed in AUTO mode: $e. Falling back to On-Device OCR.');
         }
       }
     }

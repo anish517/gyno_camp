@@ -688,5 +688,70 @@ void main() {
         expect(find.text('Dashboard Launch Scanner'), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'FormScanView hides AI and cloud vendor branding across capture, scanning, offline, and verification states',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1280, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: const FormScanView(),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        void expectNoVendorBranding() {
+          expect(find.textContaining('Gemini', findRichText: true), findsNothing);
+          expect(find.textContaining('GEMINI', findRichText: true), findsNothing);
+          expect(find.textContaining('Google', findRichText: true), findsNothing);
+          expect(find.textContaining('Powered by', findRichText: true), findsNothing);
+          expect(find.textContaining('Cloud OCR', findRichText: true), findsNothing);
+          expect(find.textContaining('cloud OCR', findRichText: true), findsNothing);
+        }
+
+        // 1. Initial capture prompt
+        expect(find.text('Scan & Auto-Fill Yellow Form'), findsOneWidget);
+        expectNoVendorBranding();
+
+        // 2. Active scanning / processing overlay
+        container.read(ocrScanProvider.notifier).state = const OcrScanState(
+          isProcessing: true,
+        );
+        await tester.pump();
+        expect(find.text('Scanning & Digitizing Yellow Form...'), findsOneWidget);
+        expectNoVendorBranding();
+
+        // 3. Offline storage prompt state
+        final dummyPng = base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        );
+        container.read(ocrScanProvider.notifier).state = OcrScanState(
+          isProcessing: false,
+          isOfflineModeDetected: true,
+          page1ImageBytes: dummyPng,
+        );
+        await tester.pump();
+        expectNoVendorBranding();
+
+        // 4. Dual-page verification state
+        await container.read(ocrScanProvider.notifier).loadSample('full');
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Form Digitization:'), findsOneWidget);
+        expectNoVendorBranding();
+      },
+    );
   });
 }

@@ -385,7 +385,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
     state = state.copyWith(
       isProcessing: true,
-      processingStep: 'Processing queued offline scan via Cloud OCR...',
+      processingStep: 'Processing queued offline scan...',
       page1ImageBytes: p1Bytes,
       page1ImagePath: item.page1ImagePath,
       page2ImageBytes: p2Bytes,

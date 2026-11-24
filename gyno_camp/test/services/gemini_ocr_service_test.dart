@@ -219,7 +219,13 @@ void main() {
       expect(result.surgicalReferral, 'Scheer Memorial Hospital');
       expect(result.followUpDestination, 'GynaeSupport Nurse in 2 weeks');
       expect(result.overallConfidence, greaterThanOrEqualTo(0.90));
-      expect(result.rawText, contains('GEMINI FLASH CLOUD OCR'));
+      expect(result.rawText, contains('AUTOMATED FORM OCR'));
+      expect(result.rawText.toUpperCase(), isNot(contains('GEMINI')));
+      expect(result.rawText.toUpperCase(), isNot(contains('GOOGLE')));
+      expect(
+        const GeminiOcrException('network down', statusCode: 503).toString().toUpperCase(),
+        isNot(contains('GEMINI')),
+      );
     });
 
     test('preserves distinct intakeDate and anamnesisDate across single-page and merged scans', () async {

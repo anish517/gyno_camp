@@ -3045,7 +3045,7 @@ class GynoCampSyncServer {
 
     final device = await _lookupDeviceForOcrAuth(fingerprint);
     if (device == null || device['status']?.toUpperCase() != 'APPROVED') {
-      await deny(HttpStatus.forbidden, 'DEVICE_NOT_APPROVED', 'This device is not approved for cloud OCR.');
+      await deny(HttpStatus.forbidden, 'DEVICE_NOT_APPROVED', 'This device is not approved for OCR digitization.');
       return;
     }
 
@@ -3117,7 +3117,7 @@ class GynoCampSyncServer {
       await _ocrReply(request, e.statusCode, {'success': false, 'code': e.code, 'error': e.message});
     } catch (e) {
       print('! [ocr] device=$deviceId unexpected error: ${e.runtimeType}');
-      await _ocrReply(request, HttpStatus.internalServerError, {'success': false, 'code': 'OCR_ERROR', 'error': 'Cloud OCR failed.'});
+      await _ocrReply(request, HttpStatus.internalServerError, {'success': false, 'code': 'OCR_ERROR', 'error': 'OCR service failed.'});
     }
   }
 

@@ -233,25 +233,6 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryTeal.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'Powered by Google Gemini Flash Cloud OCR',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.primaryTeal,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -326,46 +307,6 @@ class _FormScanViewState extends ConsumerState<FormScanView>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Header Badge: MoHP Nepal Standard & Engine Mode
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isCompact ? 12 : 16,
-                  vertical: isCompact ? 6 : 7,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: AppTheme.primaryTeal.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.verified_user_outlined,
-                      color: AppTheme.primaryTeal,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        isCompact
-                            ? 'GEMINI CLOUD OCR'
-                            : 'GEMINI FLASH AI MULTIMODAL CLOUD OCR',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: isCompact ? 10.5 : 11.5,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: isCompact ? 0.4 : 1.1,
-                          color: AppTheme.primaryTeal,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
               Text(
                 'Scan & Auto-Fill Yellow Form',
                 textAlign: TextAlign.center,
@@ -435,13 +376,12 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     title: 'Page 1 (Front Page)',
                     subtitle: 'Demographics, Obstetric History & Visit Reasons',
                     isCaptured: ocrState.hasPage1 || ocrState.hasPage1Image,
-                    ocrEngine: ocrState.page1Scan?.ocrEngine,
                     imageBytes: ocrState.page1ImageBytes,
                     imagePath: ocrState.page1ImagePath,
                     summaryText: ocrState.hasPage1
                         ? '${ocrState.page1Scan!.demographics["firstName"] ?? "Patient"} ${ocrState.page1Scan!.demographics["surname"] ?? ""} (${ocrState.page1Scan!.demographics["age"] ?? 35}y) • Ward ${ocrState.page1Scan!.demographics["ward"] ?? "03"}'
                         : (ocrState.hasPage1Image
-                            ? 'Page 1 image captured — ready for offline storage or cloud OCR'
+                            ? 'Page 1 image captured — ready for offline storage or digitization'
                             : null),
                     onCamera: () => ocrVm.capturePage(1),
                     onGallery: () => ocrVm.pickPage(1),
@@ -461,13 +401,12 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     title: 'Page 2 (Back Page)',
                     subtitle: 'POP Staging, Vitals, Diagnoses & Prescriptions',
                     isCaptured: ocrState.hasPage2 || ocrState.hasPage2Image,
-                    ocrEngine: ocrState.page2Scan?.ocrEngine,
                     imageBytes: ocrState.page2ImageBytes,
                     imagePath: ocrState.page2ImagePath,
                     summaryText: ocrState.hasPage2
                         ? '${(ocrState.page2Scan!.vitals["systolicBp"] != null && ocrState.page2Scan!.vitals["diastolicBp"] != null) ? "BP ${ocrState.page2Scan!.vitals["systolicBp"]}/${ocrState.page2Scan!.vitals["diastolicBp"]}" : "Vitals not recorded"} • ${ocrState.page2Scan!.diagnoses.length} Diagnoses'
                         : (ocrState.hasPage2Image
-                            ? 'Page 2 image captured — ready for offline storage or cloud OCR'
+                            ? 'Page 2 image captured — ready for offline storage or digitization'
                             : null),
                     onCamera: () => ocrVm.capturePage(2),
                     onGallery: () => ocrVm.pickPage(2),
@@ -856,7 +795,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Store captured Yellow Form image(s) on this device now. As soon as Internet reconnects, Gemini Cloud OCR will extract and sync the full patient & clinical record automatically.',
+                  'Store captured Yellow Form image(s) on this device now. As soon as Internet reconnects, the system will extract and sync the full patient & clinical record automatically.',
                   style: TextStyle(fontSize: 12, color: Color(0xFF15803D)),
                 ),
                 const SizedBox(height: 12),
@@ -1737,38 +1676,11 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     );
   }
 
-  Widget _buildEngineBadge(String? engine) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.indigo.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.indigo.shade200),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.auto_awesome, size: 11, color: Colors.indigo.shade700),
-          const SizedBox(width: 4),
-          Text(
-            'Gemini AI',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: Colors.indigo.shade800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildPageSlotCard({
     required int pageNumber,
     required String title,
     required String subtitle,
     required bool isCaptured,
-    String? ocrEngine,
     Uint8List? imageBytes,
     String? imagePath,
     String? summaryText,
@@ -1834,10 +1746,6 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (ocrEngine != null) ...[
-                        _buildEngineBadge(ocrEngine),
-                        const SizedBox(width: 6),
-                      ],
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -3073,20 +2981,12 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 6,
-                          runSpacing: 2,
-                          children: [
-                            Text(
-                              'AI Digitization: ${(result.overallConfidence * 100).toInt()}% Confidence',
-                              style: TextStyle(
-                                fontSize: isNarrow ? 10 : 11,
-                                color: AppTheme.textSecondaryLight,
-                              ),
-                            ),
-                            _buildEngineBadge(result.ocrEngine),
-                          ],
+                        Text(
+                          'Form Digitization: ${(result.overallConfidence * 100).toInt()}% Confidence',
+                          style: TextStyle(
+                            fontSize: isNarrow ? 10 : 11,
+                            color: AppTheme.textSecondaryLight,
+                          ),
                         ),
                       ],
                     ),

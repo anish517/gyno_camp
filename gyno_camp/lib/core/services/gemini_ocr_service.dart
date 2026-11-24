@@ -21,7 +21,7 @@ class GeminiOcrException implements Exception {
   const GeminiOcrException(this.message, {this.statusCode});
 
   @override
-  String toString() => 'GeminiOcrException: $message (status: $statusCode)';
+  String toString() => 'OcrServiceException: $message (status: $statusCode)';
 }
 
 /// Cloud multimodal OCR client for the Nepal MoHP Yellow Form.
@@ -124,7 +124,7 @@ class GeminiOcrService {
       });
 
       if (kDebugMode) {
-        debugPrint('[GeminiOCR] Sending image to server (${rawBytes.length ~/ 1024} KB raw, Page: $pageNumber)...');
+        debugPrint('[FormOCR] Sending image to server (${rawBytes.length ~/ 1024} KB raw, Page: $pageNumber)...');
       }
 
       try {
@@ -133,19 +133,19 @@ class GeminiOcrService {
           HttpCentralApiService.markServerOnline(targetBaseUrl);
         }
       } on TimeoutException {
-        throw const GeminiOcrException('Cloud OCR timed out. Check the server connection and try again.');
+        throw const GeminiOcrException('Form digitization timed out. Check the server connection and try again.');
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('[GeminiOCR] Network error: ${e.runtimeType}');
+          debugPrint('[FormOCR] Network error: ${e.runtimeType}');
         }
-        throw const GeminiOcrException('Cannot reach the GynoCamp server for cloud OCR.');
+        throw const GeminiOcrException('Cannot reach the GynoCamp server for form digitization.');
       }
     } finally {
       HttpCentralApiService.endActiveRequest();
     }
 
     if (response.statusCode != 200) {
-      var message = 'Cloud OCR unavailable (status ${response.statusCode}).';
+      var message = 'OCR service unavailable (status ${response.statusCode}).';
       try {
         final err = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
         final serverMessage = err['error'];
@@ -158,7 +158,7 @@ class GeminiOcrService {
       final envelope = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
       final extractedText = envelope['text'] as String?;
       if (extractedText == null || extractedText.trim().isEmpty) {
-        throw const GeminiOcrException('Cloud OCR returned no result.');
+        throw const GeminiOcrException('OCR service returned no result.');
       }
       final parsedData = jsonDecode(extractedText) as Map<String, dynamic>;
 
@@ -201,7 +201,7 @@ class GeminiOcrService {
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[GeminiOCR] SQLite storage compression failed: $e');
+        debugPrint('[FormOCR] SQLite storage compression failed: $e');
       }
     }
 
@@ -236,7 +236,7 @@ class GeminiOcrService {
         }
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('[GeminiOCR] Background resize failed: $e');
+          debugPrint('[FormOCR] Background resize failed: $e');
         }
       }
     } else {
@@ -255,7 +255,7 @@ class GeminiOcrService {
         }
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('[GeminiOCR] Image resize skipped: $e');
+          debugPrint('[FormOCR] Image resize skipped: $e');
         }
       }
     }
@@ -679,7 +679,7 @@ class GeminiOcrService {
 
     // Construct readable rawText for clinical inspection & verification
     final buffer = StringBuffer();
-    buffer.writeln('[GEMINI FLASH CLOUD OCR]');
+    buffer.writeln('[AUTOMATED FORM OCR]');
     buffer.writeln('Page: $detectedPage');
     if (treatmentLevel != null) {
       buffer.writeln('Consultation: ${(treatmentLevel == "counseling" || treatmentLevel == "council_level") ? "Counseling" : "Gynocheckup"}');

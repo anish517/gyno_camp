@@ -128,7 +128,7 @@ class GeminiProxy {
       throw const GeminiProxyException(
         503,
         'OCR_NOT_CONFIGURED',
-        'Cloud OCR is not configured on the server.',
+        'OCR service is not configured on the server.',
       );
     }
     if (!allowedMimeTypes.contains(mimeType)) {
@@ -170,9 +170,9 @@ class GeminiProxy {
       final errBody = response.body.length > 500 ? response.body.substring(0, 500) : response.body;
       print('! [ocr] Upstream body: $errBody');
       if (response.statusCode == 429 || response.statusCode == 503) {
-        throw const GeminiProxyException(503, 'OCR_BUSY', 'Cloud OCR is busy. Please retry shortly.');
+        throw const GeminiProxyException(503, 'OCR_BUSY', 'OCR service is busy. Please retry shortly.');
       }
-      throw const GeminiProxyException(502, 'OCR_UPSTREAM', 'Cloud OCR provider error.');
+      throw const GeminiProxyException(502, 'OCR_UPSTREAM', 'OCR service error.');
     }
 
     try {
@@ -186,13 +186,13 @@ class GeminiProxy {
           ? (parts[0] as Map<String, dynamic>)['text'] as String?
           : null;
       if (text == null || text.trim().isEmpty) {
-        throw const GeminiProxyException(502, 'OCR_EMPTY', 'Cloud OCR returned no result.');
+        throw const GeminiProxyException(502, 'OCR_EMPTY', 'OCR service returned no result.');
       }
       return text;
     } on GeminiProxyException {
       rethrow;
     } catch (_) {
-      throw const GeminiProxyException(502, 'OCR_PARSE', 'Cloud OCR returned an unreadable result.');
+      throw const GeminiProxyException(502, 'OCR_PARSE', 'OCR service returned an unreadable result.');
     }
   }
 
@@ -236,7 +236,7 @@ class GeminiProxy {
 
     if (lastResponse != null) return lastResponse;
     print('! [ocr] Gemini network failure: ${lastError.runtimeType}');
-    throw const GeminiProxyException(502, 'OCR_NETWORK', 'Cloud OCR provider is unreachable.');
+    throw const GeminiProxyException(502, 'OCR_NETWORK', 'OCR service is unreachable.');
   }
 
   /// Prompt tailored to the Nepal MoHP Gynecological Camp Yellow Form.
