@@ -2204,72 +2204,22 @@ class HomeGatewayView extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
 
-          // 4 Operational Governance & Intelligence Cards
+          // Operational Intelligence Card (Data Analyst Workstation)
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 700;
-              final cardWidth = isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
-              return Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _buildSupervisorActionCard(
-                    context: context,
-                    width: cardWidth,
-                    icon: Icons.assignment_ind_rounded,
-                    iconColor: AppTheme.brandPurple,
-                    iconBgColor: AppTheme.brandPurpleLight,
-                    badgeText: 'STAFF ROSTER',
-                    badgeColor: AppTheme.brandPurple,
-                    title: 'Camp Staff Assignments',
-                    description: 'Provision field nurses, gynecologists & assign clinical roles to ${camp.campCode}',
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const CampManagementView()));
-                    },
-                  ),
-                  _buildSupervisorActionCard(
-                    context: context,
-                    width: cardWidth,
-                    icon: Icons.devices_other_rounded,
-                    iconColor: const Color(0xFF4338CA),
-                    iconBgColor: const Color(0xFFE0E7FF),
-                    badgeText: 'SECURITY WHITELIST',
-                    badgeColor: const Color(0xFF4338CA),
-                    title: 'Authorize Camp Hardware',
-                    description: 'Manage SHA-256 hardware fingerprints & active field tablets for this camp',
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DeviceManagementView()));
-                    },
-                  ),
-                  _buildSupervisorActionCard(
-                    context: context,
-                    width: cardWidth,
-                    icon: Icons.tune_rounded,
-                    iconColor: const Color(0xFF7E22CE),
-                    iconBgColor: const Color(0xFFF3E8FF),
-                    badgeText: 'FORMULARY & CONFIG',
-                    badgeColor: const Color(0xFF7E22CE),
-                    title: 'Clinical Protocols & Master Data',
-                    description: 'Configure standard medication formularies, wards, and diagnosis dropdowns',
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const MasterConfigView()));
-                    },
-                  ),
-                  _buildSupervisorActionCard(
-                    context: context,
-                    width: cardWidth,
-                    icon: Icons.analytics_rounded,
-                    iconColor: AppTheme.brandMagenta,
-                    iconBgColor: AppTheme.brandMagentaLight,
-                    badgeText: 'EPIDEMIOLOGY & CHARTS',
-                    badgeColor: AppTheme.brandMagenta,
-                    title: 'Data Analyst Workstation',
-                    description: 'Cross-camp POP staging charts, chief complaint ranking, age demographics & clinical dossiers',
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DataAnalystWorkstationPage()));
-                    },
-                  ),
-                ],
+              return _buildSupervisorActionCard(
+                context: context,
+                width: constraints.maxWidth,
+                icon: Icons.analytics_rounded,
+                iconColor: AppTheme.brandMagenta,
+                iconBgColor: AppTheme.brandMagentaLight,
+                badgeText: 'EPIDEMIOLOGY & CHARTS',
+                badgeColor: AppTheme.brandMagenta,
+                title: 'Data Analyst Workstation',
+                description: 'Cross-camp POP staging charts, chief complaint ranking, age demographics & clinical dossiers',
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const DataAnalystWorkstationPage()));
+                },
               );
             },
           ),

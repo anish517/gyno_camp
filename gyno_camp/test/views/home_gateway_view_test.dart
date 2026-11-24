@@ -200,9 +200,10 @@ void main() {
       expect(find.text('KTM01'), findsWidgets);
       expect(find.text('LIVE OPERATIONAL STATION'), findsOneWidget);
       expect(find.text('Outreach Gyno Health Camp'), findsWidgets);
-      expect(find.text('Camp Staff Assignments'), findsWidgets);
-      expect(find.text('Authorize Camp Hardware'), findsWidgets);
-      expect(find.text('Clinical Protocols & Master Data'), findsWidgets);
+      expect(find.text('Camp Staff Assignments'), findsNothing);
+      expect(find.text('Authorize Camp Hardware'), findsNothing);
+      expect(find.text('Clinical Protocols & Master Data'), findsNothing);
+      expect(find.text('Data Analyst Workstation'), findsOneWidget);
       expect(find.text('Clinical Override'), findsOneWidget);
     });
 
