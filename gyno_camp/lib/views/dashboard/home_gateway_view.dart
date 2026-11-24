@@ -1641,7 +1641,7 @@ class HomeGatewayView extends ConsumerWidget {
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), letterSpacing: -0.2),
                   ),
                   Text(
-                    '5 System Modules Active',
+                    '4 System Modules Active',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
                   ),
                 ],
@@ -1657,25 +1657,6 @@ class HomeGatewayView extends ConsumerWidget {
                     spacing: 16,
                     runSpacing: 16,
                     children: [
-                      SizedBox(
-                        width: itemWidth,
-                        child: _buildAdminModuleCard(
-                          context: context,
-                          icon: Icons.devices_rounded,
-                          title: 'Field Hardware Whitelist & Terminal Security',
-                          description: 'Deterministic SHA-256 hardware signatures, 6-digit cryptographic OTP verification & terminal app lockouts.',
-                          badgeText: deviceMgmt.pendingCount > 0 ? '${deviceMgmt.pendingCount} PENDING' : '${deviceMgmt.approvedCount} Active Tablets',
-                          badgeColor: deviceMgmt.pendingCount > 0 ? const Color(0xFFD97706) : const Color(0xFF4338CA),
-                          accentColor: const Color(0xFF4338CA),
-                          actionPrompt: 'Manage Whitelist',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const DeviceManagementView()),
-                            );
-                          },
-                        ),
-                      ),
                       SizedBox(
                         width: itemWidth,
                         child: _buildAdminModuleCard(
