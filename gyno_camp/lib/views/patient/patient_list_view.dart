@@ -659,9 +659,8 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
         ),
       ),
-      child: LayoutBuilder(
-        builder: (context, statsConstraints) {
-          final isNarrow = statsConstraints.maxWidth < 450;
+      child: Builder(
+        builder: (context) {
           final hasActiveFilters = patientState.filters.hasActiveFilters;
           final count = patientState.patients.length;
 
@@ -744,34 +743,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       ],
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.brandPurpleLight,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.brandPurpleBorder),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.lock_rounded, size: 12, color: AppTheme.primaryTeal),
-                    const SizedBox(width: 4),
-                    Text(
-                      isNarrow
-                          ? 'AES-256'
-                          : (patientState.patients.isNotEmpty
-                              ? 'AES-256 Encrypted \u2022 $count Records'
-                              : 'AES-256 Encrypted'),
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        color: AppTheme.primaryDark,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],
